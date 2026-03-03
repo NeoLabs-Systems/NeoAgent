@@ -278,10 +278,6 @@ class BrowserController {
     return this.evaluate(code);
   }
 
-  async closeBrowser() {
-    return this.close();
-  }
-
   async getPageInfo() {
     if (!this.page || this.page.isClosed()) return { url: null, title: null };
     return {
