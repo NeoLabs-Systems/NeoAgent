@@ -42,7 +42,7 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
       req.session.username = username;
       req.session.save((err) => {
         if (err) return res.status(500).json({ error: 'Session save error' });
-        res.json({ success: true, user: { id: result.lastInsertRowid, username } });
+        res.json({ success: true, redirect: '/app', user: { id: result.lastInsertRowid, username } });
       });
     });
   } catch (err) {
@@ -76,7 +76,7 @@ router.post('/api/auth/login', authLimiter, async (req, res) => {
       req.session.username = user.username;
       req.session.save((err) => {
         if (err) return res.status(500).json({ error: 'Session save error' });
-        res.json({ success: true, user: { id: user.id, username: user.username } });
+        res.json({ success: true, redirect: '/app', user: { id: user.id, username: user.username } });
       });
     });
   } catch (err) {
