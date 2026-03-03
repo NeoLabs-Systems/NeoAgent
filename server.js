@@ -34,6 +34,11 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // ── Middleware ──
 
 app.use(helmet({
+  // Disable HSTS — this app runs on plain HTTP (Tailscale/localhost).
+  // HSTS would tell browsers to permanently upgrade HTTP→HTTPS, breaking access.
+  strictTransportSecurity: false,
+  // COOP is ignored by browsers on non-HTTPS non-localhost origins anyway; suppress the warning.
+  crossOriginOpenerPolicy: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
