@@ -71,7 +71,7 @@ const sessionMiddleware = session({
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production'
+    secure: false  // This server runs on plain HTTP (Tailscale / localhost); secure:true would block cookies over HTTP
   }
 });
 
@@ -186,8 +186,8 @@ const startServices = async () => {
 
       q.running = true;
       try {
-        await messagingManager.markRead(userId, msg.platform, msg.chatId, msg.messageId).catch(() => {});
-        await messagingManager.sendTyping(userId, msg.platform, msg.chatId, true).catch(() => {});
+        await messagingManager.markRead(userId, msg.platform, msg.chatId, msg.messageId).catch(() => { });
+        await messagingManager.sendTyping(userId, msg.platform, msg.chatId, true).catch(() => { });
         const mediaNote = msg.localMediaPath
           ? `\nMedia attached at: ${msg.localMediaPath} (type: ${msg.mediaType}). You can reference or forward it with send_message media_path.`
           : '';
@@ -208,7 +208,7 @@ You can also send images/files by setting media_path to a local file path.`;
         if (msg.localMediaPath) runOpts.mediaAttachments = [{ path: msg.localMediaPath, type: msg.mediaType }];
         await agentEngine.run(userId, prompt, runOpts);
       } finally {
-        await messagingManager.sendTyping(userId, msg.platform, msg.chatId, false).catch(() => {});
+        await messagingManager.sendTyping(userId, msg.platform, msg.chatId, false).catch(() => { });
         q.running = false;
         if (q.pending.length > 0) {
           const next = q.pending.shift();
@@ -291,8 +291,8 @@ httpServer.listen(PORT, async () => {
 process.on('SIGINT', async () => {
   console.log('Shutting down...');
   if (app.locals.scheduler) app.locals.scheduler.stop();
-  if (app.locals.mcpClient) await app.locals.mcpClient.shutdown().catch(() => {});
-  if (app.locals.browserController) await app.locals.browserController.closeBrowser().catch(() => {});
+  if (app.locals.mcpClient) await app.locals.mcpClient.shutdown().catch(() => { });
+  if (app.locals.browserController) await app.locals.browserController.closeBrowser().catch(() => { });
   db.close();
   process.exit(0);
 });
