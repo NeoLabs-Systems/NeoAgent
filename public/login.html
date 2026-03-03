@@ -172,7 +172,7 @@
       <p>Your proactive AI agent</p>
     </div>
 
-    <div class="login-tabs" id="tabBar">
+    <div class="login-tabs" id="tabBar" style="display:none">
       <div class="login-tab active" data-tab="login">Sign In</div>
       <div class="login-tab" data-tab="register" id="registerTab" style="display:none">Setup</div>
     </div>
@@ -221,10 +221,11 @@
 
     tabs.forEach(tab => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
 
-    // Show setup tab if no user exists yet
+    // Show tab bar + setup tab only if no user exists yet; otherwise hide the whole bar
     fetch('/api/auth/status').then(r => r.json()).then(data => {
       if (!data.hasUser) {
         document.getElementById('registerTab').style.display = '';
+        document.getElementById('tabBar').style.display = '';
         switchTab('register');
       }
     });
