@@ -135,14 +135,9 @@ class SkillRunner {
     const skillDir = path.join(SKILLS_DIR, safeName);
     if (!fs.existsSync(skillDir)) fs.mkdirSync(skillDir, { recursive: true });
 
-    let frontmatter = `---\nname: ${safeName}\ndescription: ${description}\n`;
-    if (metadata && Object.keys(metadata).length > 0) {
-      frontmatter += `metadata: ${JSON.stringify(metadata)}\n`;
-    }
-    frontmatter += `---\n\n${instructions}`;
-
+    const frontmatter = this._buildFrontmatter(safeName, description, metadata);
     const filePath = path.join(skillDir, 'SKILL.md');
-    fs.writeFileSync(filePath, frontmatter);
+    fs.writeFileSync(filePath, frontmatter + `\n\n${instructions}`);
 
     db.prepare('INSERT OR REPLACE INTO skills (name, description, file_path, metadata, auto_created, updated_at) VALUES (?, ?, ?, ?, 1, datetime(\'now\'))')
       .run(safeName, description, filePath, JSON.stringify(metadata));
@@ -150,6 +145,64 @@ class SkillRunner {
     this.loadSkillFile(filePath);
 
     return { success: true, name: safeName, path: filePath };
+  }
+
+  updateSkill(name, { description, instructions, metadata } = {}) {
+    const skill = this.skills.get(name);
+    if (!skill) return { error: `Skill '${name}' not found` };
+
+    const newDesc = description !== undefined ? description : skill.description;
+    const newInstructions = instructions !== undefined ? instructions : skill.instructions;
+    // Merge: if metadata provided use it, otherwise preserve existing non-name/description fields
+    let metaToWrite = {};
+    if (metadata !== undefined) {
+      metaToWrite = metadata;
+    } else {
+      const existing = { ...skill.metadata };
+      delete existing.name;
+      delete existing.description;
+      metaToWrite = existing;
+    }
+
+    const frontmatter = this._buildFrontmatter(name, newDesc, metaToWrite);
+    fs.writeFileSync(skill.filePath, frontmatter + `\n\n${newInstructions}`);
+    db.prepare('UPDATE skills SET description = ?, updated_at = datetime(\'now\') WHERE name = ?').run(newDesc, name);
+    this.loadSkillFile(skill.filePath);
+
+    return { success: true, name, path: skill.filePath };
+  }
+
+  deleteSkill(name) {
+    const skill = this.skills.get(name);
+    if (!skill) return { error: `Skill '${name}' not found` };
+
+    try {
+      fs.unlinkSync(skill.filePath);
+      const dir = path.dirname(skill.filePath);
+      if (path.basename(skill.filePath) === 'SKILL.md') {
+        const remaining = fs.readdirSync(dir);
+        if (remaining.length === 0) fs.rmdirSync(dir);
+      }
+    } catch (e) { /* ignore */ }
+
+    db.prepare('DELETE FROM skills WHERE name = ?').run(name);
+    this.skills.delete(name);
+
+    return { success: true, deleted: name };
+  }
+
+  _buildFrontmatter(name, description, metadata = {}) {
+    let fm = `---\nname: ${name}\ndescription: ${description}\n`;
+    if (metadata && typeof metadata === 'object') {
+      for (const [key, val] of Object.entries(metadata)) {
+        if (key === 'name' || key === 'description') continue;
+        fm += typeof val === 'object'
+          ? `${key}: ${JSON.stringify(val)}\n`
+          : `${key}: ${val}\n`;
+      }
+    }
+    fm += `---`;
+    return fm;
   }
 
   getAll() {

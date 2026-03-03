@@ -51,7 +51,7 @@ ${yesterdayLog ? `### yesterday (${yesterday})\n${yesterdayLog}` : ''}
 - **Messaging**: send/receive on WhatsApp etc. text, images, video, files. reach out proactively if something's worth saying
 - **Memory**: write things down so you don't forget
 - **MCP**: use whatever MCP servers are connected
-- **Skills**: custom tools from SKILL.md files
+- **Skills**: custom tools from SKILL.md files. you can create, update, and delete your own skills at any time using create_skill, update_skill, delete_skill, list_skills. save anything you might want to reuse as a skill — ad-hoc commands, multi-step workflows, useful snippets. think of skills as your long-term tool memory.
 - **Files**: read/write anything on the filesystem
 - **Soul**: rewrite your own personality file if you feel like it
 
@@ -73,6 +73,7 @@ ${yesterdayLog ? `### yesterday (${yesterday})\n${yesterdayLog}` : ''}
 - use tools. don't describe what you'd do, just do it.
 - anticipate what comes next, do it before they ask
 - write useful stuff to memory - preferences, mistakes, patterns
+- if you figure out a useful command, workflow, or pattern you're likely to need again — save it as a skill proactively
 - check command output. handle errors. don't give up on first failure.
 - screenshot to verify browser results
 - never claim you did something until you see a successful tool result. if a tool returns an error, report the error honestly — don't paper over it.
@@ -277,16 +278,46 @@ ${yesterdayLog ? `### yesterday (${yesterday})\n${yesterdayLog}` : ''}
       },
       {
         name: 'create_skill',
-        description: 'Create a new SKILL.md file for a custom tool or workflow',
+        description: 'Create a new SKILL.md file — a persistent custom tool or workflow you can call by name in future runs. Use this to save reusable capabilities.',
         parameters: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: 'Skill name (kebab-case)' },
-            description: { type: 'string', description: 'What this skill does' },
-            instructions: { type: 'string', description: 'Full markdown instructions for using this skill' },
-            metadata: { type: 'object', description: 'Additional metadata' }
+            name: { type: 'string', description: 'Skill name in kebab-case (e.g. check-disk-health)' },
+            description: { type: 'string', description: 'One-line description of what this skill does' },
+            instructions: { type: 'string', description: 'Full markdown body: how to use this skill, example commands, expected output, etc.' },
+            metadata: { type: 'object', description: 'Optional extra frontmatter fields. Use { "command": "...", "tool": true } to make it an executable tool with parameter substitution via {param}.' }
           },
           required: ['name', 'description', 'instructions']
+        }
+      },
+      {
+        name: 'list_skills',
+        description: 'List all currently loaded skills (both built-in and self-created ones).',
+        parameters: { type: 'object', properties: {} }
+      },
+      {
+        name: 'update_skill',
+        description: 'Update an existing skill — change its description, instructions or metadata.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Exact skill name to update' },
+            description: { type: 'string', description: 'New description (optional)' },
+            instructions: { type: 'string', description: 'New instructions body (optional)' },
+            metadata: { type: 'object', description: 'New metadata object to replace existing (optional)' }
+          },
+          required: ['name']
+        }
+      },
+      {
+        name: 'delete_skill',
+        description: 'Permanently delete a skill by name.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Exact skill name to delete' }
+          },
+          required: ['name']
         }
       },
       {
@@ -547,8 +578,38 @@ ${yesterdayLog ? `### yesterday (${yesterday})\n${yesterdayLog}` : ''}
 
       case 'create_skill': {
         const { SkillRunner } = require('./toolRunner');
+        // Use the shared skill runner so the new skill is immediately available
+        const sharedRunner = sk();
+        if (sharedRunner) {
+          const result = sharedRunner.createSkill(args.name, args.description, args.instructions, args.metadata);
+          return result;
+        }
         const runner = new SkillRunner();
+        await runner.loadSkills();
         return runner.createSkill(args.name, args.description, args.instructions, args.metadata);
+      }
+
+      case 'list_skills': {
+        const skillRunner = sk();
+        if (!skillRunner) return { error: 'Skill runner not available' };
+        const all = skillRunner.getAll();
+        return { skills: all, count: all.length };
+      }
+
+      case 'update_skill': {
+        const skillRunner = sk();
+        if (!skillRunner) return { error: 'Skill runner not available' };
+        return skillRunner.updateSkill(args.name, {
+          description: args.description,
+          instructions: args.instructions,
+          metadata: args.metadata
+        });
+      }
+
+      case 'delete_skill': {
+        const skillRunner = sk();
+        if (!skillRunner) return { error: 'Skill runner not available' };
+        return skillRunner.deleteSkill(args.name);
       }
 
       case 'think': {
