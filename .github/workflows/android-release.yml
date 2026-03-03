@@ -1,0 +1,73 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # needed to create a GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse version from tag
+        id: ver
+        run: |
+          TAG="${GITHUB_REF_NAME}"          # e.g. v1.2.3
+          VERSION="${TAG#v}"                # strip leading 'v'  → 1.2.3
+          # Build a numeric versionCode from major.minor.patch
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+          echo "name=${VERSION}"  >> "$GITHUB_OUTPUT"
+          echo "code=${CODE}"     >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/**/libs.versions.toml') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Write local.properties
+        working-directory: mobile/android
+        run: echo "sdk.dir=/usr/local/lib/android/sdk" > local.properties
+
+      - name: Make gradlew executable
+        working-directory: mobile/android
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        working-directory: mobile/android
+        run: |
+          ./gradlew assembleDebug --no-daemon \
+            -PversionName=${{ steps.ver.outputs.name }} \
+            -PversionCode=${{ steps.ver.outputs.code }}
+
+      - name: Rename APK
+        run: |
+          mv mobile/android/app/build/outputs/apk/debug/app-debug.apk \
+             neoagent-${{ steps.ver.outputs.name }}.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: NeoAgent ${{ steps.ver.outputs.name }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: neoagent-${{ steps.ver.outputs.name }}.apk

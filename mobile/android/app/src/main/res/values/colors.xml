@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ── Aurora brand palette ────────────────────────────────────────── -->
+    <!-- Deep indigo-violet gradient anchors                               -->
+    <color name="aurora_primary">#7C4DFF</color>       <!-- vivid violet    -->
+    <color name="aurora_primary_variant">#651FFF</color><!-- deeper violet   -->
+    <color name="aurora_secondary">#00BCD4</color>     <!-- electric cyan   -->
+    <color name="aurora_accent">#E040FB</color>        <!-- magenta accent  -->
+
+    <!-- Notification colours -->
+    <color name="notif_bg">#1A1A2E</color>             <!-- deep midnight   -->
+    <color name="notif_progress">#7C4DFF</color>
+    <color name="notif_success">#00E676</color>        <!-- vivid green     -->
+    <color name="notif_error">#FF5252</color>          <!-- live red        -->
+    <color name="notif_thinking">#FFD740</color>       <!-- amber thinking  -->
+
+    <!-- App surfaces -->
+    <color name="background">#0D0D1A</color>
+    <color name="surface">#121212</color>
+    <color name="surface_variant">#1E1E2E</color>
+    <color name="on_surface">#EEEEEE</color>
+    <color name="on_surface_muted">#888888</color>
+</resources>
