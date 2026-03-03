@@ -1,0 +1,16 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Aurora Android — local.properties
+#
+# Copy this file to local.properties and fill in your values.
+# local.properties is .gitignored — never commit credentials.
+#
+# In CI (GitHub Actions) the sdk.dir is written automatically.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Android SDK location (required by Gradle)
+# macOS default:  /Users/<you>/Library/Android/sdk
+# Linux default:  /home/<you>/Android/Sdk
+sdk.dir=/Users/YOURNAME/Library/Android/sdk
+
+# Optional: override the notification accent colour (ARGB hex)
+# ACCENT_COLOR=#7C4DFF

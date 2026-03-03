@@ -2,20 +2,21 @@
   "name": "neoagent",
   "version": "1.0.0",
   "description": "Proactive personal AI agent with no limits",
-  "main": "server.js",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@google/generative-ai": "^0.24.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "@whiskeysockets/baileys": "^6.7.21",
+    "@whiskeysockets/baileys": "^6.17.16",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^11.8.1",
     "connect-sqlite3": "^0.9.15",
     "cors": "^2.8.5",
+    "discord.js": "^14.25.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
@@ -24,9 +25,11 @@
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "node-pty": "^1.0.0",
+    "node-telegram-bot-api": "^0.67.0",
     "openai": "^4.85.4",
     "puppeteer": "^24.4.0",
     "socket.io": "^4.8.1",
+    "telnyx": "^5.51.0",
     "uuid": "^11.1.0"
   }
 }

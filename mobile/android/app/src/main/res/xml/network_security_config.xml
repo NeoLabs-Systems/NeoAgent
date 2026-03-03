@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allows cleartext (HTTP) traffic to your local NeoAgent instance.
+  This app is designed for LAN / Tailscale-only use — HTTP is intentional.
+-->
+<network-security-config>
+    <!-- Permit HTTP everywhere; this app only talks to a local/Tailscale host -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

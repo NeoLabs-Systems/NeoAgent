@@ -8,7 +8,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/node</string>
-        <string>/Users/neo/NeoAgent/server.js</string>
+        <string>/Users/neo/NeoAgent/server/index.js</string>
     </array>
 
     <key>WorkingDirectory</key>
