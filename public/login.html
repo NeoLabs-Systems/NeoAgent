@@ -198,7 +198,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Password</label>
-        <input type="password" class="input" name="password" autocomplete="new-password" required minlength="6">
+        <input type="password" class="input" name="password" autocomplete="new-password" required minlength="8">
       </div>
       <div class="form-group">
         <label class="form-label">Confirm Password</label>
@@ -222,7 +222,7 @@
     tabs.forEach(tab => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
 
     // Show tab bar + setup tab only if no user exists yet; otherwise hide the whole bar
-    fetch('/api/auth/status').then(r => r.json()).then(data => {
+    fetch('/api/auth/status', { credentials: 'include' }).then(r => r.json()).then(data => {
       if (!data.hasUser) {
         document.getElementById('registerTab').style.display = '';
         document.getElementById('tabBar').style.display = '';
@@ -247,6 +247,7 @@
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             username: form.username.value,
             password: form.password.value
@@ -254,7 +255,7 @@
         });
         const data = await res.json();
         if (res.ok) {
-          window.location.href = '/app';
+          window.location.href = data.redirect || '/app';
         } else {
           showError(data.error || 'Login failed');
         }
@@ -283,6 +284,7 @@
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             username: form.username.value,
             password: form.password.value
@@ -290,7 +292,7 @@
         });
         const data = await res.json();
         if (res.ok) {
-          window.location.href = '/app';
+          window.location.href = data.redirect || '/app';
         } else {
           showError(data.error || 'Setup failed');
         }
