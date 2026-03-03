@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeoAgent</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="logo-icon-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <span class="logo-text">NeoAgent</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="sidebar-btn active" data-page="chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Chat
+        </button>
+        <button class="sidebar-btn" data-page="activity" id="activityNavBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Activity
+          <span class="activity-badge hidden" id="activityBadge"></span>
+        </button>
+        <div class="sidebar-divider"></div>
+        <button class="sidebar-btn" data-page="messaging">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Messaging
+        </button>
+        <button class="sidebar-btn" data-page="mcp">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          MCP Servers
+        </button>
+        <button class="sidebar-btn" data-page="scheduler">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Scheduler
+        </button>
+        <button class="sidebar-btn" data-page="memory">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          Memory
+        </button>
+        <button class="sidebar-btn" data-page="skills">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Skills
+        </button>
+        <div class="sidebar-divider"></div>
+        <button class="sidebar-btn" id="settingsBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </button>
+        <button class="sidebar-btn" id="logoutBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Chat Page (default) -->
+      <div class="page active" id="page-chat">
+        <div class="chat-container">
+          <div class="chat-messages" id="chatMessages">
+            <div class="empty-state" id="chatEmpty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              <p>What can I help you with?</p>
+              <span class="text-xs text-muted mt-2">I can execute commands, browse the web, send messages, and more.</span>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <div class="chat-input-wrapper">
+              <textarea id="chatInput" class="chat-input" placeholder="say something..." rows="1"></textarea>
+              <button id="chatSendBtn" class="btn btn-primary chat-send-btn" title="Send">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+            <div class="chat-input-info">
+              <span class="text-xs text-muted">Press Enter to send, Shift+Enter for new line</span>
+              <span class="text-xs text-muted" id="modelIndicator">grok-4-1-fast-reasoning</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Page -->
+      <div class="page" id="page-activity">
+        <div class="page-header">
+          <h1>Agent Activity</h1>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" id="historyToggleBtn">History</button>
+            <button class="btn btn-secondary btn-sm" id="fitViewBtn">Fit View</button>
+            <button class="btn btn-secondary btn-sm" id="clearActivityBtn">Clear</button>
+          </div>
+        </div>
+        <div class="activity-wrap">
+          <!-- History drawer -->
+          <div class="activity-history-panel hidden" id="activityHistoryPanel">
+            <div class="ahp-header">
+              <span>Past Runs</span>
+              <button class="ahp-close" id="historyCloseBtn">✕</button>
+            </div>
+            <div class="ahp-list" id="activityHistoryList">
+              <div class="ahp-empty">Loading…</div>
+            </div>
+          </div>
+          <!-- Canvas -->
+          <div class="activity-viewport" id="activityCanvasWrap">
+            <div class="activity-empty-overlay" id="activityEmpty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <p>No activity yet</p>
+              <span>Send a message and watch NeoAgent work</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messaging Page -->
+      <div class="page" id="page-messaging">
+        <div class="page-header">
+          <h1>Messaging</h1>
+        </div>
+        <div class="page-body">
+          <div id="messagingQR" class="hidden" style="text-align:center;padding:40px;">
+            <p class="mb-4">Scan QR code with WhatsApp</p>
+            <div id="qrContainer"></div>
+            <button class="btn btn-secondary mt-4" id="cancelQR">Cancel</button>
+          </div>
+          <div id="platformList"></div>
+          <!-- Whitelist section rendered by JS -->
+          <div id="whitelistSection" class="mt-4"></div>
+        </div>
+      </div>
+
+      <!-- MCP Servers Page -->
+      <div class="page" id="page-mcp">
+        <div class="page-header">
+          <h1>MCP Servers</h1>
+          <button class="btn btn-primary" id="addMcpBtn">Add Server</button>
+        </div>
+        <div class="page-body">
+          <div id="mcpServerList"></div>
+        </div>
+      </div>
+
+      <!-- Scheduler Page -->
+      <div class="page" id="page-scheduler">
+        <div class="page-header">
+          <h1>Scheduler</h1>
+          <button class="btn btn-primary" id="addTaskBtn">Add Task</button>
+        </div>
+        <div class="page-body">
+          <div id="taskList"></div>
+        </div>
+      </div>
+
+      <!-- Memory Page -->
+      <div class="page" id="page-memory">
+        <div class="page-header">
+          <h1>Memory</h1>
+        </div>
+        <div class="page-body">
+          <div class="tabs">
+            <div class="tab active" data-mem-tab="memory">Memory</div>
+            <div class="tab" data-mem-tab="soul">Soul</div>
+            <div class="tab" data-mem-tab="daily">Daily Logs</div>
+            <div class="tab" data-mem-tab="apikeys">API Keys</div>
+          </div>
+          <div class="mem-panel active" id="mem-memory">
+            <div class="flex justify-between items-center mb-4">
+              <span class="text-muted">Persistent memory entries</span>
+              <button class="btn btn-sm btn-secondary" id="saveMemoryBtn">Save</button>
+            </div>
+            <textarea id="memoryEditor" class="textarea font-mono" rows="20" placeholder="No memories yet..."></textarea>
+          </div>
+          <div class="mem-panel" id="mem-soul">
+            <div class="flex justify-between items-center mb-4">
+              <span class="text-muted">Agent personality & identity</span>
+              <button class="btn btn-sm btn-secondary" id="saveSoulBtn">Save</button>
+            </div>
+            <textarea id="soulEditor" class="textarea font-mono" rows="20" placeholder="No soul definition yet..."></textarea>
+          </div>
+          <div class="mem-panel" id="mem-daily">
+            <div id="dailyLogs"></div>
+          </div>
+          <div class="mem-panel" id="mem-apikeys">
+            <div class="flex justify-between items-center mb-4">
+              <span class="text-muted">Agent-managed API keys</span>
+              <button class="btn btn-sm btn-primary" id="addApiKeyBtn">Add Key</button>
+            </div>
+            <div id="apiKeyList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skills Page -->
+      <div class="page" id="page-skills">
+        <div class="page-header">
+          <h1>Skills</h1>
+          <button class="btn btn-primary" id="addSkillBtn">Add Skill</button>
+        </div>
+        <div class="page-body">
+          <div class="tabs mb-4">
+            <div class="tab active" data-skills-tab="installed">Installed</div>
+            <div class="tab" data-skills-tab="store">Store</div>
+          </div>
+          <div id="skillList" class="skills-panel"></div>
+          <div id="skillStore" class="skills-panel hidden"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay hidden" id="settingsModal">
+    <div class="modal" style="max-width:550px;">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="btn-ghost" id="closeSettings">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Heartbeat</label>
+          <label class="flex items-center gap-2" style="cursor:pointer;">
+            <input type="checkbox" id="settingHeartbeat">
+            <span>Enable scheduled heartbeat checks</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Browser</label>
+          <label class="flex items-center gap-2" style="cursor:pointer;">
+            <input type="checkbox" id="settingHeadlessBrowser">
+            <span>Run browser headless (no visible window)</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelSettings">Cancel</button>
+        <button class="btn btn-primary" id="saveSettings">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toasts"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
