@@ -47,7 +47,11 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:", "https://api.qrserver.com"],
       connectSrc: ["'self'", "ws:", "wss:"],
-      fontSrc: ["'self'", "data:"]
+      fontSrc: ["'self'", "data:"],
+      // Disable upgrade-insecure-requests — helmet adds this by default in v7+,
+      // which causes browsers to upgrade HTTP subresource requests to HTTPS,
+      // breaking plain-HTTP deployments (Tailscale, localhost).
+      upgradeInsecureRequests: null
     }
   }
 }));
