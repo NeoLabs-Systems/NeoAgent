@@ -1,0 +1,191 @@
+const db = require('../db/database');
+const { sanitizeError } = require('../utils/security');
+
+function setupWebSocket(io, services) {
+  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager } = services;
+  io.on('connection', (socket) => {
+    const session = socket.request.session;
+    if (!session?.userId) {
+      socket.disconnect(true);
+      return;
+    }
+
+    const userId = session.userId;
+    socket.join(`user:${userId}`);
+
+    console.log(`[WS] User ${userId} connected (${socket.id})`);
+
+    // ── Agent Events ──
+
+    socket.on('agent:run', async (data) => {
+      try {
+        const { task, options } = data;
+        if (!task || typeof task !== 'string') return socket.emit('error', { message: 'Task must be a non-empty string' });
+        if (task.length > 50000) return socket.emit('error', { message: 'Message too long (max 50,000 characters)' });
+
+        if (task.startsWith('/')) {
+          const [rawCmd] = task.trim().split(/\s+/);
+          const cmd = rawCmd.slice(1).toLowerCase();
+
+          switch (cmd) {
+            case 'new':
+            case 'clear':
+              db.prepare('DELETE FROM conversation_history WHERE user_id = ?').run(userId);
+              socket.emit('chat:cleared');
+              {
+                const resetResult = await agentEngine.run(userId, 'context was just cleared. say something very brief (1-2 sentences max) acknowledging the fresh start, in your own style. no tools needed.', {});
+                socket.emit('run:complete', { content: resetResult?.content || 'fresh start.' });
+              }
+              return;
+
+            case 'stop': {
+              agentEngine.abortAll(userId);
+              const q = services.app?.locals?.userQueues;
+              if (q && q[userId]) { q[userId].pending = []; q[userId].running = false; }
+              socket.emit('run:complete', { content: 'Stopped.' });
+              return;
+            }
+
+            case 'help':
+              socket.emit('run:complete', {
+                content: '**Available commands**\n- `/new` or `/clear` — clear conversation context\n- `/stop` — abort all running tasks immediately\n- `/help` — show this message'
+              });
+              return;
+
+            default:
+              socket.emit('run:complete', { content: `Unknown command: \`/${cmd}\`. Type \`/help\` for available commands.` });
+              return;
+          }
+        }
+
+        db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
+          .run(userId, 'user', task, JSON.stringify({ platform: 'web' }));
+
+        const priorMessages = db.prepare(
+          'SELECT role, content FROM conversation_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 30'
+        ).all(userId).reverse();
+        const prior = priorMessages.filter(m => !(m.role === 'user' && m.content === task)).slice(-29);
+
+        const result = await agentEngine.run(userId, task, { ...options, priorMessages: prior });
+
+        if (result?.content) {
+          db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+            .run(userId, result.runId, 'assistant', result.content, JSON.stringify({ tokens: result.totalTokens }));
+        }
+      } catch (err) {
+        socket.emit('run:error', { error: sanitizeError(err) });
+      }
+    });
+
+    socket.on('agent:abort', (data) => {
+      try {
+        agentEngine.abort(data?.runId);
+        socket.emit('agent:aborted', { runId: data?.runId });
+      } catch (err) {
+        socket.emit('error', { message: sanitizeError(err) });
+      }
+    });
+
+    // ── Conversation ──
+
+    socket.on('agent:history', (data) => {
+      try {
+        const runs = db.prepare(
+          'SELECT * FROM agent_runs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
+        ).all(userId, data?.limit || 20);
+        socket.emit('agent:history', runs);
+      } catch (err) {
+        socket.emit('error', { message: sanitizeError(err) });
+      }
+    });
+
+    socket.on('agent:run_detail', (data) => {
+      try {
+        const run = db.prepare('SELECT * FROM agent_runs WHERE id = ? AND user_id = ?').get(data.runId, userId);
+        const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_number ASC').all(data.runId);
+        const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? ORDER BY created_at ASC').all(data.runId);
+        socket.emit('agent:run_detail', { run, steps, history });
+      } catch (err) {
+        socket.emit('error', { message: sanitizeError(err) });
+      }
+    });
+
+    // ── Messaging ──
+
+    socket.on('messaging:connect', async (data) => {
+      try {
+        const result = await messagingManager.connectPlatform(userId, data.platform, data.config || {});
+        socket.emit('messaging:connect_result', result);
+      } catch (err) {
+        socket.emit('messaging:error', { error: sanitizeError(err) });
+      }
+    });
+
+    socket.on('messaging:disconnect', async (data) => {
+      try {
+        const result = await messagingManager.disconnectPlatform(userId, data.platform);
+        socket.emit('messaging:disconnect_result', result);
+      } catch (err) {
+        socket.emit('messaging:error', { error: sanitizeError(err) });
+      }
+    });
+
+    socket.on('messaging:send', async (data) => {
+      try {
+        const result = await messagingManager.sendMessage(userId, data.platform, data.to, data.content, data.mediaPath);
+        socket.emit('messaging:sent', result);
+      } catch (err) {
+        socket.emit('messaging:error', { error: sanitizeError(err) });
+      }
+    });
+
+    socket.on('messaging:status', () => {
+      try {
+        const statuses = messagingManager.getAllStatuses(userId);
+        socket.emit('messaging:status', statuses);
+      } catch (err) {
+        socket.emit('messaging:error', { error: sanitizeError(err) });
+      }
+    });
+
+    // ── MCP ──
+
+    socket.on('mcp:status', () => {
+      socket.emit('mcp:status', mcpClient.getStatus());
+    });
+
+    socket.on('mcp:tools', async (data) => {
+      try {
+        const tools = data?.serverId
+          ? await mcpClient.listTools(data.serverId)
+          : mcpClient.getAllTools();
+        socket.emit('mcp:tools', tools);
+      } catch (err) {
+        socket.emit('mcp:error', { error: sanitizeError(err) });
+      }
+    });
+
+    // ── Memory ──
+
+    socket.on('memory:read', () => {
+      socket.emit('memory:data', {
+        memory: memoryManager.readMemory(),
+        soul: memoryManager.readSoul(),
+        dailyLogs: memoryManager.listDailyLogs(3)
+      });
+    });
+
+    socket.on('memory:search', (data) => {
+      const results = memoryManager.searchMemory(data.query);
+      socket.emit('memory:search_results', results);
+    });
+
+    // ── Disconnect ──
+
+    socket.on('disconnect', () => {
+      console.log(`[WS] User ${userId} disconnected (${socket.id})`);
+    });
+  });
+}
+
+module.exports = { setupWebSocket };

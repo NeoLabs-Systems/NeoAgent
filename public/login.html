@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeoAgent — Login</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--bg-primary);
+      overflow: hidden;
+    }
+
+    .login-bg {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .login-bg .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.15;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    .login-bg .orb-1 {
+      width: 500px; height: 500px;
+      background: var(--accent);
+      top: -100px; left: -100px;
+      animation-delay: 0s;
+    }
+
+    .login-bg .orb-2 {
+      width: 400px; height: 400px;
+      background: #8b5cf6;
+      bottom: -80px; right: -80px;
+      animation-delay: -7s;
+    }
+
+    .login-bg .orb-3 {
+      width: 300px; height: 300px;
+      background: #06b6d4;
+      top: 50%; left: 60%;
+      animation-delay: -14s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -30px) scale(1.05); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    .login-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 400px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      box-shadow: var(--shadow);
+    }
+
+    .login-logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .login-logo .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--accent);
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .login-logo .logo-icon svg {
+      width: 28px;
+      height: 28px;
+      stroke: white;
+    }
+
+    .login-logo h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .login-logo p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .login-tabs {
+      display: flex;
+      margin-bottom: 24px;
+      background: var(--bg-primary);
+      border-radius: var(--radius);
+      padding: 3px;
+    }
+
+    .login-tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      cursor: pointer;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 13px;
+      color: var(--text-secondary);
+      transition: all var(--transition);
+    }
+
+    .login-tab.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .login-form { display: none; }
+    .login-form.active { display: block; }
+
+    .login-form .btn {
+      width: 100%;
+      justify-content: center;
+      padding: 12px;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    .login-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--error);
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .login-error.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="login-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <h1>NeoAgent</h1>
+      <p>Your proactive AI agent</p>
+    </div>
+
+    <div class="login-tabs" id="tabBar">
+      <div class="login-tab active" data-tab="login">Sign In</div>
+      <div class="login-tab" data-tab="register" id="registerTab" style="display:none">Setup</div>
+    </div>
+
+    <div class="login-error" id="error"></div>
+
+    <form class="login-form active" id="loginForm" data-tab="login">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" class="input" name="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="input" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Sign In</button>
+    </form>
+
+    <form class="login-form" id="registerForm" data-tab="register">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" class="input" name="username" autocomplete="username" required minlength="3">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="input" name="password" autocomplete="new-password" required minlength="6">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <input type="password" class="input" name="confirmPassword" autocomplete="new-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Create Account</button>
+    </form>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll('.login-tab');
+    const forms = document.querySelectorAll('.login-form');
+    const errorEl = document.getElementById('error');
+
+    function switchTab(target) {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === target));
+      forms.forEach(f => f.classList.toggle('active', f.dataset.tab === target));
+      errorEl.classList.remove('show');
+    }
+
+    tabs.forEach(tab => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
+
+    // Show setup tab if no user exists yet
+    fetch('/api/auth/status').then(r => r.json()).then(data => {
+      if (!data.hasUser) {
+        document.getElementById('registerTab').style.display = '';
+        switchTab('register');
+      }
+    });
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.add('show');
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector('button');
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+      errorEl.classList.remove('show');
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: form.username.value,
+            password: form.password.value
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.location.href = '/app';
+        } else {
+          showError(data.error || 'Login failed');
+        }
+      } catch (err) {
+        showError('Connection error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector('button');
+
+      if (form.password.value !== form.confirmPassword.value) {
+        return showError('Passwords do not match');
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+      errorEl.classList.remove('show');
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: form.username.value,
+            password: form.password.value
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.location.href = '/app';
+        } else {
+          showError(data.error || 'Setup failed');
+        }
+      } catch (err) {
+        showError('Connection error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>
