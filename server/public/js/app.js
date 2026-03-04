@@ -1315,8 +1315,9 @@ $('#addTaskBtn').addEventListener('click', () => {
 
 // Registry of supported platforms — add new entries here to support more providers
 const MESSAGING_PLATFORMS = [
-  { id: 'whatsapp', name: 'WhatsApp', icon: '💬', color: '#25d366', connectMethod: 'qr' },
-  { id: 'telnyx',   name: 'Telnyx Voice', icon: '📞', color: '#00C8A0', connectMethod: 'config' }
+  { id: 'whatsapp', name: 'WhatsApp',    icon: '💬', color: '#25d366', connectMethod: 'qr'     },
+  { id: 'telnyx',   name: 'Telnyx Voice',icon: '📞', color: '#00C8A0', connectMethod: 'config' },
+  { id: 'discord',  name: 'Discord',     icon: '🎮', color: '#5865F2', connectMethod: 'config' },
 ];
 
 async function loadMessagingPage() {
@@ -1344,6 +1345,7 @@ async function loadMessagingPage() {
                 </span>
                 ${info.lastConnected ? `<span class="text-xs text-muted">last connected ${formatTime(info.lastConnected)}</span>` : ''}
                 ${isConnected && info.authInfo?.phoneNumber ? `<span class="text-xs text-muted">${escapeHtml(info.authInfo.phoneNumber)}</span>` : ''}
+              ${isConnected && info.authInfo?.tag ? `<span class="text-xs text-muted">${escapeHtml(info.authInfo.tag)}</span>` : ''}
               </div>
             </div>
           </div>
@@ -1392,9 +1394,20 @@ async function loadWhitelistUI() {
       await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
     }
   });
+
+  // Discord whitelist
+  await _renderWhitelistCard(wrap, {
+    settingKey: 'platform_whitelist_discord',
+    title: 'Discord Whitelist',
+    meta: 'Messages from user/server IDs not on this list trigger an allow popup. Leave empty to allow everyone.',
+    placeholder: 'Discord user or server (guild) ID',
+    saveFn: async (list) => {
+      await api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } });
+    }
+  });
 }
 
-async function _renderWhitelistCard(wrap, { settingKey, title, meta, saveFn }) {
+async function _renderWhitelistCard(wrap, { settingKey, title, meta, placeholder, saveFn }) {
   let numbers = [];
   try {
     const settings = await api('/settings');
@@ -1435,7 +1448,7 @@ async function _renderWhitelistCard(wrap, { settingKey, title, meta, saveFn }) {
     if (!numbers.length) {
       const empty = document.createElement('span');
       empty.className = 'text-muted text-sm';
-      empty.textContent = 'No whitelist active — all numbers allowed';
+      empty.textContent = 'No whitelist active — all allowed';
       tags.appendChild(empty);
     }
     card.appendChild(tags);
@@ -1445,7 +1458,7 @@ async function _renderWhitelistCard(wrap, { settingKey, title, meta, saveFn }) {
     const inp = document.createElement('input');
     inp.type = 'text';
     inp.className = 'input';
-    inp.placeholder = 'e.g. +447911123456 or 15550000000';
+    inp.placeholder = placeholder || 'e.g. +447911123456 or 15550000000';
     inp.style.flex = '1';
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn-primary btn-sm';
@@ -1485,8 +1498,8 @@ $('#platformList').addEventListener('click', async (e) => {
 
   if (action === 'connectPlatform') {
     if (method === 'config') {
-      // Show config modal (currently only Telnyx)
-      if (platform === 'telnyx') openTelnyxConfigModal();
+      if (platform === 'telnyx')  openTelnyxConfigModal();
+      if (platform === 'discord') openDiscordConfigModal();
     } else {
       socket.emit('messaging:connect', { platform });
       toast(`Connecting to ${platform}…`, 'info');
@@ -1617,6 +1630,59 @@ async function openTelnyxConfigModal() {
   });
 }
 
+// ── Discord Config Modal ─────────────────────────────────────────────────────
+
+async function openDiscordConfigModal() {
+  let saved = {};
+  try {
+    const s = await api('/settings');
+    if (s.discord_config) saved = typeof s.discord_config === 'string' ? JSON.parse(s.discord_config) : s.discord_config;
+  } catch {}
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  overlay.innerHTML = `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 28px 22px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="font-size:1.15rem;font-weight:700;">🎮 Discord — Configuration</div>
+        <button id="discordModalClose" style="background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-muted);">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label class="label" style="display:block;margin-bottom:4px;">Bot Token *</label>
+          <input id="discord_token" class="input" type="password" placeholder="MTxxxxxxxx..." value="${escapeHtml(saved.token || '')}" autocomplete="off"/>
+          <div style="font-size:0.76rem;color:var(--text-muted);margin-top:4px;">Create a bot at <a href="https://discord.com/developers/applications" target="_blank" style="color:var(--accent);">discord.com/developers</a>. Enable <strong>Message Content</strong> privileged intent.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;">
+        <button id="discordModalCancel" class="btn btn-secondary">Cancel</button>
+        <button id="discordModalSave" class="btn btn-primary">Connect</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#discordModalClose').addEventListener('click', close);
+  overlay.querySelector('#discordModalCancel').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelector('#discordModalSave').addEventListener('click', async () => {
+    const config = { token: overlay.querySelector('#discord_token').value.trim() };
+    if (!config.token) { toast('Bot token is required', 'error'); return; }
+    try {
+      await api('/settings', { method: 'PUT', body: { discord_config: JSON.stringify(config) } });
+      await api('/messaging/connect', { method: 'POST', body: { platform: 'discord', config } });
+      toast('Discord connecting…', 'success');
+      close();
+      setTimeout(loadMessagingPage, 1500);
+    } catch (err) {
+      toast('Failed to connect: ' + (err.message || err), 'error');
+    }
+  });
+}
+
 socket.on('messaging:qr', (data) => {
   $('#messagingQR').classList.remove('hidden');
   const container = $('#qrContainer');
@@ -1647,7 +1713,9 @@ socket.on('messaging:blocked_sender', (data) => {
   const bannerId = `blocked-banner-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   if (document.getElementById(bannerId)) return; // don't stack duplicates
 
-  const platformLabel = platform === 'telnyx' ? '📞 Blocked call' : '⚠ Blocked message';
+  const platformLabel = platform === 'telnyx' ? '📞 Blocked call'
+    : platform === 'discord' ? '🎮 Blocked Discord message'
+    : '⚠ Blocked message';
 
   const banner = document.createElement('div');
   banner.id = bannerId;
@@ -1656,7 +1724,7 @@ socket.on('messaging:blocked_sender', (data) => {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
       <div>
         <div style="font-weight:600;margin-bottom:4px;">${platformLabel}</div>
-        <div style="color:var(--text-muted);margin-bottom:10px;">${platform === 'telnyx' ? 'From' : 'Sender'}: <code style="font-size:0.82rem;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;">${escapeHtml(rawId)}</code>${data.senderName ? ` &mdash; ${escapeHtml(data.senderName)}` : ''}</div>
+        <div style="color:var(--text-muted);margin-bottom:10px;">${platform === 'telnyx' ? 'From' : 'Sender'}: <code style="font-size:0.82rem;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;">${escapeHtml(rawId)}</code>${data.senderName ? ` &mdash; ${escapeHtml(data.senderName)}` : ''}${data.meta ? ` <span style="font-size:0.78rem;">(${escapeHtml(data.meta)})</span>` : ''}</div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>
           <button class="btn btn-sm btn-secondary" id="wb-dismiss-${bannerId}">Dismiss</button>
@@ -1673,7 +1741,6 @@ socket.on('messaging:blocked_sender', (data) => {
     const key = digits || rawId;
     try {
       if (platform === 'telnyx') {
-        // Use telnyx whitelist endpoint
         const settings = await api('/settings');
         let list = [];
         try {
@@ -1684,6 +1751,17 @@ socket.on('messaging:blocked_sender', (data) => {
         } catch { list = []; }
         if (!list.includes(key)) list.push(key);
         await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
+      } else if (platform === 'discord') {
+        const settings = await api('/settings');
+        let list = [];
+        try {
+          const raw = settings.platform_whitelist_discord;
+          if (Array.isArray(raw)) list = raw;
+          else if (typeof raw === 'string') list = JSON.parse(raw);
+          if (!Array.isArray(list)) list = [];
+        } catch { list = []; }
+        if (!list.includes(key)) list.push(key);
+        await api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } });
       } else {
         const settings = await api('/settings');
         let list = [];

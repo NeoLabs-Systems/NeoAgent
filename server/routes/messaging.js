@@ -92,13 +92,27 @@ router.put('/telnyx/whitelist', (req, res) => {
     const { numbers } = req.body;
     if (!Array.isArray(numbers)) return res.status(400).json({ error: 'numbers must be an array' });
     const list = numbers.map(n => n.replace(/[^0-9+]/g, '')).filter(Boolean);
-    // Persist in user_settings
     db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
       .run(req.session.userId, 'platform_whitelist_telnyx', JSON.stringify(list));
-    // Apply live if connected
     const manager = req.app.locals.messagingManager;
     if (manager) manager.updateTelnyxAllowedNumbers(req.session.userId, list);
     res.json({ success: true, numbers: list });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+// Update Discord allowed IDs (whitelist — user or guild snowflakes)
+router.put('/discord/whitelist', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+    const list = ids.map(id => id.replace(/[^0-9]/g, '')).filter(Boolean);
+    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
+      .run(req.session.userId, 'platform_whitelist_discord', JSON.stringify(list));
+    const manager = req.app.locals.messagingManager;
+    if (manager) manager.updateDiscordAllowedIds(req.session.userId, list);
+    res.json({ success: true, ids: list });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }

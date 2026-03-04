@@ -16,6 +16,7 @@
     "better-sqlite3": "^11.8.1",
     "connect-sqlite3": "^0.9.15",
     "cors": "^2.8.5",
+    "discord.js": "^14.25.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",

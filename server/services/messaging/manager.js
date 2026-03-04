@@ -1,6 +1,7 @@
 const db = require('../../db/database');
 const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
+const { DiscordPlatform } = require('./discord');
 
 class MessagingManager {
   constructor(io) {
@@ -9,7 +10,8 @@ class MessagingManager {
     this.messageHandlers = [];
     this.platformTypes = {
       whatsapp: WhatsAppPlatform,
-      telnyx:   TelnyxVoicePlatform
+      telnyx:   TelnyxVoicePlatform,
+      discord:  DiscordPlatform,
     };
   }
 
@@ -27,6 +29,15 @@ class MessagingManager {
         .get(userId, 'platform_whitelist_telnyx');
       if (wlRow) {
         try { config.allowedNumbers = JSON.parse(wlRow.value); } catch { /* ignore */ }
+      }
+    }
+
+    // For Discord, inject saved allowedIds whitelist
+    if (platformName === 'discord') {
+      const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, 'platform_whitelist_discord');
+      if (wlRow) {
+        try { config.allowedIds = JSON.parse(wlRow.value); } catch { /* ignore */ }
       }
     }
 
@@ -72,6 +83,17 @@ class MessagingManager {
         sender: info.caller,
         chatId: info.ccId,
         senderName: null
+      });
+    });
+
+    // Discord-specific: blocked sender notification
+    platform.on('blocked_sender', (info) => {
+      this.io.to(`user:${userId}`).emit('messaging:blocked_sender', {
+        platform: platformName,
+        sender: info.sender,
+        chatId: info.chatId,
+        senderName: info.senderName || null,
+        meta: info.guildName ? `Server: ${info.guildName}` : null,
       });
     });
 
@@ -253,6 +275,15 @@ class MessagingManager {
     const key = `${userId}:telnyx`;
     const platform = this.platforms.get(key);
     if (platform?.setAllowedNumbers) platform.setAllowedNumbers(numbers);
+  }
+
+  /**
+   * Update the allowed-IDs list on a live Discord platform instance.
+   */
+  updateDiscordAllowedIds(userId, ids) {
+    const key = `${userId}:discord`;
+    const platform = this.platforms.get(key);
+    if (platform?.setAllowedIds) platform.setAllowedIds(ids);
   }
 }
 
