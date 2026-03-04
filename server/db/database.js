@@ -184,6 +184,33 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_conv_history_user ON conversation_history(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_conv_history_run ON conversation_history(agent_run_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS memories (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    category TEXT DEFAULT 'episodic',
+    content TEXT NOT NULL,
+    importance INTEGER DEFAULT 5,
+    embedding TEXT,
+    access_count INTEGER DEFAULT 0,
+    archived INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS core_memory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, key)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_memories_user ON memories(user_id, archived, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(user_id, category, archived);
+  CREATE INDEX IF NOT EXISTS idx_core_memory_user ON core_memory(user_id, key);
 `);
 
 module.exports = db;

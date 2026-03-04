@@ -4,39 +4,120 @@ const { requireAuth } = require('../middleware/auth');
 
 router.use(requireAuth);
 
-// Get all memory data
+// ─────────────────────────────────────────────────────────────────────────────
+// Overview (for initial page load)
+// ─────────────────────────────────────────────────────────────────────────────
+
 router.get('/', (req, res) => {
   const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
   res.json({
-    memory: mm.readMemory(),
     soul: mm.readSoul(),
     dailyLogs: mm.listDailyLogs(7),
-    apiKeys: Object.keys(mm.readApiKeys())
+    apiKeys: Object.keys(mm.readApiKeys()),
+    coreMemory: mm.getCoreMemory(userId)
   });
 });
 
-// ── MEMORY.md ──
+// ─────────────────────────────────────────────────────────────────────────────
+// Semantic Memories
+// ─────────────────────────────────────────────────────────────────────────────
 
-router.get('/memory', (req, res) => {
-  res.json({ content: req.app.locals.memoryManager.readMemory() });
+// List memories (with optional ?category= and ?limit= filters)
+router.get('/memories', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const { category, limit = 50, offset = 0, archived = false } = req.query;
+  try {
+    const memories = mm.listMemories(userId, {
+      category: category || null,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      includeArchived: archived === 'true'
+    });
+    res.json(memories);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.put('/memory', (req, res) => {
-  req.app.locals.memoryManager.writeMemory(req.body.content);
+// Save a new memory
+router.post('/memories', async (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const { content, category = 'episodic', importance = 5 } = req.body;
+  if (!content || !content.trim()) return res.status(400).json({ error: 'content is required' });
+  try {
+    const id = await mm.saveMemory(userId, content, category, importance);
+    res.json({ success: true, id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update a memory
+router.put('/memories/:id', async (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const { content, importance, category } = req.body;
+  try {
+    const updated = await mm.updateMemory(req.params.id, { content, importance, category });
+    if (!updated) return res.status(404).json({ error: 'Memory not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a memory
+router.delete('/memories/:id', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  mm.deleteMemory(req.params.id);
   res.json({ success: true });
 });
 
-router.post('/memory/append', (req, res) => {
-  const line = req.app.locals.memoryManager.appendMemory(req.body.entry);
-  res.json({ success: true, line });
+// Semantic recall (search)
+router.post('/memories/recall', async (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const { query, limit = 10 } = req.body;
+  if (!query) return res.status(400).json({ error: 'query is required' });
+  try {
+    const results = await mm.recallMemory(userId, query, parseInt(limit));
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post('/memory/search', (req, res) => {
-  const results = req.app.locals.memoryManager.searchMemory(req.body.query);
-  res.json(results);
+// ─────────────────────────────────────────────────────────────────────────────
+// Core Memory
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get('/core', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  res.json(mm.getCoreMemory(userId));
 });
 
-// ── SOUL.md ──
+router.put('/core/:key', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const { value } = req.body;
+  if (value === undefined) return res.status(400).json({ error: 'value is required' });
+  mm.updateCore(userId, req.params.key, value);
+  res.json({ success: true });
+});
+
+router.delete('/core/:key', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  mm.deleteCore(userId, req.params.key);
+  res.json({ success: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SOUL.md
+// ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/soul', (req, res) => {
   res.json({ content: req.app.locals.memoryManager.readSoul() });
@@ -47,7 +128,9 @@ router.put('/soul', (req, res) => {
   res.json({ success: true });
 });
 
-// ── Daily Logs ──
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily Logs
+// ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/daily', (req, res) => {
   const limit = parseInt(req.query.limit) || 7;
@@ -59,11 +142,12 @@ router.get('/daily/:date', (req, res) => {
   res.json({ date: req.params.date, content });
 });
 
-// ── API Keys (agent-managed) ──
+// ─────────────────────────────────────────────────────────────────────────────
+// API Keys (agent-managed)
+// ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/api-keys', (req, res) => {
   const keys = req.app.locals.memoryManager.readApiKeys();
-  // Return key names only, not values
   const masked = {};
   for (const [k, v] of Object.entries(keys)) {
     masked[k] = v ? `${v.slice(0, 4)}...${v.slice(-4)}` : null;
@@ -81,7 +165,9 @@ router.delete('/api-keys/:service', (req, res) => {
   res.json({ success: true });
 });
 
-// ── Conversation History ──
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversation History
+// ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/conversations', (req, res) => {
   const mm = req.app.locals.memoryManager;

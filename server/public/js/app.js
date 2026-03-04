@@ -229,6 +229,9 @@ const TOOL_META = {
   browser_evaluate:   { icon: '⚙️', label: 'Script',        color: 'browser'   },
   memory_write:       { icon: '🧠', label: 'Memory Write',  color: 'memory'    },
   memory_read:        { icon: '🧠', label: 'Memory Read',   color: 'memory'    },
+  memory_save:        { icon: '🧠', label: 'Save Memory',   color: 'memory'    },
+  memory_recall:      { icon: '🔍', label: 'Recall Memory', color: 'memory'    },
+  memory_update_core: { icon: '📌', label: 'Core Memory',   color: 'memory'    },
   think:              { icon: '💭', label: 'Thinking',      color: 'thinking'  },
   send_message:       { icon: '💬', label: 'Message',       color: 'messaging' },
   make_call:          { icon: '📞', label: 'Call',           color: 'messaging' },
@@ -255,6 +258,9 @@ function describeArgs(toolName, args) {
     case 'browser_evaluate':  return { headline: args.script?.slice(0, 120) };
     case 'memory_write':      return { headline: `→ ${args.target}`, detail: args.content?.slice(0, 160) };
     case 'memory_read':       return { headline: `← ${args.target}`, detail: args.search ? `Search: "${args.search}"` : null };
+    case 'memory_save':       return { headline: args.content?.slice(0, 200), detail: `${args.category || 'episodic'} · importance ${args.importance || 5}` };
+    case 'memory_recall':     return { headline: `"${args.query}"`, detail: args.limit ? `top ${args.limit}` : null };
+    case 'memory_update_core':return { headline: `${args.key} → ${String(args.value || '').slice(0, 100)}` };
     case 'think':             return { headline: args.thought?.slice(0, 400) };
     case 'http_request':      return { headline: `${args.method || 'GET'} ${args.url}` };
     case 'send_message':      return { headline: args.content?.slice(0, 160), detail: `${args.platform} → ${args.to}` };
@@ -289,6 +295,14 @@ function describeResult(toolName, result) {
     case 'memory_read': {
       const txt = typeof result === 'string' ? result : (result.content || JSON.stringify(result));
       return { type: 'output', text: txt.slice(0, 400) };
+    }
+    case 'memory_save':        return { type: 'success', text: 'Saved to memory ✓' };
+    case 'memory_update_core': return { type: 'success', text: 'Core memory updated ✓' };
+    case 'memory_recall': {
+      const results = result?.results || [];
+      if (!results.length) return { type: 'output', text: 'Nothing found' };
+      const preview = results.slice(0, 3).map(r => `• ${r.content}`).join('\n');
+      return { type: 'output', text: preview };
     }
     case 'think': return null;
     case 'http_request': {
@@ -870,77 +884,228 @@ $('#logoutBtn').addEventListener('click', async () => {
 
 // ── Memory Page ──
 
+// Category badge colours
+const CAT_COLORS = {
+  user_fact:   { bg: '#3b82f620', border: '#3b82f6', text: '#3b82f6', label: 'User Fact' },
+  preference:  { bg: '#8b5cf620', border: '#8b5cf6', text: '#8b5cf6', label: 'Preference' },
+  personality: { bg: '#ec489920', border: '#ec4899', text: '#ec4899', label: 'Personality' },
+  episodic:    { bg: '#22c55e20', border: '#22c55e', text: '#22c55e', label: 'Episodic' },
+};
+
+let _memActiveCategory = '';
+let _memCurrentPage = 0;
+
 async function loadMemoryPage() {
   try {
     const data = await api('/memory');
-    $('#memoryEditor').value = data.memory || '';
-    $('#soulEditor').value = data.soul || '';
 
+    // Soul
+    if ($('#soulEditor')) $('#soulEditor').value = data.soul || '';
+
+    // Daily logs
     const dailyContainer = $('#dailyLogs');
-    dailyContainer.innerHTML = '';
-    for (const log of (data.dailyLogs || [])) {
-      const card = document.createElement('div');
-      card.className = 'item-card';
-      card.innerHTML = `<div class="item-card-header"><div class="item-card-title">${escapeHtml(log.date)}</div></div><pre class="code-block">${escapeHtml(log.content || 'Empty')}</pre>`;
-      dailyContainer.appendChild(card);
+    if (dailyContainer) {
+      dailyContainer.innerHTML = '';
+      for (const log of (data.dailyLogs || [])) {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `<div class="item-card-header"><div class="item-card-title">${escapeHtml(log.date)}</div></div><pre class="code-block">${escapeHtml(log.content || 'Empty')}</pre>`;
+        dailyContainer.appendChild(card);
+      }
     }
 
+    // Core memory
+    _renderCoreMemory(data.coreMemory || {});
+
+    // API keys
     const keyContainer = $('#apiKeyList');
-    keyContainer.innerHTML = '';
-    const keys = await api('/memory/api-keys');
-    for (const [name, masked] of Object.entries(keys)) {
-      const card = document.createElement('div');
-      card.className = 'item-card flex justify-between items-center';
-      card.innerHTML = `<div><div class="item-card-title">${escapeHtml(name)}</div><div class="item-card-meta font-mono">${escapeHtml(masked)}</div></div>
-        <button class="btn btn-sm btn-danger" data-action="deleteApiKey" data-name="${escapeHtml(name)}">&times;</button>`;
-      keyContainer.appendChild(card);
+    if (keyContainer) {
+      keyContainer.innerHTML = '';
+      const keys = await api('/memory/api-keys');
+      for (const [name, masked] of Object.entries(keys)) {
+        const card = document.createElement('div');
+        card.className = 'item-card flex justify-between items-center';
+        card.innerHTML = `<div><div class="item-card-title">${escapeHtml(name)}</div><div class="item-card-meta font-mono">${escapeHtml(masked)}</div></div>
+          <button class="btn btn-sm btn-danger" data-action="deleteApiKey" data-name="${escapeHtml(name)}">&times;</button>`;
+        keyContainer.appendChild(card);
+      }
     }
+
+    // Memories list
+    await _loadMemoriesTab(_memActiveCategory);
+
   } catch (err) {
     toast('Failed to load memory', 'error');
   }
 }
 
-// Memory tab switching
+async function _loadMemoriesTab(category = '') {
+  const container = $('#memoryList');
+  if (!container) return;
+  container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Loading…</p></div>';
+  try {
+    const params = new URLSearchParams({ limit: 60, offset: 0 });
+    if (category) params.set('category', category);
+    const memories = await api(`/memory/memories?${params}`);
+    _renderMemories(memories, container);
+  } catch {
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Failed to load memories</p></div>';
+  }
+}
+
+function _renderMemories(memories, container) {
+  container.innerHTML = '';
+  if (!memories.length) {
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>No memories yet. The agent will save things automatically, or you can add one manually.</p></div>';
+    return;
+  }
+  for (const mem of memories) {
+    const cat = CAT_COLORS[mem.category] || CAT_COLORS.episodic;
+    const dots = '●'.repeat(Math.round(mem.importance / 2)) + '○'.repeat(5 - Math.round(mem.importance / 2));
+    const date = new Date(mem.updated_at || mem.created_at);
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = `margin:0;cursor:default;border-left:3px solid ${cat.border};`;
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+        <span style="background:${cat.bg};color:${cat.text};border:1px solid ${cat.border};border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:600;flex-shrink:0;">${cat.label}</span>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <span style="font-size:0.75rem;color:var(--text-muted);">${dateStr}</span>
+          <button class="btn btn-sm btn-danger" data-action="deleteMemory" data-id="${escapeHtml(mem.id)}" style="padding:2px 7px;font-size:0.75rem;">&times;</button>
+        </div>
+      </div>
+      <div style="font-size:0.9rem;line-height:1.5;color:var(--text);">${escapeHtml(mem.content)}</div>
+      <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);letter-spacing:0.03em;">${dots} <span style="margin-left:4px;">importance ${mem.importance}</span>${mem.access_count > 0 ? ` · recalled ${mem.access_count}×` : ''}</div>`;
+    container.appendChild(card);
+  }
+}
+
+function _renderCoreMemory(core) {
+  const container = $('#coreMemoryList');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!Object.keys(core).length) {
+    const empty = document.createElement('p');
+    empty.className = 'text-muted';
+    empty.style.cssText = 'font-size:0.85rem;margin-bottom:8px;';
+    empty.textContent = 'No core memory entries yet.';
+    container.appendChild(empty);
+    return;
+  }
+  for (const [key, val] of Object.entries(core)) {
+    const row = document.createElement('div');
+    row.className = 'item-card';
+    row.style.marginBottom = '8px';
+    const display = typeof val === 'object' ? JSON.stringify(val) : String(val);
+    row.innerHTML = `
+      <div class="item-card-header">
+        <div>
+          <div class="item-card-title" style="font-size:0.85rem;font-family:monospace;">${escapeHtml(key)}</div>
+          <div class="item-card-meta" style="margin-top:3px;">${escapeHtml(display.slice(0, 200))}</div>
+        </div>
+        <div class="item-card-actions">
+          <button class="btn btn-sm btn-secondary" data-action="editCore" data-key="${escapeHtml(key)}" data-val="${escapeHtml(display)}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-action="deleteCore" data-key="${escapeHtml(key)}">&times;</button>
+        </div>
+      </div>`;
+    container.appendChild(row);
+  }
+}
+
+// Tab switching for memory page
 $$('[data-mem-tab]').forEach(tab => {
   tab.addEventListener('click', () => {
     $$('[data-mem-tab]').forEach(t => t.classList.remove('active'));
     $$('.mem-panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
-    $(`#mem-${tab.dataset.memTab}`).classList.add('active');
+    $(`#mem-${tab.dataset.memTab}`)?.classList.add('active');
   });
 });
 
-$('#saveMemoryBtn').addEventListener('click', async () => {
-  try {
-    await api('/memory/memory', { method: 'PUT', body: { content: $('#memoryEditor').value } });
-    toast('Memory saved', 'success');
-  } catch (err) { toast('Failed to save', 'error'); }
+// Category filter
+$('#memoryCategoryFilter')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-cat]');
+  if (!btn) return;
+  _memActiveCategory = btn.dataset.cat;
+  $$('#memoryCategoryFilter [data-cat]').forEach(b => {
+    b.className = b.dataset.cat === _memActiveCategory ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
+  });
+  await _loadMemoriesTab(_memActiveCategory);
 });
 
-$('#saveSoulBtn').addEventListener('click', async () => {
+// Semantic search
+$('#memorySearchBtn')?.addEventListener('click', async () => {
+  const q = $('#memorySearchInput')?.value?.trim();
+  if (!q) { await _loadMemoriesTab(_memActiveCategory); return; }
+  const container = $('#memoryList');
+  container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Searching…</p></div>';
+  try {
+    const results = await api('/memory/memories/recall', { method: 'POST', body: { query: q, limit: 20 } });
+    _renderMemories(results, container);
+  } catch {
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Search failed</p></div>';
+  }
+});
+
+$('#memorySearchInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('#memorySearchBtn')?.click();
+});
+
+// Soul save
+$('#saveSoulBtn')?.addEventListener('click', async () => {
   try {
     await api('/memory/soul', { method: 'PUT', body: { content: $('#soulEditor').value } });
     toast('Soul saved', 'success');
-  } catch (err) { toast('Failed to save', 'error'); }
+  } catch { toast('Failed to save', 'error'); }
 });
 
+// Add Memory Modal
+$('#addMemoryBtn')?.addEventListener('click', () => {
+  $('#addMemoryModal')?.classList.remove('hidden');
+});
+$('#closeAddMemory')?.addEventListener('click', () => $('#addMemoryModal')?.classList.add('hidden'));
+$('#cancelAddMemory')?.addEventListener('click', () => $('#addMemoryModal')?.classList.add('hidden'));
+
+$('#confirmAddMemory')?.addEventListener('click', async () => {
+  const content = $('#newMemoryContent')?.value?.trim();
+  if (!content) { toast('Content is required', 'error'); return; }
+  const category  = $('#newMemoryCategory')?.value || 'episodic';
+  const importance = parseInt($('#newMemoryImportance')?.value) || 5;
+  try {
+    await api('/memory/memories', { method: 'POST', body: { content, category, importance } });
+    $('#addMemoryModal')?.classList.add('hidden');
+    $('#newMemoryContent').value = '';
+    await _loadMemoriesTab(_memActiveCategory);
+    toast('Memory saved', 'success');
+  } catch { toast('Failed to save memory', 'error'); }
+});
+
+// Set core memory key
+$('#setCoreBtn')?.addEventListener('click', async () => {
+  const key = $('#coreKeySelect')?.value;
+  const value = $('#coreValueInput')?.value?.trim();
+  if (!key || !value) { toast('Key and value are required', 'error'); return; }
+  try {
+    await api(`/memory/core/${key}`, { method: 'PUT', body: { value } });
+    $('#coreValueInput').value = '';
+    const core = await api('/memory/core');
+    _renderCoreMemory(core);
+    toast('Core memory updated', 'success');
+  } catch { toast('Failed to update core memory', 'error'); }
+});
+
+// API Keys
 window.deleteApiKey = async (name) => {
   try {
     await api(`/memory/api-keys/${name}`, { method: 'DELETE' });
     loadMemoryPage();
     toast('Key deleted', 'success');
-  } catch (err) { toast('Failed to delete', 'error'); }
+  } catch { toast('Failed to delete', 'error'); }
 };
 
-// Event delegation for memory page
-document.addEventListener('click', e => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const action = btn.dataset.action;
-  if (action === 'deleteApiKey') window.deleteApiKey(btn.dataset.name);
-});
-
-$('#addApiKeyBtn').addEventListener('click', () => {
+$('#addApiKeyBtn')?.addEventListener('click', () => {
   const name = prompt('Service name:');
   if (!name) return;
   const key = prompt('API key value:');
@@ -948,6 +1113,41 @@ $('#addApiKeyBtn').addEventListener('click', () => {
   api(`/memory/api-keys/${name}`, { method: 'PUT', body: { key } })
     .then(() => { loadMemoryPage(); toast('Key added', 'success'); })
     .catch(() => toast('Failed to add key', 'error'));
+});
+
+// Global click delegation for memory actions
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+
+  if (action === 'deleteApiKey') {
+    window.deleteApiKey(btn.dataset.name);
+  } else if (action === 'deleteMemory') {
+    if (!confirm('Delete this memory?')) return;
+    try {
+      await api(`/memory/memories/${btn.dataset.id}`, { method: 'DELETE' });
+      await _loadMemoriesTab(_memActiveCategory);
+      toast('Memory deleted', 'success');
+    } catch { toast('Failed to delete', 'error'); }
+  } else if (action === 'editCore') {
+    const newVal = prompt(`Edit ${btn.dataset.key}:`, btn.dataset.val);
+    if (newVal === null) return;
+    try {
+      await api(`/memory/core/${btn.dataset.key}`, { method: 'PUT', body: { value: newVal } });
+      const core = await api('/memory/core');
+      _renderCoreMemory(core);
+      toast('Updated', 'success');
+    } catch { toast('Failed to update', 'error'); }
+  } else if (action === 'deleteCore') {
+    if (!confirm(`Delete core key "${btn.dataset.key}"?`)) return;
+    try {
+      await api(`/memory/core/${btn.dataset.key}`, { method: 'DELETE' });
+      const core = await api('/memory/core');
+      _renderCoreMemory(core);
+      toast('Deleted', 'success');
+    } catch { toast('Failed to delete', 'error'); }
+  }
 });
 
 // ── Skills Page ──

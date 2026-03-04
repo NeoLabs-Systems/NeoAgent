@@ -165,37 +165,107 @@
       <div class="page" id="page-memory">
         <div class="page-header">
           <h1>Memory</h1>
+          <button class="btn btn-primary" id="addMemoryBtn">+ Add Memory</button>
         </div>
         <div class="page-body">
           <div class="tabs">
-            <div class="tab active" data-mem-tab="memory">Memory</div>
+            <div class="tab active" data-mem-tab="memories">Memories</div>
+            <div class="tab" data-mem-tab="core">Core</div>
             <div class="tab" data-mem-tab="soul">Soul</div>
             <div class="tab" data-mem-tab="daily">Daily Logs</div>
             <div class="tab" data-mem-tab="apikeys">API Keys</div>
           </div>
-          <div class="mem-panel active" id="mem-memory">
-            <div class="flex justify-between items-center mb-4">
-              <span class="text-muted">Persistent memory entries</span>
-              <button class="btn btn-sm btn-secondary" id="saveMemoryBtn">Save</button>
+
+          <!-- Memories tab -->
+          <div class="mem-panel active" id="mem-memories">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+              <input type="text" id="memorySearchInput" class="input" style="flex:1;min-width:200px;" placeholder="Semantic search memories…"/>
+              <button class="btn btn-sm btn-secondary" id="memorySearchBtn">Search</button>
             </div>
-            <textarea id="memoryEditor" class="textarea font-mono" rows="20" placeholder="No memories yet..."></textarea>
+            <div id="memoryCategoryFilter" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-primary" data-cat="">All</button>
+              <button class="btn btn-sm btn-secondary" data-cat="user_fact">User Facts</button>
+              <button class="btn btn-sm btn-secondary" data-cat="preference">Preferences</button>
+              <button class="btn btn-sm btn-secondary" data-cat="personality">Personality</button>
+              <button class="btn btn-sm btn-secondary" data-cat="episodic">Episodic</button>
+            </div>
+            <div id="memoryList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;"></div>
           </div>
+
+          <!-- Core memory tab -->
+          <div class="mem-panel" id="mem-core">
+            <div style="margin-bottom:14px;">
+              <p class="text-muted" style="font-size:0.85rem;margin-bottom:14px;">Core memory is injected into <strong>every prompt</strong> — keep entries concise. Ideal for: user's name, standing preferences, how the agent should behave.</p>
+              <div id="coreMemoryList"></div>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <select id="coreKeySelect" class="input" style="flex:0 0 auto;width:180px;">
+                  <option value="user_profile">user_profile</option>
+                  <option value="preferences">preferences</option>
+                  <option value="ai_personality">ai_personality</option>
+                  <option value="active_context">active_context</option>
+                </select>
+                <input type="text" id="coreValueInput" class="input" style="flex:1;" placeholder="Value…"/>
+                <button class="btn btn-primary btn-sm" id="setCoreBtn">Set</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Soul tab -->
           <div class="mem-panel" id="mem-soul">
             <div class="flex justify-between items-center mb-4">
-              <span class="text-muted">Agent personality & identity</span>
+              <span class="text-muted" style="font-size:0.85rem;">Agent personality &amp; identity — the agent can rewrite this anytime using <code>memory_write</code> with target <code>soul</code>.</span>
               <button class="btn btn-sm btn-secondary" id="saveSoulBtn">Save</button>
             </div>
             <textarea id="soulEditor" class="textarea font-mono" rows="20" placeholder="No soul definition yet..."></textarea>
           </div>
+
+          <!-- Daily Logs tab -->
           <div class="mem-panel" id="mem-daily">
             <div id="dailyLogs"></div>
           </div>
+
+          <!-- API Keys tab -->
           <div class="mem-panel" id="mem-apikeys">
             <div class="flex justify-between items-center mb-4">
               <span class="text-muted">Agent-managed API keys</span>
               <button class="btn btn-sm btn-primary" id="addApiKeyBtn">Add Key</button>
             </div>
             <div id="apiKeyList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Memory Modal -->
+      <div class="modal-overlay hidden" id="addMemoryModal">
+        <div class="modal" style="max-width:500px;">
+          <div class="modal-header">
+            <h2>Add Memory</h2>
+            <button class="btn-ghost" id="closeAddMemory">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Content</label>
+              <textarea id="newMemoryContent" class="textarea" rows="4" placeholder="Write a clear, self-contained statement about what to remember…"></textarea>
+            </div>
+            <div class="form-group" style="display:flex;gap:12px;">
+              <div style="flex:1;">
+                <label class="form-label">Category</label>
+                <select id="newMemoryCategory" class="input" style="width:100%;">
+                  <option value="episodic">Episodic</option>
+                  <option value="user_fact">User Fact</option>
+                  <option value="preference">Preference</option>
+                  <option value="personality">Personality</option>
+                </select>
+              </div>
+              <div style="flex:1;">
+                <label class="form-label">Importance (1–10)</label>
+                <input type="number" id="newMemoryImportance" class="input" min="1" max="10" value="5" style="width:100%;"/>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancelAddMemory">Cancel</button>
+            <button class="btn btn-primary" id="confirmAddMemory">Save Memory</button>
           </div>
         </div>
       </div>
