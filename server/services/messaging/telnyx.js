@@ -263,15 +263,22 @@ class TelnyxVoicePlatform extends BasePlatform {
             this.emit('blocked_caller', { caller, ccId });
             break;
           }
-          await this._answerCall(ccId);
+          // Init session BEFORE answering so call.answered (which arrives as a
+          // separate concurrent webhook) always finds a valid session.
           this._initSession(ccId, caller);
+          await this._answerCall(ccId);
           console.log(`[TelnyxVoice] Answered inbound call from ${caller}`);
           break;
         }
 
         // ── Call connected — play greeting ──────────────────────────────────
         case 'call.answered': {
-          if (!this._hasSession(ccId)) break;
+          // Fallback: if call.initiated raced and session isn't created yet, init now.
+          if (!this._hasSession(ccId)) {
+            const caller = payload.from || payload.to || ccId;
+            this._initSession(ccId, caller);
+            console.log(`[TelnyxVoice] call.answered race — session created late for ${ccId.slice(-8)}`);
+          }
           const sess = this._session(ccId);
           sess.isProcessing = true;
           sess.awaitingUserInput = true;
