@@ -1313,9 +1313,8 @@ $('#addTaskBtn').addEventListener('click', () => {
 
 // Registry of supported platforms — add new entries here to support more providers
 const MESSAGING_PLATFORMS = [
-  { id: 'whatsapp', name: 'WhatsApp', icon: '💬', color: '#25d366', connectMethod: 'qr' }
-  // { id: 'telegram', name: 'Telegram', icon: '✈️', color: '#2ca5e0', connectMethod: 'token' },
-  // { id: 'discord', name: 'Discord', icon: '🎮', color: '#5865f2', connectMethod: 'token' },
+  { id: 'whatsapp', name: 'WhatsApp', icon: '💬', color: '#25d366', connectMethod: 'qr' },
+  { id: 'telnyx',   name: 'Telnyx Voice', icon: '📞', color: '#00C8A0', connectMethod: 'config' }
 ];
 
 async function loadMessagingPage() {
@@ -1342,6 +1341,7 @@ async function loadMessagingPage() {
                   ${escapeHtml(info.status.replace(/_/g, ' '))}
                 </span>
                 ${info.lastConnected ? `<span class="text-xs text-muted">last connected ${formatTime(info.lastConnected)}</span>` : ''}
+                ${isConnected && info.authInfo?.phoneNumber ? `<span class="text-xs text-muted">${escapeHtml(info.authInfo.phoneNumber)}</span>` : ''}
               </div>
             </div>
           </div>
@@ -1358,6 +1358,8 @@ async function loadMessagingPage() {
       `;
       container.appendChild(card);
     }
+    // Also render whitelist cards below platform list
+    await loadWhitelistUI();
   } catch (err) {
     toast('Failed to load messaging', 'error');
   }
@@ -1367,25 +1369,51 @@ async function loadMessagingPage() {
 async function loadWhitelistUI() {
   const wrap = $('#whitelistSection');
   if (!wrap) return;
+  wrap.innerHTML = '';
 
+  // WhatsApp whitelist
+  await _renderWhitelistCard(wrap, {
+    settingKey: 'platform_whitelist_whatsapp',
+    title: 'WhatsApp Whitelist',
+    meta: 'Blocked senders trigger an allow popup. Add numbers here to pre-approve contacts.',
+    saveFn: async (list) => {
+      await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
+    }
+  });
+
+  // Telnyx whitelist
+  await _renderWhitelistCard(wrap, {
+    settingKey: 'platform_whitelist_telnyx',
+    title: 'Telnyx Voice Whitelist',
+    meta: 'Calls from numbers not on this list will be rejected. Leave empty to allow all inbound calls.',
+    saveFn: async (list) => {
+      await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
+    }
+  });
+}
+
+async function _renderWhitelistCard(wrap, { settingKey, title, meta, saveFn }) {
   let numbers = [];
   try {
     const settings = await api('/settings');
-    const raw = settings.platform_whitelist_whatsapp;
-    if (raw) numbers = JSON.parse(raw);
+    const raw = settings[settingKey];
+    if (raw) numbers = typeof raw === 'string' ? JSON.parse(raw) : raw;
   } catch { /* leave empty */ }
 
+  const container = document.createElement('div');
+  wrap.appendChild(container);
+
   function renderNumbers() {
-    wrap.innerHTML = '';
+    container.innerHTML = '';
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card mb-4';
 
     const header = document.createElement('div');
     header.className = 'flex items-center justify-between mb-3';
     header.innerHTML = `
       <div>
-        <div class="item-card-title">WhatsApp Whitelist</div>
-        <div class="item-card-meta">Blocked senders trigger an allow popup. Add numbers here to pre-approve contacts.</div>
+        <div class="item-card-title">${escapeHtml(title)}</div>
+        <div class="item-card-meta">${escapeHtml(meta)}</div>
       </div>`;
     card.appendChild(header);
 
@@ -1397,7 +1425,7 @@ async function loadWhitelistUI() {
       tag.innerHTML = `${escapeHtml(num)} <button style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;font-size:1rem;line-height:1;" data-remove="${escapeHtml(num)}">×</button>`;
       tag.querySelector('button').addEventListener('click', async () => {
         numbers = numbers.filter(n => n !== num);
-        await saveWhitelist(numbers);
+        await doSave(numbers);
         renderNumbers();
       });
       tags.appendChild(tag);
@@ -1405,7 +1433,7 @@ async function loadWhitelistUI() {
     if (!numbers.length) {
       const empty = document.createElement('span');
       empty.className = 'text-muted text-sm';
-      empty.textContent = 'No whitelist active — all senders allowed';
+      empty.textContent = 'No whitelist active — all numbers allowed';
       tags.appendChild(empty);
     }
     card.appendChild(tags);
@@ -1415,7 +1443,7 @@ async function loadWhitelistUI() {
     const inp = document.createElement('input');
     inp.type = 'text';
     inp.className = 'input';
-    inp.placeholder = 'e.g. 447911123456 or +1 555 000 0000';
+    inp.placeholder = 'e.g. +447911123456 or 15550000000';
     inp.style.flex = '1';
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn-primary btn-sm';
@@ -1425,7 +1453,7 @@ async function loadWhitelistUI() {
       if (!val) return;
       if (numbers.includes(val)) { toast('Already in list', 'info'); return; }
       numbers.push(val);
-      await saveWhitelist(numbers);
+      await doSave(numbers);
       inp.value = '';
       renderNumbers();
     });
@@ -1434,12 +1462,12 @@ async function loadWhitelistUI() {
     row.appendChild(addBtn);
     card.appendChild(row);
 
-    wrap.appendChild(card);
+    container.appendChild(card);
   }
 
-  async function saveWhitelist(list) {
+  async function doSave(list) {
     try {
-      await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
+      await saveFn(list);
       toast('Whitelist saved', 'success');
     } catch (err) { toast('Failed to save whitelist', 'error'); }
   }
@@ -1451,11 +1479,16 @@ async function loadWhitelistUI() {
 $('#platformList').addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
-  const { action, platform } = btn.dataset;
+  const { action, platform, method } = btn.dataset;
 
   if (action === 'connectPlatform') {
-    socket.emit('messaging:connect', { platform });
-    toast(`Connecting to ${platform}…`, 'info');
+    if (method === 'config') {
+      // Show config modal (currently only Telnyx)
+      if (platform === 'telnyx') openTelnyxConfigModal();
+    } else {
+      socket.emit('messaging:connect', { platform });
+      toast(`Connecting to ${platform}…`, 'info');
+    }
   } else if (action === 'disconnectPlatform') {
     try {
       await api('/messaging/disconnect', { method: 'POST', body: { platform } });
@@ -1474,6 +1507,113 @@ $('#platformList').addEventListener('click', async (e) => {
 $('#cancelQR').addEventListener('click', () => {
   $('#messagingQR').classList.add('hidden');
 });
+
+// ── Telnyx Config Modal ──────────────────────────────────────────────────────
+
+async function openTelnyxConfigModal() {
+  // Pre-fill from saved DB config if available
+  let saved = {};
+  try {
+    const st = await api('/messaging/status/telnyx');
+    // Config is not exposed in status; try settings instead
+  } catch {}
+  try {
+    const s = await api('/settings');
+    if (s.telnyx_config) saved = typeof s.telnyx_config === 'string' ? JSON.parse(s.telnyx_config) : s.telnyx_config;
+  } catch {}
+
+  const TTS_VOICES = ['alloy','echo','fable','onyx','nova','shimmer'];
+  const TTS_MODELS = ['tts-1','tts-1-hd','gpt-4o-mini-tts'];
+  const STT_MODELS = ['whisper-1','gpt-4o-transcribe'];
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  overlay.innerHTML = `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 28px 22px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="font-size:1.15rem;font-weight:700;">📞 Telnyx Voice — Configuration</div>
+        <button id="telnyxModalClose" style="background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-muted);">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label class="label" style="display:block;margin-bottom:4px;">Telnyx API Key *</label>
+          <input id="telnyx_apiKey" class="input" type="password" placeholder="KEY0..." value="${escapeHtml(saved.apiKey || '')}" autocomplete="off"/>
+        </div>
+        <div>
+          <label class="label" style="display:block;margin-bottom:4px;">Telnyx Phone Number * <span style="color:var(--text-muted);font-size:0.78rem;">(E.164, e.g. +12125550100)</span></label>
+          <input id="telnyx_phoneNumber" class="input" type="text" placeholder="+12125550100" value="${escapeHtml(saved.phoneNumber || '')}"/>
+        </div>
+        <div>
+          <label class="label" style="display:block;margin-bottom:4px;">Call Control Application ID (Connection ID) *</label>
+          <input id="telnyx_connectionId" class="input" type="text" placeholder="..." value="${escapeHtml(saved.connectionId || '')}"/>
+        </div>
+        <div>
+          <label class="label" style="display:block;margin-bottom:4px;">Webhook Base URL * <span style="color:var(--text-muted);font-size:0.78rem;">(public URL this server is reachable at)</span></label>
+          <input id="telnyx_webhookUrl" class="input" type="text" placeholder="https://xyz.ngrok.io" value="${escapeHtml(saved.webhookUrl || '')}"/>
+          <div style="font-size:0.76rem;color:var(--text-muted);margin-top:4px;">Set your Telnyx webhook to: <code style="background:var(--bg-secondary);padding:1px 5px;border-radius:4px;">&lt;URL&gt;/api/telnyx/webhook</code></div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;">
+            <label class="label" style="display:block;margin-bottom:4px;">TTS Voice</label>
+            <select id="telnyx_ttsVoice" class="input" style="width:100%;">
+              ${TTS_VOICES.map(v => `<option value="${v}"${(saved.ttsVoice||'alloy')===v?' selected':''}>${v}</option>`).join('')}
+            </select>
+          </div>
+          <div style="flex:1;">
+            <label class="label" style="display:block;margin-bottom:4px;">TTS Model</label>
+            <select id="telnyx_ttsModel" class="input" style="width:100%;">
+              ${TTS_MODELS.map(m => `<option value="${m}"${(saved.ttsModel||'tts-1')===m?' selected':''}>${m}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="label" style="display:block;margin-bottom:4px;">STT Model</label>
+          <select id="telnyx_sttModel" class="input" style="width:100%;">
+            ${STT_MODELS.map(m => `<option value="${m}"${(saved.sttModel||'whisper-1')===m?' selected':''}>${m}</option>`).join('')}
+          </select>
+          <div style="font-size:0.76rem;color:var(--text-muted);margin-top:4px;">Uses <code style="background:var(--bg-secondary);padding:1px 5px;border-radius:4px;">OPENAI_API_KEY</code> from environment for TTS + STT.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;">
+        <button id="telnyxModalCancel" class="btn btn-secondary">Cancel</button>
+        <button id="telnyxModalSave" class="btn btn-primary">Connect</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#telnyxModalClose').addEventListener('click', close);
+  overlay.querySelector('#telnyxModalCancel').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelector('#telnyxModalSave').addEventListener('click', async () => {
+    const config = {
+      apiKey:       overlay.querySelector('#telnyx_apiKey').value.trim(),
+      phoneNumber:  overlay.querySelector('#telnyx_phoneNumber').value.trim(),
+      connectionId: overlay.querySelector('#telnyx_connectionId').value.trim(),
+      webhookUrl:   overlay.querySelector('#telnyx_webhookUrl').value.trim(),
+      ttsVoice:     overlay.querySelector('#telnyx_ttsVoice').value,
+      ttsModel:     overlay.querySelector('#telnyx_ttsModel').value,
+      sttModel:     overlay.querySelector('#telnyx_sttModel').value
+    };
+    if (!config.apiKey || !config.phoneNumber || !config.connectionId || !config.webhookUrl) {
+      toast('Please fill in all required fields', 'error');
+      return;
+    }
+    try {
+      // Save config snapshot for pre-fill
+      await api('/settings', { method: 'PUT', body: { telnyx_config: JSON.stringify(config) } });
+      await api('/messaging/connect', { method: 'POST', body: { platform: 'telnyx', config } });
+      toast('Telnyx Voice connecting…', 'success');
+      close();
+      setTimeout(loadMessagingPage, 1000);
+    } catch (err) {
+      toast('Failed to connect: ' + (err.message || err), 'error');
+    }
+  });
+}
 
 socket.on('messaging:qr', (data) => {
   $('#messagingQR').classList.remove('hidden');
@@ -1500,10 +1640,12 @@ socket.on('messaging:error', (data) => {
 
 socket.on('messaging:blocked_sender', (data) => {
   // Show a persistent banner so the user can see the raw ID and add it to the whitelist
+  const platform = data.platform || 'whatsapp';
   const rawId = data.sender || data.chatId || 'unknown';
-  const displayName = data.senderName ? `${data.senderName} (${rawId})` : rawId;
   const bannerId = `blocked-banner-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   if (document.getElementById(bannerId)) return; // don't stack duplicates
+
+  const platformLabel = platform === 'telnyx' ? '📞 Blocked call' : '⚠ Blocked message';
 
   const banner = document.createElement('div');
   banner.id = bannerId;
@@ -1511,8 +1653,8 @@ socket.on('messaging:blocked_sender', (data) => {
   banner.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
       <div>
-        <div style="font-weight:600;margin-bottom:4px;">&#x26A0; Blocked message</div>
-        <div style="color:var(--text-muted);margin-bottom:10px;">Sender: <code style="font-size:0.82rem;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;">${escapeHtml(rawId)}</code>${data.senderName ? ` &mdash; ${escapeHtml(data.senderName)}` : ''}</div>
+        <div style="font-weight:600;margin-bottom:4px;">${platformLabel}</div>
+        <div style="color:var(--text-muted);margin-bottom:10px;">${platform === 'telnyx' ? 'From' : 'Sender'}: <code style="font-size:0.82rem;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;">${escapeHtml(rawId)}</code>${data.senderName ? ` &mdash; ${escapeHtml(data.senderName)}` : ''}</div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>
           <button class="btn btn-sm btn-secondary" id="wb-dismiss-${bannerId}">Dismiss</button>
@@ -1528,17 +1670,31 @@ socket.on('messaging:blocked_sender', (data) => {
     const digits = rawId.replace(/[^0-9]/g, '');
     const key = digits || rawId;
     try {
-      const settings = await api('/settings');
-      let list = [];
-      try {
-        const raw = settings.platform_whitelist_whatsapp;
-        if (Array.isArray(raw)) list = raw;
-        else if (typeof raw === 'string') list = JSON.parse(raw);
-        if (!Array.isArray(list)) list = [];
-      } catch { list = []; }
-      if (!list.includes(key)) {
-        list.push(key);
-        await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
+      if (platform === 'telnyx') {
+        // Use telnyx whitelist endpoint
+        const settings = await api('/settings');
+        let list = [];
+        try {
+          const raw = settings.platform_whitelist_telnyx;
+          if (Array.isArray(raw)) list = raw;
+          else if (typeof raw === 'string') list = JSON.parse(raw);
+          if (!Array.isArray(list)) list = [];
+        } catch { list = []; }
+        if (!list.includes(key)) list.push(key);
+        await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
+      } else {
+        const settings = await api('/settings');
+        let list = [];
+        try {
+          const raw = settings.platform_whitelist_whatsapp;
+          if (Array.isArray(raw)) list = raw;
+          else if (typeof raw === 'string') list = JSON.parse(raw);
+          if (!Array.isArray(list)) list = [];
+        } catch { list = []; }
+        if (!list.includes(key)) {
+          list.push(key);
+          await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
+        }
       }
       toast(`Added ${key} to whitelist`, 'success');
       banner.remove();

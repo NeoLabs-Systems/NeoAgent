@@ -95,6 +95,16 @@ app.use('/api/memory', require('./routes/memory'));
 app.use('/api/scheduler', require('./routes/scheduler'));
 app.use('/api/browser', require('./routes/browser'));
 
+// ── Telnyx voice webhook (unauthenticated – called by Telnyx servers) ──
+app.post('/api/telnyx/webhook', async (req, res) => {
+  res.status(200).send('OK'); // Acknowledge immediately
+  const manager = app.locals.messagingManager;
+  if (manager) await manager.handleTelnyxWebhook(req.body).catch(err => console.error('[Telnyx webhook]', err.message));
+});
+
+// ── Telnyx generated audio files (served publicly so Telnyx can fetch them) ──
+app.use('/telnyx-audio', express.static(path.join(DATA_DIR, 'telnyx-audio')));
+
 app.use('/screenshots', requireAuth, express.static(path.join(DATA_DIR, 'screenshots')));
 
 // ── Pages ──
@@ -196,7 +206,20 @@ const startServices = async () => {
           console.warn(`[Security] Possible prompt injection attempt from ${msg.sender} on ${msg.platform}: ${msg.content.slice(0, 200)}`);
         }
         // Wrap external content in delimiters — prevents prompt injection from untrusted senders
-        const prompt = `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}
+        const isVoiceCall = msg.platform === 'telnyx' && msg.mediaType === 'voice';
+        const prompt = isVoiceCall
+          ? `You are on a live phone call. The caller (${msg.senderName || msg.sender}) said:
+<caller_speech>
+${msg.content}
+</caller_speech>
+
+Respond via send_message with platform="telnyx" and to="${msg.chatId}".
+Rules for voice responses:
+- Keep it brief and conversational — this will be spoken aloud via TTS.
+- NO markdown, bullet points, bold, headers, or special formatting.
+- Speak naturally. Never say things like "How can I assist you further?" — just stop when done.
+- Always respond; never use [NO RESPONSE] on a live call.`
+          : `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}
 
 Reply to this message using send_message with platform="${msg.platform}" and to="${msg.chatId}".
 Text like a person: split across messages naturally when it fits the content. Never end with "anything else?" or close-out phrases — just stop when you're done.

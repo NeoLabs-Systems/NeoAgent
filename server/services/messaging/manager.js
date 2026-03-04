@@ -1,5 +1,6 @@
 const db = require('../../db/database');
 const { WhatsAppPlatform } = require('./whatsapp');
+const { TelnyxVoicePlatform } = require('./telnyx');
 
 class MessagingManager {
   constructor(io) {
@@ -7,7 +8,8 @@ class MessagingManager {
     this.platforms = new Map();
     this.messageHandlers = [];
     this.platformTypes = {
-      whatsapp: WhatsAppPlatform
+      whatsapp: WhatsAppPlatform,
+      telnyx:   TelnyxVoicePlatform
     };
   }
 
@@ -18,6 +20,15 @@ class MessagingManager {
   async connectPlatform(userId, platformName, config = {}) {
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
+
+    // For Telnyx, inject saved whitelist into config before constructing
+    if (platformName === 'telnyx') {
+      const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, 'platform_whitelist_telnyx');
+      if (wlRow) {
+        try { config.allowedNumbers = JSON.parse(wlRow.value); } catch { /* ignore */ }
+      }
+    }
 
     const key = `${userId}:${platformName}`;
     let platform = this.platforms.get(key);
@@ -52,6 +63,16 @@ class MessagingManager {
       db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND platform = ?')
         .run('logged_out', userId, platformName);
       this.platforms.delete(key);
+    });
+
+    // Telnyx-specific: blocked inbound caller notification
+    platform.on('blocked_caller', (info) => {
+      this.io.to(`user:${userId}`).emit('messaging:blocked_sender', {
+        platform: platformName,
+        sender: info.caller,
+        chatId: info.ccId,
+        senderName: null
+      });
     });
 
     platform.on('message', async (msg) => {
@@ -197,6 +218,31 @@ class MessagingManager {
     const platform = this.platforms.get(key);
     if (!platform?.sendTyping) return;
     return platform.sendTyping(chatId, isTyping);
+  }
+
+  /**
+   * Route a raw Telnyx webhook event to the correct user's platform instance.
+   * We find the Telnyx platform instance that owns this call_control_id, or fall
+   * back to the first connected Telnyx instance.
+   */
+  async handleTelnyxWebhook(event) {
+    // Try to find the platform by connection_id or phone number from event payload
+    for (const [key, platform] of this.platforms.entries()) {
+      if (platform.name === 'telnyx') {
+        await platform.handleWebhook(event);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Update the allowed-numbers list on a live Telnyx platform instance.
+   */
+  updateTelnyxAllowedNumbers(userId, numbers) {
+    const key = `${userId}:telnyx`;
+    const platform = this.platforms.get(key);
+    if (platform?.setAllowedNumbers) platform.setAllowedNumbers(numbers);
   }
 }
 
