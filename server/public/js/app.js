@@ -1892,8 +1892,9 @@ socket.on('messaging:blocked_sender', (data) => {
   const bannerId = `blocked-banner-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   if (document.getElementById(bannerId)) return; // don't stack duplicates
 
-  const platformLabel = platform === 'telnyx' ? '📞 Blocked call'
-    : platform === 'discord' ? '🎮 Blocked Discord message'
+  const platformLabel = platform === 'telnyx'   ? '📞 Blocked call'
+    : platform === 'discord'  ? '🎮 Blocked Discord message'
+    : platform === 'telegram' ? '✈️ Blocked Telegram message'
     : '⚠ Blocked message';
 
   const banner = document.createElement('div');
@@ -1935,7 +1936,15 @@ socket.on('messaging:blocked_sender', (data) => {
       const prefixed = entryKey.includes(':') ? entryKey : `user:${entryKey}`;
       if (!list.includes(prefixed)) list.push(prefixed);
       await api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } });
+    } else if (platform === 'telegram') {
+      const s = await api('/settings');
+      let list = [];
+      try { list = JSON.parse(s.platform_whitelist_telegram || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
+      const prefixed = entryKey.includes(':') ? entryKey : `user:${entryKey}`;
+      if (!list.includes(prefixed)) list.push(prefixed);
+      await api('/messaging/telegram/whitelist', { method: 'PUT', body: { ids: list } });
     } else {
+      // whatsapp
       const s = await api('/settings');
       let list = [];
       try { list = JSON.parse(s.platform_whitelist_whatsapp || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
