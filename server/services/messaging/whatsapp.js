@@ -132,7 +132,7 @@ class WhatsAppPlatform extends BasePlatform {
         if (!content && !mediaType) continue;
 
         let localMediaPath = null;
-        if (mediaType && mediaType !== 'sticker' && mediaType !== 'audio') {
+        if (mediaType && mediaType !== 'sticker') {
           try {
             const { downloadMediaMessage } = require('@whiskeysockets/baileys');
             const MEDIA_DIR = path.join(__dirname, '..', '..', '..', 'data', 'media');
@@ -141,12 +141,30 @@ class WhatsAppPlatform extends BasePlatform {
               logger: this._logger,
               reuploadRequest: this.sock.updateMediaMessage
             });
-            const extMap = { image: 'jpg', video: 'mp4', document: 'bin' };
+            const extMap = { image: 'jpg', video: 'mp4', document: 'bin', audio: 'ogg' };
             const ext = extMap[mediaType] || 'bin';
             const safeId = (msg.key.id || 'file').replace(/[^a-zA-Z0-9]/g, '');
             const fname = `${Date.now()}_${safeId}.${ext}`;
             localMediaPath = path.join(MEDIA_DIR, fname);
             fs.writeFileSync(localMediaPath, buffer);
+
+            // Transcribe WhatsApp voice notes using OpenAI Whisper
+            if (mediaType === 'audio' && process.env.OPENAI_API_KEY) {
+              try {
+                const OpenAI = require('openai');
+                const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+                const transcription = await openai.audio.transcriptions.create({
+                  file: fs.createReadStream(localMediaPath),
+                  model: 'whisper-1',
+                  response_format: 'text'
+                });
+                content = (typeof transcription === 'string' ? transcription : transcription?.text || '').trim() || '[Voice Note - empty audio]';
+                console.log(`[WhatsApp] Voice note transcribed: "${content.slice(0, 80)}"`);
+              } catch (transcribeErr) {
+                console.error('[WhatsApp] Audio transcription failed:', transcribeErr.message);
+                content = '[Voice Note - transcription failed]';
+              }
+            }
           } catch (dlErr) {
             console.error('[WhatsApp] Media download failed:', dlErr.message);
           }

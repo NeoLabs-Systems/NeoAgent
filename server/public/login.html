@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NeoAgent — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/styles.css">
   <style>
     body {
@@ -58,15 +60,19 @@
     }
 
     .login-card {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 400px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 40px;
-      box-shadow: var(--shadow);
+      position: relative; z-index: 1;
+      width: 100%; max-width: 400px;
+      background: rgba(12,12,24,.92);
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 20px; padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+      animation: cardIn 400ms cubic-bezier(.16,1,.3,1) both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(20px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .login-logo {
@@ -75,14 +81,12 @@
     }
 
     .login-logo .logo-icon {
-      width: 48px;
-      height: 48px;
-      background: var(--accent);
-      border-radius: 12px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border-radius: 14px;
+      display: inline-flex; align-items: center; justify-content: center;
       margin-bottom: 16px;
+      box-shadow: 0 4px 24px rgba(99,102,241,.45);
     }
 
     .login-logo .logo-icon svg {
