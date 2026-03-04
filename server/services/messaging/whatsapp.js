@@ -24,7 +24,8 @@ class WhatsAppPlatform extends BasePlatform {
       useMultiFileAuthState,
       DisconnectReason,
       makeCacheableSignalKeyStore,
-      fetchLatestBaileysVersion
+      fetchLatestBaileysVersion,
+      Browsers
     } = require('@whiskeysockets/baileys');
     const pino = require('pino');
 
@@ -49,7 +50,7 @@ class WhatsAppPlatform extends BasePlatform {
         keys: makeCacheableSignalKeyStore(state.keys, logger)
       },
       logger,
-      browser: ['Ubuntu', 'Chrome', '131.0.0.0'],
+      browser: Browsers.appropriate('Chrome'),
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
       markOnlineOnConnect: false,
