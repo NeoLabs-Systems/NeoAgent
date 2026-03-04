@@ -206,7 +206,15 @@ const startServices = async () => {
           console.warn(`[Security] Possible prompt injection attempt from ${msg.sender} on ${msg.platform}: ${msg.content.slice(0, 200)}`);
         }
         // Wrap external content in delimiters — prevents prompt injection from untrusted senders
-        const isVoiceCall = msg.platform === 'telnyx' && msg.mediaType === 'voice';
+        const isVoiceCall  = msg.platform === 'telnyx' && msg.mediaType === 'voice';
+        const isDiscordGuild = msg.platform === 'discord' && msg.isGroup;
+
+        // Channel context block for Discord guild/channel messages
+        const discordContext = (isDiscordGuild && Array.isArray(msg.channelContext) && msg.channelContext.length)
+          ? '\n\nRecent channel context (oldest → newest):\n' +
+            msg.channelContext.map(m => `[${m.author}]: ${m.content}`).join('\n')
+          : '';
+
         const prompt = isVoiceCall
           ? `You are on a live phone call. The caller (${msg.senderName || msg.sender}) said:
 <caller_speech>
@@ -219,7 +227,7 @@ Rules for voice responses:
 - NO markdown, bullet points, bold, headers, or special formatting.
 - Speak naturally. Never say things like "How can I assist you further?" — just stop when done.
 - Always respond; never use [NO RESPONSE] on a live call.`
-          : `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}
+          : `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${discordContext}
 
 Reply to this message using send_message with platform="${msg.platform}" and to="${msg.chatId}".
 Text like a person: split across messages naturally when it fits the content. Never end with "anything else?" or close-out phrases — just stop when you're done.
@@ -243,28 +251,31 @@ If no reply is needed (e.g. the message is just an acknowledgement like "ok", "t
 
     // Wire messaging → agent: incoming messages trigger agent
     messagingManager.registerHandler(async (userId, msg) => {
-      // Whitelist check: if user has set a whitelist for this platform, block unknown senders
-      const whitelistRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, `platform_whitelist_${msg.platform}`);
-      if (whitelistRow) {
-        try {
-          const whitelist = JSON.parse(whitelistRow.value);
-          if (Array.isArray(whitelist) && whitelist.length > 0) {
-            const normalize = (id) => (id || '').replace(/[^0-9]/g, '');
-            const senderNorm = normalize(msg.sender || msg.chatId);
-            const allowed = whitelist.some(n => normalize(n) === senderNorm);
-            if (!allowed) {
-              console.log(`[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`);
-              io.to(`user:${userId}`).emit('messaging:blocked_sender', {
-                platform: msg.platform,
-                sender: msg.sender,
-                chatId: msg.chatId,
-                senderName: msg.senderName || null
-              });
-              return;
+      // Discord handles its own access control (prefixed entry whitelist + mention gating)
+      if (msg.platform !== 'discord') {
+        // Whitelist check: if user has set a whitelist for this platform, block unknown senders
+        const whitelistRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+          .get(userId, `platform_whitelist_${msg.platform}`);
+        if (whitelistRow) {
+          try {
+            const whitelist = JSON.parse(whitelistRow.value);
+            if (Array.isArray(whitelist) && whitelist.length > 0) {
+              const normalize = (id) => (id || '').replace(/[^0-9]/g, '');
+              const senderNorm = normalize(msg.sender || msg.chatId);
+              const allowed = whitelist.some(n => normalize(n) === senderNorm);
+              if (!allowed) {
+                console.log(`[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`);
+                io.to(`user:${userId}`).emit('messaging:blocked_sender', {
+                  platform: msg.platform,
+                  sender: msg.sender,
+                  chatId: msg.chatId,
+                  senderName: msg.senderName || null
+                });
+                return;
+              }
             }
-          }
-        } catch { /* malformed whitelist, allow through */ }
+          } catch { /* malformed whitelist, allow through */ }
+        }
       }
 
       const upsertSetting = db.prepare('INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)');

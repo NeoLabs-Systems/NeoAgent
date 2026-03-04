@@ -278,12 +278,14 @@ class MessagingManager {
   }
 
   /**
-   * Update the allowed-IDs list on a live Discord platform instance.
+   * Update the allowed-entries list on a live Discord platform instance.
+   * Accepts prefixed strings: "user:ID", "guild:ID", "channel:ID"
    */
   updateDiscordAllowedIds(userId, ids) {
     const key = `${userId}:discord`;
     const platform = this.platforms.get(key);
-    if (platform?.setAllowedIds) platform.setAllowedIds(ids);
+    if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
+    else if (platform?.setAllowedIds) platform.setAllowedIds(ids); // legacy fallback
   }
 }
 

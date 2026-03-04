@@ -1320,175 +1320,244 @@ const MESSAGING_PLATFORMS = [
   { id: 'discord',  name: 'Discord',     icon: '🎮', color: '#5865F2', connectMethod: 'config' },
 ];
 
+// Per-platform whitelist config
+const PLATFORM_WHITELIST = {
+  whatsapp: {
+    settingKey: 'platform_whitelist_whatsapp',
+    label: 'Approved contacts',
+    emptyHint: 'No approved contacts yet — senders are added via the allow popup.',
+    allowAdd: false,
+    saveFn: async (list) => api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } }),
+  },
+  telnyx: {
+    settingKey: 'platform_whitelist_telnyx',
+    label: 'Allowed callers',
+    emptyHint: 'Empty — all inbound callers accepted.',
+    allowAdd: true,
+    addPlaceholder: 'e.g. +12125550100',
+    saveFn: async (list) => api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } }),
+  },
+  discord: {
+    settingKey: 'platform_whitelist_discord',
+    label: 'Approved users, servers & channels',
+    emptyHint: 'No entries yet — senders are added via the allow popup, or manually below.',
+    allowAdd: true,
+    addTypes: ['user', 'guild', 'channel'],
+    saveFn: async (list) => api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } }),
+  },
+};
+
 async function loadMessagingPage() {
   try {
-    const statuses = await api('/messaging/status');
+    const [statuses, settings] = await Promise.all([api('/messaging/status'), api('/settings')]);
     const container = $('#platformList');
     container.innerHTML = '';
 
     for (const platform of MESSAGING_PLATFORMS) {
-      const info = statuses[platform.id] || { status: 'not_configured' };
-      const isConnected = info.status === 'connected';
+      const info    = statuses[platform.id] || { status: 'not_configured' };
+      const wlCfg   = PLATFORM_WHITELIST[platform.id];
+      const isConnected  = info.status === 'connected';
       const isConnecting = info.status === 'connecting' || info.status === 'awaiting_qr';
+
+      let wlList = [];
+      try {
+        const raw = settings[wlCfg.settingKey];
+        if (raw) { wlList = typeof raw === 'string' ? JSON.parse(raw) : raw; }
+        if (!Array.isArray(wlList)) wlList = [];
+      } catch { wlList = []; }
 
       const card = document.createElement('div');
       card.className = 'card mb-4';
-      card.innerHTML = `
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div style="font-size:2rem;line-height:1;">${platform.icon}</div>
-            <div>
-              <div class="item-card-title">${escapeHtml(platform.name)}</div>
-              <div class="flex items-center gap-2 mt-1">
-                <span class="badge ${isConnected ? 'badge-success' : isConnecting ? 'badge-neutral' : 'badge-neutral'}">
-                  ${escapeHtml(info.status.replace(/_/g, ' '))}
-                </span>
-                ${info.lastConnected ? `<span class="text-xs text-muted">last connected ${formatTime(info.lastConnected)}</span>` : ''}
-                ${isConnected && info.authInfo?.phoneNumber ? `<span class="text-xs text-muted">${escapeHtml(info.authInfo.phoneNumber)}</span>` : ''}
+
+      // ── Top row: icon + name + status + action buttons
+      const topRow = document.createElement('div');
+      topRow.className = 'flex items-center justify-between';
+      topRow.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div style="font-size:2rem;line-height:1;">${platform.icon}</div>
+          <div>
+            <div class="item-card-title">${escapeHtml(platform.name)}</div>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="badge ${isConnected ? 'badge-success' : 'badge-neutral'}">
+                ${escapeHtml(info.status.replace(/_/g, ' '))}
+              </span>
+              ${info.lastConnected ? `<span class="text-xs text-muted">last connected ${formatTime(info.lastConnected)}</span>` : ''}
+              ${isConnected && info.authInfo?.phoneNumber ? `<span class="text-xs text-muted">${escapeHtml(info.authInfo.phoneNumber)}</span>` : ''}
               ${isConnected && info.authInfo?.tag ? `<span class="text-xs text-muted">${escapeHtml(info.authInfo.tag)}</span>` : ''}
-              </div>
             </div>
           </div>
-          <div class="flex gap-2">
-            ${isConnected
-              ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
-                 <button class="btn btn-sm btn-danger" data-action="logoutPlatform" data-platform="${platform.id}">Logout</button>`
-              : isConnecting
-                ? `<span class="text-muted text-sm">Connecting…</span>`
-                : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`
-            }
-          </div>
         </div>
-      `;
+        <div class="flex gap-2">
+          ${isConnected
+            ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
+               <button class="btn btn-sm btn-danger"     data-action="logoutPlatform"     data-platform="${platform.id}">Logout</button>`
+            : isConnecting
+              ? `<span class="text-muted text-sm">Connecting…</span>`
+              : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`}
+        </div>`;
+      card.appendChild(topRow);
+
+      // ── Whitelist collapsible strip
+      const strip = document.createElement('div');
+      strip.style.cssText = 'border-top:1px solid var(--border);margin:14px -20px 0;';
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.style.cssText = 'display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;cursor:pointer;padding:9px 20px;color:var(--text-muted);font-size:0.8rem;user-select:none;';
+      const arrowId = `wl-arrow-${platform.id}`;
+      const labelId = `wl-label-${platform.id}`;
+      toggleBtn.innerHTML = `<span id="${arrowId}" style="font-size:0.65rem;transition:transform 0.15s;display:inline-block;">▶</span>
+        <span id="${labelId}">${_wlLabel(wlCfg.label, wlList.length)}</span>`;
+
+      const panel = document.createElement('div');
+      panel.id = `wl-panel-${platform.id}`;
+      panel.style.cssText = 'display:none;padding:4px 20px 14px;';
+      _buildWhitelistPanel(panel, wlList, wlCfg, platform.id);
+
+      toggleBtn.addEventListener('click', () => {
+        const open = panel.style.display !== 'none';
+        panel.style.display = open ? 'none' : 'block';
+        document.getElementById(arrowId).style.transform = open ? '' : 'rotate(90deg)';
+      });
+
+      strip.appendChild(toggleBtn);
+      strip.appendChild(panel);
+      card.appendChild(strip);
       container.appendChild(card);
     }
-    // Also render whitelist cards below platform list
-    await loadWhitelistUI();
   } catch (err) {
+    console.error(err);
     toast('Failed to load messaging', 'error');
   }
-
 }
 
-async function loadWhitelistUI() {
-  const wrap = $('#whitelistSection');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-
-  // WhatsApp whitelist
-  await _renderWhitelistCard(wrap, {
-    settingKey: 'platform_whitelist_whatsapp',
-    title: 'WhatsApp Whitelist',
-    meta: 'Blocked senders trigger an allow popup. Add numbers here to pre-approve contacts.',
-    saveFn: async (list) => {
-      await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
-    }
-  });
-
-  // Telnyx whitelist
-  await _renderWhitelistCard(wrap, {
-    settingKey: 'platform_whitelist_telnyx',
-    title: 'Telnyx Voice Whitelist',
-    meta: 'Calls from numbers not on this list will be rejected. Leave empty to allow all inbound calls.',
-    saveFn: async (list) => {
-      await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
-    }
-  });
-
-  // Discord whitelist
-  await _renderWhitelistCard(wrap, {
-    settingKey: 'platform_whitelist_discord',
-    title: 'Discord Whitelist',
-    meta: 'Messages from user/server IDs not on this list trigger an allow popup. Leave empty to allow everyone.',
-    placeholder: 'Discord user or server (guild) ID',
-    saveFn: async (list) => {
-      await api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } });
-    }
-  });
+function _wlLabel(label, count) {
+  return count
+    ? `${label} <strong style="color:var(--text);font-weight:600;">(${count})</strong>`
+    : `${label} <span style="opacity:0.55;">— none</span>`;
 }
 
-async function _renderWhitelistCard(wrap, { settingKey, title, meta, placeholder, saveFn }) {
-  let numbers = [];
-  try {
-    const settings = await api('/settings');
-    const raw = settings[settingKey];
-    if (raw) numbers = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  } catch { /* leave empty */ }
+function _buildWhitelistPanel(panel, list, wlCfg, platformId) {
+  panel.innerHTML = '';
 
-  const container = document.createElement('div');
-  wrap.appendChild(container);
+  // Type-badge colours for Discord prefixed entries
+  const TYPE_COLORS = { user: '#5865F2', guild: '#57F287', channel: '#FEE75C' };
+  const TYPE_LABELS = { user: 'User', guild: 'Server', channel: 'Channel' };
 
-  function renderNumbers() {
-    container.innerHTML = '';
-    const card = document.createElement('div');
-    card.className = 'card mb-4';
-
-    const header = document.createElement('div');
-    header.className = 'flex items-center justify-between mb-3';
-    header.innerHTML = `
-      <div>
-        <div class="item-card-title">${escapeHtml(title)}</div>
-        <div class="item-card-meta">${escapeHtml(meta)}</div>
-      </div>`;
-    card.appendChild(header);
-
+  if (!list.length) {
+    const empty = document.createElement('p');
+    empty.className = 'text-xs text-muted';
+    empty.style.margin = '0 0 6px';
+    empty.textContent = wlCfg.emptyHint;
+    panel.appendChild(empty);
+  } else {
     const tags = document.createElement('div');
-    tags.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;min-height:32px;';
-    for (const num of numbers) {
+    tags.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;';
+    for (const entry of list) {
+      // Parse optional prefix
+      const colon = entry.indexOf(':');
+      const entryType = (colon > 0 && ['user','guild','channel'].includes(entry.slice(0,colon)))
+        ? entry.slice(0, colon) : null;
+      const entryId = colon > 0 ? entry.slice(colon + 1) : entry;
+
       const tag = document.createElement('span');
-      tag.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:999px;padding:3px 12px;font-size:0.85rem;';
-      tag.innerHTML = `${escapeHtml(num)} <button style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;font-size:1rem;line-height:1;" data-remove="${escapeHtml(num)}">×</button>`;
-      tag.querySelector('button').addEventListener('click', async () => {
-        numbers = numbers.filter(n => n !== num);
-        await doSave(numbers);
-        renderNumbers();
+      tag.style.cssText = 'display:inline-flex;align-items:center;gap:5px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:999px;padding:2px 10px 2px 8px;font-size:0.81rem;';
+
+      if (entryType) {
+        const badge = document.createElement('span');
+        badge.style.cssText = `background:${TYPE_COLORS[entryType] || '#888'};color:#000;border-radius:999px;padding:1px 7px;font-size:0.71rem;font-weight:600;`;
+        badge.textContent = TYPE_LABELS[entryType] || entryType;
+        tag.appendChild(badge);
+        tag.appendChild(document.createTextNode(' ' + entryId));
+      } else {
+        tag.appendChild(document.createTextNode(entry));
+      }
+
+      const removeBtn = document.createElement('button');
+      removeBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;font-size:1rem;line-height:1;margin-left:2px;';
+      removeBtn.textContent = '×';
+      removeBtn.title = 'Remove';
+      removeBtn.addEventListener('click', async () => {
+        const newList = list.filter(n => n !== entry);
+        try {
+          await wlCfg.saveFn(newList);
+          list = newList;
+          _buildWhitelistPanel(panel, list, wlCfg, platformId);
+          const lbl = document.getElementById(`wl-label-${platformId}`);
+          if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
+        } catch { toast('Failed to remove', 'error'); }
       });
+      tag.appendChild(removeBtn);
       tags.appendChild(tag);
     }
-    if (!numbers.length) {
-      const empty = document.createElement('span');
-      empty.className = 'text-muted text-sm';
-      empty.textContent = 'No whitelist active — all allowed';
-      tags.appendChild(empty);
-    }
-    card.appendChild(tags);
+    panel.appendChild(tags);
+  }
 
+  if (wlCfg.allowAdd) {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;';
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.className = 'input';
-    inp.placeholder = placeholder || 'e.g. +447911123456 or 15550000000';
-    inp.style.flex = '1';
-    const addBtn = document.createElement('button');
-    addBtn.className = 'btn btn-primary btn-sm';
-    addBtn.textContent = 'Add';
-    addBtn.addEventListener('click', async () => {
-      const val = inp.value.replace(/[^0-9]/g, '').trim();
-      if (!val) return;
-      if (numbers.includes(val)) { toast('Already in list', 'info'); return; }
-      numbers.push(val);
-      await doSave(numbers);
-      inp.value = '';
-      renderNumbers();
-    });
-    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
-    row.appendChild(inp);
-    row.appendChild(addBtn);
-    card.appendChild(row);
+    row.style.cssText = 'display:flex;gap:8px;align-items:center;';
 
-    container.appendChild(card);
+    if (wlCfg.addTypes) {
+      // Type selector + ID input for Discord
+      const sel = document.createElement('select');
+      sel.className = 'input';
+      sel.style.cssText = 'flex:0 0 auto;width:110px;';
+      for (const t of wlCfg.addTypes) {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = TYPE_LABELS[t] || t;
+        sel.appendChild(opt);
+      }
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.className = 'input'; inp.style.flex = '1';
+      inp.placeholder = 'Snowflake ID';
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn btn-primary btn-sm';
+      addBtn.textContent = 'Add';
+      addBtn.addEventListener('click', async () => {
+        const id = inp.value.replace(/[^0-9]/g, '').trim();
+        if (!id) return;
+        const val = `${sel.value}:${id}`;
+        if (list.includes(val)) { toast('Already in list', 'info'); return; }
+        const newList = [...list, val];
+        try {
+          await wlCfg.saveFn(newList);
+          list = newList; inp.value = '';
+          _buildWhitelistPanel(panel, list, wlCfg, platformId);
+          const lbl = document.getElementById(`wl-label-${platformId}`);
+          if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
+        } catch { toast('Failed to add', 'error'); }
+      });
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+      row.appendChild(sel); row.appendChild(inp); row.appendChild(addBtn);
+    } else {
+      // Plain input for telnyx numbers
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.className = 'input'; inp.style.flex = '1';
+      inp.placeholder = wlCfg.addPlaceholder || '+12125550100';
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn btn-primary btn-sm';
+      addBtn.textContent = 'Add';
+      addBtn.addEventListener('click', async () => {
+        const val = inp.value.replace(/[^0-9+]/g, '').trim();
+        if (!val) return;
+        if (list.includes(val)) { toast('Already in list', 'info'); return; }
+        const newList = [...list, val];
+        try {
+          await wlCfg.saveFn(newList);
+          list = newList; inp.value = '';
+          _buildWhitelistPanel(panel, list, wlCfg, platformId);
+          const lbl = document.getElementById(`wl-label-${platformId}`);
+          if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
+        } catch { toast('Failed to add', 'error'); }
+      });
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+      row.appendChild(inp); row.appendChild(addBtn);
+    }
+    panel.appendChild(row);
   }
-
-  async function doSave(list) {
-    try {
-      await saveFn(list);
-      toast('Whitelist saved', 'success');
-    } catch (err) { toast('Failed to save whitelist', 'error'); }
-  }
-
-  renderNumbers();
 }
+
+async function loadWhitelistUI() { /* replaced — whitelist is now inline in each platform card */ }
 
 // Platform action delegation
 $('#platformList').addEventListener('click', async (e) => {
@@ -1725,8 +1794,13 @@ socket.on('messaging:blocked_sender', (data) => {
       <div>
         <div style="font-weight:600;margin-bottom:4px;">${platformLabel}</div>
         <div style="color:var(--text-muted);margin-bottom:10px;">${platform === 'telnyx' ? 'From' : 'Sender'}: <code style="font-size:0.82rem;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;">${escapeHtml(rawId)}</code>${data.senderName ? ` &mdash; ${escapeHtml(data.senderName)}` : ''}${data.meta ? ` <span style="font-size:0.78rem;">(${escapeHtml(data.meta)})</span>` : ''}</div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;" id="wb-btns-${bannerId}">
+          ${(data.suggestions && data.suggestions.length
+            ? data.suggestions.map((s, i) =>
+                `<button class="btn btn-sm btn-primary" id="wb-sug-${bannerId}-${i}" data-pid="${escapeHtml(s.prefixedId)}">${escapeHtml(s.label)}</button>`
+              ).join('')
+            : `<button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>`
+          )}
           <button class="btn btn-sm btn-secondary" id="wb-dismiss-${bannerId}">Dismiss</button>
         </div>
       </div>
@@ -1736,54 +1810,59 @@ socket.on('messaging:blocked_sender', (data) => {
 
   document.getElementById(`wb-dismiss-${bannerId}`).addEventListener('click', () => banner.remove());
 
-  document.getElementById(`wb-add-${bannerId}`).addEventListener('click', async () => {
-    const digits = rawId.replace(/[^0-9]/g, '');
-    const key = digits || rawId;
-    try {
-      if (platform === 'telnyx') {
-        const settings = await api('/settings');
-        let list = [];
-        try {
-          const raw = settings.platform_whitelist_telnyx;
-          if (Array.isArray(raw)) list = raw;
-          else if (typeof raw === 'string') list = JSON.parse(raw);
-          if (!Array.isArray(list)) list = [];
-        } catch { list = []; }
-        if (!list.includes(key)) list.push(key);
-        await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
-      } else if (platform === 'discord') {
-        const settings = await api('/settings');
-        let list = [];
-        try {
-          const raw = settings.platform_whitelist_discord;
-          if (Array.isArray(raw)) list = raw;
-          else if (typeof raw === 'string') list = JSON.parse(raw);
-          if (!Array.isArray(list)) list = [];
-        } catch { list = []; }
-        if (!list.includes(key)) list.push(key);
-        await api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } });
-      } else {
-        const settings = await api('/settings');
-        let list = [];
-        try {
-          const raw = settings.platform_whitelist_whatsapp;
-          if (Array.isArray(raw)) list = raw;
-          else if (typeof raw === 'string') list = JSON.parse(raw);
-          if (!Array.isArray(list)) list = [];
-        } catch { list = []; }
-        if (!list.includes(key)) {
-          list.push(key);
-          await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
-        }
-      }
-      toast(`Added ${key} to whitelist`, 'success');
-      banner.remove();
-      // Refresh whitelist UI if already on messaging page
-      if (document.querySelector('#page-messaging.active')) await loadWhitelistUI();
-    } catch (err) {
-      toast('Failed to save: ' + err.message, 'error');
+  // Helper: add a prefixed/plain ID to a platform whitelist, refresh cards
+  async function _wbSave(platform, entryKey) {
+    if (platform === 'telnyx') {
+      const s = await api('/settings');
+      let list = [];
+      try { list = JSON.parse(s.platform_whitelist_telnyx || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
+      if (!list.includes(entryKey)) list.push(entryKey);
+      await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
+    } else if (platform === 'discord') {
+      const s = await api('/settings');
+      let list = [];
+      try { list = JSON.parse(s.platform_whitelist_discord || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
+      const prefixed = entryKey.includes(':') ? entryKey : `user:${entryKey}`;
+      if (!list.includes(prefixed)) list.push(prefixed);
+      await api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } });
+    } else {
+      const s = await api('/settings');
+      let list = [];
+      try { list = JSON.parse(s.platform_whitelist_whatsapp || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
+      if (!list.includes(entryKey)) list.push(entryKey);
+      await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
     }
-  });
+  }
+
+  // Wire suggestion buttons (Discord) or the single Add button (other platforms)
+  if (data.suggestions && data.suggestions.length) {
+    data.suggestions.forEach((s, i) => {
+      const btn = document.getElementById(`wb-sug-${bannerId}-${i}`);
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        try {
+          await _wbSave(platform, s.prefixedId);
+          toast(`Added ${s.prefixedId} to whitelist`, 'success');
+          banner.remove();
+          if (document.querySelector('#page-messaging.active')) loadMessagingPage();
+        } catch (err) { toast('Failed to save: ' + err.message, 'error'); }
+      });
+    });
+  } else {
+    const addBtn = document.getElementById(`wb-add-${bannerId}`);
+    if (addBtn) addBtn.addEventListener('click', async () => {
+      const digits = rawId.replace(/[^0-9]/g, '');
+      const key = digits || rawId;
+      try {
+        await _wbSave(platform, key);
+        toast(`Added ${key} to whitelist`, 'success');
+        banner.remove();
+        if (document.querySelector('#page-messaging.active')) loadMessagingPage();
+      } catch (err) {
+        toast('Failed to save: ' + err.message, 'error');
+      }
+    });
+  }
 });
 
 // ── Browser Page (removed - integrated into flow) ──
