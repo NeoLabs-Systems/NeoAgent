@@ -1362,8 +1362,6 @@ async function loadMessagingPage() {
     toast('Failed to load messaging', 'error');
   }
 
-  // Render whitelist UI
-  await loadWhitelistUI();
 }
 
 async function loadWhitelistUI() {
@@ -1387,7 +1385,7 @@ async function loadWhitelistUI() {
     header.innerHTML = `
       <div>
         <div class="item-card-title">WhatsApp Whitelist</div>
-        <div class="text-xs text-muted mt-1">Only these numbers can message the agent. Leave empty to allow everyone.</div>
+        <div class="item-card-meta">Blocked senders trigger an allow popup. Add numbers here to pre-approve contacts.</div>
       </div>`;
     card.appendChild(header);
 
@@ -1407,7 +1405,7 @@ async function loadWhitelistUI() {
     if (!numbers.length) {
       const empty = document.createElement('span');
       empty.className = 'text-muted text-sm';
-      empty.textContent = 'No restrictions — all numbers allowed';
+      empty.textContent = 'No whitelist active — all senders allowed';
       tags.appendChild(empty);
     }
     card.appendChild(tags);
@@ -1495,6 +1493,10 @@ socket.on('messaging:sent', (data) => {
 
 socket.on('messaging:disconnected', () => loadMessagingPage());
 socket.on('messaging:logged_out', () => loadMessagingPage());
+
+socket.on('messaging:error', (data) => {
+  toast((data && data.error) ? data.error : 'Messaging error', 'error');
+});
 
 socket.on('messaging:blocked_sender', (data) => {
   // Show a persistent banner so the user can see the raw ID and add it to the whitelist

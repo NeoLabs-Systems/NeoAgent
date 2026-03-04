@@ -504,6 +504,186 @@ Default: 25-minute work session followed by a 5-minute break. Run in background:
 Print the PID and end time so the user can track it. Support custom durations.`
   },
 
+  // ── GOOGLE ──────────────────────────────────────────────────────────────────
+  {
+    id: 'gogcli',
+    name: 'Google Suite (gogcli)',
+    description: 'Control Gmail, Calendar, Drive, Tasks, Contacts, Sheets, Chat and more via the gog CLI.',
+    category: 'productivity',
+    icon: '🌐',
+    content: `---
+name: gogcli
+description: Control Gmail, Calendar, Drive, Tasks, Contacts, Sheets, Chat and more via the gog CLI
+category: productivity
+icon: 🌐
+trigger: gmail|calendar|drive|tasks|contacts|sheets|google
+enabled: true
+source: https://github.com/steipete/gogcli
+---
+
+## Overview
+\`gog\` (gogcli) is a fast, JSON-first CLI for Google Workspace services. Install via:
+\`\`\`
+brew install steipete/tap/gogcli
+\`\`\`
+Use \`--json\` for machine-readable output.
+
+## Credential Storage (NeoAgent)
+Store the Google account email in API_KEYS.json so you can always retrieve it:
+\`\`\`
+memory_write target=api_keys content={"gog_account": "you@gmail.com"}
+\`\`\`
+For non-interactive / headless runs, also store the keyring password:
+\`\`\`
+memory_write target=api_keys content={"gog_account": "you@gmail.com", "gog_keyring_password": "<your-keyring-password>"}
+\`\`\`
+Before every \`gog\` command, read back these keys:
+\`\`\`
+memory_read target=api_keys
+\`\`\`
+Then run gog with the stored values:
+\`\`\`bash
+export GOG_ACCOUNT="<gog_account from api_keys>"
+export GOG_KEYRING_BACKEND=file                       # use on-disk encrypted keyring (no Keychain prompts)
+export GOG_KEYRING_PASSWORD="<gog_keyring_password from api_keys>"  # if set
+gog ...
+\`\`\`
+
+## First-Time Setup (run once manually by the user)
+\`\`\`bash
+gog auth credentials ~/Downloads/client_secret_....json  # store OAuth client credentials
+gog auth keyring file                                     # switch to file backend (avoids Keychain prompts)
+gog auth add you@gmail.com                               # authorize account — opens browser
+gog auth status                                          # verify auth state
+gog auth list                                            # list stored accounts
+\`\`\`
+After setup, save the account email with memory_write (above) so the agent can use it automatically.
+
+## Gmail
+\`\`\`bash
+gog gmail search 'newer_than:7d is:unread' --max 10 --json
+gog gmail thread get <threadId>
+gog gmail send --to a@b.com --subject "Subject" --body "Body"
+gog gmail send --to a@b.com --subject "Subject" --body-html "<p>Hi</p>"
+gog gmail labels list
+gog gmail thread modify <threadId> --add STARRED --remove INBOX
+\`\`\`
+
+## Calendar
+\`\`\`bash
+gog calendar events primary --today --json
+gog calendar events primary --week
+gog calendar search "standup" --days 7 --json
+gog calendar create primary --summary "Meeting" --from 2026-01-15T10:00:00Z --to 2026-01-15T11:00:00Z --attendees "a@b.com"
+gog calendar freebusy --calendars primary --from 2026-01-15T00:00:00Z --to 2026-01-16T00:00:00Z
+gog calendar delete primary <eventId> --force
+\`\`\`
+
+## Drive
+\`\`\`bash
+gog drive ls --max 20 --json
+gog drive search "invoice" --max 20 --json
+gog drive upload ./file.pdf
+gog drive download <fileId> --out ./file.pdf
+gog drive share <fileId> --to user --email user@example.com --role reader
+\`\`\`
+
+## Tasks
+\`\`\`bash
+gog tasks lists --json
+gog tasks list <tasklistId> --json
+gog tasks add <tasklistId> --title "Task title" --due 2026-02-01
+gog tasks done <tasklistId> <taskId>
+\`\`\`
+
+## Contacts
+\`\`\`bash
+gog contacts search "John" --max 20 --json
+gog contacts create --given "Jane" --family "Doe" --email "jane@example.com"
+\`\`\`
+
+## Sheets
+\`\`\`bash
+gog sheets metadata <spreadsheetId>
+gog sheets get <spreadsheetId> 'Sheet1!A1:D10' --json
+gog sheets update <spreadsheetId> 'Sheet1!A1' 'val1|val2,val3|val4'
+gog sheets append <spreadsheetId> 'Sheet1!A:C' 'new|row|data'
+\`\`\`
+
+## Docs / Slides
+\`\`\`bash
+gog docs cat <docId>
+gog docs export <docId> --format pdf --out ./doc.pdf
+gog docs sed <docId> 's/old/new/g'
+gog slides export <presentationId> --format pptx --out ./deck.pptx
+\`\`\`
+
+## Tips
+- Pipe JSON output to \`jq\` for filtering: \`gog --json gmail search 'is:unread' | jq '.threads[].id'\`
+- Use \`GOG_ENABLE_COMMANDS=gmail,calendar\` to sandbox allowed commands
+- \`--plain\` outputs stable TSV for shell scripting
+- Calendar JSON includes \`startDayOfWeek\` and localized time fields, useful for scheduling logic`
+  },
+
+  // ── COMMUNITY ────────────────────────────────────────────────────────────────
+  {
+    id: 'answeroverflow',
+    name: 'Answer Overflow',
+    description: 'Search indexed Discord community discussions for coding answers via Answer Overflow.',
+    category: 'productivity',
+    icon: '💬',
+    content: `---
+name: answeroverflow
+description: Search indexed Discord community discussions for coding answers via Answer Overflow
+category: productivity
+icon: 💬
+trigger: discord|answeroverflow|community support
+enabled: true
+source: https://github.com/AnswerOverflow/AnswerOverflow
+---
+
+## What is Answer Overflow?
+Answer Overflow indexes public Discord support channels and makes them searchable via Google and direct API. Perfect for finding answers that only exist in Discord conversations — from servers like Valorant, Cloudflare, C#, Nuxt, and thousands more.
+
+## Quick Search (via Google)
+\`\`\`bash
+# Best approach — Answer Overflow results appear in Google
+web_search "site:answeroverflow.com prisma connection pooling"
+web_search "site:answeroverflow.com nextjs app router error"
+web_search "site:answeroverflow.com discord.js slash commands"
+\`\`\`
+
+## Fetch Thread Content
+\`\`\`bash
+# Markdown format (preferred for agents)
+http_request GET https://www.answeroverflow.com/m/<message-id>
+# Add Accept: text/markdown header, or use /m/ prefix URL
+\`\`\`
+
+URL patterns:
+- Thread: \`https://www.answeroverflow.com/m/<message-id>\`
+- Server: \`https://www.answeroverflow.com/c/<server-slug>\`
+- Channel: \`https://www.answeroverflow.com/c/<server-slug>/<channel-slug>\`
+
+## MCP Server
+Answer Overflow exposes an MCP server at \`https://www.answeroverflow.com/mcp\`:
+
+| Tool | Description |
+|------|-------------|
+| \`search_answeroverflow\` | Search all indexed communities; filter by server/channel ID |
+| \`search_servers\` | Discover indexed Discord servers |
+| \`get_thread_messages\` | Get all messages from a specific thread |
+| \`find_similar_threads\` | Find threads related to a given thread |
+
+To add it as an MCP server in NeoAgent: command \`npx -y @answeroverflow/mcp\`
+
+## Tips
+- Results are real Discord conversations — context may be informal
+- Threads often have back-and-forth before the solution; read the whole thread
+- Check the server/channel name to understand context (official support vs community)
+- Many major open-source projects index their Discord support channels here`
+  },
+
   // ── FUN ─────────────────────────────────────────────────────────────────────
   {
     id: 'random-joke',
