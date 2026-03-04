@@ -249,6 +249,7 @@ ${msg.content}
 
 Respond via send_message with platform="telnyx" and to="${msg.chatId}".
 Rules for voice responses:
+- Call send_message EXACTLY ONCE with your complete reply. Do NOT call it multiple times.
 - Keep it brief and conversational — this will be spoken aloud via TTS.
 - NO markdown, bullet points, bold, headers, or special formatting.
 - Speak naturally. Never say things like "How can I assist you further?" — just stop when done.

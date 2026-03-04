@@ -96,6 +96,8 @@ class TelnyxVoicePlatform extends BasePlatform {
       callerNumber,
       isProcessing:       false,
       awaitingUserInput:  false,
+      isThinking:         false, // true while agent is processing — gates playback.ended mutations
+      replySent:          false, // prevents double-reply within one agent turn
       processedRecordings: new Set(),
       thinkFile:          null,   // filename of the looping think TTS (so we can delete it)
     });
@@ -285,13 +287,18 @@ class TelnyxVoicePlatform extends BasePlatform {
 
         // ── Playback lifecycle ──────────────────────────────────────────────
         case 'call.playback.started':
-          if (this._hasSession(ccId)) this._session(ccId).isProcessing = true;
+          // Only set isProcessing for audio we care about (not mid-think noise).
+          if (this._hasSession(ccId) && !this._session(ccId).isThinking)
+            this._session(ccId).isProcessing = true;
           break;
 
         case 'call.playback.ended':
         case 'call.speak.ended': {
           if (!this._hasSession(ccId)) break;
           const sess = this._session(ccId);
+          // While the agent is thinking (think audio looping) or already thinking,
+          // ignore these events — they are from the think-loop audio, not the response.
+          if (sess.isThinking) break;
           sess.isProcessing = false;
           if (!sess.awaitingUserInput) break;
           sess.awaitingUserInput = false;
@@ -309,8 +316,10 @@ class TelnyxVoicePlatform extends BasePlatform {
           if (!this._hasSession(ccId)) break;
           this._cancelRecordingTimer(ccId);
           const sess = this._session(ccId);
-          sess.isProcessing    = true;
+          sess.isProcessing      = true;
           sess.awaitingUserInput = false;
+          sess.isThinking        = false; // cancel think state if user interrupts
+          sess.replySent         = false; // allow a fresh reply for the new turn
           await this._stopAudio(ccId);
           await this._stopRecording(ccId);
           setTimeout(async () => {
@@ -329,12 +338,14 @@ class TelnyxVoicePlatform extends BasePlatform {
           this._cancelRecordingTimer(ccId);
           if (!this._hasSession(ccId)) break;
           const sess = this._session(ccId);
-          if (sess.isProcessing) break;
 
           const recordingUrl = payload.recording_urls?.mp3;
           if (!recordingUrl) break;
+          // Dedup before isProcessing check — prevents Telnyx retries from slipping through.
           if (sess.processedRecordings.has(recordingUrl)) break;
           sess.processedRecordings.add(recordingUrl);
+
+          if (sess.isProcessing) break;
 
           sess.isProcessing     = true;
           sess.awaitingUserInput = false;
@@ -364,12 +375,17 @@ class TelnyxVoicePlatform extends BasePlatform {
 
           console.log(`[TelnyxVoice] Transcript [${sess.callerNumber}]: ${transcript}`);
 
-          // Play looping "please hold" TTS while the agent thinks
+          // Mark as thinking — gates call.playback.ended so think-audio events
+          // don't corrupt session state while the agent is processing.
+          sess.isThinking = true;
+          sess.replySent  = false;
+
+          // Play a single (non-looping) hold phrase while the agent thinks.
           const thinkFile = this._tmpFile('think', ccId);
           const thinkPath = path.join(AUDIO_DIR, thinkFile);
           try {
             await this._tts('One moment please.', thinkPath);
-            await this._playAudio(ccId, this._publicUrl(thinkFile), true /* loop */);
+            await this._playAudio(ccId, this._publicUrl(thinkFile), false /* single play */);
             sess.thinkFile = thinkFile;
           } catch (err) {
             console.error('[TelnyxVoice] Failed to play think audio:', err.message);
@@ -419,7 +435,17 @@ class TelnyxVoicePlatform extends BasePlatform {
       return { success: false, reason: 'call_ended' };
     }
 
-    // Stop the looping "please hold" TTS
+    // Guard against the agent calling send_message more than once per turn.
+    if (sess.replySent) {
+      console.warn(`[TelnyxVoice] sendMessage: reply already sent for this turn, ignoring duplicate`);
+      return { success: false, reason: 'already_replied' };
+    }
+    sess.replySent  = true;
+    // Keep isThinking=true until the response audio command is accepted by Telnyx.
+    // This blocks any stray call.playback.ended (from the think-audio stop) from
+    // corrupting session state during the transition window.
+
+    // Stop the "please hold" TTS (suppress all errors — it may have already ended)
     try { await this._stopAudio(to); } catch {}
     if (sess.thinkFile) {
       const tf = sess.thinkFile;
@@ -427,15 +453,29 @@ class TelnyxVoicePlatform extends BasePlatform {
       setTimeout(() => fs.unlink(path.join(AUDIO_DIR, tf), () => {}), 2000);
     }
 
-    // Generate TTS response and play it
+    // Generate TTS response and play it.
+    // If anything here throws, reset replySent so the session isn't bricked.
     const respFile = this._tmpFile('resp', to);
     const respPath = path.join(AUDIO_DIR, respFile);
-    await this._tts(content, respPath);
+    try {
+      await this._tts(content, respPath);
 
-    sess.isProcessing    = true;
-    sess.awaitingUserInput = true;
-    await this._playAudio(to, this._publicUrl(respFile));
-    setTimeout(() => fs.unlink(respPath, () => {}), 60000);
+      // Commit state: clear thinking, arm the listen cycle, then fire the audio.
+      // Any call.playback.ended from here on belongs to the response audio.
+      sess.isThinking      = false;
+      sess.isProcessing    = true;
+      sess.awaitingUserInput = true;
+      await this._playAudio(to, this._publicUrl(respFile));
+      setTimeout(() => fs.unlink(respPath, () => {}), 60000);
+    } catch (err) {
+      // TTS or playback failed — reset so the turn isn't silently lost.
+      sess.replySent  = false;
+      sess.isThinking = false;
+      sess.isProcessing = false;
+      fs.unlink(respPath, () => {});
+      console.error('[TelnyxVoice] sendMessage failed:', err.message);
+      throw err;
+    }
 
     return { success: true };
   }
