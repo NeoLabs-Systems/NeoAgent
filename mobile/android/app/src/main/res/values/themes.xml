@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base app theme (dark) -->
+    <style name="Theme.Aurora" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:colorPrimary">@color/aurora_primary</item>
+        <item name="android:colorAccent">@color/aurora_accent</item>
+        <item name="android:textColorPrimary">@color/on_surface</item>
+        <item name="android:editTextColor">@color/on_surface</item>
+        <item name="android:textColorHint">@color/on_surface_muted</item>
+    </style>
+</resources>

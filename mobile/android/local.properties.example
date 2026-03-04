@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Aurora Android — local.properties
+#
+# Copy this file to local.properties and fill in your values.
+# local.properties is .gitignored — never commit credentials.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Android SDK location (required by Gradle)
+# macOS default:  /Users/<you>/Library/Android/sdk
+# Linux default:  /home/<you>/Android/Sdk
+sdk.dir=/Users/YOURNAME/Library/Android/sdk
+
+
+# URL of your NeoAgent instance (no trailing slash)
+# Use the LAN IP for local builds, or your public domain for remote.
+BACKEND_URL=http://192.168.1.100:3000
+
+# NeoAgent login credentials (same as the web UI)
+AUTH_USERNAME=admin
+AUTH_PASSWORD=changeme
+
+# Optional: override the notification accent colour (ARGB hex)
+# ACCENT_COLOR=#7C4DFF
