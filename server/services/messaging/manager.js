@@ -2,6 +2,7 @@ const db = require('../../db/database');
 const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
+const { TelegramPlatform } = require('./telegram');
 
 class MessagingManager {
   constructor(io) {
@@ -12,6 +13,7 @@ class MessagingManager {
       whatsapp: WhatsAppPlatform,
       telnyx:   TelnyxVoicePlatform,
       discord:  DiscordPlatform,
+      telegram: TelegramPlatform,
     };
   }
 
@@ -36,6 +38,15 @@ class MessagingManager {
     if (platformName === 'discord') {
       const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
         .get(userId, 'platform_whitelist_discord');
+      if (wlRow) {
+        try { config.allowedIds = JSON.parse(wlRow.value); } catch { /* ignore */ }
+      }
+    }
+
+    // For Telegram, inject saved allowedIds whitelist
+    if (platformName === 'telegram') {
+      const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, 'platform_whitelist_telegram');
       if (wlRow) {
         try { config.allowedIds = JSON.parse(wlRow.value); } catch { /* ignore */ }
       }
@@ -86,14 +97,15 @@ class MessagingManager {
       });
     });
 
-    // Discord-specific: blocked sender notification
+    // Discord / Telegram: blocked sender notification with suggestions
     platform.on('blocked_sender', (info) => {
       this.io.to(`user:${userId}`).emit('messaging:blocked_sender', {
         platform: platformName,
         sender: info.sender,
         chatId: info.chatId,
         senderName: info.senderName || null,
-        meta: info.guildName ? `Server: ${info.guildName}` : null,
+        meta: info.guildName ? `Server: ${info.guildName}` : (info.groupName ? `Group: ${info.groupName}` : null),
+        suggestions: info.suggestions || null,
       });
     });
 
@@ -286,6 +298,16 @@ class MessagingManager {
     const platform = this.platforms.get(key);
     if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
     else if (platform?.setAllowedIds) platform.setAllowedIds(ids); // legacy fallback
+  }
+
+  /**
+   * Update the allowed-entries list on a live Telegram platform instance.
+   * Accepts prefixed strings: "user:ID", "group:ID"
+   */
+  updateTelegramAllowedIds(userId, ids) {
+    const key = `${userId}:telegram`;
+    const platform = this.platforms.get(key);
+    if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
   }
 }
 

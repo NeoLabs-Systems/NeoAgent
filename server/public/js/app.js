@@ -1314,10 +1314,26 @@ $('#addTaskBtn').addEventListener('click', () => {
 // ── Messaging Page ──
 
 // Registry of supported platforms — add new entries here to support more providers
+const _svgLogo = {
+  whatsapp: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#25D366"/><path d="M18 7C11.9 7 7 11.9 7 18c0 2.1.58 4.08 1.6 5.77L7 29l5.4-1.56A11 11 0 0018 29c6.07 0 11-4.93 11-11S24.07 7 18 7z" fill="#25D366"/><path d="M24.4 21.52c-.33-.17-1.94-.96-2.24-1.07-.3-.1-.52-.17-.74.17-.22.33-.85 1.07-1.04 1.29-.2.22-.38.25-.71.08-.33-.17-1.39-.51-2.65-1.63-.98-.87-1.64-1.95-1.83-2.28-.19-.33-.02-.51.14-.67.15-.15.33-.38.5-.58.17-.19.22-.33.33-.55.1-.22.05-.41-.03-.58-.08-.17-.74-1.78-1.01-2.44-.27-.64-.54-.55-.74-.56-.19-.01-.41-.01-.63-.01-.22 0-.58.08-.88.41-.3.33-1.15 1.12-1.15 2.74s1.18 3.18 1.34 3.4c.17.22 2.32 3.54 5.61 4.96.79.34 1.4.54 1.87.69.79.25 1.5.22 2.07.13.63-.09 1.94-.79 2.22-1.56.28-.77.28-1.43.19-1.56-.09-.14-.3-.22-.63-.38z" fill="white"/></svg>`,
+
+  telegram: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#2AABEE"/><path d="M8.16 17.36l14.75-5.69c.68-.25 1.28.17 1.14.95L21.55 24.4c-.18.81-.67 1.01-1.36.63l-3.83-2.83-1.85 1.78c-.2.2-.38.37-.77.37l.27-3.86 6.99-6.32c.3-.27-.07-.42-.46-.15l-8.65 5.45-3.72-1.17c-.81-.25-.82-.81.17-1.2z" fill="white"/></svg>`,
+
+  discord: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#5865F2"/><path d="M25.57 11.69A18.2 18.2 0 0021.8 10.6a.07.07 0 00-.07.04 12.4 12.4 0 00-.52 1.06 16.8 16.8 0 00-5.07 0 10.7 10.7 0 00-.53-1.06.07.07 0 00-.07-.04 18.1 18.1 0 00-3.59 1.1.06.06 0 00-.03.03C9.51 15.52 8.61 19 9.07 22.4c0 .02.01.03.03.04a17.3 17.3 0 005.22 2.64.07.07 0 00.07-.02c.4-.55.76-1.13 1.06-1.74a.07.07 0 00-.04-.09 11.4 11.4 0 01-1.63-.78.07.07 0 010-.11c.11-.08.22-.17.32-.25a.07.07 0 01.07-.01c3.42 1.56 7.12 1.56 10.5 0a.07.07 0 01.07.01c.1.08.21.17.33.25a.07.07 0 010 .11c-.52.3-1.06.56-1.64.78a.07.07 0 00-.03.1c.31.6.67 1.18 1.06 1.74a.07.07 0 00.07.02 17.24 17.24 0 005.23-2.64.07.07 0 00.03-.04c.52-3.74-.53-6.93-2.85-10.38a.05.05 0 00-.03-.02zm-9.73 6.72c-1.1 0-2-1-2-2.24s.88-2.24 2-2.24c1.12 0 2.01 1.01 2 2.24 0 1.23-.88 2.24-2 2.24zm7.37 0c-1.1 0-2-1-2-2.24s.88-2.24 2-2.24c1.12 0 2.01 1.01 2 2.24 0 1.23-.88 2.24-2 2.24z" fill="white"/></svg>`,
+
+  telnyx: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#00C8A0"/><path d="M23 21.83c-.56.56-1.12 1.12-2.02 1.01-.9-.11-2.47-.79-4.38-2.7-1.91-1.91-2.59-3.48-2.7-4.38-.11-.9.45-1.46 1.01-2.02.56-.56.9-.56 1.24 0l1.35 2.02c.34.56.22 1.01-.11 1.35l-.56.56c.34.67.9 1.46 1.58 2.13.67.67 1.46 1.23 2.13 1.57l.56-.56c.34-.34.79-.45 1.35-.11l2.02 1.35c.56.34.56.68 0 1.24z" fill="white"/><path d="M18 9v2.25A6.75 6.75 0 0124.75 18H27A9 9 0 0018 9z" fill="white" opacity=".65"/><path d="M18 12.75v2.25A3 3 0 0121 18h2.25A5.25 5.25 0 0018 12.75z" fill="white" opacity=".9"/></svg>`,
+};
+
+const MESSAGING_PLATFORM_GROUPS = [
+  { id: 'text',  label: 'Text & Chat',  description: 'Send and receive messages' },
+  { id: 'voice', label: 'Voice Calls',  description: 'Inbound & outbound phone calls' },
+];
+
 const MESSAGING_PLATFORMS = [
-  { id: 'whatsapp', name: 'WhatsApp',    icon: '💬', color: '#25d366', connectMethod: 'qr'     },
-  { id: 'telnyx',   name: 'Telnyx Voice',icon: '📞', color: '#00C8A0', connectMethod: 'config' },
-  { id: 'discord',  name: 'Discord',     icon: '🎮', color: '#5865F2', connectMethod: 'config' },
+  { id: 'whatsapp', name: 'WhatsApp',    group: 'text',  color: '#25D366', connectMethod: 'qr'     },
+  { id: 'telegram', name: 'Telegram',    group: 'text',  color: '#2AABEE', connectMethod: 'config' },
+  { id: 'discord',  name: 'Discord',     group: 'text',  color: '#5865F2', connectMethod: 'config' },
+  { id: 'telnyx',   name: 'Telnyx Voice',group: 'voice', color: '#00C8A0', connectMethod: 'config' },
 ];
 
 // Per-platform whitelist config
@@ -1345,6 +1361,14 @@ const PLATFORM_WHITELIST = {
     addTypes: ['user', 'guild', 'channel'],
     saveFn: async (list) => api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } }),
   },
+  telegram: {
+    settingKey: 'platform_whitelist_telegram',
+    label: 'Approved users & groups',
+    emptyHint: 'No entries — all messages blocked. Add entries via the allow popup or manually below.',
+    allowAdd: true,
+    addTypes: ['user', 'group'],
+    saveFn: async (list) => api('/messaging/telegram/whitelist', { method: 'PUT', body: { ids: list } }),
+  },
 };
 
 async function loadMessagingPage() {
@@ -1353,76 +1377,108 @@ async function loadMessagingPage() {
     const container = $('#platformList');
     container.innerHTML = '';
 
-    for (const platform of MESSAGING_PLATFORMS) {
-      const info    = statuses[platform.id] || { status: 'not_configured' };
-      const wlCfg   = PLATFORM_WHITELIST[platform.id];
-      const isConnected  = info.status === 'connected';
-      const isConnecting = info.status === 'connecting' || info.status === 'awaiting_qr';
+    for (const group of MESSAGING_PLATFORM_GROUPS) {
+      const groupPlatforms = MESSAGING_PLATFORMS.filter(p => p.group === group.id);
 
-      let wlList = [];
-      try {
-        const raw = settings[wlCfg.settingKey];
-        if (raw) { wlList = typeof raw === 'string' ? JSON.parse(raw) : raw; }
-        if (!Array.isArray(wlList)) wlList = [];
-      } catch { wlList = []; }
+      // Section header
+      const section = document.createElement('div');
+      section.style.cssText = 'margin-bottom:28px;';
 
-      const card = document.createElement('div');
-      card.className = 'card mb-4';
+      const heading = document.createElement('div');
+      heading.style.cssText = 'display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);';
+      heading.innerHTML = `
+        <span style="font-size:0.95rem;font-weight:700;">${escapeHtml(group.label)}</span>
+        <span style="font-size:0.78rem;color:var(--text-muted);">${escapeHtml(group.description)}</span>`;
+      section.appendChild(heading);
 
-      // ── Top row: icon + name + status + action buttons
-      const topRow = document.createElement('div');
-      topRow.className = 'flex items-center justify-between';
-      topRow.innerHTML = `
-        <div class="flex items-center gap-3">
-          <div style="font-size:2rem;line-height:1;">${platform.icon}</div>
-          <div>
-            <div class="item-card-title">${escapeHtml(platform.name)}</div>
-            <div class="flex items-center gap-2 mt-1">
-              <span class="badge ${isConnected ? 'badge-success' : 'badge-neutral'}">
-                ${escapeHtml(info.status.replace(/_/g, ' '))}
-              </span>
-              ${info.lastConnected ? `<span class="text-xs text-muted">last connected ${formatTime(info.lastConnected)}</span>` : ''}
-              ${isConnected && info.authInfo?.phoneNumber ? `<span class="text-xs text-muted">${escapeHtml(info.authInfo.phoneNumber)}</span>` : ''}
-              ${isConnected && info.authInfo?.tag ? `<span class="text-xs text-muted">${escapeHtml(info.authInfo.tag)}</span>` : ''}
+      // Grid — 2 cols for text/chat, single col for voice
+      const grid = document.createElement('div');
+      grid.style.cssText = group.id === 'text'
+        ? 'display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;'
+        : 'display:flex;flex-direction:column;gap:14px;';
+
+      for (const platform of groupPlatforms) {
+        const info    = statuses[platform.id] || { status: 'not_configured' };
+        const wlCfg   = PLATFORM_WHITELIST[platform.id];
+        const isConnected  = info.status === 'connected';
+        const isConnecting = info.status === 'connecting' || info.status === 'awaiting_qr';
+
+        let wlList = [];
+        try {
+          const raw = settings[wlCfg.settingKey];
+          if (raw) { wlList = typeof raw === 'string' ? JSON.parse(raw) : raw; }
+          if (!Array.isArray(wlList)) wlList = [];
+        } catch { wlList = []; }
+
+        // Auth subtitle
+        let authSub = '';
+        if (isConnected) {
+          if (info.authInfo?.phoneNumber) authSub = escapeHtml(info.authInfo.phoneNumber);
+          else if (info.authInfo?.tag)    authSub = escapeHtml(info.authInfo.tag);
+          else if (info.authInfo?.username) authSub = '@' + escapeHtml(info.authInfo.username);
+        }
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.cssText = 'margin:0;';
+
+        // ── Top row: logo + name + status + buttons
+        const topRow = document.createElement('div');
+        topRow.className = 'flex items-center justify-between';
+        topRow.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div style="width:40px;height:40px;flex-shrink:0;border-radius:10px;overflow:hidden;">${_svgLogo[platform.id] || ''}</div>
+            <div>
+              <div class="item-card-title" style="font-size:0.97rem;">${escapeHtml(platform.name)}</div>
+              <div class="flex items-center gap-2 mt-1" style="flex-wrap:wrap;">
+                <span class="badge ${isConnected ? 'badge-success' : 'badge-neutral'}" style="font-size:0.7rem;">
+                  ${escapeHtml(info.status.replace(/_/g, ' '))}
+                </span>
+                ${authSub ? `<span class="text-xs text-muted">${authSub}</span>` : ''}
+                ${!isConnected && info.lastConnected ? `<span class="text-xs text-muted">last seen ${formatTime(info.lastConnected)}</span>` : ''}
+              </div>
             </div>
           </div>
-        </div>
-        <div class="flex gap-2">
-          ${isConnected
-            ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
-               <button class="btn btn-sm btn-danger"     data-action="logoutPlatform"     data-platform="${platform.id}">Logout</button>`
-            : isConnecting
-              ? `<span class="text-muted text-sm">Connecting…</span>`
-              : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`}
-        </div>`;
-      card.appendChild(topRow);
+          <div class="flex gap-2" style="flex-shrink:0;">
+            ${isConnected
+              ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
+                 <button class="btn btn-sm btn-danger"     data-action="logoutPlatform"     data-platform="${platform.id}">Logout</button>`
+              : isConnecting
+                ? `<span class="text-muted text-sm" style="padding:0 4px;">Connecting…</span>`
+                : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`}
+          </div>`;
+        card.appendChild(topRow);
 
-      // ── Whitelist collapsible strip
-      const strip = document.createElement('div');
-      strip.style.cssText = 'border-top:1px solid var(--border);margin:14px -20px 0;';
+        // ── Whitelist collapsible strip
+        const strip = document.createElement('div');
+        strip.style.cssText = 'border-top:1px solid var(--border);margin:14px -20px 0;';
 
-      const toggleBtn = document.createElement('button');
-      toggleBtn.style.cssText = 'display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;cursor:pointer;padding:9px 20px;color:var(--text-muted);font-size:0.8rem;user-select:none;';
-      const arrowId = `wl-arrow-${platform.id}`;
-      const labelId = `wl-label-${platform.id}`;
-      toggleBtn.innerHTML = `<span id="${arrowId}" style="font-size:0.65rem;transition:transform 0.15s;display:inline-block;">▶</span>
-        <span id="${labelId}">${_wlLabel(wlCfg.label, wlList.length)}</span>`;
+        const arrowId = `wl-arrow-${platform.id}`;
+        const labelId = `wl-label-${platform.id}`;
+        const toggleBtn = document.createElement('button');
+        toggleBtn.style.cssText = 'display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;cursor:pointer;padding:9px 20px;color:var(--text-muted);font-size:0.8rem;user-select:none;';
+        toggleBtn.innerHTML = `<span id="${arrowId}" style="font-size:0.65rem;transition:transform 0.15s;display:inline-block;">&#9654;</span>
+          <span id="${labelId}">${_wlLabel(wlCfg.label, wlList.length)}</span>`;
 
-      const panel = document.createElement('div');
-      panel.id = `wl-panel-${platform.id}`;
-      panel.style.cssText = 'display:none;padding:4px 20px 14px;';
-      _buildWhitelistPanel(panel, wlList, wlCfg, platform.id);
+        const panel = document.createElement('div');
+        panel.id = `wl-panel-${platform.id}`;
+        panel.style.cssText = 'display:none;padding:4px 20px 14px;';
+        _buildWhitelistPanel(panel, wlList, wlCfg, platform.id);
 
-      toggleBtn.addEventListener('click', () => {
-        const open = panel.style.display !== 'none';
-        panel.style.display = open ? 'none' : 'block';
-        document.getElementById(arrowId).style.transform = open ? '' : 'rotate(90deg)';
-      });
+        toggleBtn.addEventListener('click', () => {
+          const open = panel.style.display !== 'none';
+          panel.style.display = open ? 'none' : 'block';
+          document.getElementById(arrowId).style.transform = open ? '' : 'rotate(90deg)';
+        });
 
-      strip.appendChild(toggleBtn);
-      strip.appendChild(panel);
-      card.appendChild(strip);
-      container.appendChild(card);
+        strip.appendChild(toggleBtn);
+        strip.appendChild(panel);
+        card.appendChild(strip);
+        grid.appendChild(card);
+      }
+
+      section.appendChild(grid);
+      container.appendChild(section);
     }
   } catch (err) {
     console.error(err);
@@ -1440,8 +1496,8 @@ function _buildWhitelistPanel(panel, list, wlCfg, platformId) {
   panel.innerHTML = '';
 
   // Type-badge colours for Discord prefixed entries
-  const TYPE_COLORS = { user: '#5865F2', guild: '#57F287', channel: '#FEE75C' };
-  const TYPE_LABELS = { user: 'User', guild: 'Server', channel: 'Channel' };
+  const TYPE_COLORS = { user: '#5865F2', guild: '#57F287', channel: '#FEE75C', group: '#2AABEE' };
+  const TYPE_LABELS = { user: 'User', guild: 'Server', channel: 'Channel', group: 'Group' };
 
   if (!list.length) {
     const empty = document.createElement('p');
@@ -1568,7 +1624,8 @@ $('#platformList').addEventListener('click', async (e) => {
   if (action === 'connectPlatform') {
     if (method === 'config') {
       if (platform === 'telnyx')  openTelnyxConfigModal();
-      if (platform === 'discord') openDiscordConfigModal();
+      if (platform === 'discord')  openDiscordConfigModal();
+      if (platform === 'telegram') openTelegramConfigModal();
     } else {
       socket.emit('messaging:connect', { platform });
       toast(`Connecting to ${platform}…`, 'info');
@@ -1744,6 +1801,59 @@ async function openDiscordConfigModal() {
       await api('/settings', { method: 'PUT', body: { discord_config: JSON.stringify(config) } });
       await api('/messaging/connect', { method: 'POST', body: { platform: 'discord', config } });
       toast('Discord connecting…', 'success');
+      close();
+      setTimeout(loadMessagingPage, 1500);
+    } catch (err) {
+      toast('Failed to connect: ' + (err.message || err), 'error');
+    }
+  });
+}
+
+// ── Telegram Config Modal ─────────────────────────────────────────────
+
+async function openTelegramConfigModal() {
+  let saved = {};
+  try {
+    const s = await api('/settings');
+    if (s.telegram_config) saved = typeof s.telegram_config === 'string' ? JSON.parse(s.telegram_config) : s.telegram_config;
+  } catch {}
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  overlay.innerHTML = `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 28px 22px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="font-size:1.15rem;font-weight:700;">✈️ Telegram — Configuration</div>
+        <button id="telegramModalClose" style="background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-muted);">&#xD7;</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label class="label" style="display:block;margin-bottom:4px;">Bot Token *</label>
+          <input id="telegram_token" class="input" type="password" placeholder="123456:ABCdef..." value="${escapeHtml(saved.botToken || '')}" autocomplete="off"/>
+          <div style="font-size:0.76rem;color:var(--text-muted);margin-top:4px;">Get a token from <a href="https://t.me/BotFather" target="_blank" style="color:var(--accent);">@BotFather</a> on Telegram. Send the bot a message or add it to a group to start receiving messages.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;">
+        <button id="telegramModalCancel" class="btn btn-secondary">Cancel</button>
+        <button id="telegramModalSave" class="btn btn-primary">Connect</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#telegramModalClose').addEventListener('click', close);
+  overlay.querySelector('#telegramModalCancel').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelector('#telegramModalSave').addEventListener('click', async () => {
+    const config = { botToken: overlay.querySelector('#telegram_token').value.trim() };
+    if (!config.botToken) { toast('Bot token is required', 'error'); return; }
+    try {
+      await api('/settings', { method: 'PUT', body: { telegram_config: JSON.stringify(config) } });
+      await api('/messaging/connect', { method: 'POST', body: { platform: 'telegram', config } });
+      toast('Telegram connecting…', 'success');
       close();
       setTimeout(loadMessagingPage, 1500);
     } catch (err) {

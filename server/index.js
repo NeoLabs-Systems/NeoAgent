@@ -251,8 +251,8 @@ If no reply is needed (e.g. the message is just an acknowledgement like "ok", "t
 
     // Wire messaging → agent: incoming messages trigger agent
     messagingManager.registerHandler(async (userId, msg) => {
-      // Discord handles its own access control (prefixed entry whitelist + mention gating)
-      if (msg.platform !== 'discord') {
+      // Discord and Telegram handle their own access control internally
+      if (msg.platform !== 'discord' && msg.platform !== 'telegram') {
         // Whitelist check: if user has set a whitelist for this platform, block unknown senders
         const whitelistRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
           .get(userId, `platform_whitelist_${msg.platform}`);
