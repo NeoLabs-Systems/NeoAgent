@@ -115,14 +115,14 @@ class MessagingManager {
           JSON.stringify({ sender: msg.sender, senderName: msg.senderName, isGroup: msg.isGroup, mediaType: msg.mediaType }),
           msg.timestamp);
 
-      this.io.to(`user:${userId}`).emit('messaging:message', {
-        platform: platformName,
-        ...msg
-      });
+      // Enrich with platform name so handlers and the web UI always have it
+      const enrichedMsg = { platform: platformName, ...msg };
+
+      this.io.to(`user:${userId}`).emit('messaging:message', enrichedMsg);
 
       for (const handler of this.messageHandlers) {
         try {
-          await handler(userId, msg);
+          await handler(userId, enrichedMsg);
         } catch (err) {
           console.error('Message handler error:', err.message);
         }
