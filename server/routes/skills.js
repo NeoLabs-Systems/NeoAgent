@@ -6,6 +6,21 @@ const { requireAuth } = require('../middleware/auth');
 
 const SKILLS_DIR = path.join(__dirname, '../../agent-data/skills');
 
+/**
+ * Resolve a client-supplied filename to an absolute path inside SKILLS_DIR.
+ * Returns null if the resolved path escapes the directory (path traversal attempt).
+ */
+function safeSkillPath(filename) {
+  if (!filename || typeof filename !== 'string') return null;
+  // Strip any directory components – only the basename is allowed
+  const base = path.basename(filename);
+  if (!base || base === '.' || base === '..') return null;
+  const resolved = path.resolve(SKILLS_DIR, base);
+  // Ensure the resolved path stays inside SKILLS_DIR
+  if (!resolved.startsWith(SKILLS_DIR + path.sep) && resolved !== SKILLS_DIR) return null;
+  return resolved;
+}
+
 router.use(requireAuth);
 
 // List all skills
@@ -31,8 +46,8 @@ router.get('/', (req, res) => {
 
 // Get a specific skill
 router.get('/:filename', (req, res) => {
-  const fp = path.join(SKILLS_DIR, req.params.filename);
-  if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
+  const fp = safeSkillPath(req.params.filename);
+  if (!fp || !fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
 
   const content = fs.readFileSync(fp, 'utf-8');
   res.json({ filename: req.params.filename, content, meta: parseSkillMeta(content) });
@@ -55,17 +70,17 @@ router.post('/', (req, res) => {
 
 // Update a skill
 router.put('/:filename', (req, res) => {
-  const fp = path.join(SKILLS_DIR, req.params.filename);
-  if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
+  const fp = safeSkillPath(req.params.filename);
+  if (!fp || !fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
 
   fs.writeFileSync(fp, req.body.content, 'utf-8');
-  res.json({ filename: req.params.filename, meta: parseSkillMeta(req.body.content) });
+  res.json({ filename: path.basename(fp), meta: parseSkillMeta(req.body.content) });
 });
 
 // Delete a skill
 router.delete('/:filename', (req, res) => {
-  const fp = path.join(SKILLS_DIR, req.params.filename);
-  if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
+  const fp = safeSkillPath(req.params.filename);
+  if (!fp || !fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
 
   fs.unlinkSync(fp);
   res.json({ success: true });

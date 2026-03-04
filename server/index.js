@@ -33,6 +33,17 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── Middleware ──
 
+// When running behind a TLS-terminating reverse proxy (nginx, Caddy, Cloudflare Tunnel…)
+// set SECURE_COOKIES=true in .env so the session cookie is marked Secure and
+// express trusts the X-Forwarded-* headers from the proxy.
+const SECURE_COOKIES = process.env.SECURE_COOKIES === 'true';
+if (SECURE_COOKIES) {
+  app.set('trust proxy', 1); // trust first hop (reverse proxy)
+}
+
+// WebSocket CSP source: ws+wss on plain HTTP, wss-only on HTTPS
+const wsConnectSrc = SECURE_COOKIES ? ['wss:'] : ['ws:', 'wss:'];
+
 app.use(helmet({
   // Disable headers that only make sense on HTTPS — this app runs on plain HTTP (Tailscale/localhost).
   strictTransportSecurity: false,   // HSTS: would force browser to upgrade HTTP→HTTPS permanently
@@ -45,8 +56,10 @@ app.use(helmet({
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:", "https://api.qrserver.com"],
-      connectSrc: ["'self'", "ws:", "wss:"],
+      connectSrc: ["'self'", ...wsConnectSrc],
       fontSrc: ["'self'", "data:"],
+      formAction: ["'self'"],       // explicit: prevents form-submission to external origins
+      frameAncestors: ["'self'"],   // explicit: prevents iframe embedding from other origins
       // Disable upgrade-insecure-requests — helmet adds this by default in v7+,
       // which causes browsers to upgrade HTTP subresource requests to HTTPS,
       // breaking plain-HTTP deployments (Tailscale, localhost).
@@ -71,7 +84,7 @@ const sessionMiddleware = session({
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     sameSite: 'lax',
-    secure: false  // This server runs on plain HTTP (Tailscale / localhost); secure:true would block cookies over HTTP
+    secure: SECURE_COOKIES  // true when behind HTTPS proxy; false for plain HTTP (Tailscale/localhost)
   }
 });
 
@@ -95,8 +108,21 @@ app.use('/api/memory', require('./routes/memory'));
 app.use('/api/scheduler', require('./routes/scheduler'));
 app.use('/api/browser', require('./routes/browser'));
 
-// ── Telnyx voice webhook (unauthenticated – called by Telnyx servers) ──
-app.post('/api/telnyx/webhook', async (req, res) => {
+// ── Telnyx voice webhook ──
+// Protected by a shared-secret token in the query string.
+// Set TELNYX_WEBHOOK_TOKEN in .env and append ?token=<value> to the webhook URL
+// you configure in the Telnyx portal / NeoAgent connect modal.
+app.post('/api/telnyx/webhook', (req, res, next) => {
+  const expected = process.env.TELNYX_WEBHOOK_TOKEN;
+  if (expected) {
+    const provided = req.query.token;
+    if (!provided || provided !== expected) {
+      console.warn('[Telnyx webhook] Rejected request with invalid or missing token');
+      return res.status(403).send('Forbidden');
+    }
+  }
+  next();
+}, async (req, res) => {
   res.status(200).send('OK'); // Acknowledge immediately
   const manager = app.locals.messagingManager;
   if (manager) await manager.handleTelnyxWebhook(req.body).catch(err => console.error('[Telnyx webhook]', err.message));

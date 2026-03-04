@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
+const { sanitizeError } = require('../utils/security');
 
 router.use(requireAuth);
 
@@ -37,7 +38,7 @@ router.get('/memories', (req, res) => {
     });
     res.json(memories);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: sanitizeError(err) });
   }
 });
 
@@ -51,26 +52,34 @@ router.post('/memories', async (req, res) => {
     const id = await mm.saveMemory(userId, content, category, importance);
     res.json({ success: true, id });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: sanitizeError(err) });
   }
 });
 
 // Update a memory
 router.put('/memories/:id', async (req, res) => {
   const mm = req.app.locals.memoryManager;
+  const db = require('../db/database');
+  // Verify ownership before updating
+  const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+  if (!existing) return res.status(404).json({ error: 'Memory not found' });
   const { content, importance, category } = req.body;
   try {
     const updated = await mm.updateMemory(req.params.id, { content, importance, category });
     if (!updated) return res.status(404).json({ error: 'Memory not found' });
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: sanitizeError(err) });
   }
 });
 
 // Delete a memory
 router.delete('/memories/:id', (req, res) => {
   const mm = req.app.locals.memoryManager;
+  const db = require('../db/database');
+  // Verify ownership before deleting
+  const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+  if (!existing) return res.status(404).json({ error: 'Memory not found' });
   mm.deleteMemory(req.params.id);
   res.json({ success: true });
 });
@@ -85,7 +94,7 @@ router.post('/memories/recall', async (req, res) => {
     const results = await mm.recallMemory(userId, query, parseInt(limit));
     res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: sanitizeError(err) });
   }
 });
 

@@ -80,6 +80,9 @@ router.post('/:id/start', async (req, res) => {
 // Stop an MCP server
 router.post('/:id/stop', async (req, res) => {
   try {
+    // Verify ownership before stopping
+    const server = db.prepare('SELECT id FROM mcp_servers WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+    if (!server) return res.status(404).json({ error: 'Server not found' });
     const mcpClient = req.app.locals.mcpClient;
     await mcpClient.stopServer(req.params.id);
     res.json({ status: 'stopped' });
@@ -91,6 +94,9 @@ router.post('/:id/stop', async (req, res) => {
 // Get tools from a specific server
 router.get('/:id/tools', async (req, res) => {
   try {
+    // Verify ownership before listing tools
+    const server = db.prepare('SELECT id FROM mcp_servers WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+    if (!server) return res.status(404).json({ error: 'Server not found' });
     const mcpClient = req.app.locals.mcpClient;
     const tools = await mcpClient.listTools(req.params.id);
     res.json(tools);

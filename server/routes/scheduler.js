@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
+const { sanitizeError } = require('../utils/security');
 
 router.use(requireAuth);
 
@@ -22,7 +23,7 @@ router.post('/', (req, res) => {
     const task = scheduler.createTask(req.session.userId, { name, cronExpression, prompt, enabled });
     res.status(201).json(task);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: sanitizeError(err) });
   }
 });
 
@@ -33,7 +34,7 @@ router.put('/:id', (req, res) => {
     const task = scheduler.updateTask(parseInt(req.params.id), req.session.userId, req.body);
     res.json(task);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: sanitizeError(err) });
   }
 });
 
@@ -44,7 +45,7 @@ router.delete('/:id', (req, res) => {
     scheduler.deleteTask(parseInt(req.params.id), req.session.userId);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: sanitizeError(err) });
   }
 });
 
@@ -55,7 +56,7 @@ router.post('/:id/run', (req, res) => {
     const result = scheduler.runTaskNow(parseInt(req.params.id), req.session.userId);
     res.json(result);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: sanitizeError(err) });
   }
 });
 
