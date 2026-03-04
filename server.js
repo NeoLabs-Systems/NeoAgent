@@ -200,7 +200,8 @@ const startServices = async () => {
 
 Reply to this message using send_message with platform="${msg.platform}" and to="${msg.chatId}".
 Text like a person: split across messages naturally when it fits the content. Never end with "anything else?" or close-out phrases — just stop when you're done.
-You can also send images/files by setting media_path to a local file path.`;
+You can also send images/files by setting media_path to a local file path.
+If no reply is needed (e.g. the message is just an acknowledgement like "ok", "thanks", or you already said everything), call send_message with content "[NO RESPONSE]" to explicitly stay silent.`;
         const priorMessages = db.prepare(
           'SELECT role, content FROM messages WHERE user_id = ? AND platform_chat_id = ? ORDER BY created_at DESC LIMIT 30'
         ).all(userId, msg.chatId).reverse();

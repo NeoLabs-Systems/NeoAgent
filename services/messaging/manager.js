@@ -106,6 +106,11 @@ class MessagingManager {
     const platform = this.platforms.get(key);
     if (!platform) throw new Error(`Platform ${platformName} not connected`);
 
+    // Sentinel: agent can choose not to reply by sending [NO RESPONSE]
+    if (!mediaPath && typeof content === 'string' && content.trim().toUpperCase() === '[NO RESPONSE]') {
+      return { success: true, suppressed: true };
+    }
+
     const result = await platform.sendMessage(to, content, { mediaPath });
 
     db.prepare('INSERT INTO messages (user_id, role, content, platform, platform_chat_id, media_path) VALUES (?, ?, ?, ?, ?, ?)')
