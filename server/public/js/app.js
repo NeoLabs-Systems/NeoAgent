@@ -1340,7 +1340,7 @@ const PLATFORM_WHITELIST = {
   discord: {
     settingKey: 'platform_whitelist_discord',
     label: 'Approved users, servers & channels',
-    emptyHint: 'No entries yet — senders are added via the allow popup, or manually below.',
+    emptyHint: 'No entries — all messages blocked. Add entries via the allow popup or manually below.',
     allowAdd: true,
     addTypes: ['user', 'guild', 'channel'],
     saveFn: async (list) => api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } }),

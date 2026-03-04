@@ -95,8 +95,8 @@ class DiscordPlatform extends BasePlatform {
     const guildId   = message.guildId   || null;
     const channelId = message.channelId;
 
-    // Empty whitelist: allow all; guild/channel messages still require mention
-    if (!this.allowedEntries.length) return { allowed: true, requireMention: !isDM };
+    // Empty whitelist: block everyone (add via the allow popup)
+    if (!this.allowedEntries.length) return { allowed: false, requireMention: false };
 
     for (const entry of this.allowedEntries) {
       const colon = entry.indexOf(':');
