@@ -790,6 +790,260 @@ Use the QR Server API (no auth):
 \`https://api.qrserver.com/v1/create-qr-code/?data=<encoded_text>&size=300x300&margin=10\`
 
 URL-encode the input data. Provide the direct image URL that the user can open in a browser or embed. Also calculate: at the default error correction level (M), the QR can hold the given text reliably up to X characters.`
+  },
+
+  // ── DEV (continued) ──────────────────────────────────────────────────────────
+  {
+    id: 'github',
+    name: 'GitHub',
+    description: 'Interact with GitHub repos, PRs, issues, branches, CI and releases using git and the gh CLI.',
+    category: 'dev',
+    icon: '🐙',
+    content: `---
+name: github
+description: Interact with GitHub repos, PRs, issues, branches, CI and releases using git and the gh CLI
+trigger: When the user asks to clone a repo, create a PR, open/close issues, check CI status, fork, review diffs, manage branches, or do anything GitHub-related
+category: dev
+icon: 🐙
+enabled: true
+---
+
+# GitHub Skill
+
+Use \`git\` for local version control and \`gh\` (GitHub CLI) for GitHub-specific actions.
+Always verify both tools are available: \`which git && which gh\`.
+If \`gh\` is not authenticated, prompt the user to run \`gh auth login\`.
+
+## Repo Status & Info
+\`\`\`
+gh repo view                          # show current repo overview
+gh repo view <owner>/<repo>           # show a specific repo
+git status                            # show working tree state
+git log --oneline -20                 # last 20 commits
+git diff                              # unstaged changes
+git diff --staged                     # staged changes
+\`\`\`
+
+## Clone & Fork
+\`\`\`
+gh repo clone <owner>/<repo>          # clone via gh (sets up remote automatically)
+gh repo fork <owner>/<repo> --clone   # fork and clone in one step
+\`\`\`
+
+## Branches
+\`\`\`
+git checkout -b <branch>              # create and switch to new branch
+git branch -a                         # list all branches (local + remote)
+git push -u origin <branch>           # push new branch to origin
+git branch -d <branch>                # delete local branch
+gh repo sync                          # sync fork with upstream
+\`\`\`
+
+## Commits & Push
+\`\`\`
+git add -A && git commit -m "<msg>"   # stage all and commit
+git push                              # push to tracked remote branch
+git pull --rebase                     # pull with rebase
+\`\`\`
+
+## Pull Requests
+\`\`\`
+gh pr create --title "<title>" --body "<body>"   # open a PR
+gh pr list                                        # list open PRs
+gh pr view <number>                               # view a specific PR
+gh pr checkout <number>                           # check out a PR branch locally
+gh pr merge <number> --squash                     # merge PR (squash)
+gh pr review <number> --approve                   # approve a PR
+gh pr review <number> --request-changes -b "<feedback>"
+gh pr close <number>                              # close without merging
+gh pr status                                      # PRs involving you
+\`\`\`
+
+## Issues
+\`\`\`
+gh issue create --title "<title>" --body "<body>"  # create issue
+gh issue list                                       # list open issues
+gh issue view <number>                              # view an issue
+gh issue close <number>                             # close an issue
+gh issue comment <number> -b "<comment>"            # add a comment
+gh issue assign <number> --assignee @me             # assign to yourself
+\`\`\`
+
+## Releases & Tags
+\`\`\`
+gh release create <tag> --title "<title>" --notes "<notes>"
+gh release list
+gh release view <tag>
+git tag -a v1.0.0 -m "Release v1.0.0" && git push --tags
+\`\`\`
+
+## CI / Actions
+\`\`\`
+gh run list                           # list recent workflow runs
+gh run view <run-id>                  # view a run's details and logs
+gh run watch <run-id>                 # stream live logs
+gh workflow list                      # list workflows
+gh workflow run <workflow-file>       # trigger a workflow manually
+\`\`\`
+
+## Presentation Tips
+- For pr/issue lists, format as a table: number, title, author, date.
+- For git log, show short hash, message, and relative date.
+- For CI runs, summarise: ✅ success / ❌ failure / ⏳ in progress per job.
+- Confirm with the user before any repo-modifying operation (push, merge, delete).`
+  },
+
+  // ── RESEARCH ─────────────────────────────────────────────────────────────────
+  {
+    id: 'deep-research',
+    name: 'Deep Research',
+    description: 'Conduct thorough multi-source research on any topic and synthesise findings into a structured report.',
+    category: 'research',
+    icon: '🔬',
+    content: `---
+name: deep-research
+description: Conduct thorough multi-source research on any topic, synthesising findings into a structured report
+trigger: When the user asks for deep research, a detailed investigation, a comprehensive overview, or wants to understand a complex topic in depth
+category: research
+icon: 🔬
+enabled: true
+---
+
+# Deep Research Skill
+
+Perform iterative, multi-source research by combining web searches, page reads, and cross-referencing. Don't stop at the first result — go wide, then go deep.
+
+## Research Process
+
+### 1. Clarify the Query
+Decompose the topic into 3–5 sub-questions that together fully answer the user's request. State them so the user can correct scope before you begin.
+
+### 2. Broad Discovery (go wide)
+Run multiple searches using varied queries and angles:
+- Direct topic searches: \`<topic> overview\`, \`<topic> explained\`
+- Authoritative sources: \`site:en.wikipedia.org <topic>\`, \`site:arxiv.org <topic>\`
+- Recent developments: \`<topic> 2025\`, \`<topic> latest research\`
+- Opposing views: \`<topic> criticism\`, \`<topic> limitations\`, \`<topic> controversy\`
+
+Use \`https://html.duckduckgo.com/html/?q=<query>\` for web searches (parse \`<a class="result__a">\` links and snippets).
+
+### 3. Deep Reads (go deep)
+For each sub-question, identify the 3–5 most relevant URLs. Fetch and read each one fully. Extract:
+- Key claims and data points
+- Author / publication / date (assess credibility)
+- References to follow up on
+
+### 4. Cross-Reference & Validate
+- Note where sources agree and disagree.
+- Flag claims from only one source as unverified.
+- If numbers or stats are cited, trace to the primary source.
+- Prefer sources from the last 2 years unless historical context is needed.
+
+### 5. Synthesise & Report
+\`\`\`
+## Summary
+2–3 sentence TL;DR.
+
+## Background
+Context needed to understand the topic.
+
+## Key Findings
+- Finding 1 (source: [title](url))
+- Finding 2 ...
+
+## Different Perspectives / Debate
+Where experts or sources disagree, and why.
+
+## Open Questions / Gaps
+What is still unknown or contested.
+
+## Sources
+Numbered list of all URLs consulted, with title and date.
+\`\`\`
+
+## Tips
+- Run at least 5 distinct searches before writing the report.
+- Read at least 4 full pages (not just snippets).
+- Never present a single source as definitive — always triangulate.
+- Cite every factual claim with a link.`
+  },
+
+  {
+    id: 'coding',
+    name: 'Coding',
+    description: 'Write, debug, refactor, explain, and review code in any programming language.',
+    category: 'dev',
+    icon: '💻',
+    content: `---
+name: coding
+description: Write, debug, refactor, explain, and review code in any programming language
+trigger: When the user asks to write code, fix a bug, refactor, explain how code works, review a function, add tests, or help with any programming task
+category: dev
+icon: 💻
+enabled: true
+---
+
+# Coding Skill
+
+Handle the full software development lifecycle: writing new code, understanding existing code, debugging, refactoring, and testing — in any language.
+
+## Write New Code
+- Confirm the language, framework, and environment before starting.
+- Ask for constraints (performance, style guide, existing dependencies).
+- Write clean, idiomatic code with comments for non-obvious logic.
+- Include a usage example or short test block where helpful.
+
+## Debug & Fix
+1. Read the full error message and stack trace carefully.
+2. Identify the exact file and line where the error originates.
+3. Inspect surrounding code for logic errors, type mismatches, null-dereferences, or off-by-one errors.
+4. Run the code in a terminal to reproduce the error if needed.
+5. Apply the minimal fix that resolves the root cause — avoid masking errors with bare try/catch.
+6. Explain what was wrong and why the fix works.
+
+## Refactor
+- Identify code smells: duplication, long functions, deep nesting, magic numbers, unclear naming.
+- Refactor in small, safe steps — preserve behaviour before improving structure.
+- Prefer readability over cleverness.
+- Verify functionality is unchanged after refactoring.
+
+## Explain Code
+- Summarise what the code does at a high level first.
+- Walk through it section by section, explaining intent not just mechanics.
+- Highlight non-obvious patterns (closures, generators, recursion, bitwise tricks, etc.).
+- Point out potential edge cases or bugs noticed during the read.
+
+## Code Review
+Evaluate on these dimensions and provide concrete, actionable feedback:
+- **Correctness** — does it do what it's supposed to? Are edge cases handled?
+- **Readability** — are names clear? Is logic easy to follow?
+- **Performance** — any O(n²) loops, N+1 queries, or memory leaks?
+- **Security** — injection risks, unvalidated input, exposed secrets, insecure defaults?
+- **Tests** — adequate coverage? Are tests meaningful?
+
+## Add Tests
+- Identify the testing framework in use (Jest, pytest, Go test, etc.) or ask.
+- Write unit tests for individual functions, edge cases, and failure paths.
+- Aim for tests that are independent, deterministic, and fast.
+
+## Quick-Run Commands
+\`\`\`
+python3 <file>.py          # Python
+node <file>.js             # Node.js
+npx ts-node <file>.ts      # TypeScript
+go run <file>.go           # Go
+cargo run                  # Rust
+java <ClassName>.java      # Java 11+
+swift <file>.swift         # Swift
+ruby <file>.rb             # Ruby
+\`\`\`
+
+## Pre-Delivery Checklist
+- No hardcoded secrets or credentials
+- Input is validated / sanitised at entry points
+- Error paths are handled (not silently swallowed)
+- Async code uses proper await / error handling
+- No unused imports or dead code left behind`
   }
 ];
 
