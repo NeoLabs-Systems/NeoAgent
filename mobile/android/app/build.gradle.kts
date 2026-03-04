@@ -12,6 +12,10 @@ val localProps = Properties().apply {
 
 fun local(key: String, fallback: String = "") = localProps.getProperty(key, fallback)
 
+// ── Version override from Gradle properties (set by CI via -PversionCode=… -PversionName=…) ─────
+val ciVersionCode = findProperty("versionCode")?.toString()?.toIntOrNull() ?: 1
+val ciVersionName = findProperty("versionName")?.toString() ?: "1.0.0"
+
 android {
     namespace = "com.neoagent.aurora"
     compileSdk = 36
@@ -21,8 +25,8 @@ android {
         applicationId = "com.neoagent.aurora"
         minSdk = 36          // Live-Update API requires Android 16 (API 36)
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = ciVersionCode
+        versionName = ciVersionName
 
         // ── Build-time config injected from local.properties ──────────────
         buildConfigField("String", "BACKEND_URL",     "\"${local("BACKEND_URL", "http://10.0.2.2:3000")}\"")
