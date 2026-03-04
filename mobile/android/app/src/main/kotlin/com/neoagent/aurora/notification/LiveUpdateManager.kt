@@ -18,6 +18,9 @@ private const val TAG = "LiveUpdateManager"
 /** Auto-cancel delay after a task completes or errors (ms). */
 private const val COMPLETE_LINGER_MS = 8_000L
 
+/** Auto-dismiss delay for the final result (EVENTS channel) notification (ms). */
+private const val RESULT_LINGER_MS = 60_000L
+
 /** Throttle for stream events — don't redraw more often than this (ms). */
 private const val STREAM_THROTTLE_MS = 1_200L
 
@@ -405,6 +408,8 @@ class LiveUpdateManager(private val context: Context) {
                 .setShowWhen(true)
                 .setAutoCancel(true)
                 .build())
+            // Schedule auto-dismiss after ~1 minute
+            handler.postDelayed({ try { nm.cancel(id) } catch (_: Exception) {} }, RESULT_LINGER_MS)
         } catch (e: SecurityException) {
             Log.e(TAG, "Missing POST_NOTIFICATIONS permission: ${e.message}")
         }
