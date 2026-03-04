@@ -28,7 +28,7 @@ if (!process.env.SESSION_SECRET) {
 }
 
 const PORT = process.env.PORT || 3060;
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, '../data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── Middleware ──

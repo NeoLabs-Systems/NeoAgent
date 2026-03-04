@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../../db/database');
 
-const SKILLS_DIR = path.join(__dirname, '..', '..', 'agent-data', 'skills');
+const SKILLS_DIR = path.join(__dirname, '..', '..', '..', 'agent-data', 'skills');
 
 class SkillRunner {
   constructor() {

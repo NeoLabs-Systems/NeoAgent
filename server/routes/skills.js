@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { requireAuth } = require('../middleware/auth');
 
-const SKILLS_DIR = path.join(__dirname, '../agent-data/skills');
+const SKILLS_DIR = path.join(__dirname, '../../agent-data/skills');
 
 router.use(requireAuth);
 

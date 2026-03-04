@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../../db/database');
 
-const DATA_DIR = path.join(__dirname, '../../agent-data');
+const DATA_DIR = path.join(__dirname, '../../../agent-data');
 const MEMORY_FILE = path.join(DATA_DIR, 'MEMORY.md');
 const SOUL_FILE = path.join(DATA_DIR, 'SOUL.md');
 const API_KEYS_FILE = path.join(DATA_DIR, 'API_KEYS.json');

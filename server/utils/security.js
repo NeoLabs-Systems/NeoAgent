@@ -3,7 +3,7 @@
  */
 
 const HOME = process.env.HOME || process.env.USERPROFILE || '';
-const PROJECT_ROOT = require('path').join(__dirname, '..');
+const PROJECT_ROOT = require('path').join(__dirname, '../..');
 
 /**
  * Strip internal filesystem paths and module stack frames from an error message

@@ -5,7 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 
 router.use(requireAuth);
 
-const SKILLS_DIR = path.join(__dirname, '../agent-data/skills');
+const SKILLS_DIR = path.join(__dirname, '../../agent-data/skills');
 
 // ── Skill catalog ─────────────────────────────────────────────────────────────
 // Each entry: id (becomes filename <id>.md), name, description, category, icon, content

@@ -2,10 +2,10 @@
   "name": "neoagent",
   "version": "1.0.0",
   "description": "Proactive personal AI agent with no limits",
-  "main": "server.js",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
