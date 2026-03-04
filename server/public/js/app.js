@@ -231,6 +231,7 @@ const TOOL_META = {
   memory_read:        { icon: '🧠', label: 'Memory Read',   color: 'memory'    },
   think:              { icon: '💭', label: 'Thinking',      color: 'thinking'  },
   send_message:       { icon: '💬', label: 'Message',       color: 'messaging' },
+  make_call:          { icon: '📞', label: 'Call',           color: 'messaging' },
   http_request:       { icon: '🔗', label: 'HTTP Request',  color: 'http'      },
   read_file:          { icon: '📄', label: 'Read File',     color: 'file'      },
   write_file:         { icon: '📝', label: 'Write File',    color: 'file'      },
@@ -257,6 +258,7 @@ function describeArgs(toolName, args) {
     case 'think':             return { headline: args.thought?.slice(0, 400) };
     case 'http_request':      return { headline: `${args.method || 'GET'} ${args.url}` };
     case 'send_message':      return { headline: args.content?.slice(0, 160), detail: `${args.platform} → ${args.to}` };
+    case 'make_call':         return { headline: `Calling ${args.to}`, detail: args.greeting?.slice(0, 100) };
     case 'read_file':         return { headline: args.path };
     case 'write_file':        return { headline: args.path, detail: `${(args.content || '').length} chars` };
     case 'list_directory':    return { headline: args.path };

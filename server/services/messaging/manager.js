@@ -206,6 +206,16 @@ class MessagingManager {
     }
   }
 
+  async makeCall(userId, to, greeting) {
+    const key = `${userId}:telnyx`;
+    const platform = this.platforms.get(key);
+    if (!platform) throw new Error('Telnyx Voice is not connected');
+    if (!platform.initiateCall) throw new Error('Telnyx platform does not support outbound calls');
+    const result = await platform.initiateCall(to, greeting);
+    this.io.to(`user:${userId}`).emit('messaging:call_initiated', { platform: 'telnyx', to, callControlId: result.callControlId });
+    return { success: true, ...result };
+  }
+
   async markRead(userId, platformName, chatId, messageId) {
     const key = `${userId}:${platformName}`;
     const platform = this.platforms.get(key);
