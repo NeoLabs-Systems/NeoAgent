@@ -233,6 +233,7 @@ const startServices = async () => {
         }
         // Wrap external content in delimiters — prevents prompt injection from untrusted senders
         const isVoiceCall  = msg.platform === 'telnyx' && msg.mediaType === 'voice';
+        const isVoiceNote  = !isVoiceCall && msg.mediaType === 'audio';  // e.g. WhatsApp voice notes transcribed via STT
         const isDiscordGuild = msg.platform === 'discord' && msg.isGroup;
 
         // Channel context block for Discord guild/channel messages
@@ -241,8 +242,12 @@ const startServices = async () => {
             msg.channelContext.map(m => `[${m.author}]: ${m.content}`).join('\n')
           : '';
 
+        const sttNote = isVoiceNote
+          ? '\n[Note: This message was sent as a voice note and transcribed via speech-to-text. The transcription may not be perfectly accurate — words may be misheard, punctuation added automatically, and phrasing may differ from what was intended.]'
+          : '';
+
         const prompt = isVoiceCall
-          ? `You are on a live phone call. The caller (${msg.senderName || msg.sender}) said:
+          ? `You are on a live phone call. The caller (${msg.senderName || msg.sender}) said (transcribed via speech-to-text — may not be perfectly accurate):
 <caller_speech>
 ${msg.content}
 </caller_speech>
@@ -254,7 +259,7 @@ Rules for voice responses:
 - NO markdown, bullet points, bold, headers, or special formatting.
 - Speak naturally. Never say things like "How can I assist you further?" — just stop when done.
 - Always respond; never use [NO RESPONSE] on a live call.`
-          : `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${discordContext}
+          : `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${discordContext}${sttNote}
 
 Reply to this message using send_message with platform="${msg.platform}" and to="${msg.chatId}".
 Text like a person: split across messages naturally when it fits the content. Never end with "anything else?" or close-out phrases — just stop when you're done.
