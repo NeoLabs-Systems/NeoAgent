@@ -7,7 +7,7 @@ const https = require('https');
 const { OpenAI } = require('openai');
 
 const AUDIO_DIR = path.join(__dirname, '..', '..', '..', 'data', 'telnyx-audio');
-const RECORDING_TURN_LIMIT_MS = 8000; // auto-stop recording after 8 s of silence
+const RECORDING_TURN_LIMIT_MS = 4000; // auto-stop recording after 4 s of silence
 
 class TelnyxVoicePlatform extends BasePlatform {
   constructor(config = {}) {
@@ -37,6 +37,7 @@ class TelnyxVoicePlatform extends BasePlatform {
     this._client          = null;      // Telnyx SDK instance
     this._openai          = null;      // OpenAI client
     this._webhookToken    = null;      // resolved at connect time from TELNYX_WEBHOOK_TOKEN
+    this._thinkAudioFile  = null;      // pre-cached "hold" audio filename
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -73,6 +74,9 @@ class TelnyxVoicePlatform extends BasePlatform {
     this._webhookToken = token || null;
     const inboundUrl = `${this.webhookUrl}/api/telnyx/webhook${token ? `?token=${token}` : ''}`;
     console.log(`[TelnyxVoice] Inbound webhook URL (configure this in the Telnyx portal): ${inboundUrl}`);
+
+    // Pre-generate the "thinking" hold audio so it's instant during calls
+    this._precacheThinkAudio();
 
     this.status = 'connected';
     this.emit('connected');
@@ -258,6 +262,49 @@ class TelnyxVoicePlatform extends BasePlatform {
     catch (err) { if (!this._isTerminalError(err)) throw err; }
   }
 
+  // ── Pre-cached think audio ─────────────────────────────────────────────────
+
+  async _precacheThinkAudio() {
+    if (!this._openai) return; // will use Telnyx speak fallback at playback time
+    try {
+      const file = `think_hold_${Date.now()}.mp3`;
+      const filePath = path.join(AUDIO_DIR, file);
+      const mp3 = await this._openai.audio.speech.create({
+        model: this.ttsModel,
+        voice: this.ttsVoice,
+        input: 'One moment please.',
+      });
+      const buf = Buffer.from(await mp3.arrayBuffer());
+      await fs.promises.writeFile(filePath, buf);
+      this._thinkAudioFile = file;
+      console.log('[TelnyxVoice] Think audio pre-cached');
+    } catch (err) {
+      console.warn(`[TelnyxVoice] Failed to pre-cache think audio: ${err.message}`);
+    }
+  }
+
+  // Play the pre-cached hold phrase (instant) or fall back to Telnyx speak.
+  async _playThinkAudio(ccId) {
+    if (this._thinkAudioFile) {
+      try {
+        await this._playAudio(ccId, this._publicUrl(this._thinkAudioFile));
+        return;
+      } catch (err) {
+        console.warn(`[TelnyxVoice] Pre-cached think audio failed: ${err.message}`);
+      }
+    }
+    // Fallback: Telnyx native speak (still fast — no file gen needed)
+    try {
+      await this._client.calls.actions.speak(ccId, {
+        payload:  'One moment please.',
+        voice:    'female',
+        language: 'en-US',
+      });
+    } catch (err) {
+      if (!this._isTerminalError(err)) console.error('[TelnyxVoice] Think speak failed:', err.message);
+    }
+  }
+
   // ── OpenAI TTS / STT ───────────────────────────────────────────────────────
 
   async _tts(text, destPath) {
@@ -438,7 +485,7 @@ class TelnyxVoicePlatform extends BasePlatform {
               await this._startRecording(ccId);
               this._scheduleRecordingStop(ccId);
             } catch {}
-          }, 500);
+          }, 200);
           break;
         }
 
@@ -490,7 +537,7 @@ class TelnyxVoicePlatform extends BasePlatform {
               await this._startRecording(ccId);
               this._scheduleRecordingStop(ccId);
             } catch {}
-          }, 300);
+          }, 150);
           break;
         }
 
@@ -541,12 +588,11 @@ class TelnyxVoicePlatform extends BasePlatform {
           sess.isThinking = true;
           sess.replySent  = false;
 
-          // Play a single (non-looping) hold phrase while the agent thinks.
-          try {
-            await this._sayText(ccId, 'One moment please.');
-          } catch (err) {
-            console.error('[TelnyxVoice] Failed to play think audio:', err.message);
-          }
+          // Fire hold phrase and agent processing in parallel — the pre-cached
+          // think audio plays instantly while the AI starts working immediately.
+          this._playThinkAudio(ccId).catch(err =>
+            console.error('[TelnyxVoice] Failed to play think audio:', err.message)
+          );
 
           // Emit message event — MessagingManager routes it to the AI engine.
           // The agent will call sendMessage(ccId, response) when it has a reply.
