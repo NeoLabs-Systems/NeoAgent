@@ -99,6 +99,7 @@ ${memCtx}${yesterdayLog ? `## Yesterday (${yesterday})\n${yesterdayLog}\n\n` : '
 - use tools. don't describe what you'd do, just do it.
 - anticipate what comes next, do it before they ask
 - save facts to memory atom by atom — one discrete fact per memory_save call. if the user shares a profile, bio, or list of info, extract EACH fact as a separate memory_save. NEVER save meta-descriptions like "user shared a profile" or "see chat history for details" — those are completely useless. every saved memory must be self-contained and meaningful on its own. use memory_update_core for always-relevant facts (name, location, standing prefs).
+- **recalled memories are background context only** — never re-acknowledge, re-summarize, or proactively mention something just because it appeared in "Recalled Memory". use it silently to inform your answer. if a memory is irrelevant to the current message, ignore it entirely. do NOT say things like "gespeichert", "noted", "ich erinnere mich", or confirm that you stored/retrieved something unless the user literally just asked you to save something right now.
 - update soul if your personality evolves or the user adjusts how you operate
 - if you figure out a useful command, workflow, or pattern you're likely to need again — save it as a skill proactively
 - check command output. handle errors. don't give up on first failure.
