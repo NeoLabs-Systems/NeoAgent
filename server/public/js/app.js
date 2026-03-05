@@ -1446,7 +1446,7 @@ const PLATFORM_WHITELIST = {
   telnyx: {
     settingKey: 'platform_whitelist_telnyx',
     label: 'Allowed callers',
-    emptyHint: 'Empty — all inbound callers accepted.',
+    emptyHint: 'Empty — all inbound callers blocked (or gated via secret code if set).',
     allowAdd: true,
     addPlaceholder: 'e.g. +12125550100',
     saveFn: async (list) => api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } }),
