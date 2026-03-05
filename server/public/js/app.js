@@ -2,6 +2,7 @@
 
 const socket = io();
 let isStreaming = false;
+const backgroundRunIds = new Set(); // tracks scheduler/heartbeat run IDs
 
 // ── Utility ──
 
@@ -755,22 +756,32 @@ async function loadRunOnCanvas(runId) {
 
 // ── Socket Events ──
 
+socket.on('run:start', (data) => {
+  if (data.triggerSource === 'scheduler' || data.triggerSource === 'heartbeat') {
+    backgroundRunIds.add(data.runId);
+  }
+});
+
 socket.on('run:thinking', (data) => {
+  if (backgroundRunIds.has(data.runId)) return;
   const textEl = $('#thinkingText');
   if (textEl) textEl.textContent = `Thinking… (step ${data.iteration})`;
 });
 
 socket.on('run:tool_start', (data) => {
+  if (backgroundRunIds.has(data.runId)) return;
   addActivityNode(data.stepId, data.toolName, data.toolArgs);
   const textEl = $('#thinkingText');
   if (textEl) textEl.textContent = `${data.toolName}…`;
 });
 
 socket.on('run:tool_end', (data) => {
+  if (backgroundRunIds.has(data.runId)) return;
   updateActivityNode(data.stepId, data.toolName, data.result, data.screenshotPath, data.status);
 });
 
 socket.on('run:stream', (data) => {
+  if (backgroundRunIds.has(data.runId) || data.triggerSource === 'scheduler' || data.triggerSource === 'heartbeat') return;
   let streamBubble = $('#streamBubble');
   if (!streamBubble) {
     const thinking = $('#thinking');
@@ -787,21 +798,25 @@ socket.on('run:stream', (data) => {
 });
 
 socket.on('run:complete', (data) => {
-  const thinking = $('#thinking');
-  if (thinking) thinking.remove();
+  const isBackground = backgroundRunIds.has(data.runId) || data.triggerSource === 'scheduler' || data.triggerSource === 'heartbeat';
+  if (isBackground) backgroundRunIds.delete(data.runId);
 
-  const streamBubble = $('#streamBubble');
-  if (streamBubble) {
-    streamBubble.id = '';
-    if (data.content) streamBubble.innerHTML = renderMarkdown(data.content);
-  } else if (data.content) {
-    appendMessage('assistant', data.content);
+  if (!isBackground) {
+    const thinking = $('#thinking');
+    if (thinking) thinking.remove();
+
+    const streamBubble = $('#streamBubble');
+    if (streamBubble) {
+      streamBubble.id = '';
+      if (data.content) streamBubble.innerHTML = renderMarkdown(data.content);
+    } else if (data.content) {
+      appendMessage('assistant', data.content);
+    }
+
+    addActivityResponse(data.content);
+    isStreaming = false;
+    sendBtn.disabled = false;
   }
-
-  addActivityResponse(data.content);
-
-  isStreaming = false;
-  sendBtn.disabled = false;
 });
 
 socket.on('chat:cleared', () => {

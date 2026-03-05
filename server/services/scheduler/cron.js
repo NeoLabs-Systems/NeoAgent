@@ -64,7 +64,7 @@ class Scheduler {
       try {
         if (this.agentEngine) {
           await this.agentEngine.run(user.id, (prompt?.value || defaultPrompt) + platformHint, {
-            source: 'heartbeat'
+            triggerSource: 'heartbeat'
           });
         }
       } catch (err) {
@@ -73,22 +73,25 @@ class Scheduler {
     }
   }
 
-  createTask(userId, { name, cronExpression, prompt, enabled = true }) {
+  createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null }) {
     if (!cron.validate(cronExpression)) {
       throw new Error(`Invalid cron expression: ${cronExpression}`);
     }
 
+    const config = { prompt };
+    if (callTo) { config.callTo = callTo; config.callGreeting = callGreeting || ''; }
+
     const result = db.prepare(
       'INSERT INTO scheduled_tasks (user_id, name, cron_expression, task_type, task_config, enabled) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(userId, name, cronExpression, 'agent_prompt', JSON.stringify({ prompt }), enabled ? 1 : 0);
+    ).run(userId, name, cronExpression, 'agent_prompt', JSON.stringify(config), enabled ? 1 : 0);
 
     const taskId = result.lastInsertRowid;
 
     if (enabled) {
-      this._scheduleTask(taskId, userId, cronExpression, { prompt });
+      this._scheduleTask(taskId, userId, cronExpression, config);
     }
 
-    return { id: taskId, name, cronExpression, enabled };
+    return { id: taskId, name, cronExpression, enabled, callTo: config.callTo || null };
   }
 
   updateTask(taskId, userId, updates) {
@@ -98,14 +101,21 @@ class Scheduler {
     const name = updates.name || task.name;
     const cronExpr = updates.cronExpression || task.cron_expression;
     const enabled = updates.enabled !== undefined ? updates.enabled : task.enabled;
-    const config = updates.prompt ? JSON.stringify({ prompt: updates.prompt }) : task.task_config;
+
+    // Merge config — start from existing, apply any changes
+    let config = JSON.parse(task.task_config || '{}');
+    if (updates.prompt !== undefined) config.prompt = updates.prompt;
+    if (updates.callTo !== undefined) config.callTo = updates.callTo || null;
+    if (updates.callGreeting !== undefined) config.callGreeting = updates.callGreeting || null;
+    // Clean up nulls
+    if (!config.callTo) { delete config.callTo; delete config.callGreeting; }
 
     if (updates.cronExpression && !cron.validate(updates.cronExpression)) {
       throw new Error(`Invalid cron expression: ${updates.cronExpression}`);
     }
 
     db.prepare('UPDATE scheduled_tasks SET name = ?, cron_expression = ?, task_config = ?, enabled = ? WHERE id = ?')
-      .run(name, cronExpr, config, enabled ? 1 : 0, taskId);
+      .run(name, cronExpr, JSON.stringify(config), enabled ? 1 : 0, taskId);
 
     // Reschedule
     const existing = this.jobs.get(taskId);
@@ -115,10 +125,10 @@ class Scheduler {
     }
 
     if (enabled) {
-      this._scheduleTask(taskId, userId, cronExpr, JSON.parse(config));
+      this._scheduleTask(taskId, userId, cronExpr, config);
     }
 
-    return { id: taskId, name, cronExpression: cronExpr, enabled };
+    return { id: taskId, name, cronExpression: cronExpr, enabled, callTo: config.callTo || null };
   }
 
   deleteTask(taskId, userId) {
@@ -172,13 +182,21 @@ class Scheduler {
 
     try {
       if (this.agentEngine && config.prompt) {
-        const lastPlatform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_platform')?.value;
-        const lastChatId = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_chat_id')?.value;
-        const platformHint = lastPlatform && lastChatId
-          ? `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${lastPlatform}" to="${lastChatId}".`
-          : '';
-        const result = await this.agentEngine.run(userId, config.prompt + platformHint, {
-          source: 'scheduler',
+        let notifyHint = '';
+
+        if (config.callTo) {
+          // Task is configured to call the user — instruct the agent to use make_call
+          notifyHint = `\n\nThis task is configured to notify the user by phone. Use the make_call tool to call "${config.callTo}" with an appropriate greeting based on your findings. The configured greeting hint is: "${config.callGreeting || 'Hello, this is your scheduled reminder.'}"`;
+        } else {
+          const lastPlatform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_platform')?.value;
+          const lastChatId = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_chat_id')?.value;
+          notifyHint = lastPlatform && lastChatId
+            ? `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${lastPlatform}" to="${lastChatId}".`
+            : '';
+        }
+
+        const result = await this.agentEngine.run(userId, config.prompt + notifyHint, {
+          triggerSource: 'scheduler',
           taskId
         });
         this.io.to(`user:${userId}`).emit('scheduler:task_complete', { taskId, result });
