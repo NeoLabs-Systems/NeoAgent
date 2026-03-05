@@ -19,7 +19,6 @@ val ciVersionName = findProperty("versionName")?.toString() ?: "1.0.0"
 android {
     namespace = "com.neoagent.aurora"
     compileSdk = 36
-    compileSdkExtension = 20          // Android 16 — Live Update + setRequestPromotedOngoing
 
     defaultConfig {
         applicationId = "com.neoagent.aurora"

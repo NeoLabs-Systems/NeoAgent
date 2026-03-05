@@ -33,11 +33,11 @@ jobs:
         working-directory: mobile/android
         run: echo "sdk.dir=/usr/local/lib/android/sdk" > local.properties
 
-      - name: Install Android SDK extension platform
+      - name: Install Android SDK platform 36
         run: |
           SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses
-          "$SDKMANAGER" --channel=3 "platforms;android-36-ext20"
+          "$SDKMANAGER" "platforms;android-36"
 
       - name: Make gradlew executable
         working-directory: mobile/android
