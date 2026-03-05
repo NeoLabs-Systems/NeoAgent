@@ -342,11 +342,11 @@ class LiveUpdateManager(private val context: Context) {
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(color)
             .setOngoing(true)
-            .setRequestPromotedOngoing(true)
+            .setRequestPromotedOngoingCompat(true)
             .setContentTitle(title)
             .setContentText(status)
             .apply { if (sub != null) setSubText(sub) }
-            .setShortCriticalText(chip)
+            .setShortCriticalTextCompat(chip)
             .setWhen(startTime)
             .setUsesChronometer(chip == null)
             .setShowWhen(chip == null)
@@ -488,4 +488,30 @@ class LiveUpdateManager(private val context: Context) {
      */
     private fun coerceProgress(iteration: Int, maxEstimate: Int): Int =
         ((iteration.toFloat() / maxEstimate) * 95f).toInt().coerceIn(5, 95)
+}
+
+// ── Reflection shims for API-36 Live Update methods ──────────────────────────
+//
+// `setRequestPromotedOngoing` and `setShortCriticalText` were added to
+// Notification.Builder in the final Android 16 (API 36) SDK. Some CI
+// environments pre-install an older preview revision of platforms;android-36
+// whose stub JAR doesn't have them yet.  Since minSdk = 36 the methods
+// are guaranteed to exist at runtime on every device the APK runs on, so
+// calling them through reflection is safe and keeps the code compiling
+// against any revision of the platform stub.
+
+private fun Notification.Builder.setRequestPromotedOngoingCompat(promoted: Boolean): Notification.Builder {
+    try {
+        javaClass.getMethod("setRequestPromotedOngoing", Boolean::class.javaPrimitiveType)
+            .invoke(this, promoted)
+    } catch (_: Exception) { /* method exists on device; only absent in old stub */ }
+    return this
+}
+
+private fun Notification.Builder.setShortCriticalTextCompat(text: String?): Notification.Builder {
+    try {
+        javaClass.getMethod("setShortCriticalText", CharSequence::class.java)
+            .invoke(this, text)
+    } catch (_: Exception) { /* method exists on device; only absent in old stub */ }
+    return this
 }
