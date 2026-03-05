@@ -1076,7 +1076,7 @@ async function loadSkillStore() {
       cats[item.category].push(item);
     }
 
-    const CAT_LABELS = { system: '⚙️ System', network: '📡 Network', info: 'ℹ️ Info', dev: '🛠 Dev', productivity: '🗂 Productivity', fun: '🎲 Fun' };
+    const CAT_LABELS = { system: '⚙️ System', network: '📡 Network', info: 'ℹ️ Info', dev: '🛠 Dev', productivity: '🗂 Productivity', fun: '🎲 Fun', maker: '🖨️ Maker' };
 
     wrap.innerHTML = '';
 
