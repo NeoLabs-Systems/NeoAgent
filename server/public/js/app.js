@@ -222,26 +222,26 @@ function renderMarkdown(text) {
 // ── Activity Helpers ──
 
 const TOOL_META = {
-  execute_command:    { icon: '⚡', label: 'Terminal',      color: 'cli'       },
-  browser_navigate:   { icon: '🌐', label: 'Browse',        color: 'browser'   },
-  browser_click:      { icon: '🖱️', label: 'Click',         color: 'browser'   },
-  browser_type:       { icon: '⌨️', label: 'Type',          color: 'browser'   },
-  browser_extract:    { icon: '📋', label: 'Extract',       color: 'browser'   },
-  browser_screenshot: { icon: '📷', label: 'Screenshot',    color: 'browser'   },
-  browser_evaluate:   { icon: '⚙️', label: 'Script',        color: 'browser'   },
-  memory_write:       { icon: '🧠', label: 'Memory Write',  color: 'memory'    },
-  memory_read:        { icon: '🧠', label: 'Memory Read',   color: 'memory'    },
-  memory_save:        { icon: '🧠', label: 'Save Memory',   color: 'memory'    },
-  memory_recall:      { icon: '🔍', label: 'Recall Memory', color: 'memory'    },
-  memory_update_core: { icon: '📌', label: 'Core Memory',   color: 'memory'    },
-  think:              { icon: '💭', label: 'Thinking',      color: 'thinking'  },
-  send_message:       { icon: '💬', label: 'Message',       color: 'messaging' },
-  make_call:          { icon: '📞', label: 'Call',           color: 'messaging' },
-  http_request:       { icon: '🔗', label: 'HTTP Request',  color: 'http'      },
-  read_file:          { icon: '📄', label: 'Read File',     color: 'file'      },
-  write_file:         { icon: '📝', label: 'Write File',    color: 'file'      },
-  list_directory:     { icon: '📁', label: 'List Dir',      color: 'file'      },
-  spawn_subagent:     { icon: '🤖', label: 'Sub-Agent',     color: 'agent'     },
+  execute_command: { icon: '⚡', label: 'Terminal', color: 'cli' },
+  browser_navigate: { icon: '🌐', label: 'Browse', color: 'browser' },
+  browser_click: { icon: '🖱️', label: 'Click', color: 'browser' },
+  browser_type: { icon: '⌨️', label: 'Type', color: 'browser' },
+  browser_extract: { icon: '📋', label: 'Extract', color: 'browser' },
+  browser_screenshot: { icon: '📷', label: 'Screenshot', color: 'browser' },
+  browser_evaluate: { icon: '⚙️', label: 'Script', color: 'browser' },
+  memory_write: { icon: '🧠', label: 'Memory Write', color: 'memory' },
+  memory_read: { icon: '🧠', label: 'Memory Read', color: 'memory' },
+  memory_save: { icon: '🧠', label: 'Save Memory', color: 'memory' },
+  memory_recall: { icon: '🔍', label: 'Recall Memory', color: 'memory' },
+  memory_update_core: { icon: '📌', label: 'Core Memory', color: 'memory' },
+  think: { icon: '💭', label: 'Thinking', color: 'thinking' },
+  send_message: { icon: '💬', label: 'Message', color: 'messaging' },
+  make_call: { icon: '📞', label: 'Call', color: 'messaging' },
+  http_request: { icon: '🔗', label: 'HTTP Request', color: 'http' },
+  read_file: { icon: '📄', label: 'Read File', color: 'file' },
+  write_file: { icon: '📝', label: 'Write File', color: 'file' },
+  list_directory: { icon: '📁', label: 'List Dir', color: 'file' },
+  spawn_subagent: { icon: '🤖', label: 'Sub-Agent', color: 'agent' },
 };
 
 function getToolMeta(name) {
@@ -251,26 +251,26 @@ function getToolMeta(name) {
 function describeArgs(toolName, args) {
   if (!args) return null;
   switch (toolName) {
-    case 'execute_command':   return { headline: args.command, detail: args.cwd ? `Dir: ${args.cwd}` : null };
-    case 'browser_navigate':  return { headline: args.url };
-    case 'browser_click':     return { headline: args.text ? `"${args.text}"` : (args.selector || 'element') };
-    case 'browser_type':      return { headline: `"${args.text}"`, detail: `into ${args.selector}` };
-    case 'browser_screenshot':return { headline: args.selector ? `Element: ${args.selector}` : 'Full page' };
-    case 'browser_extract':   return { headline: args.selector || 'Page content' };
-    case 'browser_evaluate':  return { headline: args.script?.slice(0, 120) };
-    case 'memory_write':      return { headline: `→ ${args.target}`, detail: args.content?.slice(0, 160) };
-    case 'memory_read':       return { headline: `← ${args.target}`, detail: args.search ? `Search: "${args.search}"` : null };
-    case 'memory_save':       return { headline: args.content?.slice(0, 200), detail: `${args.category || 'episodic'} · importance ${args.importance || 5}` };
-    case 'memory_recall':     return { headline: `"${args.query}"`, detail: args.limit ? `top ${args.limit}` : null };
-    case 'memory_update_core':return { headline: `${args.key} → ${String(args.value || '').slice(0, 100)}` };
-    case 'think':             return { headline: args.thought?.slice(0, 400) };
-    case 'http_request':      return { headline: `${args.method || 'GET'} ${args.url}` };
-    case 'send_message':      return { headline: args.content?.slice(0, 160), detail: `${args.platform} → ${args.to}` };
-    case 'make_call':         return { headline: `Calling ${args.to}`, detail: args.greeting?.slice(0, 100) };
-    case 'read_file':         return { headline: args.path };
-    case 'write_file':        return { headline: args.path, detail: `${(args.content || '').length} chars` };
-    case 'list_directory':    return { headline: args.path };
-    case 'spawn_subagent':    return { headline: args.task?.slice(0, 200) };
+    case 'execute_command': return { headline: args.command, detail: args.cwd ? `Dir: ${args.cwd}` : null };
+    case 'browser_navigate': return { headline: args.url };
+    case 'browser_click': return { headline: args.text ? `"${args.text}"` : (args.selector || 'element') };
+    case 'browser_type': return { headline: `"${args.text}"`, detail: `into ${args.selector}` };
+    case 'browser_screenshot': return { headline: args.selector ? `Element: ${args.selector}` : 'Full page' };
+    case 'browser_extract': return { headline: args.selector || 'Page content' };
+    case 'browser_evaluate': return { headline: args.script?.slice(0, 120) };
+    case 'memory_write': return { headline: `→ ${args.target}`, detail: args.content?.slice(0, 160) };
+    case 'memory_read': return { headline: `← ${args.target}`, detail: args.search ? `Search: "${args.search}"` : null };
+    case 'memory_save': return { headline: args.content?.slice(0, 200), detail: `${args.category || 'episodic'} · importance ${args.importance || 5}` };
+    case 'memory_recall': return { headline: `"${args.query}"`, detail: args.limit ? `top ${args.limit}` : null };
+    case 'memory_update_core': return { headline: `${args.key} → ${String(args.value || '').slice(0, 100)}` };
+    case 'think': return { headline: args.thought?.slice(0, 400) };
+    case 'http_request': return { headline: `${args.method || 'GET'} ${args.url}` };
+    case 'send_message': return { headline: args.content?.slice(0, 160), detail: `${args.platform} → ${args.to}` };
+    case 'make_call': return { headline: `Calling ${args.to}`, detail: args.greeting?.slice(0, 100) };
+    case 'read_file': return { headline: args.path };
+    case 'write_file': return { headline: args.path, detail: `${(args.content || '').length} chars` };
+    case 'list_directory': return { headline: args.path };
+    case 'spawn_subagent': return { headline: args.task?.slice(0, 200) };
     default: {
       const first = Object.values(args).find(v => typeof v === 'string');
       return first ? { headline: first.slice(0, 160) } : null;
@@ -293,12 +293,12 @@ function describeResult(toolName, result) {
     case 'browser_screenshot':
     case 'browser_evaluate':
       return { type: 'screenshot', meta: result.title || null };
-    case 'memory_write':  return { type: 'success', text: 'Saved ✓' };
+    case 'memory_write': return { type: 'success', text: 'Saved ✓' };
     case 'memory_read': {
       const txt = typeof result === 'string' ? result : (result.content || JSON.stringify(result));
       return { type: 'output', text: txt.slice(0, 400) };
     }
-    case 'memory_save':        return { type: 'success', text: 'Saved to memory ✓' };
+    case 'memory_save': return { type: 'success', text: 'Saved to memory ✓' };
     case 'memory_update_core': return { type: 'success', text: 'Core memory updated ✓' };
     case 'memory_recall': {
       const results = result?.results || [];
@@ -360,7 +360,7 @@ class ActivityTimeline {
       const el = document.getElementById('atlTimer');
       if (!el) return;
       const s = Math.round((Date.now() - this.runStartTs) / 1000);
-      el.textContent = s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+      el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
     }, 1000);
   }
 
@@ -395,7 +395,7 @@ class ActivityTimeline {
     let urlChip = '';
     if ((toolName === 'browser_navigate') && toolArgs?.url) {
       const u = toolArgs.url;
-      urlChip = `<a class="atl-url-chip" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${escapeHtml(u.length > 80 ? u.slice(0,80)+'…' : u)}</a>`;
+      urlChip = `<a class="atl-url-chip" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${escapeHtml(u.length > 80 ? u.slice(0, 80) + '…' : u)}</a>`;
     }
 
     stepEl.innerHTML = `
@@ -412,7 +412,7 @@ class ActivityTimeline {
         </div>
         <div class="atl-card-body">
           ${desc?.headline ? `<div class="atl-cmd">${escapeHtml(desc.headline)}</div>` : ''}
-          ${desc?.detail   ? `<div class="atl-detail">${escapeHtml(desc.detail)}</div>` : ''}
+          ${desc?.detail ? `<div class="atl-detail">${escapeHtml(desc.detail)}</div>` : ''}
           ${urlChip}
           <div id="atl-result-${stepId}"></div>
         </div>
@@ -621,8 +621,8 @@ async function loadRunOnCanvas(runId) {
     for (const step of (data.steps || [])) {
       let toolInput = {};
       let result = null;
-      try { toolInput = step.tool_input ? JSON.parse(step.tool_input) : {}; } catch {}
-      try { result = step.result ? JSON.parse(step.result) : null; } catch {}
+      try { toolInput = step.tool_input ? JSON.parse(step.tool_input) : {}; } catch { }
+      try { result = step.result ? JSON.parse(step.result) : null; } catch { }
       activityTimeline.addNode(step.id, step.tool_name, toolInput);
       activityTimeline.updateNode(step.id, step.tool_name, result, step.screenshot_path || null, step.status);
     }
@@ -663,7 +663,7 @@ socket.on('run:tool_end', (data) => {
 });
 
 socket.on('run:stream', (data) => {
-  if (backgroundRunIds.has(data.runId) || data.triggerSource === 'scheduler' || data.triggerSource === 'heartbeat') return;
+  if (backgroundRunIds.has(data.runId) || data.triggerSource === 'scheduler' || data.triggerSource === 'heartbeat' || data.triggerSource === 'messaging') return;
   let streamBubble = $('#streamBubble');
   if (!streamBubble) {
     const thinking = $('#thinking');
@@ -691,7 +691,7 @@ socket.on('run:complete', (data) => {
     if (streamBubble) {
       streamBubble.id = '';
       if (data.content) streamBubble.innerHTML = renderMarkdown(data.content);
-    } else if (data.content) {
+    } else if (data.content && data.triggerSource !== 'messaging') {
       appendMessage('assistant', data.content);
     }
 
@@ -784,10 +784,10 @@ $('#logoutBtn').addEventListener('click', async () => {
 
 // Category badge colours
 const CAT_COLORS = {
-  user_fact:   { bg: '#3b82f620', border: '#3b82f6', text: '#3b82f6', label: 'User Fact' },
-  preference:  { bg: '#8b5cf620', border: '#8b5cf6', text: '#8b5cf6', label: 'Preference' },
+  user_fact: { bg: '#3b82f620', border: '#3b82f6', text: '#3b82f6', label: 'User Fact' },
+  preference: { bg: '#8b5cf620', border: '#8b5cf6', text: '#8b5cf6', label: 'Preference' },
   personality: { bg: '#ec489920', border: '#ec4899', text: '#ec4899', label: 'Personality' },
-  episodic:    { bg: '#22c55e20', border: '#22c55e', text: '#22c55e', label: 'Episodic' },
+  episodic: { bg: '#22c55e20', border: '#22c55e', text: '#22c55e', label: 'Episodic' },
 };
 
 let _memActiveCategory = '';
@@ -969,7 +969,7 @@ $('#cancelAddMemory')?.addEventListener('click', () => $('#addMemoryModal')?.cla
 $('#confirmAddMemory')?.addEventListener('click', async () => {
   const content = $('#newMemoryContent')?.value?.trim();
   if (!content) { toast('Content is required', 'error'); return; }
-  const category  = $('#newMemoryCategory')?.value || 'episodic';
+  const category = $('#newMemoryCategory')?.value || 'episodic';
   const importance = parseInt($('#newMemoryImportance')?.value) || 5;
   try {
     await api('/memory/memories', { method: 'POST', body: { content, category, importance } });
@@ -1122,10 +1122,10 @@ async function loadSkillStore() {
             </div>
             <div style="display:flex;justify-content:flex-end;">
               ${item.installed
-                ? `<span class="badge badge-success" style="margin-right:auto;">Installed</span>
+              ? `<span class="badge badge-success" style="margin-right:auto;">Installed</span>
                    <button class="btn btn-sm btn-danger" data-store-action="uninstall" data-store-id="${escapeHtml(item.id)}">Remove</button>`
-                : `<button class="btn btn-sm btn-primary" data-store-action="install" data-store-id="${escapeHtml(item.id)}">Install</button>`
-              }
+              : `<button class="btn btn-sm btn-primary" data-store-action="install" data-store-id="${escapeHtml(item.id)}">Install</button>`
+            }
             </div>`;
           grid.appendChild(card);
         }
@@ -1269,9 +1269,9 @@ async function loadMCPPage() {
           <div class="item-card-actions">
             <span class="badge ${srv.status === 'running' ? 'badge-success' : 'badge-neutral'}">${srv.status}</span>
             ${srv.status === 'running'
-              ? `<button class="btn btn-sm btn-secondary" data-action="stopMCP" data-id="${srv.id}">Stop</button>`
-              : `<button class="btn btn-sm btn-primary" data-action="startMCP" data-id="${srv.id}">Start</button>`
-            }
+          ? `<button class="btn btn-sm btn-secondary" data-action="stopMCP" data-id="${srv.id}">Stop</button>`
+          : `<button class="btn btn-sm btn-primary" data-action="startMCP" data-id="${srv.id}">Start</button>`
+        }
             <button class="btn btn-sm btn-danger" data-action="deleteMCP" data-id="${srv.id}">&times;</button>
           </div>
         </div>
@@ -1423,15 +1423,15 @@ const _svgLogo = {
 };
 
 const MESSAGING_PLATFORM_GROUPS = [
-  { id: 'text',  label: 'Text & Chat',  description: 'Send and receive messages' },
-  { id: 'voice', label: 'Voice Calls',  description: 'Inbound & outbound phone calls' },
+  { id: 'text', label: 'Text & Chat', description: 'Send and receive messages' },
+  { id: 'voice', label: 'Voice Calls', description: 'Inbound & outbound phone calls' },
 ];
 
 const MESSAGING_PLATFORMS = [
-  { id: 'whatsapp', name: 'WhatsApp',    group: 'text',  color: '#25D366', connectMethod: 'qr'     },
-  { id: 'telegram', name: 'Telegram',    group: 'text',  color: '#2AABEE', connectMethod: 'config' },
-  { id: 'discord',  name: 'Discord',     group: 'text',  color: '#5865F2', connectMethod: 'config' },
-  { id: 'telnyx',   name: 'Telnyx Voice',group: 'voice', color: '#00C8A0', connectMethod: 'config' },
+  { id: 'whatsapp', name: 'WhatsApp', group: 'text', color: '#25D366', connectMethod: 'qr' },
+  { id: 'telegram', name: 'Telegram', group: 'text', color: '#2AABEE', connectMethod: 'config' },
+  { id: 'discord', name: 'Discord', group: 'text', color: '#5865F2', connectMethod: 'config' },
+  { id: 'telnyx', name: 'Telnyx Voice', group: 'voice', color: '#00C8A0', connectMethod: 'config' },
 ];
 
 // Per-platform whitelist config
@@ -1496,9 +1496,9 @@ async function loadMessagingPage() {
         : 'display:flex;flex-direction:column;gap:14px;';
 
       for (const platform of groupPlatforms) {
-        const info    = statuses[platform.id] || { status: 'not_configured' };
-        const wlCfg   = PLATFORM_WHITELIST[platform.id];
-        const isConnected  = info.status === 'connected';
+        const info = statuses[platform.id] || { status: 'not_configured' };
+        const wlCfg = PLATFORM_WHITELIST[platform.id];
+        const isConnected = info.status === 'connected';
         const isConnecting = info.status === 'connecting' || info.status === 'awaiting_qr';
 
         let wlList = [];
@@ -1512,7 +1512,7 @@ async function loadMessagingPage() {
         let authSub = '';
         if (isConnected) {
           if (info.authInfo?.phoneNumber) authSub = escapeHtml(info.authInfo.phoneNumber);
-          else if (info.authInfo?.tag)    authSub = escapeHtml(info.authInfo.tag);
+          else if (info.authInfo?.tag) authSub = escapeHtml(info.authInfo.tag);
           else if (info.authInfo?.username) authSub = '@' + escapeHtml(info.authInfo.username);
         }
 
@@ -1539,11 +1539,11 @@ async function loadMessagingPage() {
           </div>
           <div class="flex gap-2" style="flex-shrink:0;">
             ${isConnected
-              ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
+            ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
                  <button class="btn btn-sm btn-danger"     data-action="logoutPlatform"     data-platform="${platform.id}">Logout</button>`
-              : isConnecting
-                ? `<span class="text-muted text-sm" style="padding:0 4px;">Connecting…</span>`
-                : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`}
+            : isConnecting
+              ? `<span class="text-muted text-sm" style="padding:0 4px;">Connecting…</span>`
+              : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`}
           </div>`;
         card.appendChild(topRow);
 
@@ -1660,7 +1660,7 @@ function _buildWhitelistPanel(panel, list, wlCfg, platformId) {
     for (const entry of list) {
       // Parse optional prefix
       const colon = entry.indexOf(':');
-      const entryType = (colon > 0 && ['user','guild','channel'].includes(entry.slice(0,colon)))
+      const entryType = (colon > 0 && ['user', 'guild', 'channel'].includes(entry.slice(0, colon)))
         ? entry.slice(0, colon) : null;
       const entryId = colon > 0 ? entry.slice(colon + 1) : entry;
 
@@ -1772,8 +1772,8 @@ $('#platformList').addEventListener('click', async (e) => {
 
   if (action === 'connectPlatform') {
     if (method === 'config') {
-      if (platform === 'telnyx')  openTelnyxConfigModal();
-      if (platform === 'discord')  openDiscordConfigModal();
+      if (platform === 'telnyx') openTelnyxConfigModal();
+      if (platform === 'discord') openDiscordConfigModal();
       if (platform === 'telegram') openTelegramConfigModal();
     } else {
       socket.emit('messaging:connect', { platform });
@@ -1806,15 +1806,15 @@ async function openTelnyxConfigModal() {
   try {
     const st = await api('/messaging/status/telnyx');
     // Config is not exposed in status; try settings instead
-  } catch {}
+  } catch { }
   try {
     const s = await api('/settings');
     if (s.telnyx_config) saved = typeof s.telnyx_config === 'string' ? JSON.parse(s.telnyx_config) : s.telnyx_config;
-  } catch {}
+  } catch { }
 
-  const TTS_VOICES = ['alloy','echo','fable','onyx','nova','shimmer'];
-  const TTS_MODELS = ['tts-1','tts-1-hd','gpt-4o-mini-tts'];
-  const STT_MODELS = ['whisper-1','gpt-4o-transcribe'];
+  const TTS_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+  const TTS_MODELS = ['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'];
+  const STT_MODELS = ['whisper-1', 'gpt-4o-transcribe'];
 
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
@@ -1847,20 +1847,20 @@ async function openTelnyxConfigModal() {
           <div style="flex:1;">
             <label class="label" style="display:block;margin-bottom:4px;">TTS Voice</label>
             <select id="telnyx_ttsVoice" class="input" style="width:100%;">
-              ${TTS_VOICES.map(v => `<option value="${v}"${(saved.ttsVoice||'alloy')===v?' selected':''}>${v}</option>`).join('')}
+              ${TTS_VOICES.map(v => `<option value="${v}"${(saved.ttsVoice || 'alloy') === v ? ' selected' : ''}>${v}</option>`).join('')}
             </select>
           </div>
           <div style="flex:1;">
             <label class="label" style="display:block;margin-bottom:4px;">TTS Model</label>
             <select id="telnyx_ttsModel" class="input" style="width:100%;">
-              ${TTS_MODELS.map(m => `<option value="${m}"${(saved.ttsModel||'tts-1')===m?' selected':''}>${m}</option>`).join('')}
+              ${TTS_MODELS.map(m => `<option value="${m}"${(saved.ttsModel || 'tts-1') === m ? ' selected' : ''}>${m}</option>`).join('')}
             </select>
           </div>
         </div>
         <div>
           <label class="label" style="display:block;margin-bottom:4px;">STT Model</label>
           <select id="telnyx_sttModel" class="input" style="width:100%;">
-            ${STT_MODELS.map(m => `<option value="${m}"${(saved.sttModel||'whisper-1')===m?' selected':''}>${m}</option>`).join('')}
+            ${STT_MODELS.map(m => `<option value="${m}"${(saved.sttModel || 'whisper-1') === m ? ' selected' : ''}>${m}</option>`).join('')}
           </select>
           <div style="font-size:0.76rem;color:var(--text-muted);margin-top:4px;">Uses <code style="background:var(--bg-secondary);padding:1px 5px;border-radius:4px;">OPENAI_API_KEY</code> from environment for TTS + STT.</div>
         </div>
@@ -1880,13 +1880,13 @@ async function openTelnyxConfigModal() {
 
   overlay.querySelector('#telnyxModalSave').addEventListener('click', async () => {
     const config = {
-      apiKey:       overlay.querySelector('#telnyx_apiKey').value.trim(),
-      phoneNumber:  overlay.querySelector('#telnyx_phoneNumber').value.trim(),
+      apiKey: overlay.querySelector('#telnyx_apiKey').value.trim(),
+      phoneNumber: overlay.querySelector('#telnyx_phoneNumber').value.trim(),
       connectionId: overlay.querySelector('#telnyx_connectionId').value.trim(),
-      webhookUrl:   overlay.querySelector('#telnyx_webhookUrl').value.trim(),
-      ttsVoice:     overlay.querySelector('#telnyx_ttsVoice').value,
-      ttsModel:     overlay.querySelector('#telnyx_ttsModel').value,
-      sttModel:     overlay.querySelector('#telnyx_sttModel').value
+      webhookUrl: overlay.querySelector('#telnyx_webhookUrl').value.trim(),
+      ttsVoice: overlay.querySelector('#telnyx_ttsVoice').value,
+      ttsModel: overlay.querySelector('#telnyx_ttsModel').value,
+      sttModel: overlay.querySelector('#telnyx_sttModel').value
     };
     if (!config.apiKey || !config.phoneNumber || !config.connectionId || !config.webhookUrl) {
       toast('Please fill in all required fields', 'error');
@@ -1912,7 +1912,7 @@ async function openDiscordConfigModal() {
   try {
     const s = await api('/settings');
     if (s.discord_config) saved = typeof s.discord_config === 'string' ? JSON.parse(s.discord_config) : s.discord_config;
-  } catch {}
+  } catch { }
 
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
@@ -1965,7 +1965,7 @@ async function openTelegramConfigModal() {
   try {
     const s = await api('/settings');
     if (s.telegram_config) saved = typeof s.telegram_config === 'string' ? JSON.parse(s.telegram_config) : s.telegram_config;
-  } catch {}
+  } catch { }
 
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
@@ -2041,10 +2041,10 @@ socket.on('messaging:blocked_sender', (data) => {
   const bannerId = `blocked-banner-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   if (document.getElementById(bannerId)) return; // don't stack duplicates
 
-  const platformLabel = platform === 'telnyx'   ? '📞 Blocked call'
-    : platform === 'discord'  ? '🎮 Blocked Discord message'
-    : platform === 'telegram' ? '✈️ Blocked Telegram message'
-    : '⚠ Blocked message';
+  const platformLabel = platform === 'telnyx' ? '📞 Blocked call'
+    : platform === 'discord' ? '🎮 Blocked Discord message'
+      : platform === 'telegram' ? '✈️ Blocked Telegram message'
+        : '⚠ Blocked message';
 
   const banner = document.createElement('div');
   banner.id = bannerId;
@@ -2056,11 +2056,11 @@ socket.on('messaging:blocked_sender', (data) => {
         <div style="color:var(--text-muted);margin-bottom:10px;">${platform === 'telnyx' ? 'From' : 'Sender'}: <code style="font-size:0.82rem;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;">${escapeHtml(rawId)}</code>${data.senderName ? ` &mdash; ${escapeHtml(data.senderName)}` : ''}${data.meta ? ` <span style="font-size:0.78rem;">(${escapeHtml(data.meta)})</span>` : ''}</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;" id="wb-btns-${bannerId}">
           ${(data.suggestions && data.suggestions.length
-            ? data.suggestions.map((s, i) =>
-                `<button class="btn btn-sm btn-primary" id="wb-sug-${bannerId}-${i}" data-pid="${escapeHtml(s.prefixedId)}">${escapeHtml(s.label)}</button>`
-              ).join('')
-            : `<button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>`
-          )}
+      ? data.suggestions.map((s, i) =>
+        `<button class="btn btn-sm btn-primary" id="wb-sug-${bannerId}-${i}" data-pid="${escapeHtml(s.prefixedId)}">${escapeHtml(s.label)}</button>`
+      ).join('')
+      : `<button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>`
+    )}
           <button class="btn btn-sm btn-secondary" id="wb-dismiss-${bannerId}">Dismiss</button>
         </div>
       </div>
@@ -2190,16 +2190,16 @@ $('#saveProtocolBtn').addEventListener('click', async () => {
   const name = $('#protocolName').value.trim();
   const description = $('#protocolDesc').value.trim();
   const content = $('#protocolContent').value.trim();
-  
+
   if (!name || !content) {
     alert('Name and Content are required');
     return;
   }
-  
+
   const payload = { name, description, content };
   const method = currentProtocolId ? 'PUT' : 'POST';
   const url = currentProtocolId ? `/api/protocols/${currentProtocolId}` : '/api/protocols';
-  
+
   try {
     const res = await fetch(url, {
       method,
@@ -2222,7 +2222,7 @@ async function editProtocol(id) {
     const res = await fetch(`/api/protocols/${id}`);
     if (!res.ok) throw new Error('Failed to load protocol');
     const p = await res.json();
-    
+
     currentProtocolId = p.id;
     $('#protocolModalTitle').textContent = 'Edit Protocol';
     $('#protocolName').value = p.name;
