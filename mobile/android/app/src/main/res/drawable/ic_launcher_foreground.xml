@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Launcher foreground icon — NeoAgent layers mark.
-  Matches the Lucide layers icon used in the web app sidebar.
+  Launcher foreground icon — layers mark matching web favicon exactly.
   Rendered inside the adaptive icon safe zone (108dp total canvas).
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"

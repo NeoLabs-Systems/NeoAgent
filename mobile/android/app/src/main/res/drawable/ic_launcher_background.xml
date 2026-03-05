@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launcher background — gradient matching the web app favicon (#6366f1 → #8b5cf6).
+  angle=135 mirrors the CSS: linear-gradient(135deg, …)
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:startColor="#6366f1"
+        android:endColor="#8b5cf6"
+        android:angle="135" />
+</shape>
