@@ -379,20 +379,23 @@ class MemoryManager {
   // Context Builder — async, takes (userId, query) for semantic recall
   // ─────────────────────────────────────────────────────────────────────────
 
-  async buildContext(userId = null, query = null) {
+  /**
+   * Build the static system-prompt context: soul + core memory only.
+   * No dynamic data (logs, recalled memories) — those are injected as
+   * messages at the right position in the messages array by the engine.
+   */
+  async buildContext(userId = null) {
     const soul = this.readSoul();
-    const todayLog = this.readDailyLog();
-
     let ctx = '';
 
-    // 1. Soul (always)
+    // 1. Soul / personality (always)
     if (soul) ctx += `## Personality & Identity\n${soul}\n\n`;
 
-    // 2. Core memory (always — critical facts the agent should always know)
+    // 2. Core memory — always-relevant user facts
     if (userId != null) {
       const core = this.getCoreMemory(userId);
       if (Object.keys(core).length > 0) {
-        ctx += `## Core Memory (always remember)\n`;
+        ctx += `## Core Memory\n`;
         for (const [key, val] of Object.entries(core)) {
           const display = typeof val === 'object' ? JSON.stringify(val, null, 2) : val;
           ctx += `**${key}**: ${display}\n`;
@@ -401,27 +404,27 @@ class MemoryManager {
       }
     }
 
-    // 3. Semantically recalled memories (relevant to current query)
-    if (userId != null && query) {
-      try {
-        const recalled = await this.recallMemory(userId, query, 6);
-        if (recalled.length > 0) {
-          ctx += `## Relevant Memories\n`;
-          for (const mem of recalled) {
-            const badge = mem.category !== 'episodic' ? ` [${mem.category}]` : '';
-            ctx += `- ${mem.content}${badge}\n`;
-          }
-          ctx += '\n';
-        }
-      } catch {
-        // Silently skip if recall fails
-      }
-    }
-
-    // 4. Today's activity log (always)
-    if (todayLog) ctx += `## Today's Activity Log\n${todayLog}\n\n`;
-
     return ctx;
+  }
+
+  /**
+   * Returns a recalled-memory block string for a given query,
+   * to be injected as a system message in the messages array.
+   * Returns null if nothing relevant found.
+   */
+  async buildRecallMessage(userId, query) {
+    if (!userId || !query || !query.trim()) return null;
+    try {
+      const recalled = await this.recallMemory(userId, query, 5);
+      if (!recalled.length) return null;
+      const lines = recalled.map(m => {
+        const badge = m.category !== 'episodic' ? ` [${m.category}]` : '';
+        return `- ${m.content}${badge}`;
+      });
+      return `[Recalled memory — relevant background for the current message]\n${lines.join('\n')}`;
+    } catch {
+      return null;
+    }
   }
 }
 
