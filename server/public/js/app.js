@@ -57,6 +57,7 @@ function navigateTo(page) {
   if (page === 'mcp') loadMCPPage();
   if (page === 'scheduler') loadSchedulerPage();
   if (page === 'messaging') loadMessagingPage();
+  if (page === 'protocols') loadProtocolsPage();
   if (page === 'activity') requestAnimationFrame(ensureTimeline);
 }
 
@@ -2086,4 +2087,121 @@ socket.on('messaging:blocked_sender', (data) => {
 // ── Init ──
 
 // model is fixed: grok-4-1-fast-reasoning; nothing to load here
+
+// ── Protocols ──
+let currentProtocolId = null;
+
+async function loadProtocolsPage() {
+  try {
+    const res = await fetch('/api/protocols');
+    if (!res.ok) throw new Error('Failed to load protocols');
+    const protocols = await res.json();
+    renderProtocolsList(protocols);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderProtocolsList(protocols) {
+  const container = $('#protocolsList');
+  if (protocols.length === 0) {
+    container.innerHTML = '<div class="empty-state">No protocols found. Create one.</div>';
+    return;
+  }
+  container.className = 'protocols-list';
+  container.innerHTML = protocols.map(p => `
+    <div class="item-card">
+      <div class="item-card-header">
+        <div class="item-card-title" style="font-size: 16px;">${p.name}</div>
+        <div class="item-card-actions">
+          <button class="btn-icon" onclick="editProtocol(${p.id})" title="Edit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn-icon text-red" onclick="deleteProtocol(${p.id})" title="Delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="item-card-meta mb-2" style="font-size: 14px; margin-bottom: 8px;">
+        ${p.description || 'No description'}
+      </div>
+    </div>
+  `).join('');
+}
+
+$('.close-modal', $('#protocolModal')).forEach(b => {
+  b.addEventListener('click', () => {
+    $('#protocolModal').style.display = 'none';
+  });
+});
+
+$('#addProtocolBtn').addEventListener('click', () => {
+  currentProtocolId = null;
+  $('#protocolName').value = '';
+  $('#protocolDesc').value = '';
+  $('#protocolContent').value = '';
+  $('#protocolModal').style.display = 'flex';
+});
+
+$('#saveProtocolBtn').addEventListener('click', async () => {
+  const name = $('#protocolName').value.trim();
+  const description = $('#protocolDesc').value.trim();
+  const content = $('#protocolContent').value.trim();
+  
+  if (!name || !content) {
+    alert('Name and Content are required');
+    return;
+  }
+  
+  const payload = { name, description, content };
+  const method = currentProtocolId ? 'PUT' : 'POST';
+  const url = currentProtocolId ? `/api/protocols/${currentProtocolId}` : '/api/protocols';
+  
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to save: ' + res.status);
+    }
+    $('#protocolModal').style.display = 'none';
+    loadProtocolsPage();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+async function editProtocol(id) {
+  try {
+    const res = await fetch(`/api/protocols/${id}`);
+    if (!res.ok) throw new Error('Failed to load protocol');
+    const p = await res.json();
+    
+    currentProtocolId = p.id;
+    $('#protocolName').value = p.name;
+    $('#protocolDesc').value = p.description || '';
+    $('#protocolContent').value = p.content;
+    
+    $('#protocolModal').style.display = 'flex';
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function deleteProtocol(id) {
+  if (!confirm('Are you sure you want to delete this protocol?')) return;
+  try {
+    const res = await fetch(`/api/protocols/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete protocol');
+    loadProtocolsPage();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+window.editProtocol = editProtocol;
+window.deleteProtocol = deleteProtocol;
 
