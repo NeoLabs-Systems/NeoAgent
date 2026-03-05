@@ -1044,6 +1044,93 @@ ruby <file>.rb             # Ruby
 - Error paths are handled (not silently swallowed)
 - Async code uses proper await / error handling
 - No unused imports or dead code left behind`
+  },
+
+  // ── MAKER ────────────────────────────────────────────────────────────────────
+  {
+    id: 'bambu-studio-cli',
+    name: 'BambuStudio CLI',
+    description: 'Slice 3MF/STL files, export G-code and slicing data using BambuStudio on the command line.',
+    category: 'maker',
+    icon: '🖨️',
+    content: `---
+name: bambu-studio-cli
+description: Slice 3MF/STL files and export results using the BambuStudio command-line interface
+category: maker
+icon: 🖨️
+enabled: true
+---
+
+# BambuStudio CLI
+
+Invoke BambuStudio headlessly for slicing and exporting. The binary is typically \`bambu-studio\` on Linux/macOS or \`bambu-studio.exe\` on Windows.
+
+## Core flags
+
+| Flag | Description |
+|------|-------------|
+| \`--slice <plate>\` | Slice plates: \`0\` = all, \`N\` = plate N |
+| \`--export-3mf <out.3mf>\` | Export sliced result as 3MF |
+| \`--outputdir <dir>\` | Directory for all exported files |
+| \`--load-settings "machine.json;process.json"\` | Override printer + process settings |
+| \`--load-filaments "f1.json;f2.json"\` | Override filament settings (use \`;\` separators, skip slots with empty entry) |
+| \`--curr-bed-type "Cool Plate"\` | Set bed type via command line |
+| \`--arrange <0\|1>\` | Auto-arrange: 0=off, 1=on |
+| \`--orient\` | Auto-orient models before slicing |
+| \`--scale <factor>\` | Scale model by float factor (e.g. \`1.5\`) |
+| \`--export-settings <out.json>\` | Dump merged settings to JSON |
+| \`--export-slicedata <dir>\` | Export slicing data to folder |
+| \`--load-slicedata <dir>\` | Load cached slicing data |
+| \`--info\` | Print model info without slicing |
+| \`--debug <0-5>\` | Log level: 0=fatal … 5=trace |
+| \`--pipe <name>\` | Send progress to named pipe |
+| \`--uptodate\` | Upgrade 3MF config values to latest profiles |
+| \`--help\` | Show CLI help |
+
+Setting priority (highest → lowest):
+1. \`--key=value\` flags on the command line
+2. Files loaded via \`--load-settings\` / \`--load-filaments\`
+3. Settings embedded in the 3MF file
+
+## Common usage patterns
+
+### Slice a 3MF using its own settings
+\`\`\`bash
+bambu-studio --slice 0 --debug 2 --export-3mf output.3mf model.3mf
+\`\`\`
+Slices all plates in model.3mf and exports to output.3mf.
+
+### Slice a 3MF with custom machine/process/filament overrides
+\`\`\`bash
+bambu-studio \\
+  --load-settings "machine.json;process.json" \\
+  --load-filaments "filament1.json;;filament3.json" \\
+  --curr-bed-type "Cool Plate" \\
+  --slice 2 --debug 2 \\
+  --export-3mf output.3mf \\
+  model.3mf
+\`\`\`
+Slices plate 2 only, overriding printer/process/filament settings from JSON files.
+Empty \`;\;\` entries keep the filament slot from the 3MF unchanged.
+
+### Slice raw STL files
+\`\`\`bash
+bambu-studio \\
+  --orient --arrange 1 \\
+  --load-settings "machine.json;process.json" \\
+  --load-filaments "filament.json" \\
+  --slice 0 --debug 2 \\
+  --export-3mf output.3mf \\
+  model.stl
+\`\`\`
+Auto-orients and arranges the STL, applies settings from JSON files, slices all plates.
+
+## When the user asks to slice a file:
+1. Confirm the path to \`bambu-studio\` binary (run \`which bambu-studio\` or ask the user)
+2. Check if custom settings JSON files are needed or if the 3MF is self-contained
+3. Build the command from the flags above
+4. Run it and check for errors in the output (debug level 2 is a good default)
+5. Report the output file location and any warnings`
   }
 ];
 
