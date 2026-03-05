@@ -278,7 +278,7 @@ If no reply is needed (e.g. the message is just an acknowledgement like "ok", "t
           ).run(convId, userId, msg.platform, msg.chatId, `${msg.platform} — ${msg.senderName || msg.sender || msg.chatId}`);
           convRow = { id: convId };
         }
-        const runOpts = { conversationId: convRow.id, source: msg.platform, chatId: msg.chatId, context: { rawUserMessage: msg.content } };
+        const runOpts = { triggerSource: 'messaging', conversationId: convRow.id, source: msg.platform, chatId: msg.chatId, context: { rawUserMessage: msg.content } };
         if (msg.localMediaPath) runOpts.mediaAttachments = [{ path: msg.localMediaPath, type: msg.mediaType }];
         await agentEngine.run(userId, prompt, runOpts);
       } finally {
