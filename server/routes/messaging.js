@@ -86,6 +86,20 @@ router.get('/status/:platform', (req, res) => {
   res.json(manager.getPlatformStatus(req.session.userId, req.params.platform));
 });
 
+// Update Telnyx voice secret code (for non-whitelisted caller gating)
+router.put('/telnyx/voice-secret', (req, res) => {
+  try {
+    const code = String(req.body.secret || '').replace(/\D/g, ''); // digits only
+    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
+      .run(req.session.userId, 'platform_voice_secret_telnyx', JSON.stringify(code));
+    const manager = req.app.locals.messagingManager;
+    if (manager) manager.updateTelnyxVoiceSecret(req.session.userId, code);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 // Update Telnyx allowed numbers (whitelist)
 router.put('/telnyx/whitelist', (req, res) => {
   try {
