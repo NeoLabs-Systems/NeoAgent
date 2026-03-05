@@ -2129,18 +2129,16 @@ function renderProtocolsList(protocols) {
   `).join('');
 }
 
-$('.close-modal', $('#protocolModal')).forEach(b => {
-  b.addEventListener('click', () => {
-    $('#protocolModal').style.display = 'none';
-  });
-});
+$('#closeProtocolModal')?.addEventListener('click', () => $('#protocolModal')?.classList.add('hidden'));
+$('#cancelProtocolModal')?.addEventListener('click', () => $('#protocolModal')?.classList.add('hidden'));
 
-$('#addProtocolBtn').addEventListener('click', () => {
+$('#addProtocolBtn')?.addEventListener('click', () => {
   currentProtocolId = null;
+  $('#protocolModalTitle').textContent = 'Add Protocol';
   $('#protocolName').value = '';
   $('#protocolDesc').value = '';
   $('#protocolContent').value = '';
-  $('#protocolModal').style.display = 'flex';
+  $('#protocolModal')?.classList.remove('hidden');
 });
 
 $('#saveProtocolBtn').addEventListener('click', async () => {
@@ -2167,7 +2165,7 @@ $('#saveProtocolBtn').addEventListener('click', async () => {
       const err = await res.json();
       throw new Error(err.error || 'Failed to save: ' + res.status);
     }
-    $('#protocolModal').style.display = 'none';
+    $('#protocolModal')?.classList.add('hidden');
     loadProtocolsPage();
   } catch (err) {
     alert(err.message);
@@ -2181,11 +2179,11 @@ async function editProtocol(id) {
     const p = await res.json();
     
     currentProtocolId = p.id;
+    $('#protocolModalTitle').textContent = 'Edit Protocol';
     $('#protocolName').value = p.name;
     $('#protocolDesc').value = p.description || '';
     $('#protocolContent').value = p.content;
-    
-    $('#protocolModal').style.display = 'flex';
+    $('#protocolModal')?.classList.remove('hidden');
   } catch (err) {
     alert(err.message);
   }
