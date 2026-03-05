@@ -292,7 +292,7 @@
       </div>
 
       <!-- Protocols Page -->
-      <div class="page" id="page-protocols" style="display: none;">
+      <div class="page" id="page-protocols">
         <div class="page-header">
           <h1>Protocols</h1>
           <button class="btn btn-primary" id="addProtocolBtn">Add Protocol</button>
@@ -305,31 +305,29 @@
       </div>
 
       <!-- Protocol Modal -->
-      <div class="modal" id="protocolModal">
-        <div class="modal-content">
+      <div class="modal-overlay hidden" id="protocolModal">
+        <div class="modal" style="max-width:580px;">
           <div class="modal-header">
-            <h3>Add Protocol</h3>
-            <button class="btn-icon close-modal">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <h2 id="protocolModalTitle">Add Protocol</h2>
+            <button class="btn-ghost" id="closeProtocolModal">&times;</button>
           </div>
           <div class="modal-body">
-            <div class="form-group pb-15">
-              <label>Name</label>
-              <input type="text" id="protocolName" class="form-control" placeholder="e.g., Code Review Protocol">
-            </div>
-            <div class="form-group pb-15">
-              <label>Description (Optional)</label>
-              <input type="text" id="protocolDesc" class="form-control" placeholder="What does this protocol do?">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" id="protocolName" class="input" placeholder="e.g., Code Review Protocol">
             </div>
             <div class="form-group">
-              <label>Content / Instructions</label>
-              <textarea id="protocolContent" class="form-control" rows="12" placeholder="Write the detailed step-by-step instructions here..."></textarea>
+              <label class="form-label">Description (Optional)</label>
+              <input type="text" id="protocolDesc" class="input" placeholder="What does this protocol do?">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Content / Instructions</label>
+              <textarea id="protocolContent" class="textarea" rows="12" placeholder="Write the detailed step-by-step instructions here..."></textarea>
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary close-modal">Cancel</button>
-            <button class="btn btn-primary" id="saveProtocolBtn">Save Protocol</button>
+            <button class="btn-ghost" id="cancelProtocolModal">Cancel</button>
+            <button class="btn-primary" id="saveProtocolBtn">Save Protocol</button>
           </div>
         </div>
       </div>
