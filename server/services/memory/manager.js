@@ -131,7 +131,7 @@ class MemoryManager {
     });
 
     const results = scored
-      .filter(m => m.score > 0.15)
+      .filter(m => m.score > 0.45)
       .sort((a, b) => b.score - a.score)
       .slice(0, topK);
 
