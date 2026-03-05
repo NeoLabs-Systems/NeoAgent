@@ -103,6 +103,7 @@ app.use('/api/agents', require('./routes/agents'));
 app.use('/api/messaging', require('./routes/messaging'));
 app.use('/api/mcp', require('./routes/mcp'));
 app.use('/api/skills', require('./routes/skills'));
+app.use('/api/protocols', require('./routes/protocols'));
 app.use('/api/store', require('./routes/store'));
 app.use('/api/memory', require('./routes/memory'));
 app.use('/api/scheduler', require('./routes/scheduler'));

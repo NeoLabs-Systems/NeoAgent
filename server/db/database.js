@@ -210,6 +210,19 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_memories_user ON memories(user_id, archived, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(user_id, category, archived);
+  CREATE TABLE IF NOT EXISTS protocols (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT UNIQUE NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_protocols_user ON protocols(user_id);
+
   CREATE INDEX IF NOT EXISTS idx_core_memory_user ON core_memory(user_id, key);
 `);
 
