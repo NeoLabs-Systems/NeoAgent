@@ -3,10 +3,12 @@ const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 
+router.use(requireAuth);
+
 // List protocols
-router.get('/', requireAuth, (req, res) => {
+router.get('/', (req, res) => {
   try {
-    const protocols = db.prepare('SELECT id, name, description, content, updated_at FROM protocols WHERE user_id = ? ORDER BY name ASC').all(req.user.id);
+    const protocols = db.prepare('SELECT id, name, description, content, updated_at FROM protocols WHERE user_id = ? ORDER BY name ASC').all(req.session.userId);
     res.json(protocols);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -14,9 +16,9 @@ router.get('/', requireAuth, (req, res) => {
 });
 
 // Get single protocol
-router.get('/:id', requireAuth, (req, res) => {
+router.get('/:id', (req, res) => {
   try {
-    const p = db.prepare('SELECT * FROM protocols WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const p = db.prepare('SELECT * FROM protocols WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
     if (!p) return res.status(404).json({ error: 'Not found' });
     res.json(p);
   } catch (err) {
@@ -25,13 +27,13 @@ router.get('/:id', requireAuth, (req, res) => {
 });
 
 // Create protocol
-router.post('/', requireAuth, (req, res) => {
+router.post('/', (req, res) => {
   try {
     const { name, description, content } = req.body;
     if (!name || !content) return res.status(400).json({ error: 'Name and content are required' });
 
     const stmt = db.prepare('INSERT INTO protocols (user_id, name, description, content) VALUES (?, ?, ?, ?)');
-    const info = stmt.run(req.user.id, name, description || '', content);
+    const info = stmt.run(req.session.userId, name, description || '', content);
     
     const p = db.prepare('SELECT * FROM protocols WHERE id = ?').get(info.lastInsertRowid);
     res.status(201).json(p);
@@ -44,12 +46,12 @@ router.post('/', requireAuth, (req, res) => {
 });
 
 // Update protocol
-router.put('/:id', requireAuth, (req, res) => {
+router.put('/:id', (req, res) => {
   try {
     const { name, description, content } = req.body;
     
     // check existence
-    const existing = db.prepare('SELECT id FROM protocols WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    const existing = db.prepare('SELECT id FROM protocols WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
     if (!existing) return res.status(404).json({ error: 'Not found' });
     
     const stmt = db.prepare(`
@@ -58,7 +60,7 @@ router.put('/:id', requireAuth, (req, res) => {
       WHERE id = ? AND user_id = ?
     `);
     
-    stmt.run(name, description || '', content, req.params.id, req.user.id);
+    stmt.run(name, description || '', content, req.params.id, req.session.userId);
     const p = db.prepare('SELECT * FROM protocols WHERE id = ?').get(req.params.id);
     res.json(p);
   } catch (err) {
@@ -70,10 +72,10 @@ router.put('/:id', requireAuth, (req, res) => {
 });
 
 // Delete protocol
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', (req, res) => {
   try {
     const stmt = db.prepare('DELETE FROM protocols WHERE id = ? AND user_id = ?');
-    const info = stmt.run(req.params.id, req.user.id);
+    const info = stmt.run(req.params.id, req.session.userId);
     
     if (info.changes === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
