@@ -108,8 +108,10 @@
         <div class="page-header">
           <h1>Agent Activity</h1>
           <div class="flex gap-2">
-            <button class="btn btn-secondary btn-sm" id="historyToggleBtn">History</button>
-            <button class="btn btn-secondary btn-sm" id="fitViewBtn">Fit View</button>
+            <button class="btn btn-secondary btn-sm" id="historyToggleBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              History
+            </button>
             <button class="btn btn-secondary btn-sm" id="clearActivityBtn">Clear</button>
           </div>
         </div>
@@ -124,12 +126,14 @@
               <div class="ahp-empty">Loading…</div>
             </div>
           </div>
-          <!-- Canvas -->
-          <div class="activity-viewport" id="activityCanvasWrap">
-            <div class="activity-empty-overlay" id="activityEmpty">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              <p>No activity yet</p>
-              <span>Send a message and watch NeoAgent work</span>
+          <!-- Pipeline Timeline Feed -->
+          <div class="atl-viewport" id="activityFeedWrap">
+            <div class="atl-feed" id="activityFeed">
+              <div class="atl-empty" id="activityEmpty">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <p>No activity yet</p>
+                <span>Send a message and watch the pipeline run</span>
+              </div>
             </div>
           </div>
         </div>

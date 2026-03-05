@@ -57,7 +57,7 @@ function navigateTo(page) {
   if (page === 'mcp') loadMCPPage();
   if (page === 'scheduler') loadSchedulerPage();
   if (page === 'messaging') loadMessagingPage();
-  if (page === 'activity') requestAnimationFrame(ensureCanvas);
+  if (page === 'activity') requestAnimationFrame(ensureTimeline);
 }
 
 $$('.sidebar-btn[data-page]').forEach(btn => {
@@ -326,364 +326,242 @@ function describeResult(toolName, result) {
   }
 }
 
-// ── Activity Canvas ──
+// ── Activity Timeline ──
 
-class ActivityCanvas {
-  constructor(viewport) {
-    this.vp = viewport;
-    this.world = null;
-    this.svg = null;
-    this.tx = 0; this.ty = 40; this.zoom = 1;
-    this.dragging = false;
-    this.lastMX = 0; this.lastMY = 0;
-    this.nodes = new Map();   // stepId -> { el, x, y, w, h }
-    this.edges = [];           // [{from, to}]
-    this.branchNextY = 0;
-    this.branchPrevStep = null;
-    this.NODE_W = 360;
-    this.NODE_H_MIN = 80;
-    this.GAP_Y = 56;
+class ActivityTimeline {
+  constructor(feedEl) {
+    this.feed = feedEl;
+    this.steps = new Map(); // stepId → { el, cardEl }
+    this.runHeaderEl = null;
+    this.runStartTs = null;
+    this.timerInterval = null;
+    this.stepCount = 0;
   }
 
-  init() {
-    this.vp.innerHTML = '';
+  // Start a new run header (called on run:start)
+  startRun(title, model) {
+    this._clearEmpty();
+    this.runStartTs = Date.now();
 
-    // World layer (cards) – transforms with pan/zoom
-    this.world = document.createElement('div');
-    Object.assign(this.world.style, {
-      position: 'absolute', top: '0', left: '0',
-      transformOrigin: '0 0',
-    });
-    this.vp.appendChild(this.world);
+    const el = document.createElement('div');
+    el.className = 'atl-run-header';
+    el.innerHTML = `
+      <span class="atl-run-title">${escapeHtml(title || 'Running…')}</span>
+      <div class="atl-run-badges">
+        <span class="atl-run-timer" id="atlTimer">0s</span>
+        ${model ? `<span class="atl-run-model">${escapeHtml(model)}</span>` : ''}
+        <span class="atl-run-badge running" id="atlRunStatus">running</span>
+      </div>`;
+    this.feed.prepend(el);
+    this.runHeaderEl = el;
 
-    // SVG connector layer – same transform as world
-    this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    Object.assign(this.svg.style, {
-      position: 'absolute', top: '0', left: '0',
-      width: '1px', height: '1px',
-      overflow: 'visible', pointerEvents: 'none',
-      transformOrigin: '0 0',
-    });
-    this.vp.appendChild(this.svg);
-
-    this._center();
-    this._bindEvents();
+    this.timerInterval = setInterval(() => {
+      const el = document.getElementById('atlTimer');
+      if (!el) return;
+      const s = Math.round((Date.now() - this.runStartTs) / 1000);
+      el.textContent = s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+    }, 1000);
   }
 
-  _center() {
-    const vw = this.vp.clientWidth || 800;
-    this.tx = Math.max(20, (vw - this.NODE_W) / 2);
-    this.ty = 40;
-    this._transform();
-  }
-
-  _transform() {
-    const t = `translate(${this.tx}px,${this.ty}px) scale(${this.zoom})`;
-    this.world.style.transform = t;
-    this.svg.style.transform = t;
-  }
-
-  _bindEvents() {
-    this.vp.addEventListener('mousedown', e => {
-      if (e.button !== 0) return;
-      this.dragging = true;
-      this.lastMX = e.clientX; this.lastMY = e.clientY;
-      this.vp.style.cursor = 'grabbing';
-    });
-    window.addEventListener('mousemove', e => {
-      if (!this.dragging) return;
-      this.tx += e.clientX - this.lastMX;
-      this.ty += e.clientY - this.lastMY;
-      this.lastMX = e.clientX; this.lastMY = e.clientY;
-      this._transform();
-    });
-    window.addEventListener('mouseup', () => {
-      this.dragging = false;
-      this.vp.style.cursor = 'grab';
-    });
-    this.vp.addEventListener('wheel', e => {
-      e.preventDefault();
-      const f = e.deltaY < 0 ? 1.1 : 0.9;
-      const rect = this.vp.getBoundingClientRect();
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
-      this.tx = cx - (cx - this.tx) * f;
-      this.ty = cy - (cy - this.ty) * f;
-      this.zoom = Math.max(0.15, Math.min(3, this.zoom * f));
-      this._transform();
-    }, { passive: false });
+  finishRun(status) {
+    clearInterval(this.timerInterval);
+    const badge = document.getElementById('atlRunStatus');
+    if (badge) {
+      badge.className = `atl-run-badge ${status}`;
+      badge.textContent = status;
+    }
+    // Collapse all completed non-response steps
+    for (const [, info] of this.steps) {
+      if (!info.isResponse && info.cardEl && info.cardEl.classList.contains('open')) {
+        const hadError = info.cardEl.querySelector('.atl-text.error');
+        if (!hadError) info.cardEl.classList.remove('open');
+      }
+    }
   }
 
   addNode(stepId, toolName, toolArgs) {
-    // Hide empty state
-    const empty = $('#activityEmpty');
-    if (empty) empty.style.display = 'none';
-
+    this._clearEmpty();
     const meta = getToolMeta(toolName);
     const desc = describeArgs(toolName, toolArgs);
-    const x = 0;
-    const y = this.branchNextY;
 
-    const el = document.createElement('div');
-    el.className = `ac-node color-${meta.color}`;
-    el.id = `ac-node-${stepId}`;
-    el.style.cssText = `left:${x}px;top:${y}px;width:${this.NODE_W}px;`;
-    el.innerHTML = `
-      <div class="ac-header">
-        <span class="ac-icon">${meta.icon}</span>
-        <span class="ac-label">${escapeHtml(meta.label)}</span>
-        <span class="ac-chip running" id="ac-status-${stepId}">working</span>
-      </div>
-      ${desc ? `<div class="ac-primary">${escapeHtml((desc.headline || '').slice(0, 220))}</div>
-      ${desc.detail ? `<div class="ac-detail">${escapeHtml(desc.detail)}</div>` : ''}` : ''}
-      <div class="ac-result hidden" id="ac-result-${stepId}"></div>`;
+    const stepEl = document.createElement('div');
+    stepEl.className = `atl-step running`;
+    stepEl.dataset.color = meta.color;
+    stepEl.id = `atl-step-${stepId}`;
 
-    // URL chip for browser navigation
-    if ((toolName === 'browser_navigate' || toolName === 'browser_evaluate') && toolArgs?.url) {
-      const chip = document.createElement('a');
-      chip.className = 'ac-url-chip';
-      chip.href = toolArgs.url;
-      chip.target = '_blank';
-      chip.rel = 'noopener noreferrer';
+    const summaryText = desc?.headline ? escapeHtml(desc.headline.slice(0, 120)) : escapeHtml(meta.label);
+
+    let urlChip = '';
+    if ((toolName === 'browser_navigate') && toolArgs?.url) {
       const u = toolArgs.url;
-      chip.textContent = u.length > 60 ? u.slice(0, 60) + '…' : u;
-      el.querySelector('.ac-primary')?.before(chip) || el.appendChild(chip);
+      urlChip = `<a class="atl-url-chip" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${escapeHtml(u.length > 80 ? u.slice(0,80)+'…' : u)}</a>`;
     }
 
-    this.world.appendChild(el);
+    stepEl.innerHTML = `
+      <div class="atl-spine">
+        <div class="atl-dot">${meta.icon}</div>
+        <div class="atl-connector"></div>
+      </div>
+      <div class="atl-card open" id="atl-card-${stepId}">
+        <div class="atl-card-head" data-step="${stepId}">
+          <span class="atl-card-label">${escapeHtml(meta.label)}</span>
+          <span class="atl-card-summary">${summaryText}</span>
+          <span class="atl-status-chip running" id="atl-chip-${stepId}">running</span>
+          <span class="atl-toggle">▾</span>
+        </div>
+        <div class="atl-card-body">
+          ${desc?.headline ? `<div class="atl-cmd">${escapeHtml(desc.headline)}</div>` : ''}
+          ${desc?.detail   ? `<div class="atl-detail">${escapeHtml(desc.detail)}</div>` : ''}
+          ${urlChip}
+          <div id="atl-result-${stepId}"></div>
+        </div>
+      </div>`;
 
-    // Measure real height now that it's in the DOM
-    const h = el.offsetHeight || this.NODE_H_MIN;
-    this.nodes.set(stepId, { el, x, y, w: this.NODE_W, h });
+    this.feed.appendChild(stepEl);
+    this.steps.set(stepId, { el: stepEl, cardEl: stepEl.querySelector(`#atl-card-${stepId}`), isResponse: false });
+    this.stepCount++;
 
-    // Watch for height changes (content expanding) and reflow downstream nodes
-    const ro = new ResizeObserver(() => this._reflow(stepId));
-    ro.observe(el);
-    this.nodes.get(stepId).ro = ro;
-
-    if (this.branchPrevStep) {
-      this.edges.push([this.branchPrevStep, stepId]);
-      this._drawEdge(this.branchPrevStep, stepId);
-    }
-    this.branchPrevStep = stepId;
-    this.branchNextY = y + h + this.GAP_Y;
-
-    // Animate in AFTER layout is set
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(12px)';
-    requestAnimationFrame(() => {
-      el.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-      el.style.opacity = '1';
-      el.style.transform = 'translateY(0)';
+    // Toggle open/close on header click
+    stepEl.querySelector('.atl-card-head').addEventListener('click', () => {
+      stepEl.querySelector(`#atl-card-${stepId}`).classList.toggle('open');
     });
 
-    this._scrollTo(x, y + h);
-    return el;
+    stepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return stepEl;
   }
 
   updateNode(stepId, toolName, result, screenshotPath, status) {
-    const info = this.nodes.get(stepId);
+    const info = this.steps.get(stepId);
     if (!info) return;
 
-    const statusEl = document.getElementById(`ac-status-${stepId}`);
-    if (statusEl) {
-      statusEl.className = `ac-chip ${status}`;
-      statusEl.textContent = status === 'completed' ? 'done' : 'failed';
+    const chip = document.getElementById(`atl-chip-${stepId}`);
+    if (chip) {
+      chip.className = `atl-status-chip ${status}`;
+      chip.textContent = status === 'completed' ? 'done' : 'failed';
     }
 
-    const resultEl = document.getElementById(`ac-result-${stepId}`);
-    if (!resultEl) return;
-    resultEl.classList.remove('hidden');
+    info.el.classList.remove('running');
+    if (status === 'failed') info.el.dataset.color = 'tool';
 
+    const resultEl = document.getElementById(`atl-result-${stepId}`);
+    if (!resultEl) return;
+
+    // Screenshot
     if (screenshotPath) {
       const wrap = document.createElement('div');
-      wrap.className = 'ac-screenshot-wrap';
+      wrap.className = 'atl-screenshot-wrap';
       const a = document.createElement('a');
       a.href = screenshotPath; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      a.title = 'Open full screenshot';
       const img = document.createElement('img');
-      img.className = 'ac-screenshot';
+      img.className = 'atl-screenshot';
       img.src = screenshotPath; img.alt = ''; img.loading = 'lazy';
-      img.onload = () => this._reflow(stepId);
-      a.appendChild(img);
-      wrap.appendChild(a);
+      a.appendChild(img); wrap.appendChild(a);
       resultEl.appendChild(wrap);
     }
 
     const rd = describeResult(toolName, result);
-    if (rd?.text) {
-      const d = document.createElement('div');
-      d.className = rd.type === 'code' ? 'ac-code' : rd.type === 'error' ? 'ac-text error' : rd.type === 'success' ? 'ac-success' : 'ac-text';
-      d.textContent = rd.text;
-      resultEl.appendChild(d);
-    }
-    if (rd?.meta) {
-      const m = document.createElement('div');
-      if (rd.statusClass) {
-        m.className = `ac-status-badge ${rd.statusClass}`;
-      } else {
-        m.className = `ac-meta${rd.type === 'error' ? ' error' : ''}`;
+    if (rd) {
+      if (rd.meta) {
+        const m = document.createElement('div');
+        m.className = rd.statusClass ? `atl-http-badge ${rd.statusClass}` : `atl-result-label${rd.type === 'error' ? ' error' : ''}`;
+        m.textContent = rd.meta;
+        resultEl.appendChild(m);
       }
-      m.textContent = rd.meta;
-      resultEl.prepend(m);
+      if (rd.text) {
+        const d = document.createElement('div');
+        d.className = rd.type === 'code' ? 'atl-code' : rd.type === 'error' ? 'atl-text error' : rd.type === 'success' ? 'atl-success' : 'atl-text';
+        d.textContent = rd.text;
+        resultEl.appendChild(d);
+      }
     }
 
-    setTimeout(() => this._reflow(stepId), 60);
+    // Update summary with result snippet
+    const summary = info.el.querySelector('.atl-card-summary');
+    if (summary && rd?.text && rd.type !== 'error') {
+      const snippet = rd.text.split('\n')[0].slice(0, 80);
+      if (snippet) summary.textContent = snippet;
+    }
   }
 
   addResponse(content) {
     if (!content) return;
-    const y = this.branchNextY;
-    const el = document.createElement('div');
-    el.className = 'ac-node ac-response';
-    el.style.cssText = `left:0px;top:${y}px;width:${this.NODE_W}px;`;
-    el.innerHTML = `
-      <div class="ac-header">
-        <span class="ac-icon">✅</span>
-        <span class="ac-label">Response</span>
+    this._clearEmpty();
+
+    const fakeId = `__resp_${Date.now()}`;
+    const stepEl = document.createElement('div');
+    stepEl.className = 'atl-step';
+    stepEl.dataset.color = 'response';
+    stepEl.id = `atl-step-${fakeId}`;
+    stepEl.innerHTML = `
+      <div class="atl-spine">
+        <div class="atl-dot">✅</div>
       </div>
-      <div class="ac-response-body md-content">${renderMarkdown(content)}</div>`;
-    this.world.appendChild(el);
+      <div class="atl-card open" id="atl-card-${fakeId}">
+        <div class="atl-card-head" data-step="${fakeId}">
+          <span class="atl-card-label">Response</span>
+          <span class="atl-card-summary" style="font-style:italic;color:var(--text-muted);">final answer</span>
+          <span class="atl-toggle">▾</span>
+        </div>
+        <div class="atl-card-body">
+          <div class="atl-response-body md-content">${renderMarkdown(content)}</div>
+        </div>
+      </div>`;
 
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(12px)';
-    requestAnimationFrame(() => {
-      el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-      el.style.opacity = '1';
-      el.style.transform = 'translateY(0)';
+    this.feed.appendChild(stepEl);
+    this.steps.set(fakeId, { el: stepEl, cardEl: stepEl.querySelector(`#atl-card-${fakeId}`), isResponse: true });
+
+    stepEl.querySelector('.atl-card-head').addEventListener('click', () => {
+      stepEl.querySelector(`#atl-card-${fakeId}`).classList.toggle('open');
     });
 
-    const tempH = el.offsetHeight || 100;
-    const fakeId = `__response_${Date.now()}`;
-    this.nodes.set(fakeId, { el, x: 0, y, w: this.NODE_W, h: tempH });
-
-    if (this.branchPrevStep) {
-      this.edges.push([this.branchPrevStep, fakeId]);
-      this._drawEdge(this.branchPrevStep, fakeId);
-    }
-    this.branchPrevStep = fakeId;
-    this.branchNextY = y + tempH + this.GAP_Y;
-
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(12px)';
-    requestAnimationFrame(() => {
-      el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-      el.style.opacity = '1';
-      el.style.transform = 'translateY(0)';
-    });
-
-    setTimeout(() => this._reflow(fakeId), 80);
-    this._scrollTo(0, y);
+    stepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  _reflow(stepId) {
-    const info = this.nodes.get(stepId);
-    if (!info) return;
-    const newH = info.el.offsetHeight;
-    if (newH <= info.h) return;
-    const diff = newH - info.h;
-    info.h = newH;
-    // Push all nodes and branchNextY that sit below this one
-    let maxY = 0;
-    for (const [, n] of this.nodes) {
-      if (n.y > info.y) {
-        n.y += diff;
-        n.el.style.top = `${n.y}px`;
-      }
-      maxY = Math.max(maxY, n.y + n.h);
-    }
-    this.branchNextY = maxY + this.GAP_Y;
-    this._redrawEdges();
-  }
-
-  _drawEdge(fromId, toId) {
-    const a = this.nodes.get(fromId);
-    const b = this.nodes.get(toId);
-    if (!a || !b) return;
-    const x1 = a.x + a.w / 2, y1 = a.y + a.h;
-    const x2 = b.x + b.w / 2, y2 = b.y;
-    const mid = (y1 + y2) / 2;
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', `M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', 'var(--border)');
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('stroke-linecap', 'round');
-    path.dataset.from = fromId; path.dataset.to = toId;
-    this.svg.appendChild(path);
-  }
-
-  _redrawEdges() {
-    while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
-    for (const [from, to] of this.edges) this._drawEdge(from, to);
-  }
-
-  _scrollTo(x, y) {
-    const vh = this.vp.clientHeight || 600;
-    const screenY = y * this.zoom + this.ty;
-    const margin = 80;
-    if (screenY > vh - margin) {
-      this.ty -= screenY - (vh - margin);
-      this._transform();
-    }
-  }
-
-  fitView() {
-    if (!this.nodes.size) return;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const [, n] of this.nodes) {
-      minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
-      maxX = Math.max(maxX, n.x + n.w); maxY = Math.max(maxY, n.y + n.h);
-    }
-    const pad = 60;
-    const vw = this.vp.clientWidth, vh = this.vp.clientHeight;
-    const cw = maxX - minX + pad * 2, ch = maxY - minY + pad * 2;
-    this.zoom = Math.min(1, vw / cw, vh / ch);
-    this.tx = (vw - cw * this.zoom) / 2 + pad * this.zoom - minX * this.zoom;
-    this.ty = (vh - ch * this.zoom) / 2 + pad * this.zoom - minY * this.zoom;
-    this._transform();
+  _clearEmpty() {
+    const e = document.getElementById('activityEmpty');
+    if (e) e.style.display = 'none';
   }
 
   clear() {
-    for (const [, n] of this.nodes) { if (n.ro) n.ro.disconnect(); }
-    this.nodes.clear(); this.edges = [];
-    this.branchNextY = 0; this.branchPrevStep = null;
-    if (this.world) this.world.innerHTML = '';
-    if (this.svg) while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
-    const empty = $('#activityEmpty');
-    if (empty) empty.style.display = '';
-    this._center();
+    clearInterval(this.timerInterval);
+    this.steps.clear();
+    this.stepCount = 0;
+    this.runHeaderEl = null;
+    this.runStartTs = null;
+    // Remove everything except the empty state placeholder
+    const empty = document.getElementById('activityEmpty');
+    this.feed.innerHTML = '';
+    if (empty) { empty.style.display = ''; this.feed.appendChild(empty); }
   }
 }
 
-let activityCanvas = null;
+let activityTimeline = null;
 
-function ensureCanvas() {
-  if (activityCanvas) return;
-  const wrap = document.getElementById('activityCanvasWrap');
-  if (!wrap) return;
-  activityCanvas = new ActivityCanvas(wrap);
-  activityCanvas.init();
+function ensureTimeline() {
+  if (activityTimeline) return;
+  const feed = document.getElementById('activityFeed');
+  if (!feed) return;
+  activityTimeline = new ActivityTimeline(feed);
 }
 
 function addActivityNode(stepId, toolName, toolArgs) {
-  ensureCanvas();
-  activityCanvas.addNode(stepId, toolName, toolArgs);
+  ensureTimeline();
+  activityTimeline.addNode(stepId, toolName, toolArgs);
   const badge = $('#activityBadge');
   if (badge) badge.classList.remove('hidden');
 }
 
 function updateActivityNode(stepId, toolName, result, screenshotPath, status) {
-  if (activityCanvas) activityCanvas.updateNode(stepId, toolName, result, screenshotPath, status);
+  if (activityTimeline) activityTimeline.updateNode(stepId, toolName, result, screenshotPath, status);
 }
 
 function addActivityResponse(content) {
-  ensureCanvas();
-  if (content) activityCanvas.addResponse(content);
+  ensureTimeline();
+  if (content) activityTimeline.addResponse(content);
 }
 
 function clearActivity() {
-  if (activityCanvas) activityCanvas.clear();
+  if (activityTimeline) activityTimeline.clear();
   else {
     const empty = $('#activityEmpty');
     if (empty) empty.style.display = '';
@@ -693,7 +571,6 @@ function clearActivity() {
 }
 
 $('#clearActivityBtn').addEventListener('click', clearActivity);
-$('#fitViewBtn').addEventListener('click', () => activityCanvas?.fitView());
 
 // ── Activity History Panel ──
 
@@ -738,17 +615,18 @@ async function loadRunOnCanvas(runId) {
   try {
     const data = await api(`/agents/${runId}/steps`);
     clearActivity();
-    ensureCanvas();
+    ensureTimeline();
+    activityTimeline?.startRun(`Run ${runId}`, data.model || '');
     for (const step of (data.steps || [])) {
       let toolInput = {};
       let result = null;
       try { toolInput = step.tool_input ? JSON.parse(step.tool_input) : {}; } catch {}
       try { result = step.result ? JSON.parse(step.result) : null; } catch {}
-      activityCanvas.addNode(step.id, step.tool_name, toolInput);
-      activityCanvas.updateNode(step.id, step.tool_name, result, step.screenshot_path || null, step.status);
+      activityTimeline.addNode(step.id, step.tool_name, toolInput);
+      activityTimeline.updateNode(step.id, step.tool_name, result, step.screenshot_path || null, step.status);
     }
-    if (data.response) activityCanvas.addResponse(data.response);
-    setTimeout(() => activityCanvas?.fitView(), 100);
+    if (data.response) activityTimeline.addResponse(data.response);
+    activityTimeline?.finishRun(data.status || 'completed');
     const badge = $('#activityBadge');
     if (badge) badge.classList.remove('hidden');
   } catch (err) { toast('Failed to load run: ' + err.message, 'error'); }
@@ -759,7 +637,10 @@ async function loadRunOnCanvas(runId) {
 socket.on('run:start', (data) => {
   if (data.triggerSource === 'scheduler' || data.triggerSource === 'heartbeat') {
     backgroundRunIds.add(data.runId);
+    return;
   }
+  ensureTimeline();
+  activityTimeline?.startRun(data.title || data.runId, data.model || '');
 });
 
 socket.on('run:thinking', (data) => {
@@ -814,6 +695,7 @@ socket.on('run:complete', (data) => {
     }
 
     addActivityResponse(data.content);
+    activityTimeline?.finishRun(data.status || 'completed');
     isStreaming = false;
     sendBtn.disabled = false;
   }
@@ -846,10 +728,10 @@ socket.on('run:interim', (data) => {
 // Incoming social message → show in chat + activity canvas
 socket.on('messaging:message', (data) => {
   appendSocialMessage(data.platform, 'user', data.content, data.senderName);
-  ensureCanvas();
+  ensureTimeline();
   const stepId = `msg-${Date.now()}`;
-  activityCanvas.addNode(stepId, 'send_message', { platform: data.platform, to: data.chatId, content: data.content });
-  activityCanvas.updateNode(stepId, 'send_message', { received: true, from: data.senderName }, null, 'completed');
+  activityTimeline.addNode(stepId, 'send_message', { platform: data.platform, to: data.chatId, content: data.content });
+  activityTimeline.updateNode(stepId, 'send_message', { received: true, from: data.senderName }, null, 'completed');
   const badge = $('#activityBadge');
   if (badge) badge.classList.remove('hidden');
 });
