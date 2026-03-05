@@ -266,10 +266,19 @@ Reply to this message using send_message with platform="${msg.platform}" and to=
 Text like a person: split across messages naturally when it fits the content. Never end with "anything else?" or close-out phrases — just stop when you're done.
 You can also send images/files by setting media_path to a local file path.
 If no reply is needed (e.g. the message is just an acknowledgement like "ok", "thanks", or you already said everything), call send_message with content "[NO RESPONSE]" to explicitly stay silent.`;
-        const priorMessages = db.prepare(
-          'SELECT role, content FROM messages WHERE user_id = ? AND platform_chat_id = ? ORDER BY created_at DESC LIMIT 30'
-        ).all(userId, msg.chatId).reverse();
-        const runOpts = { source: msg.platform, chatId: msg.chatId, priorMessages };
+        // Get or create a persistent conversation keyed by platform + chat ID.
+        // The engine's conversationId path handles history, time-gap markers, and compaction natively.
+        let convRow = db.prepare(
+          'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?'
+        ).get(userId, msg.platform, msg.chatId);
+        if (!convRow) {
+          const convId = require('crypto').randomUUID();
+          db.prepare(
+            'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
+          ).run(convId, userId, msg.platform, msg.chatId, `${msg.platform} — ${msg.senderName || msg.sender || msg.chatId}`);
+          convRow = { id: convId };
+        }
+        const runOpts = { conversationId: convRow.id, source: msg.platform, chatId: msg.chatId, context: { rawUserMessage: msg.content } };
         if (msg.localMediaPath) runOpts.mediaAttachments = [{ path: msg.localMediaPath, type: msg.mediaType }];
         await agentEngine.run(userId, prompt, runOpts);
       } finally {
