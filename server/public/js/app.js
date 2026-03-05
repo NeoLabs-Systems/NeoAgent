@@ -1572,6 +1572,57 @@ async function loadMessagingPage() {
         strip.appendChild(toggleBtn);
         strip.appendChild(panel);
         card.appendChild(strip);
+
+        // ── Telnyx-only: voice secret code ─────────────────────────────────
+        if (platform.id === 'telnyx') {
+          const secretStrip = document.createElement('div');
+          secretStrip.style.cssText = 'border-top:1px solid var(--border);margin:0 -20px;';
+
+          const secretArrowId = `secret-arrow-telnyx`;
+          const secretToggle = document.createElement('button');
+          secretToggle.style.cssText = 'display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;cursor:pointer;padding:9px 20px;color:var(--text-muted);font-size:0.8rem;user-select:none;';
+          secretToggle.innerHTML = `<span id="${secretArrowId}" style="font-size:0.65rem;transition:transform 0.15s;display:inline-block;">&#9654;</span>
+            <span>Voice secret code</span>`;
+
+          const secretPanel = document.createElement('div');
+          secretPanel.style.cssText = 'display:none;padding:4px 20px 14px;';
+
+          const currentSecret = settings['platform_voice_secret_telnyx'] || '';
+          secretPanel.innerHTML = `
+            <p class="text-xs text-muted" style="margin:0 0 8px;">Digits-only PIN non-whitelisted callers must type within 10 s of calling. Wrong code or timeout bans the number for 10 min. Leave empty to reject all non-whitelisted callers immediately.</p>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input id="telnyx-secret-input" type="password" class="input" style="flex:1;max-width:200px;" placeholder="e.g. 1234" value="${escapeHtml(currentSecret)}" autocomplete="off" inputmode="numeric"/>
+              <button id="telnyx-secret-save" class="btn btn-primary btn-sm">Save</button>
+              <button id="telnyx-secret-clear" class="btn btn-sm btn-secondary">Clear</button>
+            </div>`;
+
+          secretToggle.addEventListener('click', () => {
+            const open = secretPanel.style.display !== 'none';
+            secretPanel.style.display = open ? 'none' : 'block';
+            document.getElementById(secretArrowId).style.transform = open ? '' : 'rotate(90deg)';
+          });
+
+          secretPanel.addEventListener('click', async (e) => {
+            if (e.target.id === 'telnyx-secret-save') {
+              const val = document.getElementById('telnyx-secret-input').value;
+              try {
+                await api('/messaging/telnyx/voice-secret', { method: 'PUT', body: { secret: val } });
+                toast('Secret code saved', 'success');
+              } catch { toast('Failed to save secret', 'error'); }
+            } else if (e.target.id === 'telnyx-secret-clear') {
+              document.getElementById('telnyx-secret-input').value = '';
+              try {
+                await api('/messaging/telnyx/voice-secret', { method: 'PUT', body: { secret: '' } });
+                toast('Secret code cleared', 'success');
+              } catch { toast('Failed to clear secret', 'error'); }
+            }
+          });
+
+          secretStrip.appendChild(secretToggle);
+          secretStrip.appendChild(secretPanel);
+          card.appendChild(secretStrip);
+        }
+
         grid.appendChild(card);
       }
 

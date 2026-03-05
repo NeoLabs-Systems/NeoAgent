@@ -25,12 +25,17 @@ class MessagingManager {
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
 
-    // For Telnyx, inject saved whitelist into config before constructing
+    // For Telnyx, inject saved whitelist and voice secret into config before constructing
     if (platformName === 'telnyx') {
       const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
         .get(userId, 'platform_whitelist_telnyx');
       if (wlRow) {
         try { config.allowedNumbers = JSON.parse(wlRow.value); } catch { /* ignore */ }
+      }
+      const secretRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, 'platform_voice_secret_telnyx');
+      if (secretRow) {
+        try { config.voiceSecret = JSON.parse(secretRow.value); } catch { config.voiceSecret = secretRow.value; }
       }
     }
 
@@ -287,6 +292,15 @@ class MessagingManager {
     const key = `${userId}:telnyx`;
     const platform = this.platforms.get(key);
     if (platform?.setAllowedNumbers) platform.setAllowedNumbers(numbers);
+  }
+
+  /**
+   * Update the voice secret code on a live Telnyx platform instance.
+   */
+  updateTelnyxVoiceSecret(userId, secret) {
+    const key = `${userId}:telnyx`;
+    const platform = this.platforms.get(key);
+    if (platform?.setVoiceSecret) platform.setVoiceSecret(secret);
   }
 
   /**

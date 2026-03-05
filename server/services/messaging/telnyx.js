@@ -26,9 +26,14 @@ class TelnyxVoicePlatform extends BasePlatform {
     // Allowed-numbers whitelist (empty = allow all)
     this.allowedNumbers = Array.isArray(config.allowedNumbers) ? config.allowedNumbers : [];
 
+    // Secret code for non-whitelisted inbound callers (digits only; empty = feature disabled)
+    this.voiceSecret = String(config.voiceSecret || '').replace(/\D/g, '');
+
     // Runtime state
     this._sessions        = new Map(); // ccId → session object
     this._recordingTimers = new Map(); // ccId → setTimeout handle
+    this._secretTimers    = new Map(); // ccId → secret-entry timeout handle
+    this._bannedNumbers   = new Map(); // normalizedNumber → ban expiry timestamp
     this._client          = null;      // Telnyx SDK instance
     this._openai          = null;      // OpenAI client
     this._webhookToken    = null;      // resolved at connect time from TELNYX_WEBHOOK_TOKEN
@@ -83,6 +88,8 @@ class TelnyxVoicePlatform extends BasePlatform {
     this._sessions.clear();
     for (const t of this._recordingTimers.values()) clearTimeout(t);
     this._recordingTimers.clear();
+    for (const t of this._secretTimers.values()) clearTimeout(t);
+    this._secretTimers.clear();
     this.status = 'disconnected';
     this.emit('disconnected', {});
   }
@@ -101,14 +108,60 @@ class TelnyxVoicePlatform extends BasePlatform {
     console.log(`[TelnyxVoice] Whitelist updated: ${this.allowedNumbers.length} number(s)`);
   }
 
+  setVoiceSecret(secret) {
+    this.voiceSecret = String(secret || '').replace(/\D/g, '');
+    console.log(`[TelnyxVoice] Voice secret updated (${this.voiceSecret.length} digit(s))`);
+  }
+
   _isAllowed(number) {
     if (!this.allowedNumbers || !this.allowedNumbers.length) return true;
-    const strip = (n) => n.replace(/\D/g, '');
-    const cn = strip(number);
+    const normalize = (n) => n.replace(/\D/g, '');
+    const cn = normalize(number);
     return this.allowedNumbers.some(wl => {
-      const cw = strip(wl);
+      const cw = normalize(wl);
       return cn === cw || cn.endsWith(cw) || cw.endsWith(cn);
     });
+  }
+
+  _normalizeNumber(n) {
+    return n.replace(/\D/g, '');
+  }
+
+  _isBanned(number) {
+    const key = this._normalizeNumber(number);
+    const expiry = this._bannedNumbers.get(key);
+    if (!expiry) return false;
+    if (Date.now() > expiry) {
+      this._bannedNumbers.delete(key);
+      return false;
+    }
+    return true;
+  }
+
+  _banNumber(number, durationMs = 10 * 60 * 1000) {
+    const key = this._normalizeNumber(number);
+    this._bannedNumbers.set(key, Date.now() + durationMs);
+    console.log(`[TelnyxVoice] Banned ${number} for ${durationMs / 60000} min`);
+  }
+
+  _startSecretTimer(ccId) {
+    this._cancelSecretTimer(ccId);
+    const t = setTimeout(async () => {
+      this._secretTimers.delete(ccId);
+      if (!this._hasSession(ccId)) return;
+      const sess = this._session(ccId);
+      if (!sess.awaitingSecret) return;
+      console.log(`[TelnyxVoice] Secret code timeout for ${ccId.slice(-8)} (${sess.callerNumber})`);
+      this._banNumber(sess.callerNumber);
+      this._endSession(ccId);
+      try { await this._hangupCall(ccId); } catch {}
+    }, 10000);
+    this._secretTimers.set(ccId, t);
+  }
+
+  _cancelSecretTimer(ccId) {
+    const t = this._secretTimers.get(ccId);
+    if (t) { clearTimeout(t); this._secretTimers.delete(ccId); }
   }
 
   // ── Session helpers ────────────────────────────────────────────────────────
@@ -116,12 +169,14 @@ class TelnyxVoicePlatform extends BasePlatform {
   _initSession(ccId, callerNumber = '') {
     this._sessions.set(ccId, {
       callerNumber,
-      isProcessing:       false,
-      awaitingUserInput:  false,
-      isThinking:         false, // true while agent is processing — gates playback.ended mutations
-      replySent:          false, // prevents double-reply within one agent turn
+      isProcessing:        false,
+      awaitingUserInput:   false,
+      isThinking:          false, // true while agent is processing — gates playback.ended mutations
+      replySent:           false, // prevents double-reply within one agent turn
       processedRecordings: new Set(),
-
+      // Secret-code gating (non-whitelisted callers)
+      awaitingSecret:      false,
+      secretDigits:        '',
     });
   }
 
@@ -131,6 +186,7 @@ class TelnyxVoicePlatform extends BasePlatform {
   _endSession(ccId) {
     this._sessions.delete(ccId);
     this._cancelRecordingTimer(ccId);
+    this._cancelSecretTimer(ccId);
   }
 
   _scheduleRecordingStop(ccId) {
@@ -309,9 +365,25 @@ class TelnyxVoicePlatform extends BasePlatform {
           if (payload.direction !== 'incoming') break;
           const caller = payload.from;
           if (!this._isAllowed(caller)) {
-            console.log(`[TelnyxVoice] Blocked non-whitelisted caller: ${caller}`);
-            await this._rejectCall(ccId);
-            this.emit('blocked_caller', { caller, ccId });
+            // Check ban list first — banned callers are rejected immediately
+            if (this._isBanned(caller)) {
+              console.log(`[TelnyxVoice] Rejecting banned caller: ${caller}`);
+              await this._rejectCall(ccId);
+              this.emit('blocked_caller', { caller, ccId });
+              break;
+            }
+            // If no secret is configured, fall back to the old reject behaviour
+            if (!this.voiceSecret) {
+              console.log(`[TelnyxVoice] Blocked non-whitelisted caller (no secret set): ${caller}`);
+              await this._rejectCall(ccId);
+              this.emit('blocked_caller', { caller, ccId });
+              break;
+            }
+            // Secret configured — answer and wait silently for code entry
+            console.log(`[TelnyxVoice] Non-whitelisted caller ${caller} — awaiting secret code`);
+            this._initSession(ccId, caller);
+            this._session(ccId).awaitingSecret = true;
+            await this._answerCall(ccId);
             break;
           }
           // Init session BEFORE answering so call.answered (which arrives as a
@@ -331,6 +403,11 @@ class TelnyxVoicePlatform extends BasePlatform {
             console.log(`[TelnyxVoice] call.answered race — session created late for ${ccId.slice(-8)}`);
           }
           const sess = this._session(ccId);
+          // Non-whitelisted caller in secret-code mode — stay silent and start timer
+          if (sess.awaitingSecret) {
+            this._startSecretTimer(ccId);
+            break;
+          }
           sess.isProcessing = true;
           sess.awaitingUserInput = true;
           const greetText = sess._outboundGreeting || 'Hello! I am your AI assistant. How can I help you?';
@@ -365,11 +442,41 @@ class TelnyxVoicePlatform extends BasePlatform {
           break;
         }
 
-        // ── DTMF key — interrupt and restart recording ──────────────────────
+        // ── DTMF key — secret-code entry or interrupt-and-restart recording ──
         case 'call.dtmf.received': {
           if (!this._hasSession(ccId)) break;
-          this._cancelRecordingTimer(ccId);
           const sess = this._session(ccId);
+
+          // ── Secret-code gating mode ─────────────────────────────────────────
+          if (sess.awaitingSecret) {
+            const digit = String(payload.digit ?? payload.dtmf_digit ?? '').trim();
+            if (/^[0-9]$/.test(digit)) {
+              sess.secretDigits += digit;
+              // Compare once we have enough digits
+              if (this.voiceSecret && sess.secretDigits.length >= this.voiceSecret.length) {
+                this._cancelSecretTimer(ccId);
+                if (sess.secretDigits === this.voiceSecret) {
+                  // ── Correct code — transition to normal call flow ──────────
+                  console.log(`[TelnyxVoice] Secret accepted for ${ccId.slice(-8)} (${sess.callerNumber})`);
+                  sess.awaitingSecret    = false;
+                  sess.secretDigits      = '';
+                  sess.isProcessing      = true;
+                  sess.awaitingUserInput = true;
+                  await this._sayText(ccId, 'Hello! I am your AI assistant. How can I help you?');
+                } else {
+                  // ── Wrong code — ban and hang up ───────────────────────────
+                  console.log(`[TelnyxVoice] Wrong secret from ${sess.callerNumber}, banning`);
+                  this._banNumber(sess.callerNumber);
+                  this._endSession(ccId);
+                  try { await this._hangupCall(ccId); } catch {}
+                }
+              }
+            }
+            break;
+          }
+
+          // ── Normal in-call DTMF — interrupt and restart recording ──────────
+          this._cancelRecordingTimer(ccId);
           sess.isProcessing      = true;
           sess.awaitingUserInput = false;
           sess.isThinking        = false; // cancel think state if user interrupts
