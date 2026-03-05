@@ -114,7 +114,7 @@ class TelnyxVoicePlatform extends BasePlatform {
   }
 
   _isAllowed(number) {
-    if (!this.allowedNumbers || !this.allowedNumbers.length) return true;
+    if (!this.allowedNumbers || !this.allowedNumbers.length) return false;
     const normalize = (n) => n.replace(/\D/g, '');
     const cn = normalize(number);
     return this.allowedNumbers.some(wl => {
