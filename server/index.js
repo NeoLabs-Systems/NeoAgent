@@ -54,10 +54,10 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "blob:", "https://api.qrserver.com"],
-      connectSrc: ["'self'", ...wsConnectSrc],
-      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", ...wsConnectSrc],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       formAction: ["'self'"],       // explicit: prevents form-submission to external origins
       frameAncestors: ["'self'"],   // explicit: prevents iframe embedding from other origins
       // Disable upgrade-insecure-requests — helmet adds this by default in v7+,
