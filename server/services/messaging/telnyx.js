@@ -31,6 +31,7 @@ class TelnyxVoicePlatform extends BasePlatform {
     this._recordingTimers = new Map(); // ccId → setTimeout handle
     this._client          = null;      // Telnyx SDK instance
     this._openai          = null;      // OpenAI client
+    this._webhookToken    = null;      // resolved at connect time from TELNYX_WEBHOOK_TOKEN
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -62,10 +63,16 @@ class TelnyxVoicePlatform extends BasePlatform {
       console.warn('[TelnyxVoice] No OpenAI API key found — TTS will use Telnyx native speak (language auto-detected)');
     }
 
+    // Derive the full inbound webhook URL (with token) so it can be logged / displayed
+    const token = process.env.TELNYX_WEBHOOK_TOKEN;
+    this._webhookToken = token || null;
+    const inboundUrl = `${this.webhookUrl}/api/telnyx/webhook${token ? `?token=${token}` : ''}`;
+    console.log(`[TelnyxVoice] Inbound webhook URL (configure this in the Telnyx portal): ${inboundUrl}`);
+
     this.status = 'connected';
     this.emit('connected');
     console.log(`[TelnyxVoice] Connected — phone: ${this.phoneNumber}`);
-    return { status: 'connected' };
+    return { status: 'connected', inboundWebhookUrl: inboundUrl };
   }
 
   async disconnect() {
@@ -513,7 +520,7 @@ class TelnyxVoicePlatform extends BasePlatform {
   async initiateCall(to, greetingText) {
     if (!this._client) throw new Error('Telnyx not connected');
     if (!this._isAllowed(to)) throw new Error(`Number ${to} not in whitelist`);
-    const webhookUrl = `${this.webhookUrl}/api/telnyx/webhook`;
+    const webhookUrl = `${this.webhookUrl}/api/telnyx/webhook${this._webhookToken ? `?token=${this._webhookToken}` : ''}`;
     const call = await this._client.calls.dial({
       to,
       from:          this.phoneNumber,
