@@ -99,7 +99,7 @@ class TelnyxVoicePlatform extends BasePlatform {
       isThinking:         false, // true while agent is processing — gates playback.ended mutations
       replySent:          false, // prevents double-reply within one agent turn
       processedRecordings: new Set(),
-      thinkFile:          null,   // filename of the looping think TTS (so we can delete it)
+
     });
   }
 
@@ -190,6 +190,29 @@ class TelnyxVoicePlatform extends BasePlatform {
     });
     const buf = Buffer.from(await mp3.arrayBuffer());
     await fs.promises.writeFile(destPath, buf);
+  }
+
+  // Say text on a call — tries OpenAI TTS+hosted audio first, falls back to
+  // Telnyx native speak (no external hosting or OpenAI key required).
+  async _sayText(ccId, text) {
+    try {
+      const file = this._tmpFile('say', ccId);
+      const filePath = path.join(AUDIO_DIR, file);
+      await this._tts(text, filePath);
+      await this._playAudio(ccId, this._publicUrl(file));
+      setTimeout(() => fs.unlink(filePath, () => {}), 60000);
+    } catch (err) {
+      console.warn(`[TelnyxVoice] OpenAI TTS failed (${err.message}), falling back to Telnyx speak`);
+      try {
+        await this._client.calls.actions.speak(ccId, {
+          payload:  text,
+          voice:    'female',
+          language: 'en-US',
+        });
+      } catch (speakErr) {
+        if (!this._isTerminalError(speakErr)) throw speakErr;
+      }
+    }
   }
 
   async _stt(filePath) {
@@ -284,11 +307,7 @@ class TelnyxVoicePlatform extends BasePlatform {
           sess.awaitingUserInput = true;
           const greetText = sess._outboundGreeting || 'Hello! I am your AI assistant. How can I help you?';
           delete sess._outboundGreeting;
-          const greetFile = this._tmpFile('greet', ccId);
-          const greetPath = path.join(AUDIO_DIR, greetFile);
-          await this._tts(greetText, greetPath);
-          await this._playAudio(ccId, this._publicUrl(greetFile));
-          setTimeout(() => fs.unlink(greetPath, () => {}), 60000);
+          await this._sayText(ccId, greetText);
           break;
         }
 
@@ -388,12 +407,8 @@ class TelnyxVoicePlatform extends BasePlatform {
           sess.replySent  = false;
 
           // Play a single (non-looping) hold phrase while the agent thinks.
-          const thinkFile = this._tmpFile('think', ccId);
-          const thinkPath = path.join(AUDIO_DIR, thinkFile);
           try {
-            await this._tts('One moment please.', thinkPath);
-            await this._playAudio(ccId, this._publicUrl(thinkFile), false /* single play */);
-            sess.thinkFile = thinkFile;
+            await this._sayText(ccId, 'One moment please.');
           } catch (err) {
             console.error('[TelnyxVoice] Failed to play think audio:', err.message);
           }
@@ -415,10 +430,6 @@ class TelnyxVoicePlatform extends BasePlatform {
 
         // ── Hangup — clean up session ───────────────────────────────────────
         case 'call.hangup': {
-          const sess = this._session(ccId);
-          if (sess?.thinkFile) {
-            setTimeout(() => fs.unlink(path.join(AUDIO_DIR, sess.thinkFile), () => {}), 2000);
-          }
           this._endSession(ccId);
           console.log(`[TelnyxVoice] Call ended (${ccId.slice(-8)})`);
           break;
@@ -454,32 +465,21 @@ class TelnyxVoicePlatform extends BasePlatform {
 
     // Stop the "please hold" TTS (suppress all errors — it may have already ended)
     try { await this._stopAudio(to); } catch {}
-    if (sess.thinkFile) {
-      const tf = sess.thinkFile;
-      sess.thinkFile = null;
-      setTimeout(() => fs.unlink(path.join(AUDIO_DIR, tf), () => {}), 2000);
-    }
 
     // Generate TTS response and play it.
     // If anything here throws, reset replySent so the session isn't bricked.
-    const respFile = this._tmpFile('resp', to);
-    const respPath = path.join(AUDIO_DIR, respFile);
     try {
-      await this._tts(content, respPath);
-
-      // Commit state: clear thinking, arm the listen cycle, then fire the audio.
-      // Any call.playback.ended from here on belongs to the response audio.
+      // Commit state before firing audio so call.playback/speak.ended
+      // belongs to this response, not any residual think audio.
       sess.isThinking      = false;
       sess.isProcessing    = true;
       sess.awaitingUserInput = true;
-      await this._playAudio(to, this._publicUrl(respFile));
-      setTimeout(() => fs.unlink(respPath, () => {}), 60000);
+      await this._sayText(to, content);
     } catch (err) {
-      // TTS or playback failed — reset so the turn isn't silently lost.
-      sess.replySent  = false;
-      sess.isThinking = false;
-      sess.isProcessing = false;
-      fs.unlink(respPath, () => {});
+      // Audio failed — reset so the turn isn't silently lost.
+      sess.replySent     = false;
+      sess.isThinking    = false;
+      sess.isProcessing  = false;
       console.error('[TelnyxVoice] sendMessage failed:', err.message);
       throw err;
     }
