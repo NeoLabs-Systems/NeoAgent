@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -53,3 +55,15 @@ jobs:
           name: app-debug
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Build #${{ github.run_number }} (${{ github.sha != '' && github.sha || '' }})"
+          body: |
+            Automated debug build from commit ${{ github.sha }}
+            Branch: `${{ github.ref_name }}`
+          files: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          prerelease: true
