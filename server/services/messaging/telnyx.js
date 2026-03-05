@@ -45,7 +45,22 @@ class TelnyxVoicePlatform extends BasePlatform {
     const TelnyxSDK = require('telnyx');
     const TelnyxClient = TelnyxSDK.default || TelnyxSDK;
     this._client = new TelnyxClient({ apiKey: this.apiKey });
-    this._openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Resolve OpenAI key: env var → stored API_KEYS.json → none (fallback to Telnyx speak)
+    let openAiKey = process.env.OPENAI_API_KEY;
+    if (!openAiKey) {
+      try {
+        const keysPath = path.join(__dirname, '..', '..', '..', 'agent-data', 'API_KEYS.json');
+        const keys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
+        openAiKey = keys.OPENAI_API_KEY || keys.openai_api_key || keys.openai || null;
+      } catch { /* file missing or unreadable — fine */ }
+    }
+    if (openAiKey) {
+      this._openai = new OpenAI({ apiKey: openAiKey });
+      console.log('[TelnyxVoice] OpenAI TTS enabled');
+    } else {
+      console.warn('[TelnyxVoice] No OpenAI API key found — TTS will use Telnyx native speak (language auto-detected)');
+    }
 
     this.status = 'connected';
     this.emit('connected');
@@ -195,23 +210,29 @@ class TelnyxVoicePlatform extends BasePlatform {
   // Say text on a call — tries OpenAI TTS+hosted audio first, falls back to
   // Telnyx native speak (no external hosting or OpenAI key required).
   async _sayText(ccId, text) {
-    try {
-      const file = this._tmpFile('say', ccId);
-      const filePath = path.join(AUDIO_DIR, file);
-      await this._tts(text, filePath);
-      await this._playAudio(ccId, this._publicUrl(file));
-      setTimeout(() => fs.unlink(filePath, () => {}), 60000);
-    } catch (err) {
-      console.warn(`[TelnyxVoice] OpenAI TTS failed (${err.message}), falling back to Telnyx speak`);
+    if (this._openai) {
       try {
-        await this._client.calls.actions.speak(ccId, {
-          payload:  text,
-          voice:    'female',
-          language: 'en-US',
-        });
-      } catch (speakErr) {
-        if (!this._isTerminalError(speakErr)) throw speakErr;
+        const file = this._tmpFile('say', ccId);
+        const filePath = path.join(AUDIO_DIR, file);
+        await this._tts(text, filePath);
+        await this._playAudio(ccId, this._publicUrl(file));
+        setTimeout(() => fs.unlink(filePath, () => {}), 60000);
+        return;
+      } catch (err) {
+        console.warn(`[TelnyxVoice] OpenAI TTS failed (${err.message}), falling back to Telnyx speak`);
       }
+    }
+    // Telnyx native speak fallback
+    try {
+      const isGerman = /\b(ich|du|ist|und|der|die|das|nicht|ein|hallo|auf|danke|bitte|wie|was|wer|wo|warum|kann|haben|sein|noch|auch|mit|von|bei|nach|für)\b/i.test(text);
+      await this._client.calls.actions.speak(ccId, {
+        payload:  text,
+        voice:    'female',
+        language: isGerman ? 'de-DE' : 'en-US',
+      });
+    } catch (speakErr) {
+      console.error(`[TelnyxVoice] Telnyx speak also failed: ${speakErr.message}`, speakErr?.error?.errors || '');
+      if (!this._isTerminalError(speakErr)) throw speakErr;
     }
   }
 
