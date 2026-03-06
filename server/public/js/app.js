@@ -1311,7 +1311,8 @@ async function loadMCPPage() {
           ? `<button class="btn btn-sm btn-secondary" data-action="stopMCP" data-id="${srv.id}">Stop</button>`
           : `<button class="btn btn-sm btn-primary" data-action="startMCP" data-id="${srv.id}">Start</button>`
         }
-            <button class="btn btn-sm btn-secondary" data-action="editMCP" data-id="${srv.id}" data-name="${escapeHtml(srv.name)}" data-url="${escapeHtml(srv.command)}">Edit</button>
+            ${srv.config?.auth?.type === 'oauth' ? `<button class="btn btn-sm btn-primary" data-action="loginMCP" data-id="${srv.id}">Login</button>` : ''}
+            <button class="btn btn-sm btn-secondary" data-action="editMCP" data-id="${srv.id}" data-name="${escapeHtml(srv.name)}" data-url="${escapeHtml(srv.command)}" data-config='${escapeHtml(JSON.stringify(srv.config || {}))}'>Edit</button>
             <button class="btn btn-sm btn-danger" data-action="deleteMCP" data-id="${srv.id}">&times;</button>
           </div>
         </div>
@@ -1358,18 +1359,55 @@ $('#mcpServerList').addEventListener('click', e => {
   if (action === 'startMCP') window.startMCP(id);
   else if (action === 'stopMCP') window.stopMCP(id);
   else if (action === 'deleteMCP') window.deleteMCP(id);
+  else if (action === 'loginMCP') {
+    const w = window.open(`/api/mcp/${id}/start`, 'oauth', 'width=600,height=700');
+    // We expect the server to return 302 or JSON with `{status: 'oauth_redirect', url}` for a normal GET/POST
+    // Let's first make an API call to get the URL, then window.open that URL
+    api(`/mcp/${id}/start`, { method: 'POST' }).then(res => {
+      if (res.status === 'oauth_redirect') {
+        window.open(res.url, 'oauth', 'width=600,height=700');
+      } else {
+        toast('Server started without needing login', 'success');
+        loadMCPPage();
+      }
+    }).catch(err => toast('Login failed: ' + err.message, 'error'));
+  }
   else if (action === 'editMCP') {
     $('#mcpModalTitle').textContent = 'Edit MCP Server';
     $('#mcpName').value = btn.dataset.name;
     $('#mcpUrl').value = btn.dataset.url;
     $('#mcpModal').dataset.id = id;
+
+    // Auth fields
+    const config = JSON.parse(btn.dataset.config || '{}');
+    const auth = config.auth || {};
+    $('#mcpAuthType').value = auth.type || 'none';
+    $('#mcpAuthToken').value = auth.token || '';
+    $('#mcpAuthClientId').value = auth.clientId || '';
+    $('#mcpAuthServerUrl').value = auth.authServerUrl || '';
+    updateMcpAuthFields();
+
     $('#mcpModal').classList.remove('hidden');
   }
 });
 
+function updateMcpAuthFields() {
+  const type = $('#mcpAuthType').value;
+  $('#mcpAuthBearerGroup').classList.toggle('hidden', type !== 'bearer');
+  $('#mcpAuthOauthGroup').classList.toggle('hidden', type !== 'oauth');
+}
+
+$('#mcpAuthType').addEventListener('change', updateMcpAuthFields);
+
 $('#addMcpBtn').addEventListener('click', () => {
   $('#mcpName').value = '';
   $('#mcpUrl').value = '';
+  $('#mcpAuthType').value = 'none';
+  $('#mcpAuthToken').value = '';
+  $('#mcpAuthClientId').value = '';
+  $('#mcpAuthServerUrl').value = '';
+  updateMcpAuthFields();
+
   $('#mcpModalTitle').textContent = 'Add MCP Server';
   $('#mcpModal').dataset.id = '';
   $('#mcpModal').classList.remove('hidden');
@@ -1390,13 +1428,29 @@ $('#saveMcpBtn').addEventListener('click', () => {
   const method = id ? 'PUT' : 'POST';
   const endpoint = id ? `/mcp/${id}` : '/mcp';
 
-  api(endpoint, { method, body: { name, command: url, config: {}, enabled: true } })
+  const authType = $('#mcpAuthType').value;
+  const auth = { type: authType };
+  if (authType === 'bearer') auth.token = $('#mcpAuthToken').value.trim();
+  if (authType === 'oauth') {
+    auth.clientId = $('#mcpAuthClientId').value.trim();
+    auth.authServerUrl = $('#mcpAuthServerUrl').value.trim();
+  }
+
+  api(endpoint, { method, body: { name, command: url, config: { auth }, enabled: true } })
     .then(() => {
       loadMCPPage();
       $('#mcpModal').classList.add('hidden');
       toast(id ? 'Server updated' : 'Server added', 'success');
     })
     .catch((err) => toast('Failed to save server: ' + err.message, 'error'));
+});
+
+// Listen for popup messages to refresh auth
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'mcp_oauth_success') {
+    toast('OAuth authentication successful!', 'success');
+    loadMCPPage();
+  }
 });
 
 // ── Scheduler Page ──

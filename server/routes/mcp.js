@@ -54,7 +54,7 @@ router.delete('/:id', async (req, res) => {
   if (!server) return res.status(404).json({ error: 'Server not found' });
 
   const mcpClient = req.app.locals.mcpClient;
-  await mcpClient.stopServer(server.id).catch(() => {});
+  await mcpClient.stopServer(server.id).catch(() => { });
 
   db.prepare('DELETE FROM mcp_servers WHERE id = ?').run(server.id);
   res.json({ success: true });
@@ -66,13 +66,16 @@ router.post('/:id/start', async (req, res) => {
     const server = db.prepare('SELECT * FROM mcp_servers WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
     if (!server) return res.status(404).json({ error: 'Server not found' });
 
-    const config = JSON.parse(server.config || '{}');
     const mcpClient = req.app.locals.mcpClient;
-    const result = await mcpClient.startServer(server.id, server.command, config.args || [], config.env || {});
+    const result = await mcpClient.startServer(server.id, server.command);
     const tools = await mcpClient.listTools(server.id);
 
     res.json({ ...result, tools });
   } catch (err) {
+    if (err.message && err.message.startsWith('OAUTH_REDIRECT:')) {
+      const url = err.message.substring(15);
+      return res.json({ status: 'oauth_redirect', url });
+    }
     res.status(500).json({ error: sanitizeError(err) });
   }
 });
@@ -102,6 +105,39 @@ router.get('/:id/tools', async (req, res) => {
     res.json(tools);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+// OAuth Callback
+router.get('/oauth/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  if (!state) return res.status(400).send('Missing state parameter');
+  if (error) return res.status(400).send(`OAuth Error: ${error}`);
+
+  const [serverIdStr] = state.split('::');
+  if (!serverIdStr) return res.status(400).send('Invalid state format');
+
+  const serverId = parseInt(serverIdStr, 10);
+  const mcpClient = req.app.locals.mcpClient;
+
+  try {
+    await mcpClient.finishOAuth(serverId, code);
+    // Render a simple script that closes the popup or redirects parent
+    res.send(`
+      <html><body>
+      <script>
+        if (window.opener) {
+          window.opener.postMessage({ type: 'mcp_oauth_success', serverId: ${serverId} }, '*');
+          window.close();
+        } else {
+          window.location.href = '/?page=mcp';
+        }
+      </script>
+      <p>Authentication successful. You can close this window.</p>
+      </body></html>
+    `);
+  } catch (err) {
+    res.status(500).send(`Failed to finish OAuth: ${sanitizeError(err)}`);
   }
 });
 
