@@ -186,6 +186,16 @@ class MCPClient extends EventEmitter {
     });
   }
 
+  async callToolByName(fullName, args = {}) {
+    for (const [serverId, server] of this.servers) {
+      if (fullName.startsWith(`mcp_${serverId}_`)) {
+        const originalName = fullName.substring(`mcp_${serverId}_`.length);
+        return await this.callTool(serverId, originalName, args);
+      }
+    }
+    return null;
+  }
+
   getAllTools() {
     const allTools = [];
     for (const [serverId, server] of this.servers) {
@@ -193,8 +203,10 @@ class MCPClient extends EventEmitter {
       for (const tool of server.tools) {
         allTools.push({
           ...tool,
-          serverId,
-          fullName: `mcp_${serverId}_${tool.name}`
+          name: `mcp_${serverId}_${tool.name}`,
+          originalName: tool.name,
+          parameters: tool.inputSchema || tool.parameters, // Remap MCP schema to standard AI Engine schema
+          serverId
         });
       }
     }
