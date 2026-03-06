@@ -285,7 +285,8 @@
             <div style="margin-bottom:14px;">
               <p class="text-muted" style="font-size:0.85rem;margin-bottom:14px;">Core memory is injected into
                 <strong>every prompt</strong> — keep entries concise. Ideal for: user's name, standing preferences, how
-                the agent should behave.</p>
+                the agent should behave.
+              </p>
               <div id="coreMemoryList"></div>
               <div style="display:flex;gap:8px;margin-top:12px;">
                 <select id="coreKeySelect" class="input" style="flex:0 0 auto;width:180px;">
@@ -392,6 +393,25 @@
             <div class="form-group">
               <label class="form-label">SSE URL</label>
               <input type="text" id="mcpUrl" class="input" placeholder="http://localhost:8000/sse">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Authentication Method</label>
+              <select id="mcpAuthType" class="input">
+                <option value="none">None</option>
+                <option value="bearer">Bearer Token (Static)</option>
+                <option value="oauth">Interactive OAuth</option>
+              </select>
+            </div>
+            <div id="mcpAuthBearerGroup" class="form-group hidden">
+              <label class="form-label">Bearer Token</label>
+              <input type="password" id="mcpAuthToken" class="input" placeholder="Token value (saved securely)">
+            </div>
+            <div id="mcpAuthOauthGroup" class="form-group hidden">
+              <label class="form-label">OAuth Client ID</label>
+              <input type="text" id="mcpAuthClientId" class="input" placeholder="client_id if required">
+
+              <label class="form-label mt-3">Auth Server URL (Optional)</label>
+              <input type="text" id="mcpAuthServerUrl" class="input" placeholder="Leave empty for auto-discovery">
             </div>
           </div>
           <div class="modal-footer">

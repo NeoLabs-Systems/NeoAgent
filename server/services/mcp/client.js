@@ -1,7 +1,69 @@
 const EventEmitter = require('events');
+const crypto = require('crypto');
 const db = require('../../db/database');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js');
+
+class DBAuthProvider {
+  constructor(serverId, clientId, authServerUrl) {
+    this.serverId = serverId;
+    this.clientId = clientId;
+    this.authServerUrl = authServerUrl;
+  }
+
+  get redirectUrl() {
+    const baseUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 8000}`;
+    return `${baseUrl}/api/mcp/oauth/callback`;
+  }
+
+  get clientMetadata() {
+    return { client_id: this.clientId };
+  }
+
+  state() {
+    return `${this.serverId}::${crypto.randomBytes(16).toString('hex')}`;
+  }
+
+  clientInformation() {
+    return { client_id: this.clientId };
+  }
+
+  _getConfig() {
+    const row = db.prepare('SELECT config FROM mcp_servers WHERE id = ?').get(this.serverId);
+    return row ? JSON.parse(row.config || '{}') : {};
+  }
+
+  _saveConfig(config) {
+    db.prepare('UPDATE mcp_servers SET config = ? WHERE id = ?').run(JSON.stringify(config), this.serverId);
+  }
+
+  tokens() {
+    return this._getConfig().auth?.tokens;
+  }
+
+  saveTokens(tokens) {
+    const config = this._getConfig();
+    config.auth = config.auth || {};
+    config.auth.tokens = tokens;
+    this._saveConfig(config);
+  }
+
+  redirectToAuthorization(authorizationUrl) {
+    // Throw error so the API route catches it and returns the URL to the frontend
+    throw new Error(`OAUTH_REDIRECT:${authorizationUrl.toString()}`);
+  }
+
+  saveCodeVerifier(codeVerifier) {
+    const config = this._getConfig();
+    config.auth = config.auth || {};
+    config.auth.codeVerifier = codeVerifier;
+    this._saveConfig(config);
+  }
+
+  codeVerifier() {
+    return this._getConfig().auth?.codeVerifier;
+  }
+}
 
 class MCPClient extends EventEmitter {
   constructor() {
@@ -16,7 +78,29 @@ class MCPClient extends EventEmitter {
 
     // "url" is passed through the "command" field from the database for backward schema compatibility
     try {
-      const transport = new SSEClientTransport(new URL(url));
+      const serverRow = db.prepare('SELECT config FROM mcp_servers WHERE id = ?').get(serverId);
+      let configObj = {};
+      let authObj = {};
+      if (serverRow) {
+        configObj = JSON.parse(serverRow.config || '{}');
+        authObj = configObj.auth || {};
+      }
+
+      const transportOpts = {
+        requestInit: { headers: {} },
+        eventSourceInit: { headers: {} }
+      };
+
+      if (authObj.type === 'bearer' && authObj.token) {
+        const h = `Bearer ${authObj.token}`;
+        transportOpts.requestInit.headers['Authorization'] = h;
+        // Native EventSource doesn't support headers well in browsers, but Node.js EventSource / sse.js might
+        transportOpts.eventSourceInit.headers['Authorization'] = h;
+      } else if (authObj.type === 'oauth') {
+        transportOpts.authProvider = new DBAuthProvider(serverId, authObj.clientId, authObj.authServerUrl);
+      }
+
+      const transport = new SSEClientTransport(new URL(url), transportOpts);
       const client = new Client(
         { name: 'NeoAgent', version: '1.0.0' },
         { capabilities: { tools: {} } }
@@ -51,6 +135,18 @@ class MCPClient extends EventEmitter {
       }
       throw err;
     }
+  }
+
+  async finishOAuth(serverId, code) {
+    const server = this.servers.get(serverId);
+    if (!server || !server.transport) {
+      throw new Error(`Server ${serverId} transport not initialized`);
+    }
+    await server.transport.finishAuth(code);
+    await server.client.connect(server.transport).catch(() => { }); // Reconnect using tokens
+
+    server.status = 'running';
+    this.emit('server_status', { serverId, status: 'running' });
   }
 
   async stopServer(serverId) {
