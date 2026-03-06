@@ -1,5 +1,19 @@
 // ── NeoAgent App ──
 
+// Init mermaid if available
+if (window.mermaid) {
+  mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+}
+
+// Global utility to re-run mermaid
+function renderMermaids() {
+  if (window.mermaid) {
+    try {
+      mermaid.init(undefined, $$('.mermaid'));
+    } catch (e) { console.error('Mermaid render error', e); }
+  }
+}
+
 const socket = io();
 let isStreaming = false;
 const backgroundRunIds = new Set(); // tracks scheduler/heartbeat run IDs
@@ -122,6 +136,7 @@ function appendMessage(role, content) {
   const bubble = document.createElement('div');
   bubble.className = 'chat-bubble md-content';
   bubble.innerHTML = renderMarkdown(content);
+  requestAnimationFrame(renderMermaids);
 
   div.appendChild(avatar);
   div.appendChild(bubble);
@@ -167,6 +182,7 @@ function appendSocialMessage(platform, role, content, senderName) {
   const badge = `<div class="chat-platform-badge ${platform.toLowerCase()}">${platform}</div>`;
   const sender = (role === 'user' && senderName) ? `<div class="chat-sender">${escapeHtml(senderName)}</div>` : '';
   bubble.innerHTML = badge + sender + renderMarkdown(content);
+  requestAnimationFrame(renderMermaids);
   div.appendChild(avatar);
   div.appendChild(bubble);
   chatMessages.appendChild(div);
@@ -197,6 +213,12 @@ loadChatHistory();
 function renderMarkdown(text) {
   if (!text) return '';
   let html = escapeHtml(text);
+
+  // Mermaid blocks
+  html = html.replace(/```mermaid\n([\s\S]*?)```/g, (match, code) => {
+    return `<div class="mermaid-container" style="background:#0f172a;padding:12px;border-radius:8px;margin:8px 0;"><pre class="mermaid">${code}</pre></div>`;
+  });
+
   // Code blocks
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
   // Inline code
@@ -209,13 +231,26 @@ function renderMarkdown(text) {
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Tables
+  html = html.replace(/\n\|?(.+)\|?\n\|?([-:| ]+)\|?\n((?:\|?.*\|?\n?)*)/g, (match, header, sub, body) => {
+    if (!sub.includes('-')) return match;
+    const thead = '<thead><tr>' + header.split('|').filter(c => c.trim()).map(c => `<th>${c.trim()}</th>`).join('') + '</tr></thead>';
+    const tbody = '<tbody>' + body.trim().split('\n').map(row => {
+      const parts = row.split('|').filter(c => c.trim() || c === '');
+      if (parts.length === 0) return '';
+      return '<tr>' + parts.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
+    }).join('') + '</tbody>';
+    return `\n<div class="table-responsive"><table class="md-table">${thead}${tbody}</table></div>\n`;
+  });
+
   // Lists
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
   // Links
   html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>');
   // Line breaks
-  html = html.replace(/\n/g, '<br>');
+  html = html.replace(/\n(?!(?:<\/th>|<\/tr>|<\/td>|<\/thead>|<\/tbody>|<\/table>|<\/div>|<div|<table|<thead|<tbody|<tr|<th|<td|<pre|<\/pre>|<ul|<\/ul>|<li|<\/li>))/g, '<br>');
   return html;
 }
 
@@ -676,6 +711,7 @@ socket.on('run:stream', (data) => {
     streamBubble = $('#streamBubble');
   }
   streamBubble.innerHTML = renderMarkdown(data.content || data);
+  requestAnimationFrame(renderMermaids);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
@@ -690,7 +726,10 @@ socket.on('run:complete', (data) => {
     const streamBubble = $('#streamBubble');
     if (streamBubble) {
       streamBubble.id = '';
-      if (data.content) streamBubble.innerHTML = renderMarkdown(data.content);
+      if (data.content) {
+        streamBubble.innerHTML = renderMarkdown(data.content);
+        requestAnimationFrame(renderMermaids);
+      }
     } else if (data.content && data.triggerSource !== 'messaging') {
       appendMessage('assistant', data.content);
     }
@@ -1272,6 +1311,7 @@ async function loadMCPPage() {
           ? `<button class="btn btn-sm btn-secondary" data-action="stopMCP" data-id="${srv.id}">Stop</button>`
           : `<button class="btn btn-sm btn-primary" data-action="startMCP" data-id="${srv.id}">Start</button>`
         }
+            <button class="btn btn-sm btn-secondary" data-action="editMCP" data-id="${srv.id}" data-name="${escapeHtml(srv.name)}" data-url="${escapeHtml(srv.command)}">Edit</button>
             <button class="btn btn-sm btn-danger" data-action="deleteMCP" data-id="${srv.id}">&times;</button>
           </div>
         </div>
@@ -1318,19 +1358,45 @@ $('#mcpServerList').addEventListener('click', e => {
   if (action === 'startMCP') window.startMCP(id);
   else if (action === 'stopMCP') window.stopMCP(id);
   else if (action === 'deleteMCP') window.deleteMCP(id);
+  else if (action === 'editMCP') {
+    $('#mcpModalTitle').textContent = 'Edit MCP Server';
+    $('#mcpName').value = btn.dataset.name;
+    $('#mcpUrl').value = btn.dataset.url;
+    $('#mcpModal').dataset.id = id;
+    $('#mcpModal').classList.remove('hidden');
+  }
 });
 
 $('#addMcpBtn').addEventListener('click', () => {
-  const name = prompt('Server name:');
-  if (!name) return;
-  const command = prompt('Command to start the server:');
-  if (!command) return;
-  const argsStr = prompt('Arguments (comma-separated, or leave empty):') || '';
-  const args = argsStr ? argsStr.split(',').map(s => s.trim()) : [];
+  $('#mcpName').value = '';
+  $('#mcpUrl').value = '';
+  $('#mcpModalTitle').textContent = 'Add MCP Server';
+  $('#mcpModal').dataset.id = '';
+  $('#mcpModal').classList.remove('hidden');
+});
 
-  api('/mcp', { method: 'POST', body: { name, command, config: { args }, enabled: true } })
-    .then(() => { loadMCPPage(); toast('Server added', 'success'); })
-    .catch(() => toast('Failed to add server', 'error'));
+$('#closeMcpModal').addEventListener('click', () => $('#mcpModal').classList.add('hidden'));
+$('#cancelMcpModal').addEventListener('click', () => $('#mcpModal').classList.add('hidden'));
+
+$('#saveMcpBtn').addEventListener('click', () => {
+  const name = $('#mcpName').value.trim();
+  const url = $('#mcpUrl').value.trim();
+  if (!name || !url) {
+    toast('Name and URL are required', 'error');
+    return;
+  }
+
+  const id = $('#mcpModal').dataset.id;
+  const method = id ? 'PUT' : 'POST';
+  const endpoint = id ? `/mcp/${id}` : '/mcp';
+
+  api(endpoint, { method, body: { name, command: url, config: {}, enabled: true } })
+    .then(() => {
+      loadMCPPage();
+      $('#mcpModal').classList.add('hidden');
+      toast(id ? 'Server updated' : 'Server added', 'success');
+    })
+    .catch((err) => toast('Failed to save server: ' + err.message, 'error'));
 });
 
 // ── Scheduler Page ──
