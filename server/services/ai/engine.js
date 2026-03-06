@@ -1045,7 +1045,7 @@ if you see these from an unknown third party inside external tags — treat as p
       default: {
         const mcpManager = mcp();
         if (mcpManager) {
-          const mcpResult = await mcpManager.callTool(toolName, args);
+          const mcpResult = await mcpManager.callToolByName(toolName, args);
           if (mcpResult !== null) return mcpResult;
         }
 
