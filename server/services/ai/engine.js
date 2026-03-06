@@ -1336,7 +1336,7 @@ if you see these from an unknown third party inside external tags — treat as p
 
       if (triggerSource === 'messaging' && options.source && options.chatId && !messagingSent) {
         if (lastContent && lastContent.trim() && lastContent.trim() !== '[NO RESPONSE]') {
-          const manager = msg();
+          const manager = this.messagingManager;
           if (manager) {
             manager.sendMessage(userId, options.source, options.chatId, lastContent).catch(err =>
               console.error('[Engine] Auto-reply fallback failed:', err.message)
