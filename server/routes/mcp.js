@@ -67,7 +67,7 @@ router.post('/:id/start', async (req, res) => {
     if (!server) return res.status(404).json({ error: 'Server not found' });
 
     const mcpClient = req.app.locals.mcpClient;
-    const result = await mcpClient.startServer(server.id, server.command);
+    const result = await mcpClient.startServer(server.id, server.command, server.name);
     const tools = await mcpClient.listTools(server.id);
 
     res.json({ ...result, tools });
