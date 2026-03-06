@@ -71,12 +71,12 @@ class MCPClient extends EventEmitter {
     this.servers = new Map();
   }
 
-  async startServer(serverId, url, dummyArgs = [], dummyEnv = {}) {
+  async startServer(serverId, url, name = '') {
     if (this.servers.has(serverId)) {
       await this.stopServer(serverId);
     }
 
-    // "url" is passed through the "command" field from the database for backward schema compatibility
+    const slug = (name || String(serverId)).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
     try {
       const serverRow = db.prepare('SELECT config FROM mcp_servers WHERE id = ?').get(serverId);
       let configObj = {};
@@ -109,7 +109,9 @@ class MCPClient extends EventEmitter {
       const serverObj = {
         id: serverId,
         url,
-        command: url, // to keep UI and routers happy that expect 'command'
+        slug,
+        name: name || String(serverId),
+        command: url,
         client,
         transport,
         tools: [],
@@ -188,8 +190,9 @@ class MCPClient extends EventEmitter {
 
   async callToolByName(fullName, args = {}) {
     for (const [serverId, server] of this.servers) {
-      if (fullName.startsWith(`mcp_${serverId}_`)) {
-        const originalName = fullName.substring(`mcp_${serverId}_`.length);
+      const prefix = `mcp_${server.slug}_`;
+      if (fullName.startsWith(prefix)) {
+        const originalName = fullName.substring(prefix.length);
         return await this.callTool(serverId, originalName, args);
       }
     }
@@ -203,9 +206,9 @@ class MCPClient extends EventEmitter {
       for (const tool of server.tools) {
         allTools.push({
           ...tool,
-          name: `mcp_${serverId}_${tool.name}`,
+          name: `mcp_${server.slug}_${tool.name}`,
           originalName: tool.name,
-          parameters: tool.inputSchema || tool.parameters, // Remap MCP schema to standard AI Engine schema
+          parameters: tool.inputSchema || tool.parameters,
           serverId
         });
       }
@@ -233,7 +236,7 @@ class MCPClient extends EventEmitter {
 
     for (const srv of servers) {
       try {
-        await this.startServer(srv.id, srv.command);
+        await this.startServer(srv.id, srv.command, srv.name);
         await this.listTools(srv.id);
         results.push({ id: srv.id, name: srv.name, status: 'running' });
       } catch (err) {
