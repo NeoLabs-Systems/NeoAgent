@@ -1393,11 +1393,21 @@ $('#mcpServerList').addEventListener('click', e => {
 
 function updateMcpAuthFields() {
   const type = $('#mcpAuthType').value;
-  $('#mcpAuthBearerGroup').classList.toggle('hidden', type !== 'bearer');
-  $('#mcpAuthOauthGroup').classList.toggle('hidden', type !== 'oauth');
+
+  if (type === 'bearer') {
+    $('#mcpAuthBearerGroup').classList.remove('hidden');
+    $('#mcpAuthOauthGroup').classList.add('hidden');
+  } else if (type === 'oauth') {
+    $('#mcpAuthBearerGroup').classList.add('hidden');
+    $('#mcpAuthOauthGroup').classList.remove('hidden');
+  } else {
+    $('#mcpAuthBearerGroup').classList.add('hidden');
+    $('#mcpAuthOauthGroup').classList.add('hidden');
+  }
 }
 
 $('#mcpAuthType').addEventListener('change', updateMcpAuthFields);
+$('#mcpAuthType').addEventListener('input', updateMcpAuthFields);
 
 $('#addMcpBtn').addEventListener('click', () => {
   $('#mcpName').value = '';
