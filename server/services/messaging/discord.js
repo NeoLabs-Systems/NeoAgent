@@ -23,12 +23,12 @@ class DiscordPlatform extends BasePlatform {
   constructor(config = {}) {
     super('discord', config);
     this.supportsGroups = true;
-    this.supportsMedia  = false;
+    this.supportsMedia = false;
 
-    this.token          = config.token || '';
+    this.token = config.token || '';
     this.allowedEntries = Array.isArray(config.allowedIds) ? config.allowedIds : [];
 
-    this._client  = null;
+    this._client = null;
     this._botUser = null;
   }
 
@@ -37,7 +37,7 @@ class DiscordPlatform extends BasePlatform {
   async connect() {
     if (!this.token) throw new Error('Discord bot token is required');
 
-    if (this._client) { try { this._client.destroy(); } catch {} this._client = null; }
+    if (this._client) { try { this._client.destroy(); } catch { } this._client = null; }
 
     this._client = new Client({
       intents: [
@@ -52,7 +52,7 @@ class DiscordPlatform extends BasePlatform {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Discord login timed out after 20 s')), 20000);
 
-      this._client.once('ready', () => {
+      this._client.once('clientReady', async (c) => {
         clearTimeout(timeout);
         this._botUser = this._client.user;
         this.status = 'connected';
@@ -70,15 +70,15 @@ class DiscordPlatform extends BasePlatform {
   }
 
   async disconnect() {
-    if (this._client) { try { this._client.destroy(); } catch {} this._client = null; }
-    this.status   = 'disconnected';
+    if (this._client) { try { this._client.destroy(); } catch { } this._client = null; }
+    this.status = 'disconnected';
     this._botUser = null;
     this.emit('disconnected', { manual: true });
   }
 
-  async logout()   { await this.disconnect(); }
-  getStatus()      { return this.status; }
-  getAuthInfo()    { return this._botUser ? { tag: this._botUser.tag, id: this._botUser.id } : null; }
+  async logout() { await this.disconnect(); }
+  getStatus() { return this.status; }
+  getAuthInfo() { return this._botUser ? { tag: this._botUser.tag, id: this._botUser.id } : null; }
 
   // ── Whitelist ──────────────────────────────────────────────────────────────
 
@@ -90,9 +90,9 @@ class DiscordPlatform extends BasePlatform {
 
   /** Returns {allowed, requireMention} */
   _checkAccess(message) {
-    const isDM      = message.channel.type === ChannelType.DM;
-    const userId    = message.author.id;
-    const guildId   = message.guildId   || null;
+    const isDM = message.channel.type === ChannelType.DM;
+    const userId = message.author.id;
+    const guildId = message.guildId || null;
     const channelId = message.channelId;
 
     // Empty whitelist: block everyone (add via the allow popup)
@@ -100,12 +100,12 @@ class DiscordPlatform extends BasePlatform {
 
     for (const entry of this.allowedEntries) {
       const colon = entry.indexOf(':');
-      const type  = colon > 0 ? entry.slice(0, colon) : 'user';
-      const id    = colon > 0 ? entry.slice(colon + 1) : entry;
+      const type = colon > 0 ? entry.slice(0, colon) : 'user';
+      const id = colon > 0 ? entry.slice(colon + 1) : entry;
 
-      if (type === 'user'    && id === userId)    return { allowed: true, requireMention: false };
-      if (type === 'guild'   && id === guildId)   return { allowed: true, requireMention: true  };
-      if (type === 'channel' && id === channelId) return { allowed: true, requireMention: true  };
+      if (type === 'user' && id === userId) return { allowed: true, requireMention: false };
+      if (type === 'guild' && id === guildId) return { allowed: true, requireMention: true };
+      if (type === 'channel' && id === channelId) return { allowed: true, requireMention: true };
     }
     return { allowed: false, requireMention: false };
   }
@@ -130,9 +130,9 @@ class DiscordPlatform extends BasePlatform {
       return [...fetched.values()]
         .reverse()  // oldest first
         .map(m => ({
-          author:  m.author.bot ? `[bot] ${m.author.username}` : m.author.username,
+          author: m.author.bot ? `[bot] ${m.author.username}` : m.author.username,
           content: m.content || (m.attachments.size ? '[attachment]' : '[empty]'),
-          mine:    m.author.id === this._botUser?.id,
+          mine: m.author.id === this._botUser?.id,
         }));
     } catch { return []; }
   }
@@ -142,11 +142,11 @@ class DiscordPlatform extends BasePlatform {
   async _handleMessage(message) {
     if (message.author.bot) return;
 
-    const isDM      = message.channel.type === ChannelType.DM;
-    const userId    = message.author.id;
-    const guildId   = message.guildId   || null;
+    const isDM = message.channel.type === ChannelType.DM;
+    const userId = message.author.id;
+    const guildId = message.guildId || null;
     const channelId = message.channelId;
-    const chatId    = isDM ? `dm_${userId}` : channelId;
+    const chatId = isDM ? `dm_${userId}` : channelId;
 
     const { allowed, requireMention } = this._checkAccess(message);
 
@@ -154,14 +154,14 @@ class DiscordPlatform extends BasePlatform {
       const suggestions = [
         { label: `Add user (${message.author.username})`, prefixedId: `user:${userId}` },
       ];
-      if (guildId) suggestions.push({ label: `Add server (${message.guild?.name || guildId})`,   prefixedId: `guild:${guildId}` });
-      if (!isDM)   suggestions.push({ label: `Add channel (#${message.channel.name || channelId})`, prefixedId: `channel:${channelId}` });
+      if (guildId) suggestions.push({ label: `Add server (${message.guild?.name || guildId})`, prefixedId: `guild:${guildId}` });
+      if (!isDM) suggestions.push({ label: `Add channel (#${message.channel.name || channelId})`, prefixedId: `channel:${channelId}` });
 
       this.emit('blocked_sender', {
-        sender:      userId,
+        sender: userId,
         chatId,
-        senderName:  message.author.username,
-        guildName:   message.guild?.name || null,
+        senderName: message.author.username,
+        guildName: message.guild?.name || null,
         suggestions,
       });
       return;
@@ -185,18 +185,18 @@ class DiscordPlatform extends BasePlatform {
     const channelContext = (requireMention && !isDM) ? await this._fetchContext(message.channel, 20) : null;
 
     this.emit('message', {
-      platform:       'discord',
+      platform: 'discord',
       chatId,
-      sender:         userId,
+      sender: userId,
       senderName,
       content,
-      mediaType:      null,
-      isGroup:        !isDM,
-      messageId:      message.id,
-      timestamp:      message.createdAt.toISOString(),
+      mediaType: null,
+      isGroup: !isDM,
+      messageId: message.id,
+      timestamp: message.createdAt.toISOString(),
       channelContext,
-      channelName:    isDM ? null : (message.channel.name || channelId),
-      guildName:      message.guild?.name || null,
+      channelName: isDM ? null : (message.channel.name || channelId),
+      guildName: message.guild?.name || null,
     });
   }
 
@@ -210,7 +210,7 @@ class DiscordPlatform extends BasePlatform {
 
     if (to.startsWith('dm_')) {
       const user = await this._client.users.fetch(to.slice(3));
-      const dm   = await user.createDM();
+      const dm = await user.createDM();
       await dm.send({ content });
     } else {
       const channel = await this._client.channels.fetch(to);
@@ -225,7 +225,7 @@ class DiscordPlatform extends BasePlatform {
     try {
       if (chatId.startsWith('dm_')) {
         const user = await this._client.users.fetch(chatId.slice(3));
-        const dm   = await user.createDM();
+        const dm = await user.createDM();
         await dm.sendTyping();
       } else {
         const ch = await this._client.channels.fetch(chatId);
