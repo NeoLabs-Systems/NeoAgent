@@ -11,25 +11,21 @@ class OpenAIProvider extends BaseProvider {
       'gpt-5-nano',
       'gpt-5.2',
       'gpt-4.1',
-      'gpt-4o',
-      'gpt-4o-mini',
       'o3',
       'o4-mini'
     ];
     // Reasoning models: no temperature, use max_completion_tokens, support reasoning_effort
     this.reasoningModels = new Set(['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2', 'gpt-5.1', 'o1', 'o3', 'o4-mini', 'o3-mini']);
     this.contextWindows = {
-      'gpt-5':       400000,
-      'gpt-5-mini':  200000,
-      'gpt-5-nano':  128000,
-      'gpt-5.2':     400000,
-      'gpt-5.1':     400000,
-      'gpt-4.1':     1047576,
-      'gpt-4o':      128000,
-      'gpt-4o-mini': 128000,
-      'o3':          200000,
-      'o4-mini':     200000,
-      'o3-mini':     200000
+      'gpt-5': 400000,
+      'gpt-5-mini': 200000,
+      'gpt-5-nano': 128000,
+      'gpt-5.2': 400000,
+      'gpt-5.1': 400000,
+      'gpt-4.1': 1047576,
+      'o3': 200000,
+      'o4-mini': 200000,
+      'o3-mini': 200000
     };
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENAI_API_KEY
