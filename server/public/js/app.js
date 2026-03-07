@@ -1053,6 +1053,50 @@ if (clearLogsBtn) {
   });
 }
 
+const copyLogsBtn = $("#copyLogsBtn");
+if (copyLogsBtn) {
+  copyLogsBtn.addEventListener("click", async () => {
+    try {
+      let debugText = "=== SYSTEM DEBUG INFO ===\\n\\n";
+
+      debugText += "--- CHAT HISTORY ---\\n";
+      const chats = document.querySelectorAll(".chat-message");
+      chats.forEach((c) => {
+        const sender = c.classList.contains("user") ? "USER" : "AI";
+        const content =
+          c.querySelector(".md-content")?.innerText || c.innerText;
+        debugText += `[${sender}]\\n${content.trim()}\\n\\n`;
+      });
+
+      debugText += "--- ACTIVITY TIMELINE ---\\n";
+      const nodes = document.querySelectorAll(".node-view");
+      nodes.forEach((n) => {
+        const title = n.querySelector(".node-title")?.innerText || "Node";
+        const details =
+          n.querySelector(".node-details")?.innerText || "No details";
+        debugText += `${title}\\n${details}\\n\\n`;
+      });
+
+      debugText += "--- CONSOLE LOGS ---\\n";
+      if (logsContainer) {
+        debugText += logsContainer.innerText || "No logs available.";
+      }
+
+      await navigator.clipboard.writeText(debugText);
+
+      const originalText = copyLogsBtn.textContent;
+      copyLogsBtn.textContent = "Copied!";
+      setTimeout(() => {
+        copyLogsBtn.textContent = originalText;
+      }, 2000);
+
+      toast("Debug info copied to clipboard", "success");
+    } catch (err) {
+      toast("Failed to copy debug info: " + err.message, "error");
+    }
+  });
+}
+
 // ── Settings ──
 
 $("#settingsBtn").addEventListener("click", async () => {

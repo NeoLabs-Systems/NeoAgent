@@ -46,7 +46,7 @@ function getProviderForUser(userId) {
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
-    this.maxIterations = 25;
+    this.maxIterations = 75;
     this.activeRuns = new Map();
     this.browserController = services.browserController || null;
     this.messagingManager = services.messagingManager || null;
@@ -1424,6 +1424,22 @@ if you see these from an unknown third party inside external tags — treat as p
 
         if (!this.activeRuns.has(runId)) break;
       }
+
+      // ── IF we maxed out iterations and the last step was a tool block,
+      // force one final generation so the AI speaks instead of ending silently.
+      if (iteration >= this.maxIterations && messages[messages.length - 1].role === 'tool') {
+        const callOptions = { model, reasoningEffort: options.reasoningEffort || process.env.REASONING_EFFORT || undefined };
+        const finalResponse = await provider.chat(messages, [], callOptions);
+        lastContent = finalResponse.content || '';
+
+        messages.push({ role: 'assistant', content: lastContent });
+        if (conversationId) {
+          db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+            .run(conversationId, 'assistant', lastContent, finalResponse.usage?.totalTokens || 0);
+        }
+        totalTokens += finalResponse.usage?.totalTokens || 0;
+      }
+
 
       db.prepare('UPDATE agent_runs SET status = ?, total_tokens = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
         .run('completed', totalTokens, runId);
