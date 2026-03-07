@@ -168,7 +168,7 @@
             </div>
             <div class="chat-input-info">
               <span class="text-xs text-muted">Press Enter to send, Shift+Enter for new line</span>
-              <span class="text-xs text-muted" id="modelIndicator">grok-4-1-fast-reasoning</span>
+              <span class="text-xs text-muted" id="modelIndicator">Smart Selector Active</span>
             </div>
           </div>
         </div>
@@ -514,6 +514,12 @@
             <input type="checkbox" id="settingHeadlessBrowser">
             <span>Run browser headless (no visible window)</span>
           </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Models (Smart Selector)</label>
+          <div id="modelCheckboxesContainer" style="display:flex; flex-direction:column; gap:8px;">
+            <!-- Rendered dynamically by app.js -->
+          </div>
         </div>
       </div>
       <div class="modal-footer">

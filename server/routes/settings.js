@@ -5,12 +5,23 @@ const { requireAuth } = require('../middleware/auth');
 
 router.use(requireAuth);
 
+// Get supported models metadata
+router.get('/meta/models', (req, res) => {
+  const { SUPPORTED_MODELS } = require('../services/ai/models');
+  res.json({ models: SUPPORTED_MODELS });
+});
+
 // Get all settings
 router.get('/', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId);
   const settings = {};
   for (const row of rows) {
-    try { settings[row.key] = JSON.parse(row.value); } catch { settings[row.key] = row.value; }
+    try {
+      settings[row.key] = JSON.parse(row.value);
+    } catch (e) {
+      console.warn(`[Settings] Failed to parse '${row.key}' as JSON, treating as raw string. Error:`, e.message);
+      settings[row.key] = row.value;
+    }
   }
   res.json(settings);
 });
@@ -32,7 +43,7 @@ router.put('/', (req, res) => {
   // Apply headless toggle immediately without restarting
   if ('headless_browser' in req.body) {
     const bc = req.app.locals.browserController;
-    if (bc) bc.setHeadless(req.body.headless_browser).catch(() => {});
+    if (bc) bc.setHeadless(req.body.headless_browser).catch(() => { });
   }
 
   res.json({ success: true });
@@ -42,7 +53,12 @@ router.put('/', (req, res) => {
 router.get('/:key', (req, res) => {
   const row = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(req.session.userId, req.params.key);
   if (!row) return res.json({ value: null });
-  try { res.json({ value: JSON.parse(row.value) }); } catch { res.json({ value: row.value }); }
+  try {
+    res.json({ value: JSON.parse(row.value) });
+  } catch (e) {
+    console.warn(`[Settings] Failed to parse '${req.params.key}' as JSON, returning as raw string. Error:`, e.message);
+    res.json({ value: row.value });
+  }
 });
 
 // Set single setting

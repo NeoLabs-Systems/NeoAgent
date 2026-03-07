@@ -830,10 +830,10 @@ async function loadRunOnCanvas(runId) {
       let result = null;
       try {
         toolInput = step.tool_input ? JSON.parse(step.tool_input) : {};
-      } catch {}
+      } catch { }
       try {
         result = step.result ? JSON.parse(step.result) : null;
-      } catch {}
+      } catch { }
       activityTimeline.addNode(step.id, step.tool_name, toolInput);
       activityTimeline.updateNode(
         step.id,
@@ -1101,14 +1101,44 @@ if (copyLogsBtn) {
 
 $("#settingsBtn").addEventListener("click", async () => {
   try {
+    const meta = await api("/settings/meta/models");
     const settings = await api("/settings");
+
     $("#settingHeartbeat").checked =
       settings.heartbeat_enabled === true ||
       settings.heartbeat_enabled === "true";
     $("#settingHeadlessBrowser").checked =
       settings.headless_browser !== false &&
       settings.headless_browser !== "false";
+
+    const enabledModels = Array.isArray(settings.enabled_models) ? settings.enabled_models : (meta.models || []).map(m => m.id);
+
+    const container = $("#modelCheckboxesContainer");
+    if (container) {
+      container.innerHTML = "";
+      if (meta.models) {
+        for (const modelDef of meta.models) {
+          const label = document.createElement("label");
+          label.className = "flex items-center gap-2";
+          label.style.cursor = "pointer";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.className = "dynamic-model-checkbox";
+          checkbox.dataset.modelId = modelDef.id;
+          checkbox.checked = enabledModels.includes(modelDef.id);
+
+          const span = document.createElement("span");
+          span.textContent = modelDef.label;
+
+          label.appendChild(checkbox);
+          label.appendChild(span);
+          container.appendChild(label);
+        }
+      }
+    }
   } catch (err) {
+    console.error("Failed to load settings:", err);
     $("#settingHeadlessBrowser").checked = true; // default headless
   }
   $("#settingsModal").classList.remove("hidden");
@@ -1123,11 +1153,16 @@ $("#cancelSettings").addEventListener("click", () =>
 
 $("#saveSettings").addEventListener("click", async () => {
   try {
+    const enabledModels = Array.from(document.querySelectorAll("#modelCheckboxesContainer .dynamic-model-checkbox"))
+      .filter(cb => cb.checked)
+      .map(cb => cb.dataset.modelId);
+
     await api("/settings", {
       method: "PUT",
       body: {
         heartbeat_enabled: $("#settingHeartbeat").checked,
         headless_browser: $("#settingHeadlessBrowser").checked,
+        enabled_models: enabledModels
       },
     });
     $("#settingsModal").classList.add("hidden");
@@ -1581,12 +1616,11 @@ async function loadSkillStore() {
               </div>
             </div>
             <div style="display:flex;justify-content:flex-end;">
-              ${
-                item.installed
-                  ? `<span class="badge badge-success" style="margin-right:auto;">Installed</span>
+              ${item.installed
+              ? `<span class="badge badge-success" style="margin-right:auto;">Installed</span>
                    <button class="btn btn-sm btn-danger" data-store-action="uninstall" data-store-id="${escapeHtml(item.id)}">Remove</button>`
-                  : `<button class="btn btn-sm btn-primary" data-store-action="install" data-store-id="${escapeHtml(item.id)}">Install</button>`
-              }
+              : `<button class="btn btn-sm btn-primary" data-store-action="install" data-store-id="${escapeHtml(item.id)}">Install</button>`
+            }
             </div>`;
           grid.appendChild(card);
         }
@@ -1742,11 +1776,10 @@ async function loadMCPPage() {
           </div>
           <div class="item-card-actions">
             <span class="badge ${srv.status === "running" ? "badge-success" : "badge-neutral"}">${srv.status}</span>
-            ${
-              srv.status === "running"
-                ? `<button class="btn btn-sm btn-secondary" data-action="stopMCP" data-id="${srv.id}">Stop</button>`
-                : `<button class="btn btn-sm btn-primary" data-action="startMCP" data-id="${srv.id}">Start</button>`
-            }
+            ${srv.status === "running"
+          ? `<button class="btn btn-sm btn-secondary" data-action="stopMCP" data-id="${srv.id}">Stop</button>`
+          : `<button class="btn btn-sm btn-primary" data-action="startMCP" data-id="${srv.id}">Start</button>`
+        }
             ${srv.config?.auth?.type === "oauth" ? `<button class="btn btn-sm btn-primary" data-action="loginMCP" data-id="${srv.id}">Login</button>` : ""}
             <button class="btn btn-sm btn-secondary" data-action="editMCP" data-id="${srv.id}" data-name="${escapeHtml(srv.name)}" data-url="${escapeHtml(srv.command)}" data-config='${escapeHtml(JSON.stringify(srv.config || {}))}'>Edit</button>
             <button class="btn btn-sm btn-danger" data-action="deleteMCP" data-id="${srv.id}">&times;</button>
@@ -2201,14 +2234,13 @@ async function loadMessagingPage() {
             </div>
           </div>
           <div class="flex gap-2" style="flex-shrink:0;">
-            ${
-              isConnected
-                ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
+            ${isConnected
+            ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
                  <button class="btn btn-sm btn-danger"     data-action="logoutPlatform"     data-platform="${platform.id}">Logout</button>`
-                : isConnecting
-                  ? `<span class="text-muted text-sm" style="padding:0 4px;">Connecting…</span>`
-                  : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`
-            }
+            : isConnecting
+              ? `<span class="text-muted text-sm" style="padding:0 4px;">Connecting…</span>`
+              : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`
+          }
           </div>`;
         card.appendChild(topRow);
 
@@ -2356,7 +2388,7 @@ function _buildWhitelistPanel(panel, list, wlCfg, platformId) {
       const colon = entry.indexOf(":");
       const entryType =
         colon > 0 &&
-        ["user", "guild", "channel"].includes(entry.slice(0, colon))
+          ["user", "guild", "channel"].includes(entry.slice(0, colon))
           ? entry.slice(0, colon)
           : null;
       const entryId = colon > 0 ? entry.slice(colon + 1) : entry;
@@ -2539,7 +2571,7 @@ async function openTelnyxConfigModal() {
   try {
     const st = await api("/messaging/status/telnyx");
     // Config is not exposed in status; try settings instead
-  } catch {}
+  } catch { }
   try {
     const s = await api("/settings");
     if (s.telnyx_config)
@@ -2547,7 +2579,7 @@ async function openTelnyxConfigModal() {
         typeof s.telnyx_config === "string"
           ? JSON.parse(s.telnyx_config)
           : s.telnyx_config;
-  } catch {}
+  } catch { }
 
   const TTS_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
   const TTS_MODELS = ["tts-1", "tts-1-hd", "gpt-4o-mini-tts"];
@@ -2671,7 +2703,7 @@ async function openDiscordConfigModal() {
         typeof s.discord_config === "string"
           ? JSON.parse(s.discord_config)
           : s.discord_config;
-  } catch {}
+  } catch { }
 
   const overlay = document.createElement("div");
   overlay.style.cssText =
@@ -2744,7 +2776,7 @@ async function openTelegramConfigModal() {
         typeof s.telegram_config === "string"
           ? JSON.parse(s.telegram_config)
           : s.telegram_config;
-  } catch {}
+  } catch { }
 
   const overlay = document.createElement("div");
   overlay.style.cssText =
@@ -2857,16 +2889,15 @@ socket.on("messaging:blocked_sender", (data) => {
         <div style="font-weight:600;margin-bottom:4px;">${platformLabel}</div>
         <div style="color:var(--text-muted);margin-bottom:10px;">${platform === "telnyx" ? "From" : "Sender"}: <code style="font-size:0.82rem;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;">${escapeHtml(rawId)}</code>${data.senderName ? ` &mdash; ${escapeHtml(data.senderName)}` : ""}${data.meta ? ` <span style="font-size:0.78rem;">(${escapeHtml(data.meta)})</span>` : ""}</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;" id="wb-btns-${bannerId}">
-          ${
-            data.suggestions && data.suggestions.length
-              ? data.suggestions
-                  .map(
-                    (s, i) =>
-                      `<button class="btn btn-sm btn-primary" id="wb-sug-${bannerId}-${i}" data-pid="${escapeHtml(s.prefixedId)}">${escapeHtml(s.label)}</button>`,
-                  )
-                  .join("")
-              : `<button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>`
-          }
+          ${data.suggestions && data.suggestions.length
+      ? data.suggestions
+        .map(
+          (s, i) =>
+            `<button class="btn btn-sm btn-primary" id="wb-sug-${bannerId}-${i}" data-pid="${escapeHtml(s.prefixedId)}">${escapeHtml(s.label)}</button>`,
+        )
+        .join("")
+      : `<button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>`
+    }
           <button class="btn btn-sm btn-secondary" id="wb-dismiss-${bannerId}">Dismiss</button>
         </div>
       </div>
