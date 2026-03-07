@@ -73,6 +73,7 @@ function navigateTo(page) {
   if (page === 'messaging') loadMessagingPage();
   if (page === 'protocols') loadProtocolsPage();
   if (page === 'activity') requestAnimationFrame(ensureTimeline);
+  if (page === 'logs') loadLogsPage();
 }
 
 $$('.sidebar-btn[data-page]').forEach(btn => {
@@ -774,138 +775,194 @@ socket.on('messaging:message', (data) => {
   activityTimeline.updateNode(stepId, 'send_message', { received: true, from: data.senderName }, null, 'completed');
   const badge = $('#activityBadge');
   if (badge) badge.classList.remove('hidden');
-});
+  // ── Logs Tab ──
 
-// ── Settings ──
+  const logsContainer = $('#logsContainer');
+  let logsRequested = false;
 
-$('#settingsBtn').addEventListener('click', async () => {
-  try {
-    const settings = await api('/settings');
-    $('#settingHeartbeat').checked = settings.heartbeat_enabled === true || settings.heartbeat_enabled === 'true';
-    $('#settingHeadlessBrowser').checked = settings.headless_browser !== false && settings.headless_browser !== 'false';
-  } catch (err) {
-    $('#settingHeadlessBrowser').checked = true; // default headless
+  function loadLogsPage() {
+    if (!logsRequested) {
+      socket.emit('client:request_logs');
+      logsRequested = true;
+    }
   }
-  $('#settingsModal').classList.remove('hidden');
-});
 
-$('#closeSettings').addEventListener('click', () => $('#settingsModal').classList.add('hidden'));
-$('#cancelSettings').addEventListener('click', () => $('#settingsModal').classList.add('hidden'));
+  function appendLogEntry(log) {
+    if (!logsContainer) return;
 
-$('#saveSettings').addEventListener('click', async () => {
-  try {
-    await api('/settings', {
-      method: 'PUT',
-      body: {
-        heartbeat_enabled: $('#settingHeartbeat').checked,
-        headless_browser: $('#settingHeadlessBrowser').checked
-      }
+    const isAtBottom = logsContainer.scrollHeight - logsContainer.scrollTop <= logsContainer.clientHeight + 50;
+
+    const el = document.createElement('div');
+    el.style.marginBottom = '4px';
+    el.style.borderBottom = '1px solid #1e293b';
+    el.style.paddingBottom = '4px';
+    el.style.wordBreak = 'break-word';
+    el.style.whiteSpace = 'pre-wrap';
+
+    let color = '#e2e8f0'; // info
+    if (log.type === 'error') color = '#f87171'; // red
+    else if (log.type === 'warn') color = '#fbbf24'; // yellow
+    else if (log.type === 'log') color = '#94a3b8'; // gray
+
+    const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour12: false });
+    el.innerHTML = `<span style="color:#64748b;margin-right:8px;">[${timeStr}]</span><span style="color:${color};">${escapeHtml(log.message)}</span>`;
+
+    logsContainer.appendChild(el);
+
+    if (isAtBottom) {
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+  }
+
+  socket.on('server:log', (log) => {
+    appendLogEntry(log);
+  });
+
+  socket.on('server:log_history', (history) => {
+    if (logsContainer) {
+      logsContainer.innerHTML = '';
+      history.forEach(appendLogEntry);
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+  });
+
+  const clearLogsBtn = $('#clearLogsBtn');
+  if (clearLogsBtn) {
+    clearLogsBtn.addEventListener('click', () => {
+      if (logsContainer) logsContainer.innerHTML = '';
     });
-    $('#settingsModal').classList.add('hidden');
-    toast('Settings saved', 'success');
-  } catch (err) {
-    toast('Failed to save settings', 'error');
   }
-});
 
-// ── Logout ──
+  // ── Settings ──
 
-$('#logoutBtn').addEventListener('click', async () => {
-  try {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    window.location.href = '/login';
-  } catch (err) {
-    window.location.href = '/login';
-  }
-});
-
-// ── Memory Page ──
-
-// Category badge colours
-const CAT_COLORS = {
-  user_fact: { bg: '#3b82f620', border: '#3b82f6', text: '#3b82f6', label: 'User Fact' },
-  preference: { bg: '#8b5cf620', border: '#8b5cf6', text: '#8b5cf6', label: 'Preference' },
-  personality: { bg: '#ec489920', border: '#ec4899', text: '#ec4899', label: 'Personality' },
-  episodic: { bg: '#22c55e20', border: '#22c55e', text: '#22c55e', label: 'Episodic' },
-};
-
-let _memActiveCategory = '';
-let _memCurrentPage = 0;
-
-async function loadMemoryPage() {
-  try {
-    const data = await api('/memory');
-
-    // Soul
-    if ($('#soulEditor')) $('#soulEditor').value = data.soul || '';
-
-    // Daily logs
-    const dailyContainer = $('#dailyLogs');
-    if (dailyContainer) {
-      dailyContainer.innerHTML = '';
-      for (const log of (data.dailyLogs || [])) {
-        const card = document.createElement('div');
-        card.className = 'item-card';
-        card.innerHTML = `<div class="item-card-header"><div class="item-card-title">${escapeHtml(log.date)}</div></div><pre class="code-block">${escapeHtml(log.content || 'Empty')}</pre>`;
-        dailyContainer.appendChild(card);
-      }
+  $('#settingsBtn').addEventListener('click', async () => {
+    try {
+      const settings = await api('/settings');
+      $('#settingHeartbeat').checked = settings.heartbeat_enabled === true || settings.heartbeat_enabled === 'true';
+      $('#settingHeadlessBrowser').checked = settings.headless_browser !== false && settings.headless_browser !== 'false';
+    } catch (err) {
+      $('#settingHeadlessBrowser').checked = true; // default headless
     }
+    $('#settingsModal').classList.remove('hidden');
+  });
 
-    // Core memory
-    _renderCoreMemory(data.coreMemory || {});
+  $('#closeSettings').addEventListener('click', () => $('#settingsModal').classList.add('hidden'));
+  $('#cancelSettings').addEventListener('click', () => $('#settingsModal').classList.add('hidden'));
 
-    // API keys
-    const keyContainer = $('#apiKeyList');
-    if (keyContainer) {
-      keyContainer.innerHTML = '';
-      const keys = await api('/memory/api-keys');
-      for (const [name, masked] of Object.entries(keys)) {
-        const card = document.createElement('div');
-        card.className = 'item-card flex justify-between items-center';
-        card.innerHTML = `<div><div class="item-card-title">${escapeHtml(name)}</div><div class="item-card-meta font-mono">${escapeHtml(masked)}</div></div>
+  $('#saveSettings').addEventListener('click', async () => {
+    try {
+      await api('/settings', {
+        method: 'PUT',
+        body: {
+          heartbeat_enabled: $('#settingHeartbeat').checked,
+          headless_browser: $('#settingHeadlessBrowser').checked
+        }
+      });
+      $('#settingsModal').classList.add('hidden');
+      toast('Settings saved', 'success');
+    } catch (err) {
+      toast('Failed to save settings', 'error');
+    }
+  });
+
+  // ── Logout ──
+
+  $('#logoutBtn').addEventListener('click', async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    } catch (err) {
+      window.location.href = '/login';
+    }
+  });
+
+  // ── Memory Page ──
+
+  // Category badge colours
+  const CAT_COLORS = {
+    user_fact: { bg: '#3b82f620', border: '#3b82f6', text: '#3b82f6', label: 'User Fact' },
+    preference: { bg: '#8b5cf620', border: '#8b5cf6', text: '#8b5cf6', label: 'Preference' },
+    personality: { bg: '#ec489920', border: '#ec4899', text: '#ec4899', label: 'Personality' },
+    episodic: { bg: '#22c55e20', border: '#22c55e', text: '#22c55e', label: 'Episodic' },
+  };
+
+  let _memActiveCategory = '';
+  let _memCurrentPage = 0;
+
+  async function loadMemoryPage() {
+    try {
+      const data = await api('/memory');
+
+      // Soul
+      if ($('#soulEditor')) $('#soulEditor').value = data.soul || '';
+
+      // Daily logs
+      const dailyContainer = $('#dailyLogs');
+      if (dailyContainer) {
+        dailyContainer.innerHTML = '';
+        for (const log of (data.dailyLogs || [])) {
+          const card = document.createElement('div');
+          card.className = 'item-card';
+          card.innerHTML = `<div class="item-card-header"><div class="item-card-title">${escapeHtml(log.date)}</div></div><pre class="code-block">${escapeHtml(log.content || 'Empty')}</pre>`;
+          dailyContainer.appendChild(card);
+        }
+      }
+
+      // Core memory
+      _renderCoreMemory(data.coreMemory || {});
+
+      // API keys
+      const keyContainer = $('#apiKeyList');
+      if (keyContainer) {
+        keyContainer.innerHTML = '';
+        const keys = await api('/memory/api-keys');
+        for (const [name, masked] of Object.entries(keys)) {
+          const card = document.createElement('div');
+          card.className = 'item-card flex justify-between items-center';
+          card.innerHTML = `<div><div class="item-card-title">${escapeHtml(name)}</div><div class="item-card-meta font-mono">${escapeHtml(masked)}</div></div>
           <button class="btn btn-sm btn-danger" data-action="deleteApiKey" data-name="${escapeHtml(name)}">&times;</button>`;
-        keyContainer.appendChild(card);
+          keyContainer.appendChild(card);
+        }
       }
+
+      // Memories list
+      await _loadMemoriesTab(_memActiveCategory);
+
+    } catch (err) {
+      toast('Failed to load memory', 'error');
     }
-
-    // Memories list
-    await _loadMemoriesTab(_memActiveCategory);
-
-  } catch (err) {
-    toast('Failed to load memory', 'error');
   }
-}
 
-async function _loadMemoriesTab(category = '') {
-  const container = $('#memoryList');
-  if (!container) return;
-  container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Loading…</p></div>';
-  try {
-    const params = new URLSearchParams({ limit: 60, offset: 0 });
-    if (category) params.set('category', category);
-    const memories = await api(`/memory/memories?${params}`);
-    _renderMemories(memories, container);
-  } catch {
-    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Failed to load memories</p></div>';
+  async function _loadMemoriesTab(category = '') {
+    const container = $('#memoryList');
+    if (!container) return;
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Loading…</p></div>';
+    try {
+      const params = new URLSearchParams({ limit: 60, offset: 0 });
+      if (category) params.set('category', category);
+      const memories = await api(`/memory/memories?${params}`);
+      _renderMemories(memories, container);
+    } catch {
+      container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Failed to load memories</p></div>';
+    }
   }
-}
 
-function _renderMemories(memories, container) {
-  container.innerHTML = '';
-  if (!memories.length) {
-    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>No memories yet. The agent will save things automatically, or you can add one manually.</p></div>';
-    return;
-  }
-  for (const mem of memories) {
-    const cat = CAT_COLORS[mem.category] || CAT_COLORS.episodic;
-    const dots = '●'.repeat(Math.round(mem.importance / 2)) + '○'.repeat(5 - Math.round(mem.importance / 2));
-    const date = new Date(mem.updated_at || mem.created_at);
-    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+  function _renderMemories(memories, container) {
+    container.innerHTML = '';
+    if (!memories.length) {
+      container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>No memories yet. The agent will save things automatically, or you can add one manually.</p></div>';
+      return;
+    }
+    for (const mem of memories) {
+      const cat = CAT_COLORS[mem.category] || CAT_COLORS.episodic;
+      const dots = '●'.repeat(Math.round(mem.importance / 2)) + '○'.repeat(5 - Math.round(mem.importance / 2));
+      const date = new Date(mem.updated_at || mem.created_at);
+      const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
 
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.style.cssText = `margin:0;cursor:default;border-left:3px solid ${cat.border};`;
-    card.innerHTML = `
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.cssText = `margin:0;cursor:default;border-left:3px solid ${cat.border};`;
+      card.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
         <span style="background:${cat.bg};color:${cat.text};border:1px solid ${cat.border};border-radius:999px;padding:2px 10px;font-size:0.72rem;font-weight:600;flex-shrink:0;">${cat.label}</span>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
@@ -915,28 +972,28 @@ function _renderMemories(memories, container) {
       </div>
       <div style="font-size:0.9rem;line-height:1.5;color:var(--text);">${escapeHtml(mem.content)}</div>
       <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);letter-spacing:0.03em;">${dots} <span style="margin-left:4px;">importance ${mem.importance}</span>${mem.access_count > 0 ? ` · recalled ${mem.access_count}×` : ''}</div>`;
-    container.appendChild(card);
+      container.appendChild(card);
+    }
   }
-}
 
-function _renderCoreMemory(core) {
-  const container = $('#coreMemoryList');
-  if (!container) return;
-  container.innerHTML = '';
-  if (!Object.keys(core).length) {
-    const empty = document.createElement('p');
-    empty.className = 'text-muted';
-    empty.style.cssText = 'font-size:0.85rem;margin-bottom:8px;';
-    empty.textContent = 'No core memory entries yet.';
-    container.appendChild(empty);
-    return;
-  }
-  for (const [key, val] of Object.entries(core)) {
-    const row = document.createElement('div');
-    row.className = 'item-card';
-    row.style.marginBottom = '8px';
-    const display = typeof val === 'object' ? JSON.stringify(val) : String(val);
-    row.innerHTML = `
+  function _renderCoreMemory(core) {
+    const container = $('#coreMemoryList');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!Object.keys(core).length) {
+      const empty = document.createElement('p');
+      empty.className = 'text-muted';
+      empty.style.cssText = 'font-size:0.85rem;margin-bottom:8px;';
+      empty.textContent = 'No core memory entries yet.';
+      container.appendChild(empty);
+      return;
+    }
+    for (const [key, val] of Object.entries(core)) {
+      const row = document.createElement('div');
+      row.className = 'item-card';
+      row.style.marginBottom = '8px';
+      const display = typeof val === 'object' ? JSON.stringify(val) : String(val);
+      row.innerHTML = `
       <div class="item-card-header">
         <div>
           <div class="item-card-title" style="font-size:0.85rem;font-family:monospace;">${escapeHtml(key)}</div>
@@ -947,211 +1004,211 @@ function _renderCoreMemory(core) {
           <button class="btn btn-sm btn-danger" data-action="deleteCore" data-key="${escapeHtml(key)}">&times;</button>
         </div>
       </div>`;
-    container.appendChild(row);
-  }
-}
-
-// Tab switching for memory page
-$$('[data-mem-tab]').forEach(tab => {
-  tab.addEventListener('click', () => {
-    $$('[data-mem-tab]').forEach(t => t.classList.remove('active'));
-    $$('.mem-panel').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    $(`#mem-${tab.dataset.memTab}`)?.classList.add('active');
-  });
-});
-
-// Category filter
-$('#memoryCategoryFilter')?.addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-cat]');
-  if (!btn) return;
-  _memActiveCategory = btn.dataset.cat;
-  $$('#memoryCategoryFilter [data-cat]').forEach(b => {
-    b.className = b.dataset.cat === _memActiveCategory ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
-  });
-  await _loadMemoriesTab(_memActiveCategory);
-});
-
-// Semantic search
-$('#memorySearchBtn')?.addEventListener('click', async () => {
-  const q = $('#memorySearchInput')?.value?.trim();
-  if (!q) { await _loadMemoriesTab(_memActiveCategory); return; }
-  const container = $('#memoryList');
-  container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Searching…</p></div>';
-  try {
-    const results = await api('/memory/memories/recall', { method: 'POST', body: { query: q, limit: 20 } });
-    _renderMemories(results, container);
-  } catch {
-    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Search failed</p></div>';
-  }
-});
-
-$('#memorySearchInput')?.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') $('#memorySearchBtn')?.click();
-});
-
-// Soul save
-$('#saveSoulBtn')?.addEventListener('click', async () => {
-  try {
-    await api('/memory/soul', { method: 'PUT', body: { content: $('#soulEditor').value } });
-    toast('Soul saved', 'success');
-  } catch { toast('Failed to save', 'error'); }
-});
-
-// Add Memory Modal
-$('#addMemoryBtn')?.addEventListener('click', () => {
-  $('#addMemoryModal')?.classList.remove('hidden');
-});
-$('#closeAddMemory')?.addEventListener('click', () => $('#addMemoryModal')?.classList.add('hidden'));
-$('#cancelAddMemory')?.addEventListener('click', () => $('#addMemoryModal')?.classList.add('hidden'));
-
-$('#confirmAddMemory')?.addEventListener('click', async () => {
-  const content = $('#newMemoryContent')?.value?.trim();
-  if (!content) { toast('Content is required', 'error'); return; }
-  const category = $('#newMemoryCategory')?.value || 'episodic';
-  const importance = parseInt($('#newMemoryImportance')?.value) || 5;
-  try {
-    await api('/memory/memories', { method: 'POST', body: { content, category, importance } });
-    $('#addMemoryModal')?.classList.add('hidden');
-    $('#newMemoryContent').value = '';
-    await _loadMemoriesTab(_memActiveCategory);
-    toast('Memory saved', 'success');
-  } catch { toast('Failed to save memory', 'error'); }
-});
-
-// Set core memory key
-$('#setCoreBtn')?.addEventListener('click', async () => {
-  const key = $('#coreKeySelect')?.value;
-  const value = $('#coreValueInput')?.value?.trim();
-  if (!key || !value) { toast('Key and value are required', 'error'); return; }
-  try {
-    await api(`/memory/core/${key}`, { method: 'PUT', body: { value } });
-    $('#coreValueInput').value = '';
-    const core = await api('/memory/core');
-    _renderCoreMemory(core);
-    toast('Core memory updated', 'success');
-  } catch { toast('Failed to update core memory', 'error'); }
-});
-
-// API Keys
-window.deleteApiKey = async (name) => {
-  try {
-    await api(`/memory/api-keys/${name}`, { method: 'DELETE' });
-    loadMemoryPage();
-    toast('Key deleted', 'success');
-  } catch { toast('Failed to delete', 'error'); }
-};
-
-$('#addApiKeyBtn')?.addEventListener('click', () => {
-  const name = prompt('Service name:');
-  if (!name) return;
-  const key = prompt('API key value:');
-  if (!key) return;
-  api(`/memory/api-keys/${name}`, { method: 'PUT', body: { key } })
-    .then(() => { loadMemoryPage(); toast('Key added', 'success'); })
-    .catch(() => toast('Failed to add key', 'error'));
-});
-
-// Global click delegation for memory actions
-document.addEventListener('click', async e => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const action = btn.dataset.action;
-
-  if (action === 'deleteApiKey') {
-    window.deleteApiKey(btn.dataset.name);
-  } else if (action === 'deleteMemory') {
-    if (!confirm('Delete this memory?')) return;
-    try {
-      await api(`/memory/memories/${btn.dataset.id}`, { method: 'DELETE' });
-      await _loadMemoriesTab(_memActiveCategory);
-      toast('Memory deleted', 'success');
-    } catch { toast('Failed to delete', 'error'); }
-  } else if (action === 'editCore') {
-    const newVal = prompt(`Edit ${btn.dataset.key}:`, btn.dataset.val);
-    if (newVal === null) return;
-    try {
-      await api(`/memory/core/${btn.dataset.key}`, { method: 'PUT', body: { value: newVal } });
-      const core = await api('/memory/core');
-      _renderCoreMemory(core);
-      toast('Updated', 'success');
-    } catch { toast('Failed to update', 'error'); }
-  } else if (action === 'deleteCore') {
-    if (!confirm(`Delete core key "${btn.dataset.key}"?`)) return;
-    try {
-      await api(`/memory/core/${btn.dataset.key}`, { method: 'DELETE' });
-      const core = await api('/memory/core');
-      _renderCoreMemory(core);
-      toast('Deleted', 'success');
-    } catch { toast('Failed to delete', 'error'); }
-  }
-});
-
-// ── Skills Page ──
-
-// Tab switching for skills page
-document.querySelectorAll('[data-skills-tab]').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('[data-skills-tab]').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    const which = tab.dataset.skillsTab;
-    $('#skillList').classList.toggle('hidden', which !== 'installed');
-    $('#skillStore').classList.toggle('hidden', which !== 'store');
-    if (which === 'store') loadSkillStore();
-    else loadSkillsPage();
-  });
-});
-
-async function loadSkillStore() {
-  const wrap = $('#skillStore');
-  wrap.innerHTML = '<div class="empty-state"><p>Loading store…</p></div>';
-  try {
-    const items = await api('/store');
-
-    // Build category groups
-    const cats = {};
-    for (const item of items) {
-      if (!cats[item.category]) cats[item.category] = [];
-      cats[item.category].push(item);
+      container.appendChild(row);
     }
+  }
 
-    const CAT_LABELS = { system: '⚙️ System', network: '📡 Network', info: 'ℹ️ Info', dev: '🛠 Dev', productivity: '🗂 Productivity', fun: '🎲 Fun', maker: '🖨️ Maker' };
+  // Tab switching for memory page
+  $$('[data-mem-tab]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('[data-mem-tab]').forEach(t => t.classList.remove('active'));
+      $$('.mem-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      $(`#mem-${tab.dataset.memTab}`)?.classList.add('active');
+    });
+  });
 
-    wrap.innerHTML = '';
+  // Category filter
+  $('#memoryCategoryFilter')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-cat]');
+    if (!btn) return;
+    _memActiveCategory = btn.dataset.cat;
+    $$('#memoryCategoryFilter [data-cat]').forEach(b => {
+      b.className = b.dataset.cat === _memActiveCategory ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
+    });
+    await _loadMemoriesTab(_memActiveCategory);
+  });
 
-    // Search input
-    const searchRow = document.createElement('div');
-    searchRow.style.cssText = 'margin-bottom:16px;';
-    const searchInp = document.createElement('input');
-    searchInp.type = 'text';
-    searchInp.className = 'input';
-    searchInp.placeholder = 'Search skills…';
-    searchRow.appendChild(searchInp);
-    wrap.appendChild(searchRow);
+  // Semantic search
+  $('#memorySearchBtn')?.addEventListener('click', async () => {
+    const q = $('#memorySearchInput')?.value?.trim();
+    if (!q) { await _loadMemoriesTab(_memActiveCategory); return; }
+    const container = $('#memoryList');
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Searching…</p></div>';
+    try {
+      const results = await api('/memory/memories/recall', { method: 'POST', body: { query: q, limit: 20 } });
+      _renderMemories(results, container);
+    } catch {
+      container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Search failed</p></div>';
+    }
+  });
 
-    const cardsWrap = document.createElement('div');
-    wrap.appendChild(cardsWrap);
+  $('#memorySearchInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#memorySearchBtn')?.click();
+  });
 
-    function renderStore(filter) {
-      cardsWrap.innerHTML = '';
-      let totalShown = 0;
-      for (const [cat, catItems] of Object.entries(cats)) {
-        const visible = catItems.filter(i => !filter || i.name.toLowerCase().includes(filter) || i.description.toLowerCase().includes(filter));
-        if (!visible.length) continue;
-        totalShown += visible.length;
+  // Soul save
+  $('#saveSoulBtn')?.addEventListener('click', async () => {
+    try {
+      await api('/memory/soul', { method: 'PUT', body: { content: $('#soulEditor').value } });
+      toast('Soul saved', 'success');
+    } catch { toast('Failed to save', 'error'); }
+  });
 
-        const section = document.createElement('div');
-        section.style.cssText = 'margin-bottom:28px;';
-        section.innerHTML = `<div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:10px;">${CAT_LABELS[cat] || cat}</div>`;
+  // Add Memory Modal
+  $('#addMemoryBtn')?.addEventListener('click', () => {
+    $('#addMemoryModal')?.classList.remove('hidden');
+  });
+  $('#closeAddMemory')?.addEventListener('click', () => $('#addMemoryModal')?.classList.add('hidden'));
+  $('#cancelAddMemory')?.addEventListener('click', () => $('#addMemoryModal')?.classList.add('hidden'));
 
-        const grid = document.createElement('div');
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;';
+  $('#confirmAddMemory')?.addEventListener('click', async () => {
+    const content = $('#newMemoryContent')?.value?.trim();
+    if (!content) { toast('Content is required', 'error'); return; }
+    const category = $('#newMemoryCategory')?.value || 'episodic';
+    const importance = parseInt($('#newMemoryImportance')?.value) || 5;
+    try {
+      await api('/memory/memories', { method: 'POST', body: { content, category, importance } });
+      $('#addMemoryModal')?.classList.add('hidden');
+      $('#newMemoryContent').value = '';
+      await _loadMemoriesTab(_memActiveCategory);
+      toast('Memory saved', 'success');
+    } catch { toast('Failed to save memory', 'error'); }
+  });
 
-        for (const item of visible) {
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:14px;';
-          card.innerHTML = `
+  // Set core memory key
+  $('#setCoreBtn')?.addEventListener('click', async () => {
+    const key = $('#coreKeySelect')?.value;
+    const value = $('#coreValueInput')?.value?.trim();
+    if (!key || !value) { toast('Key and value are required', 'error'); return; }
+    try {
+      await api(`/memory/core/${key}`, { method: 'PUT', body: { value } });
+      $('#coreValueInput').value = '';
+      const core = await api('/memory/core');
+      _renderCoreMemory(core);
+      toast('Core memory updated', 'success');
+    } catch { toast('Failed to update core memory', 'error'); }
+  });
+
+  // API Keys
+  window.deleteApiKey = async (name) => {
+    try {
+      await api(`/memory/api-keys/${name}`, { method: 'DELETE' });
+      loadMemoryPage();
+      toast('Key deleted', 'success');
+    } catch { toast('Failed to delete', 'error'); }
+  };
+
+  $('#addApiKeyBtn')?.addEventListener('click', () => {
+    const name = prompt('Service name:');
+    if (!name) return;
+    const key = prompt('API key value:');
+    if (!key) return;
+    api(`/memory/api-keys/${name}`, { method: 'PUT', body: { key } })
+      .then(() => { loadMemoryPage(); toast('Key added', 'success'); })
+      .catch(() => toast('Failed to add key', 'error'));
+  });
+
+  // Global click delegation for memory actions
+  document.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+
+    if (action === 'deleteApiKey') {
+      window.deleteApiKey(btn.dataset.name);
+    } else if (action === 'deleteMemory') {
+      if (!confirm('Delete this memory?')) return;
+      try {
+        await api(`/memory/memories/${btn.dataset.id}`, { method: 'DELETE' });
+        await _loadMemoriesTab(_memActiveCategory);
+        toast('Memory deleted', 'success');
+      } catch { toast('Failed to delete', 'error'); }
+    } else if (action === 'editCore') {
+      const newVal = prompt(`Edit ${btn.dataset.key}:`, btn.dataset.val);
+      if (newVal === null) return;
+      try {
+        await api(`/memory/core/${btn.dataset.key}`, { method: 'PUT', body: { value: newVal } });
+        const core = await api('/memory/core');
+        _renderCoreMemory(core);
+        toast('Updated', 'success');
+      } catch { toast('Failed to update', 'error'); }
+    } else if (action === 'deleteCore') {
+      if (!confirm(`Delete core key "${btn.dataset.key}"?`)) return;
+      try {
+        await api(`/memory/core/${btn.dataset.key}`, { method: 'DELETE' });
+        const core = await api('/memory/core');
+        _renderCoreMemory(core);
+        toast('Deleted', 'success');
+      } catch { toast('Failed to delete', 'error'); }
+    }
+  });
+
+  // ── Skills Page ──
+
+  // Tab switching for skills page
+  document.querySelectorAll('[data-skills-tab]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('[data-skills-tab]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const which = tab.dataset.skillsTab;
+      $('#skillList').classList.toggle('hidden', which !== 'installed');
+      $('#skillStore').classList.toggle('hidden', which !== 'store');
+      if (which === 'store') loadSkillStore();
+      else loadSkillsPage();
+    });
+  });
+
+  async function loadSkillStore() {
+    const wrap = $('#skillStore');
+    wrap.innerHTML = '<div class="empty-state"><p>Loading store…</p></div>';
+    try {
+      const items = await api('/store');
+
+      // Build category groups
+      const cats = {};
+      for (const item of items) {
+        if (!cats[item.category]) cats[item.category] = [];
+        cats[item.category].push(item);
+      }
+
+      const CAT_LABELS = { system: '⚙️ System', network: '📡 Network', info: 'ℹ️ Info', dev: '🛠 Dev', productivity: '🗂 Productivity', fun: '🎲 Fun', maker: '🖨️ Maker' };
+
+      wrap.innerHTML = '';
+
+      // Search input
+      const searchRow = document.createElement('div');
+      searchRow.style.cssText = 'margin-bottom:16px;';
+      const searchInp = document.createElement('input');
+      searchInp.type = 'text';
+      searchInp.className = 'input';
+      searchInp.placeholder = 'Search skills…';
+      searchRow.appendChild(searchInp);
+      wrap.appendChild(searchRow);
+
+      const cardsWrap = document.createElement('div');
+      wrap.appendChild(cardsWrap);
+
+      function renderStore(filter) {
+        cardsWrap.innerHTML = '';
+        let totalShown = 0;
+        for (const [cat, catItems] of Object.entries(cats)) {
+          const visible = catItems.filter(i => !filter || i.name.toLowerCase().includes(filter) || i.description.toLowerCase().includes(filter));
+          if (!visible.length) continue;
+          totalShown += visible.length;
+
+          const section = document.createElement('div');
+          section.style.cssText = 'margin-bottom:28px;';
+          section.innerHTML = `<div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:10px;">${CAT_LABELS[cat] || cat}</div>`;
+
+          const grid = document.createElement('div');
+          grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;';
+
+          for (const item of visible) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:14px;';
+            card.innerHTML = `
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:1.6rem;line-height:1;">${item.icon}</span>
               <div style="flex:1;min-width:0;">
@@ -1161,69 +1218,69 @@ async function loadSkillStore() {
             </div>
             <div style="display:flex;justify-content:flex-end;">
               ${item.installed
-              ? `<span class="badge badge-success" style="margin-right:auto;">Installed</span>
+                ? `<span class="badge badge-success" style="margin-right:auto;">Installed</span>
                    <button class="btn btn-sm btn-danger" data-store-action="uninstall" data-store-id="${escapeHtml(item.id)}">Remove</button>`
-              : `<button class="btn btn-sm btn-primary" data-store-action="install" data-store-id="${escapeHtml(item.id)}">Install</button>`
-            }
+                : `<button class="btn btn-sm btn-primary" data-store-action="install" data-store-id="${escapeHtml(item.id)}">Install</button>`
+              }
             </div>`;
-          grid.appendChild(card);
+            grid.appendChild(card);
+          }
+          section.appendChild(grid);
+          cardsWrap.appendChild(section);
         }
-        section.appendChild(grid);
-        cardsWrap.appendChild(section);
+        if (!totalShown) cardsWrap.innerHTML = '<div class="empty-state"><p>No matching skills</p></div>';
       }
-      if (!totalShown) cardsWrap.innerHTML = '<div class="empty-state"><p>No matching skills</p></div>';
-    }
 
-    renderStore('');
+      renderStore('');
 
-    searchInp.addEventListener('input', () => renderStore(searchInp.value.trim().toLowerCase()));
+      searchInp.addEventListener('input', () => renderStore(searchInp.value.trim().toLowerCase()));
 
-    cardsWrap.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-store-action]');
-      if (!btn) return;
-      const { storeAction, storeId } = btn.dataset;
-      btn.disabled = true;
-      btn.textContent = storeAction === 'install' ? 'Installing…' : 'Removing…';
-      try {
-        if (storeAction === 'install') {
-          await api(`/store/${storeId}/install`, { method: 'POST' });
-          toast('Skill installed!', 'success');
-        } else {
-          await api(`/store/${storeId}/uninstall`, { method: 'DELETE' });
-          toast('Skill removed', 'info');
+      cardsWrap.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-store-action]');
+        if (!btn) return;
+        const { storeAction, storeId } = btn.dataset;
+        btn.disabled = true;
+        btn.textContent = storeAction === 'install' ? 'Installing…' : 'Removing…';
+        try {
+          if (storeAction === 'install') {
+            await api(`/store/${storeId}/install`, { method: 'POST' });
+            toast('Skill installed!', 'success');
+          } else {
+            await api(`/store/${storeId}/uninstall`, { method: 'DELETE' });
+            toast('Skill removed', 'info');
+          }
+          await loadSkillStore(); // refresh
+        } catch (err) {
+          toast('Error: ' + err.message, 'error');
+          btn.disabled = false;
         }
-        await loadSkillStore(); // refresh
-      } catch (err) {
-        toast('Error: ' + err.message, 'error');
-        btn.disabled = false;
-      }
-    });
-
-  } catch (err) {
-    wrap.innerHTML = '<div class="empty-state"><p>Failed to load store</p></div>';
-    console.error(err);
-  }
-}
-
-async function loadSkillsPage() {
-  try {
-    const skills = await api('/skills');
-    const container = $('#skillList');
-    container.innerHTML = '';
-
-    if (skills.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>No skills installed yet. <a href="#" id="goToStore">Browse the store →</a></p></div>';
-      document.getElementById('goToStore')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelector('[data-skills-tab="store"]')?.click();
       });
-      return;
-    }
 
-    for (const skill of skills) {
-      const card = document.createElement('div');
-      card.className = 'item-card';
-      card.innerHTML = `
+    } catch (err) {
+      wrap.innerHTML = '<div class="empty-state"><p>Failed to load store</p></div>';
+      console.error(err);
+    }
+  }
+
+  async function loadSkillsPage() {
+    try {
+      const skills = await api('/skills');
+      const container = $('#skillList');
+      container.innerHTML = '';
+
+      if (skills.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No skills installed yet. <a href="#" id="goToStore">Browse the store →</a></p></div>';
+        document.getElementById('goToStore')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          document.querySelector('[data-skills-tab="store"]')?.click();
+        });
+        return;
+      }
+
+      for (const skill of skills) {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
         <div class="item-card-header">
           <div>
             <div class="item-card-title">${escapeHtml(skill.name)}</div>
@@ -1237,69 +1294,69 @@ async function loadSkillsPage() {
         </div>
         <div class="item-card-meta">Trigger: ${escapeHtml(skill.trigger || 'N/A')} | Category: ${escapeHtml(skill.category)}</div>
       `;
-      container.appendChild(card);
+        container.appendChild(card);
+      }
+    } catch (err) {
+      toast('Failed to load skills', 'error');
     }
-  } catch (err) {
-    toast('Failed to load skills', 'error');
   }
-}
 
-window.editSkill = async (filename) => {
-  try {
-    const data = await api(`/skills/${filename}`);
-    const content = prompt('Edit skill content:', data.content);
-    if (content !== null) {
-      await api(`/skills/${filename}`, { method: 'PUT', body: { content } });
+  window.editSkill = async (filename) => {
+    try {
+      const data = await api(`/skills/${filename}`);
+      const content = prompt('Edit skill content:', data.content);
+      if (content !== null) {
+        await api(`/skills/${filename}`, { method: 'PUT', body: { content } });
+        loadSkillsPage();
+        toast('Skill updated', 'success');
+      }
+    } catch (err) { toast('Failed to edit skill', 'error'); }
+  };
+
+  window.deleteSkill = async (filename) => {
+    if (!confirm(`Delete skill ${filename}?`)) return;
+    try {
+      await api(`/skills/${filename}`, { method: 'DELETE' });
       loadSkillsPage();
-      toast('Skill updated', 'success');
-    }
-  } catch (err) { toast('Failed to edit skill', 'error'); }
-};
+      toast('Skill deleted', 'success');
+    } catch (err) { toast('Failed to delete', 'error'); }
+  };
 
-window.deleteSkill = async (filename) => {
-  if (!confirm(`Delete skill ${filename}?`)) return;
-  try {
-    await api(`/skills/${filename}`, { method: 'DELETE' });
-    loadSkillsPage();
-    toast('Skill deleted', 'success');
-  } catch (err) { toast('Failed to delete', 'error'); }
-};
+  // Skills event delegation
+  $('#skillList').addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'editSkill') window.editSkill(btn.dataset.filename);
+    else if (action === 'deleteSkill') window.deleteSkill(btn.dataset.filename);
+  });
 
-// Skills event delegation
-$('#skillList').addEventListener('click', e => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const action = btn.dataset.action;
-  if (action === 'editSkill') window.editSkill(btn.dataset.filename);
-  else if (action === 'deleteSkill') window.deleteSkill(btn.dataset.filename);
-});
+  $('#addSkillBtn').addEventListener('click', () => {
+    const name = prompt('Skill filename (without .md):');
+    if (!name) return;
+    const content = `---\nname: ${name}\ndescription: \ntrigger: \ncategory: general\nenabled: true\n---\n\n# ${name}\n\nDescribe the skill here.`;
+    api('/skills', { method: 'POST', body: { filename: name, content } })
+      .then(() => { loadSkillsPage(); toast('Skill created', 'success'); })
+      .catch(() => toast('Failed to create skill', 'error'));
+  });
 
-$('#addSkillBtn').addEventListener('click', () => {
-  const name = prompt('Skill filename (without .md):');
-  if (!name) return;
-  const content = `---\nname: ${name}\ndescription: \ntrigger: \ncategory: general\nenabled: true\n---\n\n# ${name}\n\nDescribe the skill here.`;
-  api('/skills', { method: 'POST', body: { filename: name, content } })
-    .then(() => { loadSkillsPage(); toast('Skill created', 'success'); })
-    .catch(() => toast('Failed to create skill', 'error'));
-});
+  // ── MCP Servers Page ──
 
-// ── MCP Servers Page ──
+  async function loadMCPPage() {
+    try {
+      const servers = await api('/mcp');
+      const container = $('#mcpServerList');
+      container.innerHTML = '';
 
-async function loadMCPPage() {
-  try {
-    const servers = await api('/mcp');
-    const container = $('#mcpServerList');
-    container.innerHTML = '';
+      if (servers.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No MCP servers configured</p></div>';
+        return;
+      }
 
-    if (servers.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>No MCP servers configured</p></div>';
-      return;
-    }
-
-    for (const srv of servers) {
-      const card = document.createElement('div');
-      card.className = 'item-card';
-      card.innerHTML = `
+      for (const srv of servers) {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
         <div class="item-card-header">
           <div>
             <div class="item-card-title">${escapeHtml(srv.name)}</div>
@@ -1308,9 +1365,9 @@ async function loadMCPPage() {
           <div class="item-card-actions">
             <span class="badge ${srv.status === 'running' ? 'badge-success' : 'badge-neutral'}">${srv.status}</span>
             ${srv.status === 'running'
-          ? `<button class="btn btn-sm btn-secondary" data-action="stopMCP" data-id="${srv.id}">Stop</button>`
-          : `<button class="btn btn-sm btn-primary" data-action="startMCP" data-id="${srv.id}">Start</button>`
-        }
+            ? `<button class="btn btn-sm btn-secondary" data-action="stopMCP" data-id="${srv.id}">Stop</button>`
+            : `<button class="btn btn-sm btn-primary" data-action="startMCP" data-id="${srv.id}">Start</button>`
+          }
             ${srv.config?.auth?.type === 'oauth' ? `<button class="btn btn-sm btn-primary" data-action="loginMCP" data-id="${srv.id}">Login</button>` : ''}
             <button class="btn btn-sm btn-secondary" data-action="editMCP" data-id="${srv.id}" data-name="${escapeHtml(srv.name)}" data-url="${escapeHtml(srv.command)}" data-config='${escapeHtml(JSON.stringify(srv.config || {}))}'>Edit</button>
             <button class="btn btn-sm btn-danger" data-action="deleteMCP" data-id="${srv.id}">&times;</button>
@@ -1318,168 +1375,168 @@ async function loadMCPPage() {
         </div>
         ${srv.toolCount > 0 ? `<div class="item-card-meta">${srv.toolCount} tools available</div>` : ''}
       `;
-      container.appendChild(card);
-    }
-  } catch (err) {
-    toast('Failed to load MCP servers', 'error');
-  }
-}
-
-window.startMCP = async (id) => {
-  try {
-    await api(`/mcp/${id}/start`, { method: 'POST' });
-    loadMCPPage();
-    toast('Server started', 'success');
-  } catch (err) { toast(err.message, 'error'); }
-};
-
-window.stopMCP = async (id) => {
-  try {
-    await api(`/mcp/${id}/stop`, { method: 'POST' });
-    loadMCPPage();
-    toast('Server stopped', 'success');
-  } catch (err) { toast(err.message, 'error'); }
-};
-
-window.deleteMCP = async (id) => {
-  if (!confirm('Delete this MCP server?')) return;
-  try {
-    await api(`/mcp/${id}`, { method: 'DELETE' });
-    loadMCPPage();
-    toast('Server deleted', 'success');
-  } catch (err) { toast('Failed to delete', 'error'); }
-};
-
-// MCP event delegation
-$('#mcpServerList').addEventListener('click', e => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const id = btn.dataset.id;
-  const action = btn.dataset.action;
-  if (action === 'startMCP') window.startMCP(id);
-  else if (action === 'stopMCP') window.stopMCP(id);
-  else if (action === 'deleteMCP') window.deleteMCP(id);
-  else if (action === 'loginMCP') {
-    const w = window.open(`/api/mcp/${id}/start`, 'oauth', 'width=600,height=700');
-    // We expect the server to return 302 or JSON with `{status: 'oauth_redirect', url}` for a normal GET/POST
-    // Let's first make an API call to get the URL, then window.open that URL
-    api(`/mcp/${id}/start`, { method: 'POST' }).then(res => {
-      if (res.status === 'oauth_redirect') {
-        window.open(res.url, 'oauth', 'width=600,height=700');
-      } else {
-        toast('Server started without needing login', 'success');
-        loadMCPPage();
+        container.appendChild(card);
       }
-    }).catch(err => toast('Login failed: ' + err.message, 'error'));
+    } catch (err) {
+      toast('Failed to load MCP servers', 'error');
+    }
   }
-  else if (action === 'editMCP') {
-    $('#mcpModalTitle').textContent = 'Edit MCP Server';
-    $('#mcpName').value = btn.dataset.name;
-    $('#mcpUrl').value = btn.dataset.url;
-    $('#mcpModal').dataset.id = id;
 
-    // Auth fields
-    const config = JSON.parse(btn.dataset.config || '{}');
-    const auth = config.auth || {};
-    $('#mcpAuthType').value = auth.type || 'none';
-    $('#mcpAuthToken').value = auth.token || '';
-    $('#mcpAuthClientId').value = auth.clientId || '';
-    $('#mcpAuthServerUrl').value = auth.authServerUrl || '';
+  window.startMCP = async (id) => {
+    try {
+      await api(`/mcp/${id}/start`, { method: 'POST' });
+      loadMCPPage();
+      toast('Server started', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  window.stopMCP = async (id) => {
+    try {
+      await api(`/mcp/${id}/stop`, { method: 'POST' });
+      loadMCPPage();
+      toast('Server stopped', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  window.deleteMCP = async (id) => {
+    if (!confirm('Delete this MCP server?')) return;
+    try {
+      await api(`/mcp/${id}`, { method: 'DELETE' });
+      loadMCPPage();
+      toast('Server deleted', 'success');
+    } catch (err) { toast('Failed to delete', 'error'); }
+  };
+
+  // MCP event delegation
+  $('#mcpServerList').addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    if (action === 'startMCP') window.startMCP(id);
+    else if (action === 'stopMCP') window.stopMCP(id);
+    else if (action === 'deleteMCP') window.deleteMCP(id);
+    else if (action === 'loginMCP') {
+      const w = window.open(`/api/mcp/${id}/start`, 'oauth', 'width=600,height=700');
+      // We expect the server to return 302 or JSON with `{status: 'oauth_redirect', url}` for a normal GET/POST
+      // Let's first make an API call to get the URL, then window.open that URL
+      api(`/mcp/${id}/start`, { method: 'POST' }).then(res => {
+        if (res.status === 'oauth_redirect') {
+          window.open(res.url, 'oauth', 'width=600,height=700');
+        } else {
+          toast('Server started without needing login', 'success');
+          loadMCPPage();
+        }
+      }).catch(err => toast('Login failed: ' + err.message, 'error'));
+    }
+    else if (action === 'editMCP') {
+      $('#mcpModalTitle').textContent = 'Edit MCP Server';
+      $('#mcpName').value = btn.dataset.name;
+      $('#mcpUrl').value = btn.dataset.url;
+      $('#mcpModal').dataset.id = id;
+
+      // Auth fields
+      const config = JSON.parse(btn.dataset.config || '{}');
+      const auth = config.auth || {};
+      $('#mcpAuthType').value = auth.type || 'none';
+      $('#mcpAuthToken').value = auth.token || '';
+      $('#mcpAuthClientId').value = auth.clientId || '';
+      $('#mcpAuthServerUrl').value = auth.authServerUrl || '';
+      updateMcpAuthFields();
+
+      $('#mcpModal').classList.remove('hidden');
+    }
+  });
+
+  function updateMcpAuthFields() {
+    const type = $('#mcpAuthType').value;
+
+    if (type === 'bearer') {
+      $('#mcpAuthBearerGroup').classList.remove('hidden');
+      $('#mcpAuthOauthGroup').classList.add('hidden');
+    } else if (type === 'oauth') {
+      $('#mcpAuthBearerGroup').classList.add('hidden');
+      $('#mcpAuthOauthGroup').classList.remove('hidden');
+    } else {
+      $('#mcpAuthBearerGroup').classList.add('hidden');
+      $('#mcpAuthOauthGroup').classList.add('hidden');
+    }
+  }
+
+  $('#mcpAuthType').addEventListener('change', updateMcpAuthFields);
+  $('#mcpAuthType').addEventListener('input', updateMcpAuthFields);
+
+  $('#addMcpBtn').addEventListener('click', () => {
+    $('#mcpName').value = '';
+    $('#mcpUrl').value = '';
+    $('#mcpAuthType').value = 'none';
+    $('#mcpAuthToken').value = '';
+    $('#mcpAuthClientId').value = '';
+    $('#mcpAuthServerUrl').value = '';
     updateMcpAuthFields();
 
+    $('#mcpModalTitle').textContent = 'Add MCP Server';
+    $('#mcpModal').dataset.id = '';
     $('#mcpModal').classList.remove('hidden');
-  }
-});
+  });
 
-function updateMcpAuthFields() {
-  const type = $('#mcpAuthType').value;
+  $('#closeMcpModal').addEventListener('click', () => $('#mcpModal').classList.add('hidden'));
+  $('#cancelMcpModal').addEventListener('click', () => $('#mcpModal').classList.add('hidden'));
 
-  if (type === 'bearer') {
-    $('#mcpAuthBearerGroup').classList.remove('hidden');
-    $('#mcpAuthOauthGroup').classList.add('hidden');
-  } else if (type === 'oauth') {
-    $('#mcpAuthBearerGroup').classList.add('hidden');
-    $('#mcpAuthOauthGroup').classList.remove('hidden');
-  } else {
-    $('#mcpAuthBearerGroup').classList.add('hidden');
-    $('#mcpAuthOauthGroup').classList.add('hidden');
-  }
-}
-
-$('#mcpAuthType').addEventListener('change', updateMcpAuthFields);
-$('#mcpAuthType').addEventListener('input', updateMcpAuthFields);
-
-$('#addMcpBtn').addEventListener('click', () => {
-  $('#mcpName').value = '';
-  $('#mcpUrl').value = '';
-  $('#mcpAuthType').value = 'none';
-  $('#mcpAuthToken').value = '';
-  $('#mcpAuthClientId').value = '';
-  $('#mcpAuthServerUrl').value = '';
-  updateMcpAuthFields();
-
-  $('#mcpModalTitle').textContent = 'Add MCP Server';
-  $('#mcpModal').dataset.id = '';
-  $('#mcpModal').classList.remove('hidden');
-});
-
-$('#closeMcpModal').addEventListener('click', () => $('#mcpModal').classList.add('hidden'));
-$('#cancelMcpModal').addEventListener('click', () => $('#mcpModal').classList.add('hidden'));
-
-$('#saveMcpBtn').addEventListener('click', () => {
-  const name = $('#mcpName').value.trim();
-  const url = $('#mcpUrl').value.trim();
-  if (!name || !url) {
-    toast('Name and URL are required', 'error');
-    return;
-  }
-
-  const id = $('#mcpModal').dataset.id;
-  const method = id ? 'PUT' : 'POST';
-  const endpoint = id ? `/mcp/${id}` : '/mcp';
-
-  const authType = $('#mcpAuthType').value;
-  const auth = { type: authType };
-  if (authType === 'bearer') auth.token = $('#mcpAuthToken').value.trim();
-  if (authType === 'oauth') {
-    auth.clientId = $('#mcpAuthClientId').value.trim();
-    auth.authServerUrl = $('#mcpAuthServerUrl').value.trim();
-  }
-
-  api(endpoint, { method, body: { name, command: url, config: { auth }, enabled: true } })
-    .then(() => {
-      loadMCPPage();
-      $('#mcpModal').classList.add('hidden');
-      toast(id ? 'Server updated' : 'Server added', 'success');
-    })
-    .catch((err) => toast('Failed to save server: ' + err.message, 'error'));
-});
-
-// Listen for popup messages to refresh auth
-window.addEventListener('message', (e) => {
-  if (e.data?.type === 'mcp_oauth_success') {
-    toast('OAuth authentication successful!', 'success');
-    loadMCPPage();
-  }
-});
-
-// ── Scheduler Page ──
-
-async function loadSchedulerPage() {
-  try {
-    const tasks = await api('/scheduler');
-    const container = $('#taskList');
-    container.innerHTML = '';
-
-    if (tasks.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>No scheduled tasks</p></div>';
+  $('#saveMcpBtn').addEventListener('click', () => {
+    const name = $('#mcpName').value.trim();
+    const url = $('#mcpUrl').value.trim();
+    if (!name || !url) {
+      toast('Name and URL are required', 'error');
       return;
     }
 
-    for (const task of tasks) {
-      const card = document.createElement('div');
-      card.className = 'item-card';
-      card.innerHTML = `
+    const id = $('#mcpModal').dataset.id;
+    const method = id ? 'PUT' : 'POST';
+    const endpoint = id ? `/mcp/${id}` : '/mcp';
+
+    const authType = $('#mcpAuthType').value;
+    const auth = { type: authType };
+    if (authType === 'bearer') auth.token = $('#mcpAuthToken').value.trim();
+    if (authType === 'oauth') {
+      auth.clientId = $('#mcpAuthClientId').value.trim();
+      auth.authServerUrl = $('#mcpAuthServerUrl').value.trim();
+    }
+
+    api(endpoint, { method, body: { name, command: url, config: { auth }, enabled: true } })
+      .then(() => {
+        loadMCPPage();
+        $('#mcpModal').classList.add('hidden');
+        toast(id ? 'Server updated' : 'Server added', 'success');
+      })
+      .catch((err) => toast('Failed to save server: ' + err.message, 'error'));
+  });
+
+  // Listen for popup messages to refresh auth
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'mcp_oauth_success') {
+      toast('OAuth authentication successful!', 'success');
+      loadMCPPage();
+    }
+  });
+
+  // ── Scheduler Page ──
+
+  async function loadSchedulerPage() {
+    try {
+      const tasks = await api('/scheduler');
+      const container = $('#taskList');
+      container.innerHTML = '';
+
+      if (tasks.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No scheduled tasks</p></div>';
+        return;
+      }
+
+      for (const task of tasks) {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
         <div class="item-card-header">
           <div>
             <div class="item-card-title">${escapeHtml(task.name)}</div>
@@ -1493,167 +1550,167 @@ async function loadSchedulerPage() {
         </div>
         <div class="item-card-meta">${escapeHtml(task.config?.prompt?.slice(0, 100) || 'No prompt')}${task.lastRun ? ` | Last run: ${formatTime(task.lastRun)}` : ''}</div>
       `;
-      container.appendChild(card);
+        container.appendChild(card);
+      }
+    } catch (err) {
+      toast('Failed to load tasks', 'error');
     }
-  } catch (err) {
-    toast('Failed to load tasks', 'error');
   }
-}
 
-window.runTask = async (id) => {
-  try {
-    await api(`/scheduler/${id}/run`, { method: 'POST' });
-    toast('Task started', 'success');
-  } catch (err) { toast(err.message, 'error'); }
-};
+  window.runTask = async (id) => {
+    try {
+      await api(`/scheduler/${id}/run`, { method: 'POST' });
+      toast('Task started', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
 
-window.deleteTask = async (id) => {
-  if (!confirm('Delete this task?')) return;
-  try {
-    await api(`/scheduler/${id}`, { method: 'DELETE' });
-    loadSchedulerPage();
-    toast('Task deleted', 'success');
-  } catch (err) { toast('Failed to delete', 'error'); }
-};
+  window.deleteTask = async (id) => {
+    if (!confirm('Delete this task?')) return;
+    try {
+      await api(`/scheduler/${id}`, { method: 'DELETE' });
+      loadSchedulerPage();
+      toast('Task deleted', 'success');
+    } catch (err) { toast('Failed to delete', 'error'); }
+  };
 
-// Scheduler event delegation
-$('#taskList').addEventListener('click', e => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const id = btn.dataset.id;
-  const action = btn.dataset.action;
-  if (action === 'runTask') window.runTask(id);
-  else if (action === 'deleteTask') window.deleteTask(id);
-});
+  // Scheduler event delegation
+  $('#taskList').addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    if (action === 'runTask') window.runTask(id);
+    else if (action === 'deleteTask') window.deleteTask(id);
+  });
 
-$('#addTaskBtn').addEventListener('click', () => {
-  const name = prompt('Task name:');
-  if (!name) return;
-  const cronExpression = prompt('Cron expression (e.g., */30 * * * * for every 30 min):');
-  if (!cronExpression) return;
-  const promptText = prompt('What should the agent do?');
-  if (!promptText) return;
+  $('#addTaskBtn').addEventListener('click', () => {
+    const name = prompt('Task name:');
+    if (!name) return;
+    const cronExpression = prompt('Cron expression (e.g., */30 * * * * for every 30 min):');
+    if (!cronExpression) return;
+    const promptText = prompt('What should the agent do?');
+    if (!promptText) return;
 
-  api('/scheduler', { method: 'POST', body: { name, cronExpression, prompt: promptText } })
-    .then(() => { loadSchedulerPage(); toast('Task created', 'success'); })
-    .catch((err) => toast(err.message, 'error'));
-});
+    api('/scheduler', { method: 'POST', body: { name, cronExpression, prompt: promptText } })
+      .then(() => { loadSchedulerPage(); toast('Task created', 'success'); })
+      .catch((err) => toast(err.message, 'error'));
+  });
 
-// ── Messaging Page ──
+  // ── Messaging Page ──
 
-// Registry of supported platforms — add new entries here to support more providers
-const _svgLogo = {
-  whatsapp: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#25D366"/><path d="M18 7C11.9 7 7 11.9 7 18c0 2.1.58 4.08 1.6 5.77L7 29l5.4-1.56A11 11 0 0018 29c6.07 0 11-4.93 11-11S24.07 7 18 7z" fill="#25D366"/><path d="M24.4 21.52c-.33-.17-1.94-.96-2.24-1.07-.3-.1-.52-.17-.74.17-.22.33-.85 1.07-1.04 1.29-.2.22-.38.25-.71.08-.33-.17-1.39-.51-2.65-1.63-.98-.87-1.64-1.95-1.83-2.28-.19-.33-.02-.51.14-.67.15-.15.33-.38.5-.58.17-.19.22-.33.33-.55.1-.22.05-.41-.03-.58-.08-.17-.74-1.78-1.01-2.44-.27-.64-.54-.55-.74-.56-.19-.01-.41-.01-.63-.01-.22 0-.58.08-.88.41-.3.33-1.15 1.12-1.15 2.74s1.18 3.18 1.34 3.4c.17.22 2.32 3.54 5.61 4.96.79.34 1.4.54 1.87.69.79.25 1.5.22 2.07.13.63-.09 1.94-.79 2.22-1.56.28-.77.28-1.43.19-1.56-.09-.14-.3-.22-.63-.38z" fill="white"/></svg>`,
+  // Registry of supported platforms — add new entries here to support more providers
+  const _svgLogo = {
+    whatsapp: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#25D366"/><path d="M18 7C11.9 7 7 11.9 7 18c0 2.1.58 4.08 1.6 5.77L7 29l5.4-1.56A11 11 0 0018 29c6.07 0 11-4.93 11-11S24.07 7 18 7z" fill="#25D366"/><path d="M24.4 21.52c-.33-.17-1.94-.96-2.24-1.07-.3-.1-.52-.17-.74.17-.22.33-.85 1.07-1.04 1.29-.2.22-.38.25-.71.08-.33-.17-1.39-.51-2.65-1.63-.98-.87-1.64-1.95-1.83-2.28-.19-.33-.02-.51.14-.67.15-.15.33-.38.5-.58.17-.19.22-.33.33-.55.1-.22.05-.41-.03-.58-.08-.17-.74-1.78-1.01-2.44-.27-.64-.54-.55-.74-.56-.19-.01-.41-.01-.63-.01-.22 0-.58.08-.88.41-.3.33-1.15 1.12-1.15 2.74s1.18 3.18 1.34 3.4c.17.22 2.32 3.54 5.61 4.96.79.34 1.4.54 1.87.69.79.25 1.5.22 2.07.13.63-.09 1.94-.79 2.22-1.56.28-.77.28-1.43.19-1.56-.09-.14-.3-.22-.63-.38z" fill="white"/></svg>`,
 
-  telegram: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#2AABEE"/><path d="M8.16 17.36l14.75-5.69c.68-.25 1.28.17 1.14.95L21.55 24.4c-.18.81-.67 1.01-1.36.63l-3.83-2.83-1.85 1.78c-.2.2-.38.37-.77.37l.27-3.86 6.99-6.32c.3-.27-.07-.42-.46-.15l-8.65 5.45-3.72-1.17c-.81-.25-.82-.81.17-1.2z" fill="white"/></svg>`,
+    telegram: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#2AABEE"/><path d="M8.16 17.36l14.75-5.69c.68-.25 1.28.17 1.14.95L21.55 24.4c-.18.81-.67 1.01-1.36.63l-3.83-2.83-1.85 1.78c-.2.2-.38.37-.77.37l.27-3.86 6.99-6.32c.3-.27-.07-.42-.46-.15l-8.65 5.45-3.72-1.17c-.81-.25-.82-.81.17-1.2z" fill="white"/></svg>`,
 
-  discord: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#5865F2"/><path d="M25.57 11.69A18.2 18.2 0 0021.8 10.6a.07.07 0 00-.07.04 12.4 12.4 0 00-.52 1.06 16.8 16.8 0 00-5.07 0 10.7 10.7 0 00-.53-1.06.07.07 0 00-.07-.04 18.1 18.1 0 00-3.59 1.1.06.06 0 00-.03.03C9.51 15.52 8.61 19 9.07 22.4c0 .02.01.03.03.04a17.3 17.3 0 005.22 2.64.07.07 0 00.07-.02c.4-.55.76-1.13 1.06-1.74a.07.07 0 00-.04-.09 11.4 11.4 0 01-1.63-.78.07.07 0 010-.11c.11-.08.22-.17.32-.25a.07.07 0 01.07-.01c3.42 1.56 7.12 1.56 10.5 0a.07.07 0 01.07.01c.1.08.21.17.33.25a.07.07 0 010 .11c-.52.3-1.06.56-1.64.78a.07.07 0 00-.03.1c.31.6.67 1.18 1.06 1.74a.07.07 0 00.07.02 17.24 17.24 0 005.23-2.64.07.07 0 00.03-.04c.52-3.74-.53-6.93-2.85-10.38a.05.05 0 00-.03-.02zm-9.73 6.72c-1.1 0-2-1-2-2.24s.88-2.24 2-2.24c1.12 0 2.01 1.01 2 2.24 0 1.23-.88 2.24-2 2.24zm7.37 0c-1.1 0-2-1-2-2.24s.88-2.24 2-2.24c1.12 0 2.01 1.01 2 2.24 0 1.23-.88 2.24-2 2.24z" fill="white"/></svg>`,
+    discord: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#5865F2"/><path d="M25.57 11.69A18.2 18.2 0 0021.8 10.6a.07.07 0 00-.07.04 12.4 12.4 0 00-.52 1.06 16.8 16.8 0 00-5.07 0 10.7 10.7 0 00-.53-1.06.07.07 0 00-.07-.04 18.1 18.1 0 00-3.59 1.1.06.06 0 00-.03.03C9.51 15.52 8.61 19 9.07 22.4c0 .02.01.03.03.04a17.3 17.3 0 005.22 2.64.07.07 0 00.07-.02c.4-.55.76-1.13 1.06-1.74a.07.07 0 00-.04-.09 11.4 11.4 0 01-1.63-.78.07.07 0 010-.11c.11-.08.22-.17.32-.25a.07.07 0 01.07-.01c3.42 1.56 7.12 1.56 10.5 0a.07.07 0 01.07.01c.1.08.21.17.33.25a.07.07 0 010 .11c-.52.3-1.06.56-1.64.78a.07.07 0 00-.03.1c.31.6.67 1.18 1.06 1.74a.07.07 0 00.07.02 17.24 17.24 0 005.23-2.64.07.07 0 00.03-.04c.52-3.74-.53-6.93-2.85-10.38a.05.05 0 00-.03-.02zm-9.73 6.72c-1.1 0-2-1-2-2.24s.88-2.24 2-2.24c1.12 0 2.01 1.01 2 2.24 0 1.23-.88 2.24-2 2.24zm7.37 0c-1.1 0-2-1-2-2.24s.88-2.24 2-2.24c1.12 0 2.01 1.01 2 2.24 0 1.23-.88 2.24-2 2.24z" fill="white"/></svg>`,
 
-  telnyx: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#00C8A0"/><path d="M23 21.83c-.56.56-1.12 1.12-2.02 1.01-.9-.11-2.47-.79-4.38-2.7-1.91-1.91-2.59-3.48-2.7-4.38-.11-.9.45-1.46 1.01-2.02.56-.56.9-.56 1.24 0l1.35 2.02c.34.56.22 1.01-.11 1.35l-.56.56c.34.67.9 1.46 1.58 2.13.67.67 1.46 1.23 2.13 1.57l.56-.56c.34-.34.79-.45 1.35-.11l2.02 1.35c.56.34.56.68 0 1.24z" fill="white"/><path d="M18 9v2.25A6.75 6.75 0 0124.75 18H27A9 9 0 0018 9z" fill="white" opacity=".65"/><path d="M18 12.75v2.25A3 3 0 0121 18h2.25A5.25 5.25 0 0018 12.75z" fill="white" opacity=".9"/></svg>`,
-};
+    telnyx: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#00C8A0"/><path d="M23 21.83c-.56.56-1.12 1.12-2.02 1.01-.9-.11-2.47-.79-4.38-2.7-1.91-1.91-2.59-3.48-2.7-4.38-.11-.9.45-1.46 1.01-2.02.56-.56.9-.56 1.24 0l1.35 2.02c.34.56.22 1.01-.11 1.35l-.56.56c.34.67.9 1.46 1.58 2.13.67.67 1.46 1.23 2.13 1.57l.56-.56c.34-.34.79-.45 1.35-.11l2.02 1.35c.56.34.56.68 0 1.24z" fill="white"/><path d="M18 9v2.25A6.75 6.75 0 0124.75 18H27A9 9 0 0018 9z" fill="white" opacity=".65"/><path d="M18 12.75v2.25A3 3 0 0121 18h2.25A5.25 5.25 0 0018 12.75z" fill="white" opacity=".9"/></svg>`,
+  };
 
-const MESSAGING_PLATFORM_GROUPS = [
-  { id: 'text', label: 'Text & Chat', description: 'Send and receive messages' },
-  { id: 'voice', label: 'Voice Calls', description: 'Inbound & outbound phone calls' },
-];
+  const MESSAGING_PLATFORM_GROUPS = [
+    { id: 'text', label: 'Text & Chat', description: 'Send and receive messages' },
+    { id: 'voice', label: 'Voice Calls', description: 'Inbound & outbound phone calls' },
+  ];
 
-const MESSAGING_PLATFORMS = [
-  { id: 'whatsapp', name: 'WhatsApp', group: 'text', color: '#25D366', connectMethod: 'qr' },
-  { id: 'telegram', name: 'Telegram', group: 'text', color: '#2AABEE', connectMethod: 'config' },
-  { id: 'discord', name: 'Discord', group: 'text', color: '#5865F2', connectMethod: 'config' },
-  { id: 'telnyx', name: 'Telnyx Voice', group: 'voice', color: '#00C8A0', connectMethod: 'config' },
-];
+  const MESSAGING_PLATFORMS = [
+    { id: 'whatsapp', name: 'WhatsApp', group: 'text', color: '#25D366', connectMethod: 'qr' },
+    { id: 'telegram', name: 'Telegram', group: 'text', color: '#2AABEE', connectMethod: 'config' },
+    { id: 'discord', name: 'Discord', group: 'text', color: '#5865F2', connectMethod: 'config' },
+    { id: 'telnyx', name: 'Telnyx Voice', group: 'voice', color: '#00C8A0', connectMethod: 'config' },
+  ];
 
-// Per-platform whitelist config
-const PLATFORM_WHITELIST = {
-  whatsapp: {
-    settingKey: 'platform_whitelist_whatsapp',
-    label: 'Approved contacts',
-    emptyHint: 'No approved contacts yet — senders are added via the allow popup.',
-    allowAdd: false,
-    saveFn: async (list) => api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } }),
-  },
-  telnyx: {
-    settingKey: 'platform_whitelist_telnyx',
-    label: 'Allowed callers',
-    emptyHint: 'Empty — all inbound callers blocked (or gated via secret code if set).',
-    allowAdd: true,
-    addPlaceholder: 'e.g. +12125550100',
-    saveFn: async (list) => api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } }),
-  },
-  discord: {
-    settingKey: 'platform_whitelist_discord',
-    label: 'Approved users, servers & channels',
-    emptyHint: 'No entries — all messages blocked. Add entries via the allow popup or manually below.',
-    allowAdd: true,
-    addTypes: ['user', 'guild', 'channel'],
-    saveFn: async (list) => api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } }),
-  },
-  telegram: {
-    settingKey: 'platform_whitelist_telegram',
-    label: 'Approved users & groups',
-    emptyHint: 'No entries — all messages blocked. Add entries via the allow popup or manually below.',
-    allowAdd: true,
-    addTypes: ['user', 'group'],
-    saveFn: async (list) => api('/messaging/telegram/whitelist', { method: 'PUT', body: { ids: list } }),
-  },
-};
+  // Per-platform whitelist config
+  const PLATFORM_WHITELIST = {
+    whatsapp: {
+      settingKey: 'platform_whitelist_whatsapp',
+      label: 'Approved contacts',
+      emptyHint: 'No approved contacts yet — senders are added via the allow popup.',
+      allowAdd: false,
+      saveFn: async (list) => api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } }),
+    },
+    telnyx: {
+      settingKey: 'platform_whitelist_telnyx',
+      label: 'Allowed callers',
+      emptyHint: 'Empty — all inbound callers blocked (or gated via secret code if set).',
+      allowAdd: true,
+      addPlaceholder: 'e.g. +12125550100',
+      saveFn: async (list) => api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } }),
+    },
+    discord: {
+      settingKey: 'platform_whitelist_discord',
+      label: 'Approved users, servers & channels',
+      emptyHint: 'No entries — all messages blocked. Add entries via the allow popup or manually below.',
+      allowAdd: true,
+      addTypes: ['user', 'guild', 'channel'],
+      saveFn: async (list) => api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } }),
+    },
+    telegram: {
+      settingKey: 'platform_whitelist_telegram',
+      label: 'Approved users & groups',
+      emptyHint: 'No entries — all messages blocked. Add entries via the allow popup or manually below.',
+      allowAdd: true,
+      addTypes: ['user', 'group'],
+      saveFn: async (list) => api('/messaging/telegram/whitelist', { method: 'PUT', body: { ids: list } }),
+    },
+  };
 
-async function loadMessagingPage() {
-  try {
-    const [statuses, settings] = await Promise.all([api('/messaging/status'), api('/settings')]);
-    const container = $('#platformList');
-    container.innerHTML = '';
+  async function loadMessagingPage() {
+    try {
+      const [statuses, settings] = await Promise.all([api('/messaging/status'), api('/settings')]);
+      const container = $('#platformList');
+      container.innerHTML = '';
 
-    for (const group of MESSAGING_PLATFORM_GROUPS) {
-      const groupPlatforms = MESSAGING_PLATFORMS.filter(p => p.group === group.id);
+      for (const group of MESSAGING_PLATFORM_GROUPS) {
+        const groupPlatforms = MESSAGING_PLATFORMS.filter(p => p.group === group.id);
 
-      // Section header
-      const section = document.createElement('div');
-      section.style.cssText = 'margin-bottom:28px;';
+        // Section header
+        const section = document.createElement('div');
+        section.style.cssText = 'margin-bottom:28px;';
 
-      const heading = document.createElement('div');
-      heading.style.cssText = 'display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);';
-      heading.innerHTML = `
+        const heading = document.createElement('div');
+        heading.style.cssText = 'display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);';
+        heading.innerHTML = `
         <span style="font-size:0.95rem;font-weight:700;">${escapeHtml(group.label)}</span>
         <span style="font-size:0.78rem;color:var(--text-muted);">${escapeHtml(group.description)}</span>`;
-      section.appendChild(heading);
+        section.appendChild(heading);
 
-      // Grid — 2 cols for text/chat, single col for voice
-      const grid = document.createElement('div');
-      grid.style.cssText = group.id === 'text'
-        ? 'display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;'
-        : 'display:flex;flex-direction:column;gap:14px;';
+        // Grid — 2 cols for text/chat, single col for voice
+        const grid = document.createElement('div');
+        grid.style.cssText = group.id === 'text'
+          ? 'display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;'
+          : 'display:flex;flex-direction:column;gap:14px;';
 
-      for (const platform of groupPlatforms) {
-        const info = statuses[platform.id] || { status: 'not_configured' };
-        const wlCfg = PLATFORM_WHITELIST[platform.id];
-        const isConnected = info.status === 'connected';
-        const isConnecting = info.status === 'connecting' || info.status === 'awaiting_qr';
+        for (const platform of groupPlatforms) {
+          const info = statuses[platform.id] || { status: 'not_configured' };
+          const wlCfg = PLATFORM_WHITELIST[platform.id];
+          const isConnected = info.status === 'connected';
+          const isConnecting = info.status === 'connecting' || info.status === 'awaiting_qr';
 
-        let wlList = [];
-        try {
-          const raw = settings[wlCfg.settingKey];
-          if (raw) { wlList = typeof raw === 'string' ? JSON.parse(raw) : raw; }
-          if (!Array.isArray(wlList)) wlList = [];
-        } catch { wlList = []; }
+          let wlList = [];
+          try {
+            const raw = settings[wlCfg.settingKey];
+            if (raw) { wlList = typeof raw === 'string' ? JSON.parse(raw) : raw; }
+            if (!Array.isArray(wlList)) wlList = [];
+          } catch { wlList = []; }
 
-        // Auth subtitle
-        let authSub = '';
-        if (isConnected) {
-          if (info.authInfo?.phoneNumber) authSub = escapeHtml(info.authInfo.phoneNumber);
-          else if (info.authInfo?.tag) authSub = escapeHtml(info.authInfo.tag);
-          else if (info.authInfo?.username) authSub = '@' + escapeHtml(info.authInfo.username);
-        }
+          // Auth subtitle
+          let authSub = '';
+          if (isConnected) {
+            if (info.authInfo?.phoneNumber) authSub = escapeHtml(info.authInfo.phoneNumber);
+            else if (info.authInfo?.tag) authSub = escapeHtml(info.authInfo.tag);
+            else if (info.authInfo?.username) authSub = '@' + escapeHtml(info.authInfo.username);
+          }
 
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.cssText = 'margin:0;';
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.style.cssText = 'margin:0;';
 
-        // ── Top row: logo + name + status + buttons
-        const topRow = document.createElement('div');
-        topRow.className = 'flex items-center justify-between';
-        topRow.innerHTML = `
+          // ── Top row: logo + name + status + buttons
+          const topRow = document.createElement('div');
+          topRow.className = 'flex items-center justify-between';
+          topRow.innerHTML = `
           <div class="flex items-center gap-3">
             <div style="width:40px;height:40px;flex-shrink:0;border-radius:10px;overflow:hidden;">${_svgLogo[platform.id] || ''}</div>
             <div>
@@ -1669,56 +1726,56 @@ async function loadMessagingPage() {
           </div>
           <div class="flex gap-2" style="flex-shrink:0;">
             ${isConnected
-            ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
+              ? `<button class="btn btn-sm btn-secondary" data-action="disconnectPlatform" data-platform="${platform.id}">Disconnect</button>
                  <button class="btn btn-sm btn-danger"     data-action="logoutPlatform"     data-platform="${platform.id}">Logout</button>`
-            : isConnecting
-              ? `<span class="text-muted text-sm" style="padding:0 4px;">Connecting…</span>`
-              : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`}
+              : isConnecting
+                ? `<span class="text-muted text-sm" style="padding:0 4px;">Connecting…</span>`
+                : `<button class="btn btn-sm btn-primary" data-action="connectPlatform" data-platform="${platform.id}" data-method="${platform.connectMethod}">Connect</button>`}
           </div>`;
-        card.appendChild(topRow);
+          card.appendChild(topRow);
 
-        // ── Whitelist collapsible strip
-        const strip = document.createElement('div');
-        strip.style.cssText = 'border-top:1px solid var(--border);margin:14px -20px 0;';
+          // ── Whitelist collapsible strip
+          const strip = document.createElement('div');
+          strip.style.cssText = 'border-top:1px solid var(--border);margin:14px -20px 0;';
 
-        const arrowId = `wl-arrow-${platform.id}`;
-        const labelId = `wl-label-${platform.id}`;
-        const toggleBtn = document.createElement('button');
-        toggleBtn.style.cssText = 'display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;cursor:pointer;padding:9px 20px;color:var(--text-muted);font-size:0.8rem;user-select:none;';
-        toggleBtn.innerHTML = `<span id="${arrowId}" style="font-size:0.65rem;transition:transform 0.15s;display:inline-block;">&#9654;</span>
+          const arrowId = `wl-arrow-${platform.id}`;
+          const labelId = `wl-label-${platform.id}`;
+          const toggleBtn = document.createElement('button');
+          toggleBtn.style.cssText = 'display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;cursor:pointer;padding:9px 20px;color:var(--text-muted);font-size:0.8rem;user-select:none;';
+          toggleBtn.innerHTML = `<span id="${arrowId}" style="font-size:0.65rem;transition:transform 0.15s;display:inline-block;">&#9654;</span>
           <span id="${labelId}">${_wlLabel(wlCfg.label, wlList.length)}</span>`;
 
-        const panel = document.createElement('div');
-        panel.id = `wl-panel-${platform.id}`;
-        panel.style.cssText = 'display:none;padding:4px 20px 14px;';
-        _buildWhitelistPanel(panel, wlList, wlCfg, platform.id);
+          const panel = document.createElement('div');
+          panel.id = `wl-panel-${platform.id}`;
+          panel.style.cssText = 'display:none;padding:4px 20px 14px;';
+          _buildWhitelistPanel(panel, wlList, wlCfg, platform.id);
 
-        toggleBtn.addEventListener('click', () => {
-          const open = panel.style.display !== 'none';
-          panel.style.display = open ? 'none' : 'block';
-          document.getElementById(arrowId).style.transform = open ? '' : 'rotate(90deg)';
-        });
+          toggleBtn.addEventListener('click', () => {
+            const open = panel.style.display !== 'none';
+            panel.style.display = open ? 'none' : 'block';
+            document.getElementById(arrowId).style.transform = open ? '' : 'rotate(90deg)';
+          });
 
-        strip.appendChild(toggleBtn);
-        strip.appendChild(panel);
-        card.appendChild(strip);
+          strip.appendChild(toggleBtn);
+          strip.appendChild(panel);
+          card.appendChild(strip);
 
-        // ── Telnyx-only: voice secret code ─────────────────────────────────
-        if (platform.id === 'telnyx') {
-          const secretStrip = document.createElement('div');
-          secretStrip.style.cssText = 'border-top:1px solid var(--border);margin:0 -20px;';
+          // ── Telnyx-only: voice secret code ─────────────────────────────────
+          if (platform.id === 'telnyx') {
+            const secretStrip = document.createElement('div');
+            secretStrip.style.cssText = 'border-top:1px solid var(--border);margin:0 -20px;';
 
-          const secretArrowId = `secret-arrow-telnyx`;
-          const secretToggle = document.createElement('button');
-          secretToggle.style.cssText = 'display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;cursor:pointer;padding:9px 20px;color:var(--text-muted);font-size:0.8rem;user-select:none;';
-          secretToggle.innerHTML = `<span id="${secretArrowId}" style="font-size:0.65rem;transition:transform 0.15s;display:inline-block;">&#9654;</span>
+            const secretArrowId = `secret-arrow-telnyx`;
+            const secretToggle = document.createElement('button');
+            secretToggle.style.cssText = 'display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;cursor:pointer;padding:9px 20px;color:var(--text-muted);font-size:0.8rem;user-select:none;';
+            secretToggle.innerHTML = `<span id="${secretArrowId}" style="font-size:0.65rem;transition:transform 0.15s;display:inline-block;">&#9654;</span>
             <span>Voice secret code</span>`;
 
-          const secretPanel = document.createElement('div');
-          secretPanel.style.cssText = 'display:none;padding:4px 20px 14px;';
+            const secretPanel = document.createElement('div');
+            secretPanel.style.cssText = 'display:none;padding:4px 20px 14px;';
 
-          const currentSecret = settings['platform_voice_secret_telnyx'] || '';
-          secretPanel.innerHTML = `
+            const currentSecret = settings['platform_voice_secret_telnyx'] || '';
+            secretPanel.innerHTML = `
             <p class="text-xs text-muted" style="margin:0 0 8px;">Digits-only PIN non-whitelisted callers must type within 10 s of calling. Wrong code or timeout bans the number for 10 min. Leave empty to reject all non-whitelisted callers immediately.</p>
             <div style="display:flex;gap:8px;align-items:center;">
               <input id="telnyx-secret-input" type="password" class="input" style="flex:1;max-width:200px;" placeholder="e.g. 1234" value="${escapeHtml(currentSecret)}" autocomplete="off" inputmode="numeric"/>
@@ -1726,230 +1783,230 @@ async function loadMessagingPage() {
               <button id="telnyx-secret-clear" class="btn btn-sm btn-secondary">Clear</button>
             </div>`;
 
-          secretToggle.addEventListener('click', () => {
-            const open = secretPanel.style.display !== 'none';
-            secretPanel.style.display = open ? 'none' : 'block';
-            document.getElementById(secretArrowId).style.transform = open ? '' : 'rotate(90deg)';
-          });
+            secretToggle.addEventListener('click', () => {
+              const open = secretPanel.style.display !== 'none';
+              secretPanel.style.display = open ? 'none' : 'block';
+              document.getElementById(secretArrowId).style.transform = open ? '' : 'rotate(90deg)';
+            });
 
-          secretPanel.addEventListener('click', async (e) => {
-            if (e.target.id === 'telnyx-secret-save') {
-              const val = document.getElementById('telnyx-secret-input').value;
-              try {
-                await api('/messaging/telnyx/voice-secret', { method: 'PUT', body: { secret: val } });
-                toast('Secret code saved', 'success');
-              } catch { toast('Failed to save secret', 'error'); }
-            } else if (e.target.id === 'telnyx-secret-clear') {
-              document.getElementById('telnyx-secret-input').value = '';
-              try {
-                await api('/messaging/telnyx/voice-secret', { method: 'PUT', body: { secret: '' } });
-                toast('Secret code cleared', 'success');
-              } catch { toast('Failed to clear secret', 'error'); }
-            }
-          });
+            secretPanel.addEventListener('click', async (e) => {
+              if (e.target.id === 'telnyx-secret-save') {
+                const val = document.getElementById('telnyx-secret-input').value;
+                try {
+                  await api('/messaging/telnyx/voice-secret', { method: 'PUT', body: { secret: val } });
+                  toast('Secret code saved', 'success');
+                } catch { toast('Failed to save secret', 'error'); }
+              } else if (e.target.id === 'telnyx-secret-clear') {
+                document.getElementById('telnyx-secret-input').value = '';
+                try {
+                  await api('/messaging/telnyx/voice-secret', { method: 'PUT', body: { secret: '' } });
+                  toast('Secret code cleared', 'success');
+                } catch { toast('Failed to clear secret', 'error'); }
+              }
+            });
 
-          secretStrip.appendChild(secretToggle);
-          secretStrip.appendChild(secretPanel);
-          card.appendChild(secretStrip);
+            secretStrip.appendChild(secretToggle);
+            secretStrip.appendChild(secretPanel);
+            card.appendChild(secretStrip);
+          }
+
+          grid.appendChild(card);
         }
 
-        grid.appendChild(card);
+        section.appendChild(grid);
+        container.appendChild(section);
       }
-
-      section.appendChild(grid);
-      container.appendChild(section);
+    } catch (err) {
+      console.error(err);
+      toast('Failed to load messaging', 'error');
     }
-  } catch (err) {
-    console.error(err);
-    toast('Failed to load messaging', 'error');
   }
-}
 
-function _wlLabel(label, count) {
-  return count
-    ? `${label} <strong style="color:var(--text);font-weight:600;">(${count})</strong>`
-    : `${label} <span style="opacity:0.55;">— none</span>`;
-}
+  function _wlLabel(label, count) {
+    return count
+      ? `${label} <strong style="color:var(--text);font-weight:600;">(${count})</strong>`
+      : `${label} <span style="opacity:0.55;">— none</span>`;
+  }
 
-function _buildWhitelistPanel(panel, list, wlCfg, platformId) {
-  panel.innerHTML = '';
+  function _buildWhitelistPanel(panel, list, wlCfg, platformId) {
+    panel.innerHTML = '';
 
-  // Type-badge colours for Discord prefixed entries
-  const TYPE_COLORS = { user: '#5865F2', guild: '#57F287', channel: '#FEE75C', group: '#2AABEE' };
-  const TYPE_LABELS = { user: 'User', guild: 'Server', channel: 'Channel', group: 'Group' };
+    // Type-badge colours for Discord prefixed entries
+    const TYPE_COLORS = { user: '#5865F2', guild: '#57F287', channel: '#FEE75C', group: '#2AABEE' };
+    const TYPE_LABELS = { user: 'User', guild: 'Server', channel: 'Channel', group: 'Group' };
 
-  if (!list.length) {
-    const empty = document.createElement('p');
-    empty.className = 'text-xs text-muted';
-    empty.style.margin = '0 0 6px';
-    empty.textContent = wlCfg.emptyHint;
-    panel.appendChild(empty);
-  } else {
-    const tags = document.createElement('div');
-    tags.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;';
-    for (const entry of list) {
-      // Parse optional prefix
-      const colon = entry.indexOf(':');
-      const entryType = (colon > 0 && ['user', 'guild', 'channel'].includes(entry.slice(0, colon)))
-        ? entry.slice(0, colon) : null;
-      const entryId = colon > 0 ? entry.slice(colon + 1) : entry;
+    if (!list.length) {
+      const empty = document.createElement('p');
+      empty.className = 'text-xs text-muted';
+      empty.style.margin = '0 0 6px';
+      empty.textContent = wlCfg.emptyHint;
+      panel.appendChild(empty);
+    } else {
+      const tags = document.createElement('div');
+      tags.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;';
+      for (const entry of list) {
+        // Parse optional prefix
+        const colon = entry.indexOf(':');
+        const entryType = (colon > 0 && ['user', 'guild', 'channel'].includes(entry.slice(0, colon)))
+          ? entry.slice(0, colon) : null;
+        const entryId = colon > 0 ? entry.slice(colon + 1) : entry;
 
-      const tag = document.createElement('span');
-      tag.style.cssText = 'display:inline-flex;align-items:center;gap:5px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:999px;padding:2px 10px 2px 8px;font-size:0.81rem;';
+        const tag = document.createElement('span');
+        tag.style.cssText = 'display:inline-flex;align-items:center;gap:5px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:999px;padding:2px 10px 2px 8px;font-size:0.81rem;';
 
-      if (entryType) {
-        const badge = document.createElement('span');
-        badge.style.cssText = `background:${TYPE_COLORS[entryType] || '#888'};color:#000;border-radius:999px;padding:1px 7px;font-size:0.71rem;font-weight:600;`;
-        badge.textContent = TYPE_LABELS[entryType] || entryType;
-        tag.appendChild(badge);
-        tag.appendChild(document.createTextNode(' ' + entryId));
+        if (entryType) {
+          const badge = document.createElement('span');
+          badge.style.cssText = `background:${TYPE_COLORS[entryType] || '#888'};color:#000;border-radius:999px;padding:1px 7px;font-size:0.71rem;font-weight:600;`;
+          badge.textContent = TYPE_LABELS[entryType] || entryType;
+          tag.appendChild(badge);
+          tag.appendChild(document.createTextNode(' ' + entryId));
+        } else {
+          tag.appendChild(document.createTextNode(entry));
+        }
+
+        const removeBtn = document.createElement('button');
+        removeBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;font-size:1rem;line-height:1;margin-left:2px;';
+        removeBtn.textContent = '×';
+        removeBtn.title = 'Remove';
+        removeBtn.addEventListener('click', async () => {
+          const newList = list.filter(n => n !== entry);
+          try {
+            await wlCfg.saveFn(newList);
+            list = newList;
+            _buildWhitelistPanel(panel, list, wlCfg, platformId);
+            const lbl = document.getElementById(`wl-label-${platformId}`);
+            if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
+          } catch { toast('Failed to remove', 'error'); }
+        });
+        tag.appendChild(removeBtn);
+        tags.appendChild(tag);
+      }
+      panel.appendChild(tags);
+    }
+
+    if (wlCfg.allowAdd) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+
+      if (wlCfg.addTypes) {
+        // Type selector + ID input for Discord
+        const sel = document.createElement('select');
+        sel.className = 'input';
+        sel.style.cssText = 'flex:0 0 auto;width:110px;';
+        for (const t of wlCfg.addTypes) {
+          const opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = TYPE_LABELS[t] || t;
+          sel.appendChild(opt);
+        }
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'input'; inp.style.flex = '1';
+        inp.placeholder = 'Snowflake ID';
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn btn-primary btn-sm';
+        addBtn.textContent = 'Add';
+        addBtn.addEventListener('click', async () => {
+          const id = inp.value.replace(/[^0-9]/g, '').trim();
+          if (!id) return;
+          const val = `${sel.value}:${id}`;
+          if (list.includes(val)) { toast('Already in list', 'info'); return; }
+          const newList = [...list, val];
+          try {
+            await wlCfg.saveFn(newList);
+            list = newList; inp.value = '';
+            _buildWhitelistPanel(panel, list, wlCfg, platformId);
+            const lbl = document.getElementById(`wl-label-${platformId}`);
+            if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
+          } catch { toast('Failed to add', 'error'); }
+        });
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+        row.appendChild(sel); row.appendChild(inp); row.appendChild(addBtn);
       } else {
-        tag.appendChild(document.createTextNode(entry));
+        // Plain input for telnyx numbers
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'input'; inp.style.flex = '1';
+        inp.placeholder = wlCfg.addPlaceholder || '+12125550100';
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn btn-primary btn-sm';
+        addBtn.textContent = 'Add';
+        addBtn.addEventListener('click', async () => {
+          const val = inp.value.replace(/[^0-9+]/g, '').trim();
+          if (!val) return;
+          if (list.includes(val)) { toast('Already in list', 'info'); return; }
+          const newList = [...list, val];
+          try {
+            await wlCfg.saveFn(newList);
+            list = newList; inp.value = '';
+            _buildWhitelistPanel(panel, list, wlCfg, platformId);
+            const lbl = document.getElementById(`wl-label-${platformId}`);
+            if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
+          } catch { toast('Failed to add', 'error'); }
+        });
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+        row.appendChild(inp); row.appendChild(addBtn);
       }
-
-      const removeBtn = document.createElement('button');
-      removeBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;font-size:1rem;line-height:1;margin-left:2px;';
-      removeBtn.textContent = '×';
-      removeBtn.title = 'Remove';
-      removeBtn.addEventListener('click', async () => {
-        const newList = list.filter(n => n !== entry);
-        try {
-          await wlCfg.saveFn(newList);
-          list = newList;
-          _buildWhitelistPanel(panel, list, wlCfg, platformId);
-          const lbl = document.getElementById(`wl-label-${platformId}`);
-          if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
-        } catch { toast('Failed to remove', 'error'); }
-      });
-      tag.appendChild(removeBtn);
-      tags.appendChild(tag);
+      panel.appendChild(row);
     }
-    panel.appendChild(tags);
   }
 
-  if (wlCfg.allowAdd) {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  async function loadWhitelistUI() { /* replaced — whitelist is now inline in each platform card */ }
 
-    if (wlCfg.addTypes) {
-      // Type selector + ID input for Discord
-      const sel = document.createElement('select');
-      sel.className = 'input';
-      sel.style.cssText = 'flex:0 0 auto;width:110px;';
-      for (const t of wlCfg.addTypes) {
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = TYPE_LABELS[t] || t;
-        sel.appendChild(opt);
+  // Platform action delegation
+  $('#platformList').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const { action, platform, method } = btn.dataset;
+
+    if (action === 'connectPlatform') {
+      if (method === 'config') {
+        if (platform === 'telnyx') openTelnyxConfigModal();
+        if (platform === 'discord') openDiscordConfigModal();
+        if (platform === 'telegram') openTelegramConfigModal();
+      } else {
+        socket.emit('messaging:connect', { platform });
+        toast(`Connecting to ${platform}…`, 'info');
       }
-      const inp = document.createElement('input');
-      inp.type = 'text'; inp.className = 'input'; inp.style.flex = '1';
-      inp.placeholder = 'Snowflake ID';
-      const addBtn = document.createElement('button');
-      addBtn.className = 'btn btn-primary btn-sm';
-      addBtn.textContent = 'Add';
-      addBtn.addEventListener('click', async () => {
-        const id = inp.value.replace(/[^0-9]/g, '').trim();
-        if (!id) return;
-        const val = `${sel.value}:${id}`;
-        if (list.includes(val)) { toast('Already in list', 'info'); return; }
-        const newList = [...list, val];
-        try {
-          await wlCfg.saveFn(newList);
-          list = newList; inp.value = '';
-          _buildWhitelistPanel(panel, list, wlCfg, platformId);
-          const lbl = document.getElementById(`wl-label-${platformId}`);
-          if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
-        } catch { toast('Failed to add', 'error'); }
-      });
-      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
-      row.appendChild(sel); row.appendChild(inp); row.appendChild(addBtn);
-    } else {
-      // Plain input for telnyx numbers
-      const inp = document.createElement('input');
-      inp.type = 'text'; inp.className = 'input'; inp.style.flex = '1';
-      inp.placeholder = wlCfg.addPlaceholder || '+12125550100';
-      const addBtn = document.createElement('button');
-      addBtn.className = 'btn btn-primary btn-sm';
-      addBtn.textContent = 'Add';
-      addBtn.addEventListener('click', async () => {
-        const val = inp.value.replace(/[^0-9+]/g, '').trim();
-        if (!val) return;
-        if (list.includes(val)) { toast('Already in list', 'info'); return; }
-        const newList = [...list, val];
-        try {
-          await wlCfg.saveFn(newList);
-          list = newList; inp.value = '';
-          _buildWhitelistPanel(panel, list, wlCfg, platformId);
-          const lbl = document.getElementById(`wl-label-${platformId}`);
-          if (lbl) lbl.innerHTML = _wlLabel(wlCfg.label, newList.length);
-        } catch { toast('Failed to add', 'error'); }
-      });
-      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
-      row.appendChild(inp); row.appendChild(addBtn);
+    } else if (action === 'disconnectPlatform') {
+      try {
+        await api('/messaging/disconnect', { method: 'POST', body: { platform } });
+        loadMessagingPage();
+        toast(`${platform} disconnected`, 'success');
+      } catch (err) { toast(err.message, 'error'); }
+    } else if (action === 'logoutPlatform') {
+      try {
+        await api('/messaging/logout', { method: 'POST', body: { platform } });
+        loadMessagingPage();
+        toast(`${platform} logged out`, 'success');
+      } catch (err) { toast(err.message, 'error'); }
     }
-    panel.appendChild(row);
-  }
-}
+  });
 
-async function loadWhitelistUI() { /* replaced — whitelist is now inline in each platform card */ }
+  $('#cancelQR').addEventListener('click', () => {
+    $('#messagingQR').classList.add('hidden');
+  });
 
-// Platform action delegation
-$('#platformList').addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const { action, platform, method } = btn.dataset;
+  // ── Telnyx Config Modal ──────────────────────────────────────────────────────
 
-  if (action === 'connectPlatform') {
-    if (method === 'config') {
-      if (platform === 'telnyx') openTelnyxConfigModal();
-      if (platform === 'discord') openDiscordConfigModal();
-      if (platform === 'telegram') openTelegramConfigModal();
-    } else {
-      socket.emit('messaging:connect', { platform });
-      toast(`Connecting to ${platform}…`, 'info');
-    }
-  } else if (action === 'disconnectPlatform') {
+  async function openTelnyxConfigModal() {
+    // Pre-fill from saved DB config if available
+    let saved = {};
     try {
-      await api('/messaging/disconnect', { method: 'POST', body: { platform } });
-      loadMessagingPage();
-      toast(`${platform} disconnected`, 'success');
-    } catch (err) { toast(err.message, 'error'); }
-  } else if (action === 'logoutPlatform') {
+      const st = await api('/messaging/status/telnyx');
+      // Config is not exposed in status; try settings instead
+    } catch { }
     try {
-      await api('/messaging/logout', { method: 'POST', body: { platform } });
-      loadMessagingPage();
-      toast(`${platform} logged out`, 'success');
-    } catch (err) { toast(err.message, 'error'); }
-  }
-});
+      const s = await api('/settings');
+      if (s.telnyx_config) saved = typeof s.telnyx_config === 'string' ? JSON.parse(s.telnyx_config) : s.telnyx_config;
+    } catch { }
 
-$('#cancelQR').addEventListener('click', () => {
-  $('#messagingQR').classList.add('hidden');
-});
+    const TTS_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+    const TTS_MODELS = ['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'];
+    const STT_MODELS = ['whisper-1', 'gpt-4o-transcribe'];
 
-// ── Telnyx Config Modal ──────────────────────────────────────────────────────
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
 
-async function openTelnyxConfigModal() {
-  // Pre-fill from saved DB config if available
-  let saved = {};
-  try {
-    const st = await api('/messaging/status/telnyx');
-    // Config is not exposed in status; try settings instead
-  } catch { }
-  try {
-    const s = await api('/settings');
-    if (s.telnyx_config) saved = typeof s.telnyx_config === 'string' ? JSON.parse(s.telnyx_config) : s.telnyx_config;
-  } catch { }
-
-  const TTS_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
-  const TTS_MODELS = ['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'];
-  const STT_MODELS = ['whisper-1', 'gpt-4o-transcribe'];
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
-
-  overlay.innerHTML = `
+    overlay.innerHTML = `
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 28px 22px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
         <div style="font-size:1.15rem;font-weight:700;">📞 Telnyx Voice — Configuration</div>
@@ -2001,53 +2058,53 @@ async function openTelnyxConfigModal() {
       </div>
     </div>`;
 
-  document.body.appendChild(overlay);
+    document.body.appendChild(overlay);
 
-  const close = () => overlay.remove();
-  overlay.querySelector('#telnyxModalClose').addEventListener('click', close);
-  overlay.querySelector('#telnyxModalCancel').addEventListener('click', close);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    const close = () => overlay.remove();
+    overlay.querySelector('#telnyxModalClose').addEventListener('click', close);
+    overlay.querySelector('#telnyxModalCancel').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
-  overlay.querySelector('#telnyxModalSave').addEventListener('click', async () => {
-    const config = {
-      apiKey: overlay.querySelector('#telnyx_apiKey').value.trim(),
-      phoneNumber: overlay.querySelector('#telnyx_phoneNumber').value.trim(),
-      connectionId: overlay.querySelector('#telnyx_connectionId').value.trim(),
-      webhookUrl: overlay.querySelector('#telnyx_webhookUrl').value.trim(),
-      ttsVoice: overlay.querySelector('#telnyx_ttsVoice').value,
-      ttsModel: overlay.querySelector('#telnyx_ttsModel').value,
-      sttModel: overlay.querySelector('#telnyx_sttModel').value
-    };
-    if (!config.apiKey || !config.phoneNumber || !config.connectionId || !config.webhookUrl) {
-      toast('Please fill in all required fields', 'error');
-      return;
-    }
+    overlay.querySelector('#telnyxModalSave').addEventListener('click', async () => {
+      const config = {
+        apiKey: overlay.querySelector('#telnyx_apiKey').value.trim(),
+        phoneNumber: overlay.querySelector('#telnyx_phoneNumber').value.trim(),
+        connectionId: overlay.querySelector('#telnyx_connectionId').value.trim(),
+        webhookUrl: overlay.querySelector('#telnyx_webhookUrl').value.trim(),
+        ttsVoice: overlay.querySelector('#telnyx_ttsVoice').value,
+        ttsModel: overlay.querySelector('#telnyx_ttsModel').value,
+        sttModel: overlay.querySelector('#telnyx_sttModel').value
+      };
+      if (!config.apiKey || !config.phoneNumber || !config.connectionId || !config.webhookUrl) {
+        toast('Please fill in all required fields', 'error');
+        return;
+      }
+      try {
+        // Save config snapshot for pre-fill
+        await api('/settings', { method: 'PUT', body: { telnyx_config: JSON.stringify(config) } });
+        await api('/messaging/connect', { method: 'POST', body: { platform: 'telnyx', config } });
+        toast('Telnyx Voice connecting…', 'success');
+        close();
+        setTimeout(loadMessagingPage, 1000);
+      } catch (err) {
+        toast('Failed to connect: ' + (err.message || err), 'error');
+      }
+    });
+  }
+
+  // ── Discord Config Modal ─────────────────────────────────────────────────────
+
+  async function openDiscordConfigModal() {
+    let saved = {};
     try {
-      // Save config snapshot for pre-fill
-      await api('/settings', { method: 'PUT', body: { telnyx_config: JSON.stringify(config) } });
-      await api('/messaging/connect', { method: 'POST', body: { platform: 'telnyx', config } });
-      toast('Telnyx Voice connecting…', 'success');
-      close();
-      setTimeout(loadMessagingPage, 1000);
-    } catch (err) {
-      toast('Failed to connect: ' + (err.message || err), 'error');
-    }
-  });
-}
+      const s = await api('/settings');
+      if (s.discord_config) saved = typeof s.discord_config === 'string' ? JSON.parse(s.discord_config) : s.discord_config;
+    } catch { }
 
-// ── Discord Config Modal ─────────────────────────────────────────────────────
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
 
-async function openDiscordConfigModal() {
-  let saved = {};
-  try {
-    const s = await api('/settings');
-    if (s.discord_config) saved = typeof s.discord_config === 'string' ? JSON.parse(s.discord_config) : s.discord_config;
-  } catch { }
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
-
-  overlay.innerHTML = `
+    overlay.innerHTML = `
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 28px 22px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
         <div style="font-size:1.15rem;font-weight:700;">🎮 Discord — Configuration</div>
@@ -2066,41 +2123,41 @@ async function openDiscordConfigModal() {
       </div>
     </div>`;
 
-  document.body.appendChild(overlay);
+    document.body.appendChild(overlay);
 
-  const close = () => overlay.remove();
-  overlay.querySelector('#discordModalClose').addEventListener('click', close);
-  overlay.querySelector('#discordModalCancel').addEventListener('click', close);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    const close = () => overlay.remove();
+    overlay.querySelector('#discordModalClose').addEventListener('click', close);
+    overlay.querySelector('#discordModalCancel').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
-  overlay.querySelector('#discordModalSave').addEventListener('click', async () => {
-    const config = { token: overlay.querySelector('#discord_token').value.trim() };
-    if (!config.token) { toast('Bot token is required', 'error'); return; }
+    overlay.querySelector('#discordModalSave').addEventListener('click', async () => {
+      const config = { token: overlay.querySelector('#discord_token').value.trim() };
+      if (!config.token) { toast('Bot token is required', 'error'); return; }
+      try {
+        await api('/settings', { method: 'PUT', body: { discord_config: JSON.stringify(config) } });
+        await api('/messaging/connect', { method: 'POST', body: { platform: 'discord', config } });
+        toast('Discord connecting…', 'success');
+        close();
+        setTimeout(loadMessagingPage, 1500);
+      } catch (err) {
+        toast('Failed to connect: ' + (err.message || err), 'error');
+      }
+    });
+  }
+
+  // ── Telegram Config Modal ─────────────────────────────────────────────
+
+  async function openTelegramConfigModal() {
+    let saved = {};
     try {
-      await api('/settings', { method: 'PUT', body: { discord_config: JSON.stringify(config) } });
-      await api('/messaging/connect', { method: 'POST', body: { platform: 'discord', config } });
-      toast('Discord connecting…', 'success');
-      close();
-      setTimeout(loadMessagingPage, 1500);
-    } catch (err) {
-      toast('Failed to connect: ' + (err.message || err), 'error');
-    }
-  });
-}
+      const s = await api('/settings');
+      if (s.telegram_config) saved = typeof s.telegram_config === 'string' ? JSON.parse(s.telegram_config) : s.telegram_config;
+    } catch { }
 
-// ── Telegram Config Modal ─────────────────────────────────────────────
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
 
-async function openTelegramConfigModal() {
-  let saved = {};
-  try {
-    const s = await api('/settings');
-    if (s.telegram_config) saved = typeof s.telegram_config === 'string' ? JSON.parse(s.telegram_config) : s.telegram_config;
-  } catch { }
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;';
-
-  overlay.innerHTML = `
+    overlay.innerHTML = `
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 28px 22px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
         <div style="font-size:1.15rem;font-weight:700;">✈️ Telegram — Configuration</div>
@@ -2119,178 +2176,178 @@ async function openTelegramConfigModal() {
       </div>
     </div>`;
 
-  document.body.appendChild(overlay);
+    document.body.appendChild(overlay);
 
-  const close = () => overlay.remove();
-  overlay.querySelector('#telegramModalClose').addEventListener('click', close);
-  overlay.querySelector('#telegramModalCancel').addEventListener('click', close);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    const close = () => overlay.remove();
+    overlay.querySelector('#telegramModalClose').addEventListener('click', close);
+    overlay.querySelector('#telegramModalCancel').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
-  overlay.querySelector('#telegramModalSave').addEventListener('click', async () => {
-    const config = { botToken: overlay.querySelector('#telegram_token').value.trim() };
-    if (!config.botToken) { toast('Bot token is required', 'error'); return; }
-    try {
-      await api('/settings', { method: 'PUT', body: { telegram_config: JSON.stringify(config) } });
-      await api('/messaging/connect', { method: 'POST', body: { platform: 'telegram', config } });
-      toast('Telegram connecting…', 'success');
-      close();
-      setTimeout(loadMessagingPage, 1500);
-    } catch (err) {
-      toast('Failed to connect: ' + (err.message || err), 'error');
-    }
+    overlay.querySelector('#telegramModalSave').addEventListener('click', async () => {
+      const config = { botToken: overlay.querySelector('#telegram_token').value.trim() };
+      if (!config.botToken) { toast('Bot token is required', 'error'); return; }
+      try {
+        await api('/settings', { method: 'PUT', body: { telegram_config: JSON.stringify(config) } });
+        await api('/messaging/connect', { method: 'POST', body: { platform: 'telegram', config } });
+        toast('Telegram connecting…', 'success');
+        close();
+        setTimeout(loadMessagingPage, 1500);
+      } catch (err) {
+        toast('Failed to connect: ' + (err.message || err), 'error');
+      }
+    });
+  }
+
+  socket.on('messaging:qr', (data) => {
+    $('#messagingQR').classList.remove('hidden');
+    const container = $('#qrContainer');
+    container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.qr)}&size=280x280" alt="QR Code">`;
   });
-}
 
-socket.on('messaging:qr', (data) => {
-  $('#messagingQR').classList.remove('hidden');
-  const container = $('#qrContainer');
-  container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.qr)}&size=280x280" alt="QR Code">`;
-});
+  socket.on('messaging:connected', (data) => {
+    $('#messagingQR').classList.add('hidden');
+    toast(`${data.platform} connected!`, 'success');
+    loadMessagingPage();
+  });
 
-socket.on('messaging:connected', (data) => {
-  $('#messagingQR').classList.add('hidden');
-  toast(`${data.platform} connected!`, 'success');
-  loadMessagingPage();
-});
+  socket.on('messaging:sent', (data) => {
+    appendSocialMessage(data.platform, 'assistant', data.content, 'me');
+  });
 
-socket.on('messaging:sent', (data) => {
-  appendSocialMessage(data.platform, 'assistant', data.content, 'me');
-});
+  socket.on('messaging:disconnected', () => loadMessagingPage());
+  socket.on('messaging:logged_out', () => loadMessagingPage());
 
-socket.on('messaging:disconnected', () => loadMessagingPage());
-socket.on('messaging:logged_out', () => loadMessagingPage());
+  socket.on('messaging:error', (data) => {
+    toast((data && data.error) ? data.error : 'Messaging error', 'error');
+  });
 
-socket.on('messaging:error', (data) => {
-  toast((data && data.error) ? data.error : 'Messaging error', 'error');
-});
+  socket.on('messaging:blocked_sender', (data) => {
+    // Show a persistent banner so the user can see the raw ID and add it to the whitelist
+    const platform = data.platform || 'whatsapp';
+    const rawId = data.sender || data.chatId || 'unknown';
+    const bannerId = `blocked-banner-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
+    if (document.getElementById(bannerId)) return; // don't stack duplicates
 
-socket.on('messaging:blocked_sender', (data) => {
-  // Show a persistent banner so the user can see the raw ID and add it to the whitelist
-  const platform = data.platform || 'whatsapp';
-  const rawId = data.sender || data.chatId || 'unknown';
-  const bannerId = `blocked-banner-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
-  if (document.getElementById(bannerId)) return; // don't stack duplicates
+    const platformLabel = platform === 'telnyx' ? '📞 Blocked call'
+      : platform === 'discord' ? '🎮 Blocked Discord message'
+        : platform === 'telegram' ? '✈️ Blocked Telegram message'
+          : '⚠ Blocked message';
 
-  const platformLabel = platform === 'telnyx' ? '📞 Blocked call'
-    : platform === 'discord' ? '🎮 Blocked Discord message'
-      : platform === 'telegram' ? '✈️ Blocked Telegram message'
-        : '⚠ Blocked message';
-
-  const banner = document.createElement('div');
-  banner.id = bannerId;
-  banner.style.cssText = 'position:fixed;bottom:80px;right:20px;z-index:9999;max-width:380px;background:var(--bg-card);border:1px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:14px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.25);font-size:0.86rem;';
-  banner.innerHTML = `
+    const banner = document.createElement('div');
+    banner.id = bannerId;
+    banner.style.cssText = 'position:fixed;bottom:80px;right:20px;z-index:9999;max-width:380px;background:var(--bg-card);border:1px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:14px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.25);font-size:0.86rem;';
+    banner.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
       <div>
         <div style="font-weight:600;margin-bottom:4px;">${platformLabel}</div>
         <div style="color:var(--text-muted);margin-bottom:10px;">${platform === 'telnyx' ? 'From' : 'Sender'}: <code style="font-size:0.82rem;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;">${escapeHtml(rawId)}</code>${data.senderName ? ` &mdash; ${escapeHtml(data.senderName)}` : ''}${data.meta ? ` <span style="font-size:0.78rem;">(${escapeHtml(data.meta)})</span>` : ''}</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;" id="wb-btns-${bannerId}">
           ${(data.suggestions && data.suggestions.length
-      ? data.suggestions.map((s, i) =>
-        `<button class="btn btn-sm btn-primary" id="wb-sug-${bannerId}-${i}" data-pid="${escapeHtml(s.prefixedId)}">${escapeHtml(s.label)}</button>`
-      ).join('')
-      : `<button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>`
-    )}
+        ? data.suggestions.map((s, i) =>
+          `<button class="btn btn-sm btn-primary" id="wb-sug-${bannerId}-${i}" data-pid="${escapeHtml(s.prefixedId)}">${escapeHtml(s.label)}</button>`
+        ).join('')
+        : `<button class="btn btn-sm btn-primary" id="wb-add-${bannerId}">Add to whitelist</button>`
+      )}
           <button class="btn btn-sm btn-secondary" id="wb-dismiss-${bannerId}">Dismiss</button>
         </div>
       </div>
     </div>`;
 
-  document.body.appendChild(banner);
+    document.body.appendChild(banner);
 
-  document.getElementById(`wb-dismiss-${bannerId}`).addEventListener('click', () => banner.remove());
+    document.getElementById(`wb-dismiss-${bannerId}`).addEventListener('click', () => banner.remove());
 
-  // Helper: add a prefixed/plain ID to a platform whitelist, refresh cards
-  async function _wbSave(platform, entryKey) {
-    if (platform === 'telnyx') {
-      const s = await api('/settings');
-      let list = [];
-      try { list = JSON.parse(s.platform_whitelist_telnyx || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
-      if (!list.includes(entryKey)) list.push(entryKey);
-      await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
-    } else if (platform === 'discord') {
-      const s = await api('/settings');
-      let list = [];
-      try { list = JSON.parse(s.platform_whitelist_discord || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
-      const prefixed = entryKey.includes(':') ? entryKey : `user:${entryKey}`;
-      if (!list.includes(prefixed)) list.push(prefixed);
-      await api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } });
-    } else if (platform === 'telegram') {
-      const s = await api('/settings');
-      let list = [];
-      try { list = JSON.parse(s.platform_whitelist_telegram || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
-      const prefixed = entryKey.includes(':') ? entryKey : `user:${entryKey}`;
-      if (!list.includes(prefixed)) list.push(prefixed);
-      await api('/messaging/telegram/whitelist', { method: 'PUT', body: { ids: list } });
+    // Helper: add a prefixed/plain ID to a platform whitelist, refresh cards
+    async function _wbSave(platform, entryKey) {
+      if (platform === 'telnyx') {
+        const s = await api('/settings');
+        let list = [];
+        try { list = JSON.parse(s.platform_whitelist_telnyx || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
+        if (!list.includes(entryKey)) list.push(entryKey);
+        await api('/messaging/telnyx/whitelist', { method: 'PUT', body: { numbers: list } });
+      } else if (platform === 'discord') {
+        const s = await api('/settings');
+        let list = [];
+        try { list = JSON.parse(s.platform_whitelist_discord || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
+        const prefixed = entryKey.includes(':') ? entryKey : `user:${entryKey}`;
+        if (!list.includes(prefixed)) list.push(prefixed);
+        await api('/messaging/discord/whitelist', { method: 'PUT', body: { ids: list } });
+      } else if (platform === 'telegram') {
+        const s = await api('/settings');
+        let list = [];
+        try { list = JSON.parse(s.platform_whitelist_telegram || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
+        const prefixed = entryKey.includes(':') ? entryKey : `user:${entryKey}`;
+        if (!list.includes(prefixed)) list.push(prefixed);
+        await api('/messaging/telegram/whitelist', { method: 'PUT', body: { ids: list } });
+      } else {
+        // whatsapp
+        const s = await api('/settings');
+        let list = [];
+        try { list = JSON.parse(s.platform_whitelist_whatsapp || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
+        if (!list.includes(entryKey)) list.push(entryKey);
+        await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
+      }
+    }
+
+    // Wire suggestion buttons (Discord) or the single Add button (other platforms)
+    if (data.suggestions && data.suggestions.length) {
+      data.suggestions.forEach((s, i) => {
+        const btn = document.getElementById(`wb-sug-${bannerId}-${i}`);
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+          try {
+            await _wbSave(platform, s.prefixedId);
+            toast(`Added ${s.prefixedId} to whitelist`, 'success');
+            banner.remove();
+            if (document.querySelector('#page-messaging.active')) loadMessagingPage();
+          } catch (err) { toast('Failed to save: ' + err.message, 'error'); }
+        });
+      });
     } else {
-      // whatsapp
-      const s = await api('/settings');
-      let list = [];
-      try { list = JSON.parse(s.platform_whitelist_whatsapp || '[]'); if (!Array.isArray(list)) list = []; } catch { list = []; }
-      if (!list.includes(entryKey)) list.push(entryKey);
-      await api('/settings', { method: 'PUT', body: { platform_whitelist_whatsapp: JSON.stringify(list) } });
+      const addBtn = document.getElementById(`wb-add-${bannerId}`);
+      if (addBtn) addBtn.addEventListener('click', async () => {
+        const digits = rawId.replace(/[^0-9]/g, '');
+        const key = digits || rawId;
+        try {
+          await _wbSave(platform, key);
+          toast(`Added ${key} to whitelist`, 'success');
+          banner.remove();
+          if (document.querySelector('#page-messaging.active')) loadMessagingPage();
+        } catch (err) {
+          toast('Failed to save: ' + err.message, 'error');
+        }
+      });
+    }
+  });
+
+  // ── Browser Page (removed - integrated into flow) ──
+
+  // ── Init ──
+
+  // model is fixed: grok-4-1-fast-reasoning; nothing to load here
+
+  // ── Protocols ──
+  let currentProtocolId = null;
+
+  async function loadProtocolsPage() {
+    try {
+      const res = await fetch('/api/protocols');
+      if (!res.ok) throw new Error('Failed to load protocols');
+      const protocols = await res.json();
+      renderProtocolsList(protocols);
+    } catch (err) {
+      console.error(err);
     }
   }
 
-  // Wire suggestion buttons (Discord) or the single Add button (other platforms)
-  if (data.suggestions && data.suggestions.length) {
-    data.suggestions.forEach((s, i) => {
-      const btn = document.getElementById(`wb-sug-${bannerId}-${i}`);
-      if (!btn) return;
-      btn.addEventListener('click', async () => {
-        try {
-          await _wbSave(platform, s.prefixedId);
-          toast(`Added ${s.prefixedId} to whitelist`, 'success');
-          banner.remove();
-          if (document.querySelector('#page-messaging.active')) loadMessagingPage();
-        } catch (err) { toast('Failed to save: ' + err.message, 'error'); }
-      });
-    });
-  } else {
-    const addBtn = document.getElementById(`wb-add-${bannerId}`);
-    if (addBtn) addBtn.addEventListener('click', async () => {
-      const digits = rawId.replace(/[^0-9]/g, '');
-      const key = digits || rawId;
-      try {
-        await _wbSave(platform, key);
-        toast(`Added ${key} to whitelist`, 'success');
-        banner.remove();
-        if (document.querySelector('#page-messaging.active')) loadMessagingPage();
-      } catch (err) {
-        toast('Failed to save: ' + err.message, 'error');
-      }
-    });
-  }
-});
-
-// ── Browser Page (removed - integrated into flow) ──
-
-// ── Init ──
-
-// model is fixed: grok-4-1-fast-reasoning; nothing to load here
-
-// ── Protocols ──
-let currentProtocolId = null;
-
-async function loadProtocolsPage() {
-  try {
-    const res = await fetch('/api/protocols');
-    if (!res.ok) throw new Error('Failed to load protocols');
-    const protocols = await res.json();
-    renderProtocolsList(protocols);
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-function renderProtocolsList(protocols) {
-  const container = $('#protocolsList');
-  if (protocols.length === 0) {
-    container.innerHTML = '<div class="empty-state">No protocols found. Create one.</div>';
-    return;
-  }
-  container.className = 'protocols-list';
-  container.innerHTML = protocols.map(p => `
+  function renderProtocolsList(protocols) {
+    const container = $('#protocolsList');
+    if (protocols.length === 0) {
+      container.innerHTML = '<div class="empty-state">No protocols found. Create one.</div>';
+      return;
+    }
+    container.className = 'protocols-list';
+    container.innerHTML = protocols.map(p => `
     <div class="item-card">
       <div class="item-card-header">
         <div class="item-card-title">${p.name}</div>
@@ -2302,79 +2359,80 @@ function renderProtocolsList(protocols) {
       <div class="item-card-meta">${p.description || 'No description'}</div>
     </div>
   `).join('');
-}
-
-$('#closeProtocolModal')?.addEventListener('click', () => $('#protocolModal')?.classList.add('hidden'));
-$('#cancelProtocolModal')?.addEventListener('click', () => $('#protocolModal')?.classList.add('hidden'));
-
-$('#addProtocolBtn')?.addEventListener('click', () => {
-  currentProtocolId = null;
-  $('#protocolModalTitle').textContent = 'Add Protocol';
-  $('#protocolName').value = '';
-  $('#protocolDesc').value = '';
-  $('#protocolContent').value = '';
-  $('#protocolModal')?.classList.remove('hidden');
-});
-
-$('#saveProtocolBtn').addEventListener('click', async () => {
-  const name = $('#protocolName').value.trim();
-  const description = $('#protocolDesc').value.trim();
-  const content = $('#protocolContent').value.trim();
-
-  if (!name || !content) {
-    alert('Name and Content are required');
-    return;
   }
 
-  const payload = { name, description, content };
-  const method = currentProtocolId ? 'PUT' : 'POST';
-  const url = currentProtocolId ? `/api/protocols/${currentProtocolId}` : '/api/protocols';
+  $('#closeProtocolModal')?.addEventListener('click', () => $('#protocolModal')?.classList.add('hidden'));
+  $('#cancelProtocolModal')?.addEventListener('click', () => $('#protocolModal')?.classList.add('hidden'));
 
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Failed to save: ' + res.status);
-    }
-    $('#protocolModal')?.classList.add('hidden');
-    loadProtocolsPage();
-  } catch (err) {
-    alert(err.message);
-  }
-});
-
-async function editProtocol(id) {
-  try {
-    const res = await fetch(`/api/protocols/${id}`);
-    if (!res.ok) throw new Error('Failed to load protocol');
-    const p = await res.json();
-
-    currentProtocolId = p.id;
-    $('#protocolModalTitle').textContent = 'Edit Protocol';
-    $('#protocolName').value = p.name;
-    $('#protocolDesc').value = p.description || '';
-    $('#protocolContent').value = p.content;
+  $('#addProtocolBtn')?.addEventListener('click', () => {
+    currentProtocolId = null;
+    $('#protocolModalTitle').textContent = 'Add Protocol';
+    $('#protocolName').value = '';
+    $('#protocolDesc').value = '';
+    $('#protocolContent').value = '';
     $('#protocolModal')?.classList.remove('hidden');
-  } catch (err) {
-    alert(err.message);
+  });
+
+  $('#saveProtocolBtn').addEventListener('click', async () => {
+    const name = $('#protocolName').value.trim();
+    const description = $('#protocolDesc').value.trim();
+    const content = $('#protocolContent').value.trim();
+
+    if (!name || !content) {
+      alert('Name and Content are required');
+      return;
+    }
+
+    const payload = { name, description, content };
+    const method = currentProtocolId ? 'PUT' : 'POST';
+    const url = currentProtocolId ? `/api/protocols/${currentProtocolId}` : '/api/protocols';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save: ' + res.status);
+      }
+      $('#protocolModal')?.classList.add('hidden');
+      loadProtocolsPage();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  async function editProtocol(id) {
+    try {
+      const res = await fetch(`/api/protocols/${id}`);
+      if (!res.ok) throw new Error('Failed to load protocol');
+      const p = await res.json();
+
+      currentProtocolId = p.id;
+      $('#protocolModalTitle').textContent = 'Edit Protocol';
+      $('#protocolName').value = p.name;
+      $('#protocolDesc').value = p.description || '';
+      $('#protocolContent').value = p.content;
+      $('#protocolModal')?.classList.remove('hidden');
+    } catch (err) {
+      alert(err.message);
+    }
   }
-}
 
-async function deleteProtocol(id) {
-  if (!confirm('Are you sure you want to delete this protocol?')) return;
-  try {
-    const res = await fetch(`/api/protocols/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete protocol');
-    loadProtocolsPage();
-  } catch (err) {
-    alert(err.message);
+  async function deleteProtocol(id) {
+    if (!confirm('Are you sure you want to delete this protocol?')) return;
+    try {
+      const res = await fetch(`/api/protocols/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete protocol');
+      loadProtocolsPage();
+    } catch (err) {
+      alert(err.message);
+    }
   }
-}
 
-window.editProtocol = editProtocol;
-window.deleteProtocol = deleteProtocol;
+  window.editProtocol = editProtocol;
+  window.deleteProtocol = deleteProtocol;
 
+});
