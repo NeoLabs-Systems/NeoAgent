@@ -23,6 +23,36 @@ const io = new SocketIO(httpServer, {
   }
 });
 
+// ── Console Log Interceptor ──
+const logHistory = [];
+const MAX_LOG_HISTORY = 200;
+
+function broadcastLog(type, args) {
+  const msg = Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  const logEntry = { type, message: msg, timestamp: new Date().toISOString() };
+  logHistory.push(logEntry);
+  if (logHistory.length > MAX_LOG_HISTORY) logHistory.shift();
+  io.emit('server:log', logEntry);
+}
+
+const originalConsole = {
+  log: console.log,
+  error: console.error,
+  warn: console.warn,
+  info: console.info
+};
+
+console.log = function (...args) { originalConsole.log.apply(console, args); broadcastLog('log', args); };
+console.error = function (...args) { originalConsole.error.apply(console, args); broadcastLog('error', args); };
+console.warn = function (...args) { originalConsole.warn.apply(console, args); broadcastLog('warn', args); };
+console.info = function (...args) { originalConsole.info.apply(console, args); broadcastLog('info', args); };
+
+io.on('connection', (socket) => {
+  socket.on('client:request_logs', () => {
+    socket.emit('server:log_history', logHistory);
+  });
+});
+
 if (!process.env.SESSION_SECRET) {
   console.warn('WARNING: SESSION_SECRET not set — using insecure default. Set it in .env before exposing this server.');
 }
@@ -233,14 +263,14 @@ const startServices = async () => {
           console.warn(`[Security] Possible prompt injection attempt from ${msg.sender} on ${msg.platform}: ${msg.content.slice(0, 200)}`);
         }
         // Wrap external content in delimiters — prevents prompt injection from untrusted senders
-        const isVoiceCall  = msg.platform === 'telnyx' && msg.mediaType === 'voice';
-        const isVoiceNote  = !isVoiceCall && msg.mediaType === 'audio';  // e.g. WhatsApp voice notes transcribed via STT
+        const isVoiceCall = msg.platform === 'telnyx' && msg.mediaType === 'voice';
+        const isVoiceNote = !isVoiceCall && msg.mediaType === 'audio';  // e.g. WhatsApp voice notes transcribed via STT
         const isDiscordGuild = msg.platform === 'discord' && msg.isGroup;
 
         // Channel context block for Discord guild/channel messages
         const discordContext = (isDiscordGuild && Array.isArray(msg.channelContext) && msg.channelContext.length)
           ? '\n\nRecent channel context (oldest → newest):\n' +
-            msg.channelContext.map(m => `[${m.author}]: ${m.content}`).join('\n')
+          msg.channelContext.map(m => `[${m.author}]: ${m.content}`).join('\n')
           : '';
 
         const sttNote = isVoiceNote
