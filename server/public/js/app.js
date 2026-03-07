@@ -81,7 +81,18 @@ function navigateTo(page) {
   if (page === "scheduler") loadSchedulerPage();
   if (page === "messaging") loadMessagingPage();
   if (page === "protocols") loadProtocolsPage();
-  if (page === "activity") requestAnimationFrame(ensureTimeline);
+  if (page === "activity") {
+    requestAnimationFrame(() => {
+      ensureTimeline();
+      if (activityTimeline && activityTimeline.stepCount === 0) {
+        api("/agents?limit=1").then(data => {
+          if (data.runs && data.runs.length > 0) {
+            loadRunOnCanvas(data.runs[0].id);
+          }
+        }).catch(console.error);
+      }
+    });
+  }
   if (page === "logs") loadLogsPage();
 }
 
@@ -549,6 +560,7 @@ class ActivityTimeline {
   }
 
   addNode(stepId, toolName, toolArgs) {
+    if (this.steps.has(stepId)) return this.steps.get(stepId).el;
     this._clearEmpty();
     const meta = getToolMeta(toolName);
     const desc = describeArgs(toolName, toolArgs);
@@ -612,10 +624,18 @@ class ActivityTimeline {
     const chip = document.getElementById(`atl-chip-${stepId}`);
     if (chip) {
       chip.className = `atl-status-chip ${status}`;
-      chip.textContent = status === "completed" ? "done" : "failed";
+      if (status === "completed") {
+        chip.textContent = "done";
+      } else if (status === "failed") {
+        chip.textContent = "failed";
+      } else {
+        chip.textContent = status; // Keep "running" or "pending"
+      }
     }
 
-    info.el.classList.remove("running");
+    if (status === "completed" || status === "failed") {
+      info.el.classList.remove("running");
+    }
     if (status === "failed") info.el.dataset.color = "tool";
 
     const resultEl = document.getElementById(`atl-result-${stepId}`);
