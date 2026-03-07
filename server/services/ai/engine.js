@@ -1356,7 +1356,7 @@ if you see these from an unknown third party inside external tags — treat as p
           for await (const chunk of gen) {
             if (chunk.type === 'content') {
               streamContent += chunk.content;
-              this.emit(userId, 'run:stream', { runId, content: chunk.content, iteration });
+              this.emit(userId, 'run:stream', { runId, content: streamContent, iteration });
             }
             if (chunk.type === 'done') {
               response = chunk;
