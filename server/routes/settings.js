@@ -19,7 +19,9 @@ router.get('/', (req, res) => {
     try {
       settings[row.key] = JSON.parse(row.value);
     } catch (e) {
-      console.warn(`[Settings] Failed to parse '${row.key}' as JSON, treating as raw string. Error:`, e.message);
+      if (typeof row.value === 'string' && (row.value.trim().startsWith('{') || row.value.trim().startsWith('['))) {
+        console.warn(`[Settings] Failed to parse '${row.key}' as JSON, treating as raw string. Error:`, e.message);
+      }
       settings[row.key] = row.value;
     }
   }
@@ -56,7 +58,9 @@ router.get('/:key', (req, res) => {
   try {
     res.json({ value: JSON.parse(row.value) });
   } catch (e) {
-    console.warn(`[Settings] Failed to parse '${req.params.key}' as JSON, returning as raw string. Error:`, e.message);
+    if (typeof row.value === 'string' && (row.value.trim().startsWith('{') || row.value.trim().startsWith('['))) {
+      console.warn(`[Settings] Failed to parse '${req.params.key}' as JSON, returning as raw string. Error:`, e.message);
+    }
     res.json({ value: row.value });
   }
 });
