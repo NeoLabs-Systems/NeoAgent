@@ -478,7 +478,10 @@
       <div class="page" id="page-logs">
         <div class="page-header" style="justify-content: space-between;">
           <h1>Server Logs</h1>
-          <button class="btn btn-secondary btn-sm" id="clearLogsBtn">Clear</button>
+          <div>
+            <button class="btn btn-primary btn-sm" id="copyLogsBtn" style="margin-right: 8px;">Copy Debug Info</button>
+            <button class="btn btn-secondary btn-sm" id="clearLogsBtn">Clear</button>
+          </div>
         </div>
         <div class="page-body" style="height: calc(100% - 70px); padding: 0;">
           <div id="logsContainer" class="logs-container"
