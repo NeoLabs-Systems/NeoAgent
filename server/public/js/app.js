@@ -149,23 +149,28 @@ function sendMessage() {
 }
 
 function appendMessage(role, content) {
-  const div = document.createElement("div");
-  div.className = `chat-message ${role}`;
+  const chunks = role === "assistant" ? content.split(/\n\n+/).filter(c => c.trim()) : [content];
+  let firstBubble = null;
+  for (const chunk of chunks) {
+    const div = document.createElement("div");
+    div.className = `chat-message ${role}`;
 
-  const avatar = document.createElement("div");
-  avatar.className = "chat-avatar";
-  avatar.textContent = role === "user" ? "U" : "N";
+    const avatar = document.createElement("div");
+    avatar.className = "chat-avatar";
+    avatar.textContent = role === "user" ? "U" : "N";
 
-  const bubble = document.createElement("div");
-  bubble.className = "chat-bubble md-content";
-  bubble.innerHTML = renderMarkdown(content);
-  requestAnimationFrame(renderMermaids);
+    const bubble = document.createElement("div");
+    bubble.className = "chat-bubble md-content";
+    bubble.innerHTML = renderMarkdown(chunk);
+    requestAnimationFrame(renderMermaids);
 
-  div.appendChild(avatar);
-  div.appendChild(bubble);
-  chatMessages.appendChild(div);
+    div.appendChild(avatar);
+    div.appendChild(bubble);
+    chatMessages.appendChild(div);
+    if (!firstBubble) firstBubble = bubble;
+  }
   chatMessages.scrollTop = chatMessages.scrollHeight;
-  return bubble;
+  return firstBubble;
 }
 
 function appendToolCall(name, args, result) {
@@ -932,19 +937,29 @@ socket.on("run:stream", (data) => {
     data.triggerSource === "messaging"
   )
     return;
-  let streamBubble = $("#streamBubble");
-  if (!streamBubble) {
+
+  const text = data.content || data;
+  const chunks = text.split(/\n\n+/).filter(c => c.trim().length > 0 || c === text);
+
+  let streamContainer = $("#streamContainer");
+  if (!streamContainer) {
     const thinking = $("#thinking");
     if (thinking) thinking.remove();
 
+    streamContainer = document.createElement("div");
+    streamContainer.id = "streamContainer";
+    streamContainer.className = "chat-stream-group";
+    chatMessages.appendChild(streamContainer);
+  }
+
+  streamContainer.innerHTML = "";
+  for (let i = 0; i < chunks.length; i++) {
     const div = document.createElement("div");
     div.className = "chat-message assistant";
-    div.innerHTML =
-      '<div class="chat-avatar">N</div><div class="chat-bubble md-content" id="streamBubble"></div>';
-    chatMessages.appendChild(div);
-    streamBubble = $("#streamBubble");
+    if (i > 0) div.style.marginTop = "8px";
+    div.innerHTML = `<div class="chat-avatar">${i === 0 ? 'N' : ''}</div><div class="chat-bubble md-content">${renderMarkdown(chunks[i])}</div>`;
+    streamContainer.appendChild(div);
   }
-  streamBubble.innerHTML = renderMarkdown(data.content || data);
   requestAnimationFrame(renderMermaids);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 });
@@ -960,11 +975,19 @@ socket.on("run:complete", (data) => {
     const thinking = $("#thinking");
     if (thinking) thinking.remove();
 
-    const streamBubble = $("#streamBubble");
-    if (streamBubble) {
-      streamBubble.id = "";
+    const streamContainer = $("#streamContainer");
+    if (streamContainer) {
+      streamContainer.id = "";
       if (data.content) {
-        streamBubble.innerHTML = renderMarkdown(data.content);
+        const chunks = data.content.split(/\n\n+/).filter(c => c.trim().length > 0 || c === data.content);
+        streamContainer.innerHTML = "";
+        for (let i = 0; i < chunks.length; i++) {
+          const div = document.createElement("div");
+          div.className = "chat-message assistant";
+          if (i > 0) div.style.marginTop = "8px";
+          div.innerHTML = `<div class="chat-avatar">${i === 0 ? 'N' : ''}</div><div class="chat-bubble md-content">${renderMarkdown(chunks[i])}</div>`;
+          streamContainer.appendChild(div);
+        }
         requestAnimationFrame(renderMermaids);
       }
     } else if (data.content && data.triggerSource !== "messaging") {
