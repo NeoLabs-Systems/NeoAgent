@@ -52,16 +52,25 @@ function getProviderForUser(userId, task = '', isSubagent = false) {
       .all(userId, 'enabled_models', 'default_chat_model', 'default_subagent_model');
 
     for (const row of rows) {
-      if (row.key === 'enabled_models' && row.value) {
-        enabledIds = JSON.parse(row.value);
-      } else if (row.key === 'default_chat_model' && row.value) {
-        defaultChatModel = JSON.parse(row.value);
-      } else if (row.key === 'default_subagent_model' && row.value) {
-        defaultSubagentModel = JSON.parse(row.value);
+      if (!row.value) continue;
+
+      let parsedVal = row.value;
+      try {
+        parsedVal = JSON.parse(row.value);
+      } catch (e) {
+        // Expected for older plain-string values, keep parsedVal as the original string
+      }
+
+      if (row.key === 'enabled_models') {
+        enabledIds = parsedVal;
+      } else if (row.key === 'default_chat_model') {
+        defaultChatModel = parsedVal;
+      } else if (row.key === 'default_subagent_model') {
+        defaultSubagentModel = parsedVal;
       }
     }
   } catch (e) {
-    console.error("Failed to parse settings. Using default supported models. Error:", e);
+    console.error("Failed to fetch settings from DB. Using default supported models. Error:", e);
   }
 
   // Fallback if settings empty or incorrectly parsed: Use all supported models
