@@ -84,10 +84,11 @@ function navigateTo(page) {
   if (page === "activity") {
     requestAnimationFrame(() => {
       ensureTimeline();
+      loadActivityHistory();
       if (activityTimeline && activityTimeline.stepCount === 0) {
         api("/agents?limit=1").then(data => {
           if (data.runs && data.runs.length > 0) {
-            loadRunOnCanvas(data.runs[0].id);
+            loadRunOnCanvas(data.runs[0].id, data.runs[0].title, data.runs[0].status);
           }
         }).catch(console.error);
       }
@@ -508,55 +509,7 @@ class ActivityTimeline {
   constructor(feedEl) {
     this.feed = feedEl;
     this.steps = new Map(); // stepId → { el, cardEl }
-    this.runHeaderEl = null;
-    this.runStartTs = null;
-    this.timerInterval = null;
     this.stepCount = 0;
-  }
-
-  // Start a new run header (called on run:start)
-  startRun(title, model) {
-    this._clearEmpty();
-    this.runStartTs = Date.now();
-
-    const el = document.createElement("div");
-    el.className = "atl-run-header";
-    el.innerHTML = `
-      <span class="atl-run-title">${escapeHtml(title || "Running…")}</span>
-      <div class="atl-run-badges">
-        <span class="atl-run-timer" id="atlTimer">0s</span>
-        ${model ? `<span class="atl-run-model">${escapeHtml(model)}</span>` : ""}
-        <span class="atl-run-badge running" id="atlRunStatus">running</span>
-      </div>`;
-    this.feed.prepend(el);
-    this.runHeaderEl = el;
-
-    this.timerInterval = setInterval(() => {
-      const el = document.getElementById("atlTimer");
-      if (!el) return;
-      const s = Math.round((Date.now() - this.runStartTs) / 1000);
-      el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
-    }, 1000);
-  }
-
-  finishRun(status) {
-    clearInterval(this.timerInterval);
-    const badge = document.getElementById("atlRunStatus");
-    if (badge) {
-      badge.className = `atl-run-badge ${status}`;
-      badge.textContent = status;
-    }
-    // Collapse all completed non-response steps
-    for (const [, info] of this.steps) {
-      if (
-        !info.isResponse &&
-        info.cardEl &&
-        info.cardEl.classList.contains("open")
-      ) {
-        const hadError = info.cardEl.querySelector(".atl-text.error");
-        if (!hadError) info.cardEl.classList.remove("open");
-      }
-    }
   }
 
   addNode(stepId, toolName, toolArgs) {
@@ -736,22 +689,38 @@ class ActivityTimeline {
   }
 
   clear() {
-    clearInterval(this.timerInterval);
     this.steps.clear();
     this.stepCount = 0;
-    this.runHeaderEl = null;
-    this.runStartTs = null;
     // Remove everything except the empty state placeholder
     const empty = document.getElementById("activityEmpty");
     this.feed.innerHTML = "";
     if (empty) {
-      empty.style.display = "";
       this.feed.appendChild(empty);
     }
   }
 }
 
 let activityTimeline = null;
+let currentActivityRunId = null;
+let currentActivityTimer = null;
+let currentActivityStartTs = null;
+
+function startRunTimer() {
+  clearInterval(currentActivityTimer);
+  currentActivityStartTs = Date.now();
+  const el = $("#atlTimer");
+  if (!el) return;
+  el.style.display = "inline-block";
+  el.textContent = "0s";
+  currentActivityTimer = setInterval(() => {
+    const s = Math.round((Date.now() - currentActivityStartTs) / 1000);
+    el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+  }, 1000);
+}
+
+function stopRunTimer() {
+  clearInterval(currentActivityTimer);
+}
 
 function ensureTimeline() {
   if (activityTimeline) return;
@@ -760,14 +729,16 @@ function ensureTimeline() {
   activityTimeline = new ActivityTimeline(feed);
 }
 
-function addActivityNode(stepId, toolName, toolArgs) {
+function addActivityNode(stepId, toolName, toolArgs, runId) {
+  if (runId && currentActivityRunId !== runId) return;
   ensureTimeline();
   activityTimeline.addNode(stepId, toolName, toolArgs);
   const badge = $("#activityBadge");
   if (badge) badge.classList.remove("hidden");
 }
 
-function updateActivityNode(stepId, toolName, result, screenshotPath, status) {
+function updateActivityNode(stepId, toolName, result, screenshotPath, status, runId) {
+  if (runId && currentActivityRunId !== runId) return;
   if (activityTimeline)
     activityTimeline.updateNode(
       stepId,
@@ -778,73 +749,105 @@ function updateActivityNode(stepId, toolName, result, screenshotPath, status) {
     );
 }
 
-function addActivityResponse(content) {
+function addActivityResponse(content, runId) {
+  if (runId && currentActivityRunId !== runId) return;
   ensureTimeline();
   if (content) activityTimeline.addResponse(content);
 }
 
 function clearActivity() {
   if (activityTimeline) activityTimeline.clear();
-  else {
-    const empty = $("#activityEmpty");
-    if (empty) empty.style.display = "";
-  }
-  const badge = $("#activityBadge");
-  if (badge) badge.classList.add("hidden");
-}
 
-$("#clearActivityBtn").addEventListener("click", clearActivity);
+  const empty = $("#activityEmpty");
+  if (empty) {
+    if (currentActivityRunId) {
+      empty.style.display = "none";
+    } else {
+      empty.style.display = "";
+    }
+  }
+}
 
 // ── Activity History Panel ──
 
-$("#historyToggleBtn").addEventListener("click", () => {
-  const panel = $("#activityHistoryPanel");
-  panel.classList.toggle("hidden");
-  if (!panel.classList.contains("hidden")) loadActivityHistory();
-});
-
-$("#historyCloseBtn").addEventListener("click", () => {
-  $("#activityHistoryPanel").classList.add("hidden");
-});
-
 async function loadActivityHistory() {
-  const list = $("#activityHistoryList");
-  list.innerHTML = '<div class="ahp-empty">Loading…</div>';
+  const list = $("#activitySidebarList");
+  if (!list) return;
+  list.innerHTML = '<div class="activity-empty-text">Loading runs…</div>';
   try {
     const data = await api("/agents?limit=30");
     if (!data.runs || data.runs.length === 0) {
-      list.innerHTML = '<div class="ahp-empty">No past runs</div>';
+      list.innerHTML = '<div class="activity-empty-text">No past runs</div>';
       return;
     }
     list.innerHTML = "";
     for (const run of data.runs) {
       const card = document.createElement("div");
       card.className = "ahp-run-card";
+      if (currentActivityRunId === run.id) card.classList.add("active");
       card.dataset.runId = run.id;
       const d = new Date(run.created_at);
       const dateStr =
         d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
         " " +
         d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      card.innerHTML = `<div class="ahp-run-title">${escapeHtml(run.title || "Untitled")}</div><div class="ahp-run-meta"><span class="ahp-run-status ${run.status}">${run.status}</span><span>${dateStr}</span></div>`;
+
+      let badgeHtml = '';
+      if (run.status === 'running') badgeHtml = '<span class="ahp-run-status running">running</span>';
+      else if (run.status === 'failed') badgeHtml = '<span class="ahp-run-status failed">failed</span>';
+      else badgeHtml = '<span class="ahp-run-status completed">done</span>';
+
+      card.innerHTML = `<div class="ahp-run-title">${escapeHtml(run.title || "Untitled")}</div><div class="ahp-run-meta">${badgeHtml}<span>${dateStr}</span></div>`;
       card.addEventListener("click", () => {
         $$(".ahp-run-card.active").forEach((c) => c.classList.remove("active"));
         card.classList.add("active");
-        loadRunOnCanvas(run.id);
+        loadRunOnCanvas(run.id, run.title, run.status);
       });
       list.appendChild(card);
     }
   } catch {
-    list.innerHTML = '<div class="ahp-empty">Failed to load</div>';
+    list.innerHTML = '<div class="activity-empty-text">Failed to load</div>';
   }
 }
 
-async function loadRunOnCanvas(runId) {
+const refreshBtn = $("#activityRefreshBtn");
+if (refreshBtn) refreshBtn.addEventListener("click", loadActivityHistory);
+
+async function loadRunOnCanvas(runId, runTitle, runStatus) {
   try {
+    currentActivityRunId = runId;
+    const titleEl = $("#activityRunTitle");
+    if (titleEl) titleEl.textContent = runTitle || `Run ${runId}`;
+
+    // reset badge
+    const badgeEl = $("#atlRunStatus");
+    if (badgeEl) {
+      badgeEl.style.display = "inline-block";
+      badgeEl.className = "atl-run-badge " + (runStatus === "running" ? "running" : "completed");
+      badgeEl.textContent = runStatus || "completed";
+    }
+
+    // reset timer view
+    stopRunTimer();
+    const timerEl = $("#atlTimer");
+    if (timerEl) {
+      if (runStatus === "running") {
+        // If it was already running in the background, we might not have a perfect start time,
+        // but we can just start a fresh timer from now or fetch true duration later.
+        startRunTimer();
+      } else {
+        timerEl.style.display = "none";
+      }
+    }
+
     const data = await api(`/agents/${runId}/steps`);
     clearActivity();
     ensureTimeline();
-    activityTimeline?.startRun(`Run ${runId}`, data.model || "");
+
+    // Explicitly hide empty block just in case
+    const empty = $("#activityEmpty");
+    if (empty) empty.style.display = "none";
+
     for (const step of data.steps || []) {
       let toolInput = {};
       let result = null;
@@ -864,11 +867,8 @@ async function loadRunOnCanvas(runId) {
       );
     }
     if (data.response) activityTimeline.addResponse(data.response);
-    activityTimeline?.finishRun(data.status || "completed");
-    const badge = $("#activityBadge");
-    if (badge) badge.classList.remove("hidden");
   } catch (err) {
-    toast("Failed to load run: " + err.message, "error");
+    toast("Failed to load run", "error");
   }
 }
 
@@ -882,8 +882,21 @@ socket.on("run:start", (data) => {
     backgroundRunIds.add(data.runId);
     return;
   }
+  setTimeout(loadActivityHistory, 100);
+  currentActivityRunId = data.runId;
+  const titleEl = $("#activityRunTitle");
+  if (titleEl) titleEl.textContent = data.title || `Run ${data.runId}`;
+
+  const badgeEl = $("#atlRunStatus");
+  if (badgeEl) {
+    badgeEl.style.display = "inline-block";
+    badgeEl.className = "atl-run-badge running";
+    badgeEl.textContent = "running";
+  }
+
+  clearActivity();
   ensureTimeline();
-  activityTimeline?.startRun(data.title || data.runId, data.model || "");
+  startRunTimer();
 });
 
 socket.on("run:thinking", (data) => {
@@ -894,7 +907,7 @@ socket.on("run:thinking", (data) => {
 
 socket.on("run:tool_start", (data) => {
   if (backgroundRunIds.has(data.runId)) return;
-  addActivityNode(data.stepId, data.toolName, data.toolArgs);
+  addActivityNode(data.stepId, data.toolName, data.toolArgs, data.runId);
   const textEl = $("#thinkingText");
   if (textEl) textEl.textContent = `${data.toolName}…`;
 });
@@ -907,6 +920,7 @@ socket.on("run:tool_end", (data) => {
     data.result,
     data.screenshotPath,
     data.status,
+    data.runId
   );
 });
 
@@ -957,11 +971,31 @@ socket.on("run:complete", (data) => {
       appendMessage("assistant", data.content);
     }
 
-    addActivityResponse(data.content);
-    activityTimeline?.finishRun(data.status || "completed");
+    addActivityResponse(data.content, data.runId);
+
+    if (currentActivityRunId === data.runId) {
+      const badgeEl = $("#atlRunStatus");
+      if (badgeEl) {
+        badgeEl.className = "atl-run-badge " + (data.status || "completed");
+        badgeEl.textContent = data.status || "completed";
+      }
+      stopRunTimer();
+
+      // Collapse old steps for cleaner view
+      if (activityTimeline) {
+        for (const [, info] of activityTimeline.steps) {
+          if (!info.isResponse && info.cardEl && info.cardEl.classList.contains("open")) {
+            const hadError = info.cardEl.querySelector(".atl-text.error");
+            if (!hadError) info.cardEl.classList.remove("open");
+          }
+        }
+      }
+    }
+
     isStreaming = false;
     sendBtn.disabled = false;
   }
+  setTimeout(loadActivityHistory, 100);
 });
 
 socket.on("chat:cleared", () => {
