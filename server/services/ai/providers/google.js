@@ -61,12 +61,16 @@ class GoogleProvider extends BaseProvider {
         const parts = [];
         if (msg.content) parts.push({ text: msg.content });
         for (const tc of msg.tool_calls) {
-          parts.push({
+          const functionCallPart = {
             functionCall: {
               name: tc.function.name,
               args: JSON.parse(tc.function.arguments || '{}')
             }
-          });
+          };
+          if (tc.function.thought_signature) {
+            functionCallPart.thoughtSignature = tc.function.thought_signature;
+          }
+          parts.push(functionCallPart);
         }
         history.push({ role: 'model', parts });
         continue;
@@ -107,7 +111,8 @@ class GoogleProvider extends BaseProvider {
             type: 'function',
             function: {
               name: part.functionCall.name,
-              arguments: JSON.stringify(part.functionCall.args || {})
+              arguments: JSON.stringify(part.functionCall.args || {}),
+              thought_signature: part.thoughtSignature
             }
           });
         }
@@ -160,7 +165,8 @@ class GoogleProvider extends BaseProvider {
               type: 'function',
               function: {
                 name: part.functionCall.name,
-                arguments: JSON.stringify(part.functionCall.args || {})
+                arguments: JSON.stringify(part.functionCall.args || {}),
+                thought_signature: part.thoughtSignature
               }
             });
           }
