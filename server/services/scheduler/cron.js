@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const crypto = require('crypto');
 const db = require('../../db/database');
 
 class Scheduler {
@@ -63,8 +64,11 @@ class Scheduler {
 
       try {
         if (this.agentEngine) {
+          const convId = this._getMessagingConversation(user.id);
+
           await this.agentEngine.run(user.id, (prompt?.value || defaultPrompt) + platformHint, {
-            triggerSource: 'heartbeat'
+            triggerSource: 'heartbeat',
+            ...(convId ? { conversationId: convId } : {}),
           });
         }
       } catch (err) {
@@ -185,7 +189,6 @@ class Scheduler {
         let notifyHint = '';
 
         if (config.callTo) {
-          // Task is configured to call the user — instruct the agent to use make_call
           notifyHint = `\n\nThis task is configured to notify the user by phone. Use the make_call tool to call "${config.callTo}" with an appropriate greeting based on your findings. The configured greeting hint is: "${config.callGreeting || 'Hello, this is your scheduled reminder.'}"`;
         } else {
           const lastPlatform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_platform')?.value;
@@ -195,9 +198,12 @@ class Scheduler {
             : '';
         }
 
+        const convId = this._getMessagingConversation(userId);
+
         const result = await this.agentEngine.run(userId, config.prompt + notifyHint, {
           triggerSource: 'scheduler',
-          taskId
+          ...(convId ? { conversationId: convId } : {}),
+          taskId,
         });
         this.io.to(`user:${userId}`).emit('scheduler:task_complete', { taskId, result });
       }
@@ -222,13 +228,32 @@ class Scheduler {
 
   _getNextRun(cronExpression) {
     try {
-      const interval = cron.schedule(cronExpression, () => {});
+      const interval = cron.schedule(cronExpression, () => { });
       interval.stop();
       // node-cron doesn't expose nextRun; we just return null
       return null;
     } catch {
       return null;
     }
+  }
+  _getMessagingConversation(userId) {
+    const lastPlatform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_platform')?.value;
+    const lastChatId = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_chat_id')?.value;
+    if (!lastPlatform || !lastChatId) return null;
+
+    let convRow = db.prepare(
+      'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?'
+    ).get(userId, lastPlatform, lastChatId);
+
+    if (!convRow) {
+      const convId = crypto.randomUUID();
+      db.prepare(
+        'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
+      ).run(convId, userId, lastPlatform, lastChatId, `${lastPlatform} — ${lastChatId}`);
+      convRow = { id: convId };
+    }
+
+    return convRow.id;
   }
 }
 
