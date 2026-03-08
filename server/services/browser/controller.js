@@ -18,7 +18,7 @@ class BrowserController {
     this.headless = val !== false && val !== 'false';
     // Close browser so it relaunches with new setting next time
     if (wasHeadless !== this.headless) {
-      await this.close().catch(() => {});
+      await this.close().catch(() => { });
     }
   }
 
@@ -36,7 +36,10 @@ class BrowserController {
 
     this.launching = true;
     try {
-      const puppeteer = require('puppeteer');
+      const puppeteer = require('puppeteer-extra');
+      const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+      puppeteer.use(StealthPlugin());
+
       this.browser = await puppeteer.launch({
         headless: this.headless ? 'new' : false,
         args: [
@@ -49,7 +52,17 @@ class BrowserController {
         defaultViewport: { width: 1280, height: 800 }
       });
       this.page = await this.browser.newPage();
-      await this.page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+
+      const userAgents = [
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15'
+      ];
+      const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
+      await this.page.setUserAgent(randomUA);
+      this._currentUserAgent = randomUA;
     } finally {
       this.launching = false;
     }
@@ -59,7 +72,9 @@ class BrowserController {
     await this.ensureBrowser();
     if (!this.page || this.page.isClosed()) {
       this.page = await this.browser.newPage();
-      await this.page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+      if (this._currentUserAgent) {
+        await this.page.setUserAgent(this._currentUserAgent);
+      }
     }
     return this.page;
   }
@@ -95,7 +110,7 @@ class BrowserController {
       });
 
       if (options.waitFor) {
-        await page.waitForSelector(options.waitFor, { timeout: 10000 }).catch(() => {});
+        await page.waitForSelector(options.waitFor, { timeout: 10000 }).catch(() => { });
       }
 
       const title = await page.title();
@@ -124,7 +139,7 @@ class BrowserController {
       };
     } catch (err) {
       let screenshot = null;
-      try { screenshot = await this.takeScreenshot(); } catch {}
+      try { screenshot = await this.takeScreenshot(); } catch { }
       return {
         error: err.message,
         url,
@@ -187,7 +202,11 @@ class BrowserController {
         await page.keyboard.press('Backspace');
       }
 
-      await page.type(selector, text, { delay: 30 });
+      // Simulate human typing speeds (between 30ms and 150ms per keystroke)
+      for (const char of text) {
+        const charDelay = Math.floor(Math.random() * (150 - 30 + 1) + 30);
+        await page.type(selector, char, { delay: charDelay });
+      }
 
       if (options.pressEnter) {
         await page.keyboard.press('Enter');
@@ -288,10 +307,10 @@ class BrowserController {
 
   async close() {
     if (this.page && !this.page.isClosed()) {
-      await this.page.close().catch(() => {});
+      await this.page.close().catch(() => { });
     }
     if (this.browser) {
-      await this.browser.close().catch(() => {});
+      await this.browser.close().catch(() => { });
       this.browser = null;
       this.page = null;
     }

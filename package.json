@@ -28,6 +28,8 @@
     "node-telegram-bot-api": "^0.67.0",
     "openai": "^4.85.4",
     "puppeteer": "^24.4.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "socket.io": "^4.8.1",
     "telnyx": "^5.51.0",
     "uuid": "^11.1.0"
