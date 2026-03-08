@@ -79,4 +79,20 @@ router.delete('/:key', (req, res) => {
   res.json({ success: true });
 });
 
+// Trigger auto-update script
+router.post('/update', (req, res) => {
+  const { spawn } = require('child_process');
+  console.log('[Settings] Triggering neo.sh update...');
+
+  // Spawn the update script in detached mode so it survives the node process exiting
+  const child = spawn('bash', ['neo.sh', 'update'], {
+    detached: true,
+    stdio: 'ignore',
+    cwd: process.cwd()
+  });
+
+  child.unref();
+  res.json({ success: true, message: 'Update triggered' });
+});
+
 module.exports = router;
