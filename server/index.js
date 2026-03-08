@@ -332,7 +332,10 @@ If no reply is needed (e.g. the message is just an acknowledgement like "ok", "t
           try {
             const whitelist = JSON.parse(whitelistRow.value);
             if (Array.isArray(whitelist) && whitelist.length > 0) {
-              const normalize = (id) => (id || '').replace(/[^0-9]/g, '');
+              const normalize = (id) => {
+                const digits = (id || '').replace(/[^0-9]/g, '');
+                return digits.length > 10 ? digits.slice(-10) : digits;
+              };
               const senderNorm = normalize(msg.sender || msg.chatId);
               const allowed = whitelist.some(n => normalize(n) === senderNorm);
               if (!allowed) {
