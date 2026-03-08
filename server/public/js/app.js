@@ -1226,6 +1226,27 @@ $("#saveSettings").addEventListener("click", async () => {
   }
 });
 
+$("#updateAppBtn").addEventListener("click", async () => {
+  if (!confirm("Are you sure you want to run the update script? This will trigger neo.sh update and restart the server.")) return;
+  try {
+    const btn = $("#updateAppBtn");
+    btn.disabled = true;
+    btn.textContent = "Updating...";
+    await api("/settings/update", { method: "POST" });
+    toast("Update started! Please wait for the application to restart.", "success");
+    $("#settingsModal").classList.add("hidden");
+    // Give it a few seconds before resetting the UI locally just in case
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = "Update App";
+    }, 10000);
+  } catch (err) {
+    toast("Failed to trigger update: " + err.message, "error");
+    $("#updateAppBtn").disabled = false;
+    $("#updateAppBtn").textContent = "Update App";
+  }
+});
+
 // ── Logout ──
 
 $("#logoutBtn").addEventListener("click", async () => {
