@@ -43,14 +43,25 @@ function getProviderForUser(userId, task = '', isSubagent = false) {
   const { SUPPORTED_MODELS, createProviderInstance } = require('./models');
   const db = require('../../db/database');
 
-  const row = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'enabled_models');
   let enabledIds = [];
+  let defaultChatModel = 'auto';
+  let defaultSubagentModel = 'auto';
+
   try {
-    if (row && row.value) {
-      enabledIds = JSON.parse(row.value);
+    const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?)')
+      .all(userId, 'enabled_models', 'default_chat_model', 'default_subagent_model');
+
+    for (const row of rows) {
+      if (row.key === 'enabled_models' && row.value) {
+        enabledIds = JSON.parse(row.value);
+      } else if (row.key === 'default_chat_model' && row.value) {
+        defaultChatModel = JSON.parse(row.value);
+      } else if (row.key === 'default_subagent_model' && row.value) {
+        defaultSubagentModel = JSON.parse(row.value);
+      }
     }
   } catch (e) {
-    console.error("Failed to parse 'enabled_models' setting. Using default supported models. Error:", e);
+    console.error("Failed to parse settings. Using default supported models. Error:", e);
   }
 
   // Fallback if settings empty or incorrectly parsed: Use all supported models
@@ -65,16 +76,22 @@ function getProviderForUser(userId, task = '', isSubagent = false) {
   const fallbackModel = availableModels.length > 0 ? availableModels[0] : SUPPORTED_MODELS[0];
   let selectedModelDef = fallbackModel;
 
-  const taskStr = String(task || '').toLowerCase();
-  const isPlanning = taskStr.includes('plan') || taskStr.includes('think') || taskStr.includes('analyze') || taskStr.includes('complex') || taskStr.includes('step by step');
+  const userSelectedDefault = isSubagent ? defaultSubagentModel : defaultChatModel;
 
-  // Intelligent matching
-  if (isPlanning) {
-    selectedModelDef = availableModels.find(m => m.purpose === 'planning') || fallbackModel;
-  } else if (isSubagent) {
-    selectedModelDef = availableModels.find(m => m.purpose === 'fast') || fallbackModel;
+  if (userSelectedDefault && userSelectedDefault !== 'auto') {
+    selectedModelDef = SUPPORTED_MODELS.find(m => m.id === userSelectedDefault) || fallbackModel;
   } else {
-    selectedModelDef = availableModels.find(m => m.purpose === 'general') || fallbackModel;
+    const taskStr = String(task || '').toLowerCase();
+    const isPlanning = taskStr.includes('plan') || taskStr.includes('think') || taskStr.includes('analyze') || taskStr.includes('complex') || taskStr.includes('step by step');
+
+    // Intelligent matching
+    if (isPlanning) {
+      selectedModelDef = availableModels.find(m => m.purpose === 'planning') || fallbackModel;
+    } else if (isSubagent) {
+      selectedModelDef = availableModels.find(m => m.purpose === 'fast') || fallbackModel;
+    } else {
+      selectedModelDef = availableModels.find(m => m.purpose === 'general') || fallbackModel;
+    }
   }
 
   return {

@@ -520,7 +520,19 @@
           </label>
         </div>
         <div class="form-group">
-          <label class="form-label">Models (Smart Selector)</label>
+          <label class="form-label">Default Chat Model</label>
+          <select id="settingDefaultChatModel" class="input">
+            <option value="auto">Smart Selector (Auto)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Default Sub-agent Model</label>
+          <select id="settingDefaultSubagentModel" class="input">
+            <option value="auto">Smart Selector (Auto)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Smart Selector Allowed Models</label>
           <div id="modelCheckboxesContainer" style="display:flex; flex-direction:column; gap:8px;">
             <!-- Rendered dynamically by app.js -->
           </div>
