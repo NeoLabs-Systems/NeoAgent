@@ -1167,6 +1167,39 @@ $("#settingsBtn").addEventListener("click", async () => {
 
     const enabledModels = Array.isArray(settings.enabled_models) ? settings.enabled_models : (meta.models || []).map(m => m.id);
 
+    const chatModelSelect = $("#settingDefaultChatModel");
+    const subagentModelSelect = $("#settingDefaultSubagentModel");
+
+    if (chatModelSelect && subagentModelSelect && meta.models) {
+      chatModelSelect.innerHTML = '<option value="auto">Smart Selector (Auto)</option>';
+      subagentModelSelect.innerHTML = '<option value="auto">Smart Selector (Auto)</option>';
+
+      for (const modelDef of meta.models) {
+        const chatOption = document.createElement("option");
+        chatOption.value = modelDef.id;
+        chatOption.textContent = modelDef.label;
+        chatModelSelect.appendChild(chatOption);
+
+        const subagentOption = document.createElement("option");
+        subagentOption.value = modelDef.id;
+        subagentOption.textContent = modelDef.label;
+        subagentModelSelect.appendChild(subagentOption);
+      }
+
+      chatModelSelect.value = settings.default_chat_model || "auto";
+      subagentModelSelect.value = settings.default_subagent_model || "auto";
+
+      const indicator = $("#modelIndicator");
+      if (indicator) {
+        if (settings.default_chat_model && settings.default_chat_model !== "auto") {
+          const selectedModel = meta.models.find(m => m.id === settings.default_chat_model);
+          indicator.textContent = selectedModel ? selectedModel.label : "Smart Selector Active";
+        } else {
+          indicator.textContent = "Smart Selector Active";
+        }
+      }
+    }
+
     const container = $("#modelCheckboxesContainer");
     if (container) {
       container.innerHTML = "";
@@ -1211,14 +1244,30 @@ $("#saveSettings").addEventListener("click", async () => {
       .filter(cb => cb.checked)
       .map(cb => cb.dataset.modelId);
 
+    const defaultChatModel = $("#settingDefaultChatModel").value;
+    const defaultSubagentModel = $("#settingDefaultSubagentModel").value;
+
     await api("/settings", {
       method: "PUT",
       body: {
         heartbeat_enabled: $("#settingHeartbeat").checked,
         headless_browser: $("#settingHeadlessBrowser").checked,
-        enabled_models: enabledModels
+        enabled_models: enabledModels,
+        default_chat_model: defaultChatModel,
+        default_subagent_model: defaultSubagentModel
       },
     });
+
+    const indicator = $("#modelIndicator");
+    if (indicator) {
+      if (defaultChatModel !== "auto") {
+        const selectedOption = $("#settingDefaultChatModel").options[$("#settingDefaultChatModel").selectedIndex];
+        indicator.textContent = selectedOption ? selectedOption.text : "Smart Selector Active";
+      } else {
+        indicator.textContent = "Smart Selector Active";
+      }
+    }
+
     $("#settingsModal").classList.add("hidden");
     toast("Settings saved", "success");
   } catch (err) {

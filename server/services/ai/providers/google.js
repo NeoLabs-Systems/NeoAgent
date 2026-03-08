@@ -9,13 +9,15 @@ class GoogleProvider extends BaseProvider {
       'gemini-2.0-flash',
       'gemini-2.0-pro',
       'gemini-1.5-pro',
-      'gemini-1.5-flash'
+      'gemini-1.5-flash',
+      'gemini-3.1-flash-lite-preview'
     ];
     this.contextWindows = {
       'gemini-2.0-flash': 1048576,
       'gemini-2.0-pro': 2097152,
       'gemini-1.5-pro': 2097152,
-      'gemini-1.5-flash': 1048576
+      'gemini-1.5-flash': 1048576,
+      'gemini-3.1-flash-lite-preview': 1048576
     };
     this.genAI = new GoogleGenerativeAI(config.apiKey || process.env.GOOGLE_AI_KEY);
   }
