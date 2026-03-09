@@ -44,9 +44,22 @@ async function api(path, opts = {}) {
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
+
+  const contentType = (res.headers.get("content-type") || "").toLowerCase();
+  let data = null;
+  if (contentType.includes("application/json")) {
+    data = await res.json();
+  } else {
+    const text = await res.text();
+    data = { error: text || `Request failed (${res.status})` };
+  }
+
+  if (!res.ok) {
+    const err = new Error(data?.error || `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  return data || {};
 }
 
 function escapeHtml(str) {
@@ -1265,7 +1278,17 @@ async function refreshUpdateStatus() {
       clearUpdatePoll();
     }
   } catch (err) {
-    // During restart window, polling can fail briefly; keep trying.
+    // During restart window this can fail briefly; keep trying.
+    // If endpoint is unavailable (older backend), stop polling to avoid console spam.
+    if (err?.status === 404) {
+      clearUpdatePoll();
+      $("#updatePhaseLabel").textContent = "Update status unavailable on this server version.";
+      $("#updatePercentLabel").textContent = "—";
+      setUpdateBadgeState("idle");
+      const btn = $("#updateAppBtn");
+      if (btn) btn.disabled = false;
+      return;
+    }
     $("#updatePhaseLabel").textContent = "Reconnecting to server…";
     setUpdateBadgeState("running");
   }
@@ -1295,12 +1318,18 @@ function renderTokenUsageSummary(summary) {
 
 $("#settingsBtn").addEventListener("click", async () => {
   try {
-    const [meta, settings, tokenUsage] = await Promise.all([
+    const [meta, settings] = await Promise.all([
       api("/settings/meta/models"),
-      api("/settings"),
-      api("/settings/token-usage/summary")
+      api("/settings")
     ]);
-    renderTokenUsageSummary(tokenUsage);
+
+    try {
+      const tokenUsage = await api("/settings/token-usage/summary");
+      renderTokenUsageSummary(tokenUsage);
+    } catch (err) {
+      const tokenBox = $("#tokenUsageSummary");
+      if (tokenBox) tokenBox.textContent = "Token usage unavailable on this server version.";
+    }
 
     $("#settingHeartbeat").checked =
       settings.heartbeat_enabled === true ||
