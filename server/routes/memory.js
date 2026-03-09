@@ -88,7 +88,7 @@ router.delete('/memories/:id', (req, res) => {
 router.post('/memories/recall', async (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
-  const { query, limit = 10 } = req.body;
+  const { query, limit = 8 } = req.body;
   if (!query) return res.status(400).json({ error: 'query is required' });
   try {
     const results = await mm.recallMemory(userId, query, parseInt(limit));

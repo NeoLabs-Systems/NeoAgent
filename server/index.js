@@ -12,7 +12,10 @@ const fs = require('fs');
 
 const db = require('./db/database');
 const { requireAuth, requireNoAuth } = require('./middleware/auth');
-const { sanitizeError, detectPromptInjection } = require('./utils/security');
+const { sanitizeError } = require('./utils/security');
+const { setupConsoleInterceptor } = require('./utils/logger');
+const { setupTelnyxWebhook } = require('./routes/telnyx');
+const { startServices } = require('./services/manager');
 
 const app = express();
 const httpServer = createServer(app);
@@ -24,40 +27,7 @@ const io = new SocketIO(httpServer, {
 });
 
 // ── Console Log Interceptor ──
-const logHistory = [];
-const MAX_LOG_HISTORY = 200;
-
-function broadcastLog(type, args) {
-  const msg = Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-  const logEntry = { type, message: msg, timestamp: new Date().toISOString() };
-  logHistory.push(logEntry);
-  if (logHistory.length > MAX_LOG_HISTORY) logHistory.shift();
-  // Broadcast only to authenticated user rooms, never to unauthenticated sockets
-  for (const [, socket] of io.sockets.sockets) {
-    const uid = socket.request?.session?.userId;
-    if (uid) socket.emit('server:log', logEntry);
-  }
-}
-
-const originalConsole = {
-  log: console.log,
-  error: console.error,
-  warn: console.warn,
-  info: console.info
-};
-
-console.log = function (...args) { originalConsole.log.apply(console, args); broadcastLog('log', args); };
-console.error = function (...args) { originalConsole.error.apply(console, args); broadcastLog('error', args); };
-console.warn = function (...args) { originalConsole.warn.apply(console, args); broadcastLog('warn', args); };
-console.info = function (...args) { originalConsole.info.apply(console, args); broadcastLog('info', args); };
-
-io.on('connection', (socket) => {
-  socket.on('client:request_logs', () => {
-    // Only serve log history to authenticated sockets
-    if (!socket.request?.session?.userId) return;
-    socket.emit('server:log_history', logHistory);
-  });
-});
+setupConsoleInterceptor(io);
 
 if (!process.env.SESSION_SECRET) {
   console.warn('WARNING: SESSION_SECRET not set — using insecure default. Set it in .env before exposing this server.');
@@ -69,22 +39,17 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── Middleware ──
 
-// When running behind a TLS-terminating reverse proxy (nginx, Caddy, Cloudflare Tunnel…)
-// set SECURE_COOKIES=true in .env so the session cookie is marked Secure and
-// express trusts the X-Forwarded-* headers from the proxy.
 const SECURE_COOKIES = process.env.SECURE_COOKIES === 'true';
 if (SECURE_COOKIES) {
-  app.set('trust proxy', 1); // trust first hop (reverse proxy)
+  app.set('trust proxy', 1);
 }
 
-// WebSocket CSP source: ws+wss on plain HTTP, wss-only on HTTPS
 const wsConnectSrc = SECURE_COOKIES ? ['wss:'] : ['ws:', 'wss:'];
 
 app.use(helmet({
-  // Disable headers that only make sense on HTTPS — this app runs on plain HTTP (Tailscale/localhost).
-  strictTransportSecurity: false,   // HSTS: would force browser to upgrade HTTP→HTTPS permanently
-  crossOriginOpenerPolicy: false,   // COOP: ignored on non-HTTPS origins, causes browser warning
-  originAgentCluster: false,        // OAC: causes "previously placed in site-keyed cluster" warning on HTTP
+  strictTransportSecurity: false,
+  crossOriginOpenerPolicy: false,
+  originAgentCluster: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -94,15 +59,13 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:", "https://api.qrserver.com"],
       connectSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", ...wsConnectSrc],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-      formAction: ["'self'"],       // explicit: prevents form-submission to external origins
-      frameAncestors: ["'self'"],   // explicit: prevents iframe embedding from other origins
-      // Disable upgrade-insecure-requests — helmet adds this by default in v7+,
-      // which causes browsers to upgrade HTTP subresource requests to HTTPS,
-      // breaking plain-HTTP deployments (Tailscale, localhost).
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
       upgradeInsecureRequests: null
     }
   }
 }));
+
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : false,
   credentials: true
@@ -120,13 +83,12 @@ const sessionMiddleware = session({
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     sameSite: 'lax',
-    secure: SECURE_COOKIES  // true when behind HTTPS proxy; false for plain HTTP (Tailscale/localhost)
+    secure: SECURE_COOKIES
   }
 });
 
 app.use(sessionMiddleware);
 
-// Share session with Socket.IO
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
@@ -146,32 +108,8 @@ app.use('/api/scheduler', require('./routes/scheduler'));
 app.use('/api/browser', require('./routes/browser'));
 
 // ── Telnyx voice webhook ──
-// Protected by a shared-secret token in the query string.
-// Set TELNYX_WEBHOOK_TOKEN in .env and append ?token=<value> to the webhook URL
-// you configure in the Telnyx portal / NeoAgent connect modal.
-app.post('/api/telnyx/webhook', (req, res, next) => {
-  const expected = process.env.TELNYX_WEBHOOK_TOKEN;
-  if (expected) {
-    const provided = req.query.token || '';
-    // Use timing-safe comparison to prevent token brute-forcing via timing oracles
-    const crypto = require('crypto');
-    const a = Buffer.from(provided.padEnd(expected.length));
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      console.warn('[Telnyx webhook] Rejected request with invalid or missing token');
-      return res.status(403).send('Forbidden');
-    }
-  }
-  next();
-}, async (req, res) => {
-  res.status(200).send('OK'); // Acknowledge immediately
-  const manager = app.locals.messagingManager;
-  if (manager) await manager.handleTelnyxWebhook(req.body).catch(err => console.error('[Telnyx webhook]', err.message));
-});
+setupTelnyxWebhook(app);
 
-// Telnyx-generated audio files must be publicly accessible so Telnyx's servers
-// can fetch them via the webhook callback URL. Directory listing is disabled and
-// non-audio files are rejected to minimize accidental exposure.
 app.use('/telnyx-audio', express.static(path.join(DATA_DIR, 'telnyx-audio'), {
   index: false,
   setHeaders: (res, filePath) => {
@@ -197,8 +135,6 @@ app.get('/app/*', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
-// Serve app.html and app.js explicitly behind auth so they can't be fetched
-// directly via the static middleware without a valid session.
 app.get('/app.html', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
@@ -218,198 +154,11 @@ app.get('/api/health', requireAuth, (req, res) => {
 });
 
 // ── Service Initialization ──
-
-const startServices = async () => {
-  try {
-    const { MemoryManager } = require('./services/memory/manager');
-    const memoryManager = new MemoryManager();
-    app.locals.memoryManager = memoryManager;
-
-    const { MCPClient } = require('./services/mcp/client');
-    const mcpClient = new MCPClient();
-    app.locals.mcpClient = mcpClient;
-
-    const { BrowserController } = require('./services/browser/controller');
-    const browserController = new BrowserController();
-    // Restore saved headless preference for the first user (single-user app)
-    const headlessSetting = db.prepare('SELECT value FROM user_settings WHERE key = ? ORDER BY user_id LIMIT 1').get('headless_browser');
-    if (headlessSetting) {
-      const val = headlessSetting.value;
-      browserController.headless = val !== 'false' && val !== false && val !== '0';
-    }
-    app.locals.browserController = browserController;
-
-    const { AgentEngine } = require('./services/ai/engine');
-    const agentEngine = new AgentEngine(io, { memoryManager, mcpClient, browserController, messagingManager: null /* set below */ });
-    app.locals.agentEngine = agentEngine;
-
-    const { MultiStepOrchestrator } = require('./services/ai/multiStep');
-    const multiStep = new MultiStepOrchestrator(agentEngine, io);
-    app.locals.multiStep = multiStep;
-
-    const { MessagingManager } = require('./services/messaging/manager');
-    const messagingManager = new MessagingManager(io);
-    app.locals.messagingManager = messagingManager;
-    // Inject messagingManager into the already-created agentEngine
-    agentEngine.messagingManager = messagingManager;
-
-    messagingManager.restoreConnections().catch(err => console.error('[Messaging] Restore error:', err.message));
-
-    const users = db.prepare('SELECT id FROM users').all();
-    for (const u of users) {
-      mcpClient.loadFromDB(u.id).catch(err => console.error('[MCP] Auto-start error:', err.message));
-    }
-
-    // Per-user message queues: batch & combine messages while AI is busy
-    const userQueues = {};
-    app.locals.userQueues = userQueues;
-
-    async function processMessage(userId, msg) {
-      if (!userQueues[userId]) userQueues[userId] = { running: false, pending: [] };
-      const q = userQueues[userId];
-
-      if (q.running) {
-        const last = q.pending[q.pending.length - 1];
-        if (last && last.platform === msg.platform && last.chatId === msg.chatId) {
-          last.content += '\n' + msg.content;
-          last.messageId = msg.messageId;
-        } else {
-          q.pending.push({ ...msg });
-        }
-        return;
-      }
-
-      q.running = true;
-      try {
-        await messagingManager.markRead(userId, msg.platform, msg.chatId, msg.messageId).catch(() => { });
-        await messagingManager.sendTyping(userId, msg.platform, msg.chatId, true).catch(() => { });
-        const mediaNote = msg.localMediaPath
-          ? `\nMedia attached at: ${msg.localMediaPath} (type: ${msg.mediaType}). You can reference or forward it with send_message media_path.`
-          : '';
-        // Detect and log prompt injection attempts from external sources
-        if (detectPromptInjection(msg.content)) {
-          console.warn(`[Security] Possible prompt injection attempt from ${msg.sender} on ${msg.platform}: ${msg.content.slice(0, 200)}`);
-        }
-        // Wrap external content in delimiters — prevents prompt injection from untrusted senders
-        const isVoiceCall = msg.platform === 'telnyx' && msg.mediaType === 'voice';
-        const isVoiceNote = !isVoiceCall && msg.mediaType === 'audio';  // e.g. WhatsApp voice notes transcribed via STT
-        const isDiscordGuild = msg.platform === 'discord' && msg.isGroup;
-
-        // Channel context block for Discord guild/channel messages
-        const discordContext = (isDiscordGuild && Array.isArray(msg.channelContext) && msg.channelContext.length)
-          ? '\n\nRecent channel context (oldest → newest):\n' +
-          msg.channelContext.map(m => `[${m.author}]: ${m.content}`).join('\n')
-          : '';
-
-        const sttNote = isVoiceNote
-          ? '\n[Note: This message was sent as a voice note and transcribed via speech-to-text. The transcription may not be perfectly accurate — words may be misheard, punctuation added automatically, and phrasing may differ from what was intended.]'
-          : '';
-
-        const prompt = isVoiceCall
-          ? `You are on a live phone call. The caller (${msg.senderName || msg.sender}) said (transcribed via speech-to-text — may not be perfectly accurate):
-<caller_speech>
-${msg.content}
-</caller_speech>
-
-Respond via send_message with platform="telnyx" and to="${msg.chatId}".
-Rules for voice responses:
-- Call send_message EXACTLY ONCE with your complete reply. Do NOT call it multiple times.
-- Keep it brief and conversational — this will be spoken aloud via TTS.
-- NO markdown, bullet points, bold, headers, or special formatting.
-- Speak naturally. Never say things like "How can I assist you further?" — just stop when done.
-- Always respond; never use [NO RESPONSE] on a live call.`
-          : `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${discordContext}${sttNote}
-
-Reply to this message using send_message with platform="${msg.platform}" and to="${msg.chatId}".
-Text like a person: split across messages naturally when it fits the content. Never end with "anything else?" or close-out phrases — just stop when you're done.
-You can also send images/files by setting media_path to a local file path.
-If no reply is needed (e.g. the message is just an acknowledgement like "ok", "thanks", or you already said everything), call send_message with content "[NO RESPONSE]" to explicitly stay silent.`;
-        // Get or create a persistent conversation keyed by platform + chat ID.
-        // The engine's conversationId path handles history, time-gap markers, and compaction natively.
-        let convRow = db.prepare(
-          'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?'
-        ).get(userId, msg.platform, msg.chatId);
-        if (!convRow) {
-          const convId = require('crypto').randomUUID();
-          db.prepare(
-            'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
-          ).run(convId, userId, msg.platform, msg.chatId, `${msg.platform} — ${msg.senderName || msg.sender || msg.chatId}`);
-          convRow = { id: convId };
-        }
-        const runOpts = { triggerSource: 'messaging', conversationId: convRow.id, source: msg.platform, chatId: msg.chatId, context: { rawUserMessage: msg.content } };
-        if (msg.localMediaPath) runOpts.mediaAttachments = [{ path: msg.localMediaPath, type: msg.mediaType }];
-        await agentEngine.run(userId, prompt, runOpts);
-      } finally {
-        await messagingManager.sendTyping(userId, msg.platform, msg.chatId, false).catch(() => { });
-        q.running = false;
-        if (q.pending.length > 0) {
-          const next = q.pending.shift();
-          processMessage(userId, next);
-        }
-      }
-    }
-
-    // Wire messaging → agent: incoming messages trigger agent
-    messagingManager.registerHandler(async (userId, msg) => {
-      // Discord and Telegram handle their own access control internally
-      if (msg.platform !== 'discord' && msg.platform !== 'telegram') {
-        // Whitelist check: if user has set a whitelist for this platform, block unknown senders
-        const whitelistRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-          .get(userId, `platform_whitelist_${msg.platform}`);
-        if (whitelistRow) {
-          try {
-            const whitelist = JSON.parse(whitelistRow.value);
-            if (Array.isArray(whitelist) && whitelist.length > 0) {
-              const normalize = (id) => {
-                const digits = (id || '').replace(/[^0-9]/g, '');
-                return digits.length > 10 ? digits.slice(-10) : digits;
-              };
-              const senderNorm = normalize(msg.sender || msg.chatId);
-              const allowed = whitelist.some(n => normalize(n) === senderNorm);
-              if (!allowed) {
-                console.log(`[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`);
-                io.to(`user:${userId}`).emit('messaging:blocked_sender', {
-                  platform: msg.platform,
-                  sender: msg.sender,
-                  chatId: msg.chatId,
-                  senderName: msg.senderName || null
-                });
-                return;
-              }
-            }
-          } catch { /* malformed whitelist, allow through */ }
-        }
-      }
-
-      const upsertSetting = db.prepare('INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)');
-      upsertSetting.run(userId, 'last_platform', msg.platform);
-      upsertSetting.run(userId, 'last_chat_id', msg.chatId);
-
-      await processMessage(userId, msg);
-    });
-
-    const { Scheduler } = require('./services/scheduler/cron');
-    const scheduler = new Scheduler(io, agentEngine);
-    app.locals.scheduler = scheduler;
-    agentEngine.scheduler = scheduler;
-    scheduler.start();
-
-    const { setupWebSocket } = require('./services/websocket');
-    setupWebSocket(io, { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, app });
-
-    app.locals.io = io;
-
-    console.log('All services initialized');
-  } catch (err) {
-    console.error('Service init error:', err);
-  }
-};
+// Handled by services/manager.js
 
 // ── Global Error Handler ──
 
-// Must be registered after all routes. Sanitizes error details so internal paths
-// and stack traces are never exposed in API responses.
-app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+app.use((err, req, res, next) => {
   console.error('[Unhandled error]', err);
   const status = err.status || err.statusCode || 500;
   const message = sanitizeError(err);
@@ -421,7 +170,7 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 
 httpServer.listen(PORT, async () => {
   console.log(`NeoAgent running on http://localhost:${PORT}`);
-  await startServices();
+  await startServices(app, io);
 });
 
 // ── Graceful Shutdown ──

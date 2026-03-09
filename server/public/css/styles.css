@@ -191,6 +191,70 @@ button, input, textarea, select {
   color: var(--text-secondary);
   text-transform: uppercase;
 }
+.settings-inline-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-info-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1;
+  cursor: help;
+  text-transform: none;
+}
+.settings-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.settings-info-pop {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 240px;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: rgba(14,14,26,.98);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.4;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 2;
+}
+.settings-info-wrap:hover .settings-info-pop,
+.settings-info-wrap:focus .settings-info-pop,
+.settings-info-wrap:focus-within .settings-info-pop {
+  opacity: 1;
+}
+.settings-token-box {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.02);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
 
 /* ── Cards ── */
 

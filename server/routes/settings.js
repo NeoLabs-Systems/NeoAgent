@@ -74,6 +74,55 @@ router.put('/', (req, res) => {
   res.json({ success: true });
 });
 
+// Token usage summary for settings UI
+router.get('/token-usage/summary', (req, res) => {
+  const userId = req.session.userId;
+  const totals = db.prepare(`
+    SELECT
+      COALESCE(SUM(total_tokens), 0) AS totalTokens,
+      COUNT(*) AS totalRuns,
+      COALESCE(AVG(CASE WHEN total_tokens > 0 THEN total_tokens END), 0) AS avgTokensPerRun
+    FROM agent_runs
+    WHERE user_id = ?
+  `).get(userId);
+
+  const recentRows = db.prepare(`
+    SELECT
+      date(created_at) AS day,
+      COALESCE(SUM(total_tokens), 0) AS tokens,
+      COUNT(*) AS runs
+    FROM agent_runs
+    WHERE user_id = ? AND created_at >= datetime('now', '-6 days')
+    GROUP BY date(created_at)
+    ORDER BY day ASC
+  `).all(userId);
+
+  const byDay = new Map(recentRows.map(r => [r.day, { tokens: Number(r.tokens || 0), runs: Number(r.runs || 0) }]));
+  const last7Days = [];
+  for (let offset = 6; offset >= 0; offset--) {
+    const day = db.prepare(`SELECT date('now', ?) AS day`).get(`-${offset} days`).day;
+    const dayRow = byDay.get(day) || { tokens: 0, runs: 0 };
+    last7Days.push({ date: day, tokens: dayRow.tokens, runs: dayRow.runs });
+  }
+
+  const last7Totals = last7Days.reduce((acc, d) => {
+    acc.tokens += d.tokens;
+    acc.runs += d.runs;
+    return acc;
+  }, { tokens: 0, runs: 0 });
+
+  res.json({
+    totals: {
+      totalTokens: Number(totals?.totalTokens || 0),
+      totalRuns: Number(totals?.totalRuns || 0),
+      avgTokensPerRun: Math.round(Number(totals?.avgTokensPerRun || 0)),
+      last7DaysTokens: last7Totals.tokens,
+      last7DaysRuns: last7Totals.runs
+    },
+    last7Days
+  });
+});
+
 // Get single setting
 router.get('/:key', (req, res) => {
   const row = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(req.session.userId, req.params.key);

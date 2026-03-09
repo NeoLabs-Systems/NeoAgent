@@ -19,13 +19,15 @@ class TelegramPlatform extends BasePlatform {
   constructor(config = {}) {
     super('telegram', config);
     this.supportsGroups = true;
-    this.supportsMedia  = false;
+    this.supportsMedia = false;
 
-    this.botToken       = config.botToken || '';
-    this.allowedEntries = Array.isArray(config.allowedIds) ? config.allowedIds : [];
+    this.botToken = config.botToken || '';
+    if (Array.isArray(config.allowedIds)) {
+      this.setAllowedEntries(config.allowedIds);
+    }
 
-    this._bot           = null;
-    this._botUser       = null;
+    this._bot = null;
+    this._botUser = null;
     // In-memory ring buffer of recent messages per raw chatId (Telegram has no fetch history API for bots)
     this._contextBuffers = new Map();
     this._contextMaxSize = 25;
@@ -36,7 +38,7 @@ class TelegramPlatform extends BasePlatform {
   async connect() {
     if (!this.botToken) throw new Error('Telegram bot token is required');
 
-    if (this._bot) { try { await this._bot.stopPolling(); } catch {} this._bot = null; }
+    if (this._bot) { try { await this._bot.stopPolling(); } catch { } this._bot = null; }
 
     this._bot = new TelegramBot(this.botToken, { polling: true });
 
@@ -66,45 +68,37 @@ class TelegramPlatform extends BasePlatform {
   }
 
   async disconnect() {
-    if (this._bot) { try { await this._bot.stopPolling(); } catch {} this._bot = null; }
-    this.status   = 'disconnected';
+    if (this._bot) { try { await this._bot.stopPolling(); } catch { } this._bot = null; }
+    this.status = 'disconnected';
     this._botUser = null;
     this.emit('disconnected', { manual: true });
   }
 
-  async logout()   { await this.disconnect(); }
-  getStatus()      { return this.status; }
-  getAuthInfo()    { return this._botUser ? { username: this._botUser.username, id: this._botUser.id } : null; }
+  async logout() { await this.disconnect(); }
+  getStatus() { return this.status; }
+  getAuthInfo() { return this._botUser ? { username: this._botUser.username, id: this._botUser.id } : null; }
 
   // ── Whitelist ──────────────────────────────────────────────────────────────
 
-  setAllowedEntries(entries) {
-    this.allowedEntries = Array.isArray(entries) ? entries : [];
-    console.log(`[Telegram] Whitelist updated: ${this.allowedEntries.length} entry(ies)`);
-  }
+  // Inherits setAllowedEntries from BasePlatform
 
   /** Returns {allowed, requireMention} */
   _checkAccess(msg) {
-    const isPrivate = msg.chat.type === 'private';
-    const userId    = String(msg.from.id);
-    const chatId    = String(msg.chat.id);  // negative for groups
+    const userId = String(msg.from.id);
+    const chatId = String(msg.chat.id); // negative for groups
 
-    if (!this.allowedEntries.length) return { allowed: false, requireMention: false };
+    if (this.allowedEntries.size === 0) return { allowed: false, requireMention: false };
 
-    for (const entry of this.allowedEntries) {
-      const colon = entry.indexOf(':');
-      const type  = colon > 0 ? entry.slice(0, colon) : 'user';
-      const id    = colon > 0 ? entry.slice(colon + 1) : entry;
+    if (super._checkAccess(`user:${userId}`)) return { allowed: true, requireMention: false };
+    if (super._checkAccess(userId)) return { allowed: true, requireMention: false }; // legacy
+    if (super._checkAccess(`group:${chatId}`)) return { allowed: true, requireMention: true };
 
-      if (type === 'user'  && id === userId) return { allowed: true, requireMention: false };
-      if (type === 'group' && id === chatId) return { allowed: true, requireMention: true  };
-    }
     return { allowed: false, requireMention: false };
   }
 
   _isMentioned(msg) {
     if (!this._botUser) return false;
-    const text     = msg.text || msg.caption || '';
+    const text = msg.text || msg.caption || '';
     const entities = msg.entities || msg.caption_entities || [];
     for (const e of entities) {
       if (e.type === 'mention') {
@@ -141,9 +135,9 @@ class TelegramPlatform extends BasePlatform {
   async _handleMessage(msg) {
     if (!msg.from || msg.from.is_bot) return;
 
-    const isPrivate  = msg.chat.type === 'private';
-    const userId     = String(msg.from.id);
-    const rawChatId  = String(msg.chat.id);
+    const isPrivate = msg.chat.type === 'private';
+    const userId = String(msg.from.id);
+    const rawChatId = String(msg.chat.id);
     const outputChatId = isPrivate ? `dm_${userId}` : rawChatId;
 
     const text = msg.text || msg.caption || '';
@@ -152,9 +146,9 @@ class TelegramPlatform extends BasePlatform {
 
     // Always record into context buffer (even blocked messages add context)
     this._addToContext(rawChatId, {
-      author:  senderName,
+      author: senderName,
       content: text || (msg.photo ? '[photo]' : msg.document ? '[document]' : '[empty]'),
-      mine:    false,
+      mine: false,
     });
 
     const { allowed, requireMention } = this._checkAccess(msg);
@@ -169,8 +163,8 @@ class TelegramPlatform extends BasePlatform {
       });
 
       this.emit('blocked_sender', {
-        sender:    userId,
-        chatId:    outputChatId,
+        sender: userId,
+        chatId: outputChatId,
         senderName,
         groupName: msg.chat.title || null,
         suggestions,
@@ -182,7 +176,7 @@ class TelegramPlatform extends BasePlatform {
     if (requireMention && !this._isMentioned(msg)) return;
 
     let content = requireMention ? this._stripMention(text) : text;
-    if (!content && msg.photo)    content = `[photo]`;
+    if (!content && msg.photo) content = `[photo]`;
     if (!content && msg.document) content = `[document: ${msg.document.file_name || 'file'}]`;
     if (!content) return;
 
@@ -193,18 +187,18 @@ class TelegramPlatform extends BasePlatform {
     const channelContext = (!isPrivate && requireMention) ? this._getContext(rawChatId) : null;
 
     this.emit('message', {
-      platform:       'telegram',
-      chatId:         outputChatId,
-      sender:         userId,
-      senderName:     fullSenderName,
+      platform: 'telegram',
+      chatId: outputChatId,
+      sender: userId,
+      senderName: fullSenderName,
       content,
-      mediaType:      null,
-      isGroup:        !isPrivate,
-      messageId:      String(msg.message_id),
-      timestamp:      new Date(msg.date * 1000).toISOString(),
+      mediaType: null,
+      isGroup: !isPrivate,
+      messageId: String(msg.message_id),
+      timestamp: new Date(msg.date * 1000).toISOString(),
       channelContext,
-      channelName:    isPrivate ? null : (msg.chat.title || rawChatId),
-      groupName:      msg.chat.title || null,
+      channelName: isPrivate ? null : (msg.chat.title || rawChatId),
+      groupName: msg.chat.title || null,
     });
   }
 
@@ -222,9 +216,9 @@ class TelegramPlatform extends BasePlatform {
     // Store outgoing message in context buffer
     if (this._botUser) {
       this._addToContext(telegramChatId, {
-        author:  `[bot] ${this._botUser.username}`,
+        author: `[bot] ${this._botUser.username}`,
         content,
-        mine:    true,
+        mine: true,
       });
     }
 

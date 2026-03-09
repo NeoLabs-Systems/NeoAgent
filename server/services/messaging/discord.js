@@ -26,7 +26,9 @@ class DiscordPlatform extends BasePlatform {
     this.supportsMedia = false;
 
     this.token = config.token || '';
-    this.allowedEntries = Array.isArray(config.allowedIds) ? config.allowedIds : [];
+    if (Array.isArray(config.allowedIds)) {
+      this.setAllowedEntries(config.allowedIds);
+    }
 
     this._client = null;
     this._botUser = null;
@@ -82,31 +84,23 @@ class DiscordPlatform extends BasePlatform {
 
   // ── Whitelist ──────────────────────────────────────────────────────────────
 
-  /** Replaces the live entry list. Accepts prefixed strings. */
-  setAllowedEntries(entries) {
-    this.allowedEntries = Array.isArray(entries) ? entries : [];
-    console.log(`[Discord] Whitelist updated: ${this.allowedEntries.length} entry(ies)`);
-  }
+  // Inherits setAllowedEntries from BasePlatform
 
   /** Returns {allowed, requireMention} */
   _checkAccess(message) {
-    const isDM = message.channel.type === ChannelType.DM;
+    // Empty whitelist: block everyone (add via the allow popup)
+    if (this.allowedEntries.size === 0) return { allowed: false, requireMention: false };
+
+    // Check prefixed entries
     const userId = message.author.id;
     const guildId = message.guildId || null;
     const channelId = message.channelId;
 
-    // Empty whitelist: block everyone (add via the allow popup)
-    if (!this.allowedEntries.length) return { allowed: false, requireMention: false };
+    if (super._checkAccess(`user:${userId}`)) return { allowed: true, requireMention: false };
+    if (super._checkAccess(userId)) return { allowed: true, requireMention: false }; // legacy
+    if (guildId && super._checkAccess(`guild:${guildId}`)) return { allowed: true, requireMention: true };
+    if (super._checkAccess(`channel:${channelId}`)) return { allowed: true, requireMention: true };
 
-    for (const entry of this.allowedEntries) {
-      const colon = entry.indexOf(':');
-      const type = colon > 0 ? entry.slice(0, colon) : 'user';
-      const id = colon > 0 ? entry.slice(colon + 1) : entry;
-
-      if (type === 'user' && id === userId) return { allowed: true, requireMention: false };
-      if (type === 'guild' && id === guildId) return { allowed: true, requireMention: true };
-      if (type === 'channel' && id === channelId) return { allowed: true, requireMention: true };
-    }
     return { allowed: false, requireMention: false };
   }
 

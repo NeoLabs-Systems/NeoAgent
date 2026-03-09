@@ -9,6 +9,18 @@ class BasePlatform extends EventEmitter {
     this.supportsGroups = false;
     this.supportsMedia = false;
     this.supportsVoice = false;
+    this.allowedEntries = new Set();
+  }
+
+  setAllowedEntries(entries) {
+    if (Array.isArray(entries)) {
+      this.allowedEntries = new Set(entries.map(String));
+    }
+  }
+
+  _checkAccess(id) {
+    if (this.allowedEntries.size === 0) return true;
+    return this.allowedEntries.has(String(id));
   }
 
   async connect() { throw new Error('connect() not implemented'); }
