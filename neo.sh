@@ -200,6 +200,7 @@ _install_macos() {
     -e "s|/Users/neo/NeoAgent|${APP_DIR}|g" \
     -e "s|/Users/neo|${HOME}|g" \
     "$PLIST_SRC" > "$PLIST_DST"
+
   ok "Plist installed → ${PLIST_DST}"
 
   # Unload stale instance
