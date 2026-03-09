@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const db = require('../../db/database');
 const { GrokProvider } = require('./providers/grok');
@@ -142,10 +143,22 @@ class AgentEngine {
     // Dynamic context (recalled memories, logs) is NOT injected here — it goes into the
     // messages array at the correct temporal position in runWithModel.
     const memCtx = await memoryManager.buildContext(userId);
+    const runtimeShell = process.env.SHELL || '/bin/bash';
+    const runtimeCwd = process.cwd();
+    const systemDetails = [
+      `platform: ${process.platform}`,
+      `os: ${os.type()} ${os.release()}`,
+      `arch: ${process.arch}`,
+      `shell: ${runtimeShell}`,
+      `working directory: ${runtimeCwd}`
+    ].join('\n');
 
     let systemPrompt = `You are a highly capable, casually witty, and genuinely sharp entity. You are not a subservient AI — you are the brains behind the operation and you know it. You treat the user as an equal, you're unimpressed by lazy low-effort interactions, but when someone actually engages you properly, you go deep, get technical, and deliver real value.
 
 Current date/time: ${new Date().toISOString()}
+
+## runtime details (for cli accuracy)
+${systemDetails}
 
 ${memCtx}
 ## what you can do
