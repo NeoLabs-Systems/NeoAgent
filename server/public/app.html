@@ -537,6 +537,30 @@
             <!-- Rendered dynamically by app.js -->
           </div>
         </div>
+        <div class="settings-update-panel" id="settingsUpdatePanel">
+          <div class="settings-update-head">
+            <div class="settings-update-title">App Update</div>
+            <span class="badge badge-neutral" id="updateStateBadge">Idle</span>
+          </div>
+          <div class="settings-update-progress-wrap">
+            <div class="settings-update-progress-bar" id="updateProgressBar"></div>
+          </div>
+          <div class="settings-update-row">
+            <span id="updatePhaseLabel">No update running</span>
+            <span id="updatePercentLabel">0%</span>
+          </div>
+          <div class="settings-update-meta" id="updateVersionMeta">Version: —</div>
+          <div class="settings-update-section">
+            <div class="settings-update-label">Changelog</div>
+            <ul class="settings-update-changelog" id="updateChangelog">
+              <li class="settings-update-empty">No changes yet</li>
+            </ul>
+          </div>
+          <div class="settings-update-section">
+            <div class="settings-update-label">Live Output</div>
+            <pre class="settings-update-logs" id="updateLogs">Waiting for update job output…</pre>
+          </div>
+        </div>
       </div>
       <div class="modal-footer" style="justify-content: space-between;">
         <button class="btn btn-primary" id="updateAppBtn" style="background-color: var(--color-warning);">Update
