@@ -15,8 +15,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Android changes since previous release tag
+        id: mobile
+        run: |
+          CURRENT_TAG="${GITHUB_REF_NAME}"
+          PREV_TAG="$(git tag --list 'v*' --sort=-v:refname | grep -vx "${CURRENT_TAG}" | head -n 1 || true)"
+          echo "previous_tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+          if [ -z "${PREV_TAG}" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "reason=No previous v* tag found; running Android release." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --quiet "${PREV_TAG}" "${CURRENT_TAG}" -- mobile/android; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "reason=No changes under mobile/android between ${PREV_TAG} and ${CURRENT_TAG}; skipping Android release." >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "reason=Detected changes under mobile/android between ${PREV_TAG} and ${CURRENT_TAG}." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip notice
+        if: steps.mobile.outputs.changed != 'true'
+        run: echo "${{ steps.mobile.outputs.reason }}"
 
       - name: Parse version from tag
+        if: steps.mobile.outputs.changed == 'true'
         id: ver
         run: |
           TAG="${GITHUB_REF_NAME}"          # e.g. v1.2.3
@@ -28,12 +55,14 @@ jobs:
           echo "code=${CODE}"     >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 17
+        if: steps.mobile.outputs.changed == 'true'
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Cache Gradle packages
+        if: steps.mobile.outputs.changed == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -43,14 +72,17 @@ jobs:
           restore-keys: ${{ runner.os }}-gradle-
 
       - name: Write local.properties
+        if: steps.mobile.outputs.changed == 'true'
         working-directory: mobile/android
         run: echo "sdk.dir=/usr/local/lib/android/sdk" > local.properties
 
       - name: Make gradlew executable
+        if: steps.mobile.outputs.changed == 'true'
         working-directory: mobile/android
         run: chmod +x gradlew
 
       - name: Build debug APK
+        if: steps.mobile.outputs.changed == 'true'
         working-directory: mobile/android
         run: |
           ./gradlew assembleDebug --no-daemon \
@@ -58,11 +90,13 @@ jobs:
             -PversionCode=${{ steps.ver.outputs.code }}
 
       - name: Rename APK
+        if: steps.mobile.outputs.changed == 'true'
         run: |
           mv mobile/android/app/build/outputs/apk/debug/app-debug.apk \
              neoagent-${{ steps.ver.outputs.name }}.apk
 
       - name: Create GitHub Release
+        if: steps.mobile.outputs.changed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           name: NeoAgent ${{ steps.ver.outputs.name }}
