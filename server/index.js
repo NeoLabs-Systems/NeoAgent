@@ -32,7 +32,11 @@ function broadcastLog(type, args) {
   const logEntry = { type, message: msg, timestamp: new Date().toISOString() };
   logHistory.push(logEntry);
   if (logHistory.length > MAX_LOG_HISTORY) logHistory.shift();
-  io.emit('server:log', logEntry);
+  // Broadcast only to authenticated user rooms, never to unauthenticated sockets
+  for (const [, socket] of io.sockets.sockets) {
+    const uid = socket.request?.session?.userId;
+    if (uid) socket.emit('server:log', logEntry);
+  }
 }
 
 const originalConsole = {
@@ -49,6 +53,8 @@ console.info = function (...args) { originalConsole.info.apply(console, args); b
 
 io.on('connection', (socket) => {
   socket.on('client:request_logs', () => {
+    // Only serve log history to authenticated sockets
+    if (!socket.request?.session?.userId) return;
     socket.emit('server:log_history', logHistory);
   });
 });
@@ -146,8 +152,12 @@ app.use('/api/browser', require('./routes/browser'));
 app.post('/api/telnyx/webhook', (req, res, next) => {
   const expected = process.env.TELNYX_WEBHOOK_TOKEN;
   if (expected) {
-    const provided = req.query.token;
-    if (!provided || provided !== expected) {
+    const provided = req.query.token || '';
+    // Use timing-safe comparison to prevent token brute-forcing via timing oracles
+    const crypto = require('crypto');
+    const a = Buffer.from(provided.padEnd(expected.length));
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       console.warn('[Telnyx webhook] Rejected request with invalid or missing token');
       return res.status(403).send('Forbidden');
     }
@@ -159,8 +169,17 @@ app.post('/api/telnyx/webhook', (req, res, next) => {
   if (manager) await manager.handleTelnyxWebhook(req.body).catch(err => console.error('[Telnyx webhook]', err.message));
 });
 
-// ── Telnyx generated audio files (served publicly so Telnyx can fetch them) ──
-app.use('/telnyx-audio', express.static(path.join(DATA_DIR, 'telnyx-audio')));
+// Telnyx-generated audio files must be publicly accessible so Telnyx's servers
+// can fetch them via the webhook callback URL. Directory listing is disabled and
+// non-audio files are rejected to minimize accidental exposure.
+app.use('/telnyx-audio', express.static(path.join(DATA_DIR, 'telnyx-audio'), {
+  index: false,
+  setHeaders: (res, filePath) => {
+    if (!filePath.match(/\.(mp3|wav|ogg|aac|m4a)$/i)) {
+      res.status(403).end();
+    }
+  }
+}));
 
 app.use('/screenshots', requireAuth, express.static(path.join(DATA_DIR, 'screenshots')));
 
@@ -176,6 +195,15 @@ app.get('/app', requireAuth, (req, res) => {
 
 app.get('/app/*', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
+});
+
+// Serve app.html and app.js explicitly behind auth so they can't be fetched
+// directly via the static middleware without a valid session.
+app.get('/app.html', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+});
+app.get('/js/app.js', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'js', 'app.js'));
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
