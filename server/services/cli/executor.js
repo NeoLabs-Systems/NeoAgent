@@ -1,10 +1,35 @@
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const path = require('path');
+
+let _cachedLoginPath = null;
 
 class CLIExecutor {
   constructor() {
     this.activeProcesses = new Map();
     this.defaultShell = process.env.SHELL || '/bin/zsh';
+  }
+
+  _getLoginPath() {
+    if (_cachedLoginPath) return _cachedLoginPath;
+    try {
+      const raw = execFileSync(this.defaultShell, ['-l', '-c', 'echo $PATH'], {
+        timeout: 5000,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      _cachedLoginPath = raw.trim();
+    } catch {
+      _cachedLoginPath = process.env.PATH || '/usr/local/bin:/usr/bin:/bin';
+    }
+    return _cachedLoginPath;
+  }
+
+  _buildEnv(extra = {}) {
+    const loginPath = this._getLoginPath();
+    const current = (process.env.PATH || '').split(':');
+    const login = loginPath.split(':');
+    const merged = [...new Set([...login, ...current])].join(':');
+    return { ...process.env, PATH: merged, ...extra };
   }
 
   async execute(command, options = {}) {
@@ -17,9 +42,9 @@ class CLIExecutor {
       let stderr = '';
       let killed = false;
 
-      const proc = spawn(this.defaultShell, ['-c', command], {
+      const proc = spawn(this.defaultShell, ['-l', '-c', command], {
         cwd,
-        env: { ...process.env, ...(options.env || {}) },
+        env: this._buildEnv(options.env),
         timeout,
         stdio: ['pipe', 'pipe', 'pipe']
       });
@@ -105,12 +130,12 @@ class CLIExecutor {
         return this.execute(command, { ...options, stdinInput: inputs.join('\n') + '\n' }).then(resolve);
       }
 
-      const proc = pty.spawn(this.defaultShell, ['-c', command], {
+      const proc = pty.spawn(this.defaultShell, ['-l', '-c', command], {
         name: 'xterm-256color',
         cols: 120,
         rows: 30,
         cwd,
-        env: { ...process.env, TERM: 'xterm-256color' }
+        env: { ...this._buildEnv(), TERM: 'xterm-256color' }
       });
 
       const pid = proc.pid;
