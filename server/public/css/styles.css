@@ -325,6 +325,110 @@ button, input, textarea, select {
   border-top: 1px solid var(--border);
 }
 
+.settings-update-panel {
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+}
+
+.settings-update-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.settings-update-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.settings-update-progress-wrap {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  overflow: hidden;
+}
+
+.settings-update-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #22c55e, #06b6d4);
+  border-radius: inherit;
+  transition: width 240ms ease;
+}
+
+.settings-update-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.settings-update-meta {
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.settings-update-section {
+  margin-top: 12px;
+}
+
+.settings-update-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.settings-update-changelog {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 110px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-update-empty {
+  list-style: none;
+  margin-left: -18px;
+  color: var(--text-muted);
+}
+
+.settings-update-logs {
+  margin: 0;
+  padding: 10px;
+  background: rgba(5,10,18,.8);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #cfd7ff;
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @keyframes modalIn {
   from { transform: translateY(14px) scale(.96); opacity: 0; }
   to   { transform: translateY(0) scale(1); opacity: 1; }
@@ -469,4 +573,3 @@ button, input, textarea, select {
 }
 
 .animate-in { animation: fadeSlideUp 200ms cubic-bezier(.16,1,.3,1) both; }
-

@@ -1,9 +1,32 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 
 router.use(requireAuth);
+
+const UPDATE_STATUS_FILE = path.join(process.cwd(), 'data', 'update-status.json');
+
+function readUpdateStatus() {
+  try {
+    return JSON.parse(fs.readFileSync(UPDATE_STATUS_FILE, 'utf8'));
+  } catch {
+    return {
+      state: 'idle',
+      progress: 0,
+      phase: 'idle',
+      message: 'No update running',
+      startedAt: null,
+      completedAt: null,
+      versionBefore: null,
+      versionAfter: null,
+      changelog: [],
+      logs: []
+    };
+  }
+}
 
 // Get supported models metadata
 router.get('/meta/models', (req, res) => {
@@ -82,17 +105,25 @@ router.delete('/:key', (req, res) => {
 // Trigger auto-update script
 router.post('/update', (req, res) => {
   const { spawn } = require('child_process');
-  console.log('[Settings] Triggering neoagent update...');
+  const status = readUpdateStatus();
+  if (status.state === 'running') {
+    return res.status(409).json({ success: false, error: 'An update is already running' });
+  }
+  console.log('[Settings] Triggering update-runner...');
 
-  // Spawn the update command in detached mode so it survives the node process exiting
-  const child = spawn(process.execPath, ['bin/neoagent.js', 'update'], {
+  // Spawn detached runner so status survives server restarts.
+  const child = spawn(process.execPath, ['scripts/update-runner.js'], {
     detached: true,
     stdio: 'ignore',
     cwd: process.cwd()
   });
 
   child.unref();
-  res.json({ success: true, message: 'Update triggered' });
+  res.json({ success: true, message: 'Update triggered', pid: child.pid });
+});
+
+router.get('/update/status', (req, res) => {
+  res.json(readUpdateStatus());
 });
 
 module.exports = router;

@@ -1176,6 +1176,108 @@ if (copyLogsBtn) {
 
 // ── Settings ──
 
+let updateStatusPollTimer = null;
+let updateFinishNotifiedAt = null;
+
+function clearUpdatePoll() {
+  if (updateStatusPollTimer) {
+    clearInterval(updateStatusPollTimer);
+    updateStatusPollTimer = null;
+  }
+}
+
+function setUpdateBadgeState(state) {
+  const badge = $("#updateStateBadge");
+  if (!badge) return;
+
+  badge.classList.remove("badge-neutral", "badge-info", "badge-success", "badge-error", "badge-warning");
+  if (state === "running") {
+    badge.classList.add("badge-info");
+    badge.textContent = "Running";
+  } else if (state === "completed") {
+    badge.classList.add("badge-success");
+    badge.textContent = "Completed";
+  } else if (state === "failed") {
+    badge.classList.add("badge-error");
+    badge.textContent = "Failed";
+  } else {
+    badge.classList.add("badge-neutral");
+    badge.textContent = "Idle";
+  }
+}
+
+function renderUpdateStatus(status) {
+  const state = status?.state || "idle";
+  const progress = Math.max(0, Math.min(100, Number(status?.progress || 0)));
+
+  setUpdateBadgeState(state);
+  $("#updateProgressBar").style.width = `${progress}%`;
+  $("#updatePercentLabel").textContent = `${progress}%`;
+  $("#updatePhaseLabel").textContent = status?.message || "No update running";
+
+  const before = status?.versionBefore || "—";
+  const after = status?.versionAfter || "—";
+  $("#updateVersionMeta").textContent = `Version: ${before}${after !== "—" ? ` -> ${after}` : ""}`;
+
+  const changelog = $("#updateChangelog");
+  changelog.innerHTML = "";
+  const entries = Array.isArray(status?.changelog) ? status.changelog : [];
+  if (!entries.length) {
+    const li = document.createElement("li");
+    li.className = "settings-update-empty";
+    li.textContent = "No commit changes captured";
+    changelog.appendChild(li);
+  } else {
+    for (const line of entries) {
+      const li = document.createElement("li");
+      li.textContent = line;
+      changelog.appendChild(li);
+    }
+  }
+
+  const logs = Array.isArray(status?.logs) ? status.logs : [];
+  const logsText = logs.length ? logs.slice(-120).join("\n") : "Waiting for update job output…";
+  const logsEl = $("#updateLogs");
+  logsEl.textContent = logsText;
+  logsEl.scrollTop = logsEl.scrollHeight;
+
+  const btn = $("#updateAppBtn");
+  if (state === "running") {
+    btn.disabled = true;
+    btn.textContent = "Updating…";
+  } else {
+    btn.disabled = false;
+    btn.textContent = "Update App";
+  }
+
+  if ((state === "completed" || state === "failed") && status?.completedAt && updateFinishNotifiedAt !== status.completedAt) {
+    updateFinishNotifiedAt = status.completedAt;
+    toast(state === "completed" ? "Update completed." : "Update failed. See logs in Settings.", state === "completed" ? "success" : "error");
+  }
+}
+
+async function refreshUpdateStatus() {
+  try {
+    const status = await api("/settings/update/status");
+    renderUpdateStatus(status);
+
+    if (status?.state !== "running") {
+      clearUpdatePoll();
+    }
+  } catch (err) {
+    // During restart window, polling can fail briefly; keep trying.
+    $("#updatePhaseLabel").textContent = "Reconnecting to server…";
+    setUpdateBadgeState("running");
+  }
+}
+
+function ensureUpdatePolling(force = false) {
+  if (force) clearUpdatePoll();
+  if (!updateStatusPollTimer) {
+    updateStatusPollTimer = setInterval(refreshUpdateStatus, 1800);
+  }
+}
+
 $("#settingsBtn").addEventListener("click", async () => {
   try {
     const meta = await api("/settings/meta/models");
@@ -1251,15 +1353,19 @@ $("#settingsBtn").addEventListener("click", async () => {
     console.error("Failed to load settings:", err);
     $("#settingHeadlessBrowser").checked = true; // default headless
   }
+  await refreshUpdateStatus();
+  ensureUpdatePolling(true);
   $("#settingsModal").classList.remove("hidden");
 });
 
-$("#closeSettings").addEventListener("click", () =>
-  $("#settingsModal").classList.add("hidden"),
-);
-$("#cancelSettings").addEventListener("click", () =>
-  $("#settingsModal").classList.add("hidden"),
-);
+$("#closeSettings").addEventListener("click", () => {
+  clearUpdatePoll();
+  $("#settingsModal").classList.add("hidden");
+});
+$("#cancelSettings").addEventListener("click", () => {
+  clearUpdatePoll();
+  $("#settingsModal").classList.add("hidden");
+});
 
 $("#saveSettings").addEventListener("click", async () => {
   try {
@@ -1301,21 +1407,14 @@ $("#saveSettings").addEventListener("click", async () => {
 $("#updateAppBtn").addEventListener("click", async () => {
   if (!confirm("Are you sure you want to run the update script? This will trigger neoagent update and restart the server.")) return;
   try {
-    const btn = $("#updateAppBtn");
-    btn.disabled = true;
-    btn.textContent = "Updating...";
     await api("/settings/update", { method: "POST" });
-    toast("Update started! Please wait for the application to restart.", "success");
-    $("#settingsModal").classList.add("hidden");
-    // Give it a few seconds before resetting the UI locally just in case
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = "Update App";
-    }, 10000);
+    updateFinishNotifiedAt = null;
+    toast("Update started. Live progress is shown below.", "success");
+    await refreshUpdateStatus();
+    ensureUpdatePolling(true);
   } catch (err) {
     toast("Failed to trigger update: " + err.message, "error");
-    $("#updateAppBtn").disabled = false;
-    $("#updateAppBtn").textContent = "Update App";
+    await refreshUpdateStatus();
   }
 });
 
