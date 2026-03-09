@@ -1299,7 +1299,7 @@ $("#saveSettings").addEventListener("click", async () => {
 });
 
 $("#updateAppBtn").addEventListener("click", async () => {
-  if (!confirm("Are you sure you want to run the update script? This will trigger neo.sh update and restart the server.")) return;
+  if (!confirm("Are you sure you want to run the update script? This will trigger neoagent update and restart the server.")) return;
   try {
     const btn = $("#updateAppBtn");
     btn.disabled = true;

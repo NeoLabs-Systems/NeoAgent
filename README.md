@@ -15,7 +15,20 @@ Connects to Anthropic, OpenAI, xAI, Google and local Ollama models.
 Runs tasks on a schedule, controls a browser, manages files, and talks to you over Telegram, Discord, or WhatsApp.
 
 ```bash
+npm install -g neoagent
+neoagent install
+```
+
+From source:
+```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
+```
+
+Manage the service:
+```bash
+neoagent status
+neoagent update
+neoagent logs
 ```
 
 ---

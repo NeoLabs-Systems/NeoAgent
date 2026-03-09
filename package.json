@@ -2,11 +2,36 @@
   "name": "neoagent",
   "version": "1.0.0",
   "description": "Proactive personal AI agent with no limits",
+  "license": "MIT",
   "main": "server/index.js",
+  "bin": {
+    "neoagent": "bin/neoagent.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "server",
+    "docs",
+    "mobile",
+    "com.neoagent.plist",
+    "LICENSE",
+    "README.md",
+    ".env.example"
+  ],
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "manage": "node bin/neoagent.js",
+    "release": "npx semantic-release"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NeoLabs-Systems/NeoAgent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NeoLabs-Systems/NeoAgent/issues"
+  },
+  "homepage": "https://github.com/NeoLabs-Systems/NeoAgent#readme",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@google/generative-ai": "^0.24.0",
