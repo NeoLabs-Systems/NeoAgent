@@ -124,27 +124,34 @@ async function startServices(app, io) {
             if (msg.platform !== 'discord' && msg.platform !== 'telegram') {
                 const whitelistRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
                     .get(userId, `platform_whitelist_${msg.platform}`);
+                const normalize = msg.platform === 'whatsapp'
+                    ? normalizeWhatsAppId
+                    : (id) => String(id || '').replace(/[^0-9+]/g, '');
+
+                let whitelist = [];
                 if (whitelistRow) {
                     try {
-                        const whitelist = JSON.parse(whitelistRow.value);
-                        if (Array.isArray(whitelist) && whitelist.length > 0) {
-                            const normalize = msg.platform === 'whatsapp'
-                                ? normalizeWhatsAppId
-                                : (id) => String(id || '').replace(/[^0-9+]/g, '');
-                            const senderNorm = normalize(msg.sender || msg.chatId);
-                            const allowed = whitelist.some((n) => normalize(n) === senderNorm);
-                            if (!allowed) {
-                                console.log(`[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`);
-                                io.to(`user:${userId}`).emit('messaging:blocked_sender', {
-                                    platform: msg.platform,
-                                    sender: msg.sender,
-                                    chatId: msg.chatId,
-                                    senderName: msg.senderName || null
-                                });
-                                return;
-                            }
-                        }
+                        const parsed = JSON.parse(whitelistRow.value);
+                        if (Array.isArray(parsed)) whitelist = parsed;
                     } catch { }
+                }
+
+                const enforceEmptyWhitelist = msg.platform === 'whatsapp';
+                const shouldCheckWhitelist = whitelist.length > 0 || enforceEmptyWhitelist;
+
+                if (shouldCheckWhitelist) {
+                    const senderNorm = normalize(msg.sender || msg.chatId);
+                    const allowed = whitelist.some((n) => normalize(n) === senderNorm);
+                    if (!allowed) {
+                        console.log(`[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`);
+                        io.to(`user:${userId}`).emit('messaging:blocked_sender', {
+                            platform: msg.platform,
+                            sender: msg.sender,
+                            chatId: msg.chatId,
+                            senderName: msg.senderName || null
+                        });
+                        return;
+                    }
                 }
             }
 
