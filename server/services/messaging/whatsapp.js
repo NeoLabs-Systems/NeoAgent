@@ -26,14 +26,14 @@ class WhatsAppPlatform extends BasePlatform {
       makeCacheableSignalKeyStore,
       fetchLatestBaileysVersion,
       Browsers
-    } = require('@whiskeysockets/baileys');
+    } = require('baileys');
     const pino = require('pino');
 
     let logger;
     try {
       logger = pino({ level: 'silent' });
     } catch {
-      logger = { level: 'silent', info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, trace: () => {}, child: () => logger };
+      logger = { level: 'silent', info: () => { }, error: () => { }, warn: () => { }, debug: () => { }, trace: () => { }, child: () => logger };
     }
 
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -135,7 +135,7 @@ class WhatsAppPlatform extends BasePlatform {
         let localMediaPath = null;
         if (mediaType && mediaType !== 'sticker') {
           try {
-            const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+            const { downloadMediaMessage } = require('baileys');
             const MEDIA_DIR = path.join(__dirname, '..', '..', '..', 'data', 'media');
             if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
             const buffer = await downloadMediaMessage(msg, 'buffer', {}, {
@@ -247,14 +247,14 @@ class WhatsAppPlatform extends BasePlatform {
     let jid = chatId;
     if (!jid.includes('@')) jid = jid + '@s.whatsapp.net';
     // readMessages expects full message keys; we do a best-effort read
-    await this.sock.sendReadReceipt(jid, null, [messageId]).catch(() => {});
+    await this.sock.sendReadReceipt(jid, null, [messageId]).catch(() => { });
   }
 
   async sendTyping(chatId, isTyping) {
     if (!this.sock || this.status !== 'connected') return;
     let jid = chatId;
     if (!jid.includes('@')) jid = jid + '@s.whatsapp.net';
-    await this.sock.sendPresenceUpdate(isTyping ? 'composing' : 'paused', jid).catch(() => {});
+    await this.sock.sendPresenceUpdate(isTyping ? 'composing' : 'paused', jid).catch(() => { });
   }
 
   async getContacts() {
