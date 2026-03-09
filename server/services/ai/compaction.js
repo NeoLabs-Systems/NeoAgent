@@ -2,9 +2,10 @@ async function compact(messages, provider, model) {
   const systemMsg = messages.find(m => m.role === 'system');
   const nonSystem = messages.filter(m => m.role !== 'system');
 
-  if (nonSystem.length < 6) return messages;
+  // Only compact once history is clearly old enough to avoid touching recent context.
+  if (nonSystem.length < 12) return messages;
 
-  const keepRecent = 6;
+  const keepRecent = 10;
   const toCompact = nonSystem.slice(0, -keepRecent);
   const recent = nonSystem.slice(-keepRecent);
 
