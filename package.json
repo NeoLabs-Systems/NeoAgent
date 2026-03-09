@@ -35,7 +35,7 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@google/generative-ai": "^0.24.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "@whiskeysockets/baileys": "^6.17.16",
+    "baileys": "^6.7.1",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^11.8.1",
     "connect-sqlite3": "^0.9.15",
