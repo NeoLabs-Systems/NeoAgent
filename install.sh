@@ -4,7 +4,6 @@
 
 set -euo pipefail
 
-# ─── UI helpers ──────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
   BOLD='\033[1m'; RESET='\033[0m'; RED='\033[1;31m'; GRN='\033[1;32m'
   CYN='\033[1;36m'; YEL='\033[1;33m'; DIM='\033[2m'
@@ -14,7 +13,6 @@ fi
 
 ok()   { echo -e "  ${GRN}✓${RESET}  $*"; }
 info() { echo -e "  ${CYN}→${RESET}  $*"; }
-warn() { echo -e "  ${YEL}⚠${RESET}  $*"; }
 err()  { echo -e "  ${RED}✗${RESET}  $*" >&2; }
 ask()  {
   local var="$1" prompt="$2" default="${3:-}"
@@ -26,18 +24,9 @@ ask()  {
   eval "$var=\"\$input\""
 }
 
-echo -e "${CYN}${BOLD}"
-echo '  ███╗   ██╗███████╗ ██████╗      █████╗  ██████╗ ███████╗███╗   ██╗████████╗'
-echo '  ████╗  ██║██╔════╝██╔═══██╗    ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝'
-echo '  ██╔██╗ ██║█████╗  ██║   ██║    ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   '
-echo '  ██║╚██╗██║██╔══╝  ██║   ██║    ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   '
-echo '  ██║ ╚████║███████╗╚██████╔╝    ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   '
-echo '  ╚═╝  ╚═══╝╚══════╝ ╚═════╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   '
-echo -e "${RESET}"
-echo -e "  ${DIM}Proactive personal AI agent — standalone installer${RESET}"
+echo -e "${CYN}${BOLD}NeoAgent installer${RESET}"
 echo
 
-# ─── Check requirements ───────────────────────────────────────────────────────
 MISSING=()
 command -v git  &>/dev/null && ok "git $(git --version | awk '{print $3}')"   || MISSING+=("git")
 command -v node &>/dev/null && ok "Node.js $(node --version)"                  || MISSING+=("node (https://nodejs.org)")
@@ -51,9 +40,6 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
   exit 1
 fi
 
-echo
-
-# ─── Choose install directory ─────────────────────────────────────────────────
 DEFAULT_DIR="$HOME/NeoAgent"
 ask INSTALL_DIR "Install directory" "$DEFAULT_DIR"
 
@@ -71,7 +57,6 @@ else
 fi
 
 echo
-
-# ─── Hand off to neo.sh ───────────────────────────────────────────────────────
-chmod +x "$INSTALL_DIR/neo.sh"
-exec "$INSTALL_DIR/neo.sh" install
+info "Running Node manager installer..."
+cd "$INSTALL_DIR"
+exec node ./bin/neoagent.js install

@@ -1,6 +1,6 @@
 # Configuration
 
-All settings live in `.env` at the project root. Run `./neo.sh setup` to regenerate interactively.
+All settings live in `.env` at the project root. Run `neoagent setup` to regenerate interactively.
 
 ## Variables
 
