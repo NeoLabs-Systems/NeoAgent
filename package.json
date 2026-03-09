@@ -5,7 +5,9 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "nodemon server/index.js",
+    "test": "jest",
+    "release": "./scripts/release.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
