@@ -1278,10 +1278,29 @@ function ensureUpdatePolling(force = false) {
   }
 }
 
+function formatInt(n) {
+  return Number(n || 0).toLocaleString();
+}
+
+function renderTokenUsageSummary(summary) {
+  const el = $("#tokenUsageSummary");
+  if (!el) return;
+  const totals = summary?.totals || {};
+  el.innerHTML = `
+    <div>Total: <strong>${formatInt(totals.totalTokens)}</strong> tokens across <strong>${formatInt(totals.totalRuns)}</strong> runs</div>
+    <div>Last 7 days: <strong>${formatInt(totals.last7DaysTokens)}</strong> tokens in <strong>${formatInt(totals.last7DaysRuns)}</strong> runs</div>
+    <div>Avg/run: <strong>${formatInt(totals.avgTokensPerRun)}</strong> tokens</div>
+  `;
+}
+
 $("#settingsBtn").addEventListener("click", async () => {
   try {
-    const meta = await api("/settings/meta/models");
-    const settings = await api("/settings");
+    const [meta, settings, tokenUsage] = await Promise.all([
+      api("/settings/meta/models"),
+      api("/settings"),
+      api("/settings/token-usage/summary")
+    ]);
+    renderTokenUsageSummary(tokenUsage);
 
     $("#settingHeartbeat").checked =
       settings.heartbeat_enabled === true ||
@@ -1352,6 +1371,8 @@ $("#settingsBtn").addEventListener("click", async () => {
   } catch (err) {
     console.error("Failed to load settings:", err);
     $("#settingHeadlessBrowser").checked = true; // default headless
+    const tokenBox = $("#tokenUsageSummary");
+    if (tokenBox) tokenBox.textContent = "Token usage unavailable.";
   }
   await refreshUpdateStatus();
   ensureUpdatePolling(true);
