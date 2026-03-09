@@ -16,6 +16,7 @@ const { sanitizeError } = require('./utils/security');
 const { setupConsoleInterceptor } = require('./utils/logger');
 const { setupTelnyxWebhook } = require('./routes/telnyx');
 const { startServices } = require('./services/manager');
+const packageJson = require('../package.json');
 
 const app = express();
 const httpServer = createServer(app);
@@ -151,6 +152,26 @@ app.get('/', (req, res) => {
 
 app.get('/api/health', requireAuth, (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/version', requireAuth, (req, res) => {
+  let gitSha = null;
+  try {
+    const { execSync } = require('child_process');
+    gitSha = execSync('git rev-parse --short HEAD', {
+      cwd: path.join(__dirname, '..'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+  } catch {
+    gitSha = process.env.GIT_SHA || null;
+  }
+
+  res.json({
+    name: packageJson.name,
+    version: packageJson.version,
+    gitSha
+  });
 });
 
 // ── Service Initialization ──

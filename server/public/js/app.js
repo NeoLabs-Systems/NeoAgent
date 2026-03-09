@@ -1191,6 +1191,7 @@ if (copyLogsBtn) {
 
 let updateStatusPollTimer = null;
 let updateFinishNotifiedAt = null;
+let backendVersionLabel = null;
 
 function clearUpdatePoll() {
   if (updateStatusPollTimer) {
@@ -1230,7 +1231,9 @@ function renderUpdateStatus(status) {
 
   const before = status?.versionBefore || "—";
   const after = status?.versionAfter || "—";
-  $("#updateVersionMeta").textContent = `Version: ${before}${after !== "—" ? ` -> ${after}` : ""}`;
+  const updateVersionLabel = `${before}${after !== "—" ? ` -> ${after}` : ""}`;
+  const backendLabel = backendVersionLabel ? ` | Backend: ${backendVersionLabel}` : "";
+  $("#updateVersionMeta").textContent = `Update Version: ${updateVersionLabel}${backendLabel}`;
 
   const changelog = $("#updateChangelog");
   changelog.innerHTML = "";
@@ -1324,6 +1327,13 @@ $("#settingsBtn").addEventListener("click", async () => {
     ]);
 
     try {
+      const backendVersion = await api("/version");
+      backendVersionLabel = `${backendVersion?.version || "unknown"}${backendVersion?.gitSha ? ` (${backendVersion.gitSha})` : ""}`;
+    } catch {
+      backendVersionLabel = "unavailable";
+    }
+
+    try {
       const tokenUsage = await api("/settings/token-usage/summary");
       renderTokenUsageSummary(tokenUsage);
     } catch (err) {
@@ -1402,6 +1412,7 @@ $("#settingsBtn").addEventListener("click", async () => {
     $("#settingHeadlessBrowser").checked = true; // default headless
     const tokenBox = $("#tokenUsageSummary");
     if (tokenBox) tokenBox.textContent = "Token usage unavailable.";
+    backendVersionLabel = "unavailable";
   }
   await refreshUpdateStatus();
   ensureUpdatePolling(true);
