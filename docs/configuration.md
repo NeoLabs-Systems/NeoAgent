@@ -8,7 +8,7 @@ All settings live in `.env` at the project root. Run `neoagent setup` to regener
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `3060` | HTTP port |
+| `PORT` | `3333` | HTTP port |
 | `SESSION_SECRET` | *(required)* | Random string for session signing — generate with `openssl rand -hex 32` |
 | `NODE_ENV` | `production` | Set to `development` to enable verbose logs |
 | `SECURE_COOKIES` | `false` | Set `true` when behind a TLS-terminating proxy |
@@ -39,7 +39,7 @@ Telegram, Discord, and WhatsApp tokens are stored in the database via the web UI
 ## Minimal `.env` example
 
 ```dotenv
-PORT=3060
+PORT=3333
 SESSION_SECRET=change-me-to-something-random
 ANTHROPIC_API_KEY=sk-ant-...
 ```

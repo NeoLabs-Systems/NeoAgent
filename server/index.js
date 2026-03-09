@@ -34,7 +34,7 @@ if (!process.env.SESSION_SECRET) {
   console.warn('WARNING: SESSION_SECRET not set — using insecure default. Set it in .env before exposing this server.');
 }
 
-const PORT = process.env.PORT || 3060;
+const PORT = process.env.PORT || 3333;
 const DATA_DIR = path.join(__dirname, '../data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
