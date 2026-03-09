@@ -111,7 +111,9 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    cron_expression TEXT NOT NULL,
+    cron_expression TEXT,
+    run_at TEXT,
+    one_time INTEGER DEFAULT 0,
     task_type TEXT DEFAULT 'agent_prompt',
     task_config TEXT DEFAULT '{}',
     enabled INTEGER DEFAULT 1,
@@ -225,5 +227,13 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_core_memory_user ON core_memory(user_id, key);
 `);
+
+// Migrations for existing databases
+for (const col of [
+  "ALTER TABLE scheduled_tasks ADD COLUMN run_at TEXT",
+  "ALTER TABLE scheduled_tasks ADD COLUMN one_time INTEGER DEFAULT 0",
+]) {
+  try { db.exec(col); } catch { /* column already exists */ }
+}
 
 module.exports = db;
