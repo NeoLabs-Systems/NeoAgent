@@ -2363,6 +2363,27 @@ const MESSAGING_PLATFORMS = [
   },
 ];
 
+function normalizeWhatsAppWhitelistEntry(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  const base = raw.includes("@") ? raw.split("@")[0] : raw;
+  const primary = base.includes(":") ? base.split(":")[0] : base;
+  const digits = primary.replace(/\D/g, "");
+  return digits || primary;
+}
+
+function normalizeWhatsAppWhitelist(list) {
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of Array.isArray(list) ? list : []) {
+    const value = normalizeWhatsAppWhitelistEntry(entry);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    normalized.push(value);
+  }
+  return normalized;
+}
+
 // Per-platform whitelist config
 const PLATFORM_WHITELIST = {
   whatsapp: {
@@ -2374,7 +2395,11 @@ const PLATFORM_WHITELIST = {
     saveFn: async (list) =>
       api("/settings", {
         method: "PUT",
-        body: { platform_whitelist_whatsapp: JSON.stringify(list) },
+        body: {
+          platform_whitelist_whatsapp: JSON.stringify(
+            normalizeWhatsAppWhitelist(list),
+          ),
+        },
       }),
   },
   telnyx: {
@@ -3261,8 +3286,10 @@ socket.on("messaging:blocked_sender", (data) => {
     const addBtn = document.getElementById(`wb-add-${bannerId}`);
     if (addBtn)
       addBtn.addEventListener("click", async () => {
-        const digits = rawId.replace(/[^0-9]/g, "");
-        const key = digits || rawId;
+        const key =
+          platform === "whatsapp"
+            ? normalizeWhatsAppWhitelistEntry(rawId)
+            : rawId.replace(/[^0-9]/g, "") || rawId;
         try {
           await _wbSave(platform, key);
           toast(`Added ${key} to whitelist`, "success");

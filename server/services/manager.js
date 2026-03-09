@@ -10,6 +10,7 @@ const { MessagingManager } = require('./messaging/manager');
 const { Scheduler } = require('./scheduler/cron');
 const { setupWebSocket } = require('./websocket');
 const { detectPromptInjection } = require('../utils/security');
+const { normalizeWhatsAppId } = require('../utils/whatsapp');
 const { randomUUID } = require('crypto');
 
 async function startServices(app, io) {
@@ -127,12 +128,11 @@ async function startServices(app, io) {
                     try {
                         const whitelist = JSON.parse(whitelistRow.value);
                         if (Array.isArray(whitelist) && whitelist.length > 0) {
-                            const normalize = (id) => {
-                                const digits = (id || '').replace(/[^0-9]/g, '');
-                                return digits.length > 10 ? digits.slice(-10) : digits;
-                            };
+                            const normalize = msg.platform === 'whatsapp'
+                                ? normalizeWhatsAppId
+                                : (id) => String(id || '').replace(/[^0-9+]/g, '');
                             const senderNorm = normalize(msg.sender || msg.chatId);
-                            const allowed = whitelist.some(n => normalize(n) === senderNorm);
+                            const allowed = whitelist.some((n) => normalize(n) === senderNorm);
                             if (!allowed) {
                                 console.log(`[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`);
                                 io.to(`user:${userId}`).emit('messaging:blocked_sender', {

@@ -1,6 +1,7 @@
 const { BasePlatform } = require('./base');
 const path = require('path');
 const fs = require('fs');
+const { toWhatsAppJid } = require('../../utils/whatsapp');
 
 const AUTH_DIR = path.join(__dirname, '..', '..', '..', 'data', 'whatsapp-auth');
 
@@ -208,10 +209,8 @@ class WhatsAppPlatform extends BasePlatform {
       throw new Error('WhatsApp not connected');
     }
 
-    let jid = to;
-    if (!jid.includes('@')) {
-      jid = jid.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-    }
+    const jid = toWhatsAppJid(to);
+    if (!jid) throw new Error('Invalid WhatsApp recipient');
 
     if (options.mediaPath) {
       const ext = path.extname(options.mediaPath).toLowerCase();
@@ -244,16 +243,16 @@ class WhatsAppPlatform extends BasePlatform {
 
   async markRead(chatId, messageId) {
     if (!this.sock) return;
-    let jid = chatId;
-    if (!jid.includes('@')) jid = jid + '@s.whatsapp.net';
+    const jid = toWhatsAppJid(chatId);
+    if (!jid) return;
     // readMessages expects full message keys; we do a best-effort read
     await this.sock.sendReadReceipt(jid, null, [messageId]).catch(() => { });
   }
 
   async sendTyping(chatId, isTyping) {
     if (!this.sock || this.status !== 'connected') return;
-    let jid = chatId;
-    if (!jid.includes('@')) jid = jid + '@s.whatsapp.net';
+    const jid = toWhatsAppJid(chatId);
+    if (!jid) return;
     await this.sock.sendPresenceUpdate(isTyping ? 'composing' : 'paused', jid).catch(() => { });
   }
 

@@ -4,6 +4,7 @@ const path = require('path');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
+const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 
 router.use(requireAuth);
 
@@ -55,6 +56,19 @@ router.get('/', (req, res) => {
 router.put('/', (req, res) => {
   const userId = req.session.userId;
   const upsert = db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value');
+  const normalizedBody = { ...req.body };
+
+  if ('platform_whitelist_whatsapp' in normalizedBody) {
+    let whitelist = normalizedBody.platform_whitelist_whatsapp;
+    if (typeof whitelist === 'string') {
+      try {
+        whitelist = JSON.parse(whitelist);
+      } catch {
+        whitelist = [];
+      }
+    }
+    normalizedBody.platform_whitelist_whatsapp = JSON.stringify(normalizeWhatsAppWhitelist(whitelist));
+  }
 
   const tx = db.transaction((entries) => {
     for (const [key, value] of entries) {
@@ -63,12 +77,12 @@ router.put('/', (req, res) => {
     }
   });
 
-  tx(Object.entries(req.body));
+  tx(Object.entries(normalizedBody));
 
   // Apply headless toggle immediately without restarting
-  if ('headless_browser' in req.body) {
+  if ('headless_browser' in normalizedBody) {
     const bc = req.app.locals.browserController;
-    if (bc) bc.setHeadless(req.body.headless_browser).catch(() => { });
+    if (bc) bc.setHeadless(normalizedBody.headless_browser).catch(() => { });
   }
 
   res.json({ success: true });
@@ -139,7 +153,18 @@ router.get('/:key', (req, res) => {
 
 // Set single setting
 router.put('/:key', (req, res) => {
-  const v = typeof req.body.value === 'string' ? req.body.value : JSON.stringify(req.body.value);
+  let value = req.body.value;
+  if (req.params.key === 'platform_whitelist_whatsapp') {
+    if (typeof value === 'string') {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        value = [];
+      }
+    }
+    value = normalizeWhatsAppWhitelist(value);
+  }
+  const v = typeof value === 'string' ? value : JSON.stringify(value);
   db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
     .run(req.session.userId, req.params.key, v);
   res.json({ success: true });
