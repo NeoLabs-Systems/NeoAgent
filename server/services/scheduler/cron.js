@@ -13,6 +13,7 @@ class Scheduler {
   start() {
     this._loadFromDB();
     this._startHeartbeat();
+    this._startOneTimePoller();
     console.log('[Scheduler] Started');
   }
 
@@ -24,6 +25,10 @@ class Scheduler {
     if (this.heartbeatJob) {
       this.heartbeatJob.stop();
       this.heartbeatJob = null;
+    }
+    if (this.oneTimePoller) {
+      this.oneTimePoller.stop();
+      this.oneTimePoller = null;
     }
     console.log('[Scheduler] Stopped');
   }
@@ -38,6 +43,29 @@ class Scheduler {
       }
     });
     console.log('[Scheduler] Heartbeat active (every 5 min)');
+  }
+
+  _startOneTimePoller() {
+    this.oneTimePoller = cron.schedule('* * * * *', async () => {
+      const due = db.prepare(
+        `SELECT * FROM scheduled_tasks WHERE one_time = 1 AND enabled = 1 AND run_at IS NOT NULL AND run_at <= datetime('now')`
+      ).all();
+
+      for (const task of due) {
+        const config = JSON.parse(task.task_config || '{}');
+        // Remove from memory before executing so a slow run can't double-fire
+        this.jobs.delete(task.id);
+        try {
+          await this._executeTask(task.id, task.user_id, config);
+        } catch (err) {
+          console.error(`[Scheduler] One-time task ${task.id} error:`, err.message);
+        }
+        // Auto-delete after execution
+        db.prepare('DELETE FROM scheduled_tasks WHERE id = ?').run(task.id);
+        this.io.to(`user:${task.user_id}`).emit('scheduler:task_deleted', { taskId: task.id });
+      }
+    });
+    console.log('[Scheduler] One-time poller active (every 1 min)');
   }
 
   async _runHeartbeat() {
@@ -77,8 +105,23 @@ class Scheduler {
     }
   }
 
-  createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null }) {
-    if (!cron.validate(cronExpression)) {
+  createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null, runAt = null, oneTime = false }) {
+    if (oneTime) {
+      if (!runAt) throw new Error('runAt is required for one-time tasks');
+      const runAtDate = new Date(runAt);
+      if (isNaN(runAtDate.getTime())) throw new Error(`Invalid runAt value: ${runAt}`);
+
+      const config = { prompt };
+      if (callTo) { config.callTo = callTo; config.callGreeting = callGreeting || ''; }
+
+      const result = db.prepare(
+        'INSERT INTO scheduled_tasks (user_id, name, cron_expression, run_at, one_time, task_type, task_config, enabled) VALUES (?, ?, NULL, ?, 1, ?, ?, ?)'
+      ).run(userId, name, runAtDate.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ''), 'agent_prompt', JSON.stringify(config), enabled ? 1 : 0);
+
+      return { id: result.lastInsertRowid, name, runAt: runAtDate.toISOString(), oneTime: true, enabled };
+    }
+
+    if (!cronExpression || !cron.validate(cronExpression)) {
       throw new Error(`Invalid cron expression: ${cronExpression}`);
     }
 
@@ -155,9 +198,11 @@ class Scheduler {
       id: t.id,
       name: t.name,
       cronExpression: t.cron_expression,
+      runAt: t.run_at || null,
+      oneTime: !!t.one_time,
       enabled: !!t.enabled,
       lastRun: t.last_run,
-      nextRun: this._getNextRun(t.cron_expression),
+      nextRun: t.one_time ? t.run_at : this._getNextRun(t.cron_expression),
       config: JSON.parse(t.task_config || '{}')
     }));
   }
@@ -215,15 +260,22 @@ class Scheduler {
 
   _loadFromDB() {
     const tasks = db.prepare('SELECT * FROM scheduled_tasks WHERE enabled = 1').all();
+    let loaded = 0;
     for (const task of tasks) {
       try {
         const config = JSON.parse(task.task_config || '{}');
-        this._scheduleTask(task.id, task.user_id, task.cron_expression, config);
+        if (task.one_time) {
+          // One-time tasks are handled by the poller; nothing to register here
+          // But if it's already past due when we restart, the poller will catch it in <1 min
+        } else if (task.cron_expression) {
+          this._scheduleTask(task.id, task.user_id, task.cron_expression, config);
+          loaded++;
+        }
       } catch (err) {
         console.error(`[Scheduler] Failed to load task ${task.id}:`, err.message);
       }
     }
-    console.log(`[Scheduler] Loaded ${tasks.length} tasks from DB`);
+    console.log(`[Scheduler] Loaded ${loaded} recurring tasks from DB`);
   }
 
   _getNextRun(cronExpression) {
