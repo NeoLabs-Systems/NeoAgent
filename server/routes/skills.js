@@ -3,8 +3,9 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { requireAuth } = require('../middleware/auth');
+const { AGENT_DATA_DIR } = require('../../runtime/paths');
 
-const SKILLS_DIR = path.join(__dirname, '../../agent-data/skills');
+const SKILLS_DIR = path.join(AGENT_DATA_DIR, 'skills');
 
 /**
  * Resolve a client-supplied filename to an absolute path inside SKILLS_DIR.

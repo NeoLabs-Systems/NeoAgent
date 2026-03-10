@@ -12,7 +12,7 @@ class DBAuthProvider {
   }
 
   get redirectUrl() {
-    const baseUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 8000}`;
+    const baseUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3333}`;
     return `${baseUrl}/api/mcp/oauth/callback`;
   }
 

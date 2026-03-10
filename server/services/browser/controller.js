@@ -1,7 +1,8 @@
 const path = require('path');
 const fs = require('fs');
+const { DATA_DIR } = require('../../../runtime/paths');
 
-const SCREENSHOTS_DIR = path.join(__dirname, '..', '..', '..', 'data', 'screenshots');
+const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 
 class BrowserController {

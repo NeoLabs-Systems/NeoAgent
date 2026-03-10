@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('../../db/database');
+const { DATA_DIR } = require('../../../runtime/paths');
 
 /**
  * Returns the list of available tools for the agent.
@@ -1000,7 +1001,7 @@ async function executeTool(toolName, args, context, engine) {
                     n: count,
                     response_format: 'b64_json'
                 });
-                const MEDIA_DIR = path.join(__dirname, '..', '..', '..', 'data', 'media');
+                const MEDIA_DIR = path.join(DATA_DIR, 'media');
                 if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
                 const savedPaths = [];
                 for (const img of result.data) {

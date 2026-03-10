@@ -2,8 +2,9 @@ const { BasePlatform } = require('./base');
 const path = require('path');
 const fs = require('fs');
 const { toWhatsAppJid } = require('../../utils/whatsapp');
+const { DATA_DIR } = require('../../../runtime/paths');
 
-const AUTH_DIR = path.join(__dirname, '..', '..', '..', 'data', 'whatsapp-auth');
+const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 
 class WhatsAppPlatform extends BasePlatform {
   constructor(config = {}) {
@@ -137,7 +138,7 @@ class WhatsAppPlatform extends BasePlatform {
         if (mediaType && mediaType !== 'sticker') {
           try {
             const { downloadMediaMessage } = require('baileys');
-            const MEDIA_DIR = path.join(__dirname, '..', '..', '..', 'data', 'media');
+            const MEDIA_DIR = path.join(DATA_DIR, 'media');
             if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
             const buffer = await downloadMediaMessage(msg, 'buffer', {}, {
               logger: this._logger,

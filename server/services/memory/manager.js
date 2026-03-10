@@ -9,8 +9,9 @@ const {
   deserializeEmbedding,
   keywordSimilarity
 } = require('./embeddings');
+const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 
-const DATA_DIR = path.join(__dirname, '../../../agent-data');
+const DATA_DIR = AGENT_DATA_DIR;
 const SOUL_FILE = path.join(DATA_DIR, 'SOUL.md');
 const API_KEYS_FILE = path.join(DATA_DIR, 'API_KEYS.json');
 const DAILY_DIR = path.join(DATA_DIR, 'daily');

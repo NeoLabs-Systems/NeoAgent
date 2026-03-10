@@ -7,21 +7,23 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/node</string>
-        <string>/Users/neo/NeoAgent/server/index.js</string>
+        <string>__NODE_BIN__</string>
+        <string>__APP_DIR__/server/index.js</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/neo/NeoAgent</string>
+    <string>__APP_DIR__</string>
 
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>HOME</key>
-        <string>/Users/neo</string>
+        <string>__HOME__</string>
         <key>NODE_ENV</key>
         <string>production</string>
+        <key>NEOAGENT_HOME</key>
+        <string>__RUNTIME_HOME__</string>
     </dict>
 
     <!-- Auto-restart if the process exits for any reason -->
@@ -37,9 +39,9 @@
     <integer>10</integer>
 
     <key>StandardOutPath</key>
-    <string>/Users/neo/NeoAgent/data/logs/neoagent.log</string>
+    <string>__LOG_DIR__/neoagent.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/neo/NeoAgent/data/logs/neoagent.error.log</string>
+    <string>__LOG_DIR__/neoagent.error.log</string>
 </dict>
 </plist>

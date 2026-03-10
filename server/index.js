@@ -1,4 +1,7 @@
-require('dotenv').config();
+const { ENV_FILE, DATA_DIR, APP_DIR, migrateLegacyRuntime, ensureRuntimeDirs } = require('../runtime/paths');
+require('dotenv').config({ path: ENV_FILE });
+migrateLegacyRuntime();
+ensureRuntimeDirs();
 
 const express = require('express');
 const session = require('express-session');
@@ -8,7 +11,6 @@ const { Server: SocketIO } = require('socket.io');
 const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 
 const db = require('./db/database');
 const { requireAuth, requireNoAuth } = require('./middleware/auth');
@@ -35,8 +37,6 @@ if (!process.env.SESSION_SECRET) {
 }
 
 const PORT = process.env.PORT || 3333;
-const DATA_DIR = path.join(__dirname, '../data');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── Middleware ──
 
@@ -159,7 +159,7 @@ app.get('/api/version', requireAuth, (req, res) => {
   try {
     const { execSync } = require('child_process');
     gitSha = execSync('git rev-parse --short HEAD', {
-      cwd: path.join(__dirname, '..'),
+      cwd: APP_DIR,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore']
     }).trim();

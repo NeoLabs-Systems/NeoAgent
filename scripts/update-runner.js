@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
-const path = require('path');
 const { spawnSync } = require('child_process');
+const {
+  APP_DIR,
+  DATA_DIR,
+  UPDATE_STATUS_FILE: STATUS_FILE,
+  migrateLegacyRuntime,
+  ensureRuntimeDirs
+} = require('../runtime/paths');
 
-const APP_DIR = path.resolve(__dirname, '..');
-const DATA_DIR = path.join(APP_DIR, 'data');
-const STATUS_FILE = path.join(DATA_DIR, 'update-status.json');
 const MAX_LOG_LINES = 220;
 
 function nowIso() {
@@ -99,6 +102,8 @@ function info(progress, phase, message) {
 }
 
 function main() {
+  migrateLegacyRuntime();
+  ensureRuntimeDirs();
   const startedAt = nowIso();
   writeStatus({
     state: 'running',

@@ -1,6 +1,7 @@
 # Configuration
 
-All settings live in `.env` at the project root. Run `neoagent setup` to regenerate interactively.
+All settings live in `~/.neoagent/.env` by default. Run `neoagent setup` to regenerate interactively.
+You can override the runtime root with `NEOAGENT_HOME`.
 
 ## Variables
 
@@ -33,6 +34,12 @@ At least one API key is required. The active provider and model are configured i
 | `TELNYX_WEBHOOK_TOKEN` | Telnyx webhook signature verification |
 
 Telegram, Discord, and WhatsApp tokens are stored in the database via the web UI Settings page — not in `.env`.
+
+## Runtime data paths
+
+- Config: `~/.neoagent/.env`
+- Database/session/logs: `~/.neoagent/data/`
+- Skills/soul/daily memory files: `~/.neoagent/agent-data/`
 
 ---
 

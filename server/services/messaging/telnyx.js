@@ -5,8 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const { OpenAI } = require('openai');
+const { DATA_DIR, AGENT_DATA_DIR } = require('../../../runtime/paths');
 
-const AUDIO_DIR = path.join(__dirname, '..', '..', '..', 'data', 'telnyx-audio');
+const AUDIO_DIR = path.join(DATA_DIR, 'telnyx-audio');
 const RECORDING_TURN_LIMIT_MS = 4000; // auto-stop recording after 4 s of silence
 
 class TelnyxVoicePlatform extends BasePlatform {
@@ -57,7 +58,7 @@ class TelnyxVoicePlatform extends BasePlatform {
     let openAiKey = process.env.OPENAI_API_KEY;
     if (!openAiKey) {
       try {
-        const keysPath = path.join(__dirname, '..', '..', '..', 'agent-data', 'API_KEYS.json');
+        const keysPath = path.join(AGENT_DATA_DIR, 'API_KEYS.json');
         const keys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
         openAiKey = keys.OPENAI_API_KEY || keys.openai_api_key || keys.openai || null;
       } catch { /* file missing or unreadable — fine */ }

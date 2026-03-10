@@ -1,6 +1,6 @@
 # Skills
 
-Skills are Markdown files in `agent-data/skills/` that describe capabilities the agent can use when responding to tasks. They are loaded at runtime — no restart needed after editing.
+Skills are Markdown files in `~/.neoagent/agent-data/skills/` by default. They are loaded at runtime — no restart needed after editing.
 
 ## Built-in skills
 
@@ -26,7 +26,7 @@ Skills are Markdown files in `agent-data/skills/` that describe capabilities the
 
 ## Adding a skill
 
-Create a Markdown file in `agent-data/skills/`:
+Create a Markdown file in `~/.neoagent/agent-data/skills/`:
 
 ```markdown
 # My Skill Name

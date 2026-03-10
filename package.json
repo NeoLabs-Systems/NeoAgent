@@ -10,6 +10,7 @@
   "files": [
     "bin",
     "lib",
+    "runtime",
     "server",
     "docs",
     "com.neoagent.plist",

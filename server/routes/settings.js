@@ -1,14 +1,12 @@
 const express = require('express');
 const fs = require('fs');
-const path = require('path');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
+const { UPDATE_STATUS_FILE, APP_DIR } = require('../../runtime/paths');
 
 router.use(requireAuth);
-
-const UPDATE_STATUS_FILE = path.join(process.cwd(), 'data', 'update-status.json');
 
 function readUpdateStatus() {
   try {
@@ -189,7 +187,7 @@ router.post('/update', (req, res) => {
   const child = spawn(process.execPath, ['scripts/update-runner.js'], {
     detached: true,
     stdio: 'ignore',
-    cwd: process.cwd()
+    cwd: APP_DIR
   });
 
   child.unref();

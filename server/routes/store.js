@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const { requireAuth } = require('../middleware/auth');
+const { AGENT_DATA_DIR } = require('../../runtime/paths');
 
 router.use(requireAuth);
 
-const SKILLS_DIR = path.join(__dirname, '../../agent-data/skills');
+const SKILLS_DIR = path.join(AGENT_DATA_DIR, 'skills');
 
 // ── Skill catalog ─────────────────────────────────────────────────────────────
 // Each entry: id (becomes filename <id>.md), name, description, category, icon, content
