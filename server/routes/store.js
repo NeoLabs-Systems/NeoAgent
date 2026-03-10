@@ -1048,6 +1048,67 @@ ruby <file>.rb             # Ruby
 
   // ── MAKER ────────────────────────────────────────────────────────────────────
   {
+    id: 'psa-car-controller',
+    name: 'PSA Car Controller',
+    description: 'Control and query a local psa_car_controller instance for vehicle status, charging, climate, locks, lights and trips.',
+    category: 'maker',
+    icon: '🚗',
+    content: `---
+name: psa-car-controller
+description: Control and query a local psa_car_controller instance for vehicle status, charging, climate, locks, lights and trips
+trigger: When the user asks about a Peugeot, Citroen, Opel, Vauxhall or DS vehicle connected through psa_car_controller, including status, charging, preconditioning, locks, horn, lights, trips, charging sessions, battery SOH or settings
+category: maker
+icon: 🚗
+enabled: true
+---
+
+# PSA Car Controller
+
+Use the local [flobz/psa_car_controller](https://github.com/flobz/psa_car_controller) HTTP API. Default base URL: \`http://localhost:5005\`. Only use another host if the user explicitly gives one.
+
+## Request rules
+
+- Use \`http_request\` when available; otherwise use \`curl\`.
+- Default to JSON output and show the exact endpoint you called.
+- If the user does not provide a VIN, call \`GET /settings\` first and infer it from the configured vehicle when possible. If there are multiple vehicles or no VIN is present, ask for the VIN.
+- For read-only status requests, prefer cache when freshness is not important: \`GET /get_vehicleinfo/<VIN>?from_cache=1\`.
+- For live status, use \`GET /get_vehicleinfo/<VIN>\`. If the user wants a refresh from the car first, call \`GET /wakeup/<VIN>\`, wait briefly, then fetch status.
+- For state-changing actions that could be safety-sensitive (unlock, horn, lights, climate, charge stop/start), make sure the user intent is explicit before calling them.
+- If changing settings via \`/settings/<section>\`, mention that the app needs a restart afterward.
+
+## Supported endpoints
+
+- Vehicle state: \`GET /get_vehicleinfo/<VIN>\`
+- Cached vehicle state: \`GET /get_vehicleinfo/<VIN>?from_cache=1\`
+- Wake up / refresh state: \`GET /wakeup/<VIN>\`
+- Start or stop preconditioning: \`GET /preconditioning/<VIN>/1\` or \`/0\`
+- Start or stop charge immediately: \`GET /charge_now/<VIN>/1\` or \`/0\`
+- Set charge stop hour: \`GET /charge_control?vin=<VIN>&hour=<H>&minute=<M>\`
+- Set charge threshold percentage: \`GET /charge_control?vin=<VIN>&percentage=<PERCENT>\`
+- Set scheduled charge hour: \`GET /charge_hour?vin=<VIN>&hour=<H>&minute=<M>\`
+- Honk horn: \`GET /horn/<VIN>/<COUNT>\`
+- Flash lights: \`GET /lights/<VIN>/<DURATION>\`
+- Lock or unlock doors: \`GET /lock_door/<VIN>/1\` or \`/0\`
+- Battery SOH: \`GET /battery/soh/<VIN>\`
+- Charging sessions: \`GET /vehicles/chargings\`
+- Trips: \`GET /vehicles/trips\`
+- Dashboard / root UI: \`GET /\`
+- Read settings: \`GET /settings\`
+- Update settings: \`GET /settings/<section>?key=value\`
+
+## Response format
+
+Reply with:
+- action performed
+- endpoint used
+- status/result
+- key fields from the JSON response
+- any follow-up note, such as restart needed for settings changes
+
+If the API returns an error, include the response body and suggest the next useful check, usually \`/settings\` or a VIN validation.`
+  },
+
+  {
     id: 'bambu-studio-cli',
     name: 'BambuStudio CLI',
     description: 'Slice 3MF/STL files, export G-code and slicing data using BambuStudio on the command line.',
