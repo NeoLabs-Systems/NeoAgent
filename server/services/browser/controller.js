@@ -5,33 +5,114 @@ const { DATA_DIR } = require('../../../runtime/paths');
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 
+const USER_AGENTS = [
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+];
+
+const VIEWPORTS = [
+  { width: 1280, height: 800 },
+  { width: 1366, height: 768 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+];
+
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
 class BrowserController {
   constructor(io) {
     this.io = io;
     this.browser = null;
     this.page = null;
     this.launching = false;
-    this.headless = true; // can be toggled via setHeadless()
+    this.headless = true;
+    this._viewport = VIEWPORTS[0];
+    this._userAgent = USER_AGENTS[0];
   }
 
   async setHeadless(val) {
     const wasHeadless = this.headless;
     this.headless = val !== false && val !== 'false';
-    // Close browser so it relaunches with new setting next time
     if (wasHeadless !== this.headless) {
       await this.close().catch(() => { });
     }
   }
 
-  // Alias used by graceful shutdown in server.js
   async closeBrowser() {
     return this.close();
+  }
+
+  async _applyStealthToPage(page) {
+    const ua = this._userAgent;
+    const vp = this._viewport;
+
+    await page.setUserAgent(ua);
+    await page.setViewport(vp);
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9',
+    });
+
+    // Inject fingerprint overrides before any page script runs
+    await page.evaluateOnNewDocument(`
+      (() => {
+        // Remove webdriver flag
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+
+        // Realistic language/platform
+        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+        Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' });
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${rand(4, 16)} });
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => ${[4, 8, 16][rand(0, 2)]} });
+
+        // Make it look like a real Chrome install
+        window.chrome = {
+          app: { isInstalled: false, InstallState: {}, RunningState: {} },
+          runtime: {},
+          loadTimes: function() {},
+          csi: function() {},
+        };
+
+        // Permissions API — bots often show "denied" for notifications
+        const origQuery = window.navigator.permissions?.query?.bind(navigator.permissions);
+        if (origQuery) {
+          navigator.permissions.query = (parameters) =>
+            parameters.name === 'notifications'
+              ? Promise.resolve({ state: Notification.permission })
+              : origQuery(parameters);
+        }
+
+        // Hide automation plugins gap
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => {
+            const arr = [
+              { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+              { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+              { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+            ];
+            arr.item = i => arr[i];
+            arr.namedItem = n => arr.find(p => p.name === n) || null;
+            arr.refresh = () => {};
+            Object.defineProperty(arr, 'length', { get: () => arr.length });
+            return arr;
+          }
+        });
+      })();
+    `);
   }
 
   async ensureBrowser() {
     if (this.browser && this.browser.isConnected()) return;
     if (this.launching) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await sleep(2000);
       return;
     }
 
@@ -41,29 +122,28 @@ class BrowserController {
       const StealthPlugin = require('puppeteer-extra-plugin-stealth');
       puppeteer.use(StealthPlugin());
 
+      this._userAgent = USER_AGENTS[rand(0, USER_AGENTS.length - 1)];
+      this._viewport = VIEWPORTS[rand(0, VIEWPORTS.length - 1)];
+
       this.browser = await puppeteer.launch({
         headless: this.headless ? 'new' : false,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--window-size=1280,800'
+          '--disable-blink-features=AutomationControlled',
+          '--disable-infobars',
+          '--no-first-run',
+          '--no-default-browser-check',
+          '--lang=en-US,en',
+          `--window-size=${this._viewport.width},${this._viewport.height}`,
         ],
-        defaultViewport: { width: 1280, height: 800 }
+        defaultViewport: this._viewport,
+        ignoreDefaultArgs: ['--enable-automation'],
       });
-      this.page = await this.browser.newPage();
 
-      const userAgents = [
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15'
-      ];
-      const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
-      await this.page.setUserAgent(randomUA);
-      this._currentUserAgent = randomUA;
+      this.page = await this.browser.newPage();
+      await this._applyStealthToPage(this.page);
     } finally {
       this.launching = false;
     }
@@ -73,9 +153,7 @@ class BrowserController {
     await this.ensureBrowser();
     if (!this.page || this.page.isClosed()) {
       this.page = await this.browser.newPage();
-      if (this._currentUserAgent) {
-        await this.page.setUserAgent(this._currentUserAgent);
-      }
+      await this._applyStealthToPage(this.page);
     }
     return this.page;
   }
@@ -114,6 +192,9 @@ class BrowserController {
         await page.waitForSelector(options.waitFor, { timeout: 10000 }).catch(() => { });
       }
 
+      // Simulate human reading delay
+      await sleep(rand(500, 1500));
+
       const title = await page.title();
       const currentUrl = page.url();
 
@@ -126,8 +207,7 @@ class BrowserController {
         const body = document.body;
         if (!body) return '';
         const clone = body.cloneNode(true);
-        const scripts = clone.querySelectorAll('script, style, noscript');
-        scripts.forEach(s => s.remove());
+        clone.querySelectorAll('script, style, noscript').forEach(s => s.remove());
         return clone.innerText.slice(0, 10000);
       });
 
@@ -153,40 +233,39 @@ class BrowserController {
     const page = await this.ensurePage();
 
     try {
+      let target = null;
+
       if (text && !selector) {
         const elements = await page.$$('a, button, [role="button"], input[type="submit"], [onclick]');
-        let found = false;
         for (const el of elements) {
           const elText = await page.evaluate(e => e.innerText || e.value || e.getAttribute('aria-label') || '', el);
           if (elText.toLowerCase().includes(text.toLowerCase())) {
-            await el.click();
-            found = true;
+            target = el;
             break;
           }
         }
-        if (!found) {
-          return { error: `No clickable element found with text: ${text}` };
-        }
+        if (!target) return { error: `No clickable element found with text: ${text}` };
       } else if (selector) {
-        await page.click(selector);
+        target = await page.$(selector);
+        if (!target) return { error: `Element not found: ${selector}` };
       } else {
         return { error: 'Either selector or text required' };
       }
 
-      await new Promise(r => setTimeout(r, 1000));
+      // Human-like: hover first, then click with a hold delay
+      await target.hover();
+      await sleep(rand(80, 250));
+      await target.click({ delay: rand(50, 150) });
+
+      await sleep(rand(800, 1800));
 
       let screenshotResult = null;
-      if (screenshot) {
-        screenshotResult = await this.takeScreenshot();
-      }
-
-      const currentUrl = page.url();
-      const title = await page.title();
+      if (screenshot) screenshotResult = await this.takeScreenshot();
 
       return {
         success: true,
-        url: currentUrl,
-        title,
+        url: page.url(),
+        title: await page.title(),
         screenshotPath: screenshotResult?.screenshotPath || null
       };
     } catch (err) {
@@ -203,21 +282,17 @@ class BrowserController {
         await page.keyboard.press('Backspace');
       }
 
-      // Simulate human typing speeds (between 30ms and 150ms per keystroke)
       for (const char of text) {
-        const charDelay = Math.floor(Math.random() * (150 - 30 + 1) + 30);
-        await page.type(selector, char, { delay: charDelay });
+        await page.type(selector, char, { delay: rand(30, 150) });
       }
 
       if (options.pressEnter) {
         await page.keyboard.press('Enter');
-        await new Promise(r => setTimeout(r, 1000));
+        await sleep(1000);
       }
 
       let screenshotResult = null;
-      if (options.screenshot !== false) {
-        screenshotResult = await this.takeScreenshot();
-      }
+      if (options.screenshot !== false) screenshotResult = await this.takeScreenshot();
 
       return {
         success: true,
@@ -269,7 +344,7 @@ class BrowserController {
   }
 
   async screenshot(options = {}) {
-    return await this.takeScreenshot(options);
+    return this.takeScreenshot(options);
   }
 
   async launch(options = {}) {
