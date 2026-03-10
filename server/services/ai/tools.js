@@ -101,6 +101,21 @@ function getAvailableTools(app) {
             }
         },
         {
+            name: 'web_search',
+            description: 'Search the public web without opening the browser. Uses Brave Search API for fast result retrieval.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'Search query to run' },
+                    count: { type: 'number', description: 'Maximum number of results to return (default 5, max 10)' },
+                    country: { type: 'string', description: 'Optional country code bias, e.g. "US", "DE", "GB"' },
+                    search_lang: { type: 'string', description: 'Optional search language code, e.g. "en", "de"' },
+                    freshness: { type: 'string', enum: ['pd', 'pw', 'pm', 'py'], description: 'Optional recency filter: past day, week, month, or year' }
+                },
+                required: ['query']
+            }
+        },
+        {
             name: 'manage_protocols',
             description: 'Read, list, create, update, or delete text-based protocols (a pre-set list of instructions/actions). If user asks to execute a protocol, you should read it and follow its instructions.',
             parameters: {
@@ -592,6 +607,74 @@ async function executeTool(toolName, args, context, engine) {
             const controller = bc();
             if (!controller) return { error: 'Browser controller not available' };
             return await controller.evaluate(args.script);
+        }
+
+        case 'web_search': {
+            const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+            if (!apiKey) return { error: 'BRAVE_SEARCH_API_KEY is not configured' };
+
+            const controller = new AbortController();
+            const timeoutMs = 20000;
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+            try {
+                const limit = Math.max(1, Math.min(Number(args.count) || 5, 10));
+                const params = new URLSearchParams({
+                    q: args.query,
+                    count: String(limit),
+                    text_decorations: 'false',
+                    result_filter: 'web'
+                });
+
+                if (args.country) params.set('country', String(args.country).toUpperCase());
+                if (args.search_lang) params.set('search_lang', String(args.search_lang).toLowerCase());
+                if (args.freshness) params.set('freshness', args.freshness);
+
+                const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params.toString()}`, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Subscription-Token': apiKey
+                    },
+                    signal: controller.signal
+                });
+
+                const text = await res.text();
+                let data = null;
+                try {
+                    data = JSON.parse(text);
+                } catch {
+                    data = null;
+                }
+
+                if (!res.ok) {
+                    return {
+                        error: `Brave Search API request failed with status ${res.status}`,
+                        details: data || text.slice(0, 1000)
+                    };
+                }
+
+                const rawResults = Array.isArray(data?.web?.results) ? data.web.results : [];
+                const results = rawResults.slice(0, limit).map((item, index) => ({
+                    rank: index + 1,
+                    title: item.title || '',
+                    url: item.url || '',
+                    description: item.description || '',
+                    age: item.age || null,
+                    language: item.language || null,
+                    profile: item.profile?.long_name || item.profile?.name || null
+                }));
+
+                return {
+                    query: args.query,
+                    count: results.length,
+                    results
+                };
+            } catch (err) {
+                if (err.name === 'AbortError') return { error: `Brave Search API request timed out after ${timeoutMs} ms` };
+                return { error: err.message };
+            } finally {
+                clearTimeout(timer);
+            }
         }
 
         case 'manage_protocols': {

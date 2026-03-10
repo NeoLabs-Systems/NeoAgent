@@ -25,6 +25,7 @@ At least one API key is required. The active provider and model are configured i
 | `OPENAI_API_KEY` | GPT-4o / Whisper (OpenAI) |
 | `XAI_API_KEY` | Grok (xAI) |
 | `GOOGLE_AI_KEY` | Gemini (Google) |
+| `BRAVE_SEARCH_API_KEY` | Brave Search API for the native `web_search` tool |
 | `OLLAMA_URL` | Local Ollama (`http://localhost:11434`) |
 
 ### Messaging
