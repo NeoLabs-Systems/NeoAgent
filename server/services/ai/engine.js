@@ -33,7 +33,7 @@ function generateTitle(task) {
  */
 function timeDeltaLabel(ms) {
   const s = Math.round(ms / 1000);
-  if (s < 300) return null; // < 5 min — not noteworthy
+  if (s < 900) return null; // < 15 min — not noteworthy
   if (s < 3600) return `${Math.round(s / 60)} minutes later`;
   if (s < 86400) return `${Math.round(s / 3600)} hour${Math.round(s / 3600) === 1 ? '' : 's'} later`;
   if (s < 604800) return `${Math.round(s / 86400)} day${Math.round(s / 86400) === 1 ? '' : 's'} later`;
@@ -271,7 +271,7 @@ class AgentEngine {
       while (iteration < this.maxIterations) {
         iteration++;
 
-        const needsCompaction = this.estimateTokens(messages) > provider.getContextWindow(model) * 0.85;
+        const needsCompaction = this.estimateTokens(messages) > provider.getContextWindow(model) * 0.75;
         if (needsCompaction) {
           const { compact } = require('./compaction');
           messages = await compact(messages, provider, model);
@@ -361,7 +361,7 @@ class AgentEngine {
             }
 
             db.prepare('UPDATE agent_steps SET status = ?, result = ?, screenshot_path = ?, completed_at = datetime(\'now\') WHERE id = ?')
-              .run('completed', JSON.stringify(toolResult).slice(0, 100000), screenshotPath, stepId);
+              .run('completed', JSON.stringify(toolResult).slice(0, 20000), screenshotPath, stepId);
 
             this.emit(userId, 'run:tool_end', {
               runId, stepId, toolName, result: toolResult, screenshotPath,
@@ -380,7 +380,7 @@ class AgentEngine {
           const toolMessage = {
             role: 'tool',
             tool_call_id: toolCall.id,
-            content: JSON.stringify(toolResult).slice(0, 50000)
+            content: JSON.stringify(toolResult).slice(0, 15000)
           };
           messages.push(toolMessage);
 
@@ -513,7 +513,7 @@ class AgentEngine {
 
   emit(userId, event, data) {
     if (this.io) {
-      this.io.to(`user:${userId} `).emit(event, data);
+      this.io.to(`user:${userId}`).emit(event, data);
     }
   }
 }

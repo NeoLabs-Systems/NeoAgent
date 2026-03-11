@@ -770,13 +770,13 @@ async function executeTool(toolName, args, context, engine) {
                     const end = args.end_line || lines.length;
                     const sliced = lines.slice(start, end).join('\n');
                     return {
-                        content: sliced.length > 50000 ? sliced.slice(0, 50000) + '\n...[truncated]' : sliced,
+                        content: sliced.length > 20000 ? sliced.slice(0, 20000) + '\n...[truncated]' : sliced,
                         totalLines: lines.length,
                         rangeShown: [start + 1, Math.min(end, lines.length)]
                     };
                 }
                 const content = fs.readFileSync(args.path, encoding);
-                return { content: content.length > 50000 ? content.slice(0, 50000) + '\n...[truncated]' : content };
+                return { content: content.length > 20000 ? content.slice(0, 20000) + '\n...[truncated]' : content };
             } catch (err) {
                 return { error: err.message };
             }

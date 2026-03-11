@@ -5,7 +5,7 @@ async function compact(messages, provider, model) {
   // Only compact once history is clearly old enough to avoid touching recent context.
   if (nonSystem.length < 12) return messages;
 
-  const keepRecent = 10;
+  const keepRecent = 6;
   const toCompact = nonSystem.slice(0, -keepRecent);
   const recent = nonSystem.slice(-keepRecent);
 
@@ -33,7 +33,7 @@ async function compact(messages, provider, model) {
   ];
 
   try {
-    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 2000 });
+    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 1000 });
     const summary = response.content || 'Previous conversation context (summary unavailable).';
 
     const compactedMessages = [];
@@ -77,7 +77,7 @@ function estimateTokenCount(messages) {
 
 function shouldCompact(messages, contextWindow) {
   const used = estimateTokenCount(messages);
-  return used > contextWindow * 0.85;
+  return used > contextWindow * 0.75;
 }
 
 module.exports = { compact, estimateTokenCount, shouldCompact };

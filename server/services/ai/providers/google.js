@@ -174,12 +174,19 @@ class GoogleProvider extends BaseProvider {
       }
     }
 
+    const finalResponse = await result.response;
+    const usage = finalResponse.usageMetadata;
+
     yield {
       type: 'done',
       content,
       toolCalls,
       finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
-      usage: null
+      usage: usage ? {
+        promptTokens: usage.promptTokenCount || 0,
+        completionTokens: usage.candidatesTokenCount || 0,
+        totalTokens: usage.totalTokenCount || 0
+      } : null
     };
   }
 }
