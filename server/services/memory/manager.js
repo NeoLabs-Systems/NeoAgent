@@ -11,6 +11,38 @@ const {
 } = require('./embeddings');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 
+/**
+ * Derive the active AI provider name from user settings so the right
+ * embedding model is selected automatically (e.g. Gemini when using Google).
+ */
+function getActiveProvider(userId) {
+  try {
+    const { SUPPORTED_MODELS } = require('../ai/models');
+    const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?)')
+      .all(userId || 1, 'default_chat_model', 'enabled_models');
+
+    let defaultChatModel = null;
+    let enabledIds = null;
+    for (const row of rows) {
+      try {
+        const v = JSON.parse(row.value);
+        if (row.key === 'default_chat_model') defaultChatModel = v;
+        if (row.key === 'enabled_models') enabledIds = v;
+      } catch { }
+    }
+
+    const modelId = defaultChatModel && defaultChatModel !== 'auto'
+      ? defaultChatModel
+      : (Array.isArray(enabledIds) && enabledIds.length > 0 ? enabledIds[0] : null);
+
+    if (modelId) {
+      const def = SUPPORTED_MODELS.find(m => m.id === modelId);
+      if (def) return def.provider;
+    }
+  } catch { }
+  return null;
+}
+
 const DATA_DIR = AGENT_DATA_DIR;
 const SOUL_FILE = path.join(DATA_DIR, 'SOUL.md');
 const API_KEYS_FILE = path.join(DATA_DIR, 'API_KEYS.json');
@@ -42,7 +74,7 @@ class MemoryManager {
     for (const dir of [DATA_DIR, DAILY_DIR, MEMORY_DIR, SKILLS_DIR]) {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     }
-    if (!fs.existsSync(SOUL_FILE))     fs.writeFileSync(SOUL_FILE, DEFAULT_SOUL, 'utf-8');
+    if (!fs.existsSync(SOUL_FILE)) fs.writeFileSync(SOUL_FILE, DEFAULT_SOUL, 'utf-8');
     if (!fs.existsSync(API_KEYS_FILE)) fs.writeFileSync(API_KEYS_FILE, '{}', 'utf-8');
   }
 
@@ -59,7 +91,7 @@ class MemoryManager {
     category = CATEGORIES.includes(category) ? category : 'episodic';
     importance = Math.max(1, Math.min(10, Number(importance) || 5));
 
-    const embedding = await getEmbedding(content);
+    const embedding = await getEmbedding(content, getActiveProvider(userId));
 
     // Dedup check: compare against existing non-archived memories for this user
     const existing = db.prepare(
@@ -112,7 +144,7 @@ class MemoryManager {
 
     if (!all.length) return [];
 
-    const queryVec = await getEmbedding(query);
+    const queryVec = await getEmbedding(query, getActiveProvider(userId));
 
     const scored = all.map(mem => {
       let score = 0;
@@ -170,13 +202,13 @@ class MemoryManager {
     const mem = db.prepare(`SELECT * FROM memories WHERE id = ?`).get(id);
     if (!mem) return null;
 
-    const newContent   = content   ?? mem.content;
+    const newContent = content ?? mem.content;
     const newImportance = importance != null ? Math.max(1, Math.min(10, Number(importance))) : mem.importance;
-    const newCategory  = (category && CATEGORIES.includes(category)) ? category : mem.category;
+    const newCategory = (category && CATEGORIES.includes(category)) ? category : mem.category;
 
     let newEmbed = mem.embedding;
     if (content && content !== mem.content) {
-      const vec = await getEmbedding(newContent);
+      const vec = await getEmbedding(newContent, getActiveProvider(null));
       newEmbed = vec ? serializeEmbedding(vec) : mem.embedding;
     }
 

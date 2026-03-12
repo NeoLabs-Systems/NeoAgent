@@ -5,6 +5,21 @@ if (window.mermaid) {
   mermaid.initialize({ startOnLoad: false, theme: "dark" });
 }
 
+// ── Theme (follows OS preference automatically) ──
+
+function applyTheme(isDark) {
+  document.documentElement.dataset.theme = isDark ? "dark" : "light";
+  if (window.mermaid) {
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default" });
+  }
+}
+
+const _mq = window.matchMedia("(prefers-color-scheme: dark)");
+applyTheme(_mq.matches);
+_mq.addEventListener("change", (e) => applyTheme(e.matches));
+
+
+
 // Global utility to re-run mermaid
 function renderMermaids() {
   if (window.mermaid) {
