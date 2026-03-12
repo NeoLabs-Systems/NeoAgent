@@ -501,7 +501,10 @@
   <div class="modal-overlay hidden" id="settingsModal">
     <div class="modal" style="max-width:550px;">
       <div class="modal-header">
-        <h2>Settings</h2>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <h2>Settings</h2>
+          <span class="badge badge-neutral" id="settingsAppVersion" style="font-size:11px;padding:2px 6px;"></span>
+        </div>
         <button class="btn-ghost" id="closeSettings">&times;</button>
       </div>
       <div class="modal-body">

@@ -1344,6 +1344,10 @@ $("#settingsBtn").addEventListener("click", async () => {
     try {
       const backendVersion = await api("/version");
       backendVersionLabel = `${backendVersion?.version || "unknown"}${backendVersion?.gitSha ? ` (${backendVersion.gitSha})` : ""}`;
+      const vEl = $("#settingsAppVersion");
+      if (vEl && backendVersionLabel !== "unknown") {
+        vEl.textContent = `v${backendVersionLabel}`;
+      }
     } catch {
       backendVersionLabel = "unavailable";
     }
