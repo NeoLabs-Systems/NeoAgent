@@ -3,9 +3,10 @@ const crypto = require('crypto');
 const db = require('../../db/database');
 
 class Scheduler {
-  constructor(io, agentEngine) {
+  constructor(io, agentEngine, app = null) {
     this.io = io;
     this.agentEngine = agentEngine;
+    this.app = app;
     this.jobs = new Map();
     this.heartbeatJob = null;
   }
@@ -95,7 +96,9 @@ class Scheduler {
           const convId = this._getMessagingConversation(user.id);
 
           await this.agentEngine.run(user.id, (prompt?.value || defaultPrompt) + platformHint, {
+            triggerType: 'heartbeat',
             triggerSource: 'heartbeat',
+            app: this.app,
             ...(convId ? { conversationId: convId } : {}),
           });
         }
@@ -246,7 +249,9 @@ class Scheduler {
         const convId = this._getMessagingConversation(userId);
 
         const result = await this.agentEngine.run(userId, config.prompt + notifyHint, {
+          triggerType: 'scheduler',
           triggerSource: 'scheduler',
+          app: this.app,
           ...(convId ? { conversationId: convId } : {}),
           taskId,
         });

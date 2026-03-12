@@ -162,7 +162,7 @@ async function startServices(app, io) {
             await processMessage(userId, msg);
         });
 
-        const scheduler = new Scheduler(io, agentEngine);
+        const scheduler = new Scheduler(io, agentEngine, app);
         app.locals.scheduler = scheduler;
         agentEngine.scheduler = scheduler;
         scheduler.start();
