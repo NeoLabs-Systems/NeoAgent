@@ -318,6 +318,46 @@ Present as a structured git dashboard. Note any uncommitted changes or detached 
   },
 
   {
+    id: 'pdf-toolkit',
+    name: 'PDF Toolkit',
+    description: 'Inspect, extract, split, merge, compress, and rearrange PDF files.',
+    category: 'productivity',
+    icon: '📄',
+    content: `---
+name: pdf-toolkit
+description: Inspect, extract, split, merge, compress, and rearrange PDF files
+category: productivity
+icon: 📄
+enabled: true
+---
+
+Work with PDF files using whatever is available on the machine. Prefer tools in this order when relevant:
+- \`pdfinfo\`, \`pdftotext\`, \`pdftoppm\`, \`pdftocairo\` from Poppler for inspection, text extraction, and page rendering
+- \`qpdf\` for splitting, merging, rotating, decrypting, and page selection
+- \`pdftk\` for merge/split/stamp workflows if available
+- \`mutool\` for extracting text, objects, and cleaning PDFs
+- \`gs\` (Ghostscript) for compression or PDF regeneration
+
+Workflow:
+1. Verify the input file exists.
+2. Check which PDF utilities are installed with \`which\`.
+3. Choose the safest tool for the requested operation.
+4. Write outputs next to the source file unless the user specifies a destination.
+5. Report the output path, page counts, and any limitations clearly.
+
+Common tasks:
+- Inspect a PDF with \`pdfinfo <file.pdf>\`
+- Extract text with \`pdftotext <file.pdf> -\` or \`pdftotext -layout <file.pdf> -\`
+- Merge PDFs with \`qpdf --empty --pages a.pdf b.pdf -- out.pdf\`
+- Split pages with \`qpdf in.pdf --pages in.pdf 1-5 -- out.pdf\`
+- Reorder or remove pages with \`qpdf in.pdf --pages in.pdf 1,3,5-7 -- out.pdf\`
+- Compress via Ghostscript:
+\`gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile=out.pdf in.pdf\`
+
+Preserve the original file unless the user explicitly asks to overwrite it.`
+  },
+
+  {
     id: 'docker-status',
     name: 'Docker Status',
     description: 'List all running and stopped Docker containers with their status.',
@@ -1045,6 +1085,66 @@ ruby <file>.rb             # Ruby
 - Error paths are handled (not silently swallowed)
 - Async code uses proper await / error handling
 - No unused imports or dead code left behind`
+  },
+
+  {
+    id: 'csv-toolkit',
+    name: 'CSV Toolkit',
+    description: 'Inspect, clean, summarize, filter, and transform CSV and TSV files.',
+    category: 'productivity',
+    icon: '📊',
+    content: `---
+name: csv-toolkit
+description: Inspect, clean, summarize, filter, and transform CSV and TSV files
+category: productivity
+icon: 📊
+enabled: true
+---
+
+Work with local CSV or TSV data using lightweight shell tools.
+
+Preferred tools:
+- \`python3\` with the standard \`csv\` module for reliable parsing
+- \`mlr\` (Miller) if installed for fast tabular summaries
+- \`csvkit\` commands such as \`csvlook\`, \`csvcut\`, \`csvstat\`, \`csvgrep\` if installed
+
+Workflow:
+1. Detect delimiter and header structure from the file.
+2. For quick inspection, show row count, column count, header names, and a 5-row preview.
+3. For analysis requests, compute exactly what the user asked for: filtering, grouping, aggregations, sorting, or conversion to JSON or Markdown.
+4. Save transformed output to a sibling file unless the user asked for inline output only.
+
+Avoid naive comma-splitting because quoted fields can break it. If the file is large, sample first and then run the full transform once the operation is clear.`
+  },
+
+  {
+    id: 'markdown-workbench',
+    name: 'Markdown Workbench',
+    description: 'Format, lint, outline, and convert Markdown notes and docs.',
+    category: 'productivity',
+    icon: '📝',
+    content: `---
+name: markdown-workbench
+description: Format, lint, outline, and convert Markdown notes and docs
+category: productivity
+icon: 📝
+enabled: true
+---
+
+Help turn rough notes into usable docs quickly.
+
+Workflow:
+1. Read the source Markdown or note file.
+2. Decide whether the user needs cleanup and formatting, heading structure, summary or outline, checklist extraction, or conversion to HTML or PDF.
+3. Preserve meaning while improving structure and readability.
+
+Common tasks:
+- Normalize headings, lists, code fences, and spacing
+- Pull out tasks into a checklist grouped by topic or urgency
+- Build a short linked outline from headings
+- If available, use \`pandoc\` to convert Markdown to HTML, DOCX, or PDF
+
+Prefer preserving the user's tone unless they ask for a rewrite.`
   },
 
   // ── MAKER ────────────────────────────────────────────────────────────────────

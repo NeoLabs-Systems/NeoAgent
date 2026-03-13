@@ -23,6 +23,10 @@ Skills are Markdown files in `~/.neoagent/agent-data/skills/` by default. They a
 | `tail-log.md` | Tail any log file |
 | `news-hackernews.md` | Fetch Hacker News top stories |
 | `qr-code.md` | Generate QR codes |
+| `pdf-toolkit.md` | Inspect, extract, merge, split, and compress PDF files |
+| `git-summary.md` | Summarize git status, branches, commits, and diffs |
+| `csv-toolkit.md` | Inspect and transform CSV/TSV data files |
+| `markdown-workbench.md` | Clean up, outline, and convert Markdown notes/docs |
 
 ## Adding a skill
 
