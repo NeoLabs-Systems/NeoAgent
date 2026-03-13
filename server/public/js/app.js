@@ -12,6 +12,9 @@ function applyTheme(isDark) {
   if (window.mermaid) {
     mermaid.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default" });
   }
+  if (window.pixelWorld) {
+    window.pixelWorld.syncTheme();
+  }
 }
 
 const _mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -92,7 +95,32 @@ function formatTime(ts) {
 
 // ── Navigation ──
 
-function navigateTo(page) {
+const DEFAULT_PAGE = "chat";
+const VALID_PAGES = new Set([
+  "chat",
+  "world",
+  "messaging",
+  "mcp",
+  "scheduler",
+  "memory",
+  "skills",
+  "protocols",
+  "logs",
+]);
+
+function getPageFromLocation() {
+  const match = window.location.pathname.match(/^\/app\/([^/]+)$/);
+  const candidate = match?.[1] || (window.location.pathname === "/app" ? DEFAULT_PAGE : null);
+  return VALID_PAGES.has(candidate) ? candidate : DEFAULT_PAGE;
+}
+
+function buildPageUrl(page) {
+  return page === DEFAULT_PAGE ? "/app" : `/app/${page}`;
+}
+
+function navigateTo(page, { push = true } = {}) {
+  if (!VALID_PAGES.has(page)) page = DEFAULT_PAGE;
+
   $$(".page").forEach((p) => p.classList.remove("active"));
   $$(".sidebar-btn").forEach((b) => b.classList.remove("active"));
 
@@ -103,22 +131,25 @@ function navigateTo(page) {
     if (btn) btn.classList.add("active");
   }
 
+  if (push) {
+    const nextUrl = buildPageUrl(page);
+    if (window.location.pathname !== nextUrl) {
+      window.history.pushState({ page }, "", nextUrl);
+    }
+  }
+
   if (page === "memory") loadMemoryPage();
   if (page === "skills") loadSkillsPage();
   if (page === "mcp") loadMCPPage();
   if (page === "scheduler") loadSchedulerPage();
   if (page === "messaging") loadMessagingPage();
   if (page === "protocols") loadProtocolsPage();
-  if (page === "activity") {
+  if (page === "world") {
     requestAnimationFrame(() => {
-      ensureTimeline();
-      loadActivityHistory();
-      if (activityTimeline && activityTimeline.stepCount === 0) {
-        api("/agents?limit=1").then(data => {
-          if (data.runs && data.runs.length > 0) {
-            loadRunOnCanvas(data.runs[0].id, data.runs[0].title, data.runs[0].status);
-          }
-        }).catch(console.error);
+      ensureWorld();
+      if (pixelWorld) {
+        pixelWorld.resize();
+        pixelWorld.refreshSummary();
       }
     });
   }
@@ -127,6 +158,10 @@ function navigateTo(page) {
 
 $$(".sidebar-btn[data-page]").forEach((btn) => {
   btn.addEventListener("click", () => navigateTo(btn.dataset.page));
+});
+
+window.addEventListener("popstate", () => {
+  navigateTo(getPageFromLocation(), { push: false });
 });
 
 // ── Chat ──
@@ -170,8 +205,8 @@ function sendMessage() {
   chatMessages.appendChild(thinkingEl);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // Reset activity for new run
-  clearActivity();
+  // Reset world focus for the incoming run
+  resetWorldForNewRun();
 
   socket.emit("agent:run", { task: text });
 }
@@ -350,7 +385,7 @@ function renderMarkdown(text) {
   return html;
 }
 
-// ── Activity Helpers ──
+// ── World Helpers ──
 
 const TOOL_META = {
   execute_command: { icon: "⚡", label: "Terminal", color: "cli" },
@@ -536,374 +571,859 @@ function describeResult(toolName, result) {
   }
 }
 
-// ── Activity Timeline ──
+class PixelWorld {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.buffer = document.createElement("canvas");
+    this.buffer.width = 384;
+    this.buffer.height = 216;
+    this.bctx = this.buffer.getContext("2d");
+    this.dpr = Math.max(1, window.devicePixelRatio || 1);
+    this.tick = 0;
+    this.runId = null;
+    this.runMode = "idle";
+    this.activeTool = null;
+    this.taskLabel = "No active run";
+    this.statusLabel = "Ambient systems nominal";
+    this.totalTools = 0;
+    this.totalMessages = 0;
+    this.helperCounter = 0;
+    this.scanFlash = 0;
+    this.socialPulse = 0;
+    this.errorFlash = 0;
+    this.recentEvents = [];
+    this.historyLoaded = false;
+    this.stepAssignments = new Map();
+    this.structures = [
+      { key: "core", x: 138, y: 78, w: 104, h: 64, color: "#22c55e", glow: 0, label: "Lead Desk" },
+      { key: "browser", x: 20, y: 16, w: 96, h: 80, color: "#3b82f6", glow: 0, label: "Research Corner" },
+      { key: "memory", x: 286, y: 18, w: 82, h: 78, color: "#f59e0b", glow: 0, label: "Archive Wall" },
+      { key: "cli", x: 16, y: 108, w: 108, h: 84, color: "#f97316", glow: 0, label: "Ops Bench" },
+      { key: "social", x: 288, y: 116, w: 80, h: 74, color: "#ec4899", glow: 0, label: "Comms Desk" },
+    ];
+    this.helperSlots = [
+      { x: 134, y: 160 },
+      { x: 250, y: 160 },
+      { x: 164, y: 176 },
+      { x: 222, y: 176 },
+    ];
+    this.mainAgent = {
+      id: "lead-agent",
+      name: "NeoAgent",
+      type: "lead",
+      x: 192,
+      y: 104,
+      tint: "#9ef7dc",
+      phase: 0.8,
+      focus: "core",
+      specialty: "Orchestrating the whole task",
+      status: "Waiting for the next task",
+      lastActive: 0,
+    };
+    this.helpers = [];
+    this.packets = [];
+    this.palette = null;
+    this.officeImages = {
+      dark: this.loadImage("/assets/world-office-dark.png"),
+      light: this.loadImage("/assets/world-office-light.png"),
+    };
+    this.ui = {
+      modePill: $("#worldModePill"),
+      toolPill: $("#worldToolPill"),
+      task: $("#worldTaskValue"),
+      status: $("#worldStatusValue"),
+      mode: $("#worldModeValue"),
+      run: $("#worldRunValue"),
+      tools: $("#worldToolsValue"),
+      helpers: $("#worldHelpersValue"),
+      messages: $("#worldMessagesValue"),
+      agents: $("#worldAgentList"),
+      events: $("#worldEventList"),
+      badge: $("#worldBadge"),
+    };
 
-class ActivityTimeline {
-  constructor(feedEl) {
-    this.feed = feedEl;
-    this.steps = new Map(); // stepId → { el, cardEl }
-    this.stepCount = 0;
+    this.resize = this.resize.bind(this);
+    this.loop = this.loop.bind(this);
+    window.addEventListener("resize", this.resize);
+    this.syncTheme();
+    this.resize();
+    this.renderAgents();
+    this.renderEventList();
+    this.renderHud();
+    requestAnimationFrame(this.loop);
   }
 
-  addNode(stepId, toolName, toolArgs) {
-    if (this.steps.has(stepId)) return this.steps.get(stepId).el;
-    this._clearEmpty();
-    const meta = getToolMeta(toolName);
-    const desc = describeArgs(toolName, toolArgs);
-
-    const stepEl = document.createElement("div");
-    stepEl.className = `atl-step running`;
-    stepEl.dataset.color = meta.color;
-    stepEl.id = `atl-step-${stepId}`;
-
-    const summaryText = desc?.headline
-      ? escapeHtml(desc.headline.slice(0, 120))
-      : escapeHtml(meta.label);
-
-    let urlChip = "";
-    if (toolName === "browser_navigate" && toolArgs?.url) {
-      const u = toolArgs.url;
-      urlChip = `<a class="atl-url-chip" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${escapeHtml(u.length > 80 ? u.slice(0, 80) + "…" : u)}</a>`;
-    }
-
-    stepEl.innerHTML = `
-      <div class="atl-spine">
-        <div class="atl-dot">${meta.icon}</div>
-        <div class="atl-connector"></div>
-      </div>
-      <div class="atl-card open" id="atl-card-${stepId}">
-        <div class="atl-card-head" data-step="${stepId}">
-          <span class="atl-card-label">${escapeHtml(meta.label)}</span>
-          <span class="atl-card-summary">${summaryText}</span>
-          <span class="atl-status-chip running" id="atl-chip-${stepId}">running</span>
-          <span class="atl-toggle">▾</span>
-        </div>
-        <div class="atl-card-body">
-          ${desc?.headline ? `<div class="atl-cmd">${escapeHtml(desc.headline)}</div>` : ""}
-          ${desc?.detail ? `<div class="atl-detail">${escapeHtml(desc.detail)}</div>` : ""}
-          ${urlChip}
-          <div id="atl-result-${stepId}"></div>
-        </div>
-      </div>`;
-
-    this.feed.appendChild(stepEl);
-    this.steps.set(stepId, {
-      el: stepEl,
-      cardEl: stepEl.querySelector(`#atl-card-${stepId}`),
-      isResponse: false,
-    });
-    this.stepCount++;
-
-    // Toggle open/close on header click
-    stepEl.querySelector(".atl-card-head").addEventListener("click", () => {
-      stepEl.querySelector(`#atl-card-${stepId}`).classList.toggle("open");
-    });
-
-    stepEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    return stepEl;
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    const width = Math.max(320, Math.floor(rect.width || this.canvas.clientWidth || 640));
+    const height = Math.max(320, Math.floor(rect.height || this.canvas.clientHeight || 560));
+    this.canvas.width = Math.floor(width * this.dpr);
+    this.canvas.height = Math.floor(height * this.dpr);
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.imageSmoothingEnabled = false;
   }
 
-  updateNode(stepId, toolName, result, screenshotPath, status) {
-    const info = this.steps.get(stepId);
-    if (!info) return;
-
-    const chip = document.getElementById(`atl-chip-${stepId}`);
-    if (chip) {
-      chip.className = `atl-status-chip ${status}`;
-      if (status === "completed") {
-        chip.textContent = "done";
-      } else if (status === "failed") {
-        chip.textContent = "failed";
-      } else {
-        chip.textContent = status; // Keep "running" or "pending"
-      }
-    }
-
-    if (status === "completed" || status === "failed") {
-      info.el.classList.remove("running");
-    }
-    if (status === "failed") info.el.dataset.color = "tool";
-
-    const resultEl = document.getElementById(`atl-result-${stepId}`);
-    if (!resultEl) return;
-
-    // Screenshot
-    if (screenshotPath) {
-      const wrap = document.createElement("div");
-      wrap.className = "atl-screenshot-wrap";
-      const a = document.createElement("a");
-      a.href = screenshotPath;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      const img = document.createElement("img");
-      img.className = "atl-screenshot";
-      img.src = screenshotPath;
-      img.alt = "";
-      img.loading = "lazy";
-      a.appendChild(img);
-      wrap.appendChild(a);
-      resultEl.appendChild(wrap);
-    }
-
-    const rd = describeResult(toolName, result);
-    if (rd) {
-      if (rd.meta) {
-        const m = document.createElement("div");
-        m.className = rd.statusClass
-          ? `atl-http-badge ${rd.statusClass}`
-          : `atl-result-label${rd.type === "error" ? " error" : ""}`;
-        m.textContent = rd.meta;
-        resultEl.appendChild(m);
-      }
-      if (rd.text) {
-        const d = document.createElement("div");
-        d.className =
-          rd.type === "code"
-            ? "atl-code"
-            : rd.type === "error"
-              ? "atl-text error"
-              : rd.type === "success"
-                ? "atl-success"
-                : "atl-text";
-        d.textContent = rd.text;
-        resultEl.appendChild(d);
-      }
-    }
-
-    // Update summary with result snippet
-    const summary = info.el.querySelector(".atl-card-summary");
-    if (summary && rd?.text && rd.type !== "error") {
-      const snippet = rd.text.split("\n")[0].slice(0, 80);
-      if (snippet) summary.textContent = snippet;
-    }
+  syncTheme() {
+    const styles = getComputedStyle(document.documentElement);
+    const isDark = document.documentElement.dataset.theme !== "light";
+    this.palette = {
+      isDark,
+      bg0: styles.getPropertyValue("--bg-0").trim(),
+      bg1: styles.getPropertyValue("--bg-1").trim(),
+      bg2: styles.getPropertyValue("--bg-2").trim(),
+      bg3: styles.getPropertyValue("--bg-3").trim(),
+      text: styles.getPropertyValue("--text-primary").trim(),
+      muted: styles.getPropertyValue("--text-muted").trim(),
+      border: styles.getPropertyValue("--border").trim(),
+      accent: styles.getPropertyValue("--accent").trim(),
+      success: styles.getPropertyValue("--success").trim(),
+      info: styles.getPropertyValue("--info").trim(),
+      warning: styles.getPropertyValue("--warning").trim(),
+      error: styles.getPropertyValue("--error").trim(),
+      floor: isDark ? "#252b31" : "#eceff2",
+      floorAlt: isDark ? "#2e353d" : "#dfe5ea",
+      wall: isDark ? "#151a1f" : "#fcfdff",
+      trim: isDark ? "#0d1115" : "#cfd6de",
+      desk: isDark ? "#4b5563" : "#d1d8e0",
+      deskTop: isDark ? "#667181" : "#e0e5eb",
+      chair: isDark ? "#1b232c" : "#8f9bab",
+      screen: isDark ? "#111827" : "#eff6ff",
+      screenGlow: isDark ? "#60a5fa" : "#2563eb",
+      glass: isDark ? "rgba(120, 162, 219, 0.18)" : "rgba(134, 189, 255, 0.28)",
+      plant: isDark ? "#4ca56f" : "#5fba7f",
+      plantDark: isDark ? "#2a6d48" : "#438e5f",
+      shadow: isDark ? "rgba(0,0,0,0.26)" : "rgba(59,76,94,0.10)",
+      paper: isDark ? "#dbeafe" : "#ffffff",
+      rug: isDark ? "#2f3640" : "#dde4eb",
+      rugLine: isDark ? "#3d4754" : "#c7d1db",
+      wood: isDark ? "#705038" : "#c28d62",
+      coffee: isDark ? "#2b211d" : "#6b4b38",
+    };
   }
 
-  addResponse(content) {
-    if (!content) return;
-    this._clearEmpty();
-
-    const fakeId = `__resp_${Date.now()}`;
-    const stepEl = document.createElement("div");
-    stepEl.className = "atl-step";
-    stepEl.dataset.color = "response";
-    stepEl.id = `atl-step-${fakeId}`;
-    stepEl.innerHTML = `
-      <div class="atl-spine">
-        <div class="atl-dot">✅</div>
-      </div>
-      <div class="atl-card open" id="atl-card-${fakeId}">
-        <div class="atl-card-head" data-step="${fakeId}">
-          <span class="atl-card-label">Response</span>
-          <span class="atl-card-summary" style="font-style:italic;color:var(--text-muted);">final answer</span>
-          <span class="atl-toggle">▾</span>
-        </div>
-        <div class="atl-card-body">
-          <div class="atl-response-body md-content">${renderMarkdown(content)}</div>
-        </div>
-      </div>`;
-
-    this.feed.appendChild(stepEl);
-    this.steps.set(fakeId, {
-      el: stepEl,
-      cardEl: stepEl.querySelector(`#atl-card-${fakeId}`),
-      isResponse: true,
-    });
-
-    stepEl.querySelector(".atl-card-head").addEventListener("click", () => {
-      stepEl.querySelector(`#atl-card-${fakeId}`).classList.toggle("open");
-    });
-
-    stepEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  loadImage(src) {
+    const img = new Image();
+    img.src = src;
+    return img;
   }
 
-  _clearEmpty() {
-    const e = document.getElementById("activityEmpty");
-    if (e) e.style.display = "none";
+  refreshSummary() {
+    if (this.historyLoaded) return;
+    api("/agents?limit=6")
+      .then((data) => {
+        this.historyLoaded = true;
+        const runs = data.runs || [];
+        if (!runs.length || this.runMode !== "idle") return;
+        this.pushEvent("history", `${runs.length} recent runs archived in the background.`);
+      })
+      .catch(() => {});
   }
 
-  clear() {
-    this.steps.clear();
-    this.stepCount = 0;
-    // Remove everything except the empty state placeholder
-    const empty = document.getElementById("activityEmpty");
-    this.feed.innerHTML = "";
-    if (empty) {
-      this.feed.appendChild(empty);
-    }
+  resetForNewRun() {
+    this.runId = null;
+    this.runMode = "idle";
+    this.activeTool = null;
+    this.taskLabel = "No active run";
+    this.statusLabel = "Ambient systems nominal";
+    this.totalTools = 0;
+    this.stepAssignments.clear();
+    this.helpers = [];
+    this.packets.length = 0;
+    this.scanFlash = 0;
+    this.errorFlash = 0;
+    this.mainAgent.focus = "core";
+    this.mainAgent.status = "Waiting for the next task";
+    this.mainAgent.lastActive = this.tick;
+    this.renderAgents();
+    this.renderHud();
   }
-}
 
-let activityTimeline = null;
-let currentActivityRunId = null;
-let currentActivityTimer = null;
-let currentActivityStartTs = null;
+  onRunStart(data) {
+    this.runId = data.runId;
+    this.runMode = "running";
+    this.activeTool = "Boot sequence";
+    this.scanFlash = 1;
+    this.mainAgent.status = "Welcoming a new task";
+    this.mainAgent.lastActive = this.tick;
+    this.pushEvent("run", `${data.title || `Run ${data.runId}`} is now live.`);
+    this.flashStructure("core", 1.2);
+    this.renderAgents();
+    this.renderHud(data.title || `Run ${data.runId}`, "NeoAgent is getting everything set up");
+  }
 
-function startRunTimer() {
-  clearInterval(currentActivityTimer);
-  currentActivityStartTs = Date.now();
-  const el = $("#atlTimer");
-  if (!el) return;
-  el.style.display = "inline-block";
-  el.textContent = "0s";
-  currentActivityTimer = setInterval(() => {
-    const s = Math.round((Date.now() - currentActivityStartTs) / 1000);
-    el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
-  }, 1000);
-}
+  onThinking(data) {
+    this.runMode = "running";
+    this.activeTool = `Thinking step ${data.iteration}`;
+    this.scanFlash = Math.min(1.4, this.scanFlash + 0.18);
+    this.mainAgent.status = `Thinking through step ${data.iteration}`;
+    this.mainAgent.lastActive = this.tick;
+    this.pushEvent("think", `NeoAgent is thinking through step ${data.iteration}.`);
+    this.renderAgents();
+    this.renderHud(undefined, "NeoAgent is planning the next move");
+  }
 
-function stopRunTimer() {
-  clearInterval(currentActivityTimer);
-}
+  onToolStart(data) {
+    this.runMode = "running";
+    this.activeTool = getToolMeta(data.toolName).label;
+    this.totalTools += 1;
+    const structureKey = this.getStructureForTool(data.toolName);
+    const actor = this.assignActor(data.stepId, data.toolName, data.toolArgs, structureKey);
+    const target = this.getStructure(structureKey);
+    this.spawnPacket(actor, target, target.color, data.toolName);
+    this.flashStructure(structureKey, 1.4);
+    this.pushEvent("tool", `${actor.name} is using ${getToolMeta(data.toolName).label.toLowerCase()} for ${this.getShortToolText(data.toolName, data.toolArgs)}.`);
+    this.renderAgents();
+    this.renderHud(undefined, `${actor.name} is working through ${target.label}`);
+  }
 
-function ensureTimeline() {
-  if (activityTimeline) return;
-  const feed = document.getElementById("activityFeed");
-  if (!feed) return;
-  activityTimeline = new ActivityTimeline(feed);
-}
-
-function addActivityNode(stepId, toolName, toolArgs, runId) {
-  if (runId && currentActivityRunId !== runId) return;
-  ensureTimeline();
-  activityTimeline.addNode(stepId, toolName, toolArgs);
-  const badge = $("#activityBadge");
-  if (badge) badge.classList.remove("hidden");
-}
-
-function updateActivityNode(stepId, toolName, result, screenshotPath, status, runId) {
-  if (runId && currentActivityRunId !== runId) return;
-  if (activityTimeline)
-    activityTimeline.updateNode(
-      stepId,
-      toolName,
-      result,
-      screenshotPath,
-      status,
-    );
-}
-
-function addActivityResponse(content, runId) {
-  if (runId && currentActivityRunId !== runId) return;
-  ensureTimeline();
-  if (content) activityTimeline.addResponse(content);
-}
-
-function clearActivity() {
-  if (activityTimeline) activityTimeline.clear();
-
-  const empty = $("#activityEmpty");
-  if (empty) {
-    if (currentActivityRunId) {
-      empty.style.display = "none";
+  onToolEnd(data) {
+    const structureKey = this.getStructureForTool(data.toolName);
+    const actor = this.resolveActorForStep(data.stepId);
+    this.flashStructure(structureKey, data.status === "failed" ? 1.8 : 0.9);
+    if (data.status === "failed") {
+      this.runMode = "failed";
+      this.errorFlash = 1;
+      actor.status = "Hit an issue and is regrouping";
+      actor.lastActive = this.tick;
+      this.pushEvent("fault", `${actor.name} hit a snag while using ${getToolMeta(data.toolName).label.toLowerCase()}.`);
+      this.renderHud(undefined, `${actor.name} ran into an error`);
     } else {
-      empty.style.display = "";
+      actor.status = `Wrapped up ${getToolMeta(data.toolName).label.toLowerCase()}`;
+      actor.lastActive = this.tick;
+      this.pushEvent("sync", `${actor.name} finished ${getToolMeta(data.toolName).label.toLowerCase()} cleanly.`);
+      this.renderHud(undefined, `${actor.name} finished successfully`);
     }
+    this.renderAgents();
+    this.stepAssignments.delete(data.stepId);
   }
-}
 
-// ── Activity History Panel ──
+  onRunComplete(data) {
+    this.runMode = data.status === "failed" ? "failed" : "completed";
+    this.activeTool = data.status === "failed" ? "Recovery" : "Cooling down";
+    this.stepAssignments.clear();
+    this.mainAgent.status =
+      this.runMode === "failed" ? "Comforting the crew and recovering" : "Wrapping up with the crew";
+    this.mainAgent.lastActive = this.tick;
+    for (const helper of this.helpers) {
+      helper.status =
+        this.runMode === "failed" ? "Standing by for retry" : "Heading back after helping";
+    }
+    this.flashStructure("core", this.runMode === "failed" ? 1.6 : 1.2);
+    this.pushEvent(
+      this.runMode === "failed" ? "fault" : "done",
+      data.content ? data.content.slice(0, 90) : this.runMode === "failed" ? "The team is recovering from a failed run." : "The team finished the run."
+    );
+    this.renderAgents();
+    this.renderHud(undefined, this.runMode === "failed" ? "The crew is recovering from a rough run" : "The crew wrapped everything up nicely");
+  }
 
-async function loadActivityHistory() {
-  const list = $("#activitySidebarList");
-  if (!list) return;
-  list.innerHTML = '<div class="activity-empty-text">Loading runs…</div>';
-  try {
-    const data = await api("/agents?limit=30");
-    if (!data.runs || data.runs.length === 0) {
-      list.innerHTML = '<div class="activity-empty-text">No past runs</div>';
+  onRunError(data) {
+    this.runMode = "failed";
+    this.activeTool = "Recovery";
+    this.errorFlash = 1.1;
+    this.mainAgent.status = "Helping the crew recover";
+    for (const helper of this.helpers) {
+      helper.status = "Waiting for new instructions";
+    }
+    this.flashStructure("core", 1.6);
+    this.pushEvent("fault", data.error || "Unknown run error");
+    this.renderAgents();
+    this.renderHud(undefined, data.error || "The crew hit an unexpected error");
+  }
+
+  onMessage(data) {
+    this.totalMessages += 1;
+    this.socialPulse = 1.2;
+    this.flashStructure("social", 1.5);
+    const actor = this.helpers.find((helper) => helper.focus === "social") || this.mainAgent;
+    actor.status = "Greeting a new incoming message";
+    actor.lastActive = this.tick;
+    const target = this.getStructure("social");
+    this.spawnPacket(actor, target, "#ff7db7", "message");
+    this.pushEvent("msg", `${actor.name} noticed a ${data.platform} message: ${String(data.content || "").slice(0, 72)}`);
+    this.renderAgents();
+    this.renderHud(undefined, "A friendly ping just reached the message port");
+  }
+
+  getShortToolText(toolName, toolArgs) {
+    const desc = describeArgs(toolName, toolArgs);
+    return desc?.headline ? desc.headline.slice(0, 58) : "signal received";
+  }
+
+  getStructureForTool(toolName) {
+    if (toolName.startsWith("browser_")) return "browser";
+    if (toolName.startsWith("memory_")) return "memory";
+    if (toolName === "execute_command") return "cli";
+    if (toolName === "send_message" || toolName === "make_call") return "social";
+    return "core";
+  }
+
+  getStructure(key) {
+    return this.structures.find((item) => item.key === key) || this.structures[0];
+  }
+
+  assignActor(stepId, toolName, toolArgs, structureKey) {
+    if (toolName === "spawn_subagent") {
+      const helper = this.spawnHelper(toolArgs, structureKey);
+      this.stepAssignments.set(stepId, helper.id);
+      this.mainAgent.status = `Delegating work to ${helper.name}`;
+      this.mainAgent.lastActive = this.tick;
+      return helper;
+    }
+
+    const specialist = this.helpers
+      .filter((helper) => helper.focus === structureKey)
+      .sort((a, b) => a.lastActive - b.lastActive)[0];
+    const actor = specialist || this.mainAgent;
+    actor.focus = structureKey;
+    actor.status = this.describeFriendlyAction(toolName, toolArgs);
+    actor.lastActive = this.tick;
+    this.stepAssignments.set(stepId, actor.id);
+    return actor;
+  }
+
+  resolveActorForStep(stepId) {
+    const actorId = this.stepAssignments.get(stepId);
+    if (!actorId || actorId === this.mainAgent.id) return this.mainAgent;
+    return this.helpers.find((helper) => helper.id === actorId) || this.mainAgent;
+  }
+
+  spawnHelper(toolArgs, structureKey) {
+    const slot = this.helperSlots[this.helpers.length % this.helperSlots.length];
+    this.helperCounter += 1;
+    const specialty = this.inferHelperSpecialty(toolArgs, structureKey);
+    const focus = this.inferHelperFocus(toolArgs, structureKey);
+    const helper = {
+      id: `helper-${this.helperCounter}`,
+      name: `Scout-${this.helperCounter}`,
+      type: "helper",
+      x: slot.x,
+      y: slot.y,
+      tint: ["#9fd6ff", "#ffd36b", "#ff9dce", "#cdb8ff"][this.helperCounter % 4],
+      phase: 0.5 + this.helperCounter,
+      focus,
+      specialty,
+      status: `Joining the task to help with ${specialty.toLowerCase()}`,
+      lastActive: this.tick,
+    };
+    this.helpers.push(helper);
+    this.spawnPacket(this.mainAgent, helper, helper.tint, "delegate");
+    this.pushEvent("team", `NeoAgent spawned ${helper.name} to help with ${specialty.toLowerCase()}.`);
+    return helper;
+  }
+
+  inferHelperSpecialty(toolArgs, structureKey) {
+    const headline =
+      toolArgs?.task ||
+      toolArgs?.prompt ||
+      toolArgs?.description ||
+      toolArgs?.content ||
+      this.getStructure(structureKey).label;
+    return String(headline).slice(0, 36);
+  }
+
+  inferHelperFocus(toolArgs, fallback) {
+    const text = JSON.stringify(toolArgs || {}).toLowerCase();
+    if (text.includes("browser") || text.includes("web") || text.includes("search") || text.includes("page")) return "browser";
+    if (text.includes("memory") || text.includes("recall") || text.includes("history")) return "memory";
+    if (text.includes("command") || text.includes("shell") || text.includes("terminal") || text.includes("file")) return "cli";
+    if (text.includes("message") || text.includes("call") || text.includes("email")) return "social";
+    return fallback;
+  }
+
+  describeFriendlyAction(toolName, toolArgs) {
+    const headline = this.getShortToolText(toolName, toolArgs);
+    if (toolName === "execute_command") return `Checking the command forge for ${headline}`;
+    if (toolName.startsWith("browser_")) return `Exploring the web for ${headline}`;
+    if (toolName.startsWith("memory_")) return `Digging through memory for ${headline}`;
+    if (toolName === "send_message" || toolName === "make_call") return `Reaching out about ${headline}`;
+    return `Working on ${headline}`;
+  }
+
+  spawnPacket(bot, structure, color, label) {
+    const targetX = structure.x + Math.floor((structure.w || 2) / 2);
+    const targetY = structure.y + ((structure.h || 2) > 2 ? 4 : 0);
+    this.packets.push({
+      x: bot.x,
+      y: bot.y - 4,
+      fromX: bot.x,
+      fromY: bot.y - 4,
+      toX: targetX,
+      toY: targetY,
+      color,
+      label,
+      progress: 0,
+      speed: 0.018 + Math.random() * 0.018,
+    });
+  }
+
+  flashStructure(key, amount) {
+    const structure = this.getStructure(key);
+    structure.glow = Math.max(structure.glow, amount);
+  }
+
+  pushEvent(tag, text) {
+    this.recentEvents.unshift({
+      tag,
+      text,
+      time: new Date(),
+    });
+    this.recentEvents = this.recentEvents.slice(0, 6);
+    if (this.ui.badge) this.ui.badge.classList.remove("hidden");
+    this.renderEventList();
+  }
+
+  renderAgents() {
+    const list = this.ui.agents;
+    if (!list) return;
+    const roster = [this.mainAgent, ...this.helpers];
+    list.innerHTML = roster
+      .map((agent) => `
+        <div class="world-agent-card">
+          <div class="world-agent-topline">
+            <span class="world-agent-title">${escapeHtml(agent.name)}</span>
+            <span class="world-agent-chip ${agent.type === "lead" ? "lead" : "helper"}">${agent.type === "lead" ? "Lead" : "Helper"}</span>
+          </div>
+          <div class="world-agent-meta">${escapeHtml(agent.specialty)}</div>
+          <div class="world-agent-status">${escapeHtml(agent.status)}</div>
+        </div>
+      `)
+      .join("");
+  }
+
+  renderEventList() {
+    const list = this.ui.events;
+    if (!list) return;
+    if (!this.recentEvents.length) {
+      list.innerHTML = '<div class="world-empty-state">The world is idling. Start a task in chat to wake everything up.</div>';
       return;
     }
-    list.innerHTML = "";
-    for (const run of data.runs) {
-      const card = document.createElement("div");
-      card.className = "ahp-run-card";
-      if (currentActivityRunId === run.id) card.classList.add("active");
-      card.dataset.runId = run.id;
-      const d = new Date(run.created_at);
-      const dateStr =
-        d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
-        " " +
-        d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-      let badgeHtml = '';
-      if (run.status === 'running') badgeHtml = '<span class="ahp-run-status running">running</span>';
-      else if (run.status === 'failed') badgeHtml = '<span class="ahp-run-status failed">failed</span>';
-      else badgeHtml = '<span class="ahp-run-status completed">done</span>';
-
-      card.innerHTML = `<div class="ahp-run-title">${escapeHtml(run.title || "Untitled")}</div><div class="ahp-run-meta">${badgeHtml}<span>${dateStr}</span></div>`;
-      card.addEventListener("click", () => {
-        $$(".ahp-run-card.active").forEach((c) => c.classList.remove("active"));
-        card.classList.add("active");
-        loadRunOnCanvas(run.id, run.title, run.status);
-      });
-      list.appendChild(card);
-    }
-  } catch {
-    list.innerHTML = '<div class="activity-empty-text">Failed to load</div>';
+    list.innerHTML = this.recentEvents
+      .map((event) => `
+        <div class="world-event-entry">
+          <div class="world-event-topline">
+            <span class="world-event-tag">${escapeHtml(event.tag)}</span>
+            <span class="world-event-time">${escapeHtml(formatTime(event.time))}</span>
+          </div>
+          <div class="world-event-text">${escapeHtml(event.text)}</div>
+        </div>
+      `)
+      .join("");
   }
-}
 
-const refreshBtn = $("#activityRefreshBtn");
-if (refreshBtn) refreshBtn.addEventListener("click", loadActivityHistory);
+  renderHud(taskText, statusText) {
+    if (taskText) this.taskLabel = taskText;
+    if (statusText) this.statusLabel = statusText;
+    const modeText =
+      this.runMode === "running"
+        ? "Running"
+        : this.runMode === "completed"
+          ? "Complete"
+          : this.runMode === "failed"
+            ? "Fault"
+            : "Idle";
+    if (this.ui.modePill) this.ui.modePill.textContent = modeText;
+    if (this.ui.toolPill) this.ui.toolPill.textContent = this.activeTool || "Awaiting signal";
+    if (this.ui.task) this.ui.task.textContent = this.taskLabel || (this.runId ? `Run ${this.runId}` : "No active run");
+    if (this.ui.status) this.ui.status.textContent = this.statusLabel || this.getAmbientStatus();
+    if (this.ui.mode) this.ui.mode.textContent = modeText;
+    if (this.ui.run) this.ui.run.textContent = this.runId ? String(this.runId) : "None";
+    if (this.ui.tools) this.ui.tools.textContent = String(this.totalTools);
+    if (this.ui.helpers) this.ui.helpers.textContent = String(this.helpers.length);
+    if (this.ui.messages) this.ui.messages.textContent = String(this.totalMessages);
+  }
 
-async function loadRunOnCanvas(runId, runTitle, runStatus) {
-  try {
-    currentActivityRunId = runId;
-    const titleEl = $("#activityRunTitle");
-    if (titleEl) titleEl.textContent = runTitle || `Run ${runId}`;
+  getAmbientStatus() {
+    if (this.runMode === "running") return "The office is busy and everyone is moving work forward";
+    if (this.runMode === "completed") return "The office settled down after a clean handoff";
+    if (this.runMode === "failed") return "The team is regrouping after a rough patch";
+    return "The office is quiet and ready for the next task";
+  }
 
-    // reset badge
-    const badgeEl = $("#atlRunStatus");
-    if (badgeEl) {
-      badgeEl.style.display = "inline-block";
-      badgeEl.className = "atl-run-badge " + (runStatus === "running" ? "running" : "completed");
-      badgeEl.textContent = runStatus || "completed";
+  loop() {
+    this.tick += 1;
+    this.updateSimulation();
+    this.draw();
+    requestAnimationFrame(this.loop);
+  }
+
+  updateSimulation() {
+    this.scanFlash *= 0.97;
+    this.socialPulse *= 0.94;
+    this.errorFlash *= 0.93;
+
+    for (const structure of this.structures) {
+      structure.glow *= 0.94;
     }
 
-    // reset timer view
-    stopRunTimer();
-    const timerEl = $("#atlTimer");
-    if (timerEl) {
-      if (runStatus === "running") {
-        // If it was already running in the background, we might not have a perfect start time,
-        // but we can just start a fresh timer from now or fetch true duration later.
-        startRunTimer();
-      } else {
-        timerEl.style.display = "none";
+    this.mainAgent.phase += 0.025;
+    for (const helper of this.helpers) helper.phase += 0.025;
+
+    this.packets = this.packets.filter((packet) => {
+      packet.progress += packet.speed;
+      packet.x = packet.fromX + (packet.toX - packet.fromX) * packet.progress;
+      packet.y = packet.fromY + (packet.toY - packet.fromY) * packet.progress - Math.sin(packet.progress * Math.PI) * 10;
+      return packet.progress < 1;
+    });
+  }
+
+  draw() {
+    const ctx = this.bctx;
+    const t = this.tick;
+    ctx.clearRect(0, 0, 384, 216);
+    this.drawOffice(ctx);
+    this.drawStructures(ctx);
+    this.drawWalkways(ctx);
+    this.drawBots(ctx, t);
+    this.drawPackets(ctx);
+    this.drawStatusEffects(ctx, t);
+    this.drawScanlines(ctx);
+
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.imageSmoothingEnabled = false;
+    this.ctx.drawImage(this.buffer, 0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.restore();
+  }
+
+  drawOffice(ctx) {
+    const ref = this.palette.isDark ? this.officeImages.dark : this.officeImages.light;
+    if (ref && ref.complete && ref.naturalWidth > 0) {
+      this.drawReferenceImage(ctx, ref, 384, 216);
+      return;
+    }
+
+    const p = this.palette;
+    ctx.fillStyle = p.floor;
+    ctx.fillRect(0, 0, 384, 216);
+
+    ctx.fillStyle = p.floorAlt;
+    for (let y = 0; y < 216; y += 24) {
+      for (let x = (y / 24) % 2 === 0 ? 0 : 12; x < 384; x += 24) {
+        ctx.fillRect(x, y, 12, 12);
       }
     }
 
-    const data = await api(`/agents/${runId}/steps`);
-    clearActivity();
-    ensureTimeline();
+    ctx.fillStyle = p.wall;
+    ctx.fillRect(12, 12, 360, 10);
+    ctx.fillRect(12, 194, 360, 10);
+    ctx.fillRect(12, 22, 10, 172);
+    ctx.fillRect(362, 22, 10, 172);
+    ctx.fillStyle = p.trim;
+    ctx.fillRect(22, 22, 340, 2);
+    ctx.fillRect(22, 192, 340, 2);
+    ctx.fillRect(22, 22, 2, 170);
+    ctx.fillRect(360, 22, 2, 170);
 
-    // Explicitly hide empty block just in case
-    const empty = $("#activityEmpty");
-    if (empty) empty.style.display = "none";
+    ctx.fillStyle = p.glass;
+    this.drawWindow(ctx, 118, 22, 62, 10);
+    this.drawWindow(ctx, 190, 22, 62, 10);
 
-    for (const step of data.steps || []) {
-      let toolInput = {};
-      let result = null;
-      try {
-        toolInput = step.tool_input ? JSON.parse(step.tool_input) : {};
-      } catch { }
-      try {
-        result = step.result ? JSON.parse(step.result) : null;
-      } catch { }
-      activityTimeline.addNode(step.id, step.tool_name, toolInput);
-      activityTimeline.updateNode(
-        step.id,
-        step.tool_name,
-        result,
-        step.screenshot_path || null,
-        step.status,
-      );
+    ctx.fillStyle = p.rug;
+    ctx.fillRect(134, 68, 116, 74);
+    ctx.fillStyle = p.rugLine;
+    for (let x = 140; x < 240; x += 12) ctx.fillRect(x, 74, 2, 62);
+
+    this.drawMeetingTable(ctx, 146, 80);
+    this.drawShelfWall(ctx, 34, 34);
+    this.drawShelfWall(ctx, 318, 34);
+    this.drawCoffeeBar(ctx, 300, 150);
+    this.drawPrinterNook(ctx, 34, 150);
+    this.drawLounge(ctx, 168, 150);
+
+    this.drawPlant(ctx, 30, 30);
+    this.drawPlant(ctx, 346, 30);
+    this.drawPlant(ctx, 30, 178);
+    this.drawPlant(ctx, 346, 178);
+
+    this.drawDeskCluster(ctx, 154, 80, "core");
+    this.drawDeskCluster(ctx, 270, 42, "browser");
+    this.drawDeskCluster(ctx, 56, 42, "memory");
+    this.drawDeskCluster(ctx, 56, 146, "cli");
+    this.drawDeskCluster(ctx, 270, 146, "social");
+  }
+
+  drawReferenceImage(ctx, image, targetWidth, targetHeight) {
+    const imageRatio = image.naturalWidth / image.naturalHeight;
+    const targetRatio = targetWidth / targetHeight;
+
+    let drawWidth = targetWidth;
+    let drawHeight = targetHeight;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (imageRatio > targetRatio) {
+      drawWidth = targetWidth;
+      drawHeight = Math.round(targetWidth / imageRatio);
+      offsetY = Math.floor((targetHeight - drawHeight) / 2);
+    } else {
+      drawHeight = targetHeight;
+      drawWidth = Math.round(targetHeight * imageRatio);
+      offsetX = Math.floor((targetWidth - drawWidth) / 2);
     }
-    if (data.response) activityTimeline.addResponse(data.response);
-  } catch (err) {
-    toast("Failed to load run", "error");
+
+    ctx.fillStyle = this.palette.floor;
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+    ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+  }
+
+  drawPlant(ctx, x, y) {
+    const p = this.palette;
+    ctx.fillStyle = p.wood;
+    ctx.fillRect(x, y + 8, 8, 7);
+    ctx.fillStyle = p.plantDark;
+    ctx.fillRect(x - 2, y + 2, 12, 8);
+    ctx.fillStyle = p.plant;
+    ctx.fillRect(x - 4, y, 16, 7);
+  }
+
+  drawWindow(ctx, x, y, w, h) {
+    const p = this.palette;
+    ctx.fillStyle = p.trim;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = p.glass;
+    ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+    ctx.fillStyle = this.hexToRgba("#ffffff", p.isDark ? 0.12 : 0.3);
+    ctx.fillRect(x + 8, y + 2, 2, h - 4);
+    ctx.fillRect(x + 24, y + 2, 2, h - 4);
+    ctx.fillRect(x + 40, y + 2, 2, h - 4);
+  }
+
+  drawMeetingTable(ctx, x, y) {
+    const p = this.palette;
+    ctx.fillStyle = p.shadow;
+    ctx.fillRect(x + 4, y + 38, 92, 4);
+    ctx.fillStyle = p.wood;
+    ctx.fillRect(x, y, 100, 38);
+    ctx.fillStyle = p.paper;
+    ctx.fillRect(x + 12, y + 10, 18, 10);
+    ctx.fillRect(x + 68, y + 10, 18, 10);
+    ctx.fillStyle = p.chair;
+    ctx.fillRect(x - 8, y + 6, 8, 10);
+    ctx.fillRect(x - 8, y + 22, 8, 10);
+    ctx.fillRect(x + 100, y + 6, 8, 10);
+    ctx.fillRect(x + 100, y + 22, 8, 10);
+  }
+
+  drawShelfWall(ctx, x, y) {
+    const p = this.palette;
+    ctx.fillStyle = p.trim;
+    ctx.fillRect(x, y, 34, 44);
+    ctx.fillStyle = p.wood;
+    for (let y0 = y + 4; y0 < y + 40; y0 += 12) {
+      ctx.fillRect(x + 2, y0, 30, 2);
+    }
+    ctx.fillStyle = p.warning;
+    ctx.fillRect(x + 5, y + 7, 5, 7);
+    ctx.fillRect(x + 12, y + 7, 4, 7);
+    ctx.fillRect(x + 18, y + 7, 6, 7);
+    ctx.fillRect(x + 8, y + 19, 6, 7);
+    ctx.fillRect(x + 18, y + 19, 4, 7);
+    ctx.fillRect(x + 12, y + 31, 5, 7);
+    ctx.fillRect(x + 20, y + 31, 7, 7);
+  }
+
+  drawCoffeeBar(ctx, x, y) {
+    const p = this.palette;
+    ctx.fillStyle = p.deskTop;
+    ctx.fillRect(x, y, 44, 24);
+    ctx.fillStyle = p.coffee;
+    ctx.fillRect(x + 4, y + 4, 14, 12);
+    ctx.fillStyle = p.paper;
+    ctx.fillRect(x + 24, y + 5, 6, 8);
+    ctx.fillRect(x + 32, y + 7, 5, 6);
+  }
+
+  drawPrinterNook(ctx, x, y) {
+    const p = this.palette;
+    ctx.fillStyle = p.deskTop;
+    ctx.fillRect(x, y, 42, 24);
+    ctx.fillStyle = p.screen;
+    ctx.fillRect(x + 7, y + 5, 20, 10);
+    ctx.fillStyle = p.paper;
+    ctx.fillRect(x + 12, y + 2, 10, 5);
+    ctx.fillRect(x + 30, y + 8, 7, 5);
+  }
+
+  drawLounge(ctx, x, y) {
+    const p = this.palette;
+    ctx.fillStyle = p.rug;
+    ctx.fillRect(x, y, 48, 30);
+    ctx.fillStyle = p.chair;
+    ctx.fillRect(x + 4, y + 8, 14, 14);
+    ctx.fillRect(x + 30, y + 8, 14, 14);
+    ctx.fillStyle = p.wood;
+    ctx.fillRect(x + 20, y + 11, 8, 8);
+  }
+
+  drawDeskCluster(ctx, x, y, key) {
+    const p = this.palette;
+    const structure = this.getStructure(key);
+    ctx.fillStyle = p.shadow;
+    ctx.fillRect(x - 4, y + structure.h + 2, structure.w + 8, 4);
+    ctx.fillStyle = p.deskTop;
+    ctx.fillRect(x, y, structure.w, structure.h);
+    ctx.fillStyle = p.desk;
+    ctx.fillRect(x + 4, y + 4, structure.w - 8, structure.h - 8);
+    ctx.fillStyle = p.screen;
+    ctx.fillRect(x + 8, y + 8, structure.w - 16, 10);
+    ctx.fillStyle = p.screenGlow;
+    ctx.fillRect(x + 10, y + 10, structure.w - 20, 4);
+    ctx.fillStyle = p.paper;
+    ctx.fillRect(x + 10, y + structure.h - 12, 10, 6);
+    ctx.fillStyle = p.chair;
+    ctx.fillRect(x + Math.floor(structure.w / 2) - 8, y + structure.h + 2, 16, 8);
+    if (key === "memory") {
+      ctx.fillStyle = p.warning;
+      ctx.fillRect(x + structure.w - 18, y + 22, 10, 6);
+    } else if (key === "browser") {
+      ctx.fillStyle = p.info;
+      ctx.fillRect(x + structure.w - 18, y + 22, 10, 6);
+    } else if (key === "social") {
+      ctx.fillStyle = "#ec4899";
+      ctx.fillRect(x + structure.w - 18, y + 22, 10, 6);
+    } else if (key === "cli") {
+      ctx.fillStyle = "#f97316";
+      ctx.fillRect(x + structure.w - 18, y + 22, 10, 6);
+    } else {
+      ctx.fillStyle = p.success;
+      ctx.fillRect(x + structure.w - 18, y + 22, 10, 6);
+    }
+  }
+
+  drawStructures(ctx) {
+    for (const structure of this.structures) {
+      const glowSize = Math.floor(structure.glow * 7);
+      if (glowSize > 0) {
+        ctx.fillStyle = this.hexToRgba(structure.color, 0.18);
+        ctx.fillRect(structure.x - glowSize, structure.y - glowSize, structure.w + glowSize * 2, structure.h + glowSize * 2);
+      }
+      if (structure.glow > 0.08) {
+        ctx.fillStyle = this.hexToRgba(structure.color, 0.18 + structure.glow * 0.08);
+        ctx.fillRect(structure.x, structure.y, structure.w, 3);
+      }
+    }
+  }
+
+  drawWalkways(ctx) {
+    const core = this.getStructure("core");
+    for (const structure of this.structures) {
+      if (structure.key === "core") continue;
+      const x1 = core.x + Math.floor(core.w / 2);
+      const y1 = core.y + core.h - 2;
+      const x2 = structure.x + Math.floor(structure.w / 2);
+      const y2 = structure.y + Math.floor(structure.h / 2);
+      ctx.fillStyle = this.hexToRgba(structure.color, 0.06 + structure.glow * 0.08);
+      for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x += 6) {
+        ctx.fillRect(x, y1, 2, 2);
+      }
+      for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y += 6) {
+        ctx.fillRect(x2, y, 2, 2);
+      }
+    }
+  }
+
+  drawBots(ctx, t) {
+    const leadBounce = Math.sin(t * 0.08 + this.mainAgent.phase) > 0 ? 0 : 1;
+    this.drawBot(ctx, this.mainAgent.x, this.mainAgent.y - leadBounce, this.mainAgent.tint, true, true);
+    for (const helper of this.helpers) {
+      const bounce = Math.sin(t * 0.08 + helper.phase) > 0 ? 0 : 1;
+      this.drawBot(ctx, helper.x, helper.y - bounce, helper.tint, helper.lastActive + 80 > this.tick, false);
+    }
+  }
+
+  drawBot(ctx, x, y, tint, active, isLead = false) {
+    const p = this.palette;
+    if (isLead) {
+      ctx.fillStyle = this.hexToRgba(p.success, 0.18);
+      ctx.fillRect(x - 12, y - 15, 24, 20);
+    }
+    ctx.fillStyle = p.shadow;
+    ctx.fillRect(x - 8, y + 8, 16, 4);
+    ctx.fillStyle = "#111318";
+    ctx.fillRect(x - 7, y - 6, 14, 12);
+    ctx.fillStyle = tint;
+    ctx.fillRect(x - 6, y - 5, 12, 10);
+    ctx.fillStyle = this.hexToRgba("#ffffff", 0.18);
+    ctx.fillRect(x - 5, y - 4, 10, 2);
+    ctx.fillStyle = p.paper;
+    ctx.fillRect(x - 3, y - 1, 2, 2);
+    ctx.fillRect(x + 1, y - 1, 2, 2);
+    ctx.fillStyle = active ? p.success : p.chair;
+    ctx.fillRect(x - 4, y + 5, 8, 3);
+    ctx.fillRect(x - 7, y + 1, 3, 2);
+    ctx.fillRect(x + 4, y + 1, 3, 2);
+    ctx.fillStyle = "#111318";
+    ctx.fillRect(x - 4, y + 8, 2, 3);
+    ctx.fillRect(x + 2, y + 8, 2, 3);
+    if (isLead) {
+      ctx.fillStyle = p.success;
+      ctx.fillRect(x - 2, y - 9, 4, 3);
+    }
+  }
+
+  drawPackets(ctx) {
+    for (const packet of this.packets) {
+      ctx.fillStyle = packet.color;
+      ctx.fillRect(Math.round(packet.x), Math.round(packet.y), 4, 4);
+      ctx.fillStyle = this.palette.paper;
+      ctx.fillRect(Math.round(packet.x) + 1, Math.round(packet.y) + 1, 2, 2);
+    }
+  }
+
+  drawStatusEffects(ctx, t) {
+    const p = this.palette;
+    if (this.scanFlash > 0.02) {
+      ctx.fillStyle = this.hexToRgba(p.info, Math.min(0.08, this.scanFlash * 0.06));
+      const x = 24 + ((t * 2) % 320);
+      ctx.fillRect(x, 20, 8, 176);
+    }
+    if (this.socialPulse > 0.02) {
+      ctx.fillStyle = this.hexToRgba("#ec4899", Math.min(0.1, this.socialPulse * 0.08));
+      ctx.fillRect(284, 122, 72, 62);
+    }
+    if (this.errorFlash > 0.02) {
+      ctx.fillStyle = this.hexToRgba(p.error, Math.min(0.1, this.errorFlash * 0.1));
+      ctx.fillRect(0, 0, 384, 216);
+    }
+  }
+
+  drawScanlines(ctx) {
+    ctx.fillStyle = this.palette.isDark ? "rgba(4, 8, 14, 0.015)" : "rgba(255, 255, 255, 0.015)";
+    for (let y = 0; y < 216; y += 4) {
+      ctx.fillRect(0, y, 384, 1);
+    }
+  }
+
+  hexToRgba(hex, alpha) {
+    const clean = hex.replace("#", "");
+    const value = parseInt(clean, 16);
+    const r = (value >> 16) & 255;
+    const g = (value >> 8) & 255;
+    const b = value & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 }
+
+let pixelWorld = null;
+
+function ensureWorld() {
+  if (pixelWorld) return;
+  const canvas = document.getElementById("worldCanvas");
+  if (!canvas) return;
+  pixelWorld = new PixelWorld(canvas);
+  window.pixelWorld = pixelWorld;
+}
+
+function resetWorldForNewRun() {
+  ensureWorld();
+  if (pixelWorld) pixelWorld.resetForNewRun();
+}
+
+ensureWorld();
+navigateTo(getPageFromLocation(), { push: false });
 
 // ── Socket Events ──
 
@@ -915,46 +1435,30 @@ socket.on("run:start", (data) => {
     backgroundRunIds.add(data.runId);
     return;
   }
-  setTimeout(loadActivityHistory, 100);
-  currentActivityRunId = data.runId;
-  const titleEl = $("#activityRunTitle");
-  if (titleEl) titleEl.textContent = data.title || `Run ${data.runId}`;
-
-  const badgeEl = $("#atlRunStatus");
-  if (badgeEl) {
-    badgeEl.style.display = "inline-block";
-    badgeEl.className = "atl-run-badge running";
-    badgeEl.textContent = "running";
-  }
-
-  clearActivity();
-  ensureTimeline();
-  startRunTimer();
+  ensureWorld();
+  if (pixelWorld) pixelWorld.onRunStart(data);
 });
 
 socket.on("run:thinking", (data) => {
   if (backgroundRunIds.has(data.runId)) return;
   const textEl = $("#thinkingText");
   if (textEl) textEl.textContent = `Thinking… (step ${data.iteration})`;
+  ensureWorld();
+  if (pixelWorld) pixelWorld.onThinking(data);
 });
 
 socket.on("run:tool_start", (data) => {
   if (backgroundRunIds.has(data.runId)) return;
-  addActivityNode(data.stepId, data.toolName, data.toolArgs, data.runId);
+  ensureWorld();
+  if (pixelWorld) pixelWorld.onToolStart(data);
   const textEl = $("#thinkingText");
   if (textEl) textEl.textContent = `${data.toolName}…`;
 });
 
 socket.on("run:tool_end", (data) => {
   if (backgroundRunIds.has(data.runId)) return;
-  updateActivityNode(
-    data.stepId,
-    data.toolName,
-    data.result,
-    data.screenshotPath,
-    data.status,
-    data.runId
-  );
+  ensureWorld();
+  if (pixelWorld) pixelWorld.onToolEnd(data);
 });
 
 socket.on("run:stream", (data) => {
@@ -1022,31 +1526,12 @@ socket.on("run:complete", (data) => {
       appendMessage("assistant", data.content);
     }
 
-    addActivityResponse(data.content, data.runId);
-
-    if (currentActivityRunId === data.runId) {
-      const badgeEl = $("#atlRunStatus");
-      if (badgeEl) {
-        badgeEl.className = "atl-run-badge " + (data.status || "completed");
-        badgeEl.textContent = data.status || "completed";
-      }
-      stopRunTimer();
-
-      // Collapse old steps for cleaner view
-      if (activityTimeline) {
-        for (const [, info] of activityTimeline.steps) {
-          if (!info.isResponse && info.cardEl && info.cardEl.classList.contains("open")) {
-            const hadError = info.cardEl.querySelector(".atl-text.error");
-            if (!hadError) info.cardEl.classList.remove("open");
-          }
-        }
-      }
-    }
+    ensureWorld();
+    if (pixelWorld) pixelWorld.onRunComplete(data);
 
     isStreaming = false;
     sendBtn.disabled = false;
   }
-  setTimeout(loadActivityHistory, 100);
 });
 
 socket.on("chat:cleared", () => {
@@ -1059,8 +1544,8 @@ socket.on("run:error", (data) => {
   if (thinking) thinking.remove();
   const errMsg = data.error || "Unknown error";
   appendMessage("assistant", `❌ ${errMsg}`);
-  const badge = $("#activityBadge");
-  if (badge) badge.classList.remove("hidden");
+  ensureWorld();
+  if (pixelWorld) pixelWorld.onRunError(data);
   isStreaming = false;
   sendBtn.disabled = false;
   toast(errMsg, "error");
@@ -1071,27 +1556,15 @@ socket.on("run:interim", (data) => {
   const textEl = $("#thinkingText");
   if (textEl) textEl.textContent = data.message;
   appendInterimMessage(data.message);
+  ensureWorld();
+  if (pixelWorld) pixelWorld.pushEvent("note", data.message);
 });
 
-// Incoming social message → show in chat + activity canvas
+// Incoming social message → show in chat + world visualization
 socket.on("messaging:message", (data) => {
   appendSocialMessage(data.platform, "user", data.content, data.senderName);
-  ensureTimeline();
-  const stepId = `msg-${Date.now()}`;
-  activityTimeline.addNode(stepId, "send_message", {
-    platform: data.platform,
-    to: data.chatId,
-    content: data.content,
-  });
-  activityTimeline.updateNode(
-    stepId,
-    "send_message",
-    { received: true, from: data.senderName },
-    null,
-    "completed",
-  );
-  const badge = $("#activityBadge");
-  if (badge) badge.classList.remove("hidden");
+  ensureWorld();
+  if (pixelWorld) pixelWorld.onMessage(data);
 });
 
 // ── Logs Tab ──
@@ -1173,12 +1646,12 @@ if (copyLogsBtn) {
         debugText += `[${sender}]\\n${content.trim()}\\n\\n`;
       });
 
-      debugText += "--- ACTIVITY TIMELINE ---\\n";
-      const nodes = document.querySelectorAll(".node-view");
-      nodes.forEach((n) => {
-        const title = n.querySelector(".node-title")?.innerText || "Node";
+      debugText += "--- WORLD EVENT FEED ---\\n";
+      const entries = document.querySelectorAll(".world-event-entry");
+      entries.forEach((entry) => {
+        const title = entry.querySelector(".world-event-tag")?.innerText || "EVENT";
         const details =
-          n.querySelector(".node-details")?.innerText || "No details";
+          entry.querySelector(".world-event-text")?.innerText || "No details";
         debugText += `${title}\\n${details}\\n\\n`;
       });
 

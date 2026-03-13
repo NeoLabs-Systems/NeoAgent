@@ -40,13 +40,21 @@
           </svg>
           Chat
         </button>
-        <button class="sidebar-btn" data-page="activity" id="activityNavBtn">
+        <button class="sidebar-btn" data-page="world" id="worldNavBtn">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            <path d="M12 2v4" />
+            <path d="M12 18v4" />
+            <path d="M4.93 4.93l2.83 2.83" />
+            <path d="M16.24 16.24l2.83 2.83" />
+            <path d="M2 12h4" />
+            <path d="M18 12h4" />
+            <path d="M4.93 19.07l2.83-2.83" />
+            <path d="M16.24 7.76l2.83-2.83" />
+            <circle cx="12" cy="12" r="4" />
           </svg>
-          Activity
-          <span class="activity-badge hidden" id="activityBadge"></span>
+          World
+          <span class="world-badge hidden" id="worldBadge"></span>
         </button>
         <div class="sidebar-divider"></div>
         <button class="sidebar-btn" data-page="messaging">
@@ -174,48 +182,94 @@
         </div>
       </div>
 
-      <!-- Activity Page -->
-      <div class="page" id="page-activity">
-        <div class="activity-container">
-          <!-- Left Sidebar: Run History -->
-          <div class="activity-sidebar" id="activitySidebar">
-            <div class="activity-sidebar-header">
-              <h2>Run History</h2>
-              <button class="btn-ghost" id="activityRefreshBtn" title="Refresh">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 2v6h-6"></path>
-                  <path d="M3 12a9 9 0 1 0 2.81-6.73L3 8"></path>
-                  <path d="M3 22v-6h6"></path>
-                  <path d="M21 12a9 9 0 1 0-2.81 6.73L21 16"></path>
-                </svg>
-              </button>
-            </div>
-            <div class="activity-sidebar-list" id="activitySidebarList">
-              <div class="activity-empty-text">Loading runs...</div>
-            </div>
-          </div>
-
-          <!-- Right Main Area: Timeline -->
-          <div class="activity-main" id="activityMain">
-            <div class="activity-main-header">
-              <h2 id="activityRunTitle">Select a run</h2>
-              <div class="activity-main-actions">
-                <span class="atl-run-timer" id="atlTimer" style="display:none;">0s</span>
-                <span class="atl-run-badge" id="atlRunStatus" style="display:none;"></span>
-              </div>
-            </div>
-            <div class="atl-viewport" id="activityFeedWrap">
-              <div class="atl-feed" id="activityFeed">
-                <div class="atl-empty" id="activityEmpty">
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                  </svg>
-                  <p>No run selected</p>
-                  <span>Pick a past run or start a new task in chat.</span>
+      <!-- World Page -->
+      <div class="page" id="page-world">
+        <div class="world-page">
+          <div class="world-layout">
+            <section class="world-stage-card">
+              <div class="world-stage-frame">
+                <canvas id="worldCanvas" class="world-canvas" aria-label="NeoAgent world visualization"></canvas>
+                <div class="world-stage-overlay">
+                  <div class="world-overlay-group">
+                    <span class="world-pill" id="worldModePill">Idle</span>
+                    <span class="world-pill subtle" id="worldToolPill">Awaiting signal</span>
+                  </div>
+                  <div class="world-overlay-chip">
+                    <span class="world-overlay-label">Task</span>
+                    <span class="world-overlay-value" id="worldTaskValue">No active run</span>
+                  </div>
+                  <div class="world-overlay-chip">
+                    <span class="world-overlay-label">Status</span>
+                    <span class="world-overlay-value" id="worldStatusValue">Ambient systems nominal</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
+
+            <aside class="world-hud">
+              <div class="world-panel">
+                <div class="world-panel-header">
+                  <h2>Live Signals</h2>
+                  <span class="world-panel-kicker">Realtime</span>
+                </div>
+                <div class="world-stats-grid">
+                  <div class="world-stat">
+                    <span class="world-stat-label">Mode</span>
+                    <strong class="world-stat-value" id="worldModeValue">Idle</strong>
+                  </div>
+                  <div class="world-stat">
+                    <span class="world-stat-label">Run</span>
+                    <strong class="world-stat-value" id="worldRunValue">None</strong>
+                  </div>
+                  <div class="world-stat">
+                    <span class="world-stat-label">Tools</span>
+                    <strong class="world-stat-value" id="worldToolsValue">0</strong>
+                  </div>
+                  <div class="world-stat">
+                    <span class="world-stat-label">Helpers</span>
+                    <strong class="world-stat-value" id="worldHelpersValue">0</strong>
+                  </div>
+                  <div class="world-stat">
+                    <span class="world-stat-label">Messages</span>
+                    <strong class="world-stat-value" id="worldMessagesValue">0</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="world-panel">
+                <div class="world-panel-header">
+                  <h2>Crew</h2>
+                  <span class="world-panel-kicker">Lead + Helpers</span>
+                </div>
+                <div class="world-agent-list" id="worldAgentList">
+                  <div class="world-empty-state">NeoAgent will show up here as the lead, and helper agents appear when a sub-agent is spawned.</div>
+                </div>
+              </div>
+
+              <div class="world-panel">
+                <div class="world-panel-header">
+                  <h2>Event Feed</h2>
+                  <span class="world-panel-kicker">Latest 6</span>
+                </div>
+                <div class="world-event-list" id="worldEventList">
+                  <div class="world-empty-state">The world is idling. Start a task in chat to wake everything up.</div>
+                </div>
+              </div>
+
+              <div class="world-panel">
+                <div class="world-panel-header">
+                  <h2>Structures</h2>
+                  <span class="world-panel-kicker">Role Map</span>
+                </div>
+                <div class="world-legend">
+                  <div class="world-legend-item"><span class="swatch core"></span> Core tower</div>
+                  <div class="world-legend-item"><span class="swatch browser"></span> Browser dock</div>
+                  <div class="world-legend-item"><span class="swatch memory"></span> Memory archive</div>
+                  <div class="world-legend-item"><span class="swatch cli"></span> Command forge</div>
+                  <div class="world-legend-item"><span class="swatch social"></span> Message port</div>
+                </div>
+              </div>
+            </aside>
           </div>
         </div>
       </div>
