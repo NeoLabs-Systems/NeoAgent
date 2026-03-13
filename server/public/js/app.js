@@ -2342,8 +2342,16 @@ document.querySelectorAll("[data-skills-tab]").forEach((tab) => {
   });
 });
 
-async function loadSkillStore() {
+async function loadSkillStore(options = {}) {
   const wrap = $("#skillStore");
+  const pageBody = wrap.closest(".page-body");
+  const shouldPreserveState = !!options.preserveState;
+  const previousState = {
+    filter: wrap.dataset.storeFilter || "",
+    pageScrollTop: pageBody ? pageBody.scrollTop : 0,
+    panelScrollTop: wrap.scrollTop || 0,
+  };
+
   wrap.innerHTML = '<div class="empty-state"><p>Loading store…</p></div>';
   try {
     const items = await api("/store");
@@ -2374,6 +2382,7 @@ async function loadSkillStore() {
     searchInp.type = "text";
     searchInp.className = "input";
     searchInp.placeholder = "Search skills…";
+    searchInp.value = previousState.filter;
     searchRow.appendChild(searchInp);
     wrap.appendChild(searchRow);
 
@@ -2431,11 +2440,12 @@ async function loadSkillStore() {
           '<div class="empty-state"><p>No matching skills</p></div>';
     }
 
-    renderStore("");
+    renderStore(previousState.filter.trim().toLowerCase());
 
-    searchInp.addEventListener("input", () =>
-      renderStore(searchInp.value.trim().toLowerCase()),
-    );
+    searchInp.addEventListener("input", () => {
+      wrap.dataset.storeFilter = searchInp.value;
+      renderStore(searchInp.value.trim().toLowerCase());
+    });
 
     cardsWrap.addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-store-action]");
@@ -2451,12 +2461,19 @@ async function loadSkillStore() {
           await api(`/store/${storeId}/uninstall`, { method: "DELETE" });
           toast("Skill removed", "info");
         }
-        await loadSkillStore(); // refresh
+        await loadSkillStore({ preserveState: true }); // refresh without jumping back to top
       } catch (err) {
         toast("Error: " + err.message, "error");
         btn.disabled = false;
       }
     });
+
+    if (shouldPreserveState) {
+      requestAnimationFrame(() => {
+        if (pageBody) pageBody.scrollTop = previousState.pageScrollTop;
+        wrap.scrollTop = previousState.panelScrollTop;
+      });
+    }
   } catch (err) {
     wrap.innerHTML =
       '<div class="empty-state"><p>Failed to load store</p></div>';
