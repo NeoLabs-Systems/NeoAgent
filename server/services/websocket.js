@@ -1,5 +1,8 @@
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
+const { getProviderForUser } = require('./ai/engine');
+const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
+const { getWebChatContext, refreshWebChatSummary, clearWebChatSummary } = require('./ai/history');
 
 function setupWebSocket(io, services) {
   const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager } = services;
@@ -31,6 +34,7 @@ function setupWebSocket(io, services) {
             case 'new':
             case 'clear':
               db.prepare('DELETE FROM conversation_history WHERE user_id = ?').run(userId);
+              clearWebChatSummary(userId);
               socket.emit('chat:cleared');
               {
                 const resetResult = await agentEngine.run(userId, 'context was just cleared. say something very brief (1-2 sentences max) acknowledging the fresh start, in your own style. no tools needed.', {});
@@ -61,17 +65,26 @@ function setupWebSocket(io, services) {
         db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
           .run(userId, 'user', task, JSON.stringify({ platform: 'web' }));
 
-        const priorMessages = db.prepare(
-          'SELECT role, content FROM conversation_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 30'
-        ).all(userId).reverse();
-        const prior = priorMessages.filter(m => !(m.role === 'user' && m.content === task)).slice(-29);
+        ensureDefaultAiSettings(userId);
+        const aiSettings = getAiSettings(userId);
+        const webContext = getWebChatContext(userId, aiSettings.chat_history_window);
+        const prior = webContext.recentMessages.filter((m) => !(m.role === 'user' && m.content === task)).slice(-aiSettings.chat_history_window);
 
-        const result = await agentEngine.run(userId, task, { ...options, priorMessages: prior });
+        const result = await agentEngine.run(userId, task, {
+          ...options,
+          priorMessages: prior,
+          priorSummary: webContext.summary
+        });
 
         if (result?.content) {
           db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
             .run(userId, result.runId, 'assistant', result.content, JSON.stringify({ tokens: result.totalTokens }));
         }
+
+        const { provider, model } = getProviderForUser(userId, task, false, options?.model || null);
+        refreshWebChatSummary(userId, provider, model, aiSettings.chat_history_window).catch((summaryErr) => {
+          console.error('[WS] Web summary refresh failed:', summaryErr.message);
+        });
       } catch (err) {
         socket.emit('run:error', { error: sanitizeError(err) });
       }

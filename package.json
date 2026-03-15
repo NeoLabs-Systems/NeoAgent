@@ -22,6 +22,8 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "manage": "node bin/neoagent.js",
+    "test": "node --test",
+    "benchmark:tokens": "node scripts/benchmark-token-cost.js",
     "release": "npx semantic-release"
   },
   "repository": {

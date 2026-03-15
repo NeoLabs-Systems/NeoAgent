@@ -5,6 +5,7 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { UPDATE_STATUS_FILE, APP_DIR } = require('../../runtime/paths');
+const { ensureDefaultAiSettings, DEFAULT_AI_SETTINGS } = require('../services/ai/settings');
 
 router.use(requireAuth);
 
@@ -35,8 +36,9 @@ router.get('/meta/models', (req, res) => {
 
 // Get all settings
 router.get('/', (req, res) => {
+  ensureDefaultAiSettings(req.session.userId);
   const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId);
-  const settings = {};
+  const settings = { ...DEFAULT_AI_SETTINGS };
   for (const row of rows) {
     try {
       settings[row.key] = JSON.parse(row.value);
@@ -123,6 +125,31 @@ router.get('/token-usage/summary', (req, res) => {
     return acc;
   }, { tokens: 0, runs: 0 });
 
+  const promptMetricRows = db.prepare(`
+    SELECT prompt_metrics
+    FROM agent_runs
+    WHERE user_id = ? AND prompt_metrics IS NOT NULL
+    ORDER BY created_at DESC
+    LIMIT 20
+  `).all(userId);
+
+  const parsedMetrics = promptMetricRows
+    .map((row) => {
+      try { return JSON.parse(row.prompt_metrics); } catch { return null; }
+    })
+    .filter(Boolean);
+
+  const metricTotals = parsedMetrics.reduce((acc, item) => {
+    const last = item.lastEstimate || {};
+    acc.count += 1;
+    acc.system += Number(last.systemPromptTokens || 0);
+    acc.tools += Number(last.toolSchemaTokens || 0);
+    acc.history += Number(last.historyTokens || 0);
+    acc.recall += Number(last.recalledMemoryTokens || 0);
+    acc.replay += Number(last.toolReplayTokens || 0);
+    return acc;
+  }, { count: 0, system: 0, tools: 0, history: 0, recall: 0, replay: 0 });
+
   res.json({
     totals: {
       totalTokens: Number(totals?.totalTokens || 0),
@@ -131,7 +158,18 @@ router.get('/token-usage/summary', (req, res) => {
       last7DaysTokens: last7Totals.tokens,
       last7DaysRuns: last7Totals.runs
     },
-    last7Days
+    last7Days,
+    promptMetrics: {
+      sampleCount: metricTotals.count,
+      average: metricTotals.count === 0 ? null : {
+        systemPromptTokens: Math.round(metricTotals.system / metricTotals.count),
+        toolSchemaTokens: Math.round(metricTotals.tools / metricTotals.count),
+        historyTokens: Math.round(metricTotals.history / metricTotals.count),
+        recalledMemoryTokens: Math.round(metricTotals.recall / metricTotals.count),
+        toolReplayTokens: Math.round(metricTotals.replay / metricTotals.count)
+      },
+      latest: parsedMetrics[0] || null
+    }
   });
 });
 

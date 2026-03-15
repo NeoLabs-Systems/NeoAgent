@@ -3,12 +3,54 @@ const path = require('path');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 
+function compactText(text, maxChars = 120) {
+  const str = String(text || '').replace(/\s+/g, ' ').trim();
+  if (str.length <= maxChars) return str;
+  const trimmed = str.slice(0, maxChars);
+  const sentenceBreak = Math.max(trimmed.lastIndexOf('. '), trimmed.lastIndexOf('; '), trimmed.lastIndexOf(', '));
+  if (sentenceBreak > 40) return trimmed.slice(0, sentenceBreak + 1).trim();
+  return `${trimmed.trim()}...`;
+}
+
+function compactToolDefinition(tool, options = {}) {
+  const compact = {
+    name: tool.name,
+    parameters: {
+      ...(tool.parameters || { type: 'object', properties: {} }),
+      properties: {}
+    }
+  };
+
+  if (options.includeDescriptions) {
+    compact.description = compactText(tool.description, 120);
+  }
+
+  if (tool.parameters?.properties) {
+    const properties = {};
+    for (const [key, value] of Object.entries(tool.parameters.properties)) {
+      properties[key] = { ...value };
+      if (options.includeDescriptions && value.description) {
+        properties[key].description = compactText(value.description, 70);
+      } else {
+        delete properties[key].description;
+      }
+    }
+    compact.parameters = {
+      ...compact.parameters,
+      properties
+    };
+  }
+
+  return compact;
+}
+
 /**
  * Returns the list of available tools for the agent.
  * @param {object} app - Express app instance.
+ * @param {object} options - Tool filtering options.
  * @returns {Array} List of tool definitions.
  */
-function getAvailableTools(app) {
+function getAvailableTools(app, options = {}) {
     const tools = [
         {
             name: 'execute_command',
@@ -530,7 +572,12 @@ function getAvailableTools(app) {
         }
     ];
 
-    return tools;
+    const compacted = tools.map((tool) => compactToolDefinition(tool, options));
+    if (options.names && Array.isArray(options.names)) {
+        const allow = new Set(options.names);
+        return compacted.filter((tool) => allow.has(tool.name));
+    }
+    return compacted;
 }
 
 /**

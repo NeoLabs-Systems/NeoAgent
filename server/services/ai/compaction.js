@@ -2,49 +2,37 @@ async function compact(messages, provider, model) {
   const systemMsg = messages.find(m => m.role === 'system');
   const nonSystem = messages.filter(m => m.role !== 'system');
 
-  // Only compact once history is clearly old enough to avoid touching recent context.
   if (nonSystem.length < 12) return messages;
 
-  const keepRecent = 6;
+  const keepRecent = 8;
   const toCompact = nonSystem.slice(0, -keepRecent);
   const recent = nonSystem.slice(-keepRecent);
 
-  let compactionText = '';
-  for (const msg of toCompact) {
-    if (msg.role === 'user') {
-      compactionText += `User: ${(msg.content || '').slice(0, 500)}\n`;
-    } else if (msg.role === 'assistant') {
-      const content = (msg.content || '').slice(0, 500);
-      if (msg.tool_calls) {
-        const tools = msg.tool_calls.map(tc => tc.function.name).join(', ');
-        compactionText += `Assistant: [used tools: ${tools}] ${content}\n`;
-      } else {
-        compactionText += `Assistant: ${content}\n`;
-      }
-    } else if (msg.role === 'tool') {
-      const result = (msg.content || '').slice(0, 200);
-      compactionText += `Tool result: ${result}\n`;
+  const compactionText = toCompact.map((msg) => {
+    if (msg.role === 'assistant' && msg.tool_calls) {
+      const tools = msg.tool_calls.map((tc) => tc.function.name).join(', ');
+      return `assistant(tools:${tools}) ${(msg.content || '').slice(0, 320)}`;
     }
-  }
+    if (msg.role === 'tool') {
+      return `tool:${msg.name || 'tool'} ${(msg.content || '').slice(0, 220)}`;
+    }
+    return `${msg.role}: ${(msg.content || '').slice(0, 360)}`;
+  }).join('\n');
 
   const summaryPrompt = [
-    { role: 'system', content: 'Summarize this conversation history concisely. Preserve: key decisions, facts learned, user preferences, task outcomes, and any errors or important results. Be thorough but compact.' },
+    { role: 'system', content: 'Compress conversation context. Preserve goals, constraints, tool outcomes, errors, and unresolved work. Keep it compact.' },
     { role: 'user', content: `Summarize this conversation:\n\n${compactionText}` }
   ];
 
   try {
-    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 1000 });
+    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 320 });
     const summary = response.content || 'Previous conversation context (summary unavailable).';
 
     const compactedMessages = [];
     if (systemMsg) compactedMessages.push(systemMsg);
     compactedMessages.push({
-      role: 'user',
+      role: 'system',
       content: `[Previous conversation summary]\n${summary}`
-    });
-    compactedMessages.push({
-      role: 'assistant',
-      content: 'Understood. I have the context from our previous conversation. Continuing.'
     });
     compactedMessages.push(...recent);
 
@@ -54,12 +42,8 @@ async function compact(messages, provider, model) {
     const trimmed = [];
     if (systemMsg) trimmed.push(systemMsg);
     trimmed.push({
-      role: 'user',
+      role: 'system',
       content: '[Earlier conversation context was trimmed due to length]'
-    });
-    trimmed.push({
-      role: 'assistant',
-      content: 'Understood. Some earlier context was trimmed. Continuing with recent messages.'
     });
     trimmed.push(...recent);
     return trimmed;

@@ -38,6 +38,7 @@ db.exec(`
     trigger_source TEXT,
     model TEXT,
     total_tokens INTEGER DEFAULT 0,
+    prompt_metrics TEXT,
     error TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -142,7 +143,10 @@ db.exec(`
     model TEXT,
     total_tokens INTEGER DEFAULT 0,
     compaction_count INTEGER DEFAULT 0,
+    summary TEXT,
+    summary_message_count INTEGER DEFAULT 0,
     last_compaction TEXT,
+    last_summary TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -230,6 +234,10 @@ db.exec(`
 for (const col of [
   "ALTER TABLE scheduled_tasks ADD COLUMN run_at TEXT",
   "ALTER TABLE scheduled_tasks ADD COLUMN one_time INTEGER DEFAULT 0",
+  "ALTER TABLE agent_runs ADD COLUMN prompt_metrics TEXT",
+  "ALTER TABLE conversations ADD COLUMN summary TEXT",
+  "ALTER TABLE conversations ADD COLUMN summary_message_count INTEGER DEFAULT 0",
+  "ALTER TABLE conversations ADD COLUMN last_summary TEXT",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }
