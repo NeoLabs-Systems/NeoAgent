@@ -3,12 +3,20 @@ const db = require('../../db/database');
 const WEB_SUMMARY_KEY = 'web_chat_summary';
 const WEB_SUMMARY_COUNT_KEY = 'web_chat_summary_count';
 const SUMMARY_TRIGGER_COUNT = 6;
+const MAX_SUMMARY_CHARS = 1600;
+
+function clampSummary(text) {
+  const str = String(text || '').trim();
+  if (!str) return '';
+  if (str.length <= MAX_SUMMARY_CHARS) return str;
+  return `${str.slice(0, MAX_SUMMARY_CHARS)}\n...[summary trimmed]`;
+}
 
 function buildSummaryCarrier(summary) {
   if (!summary) return null;
   return {
     role: 'system',
-    content: `[Conversation summary]\n${summary}`
+    content: `[Conversation summary]\n${clampSummary(summary)}`
   };
 }
 
@@ -50,7 +58,7 @@ async function summarizeMessages(provider, model, existingSummary, messages, lab
     {
       role: 'user',
       content: [
-        existingSummary ? `Existing summary:\n${existingSummary}` : 'Existing summary: none',
+        existingSummary ? `Existing summary:\n${clampSummary(existingSummary)}` : 'Existing summary: none',
         `New ${label} messages:\n${serializeHistoryForSummary(messages)}`,
         'Write an updated summary in under 220 words.'
       ].join('\n\n')
@@ -58,7 +66,7 @@ async function summarizeMessages(provider, model, existingSummary, messages, lab
   ];
 
   const response = await provider.chat(prompt, [], { model, maxTokens: 320 });
-  return String(response.content || existingSummary || '').trim();
+  return clampSummary(response.content || existingSummary || '');
 }
 
 function getWebChatSummaryState(userId) {
@@ -75,7 +83,7 @@ function getWebChatSummaryState(userId) {
       value = JSON.parse(row.value);
     } catch { }
 
-    if (row.key === WEB_SUMMARY_KEY) summary = String(value || '');
+    if (row.key === WEB_SUMMARY_KEY) summary = clampSummary(value || '');
     if (row.key === WEB_SUMMARY_COUNT_KEY) count = Number(value || 0);
   }
 
@@ -110,7 +118,7 @@ async function refreshWebChatSummary(userId, provider, model, recentLimit, force
     'SELECT role, content FROM conversation_history WHERE user_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
   ).all(userId, newMessages, count);
 
-  const nextSummary = await summarizeMessages(provider, model, summary, normalizeHistoryRows(rows), 'web chat');
+  const nextSummary = clampSummary(await summarizeMessages(provider, model, summary, normalizeHistoryRows(rows), 'web chat'));
   const upsert = db.prepare(
     'INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value'
   );
@@ -159,7 +167,7 @@ async function refreshConversationSummary(conversationId, provider, model, recen
     'SELECT role, content, tool_calls, tool_call_id, name FROM conversation_messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
   ).all(conversationId, newMessages, currentCount);
 
-  const nextSummary = await summarizeMessages(provider, model, convo.summary || '', normalizeHistoryRows(rows), 'thread');
+  const nextSummary = clampSummary(await summarizeMessages(provider, model, convo.summary || '', normalizeHistoryRows(rows), 'thread'));
   db.prepare(
     "UPDATE conversations SET summary = ?, summary_message_count = ?, last_summary = datetime('now') WHERE id = ?"
   ).run(nextSummary, targetCount, conversationId);
@@ -168,7 +176,9 @@ async function refreshConversationSummary(conversationId, provider, model, recen
 
 module.exports = {
   SUMMARY_TRIGGER_COUNT,
+  MAX_SUMMARY_CHARS,
   buildSummaryCarrier,
+  clampSummary,
   clearWebChatSummary,
   getConversationContext,
   getWebChatContext,
