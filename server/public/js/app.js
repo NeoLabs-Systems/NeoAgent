@@ -1888,6 +1888,8 @@ $("#settingsBtn").addEventListener("click", async () => {
           checkbox.type = "checkbox";
           checkbox.className = "dynamic-model-checkbox";
           checkbox.dataset.modelId = modelDef.id;
+          checkbox.autocomplete = "off";
+          checkbox.setAttribute("data-bwignore", "true");
           checkbox.checked = enabledModels.includes(modelDef.id);
 
           const span = document.createElement("span");

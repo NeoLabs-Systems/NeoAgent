@@ -552,7 +552,7 @@
   </div>
 
   <!-- Settings Modal -->
-  <div class="modal-overlay hidden" id="settingsModal">
+  <div class="modal-overlay hidden" id="settingsModal" data-bwignore="true">
     <div class="modal" style="max-width:550px;">
       <div class="modal-header">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -565,26 +565,26 @@
         <div class="form-group">
           <label class="form-label">Heartbeat</label>
           <label class="flex items-center gap-2" style="cursor:pointer;">
-            <input type="checkbox" id="settingHeartbeat">
+            <input type="checkbox" id="settingHeartbeat" autocomplete="off" data-bwignore="true">
             <span>Enable scheduled heartbeat checks</span>
           </label>
         </div>
         <div class="form-group">
           <label class="form-label">Browser</label>
           <label class="flex items-center gap-2" style="cursor:pointer;">
-            <input type="checkbox" id="settingHeadlessBrowser">
+            <input type="checkbox" id="settingHeadlessBrowser" autocomplete="off" data-bwignore="true">
             <span>Run browser headless (no visible window)</span>
           </label>
         </div>
         <div class="form-group">
           <label class="form-label">Default Chat Model</label>
-          <select id="settingDefaultChatModel" class="input">
+          <select id="settingDefaultChatModel" class="input" autocomplete="off" data-bwignore="true">
             <option value="auto">Smart Selector (Auto)</option>
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Default Sub-agent Model</label>
-          <select id="settingDefaultSubagentModel" class="input">
+          <select id="settingDefaultSubagentModel" class="input" autocomplete="off" data-bwignore="true">
             <option value="auto">Smart Selector (Auto)</option>
           </select>
         </div>
