@@ -1,0 +1,70 @@
+name: Force Release & Publish to NPM
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  force-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Git Config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump Version
+        id: bump
+        run: |
+          # Bump package.json version and commit it
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version_bump }} -m "chore(release): %s [skip ci]")
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Push Version Bump
+        run: |
+          git push origin HEAD
+          git push origin ${{ env.NEW_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ env.NEW_VERSION }} \
+            --title "Release ${{ env.NEW_VERSION }}" \
+            --generate-notes \
+            --latest
