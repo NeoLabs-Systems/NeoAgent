@@ -478,10 +478,13 @@ class AgentEngine {
       // We check messagingSent (not just the last tool) so a send_message followed
       // by any other tool (memory_save, think, etc.) does NOT fire a duplicate.
       if (triggerSource === 'messaging' && options.source && options.chatId && !messagingSent) {
-        if (lastContent && lastContent.trim() && lastContent.trim() !== '[NO RESPONSE]') {
+        // Strip [NO RESPONSE] markers the AI may have embedded anywhere in the text,
+        // then only send if real content remains.
+        const cleanedContent = (lastContent || '').replace(/\[NO RESPONSE\]/gi, '').trim();
+        if (cleanedContent && cleanedContent !== '[NO RESPONSE]') {
           const manager = this.messagingManager;
           if (manager) {
-            const chunks = lastContent.split(/\n\s*\n/).filter((c) => c.trim().length > 0);
+            const chunks = cleanedContent.split(/\n\s*\n/).filter((c) => c.trim().length > 0);
             (async () => {
               for (let i = 0; i < chunks.length; i++) {
                 if (i > 0) {
