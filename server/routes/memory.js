@@ -186,7 +186,9 @@ router.get('/conversations', (req, res) => {
 
 router.post('/conversations/search', (req, res) => {
   const mm = req.app.locals.memoryManager;
-  const results = mm.searchConversations(req.session.userId, req.body.query);
+  const results = mm.searchConversations(req.session.userId, req.body.query, {
+    sessions: parseInt(req.body.limit) || 8
+  });
   res.json(results);
 });
 

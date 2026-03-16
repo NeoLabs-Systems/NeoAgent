@@ -115,7 +115,7 @@ function setupWebSocket(io, services) {
     socket.on('agent:run_detail', (data) => {
       try {
         const run = db.prepare('SELECT * FROM agent_runs WHERE id = ? AND user_id = ?').get(data.runId, userId);
-        const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_number ASC').all(data.runId);
+        const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(data.runId);
         const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? ORDER BY created_at ASC').all(data.runId);
         socket.emit('agent:run_detail', { run, steps, history });
       } catch (err) {

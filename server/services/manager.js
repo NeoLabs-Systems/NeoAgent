@@ -5,7 +5,9 @@ const { MemoryManager } = require('./memory/manager');
 const { MCPClient } = require('./mcp/client');
 const { BrowserController } = require('./browser/controller');
 const { AgentEngine } = require('./ai/engine');
+const { LearningManager } = require('./ai/learning');
 const { MultiStepOrchestrator } = require('./ai/multiStep');
+const { SkillRunner } = require('./ai/toolRunner');
 const { MessagingManager } = require('./messaging/manager');
 const { Scheduler } = require('./scheduler/cron');
 const { setupWebSocket } = require('./websocket');
@@ -29,7 +31,21 @@ async function startServices(app, io) {
         }
         app.locals.browserController = browserController;
 
-        const agentEngine = new AgentEngine(io, { memoryManager, mcpClient, browserController, messagingManager: null });
+        const skillRunner = new SkillRunner();
+        await skillRunner.loadSkills();
+        app.locals.skillRunner = skillRunner;
+
+        const learningManager = new LearningManager(skillRunner, io);
+        app.locals.learningManager = learningManager;
+
+        const agentEngine = new AgentEngine(io, {
+            memoryManager,
+            mcpClient,
+            browserController,
+            messagingManager: null,
+            skillRunner,
+            learningManager
+        });
         app.locals.agentEngine = agentEngine;
 
         const multiStep = new MultiStepOrchestrator(agentEngine, io);
@@ -167,7 +183,14 @@ async function startServices(app, io) {
         agentEngine.scheduler = scheduler;
         scheduler.start();
 
-        setupWebSocket(io, { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, app });
+        setupWebSocket(io, {
+            agentEngine,
+            messagingManager,
+            mcpClient,
+            scheduler,
+            memoryManager,
+            app
+        });
         app.locals.io = io;
 
         console.log('All services initialized');

@@ -4,7 +4,7 @@ const PACKS = {
   code: ['execute_command', 'read_file', 'list_directory', 'search_files'],
   web: ['web_search', 'http_request', 'browser_navigate', 'browser_extract', 'browser_click', 'browser_type', 'browser_screenshot'],
   messaging: ['send_message', 'make_call'],
-  memory: ['memory_recall', 'memory_save', 'memory_update_core', 'memory_read', 'memory_write'],
+  memory: ['memory_recall', 'session_search', 'memory_save', 'memory_update_core', 'memory_read', 'memory_write'],
   scheduling: ['create_scheduled_task', 'schedule_run', 'list_scheduled_tasks', 'update_scheduled_task', 'delete_scheduled_task'],
   protocols: ['manage_protocols'],
   skills: ['create_skill', 'list_skills', 'update_skill', 'delete_skill'],
@@ -49,6 +49,9 @@ function detectRequestedPacks(task = '', options = {}) {
     /\bmemory\b/,
     /\bremember\b/,
     /\brecall\b/,
+    /\bprevious chat\b/,
+    /\blast time\b/,
+    /\bpast conversation\b/,
     /\bpreference\b/,
     /\bprofile\b/,
     /\bsoul\b/

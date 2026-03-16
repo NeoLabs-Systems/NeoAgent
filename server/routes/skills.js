@@ -1,108 +1,147 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const path = require('path');
 const { requireAuth } = require('../middleware/auth');
-const { AGENT_DATA_DIR } = require('../../runtime/paths');
-
-const SKILLS_DIR = path.join(AGENT_DATA_DIR, 'skills');
-
-/**
- * Resolve a client-supplied filename to an absolute path inside SKILLS_DIR.
- * Returns null if the resolved path escapes the directory (path traversal attempt).
- */
-function safeSkillPath(filename) {
-  if (!filename || typeof filename !== 'string') return null;
-  // Strip any directory components – only the basename is allowed
-  const base = path.basename(filename);
-  if (!base || base === '.' || base === '..') return null;
-  const resolved = path.resolve(SKILLS_DIR, base);
-  // Ensure the resolved path stays inside SKILLS_DIR
-  if (!resolved.startsWith(SKILLS_DIR + path.sep) && resolved !== SKILLS_DIR) return null;
-  return resolved;
-}
+const { sanitizeError } = require('../utils/security');
+const { SkillRunner } = require('../services/ai/toolRunner');
 
 router.use(requireAuth);
 
-// List all skills
-router.get('/', (req, res) => {
-  if (!fs.existsSync(SKILLS_DIR)) fs.mkdirSync(SKILLS_DIR, { recursive: true });
+async function getSkillRunner(app) {
+  if (app.locals?.skillRunner) return app.locals.skillRunner;
+  const runner = new SkillRunner();
+  await runner.loadSkills();
+  return runner;
+}
 
-  const files = fs.readdirSync(SKILLS_DIR).filter(f => f.endsWith('.md'));
-  const skills = files.map(f => {
-    const content = fs.readFileSync(path.join(SKILLS_DIR, f), 'utf-8');
-    const meta = parseSkillMeta(content);
+function parseSkillDocument(content) {
+  const match = String(content || '').match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!match) {
     return {
-      filename: f,
-      name: meta.name || f.replace('.md', ''),
-      description: meta.description || '',
-      trigger: meta.trigger || '',
-      enabled: meta.enabled !== false,
-      category: meta.category || 'general'
+      error: 'Skill files must start with frontmatter delimited by ---'
     };
-  });
+  }
 
-  res.json(skills);
-});
-
-// Get a specific skill
-router.get('/:filename', (req, res) => {
-  const fp = safeSkillPath(req.params.filename);
-  if (!fp || !fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
-
-  const content = fs.readFileSync(fp, 'utf-8');
-  res.json({ filename: req.params.filename, content, meta: parseSkillMeta(content) });
-});
-
-// Create a new skill
-router.post('/', (req, res) => {
-  const { filename, content } = req.body;
-  if (!filename || !content) return res.status(400).json({ error: 'filename and content required' });
-
-  const baseName = filename.replace(/\.md$/i, '').replace(/[^a-zA-Z0-9_.-]/g, '');
-  const safeName = baseName + '.md';
-  const fp = path.join(SKILLS_DIR, safeName);
-
-  if (!fs.existsSync(SKILLS_DIR)) fs.mkdirSync(SKILLS_DIR, { recursive: true });
-
-  fs.writeFileSync(fp, content, 'utf-8');
-  res.status(201).json({ filename: safeName, meta: parseSkillMeta(content) });
-});
-
-// Update a skill
-router.put('/:filename', (req, res) => {
-  const fp = safeSkillPath(req.params.filename);
-  if (!fp || !fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
-
-  fs.writeFileSync(fp, req.body.content, 'utf-8');
-  res.json({ filename: path.basename(fp), meta: parseSkillMeta(req.body.content) });
-});
-
-// Delete a skill
-router.delete('/:filename', (req, res) => {
-  const fp = safeSkillPath(req.params.filename);
-  if (!fp || !fs.existsSync(fp)) return res.status(404).json({ error: 'Skill not found' });
-
-  fs.unlinkSync(fp);
-  res.json({ success: true });
-});
-
-function parseSkillMeta(content) {
-  const meta = {};
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return meta;
-
-  const lines = match[1].split('\n');
-  for (const line of lines) {
+  const frontmatter = {};
+  for (const line of match[1].split('\n')) {
     const colon = line.indexOf(':');
     if (colon === -1) continue;
     const key = line.slice(0, colon).trim();
-    let val = line.slice(colon + 1).trim();
-    if (val === 'true') val = true;
-    else if (val === 'false') val = false;
-    meta[key] = val;
+    let value = line.slice(colon + 1).trim();
+    if (value === 'true') value = true;
+    else if (value === 'false') value = false;
+    else if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
+      try { value = JSON.parse(value); } catch { /* keep raw */ }
+    }
+    frontmatter[key] = value;
   }
-  return meta;
+
+  if (!frontmatter.name) {
+    return { error: 'Skill frontmatter must include name' };
+  }
+
+  return {
+    name: String(frontmatter.name),
+    description: String(frontmatter.description || ''),
+    instructions: match[2].trim(),
+    metadata: Object.fromEntries(
+      Object.entries(frontmatter).filter(([key]) => !['name', 'description'].includes(key))
+    )
+  };
 }
+
+router.get('/', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    const skills = runner.getAll().map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      enabled: skill.enabled,
+      draft: skill.metadata?.draft === true,
+      category: skill.metadata?.category || 'general',
+      trigger: skill.metadata?.trigger || '',
+      source: skill.metadata?.source || 'local',
+      autoCreated: skill.metadata?.auto_created === true,
+      filePath: skill.filePath
+    }));
+    res.json(skills.sort((a, b) => {
+      if (a.draft !== b.draft) return a.draft ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/:name', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    const skill = runner.getSkill(req.params.name);
+    if (!skill) return res.status(404).json({ error: 'Skill not found' });
+    const fs = require('fs');
+    const content = fs.readFileSync(skill.filePath, 'utf-8');
+    res.json({
+      name: skill.name,
+      content,
+      meta: skill.metadata,
+      enabled: skill.metadata?.enabled !== false
+    });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    const parsed = parseSkillDocument(req.body.content);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+    const result = runner.createSkill(
+      req.body.filename || parsed.name,
+      parsed.description,
+      parsed.instructions,
+      parsed.metadata
+    );
+
+    if (result.error) return res.status(400).json(result);
+    res.status(201).json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.put('/:name', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    if (typeof req.body.enabled === 'boolean' && !req.body.content) {
+      const result = runner.setSkillEnabled(req.params.name, req.body.enabled);
+      if (result.error) return res.status(404).json(result);
+      return res.json(result);
+    }
+
+    const parsed = parseSkillDocument(req.body.content);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const result = runner.updateSkill(req.params.name, {
+      description: parsed.description,
+      instructions: parsed.instructions,
+      metadata: parsed.metadata
+    });
+    if (result.error) return res.status(404).json(result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.delete('/:name', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    const result = runner.deleteSkill(req.params.name);
+    if (result.error) return res.status(404).json(result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
 
 module.exports = router;

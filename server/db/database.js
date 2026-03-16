@@ -230,6 +230,60 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_core_memory_user ON core_memory(user_id, key);
 `);
 
+try {
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS conversation_history_fts USING fts5(
+      content,
+      role UNINDEXED,
+      user_id UNINDEXED,
+      agent_run_id UNINDEXED,
+      tokenize = 'porter unicode61'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS conversation_history_fts_ai AFTER INSERT ON conversation_history BEGIN
+      INSERT INTO conversation_history_fts(rowid, content, role, user_id, agent_run_id)
+      VALUES (new.id, COALESCE(new.content, ''), new.role, new.user_id, COALESCE(new.agent_run_id, ''));
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS conversation_history_fts_ad AFTER DELETE ON conversation_history BEGIN
+      DELETE FROM conversation_history_fts WHERE rowid = old.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS conversation_history_fts_au AFTER UPDATE ON conversation_history BEGIN
+      DELETE FROM conversation_history_fts WHERE rowid = old.id;
+      INSERT INTO conversation_history_fts(rowid, content, role, user_id, agent_run_id)
+      VALUES (new.id, COALESCE(new.content, ''), new.role, new.user_id, COALESCE(new.agent_run_id, ''));
+    END;
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+      content,
+      role UNINDEXED,
+      user_id UNINDEXED,
+      run_id UNINDEXED,
+      platform UNINDEXED,
+      platform_chat_id UNINDEXED,
+      tokenize = 'porter unicode61'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
+      INSERT INTO messages_fts(rowid, content, role, user_id, run_id, platform, platform_chat_id)
+      VALUES (new.id, COALESCE(new.content, ''), new.role, new.user_id, COALESCE(new.run_id, ''), COALESCE(new.platform, ''), COALESCE(new.platform_chat_id, ''));
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
+      DELETE FROM messages_fts WHERE rowid = old.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE ON messages BEGIN
+      DELETE FROM messages_fts WHERE rowid = old.id;
+      INSERT INTO messages_fts(rowid, content, role, user_id, run_id, platform, platform_chat_id)
+      VALUES (new.id, COALESCE(new.content, ''), new.role, new.user_id, COALESCE(new.run_id, ''), COALESCE(new.platform, ''), COALESCE(new.platform_chat_id, ''));
+    END;
+  `);
+} catch {
+  // FTS5 is optional. The app still works with LIKE-based fallbacks if unavailable.
+}
+
 // Migrations for existing databases
 for (const col of [
   "ALTER TABLE scheduled_tasks ADD COLUMN run_at TEXT",
@@ -240,6 +294,20 @@ for (const col of [
   "ALTER TABLE conversations ADD COLUMN last_summary TEXT",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
+}
+
+try {
+  db.exec(`
+    INSERT OR REPLACE INTO conversation_history_fts(rowid, content, role, user_id, agent_run_id)
+    SELECT id, COALESCE(content, ''), role, user_id, COALESCE(agent_run_id, '')
+    FROM conversation_history;
+
+    INSERT OR REPLACE INTO messages_fts(rowid, content, role, user_id, run_id, platform, platform_chat_id)
+    SELECT id, COALESCE(content, ''), role, user_id, COALESCE(run_id, ''), COALESCE(platform, ''), COALESCE(platform_chat_id, '')
+    FROM messages;
+  `);
+} catch {
+  // Older SQLite builds without FTS5 should still let the app boot.
 }
 
 module.exports = db;

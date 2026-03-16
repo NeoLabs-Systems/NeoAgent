@@ -322,6 +322,7 @@
         <div class="page-body">
           <div class="tabs">
             <div class="tab active" data-mem-tab="memories">Memories</div>
+            <div class="tab" data-mem-tab="sessions">Session Recall</div>
             <div class="tab" data-mem-tab="core">Core</div>
             <div class="tab" data-mem-tab="soul">Soul</div>
             <div class="tab" data-mem-tab="daily">Daily Logs</div>
@@ -344,6 +345,15 @@
             </div>
             <div id="memoryList"
               style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;"></div>
+          </div>
+
+          <div class="mem-panel" id="mem-sessions">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+              <input type="text" id="sessionSearchInput" class="input" style="flex:1;min-width:220px;"
+                placeholder="Search old chats, commands, or decisions…" />
+              <button class="btn btn-sm btn-secondary" id="sessionSearchBtn">Search</button>
+            </div>
+            <div id="sessionRecallList"></div>
           </div>
 
           <!-- Core memory tab -->
@@ -574,6 +584,13 @@
           <label class="flex items-center gap-2" style="cursor:pointer;">
             <input type="checkbox" id="settingHeadlessBrowser" autocomplete="off" data-bwignore="true">
             <span>Run browser headless (no visible window)</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Skill Learning</label>
+          <label class="flex items-center gap-2" style="cursor:pointer;">
+            <input type="checkbox" id="settingAutoSkillLearning" autocomplete="off" data-bwignore="true">
+            <span>Create disabled draft skills from successful multi-step runs</span>
           </label>
         </div>
         <div class="form-group">

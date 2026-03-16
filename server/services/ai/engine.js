@@ -104,6 +104,7 @@ class AgentEngine {
     this.skillRunner = services.skillRunner || null;
     this.scheduler = services.scheduler || null;
     this.memoryManager = services.memoryManager || null;
+    this.learningManager = services.learningManager || null;
   }
 
   async buildSystemPrompt(userId, context = {}) {
@@ -370,7 +371,12 @@ class AgentEngine {
 
           let toolResult;
           try {
-            toolResult = await this.executeTool(toolName, toolArgs, { userId, runId, app });
+            toolResult = await this.executeTool(toolName, toolArgs, {
+              userId,
+              runId,
+              app,
+              triggerSource
+            });
             const screenshotPath = toolResult?.screenshotPath || null;
             db.prepare('UPDATE agent_steps SET status = ?, result = ?, screenshot_path = ?, completed_at = datetime(\'now\') WHERE id = ?')
               .run('completed', JSON.stringify(toolResult).slice(0, 20000), screenshotPath, stepId);
@@ -440,6 +446,25 @@ class AgentEngine {
         ...promptMetrics,
         finalTotalTokens: totalTokens
       });
+
+      const autoSkillLearning = aiSettings.auto_skill_learning !== false && aiSettings.auto_skill_learning !== 'false';
+      if (autoSkillLearning && this.learningManager) {
+        const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(runId);
+        try {
+          this.learningManager.maybeCaptureDraft({
+            userId,
+            runId,
+            triggerSource,
+            triggerType,
+            task: userMessage,
+            title: runTitle,
+            finalContent: lastContent,
+            steps
+          });
+        } catch (learningErr) {
+          console.error('[AI] Skill draft capture failed:', learningErr.message);
+        }
+      }
 
       const runMeta = this.activeRuns.get(runId);
       const messagingSent = runMeta?.messagingSent || false;

@@ -197,6 +197,18 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'session_search',
+            description: 'Search past runs and message threads for commands, decisions, file paths, or context from earlier conversations.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'What to search for in prior sessions.' },
+                    limit: { type: 'number', description: 'How many matching sessions to return (default 6).' }
+                },
+                required: ['query']
+            }
+        },
+        {
             name: 'memory_update_core',
             description: 'Update core memory — always-injected facts that appear in every prompt. Use for critical always-relevant info: user\'s name, their main job, key standing preferences, how they want you to behave. Keep each entry concise.',
             parameters: {
@@ -769,6 +781,16 @@ async function executeTool(toolName, args, context, engine) {
             const mm = new MemoryManager();
             const results = await mm.recallMemory(userId, args.query, args.limit || 6);
             if (!results.length) return { results: [], message: 'Nothing found' };
+            return { results };
+        }
+
+        case 'session_search': {
+            const { MemoryManager } = require('../memory/manager');
+            const mm = new MemoryManager();
+            const results = mm.searchConversations(userId, args.query, {
+                sessions: args.limit || 6
+            });
+            if (!results.length) return { results: [], message: 'No matching sessions found' };
             return { results };
         }
 

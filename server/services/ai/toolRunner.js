@@ -87,7 +87,7 @@ class SkillRunner {
   }
 
   getSkillsForPrompt() {
-    const skills = Array.from(this.skills.values());
+    const skills = Array.from(this.skills.values()).filter((skill) => skill.metadata.enabled !== false);
     if (skills.length === 0) return '';
 
     let prompt = '\n## Available Skills\n';
@@ -103,7 +103,7 @@ class SkillRunner {
   getToolDefinitions() {
     const tools = [];
     for (const skill of this.skills.values()) {
-      if (skill.metadata.tool) {
+      if (skill.metadata.enabled !== false && skill.metadata.tool) {
         tools.push({
           name: skill.name,
           description: skill.description,
@@ -117,6 +117,9 @@ class SkillRunner {
   async executeTool(toolName, args) {
     const skill = this.skills.get(toolName);
     if (!skill) return null;
+    if (skill.metadata.enabled === false) {
+      return { error: `Skill '${toolName}' is disabled` };
+    }
 
     if (skill.metadata.command) {
       const { CLIExecutor } = require('../cli/executor');
@@ -140,8 +143,10 @@ class SkillRunner {
     const filePath = path.join(skillDir, 'SKILL.md');
     fs.writeFileSync(filePath, frontmatter + `\n\n${instructions}`);
 
-    db.prepare('INSERT OR REPLACE INTO skills (name, description, file_path, metadata, auto_created, updated_at) VALUES (?, ?, ?, ?, 1, datetime(\'now\'))')
-      .run(safeName, description, filePath, JSON.stringify(metadata));
+    db.prepare(`
+      INSERT OR REPLACE INTO skills (name, description, file_path, metadata, enabled, auto_created, updated_at)
+      VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+    `).run(safeName, description, filePath, JSON.stringify(metadata), metadata.enabled === false ? 0 : 1);
 
     this.loadSkillFile(filePath);
 
@@ -167,10 +172,22 @@ class SkillRunner {
 
     const frontmatter = this._buildFrontmatter(name, newDesc, metaToWrite);
     fs.writeFileSync(skill.filePath, frontmatter + `\n\n${newInstructions}`);
-    db.prepare('UPDATE skills SET description = ?, updated_at = datetime(\'now\') WHERE name = ?').run(newDesc, name);
+    db.prepare('UPDATE skills SET description = ?, metadata = ?, enabled = ?, updated_at = datetime(\'now\') WHERE name = ?')
+      .run(newDesc, JSON.stringify(metaToWrite || {}), metaToWrite?.enabled === false ? 0 : 1, name);
     this.loadSkillFile(skill.filePath);
 
     return { success: true, name, path: skill.filePath };
+  }
+
+  getSkill(name) {
+    return this.skills.get(name) || null;
+  }
+
+  setSkillEnabled(name, enabled) {
+    const skill = this.skills.get(name);
+    if (!skill) return { error: `Skill '${name}' not found` };
+    const metadata = { ...skill.metadata, enabled: !!enabled };
+    return this.updateSkill(name, { metadata });
   }
 
   deleteSkill(name) {
@@ -211,7 +228,8 @@ class SkillRunner {
       name: s.name,
       description: s.description,
       metadata: s.metadata,
-      filePath: s.filePath
+      filePath: s.filePath,
+      enabled: s.metadata.enabled !== false
     }));
   }
 }

@@ -1567,6 +1567,13 @@ socket.on("messaging:message", (data) => {
   if (pixelWorld) pixelWorld.onMessage(data);
 });
 
+socket.on("skill:draft_created", (data) => {
+  toast(`Draft skill created: ${data.name}`, "success");
+  if (!$("#skillList")?.classList.contains("hidden")) {
+    loadSkillsPage();
+  }
+});
+
 // ── Logs Tab ──
 
 const logsContainer = $("#logsContainer");
@@ -1839,6 +1846,9 @@ $("#settingsBtn").addEventListener("click", async () => {
     $("#settingHeadlessBrowser").checked =
       settings.headless_browser !== false &&
       settings.headless_browser !== "false";
+    $("#settingAutoSkillLearning").checked =
+      settings.auto_skill_learning !== false &&
+      settings.auto_skill_learning !== "false";
 
     const enabledModels = Array.isArray(settings.enabled_models) ? settings.enabled_models : (meta.models || []).map(m => m.id);
 
@@ -1936,6 +1946,7 @@ $("#saveSettings").addEventListener("click", async () => {
       body: {
         heartbeat_enabled: $("#settingHeartbeat").checked,
         headless_browser: $("#settingHeadlessBrowser").checked,
+        auto_skill_learning: $("#settingAutoSkillLearning").checked,
         enabled_models: enabledModels,
         default_chat_model: defaultChatModel,
         default_subagent_model: defaultSubagentModel
@@ -2055,8 +2066,73 @@ async function loadMemoryPage() {
 
     // Memories list
     await _loadMemoriesTab(_memActiveCategory);
+    await loadSessionRecall();
   } catch (err) {
     toast("Failed to load memory", "error");
+  }
+}
+
+async function loadSessionRecall(query = "") {
+  const container = $("#sessionRecallList");
+  if (!container) return;
+  container.innerHTML =
+    '<div class="empty-state"><p>Loading session recall…</p></div>';
+  try {
+    const results = query
+      ? await api("/memory/conversations/search", {
+          method: "POST",
+          body: { query, limit: 8 },
+        })
+      : await api("/memory/conversations?limit=12");
+
+    if (!results.length) {
+      container.innerHTML =
+        '<div class="empty-state"><p>No matching sessions yet.</p></div>';
+      return;
+    }
+
+    container.innerHTML = "";
+    for (const item of results) {
+      const card = document.createElement("div");
+      card.className = "item-card";
+
+      if (item.matches) {
+        const matches = item.matches
+          .map(
+            (match) => `<div style="margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;">
+              <div style="font-size:0.72rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">${escapeHtml(match.role || "message")}</div>
+              <div style="font-size:0.9rem;line-height:1.45;">${escapeHtml(match.excerpt || "")}</div>
+            </div>`
+          )
+          .join("");
+
+        card.innerHTML = `
+          <div class="item-card-header">
+            <div>
+              <div class="item-card-title">${escapeHtml(item.title || "Session")}</div>
+              <div class="item-card-meta">${escapeHtml(item.source || "session")} · ${escapeHtml(item.createdAt || "")}</div>
+            </div>
+            <span class="badge badge-neutral">${item.matchCount || item.matches.length} match${(item.matchCount || item.matches.length) === 1 ? "" : "es"}</span>
+          </div>
+          ${matches}
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="item-card-header">
+            <div>
+              <div class="item-card-title">${escapeHtml(item.title || "Session")}</div>
+              <div class="item-card-meta">${escapeHtml(item.status || "completed")} · ${escapeHtml(item.completedAt || item.createdAt || "")}</div>
+            </div>
+          </div>
+          <div style="font-size:0.9rem;line-height:1.45;color:var(--text);">${escapeHtml(item.excerpt || "No excerpt available.")}</div>
+        `;
+      }
+
+      container.appendChild(card);
+    }
+  } catch {
+    container.innerHTML =
+      '<div class="empty-state"><p>Session recall failed to load.</p></div>';
   }
 }
 
@@ -2192,6 +2268,15 @@ $("#memorySearchBtn")?.addEventListener("click", async () => {
 
 $("#memorySearchInput")?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") $("#memorySearchBtn")?.click();
+});
+
+$("#sessionSearchBtn")?.addEventListener("click", async () => {
+  const query = $("#sessionSearchInput")?.value?.trim() || "";
+  await loadSessionRecall(query);
+});
+
+$("#sessionSearchInput")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("#sessionSearchBtn")?.click();
 });
 
 // Soul save
@@ -2502,6 +2587,11 @@ async function loadSkillsPage() {
     for (const skill of skills) {
       const card = document.createElement("div");
       card.className = "item-card";
+      const badges = [
+        `<span class="badge ${skill.enabled ? "badge-success" : "badge-neutral"}">${skill.enabled ? "Active" : "Disabled"}</span>`,
+      ];
+      if (skill.draft) badges.push('<span class="badge badge-warning">Draft</span>');
+      if (skill.autoCreated) badges.push('<span class="badge badge-info">Auto-learned</span>');
       card.innerHTML = `
         <div class="item-card-header">
           <div>
@@ -2509,12 +2599,14 @@ async function loadSkillsPage() {
             <div class="item-card-meta">${escapeHtml(skill.description)}</div>
           </div>
           <div class="item-card-actions">
-            <span class="badge ${skill.enabled ? "badge-success" : "badge-neutral"}">${skill.enabled ? "Active" : "Disabled"}</span>
-            <button class="btn btn-sm btn-secondary" data-action="editSkill" data-filename="${escapeHtml(skill.filename)}">Edit</button>
-            <button class="btn btn-sm btn-danger" data-action="deleteSkill" data-filename="${escapeHtml(skill.filename)}">&times;</button>
+            ${badges.join("")}
+            <button class="btn btn-sm btn-secondary" data-action="toggleSkill" data-name="${escapeHtml(skill.name)}" data-enabled="${skill.enabled ? "true" : "false"}">${skill.enabled ? "Disable" : "Enable"}</button>
+            <button class="btn btn-sm btn-secondary" data-action="editSkill" data-name="${escapeHtml(skill.name)}">Edit</button>
+            <button class="btn btn-sm btn-danger" data-action="deleteSkill" data-name="${escapeHtml(skill.name)}">&times;</button>
           </div>
         </div>
-        <div class="item-card-meta">Trigger: ${escapeHtml(skill.trigger || "N/A")} | Category: ${escapeHtml(skill.category)}</div>
+        <div class="item-card-meta">Trigger: ${escapeHtml(skill.trigger || "N/A")} | Category: ${escapeHtml(skill.category)} | Source: ${escapeHtml(skill.source || "local")}</div>
+        <div class="item-card-meta" style="margin-top:6px;">${escapeHtml(skill.filePath || "")}</div>
       `;
       container.appendChild(card);
     }
@@ -2523,12 +2615,12 @@ async function loadSkillsPage() {
   }
 }
 
-window.editSkill = async (filename) => {
+window.editSkill = async (name) => {
   try {
-    const data = await api(`/skills/${filename}`);
+    const data = await api(`/skills/${name}`);
     const content = prompt("Edit skill content:", data.content);
     if (content !== null) {
-      await api(`/skills/${filename}`, { method: "PUT", body: { content } });
+      await api(`/skills/${name}`, { method: "PUT", body: { content } });
       loadSkillsPage();
       toast("Skill updated", "success");
     }
@@ -2537,14 +2629,27 @@ window.editSkill = async (filename) => {
   }
 };
 
-window.deleteSkill = async (filename) => {
-  if (!confirm(`Delete skill ${filename}?`)) return;
+window.deleteSkill = async (name) => {
+  if (!confirm(`Delete skill ${name}?`)) return;
   try {
-    await api(`/skills/${filename}`, { method: "DELETE" });
+    await api(`/skills/${name}`, { method: "DELETE" });
     loadSkillsPage();
     toast("Skill deleted", "success");
   } catch (err) {
     toast("Failed to delete", "error");
+  }
+};
+
+window.toggleSkill = async (name, enabled) => {
+  try {
+    await api(`/skills/${name}`, {
+      method: "PUT",
+      body: { enabled },
+    });
+    loadSkillsPage();
+    toast(enabled ? "Skill enabled" : "Skill disabled", "success");
+  } catch (err) {
+    toast("Failed to update skill", "error");
   }
 };
 
@@ -2553,8 +2658,10 @@ $("#skillList").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;
   const action = btn.dataset.action;
-  if (action === "editSkill") window.editSkill(btn.dataset.filename);
-  else if (action === "deleteSkill") window.deleteSkill(btn.dataset.filename);
+  if (action === "editSkill") window.editSkill(btn.dataset.name);
+  else if (action === "deleteSkill") window.deleteSkill(btn.dataset.name);
+  else if (action === "toggleSkill")
+    window.toggleSkill(btn.dataset.name, btn.dataset.enabled !== "true");
 });
 
 $("#addSkillBtn").addEventListener("click", () => {

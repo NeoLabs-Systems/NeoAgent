@@ -65,6 +65,33 @@ const CATEGORIES = ['user_fact', 'preference', 'personality', 'episodic'];
 // Core memory keys (always injected into every prompt)
 const CORE_KEYS = ['user_profile', 'preferences', 'ai_personality', 'active_context'];
 
+function buildFtsQuery(query) {
+  const tokens = String(query || '')
+    .match(/[\p{L}\p{N}_-]{2,}/gu) || [];
+  if (!tokens.length) return null;
+  return tokens.map((token) => `${token.replace(/"/g, '')}*`).join(' AND ');
+}
+
+function stripHighlight(text) {
+  return String(text || '').replace(/<\/?mark>/g, '');
+}
+
+function buildExcerpt(text, query) {
+  const raw = stripHighlight(text);
+  const needle = String(query || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (!needle) return raw.slice(0, 220);
+
+  const pos = raw.toLowerCase().indexOf(needle);
+  if (pos === -1) return raw.slice(0, 220);
+
+  const start = Math.max(0, pos - 80);
+  const end = Math.min(raw.length, pos + needle.length + 140);
+  const prefix = start > 0 ? '...' : '';
+  const suffix = end < raw.length ? '...' : '';
+  return `${prefix}${raw.slice(start, end)}${suffix}`;
+}
+
 class MemoryManager {
   constructor() {
     this._ensureDirs();
@@ -354,19 +381,153 @@ class MemoryManager {
   }
 
   getRecentConversations(userId, limit = 20) {
-    return db.prepare(`
-      SELECT ch.*, ar.task FROM conversation_history ch
-      JOIN agent_runs ar ON ch.agent_run_id = ar.id
-      WHERE ch.user_id = ? ORDER BY ch.created_at DESC LIMIT ?
+    const rows = db.prepare(`
+      SELECT
+        ar.id AS run_id,
+        ar.title,
+        ar.created_at,
+        ar.completed_at,
+        ar.status,
+        (
+          SELECT content
+          FROM conversation_history ch
+          WHERE ch.agent_run_id = ar.id
+          ORDER BY ch.created_at DESC
+          LIMIT 1
+        ) AS latest_content
+      FROM agent_runs ar
+      WHERE ar.user_id = ?
+      ORDER BY COALESCE(ar.completed_at, ar.created_at) DESC
+      LIMIT ?
     `).all(userId, limit);
+
+    return rows.map((row) => ({
+      runId: row.run_id,
+      title: row.title || 'Untitled run',
+      createdAt: row.created_at,
+      completedAt: row.completed_at,
+      status: row.status,
+      excerpt: buildExcerpt(row.latest_content, '')
+    }));
   }
 
-  searchConversations(userId, query) {
-    return db.prepare(`
-      SELECT ch.*, ar.task FROM conversation_history ch
-      JOIN agent_runs ar ON ch.agent_run_id = ar.id
-      WHERE ch.user_id = ? AND ch.content LIKE ? ORDER BY ch.created_at DESC LIMIT 50
-    `).all(userId, `%${query}%`);
+  searchConversations(userId, query, options = {}) {
+    const ftsQuery = buildFtsQuery(query);
+    const maxHits = Math.max(6, Math.min(Number(options.limit) || 24, 60));
+    if (!ftsQuery) return [];
+
+    let webHits = [];
+    let messageHits = [];
+    try {
+      webHits = db.prepare(`
+        SELECT
+          'web' AS source,
+          ch.id AS message_id,
+          COALESCE(ch.agent_run_id, 'web:' || ch.id) AS session_id,
+          COALESCE(ar.title, 'Web chat') AS title,
+          ch.role,
+          ch.created_at,
+          snippet(conversation_history_fts, 0, '<mark>', '</mark>', ' ... ', 16) AS snippet,
+          bm25(conversation_history_fts) AS score
+        FROM conversation_history_fts
+        JOIN conversation_history ch ON ch.id = conversation_history_fts.rowid
+        LEFT JOIN agent_runs ar ON ar.id = ch.agent_run_id
+        WHERE conversation_history_fts MATCH ? AND ch.user_id = ?
+        ORDER BY score
+        LIMIT ?
+      `).all(ftsQuery, userId, maxHits);
+
+      messageHits = db.prepare(`
+        SELECT
+          'message' AS source,
+          m.id AS message_id,
+          COALESCE(m.run_id, m.platform || ':' || COALESCE(m.platform_chat_id, m.id)) AS session_id,
+          COALESCE(ar.title, json_extract(m.metadata, '$.senderName'), m.platform_chat_id, m.platform, 'Message thread') AS title,
+          m.role,
+          m.created_at,
+          m.platform,
+          snippet(messages_fts, 0, '<mark>', '</mark>', ' ... ', 16) AS snippet,
+          bm25(messages_fts) AS score
+        FROM messages_fts
+        JOIN messages m ON m.id = messages_fts.rowid
+        LEFT JOIN agent_runs ar ON ar.id = m.run_id
+        WHERE messages_fts MATCH ? AND m.user_id = ?
+        ORDER BY score
+        LIMIT ?
+      `).all(ftsQuery, userId, maxHits);
+    } catch {
+      const likeQuery = `%${String(query || '').trim()}%`;
+      webHits = db.prepare(`
+        SELECT
+          'web' AS source,
+          ch.id AS message_id,
+          COALESCE(ch.agent_run_id, 'web:' || ch.id) AS session_id,
+          COALESCE(ar.title, 'Web chat') AS title,
+          ch.role,
+          ch.created_at,
+          ch.content AS snippet,
+          0 AS score
+        FROM conversation_history ch
+        LEFT JOIN agent_runs ar ON ar.id = ch.agent_run_id
+        WHERE ch.user_id = ? AND ch.content LIKE ?
+        ORDER BY ch.created_at DESC
+        LIMIT ?
+      `).all(userId, likeQuery, maxHits);
+
+      messageHits = db.prepare(`
+        SELECT
+          'message' AS source,
+          m.id AS message_id,
+          COALESCE(m.run_id, m.platform || ':' || COALESCE(m.platform_chat_id, m.id)) AS session_id,
+          COALESCE(ar.title, json_extract(m.metadata, '$.senderName'), m.platform_chat_id, m.platform, 'Message thread') AS title,
+          m.role,
+          m.created_at,
+          m.platform,
+          m.content AS snippet,
+          0 AS score
+        FROM messages m
+        LEFT JOIN agent_runs ar ON ar.id = m.run_id
+        WHERE m.user_id = ? AND m.content LIKE ?
+        ORDER BY m.created_at DESC
+        LIMIT ?
+      `).all(userId, likeQuery, maxHits);
+    }
+
+    const grouped = new Map();
+    for (const hit of [...webHits, ...messageHits]) {
+      const key = `${hit.source}:${hit.session_id}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          sessionId: hit.session_id,
+          source: hit.source,
+          title: hit.title || 'Untitled session',
+          platform: hit.platform || 'web',
+          createdAt: hit.created_at,
+          score: Number(hit.score || 0),
+          matches: []
+        });
+      }
+
+      const group = grouped.get(key);
+      group.score = Math.min(group.score, Number(hit.score || 0));
+      group.createdAt = hit.created_at > group.createdAt ? hit.created_at : group.createdAt;
+      if (group.matches.length < 3) {
+        group.matches.push({
+          role: hit.role,
+          createdAt: hit.created_at,
+          excerpt: buildExcerpt(hit.snippet, query)
+        });
+      }
+    }
+
+    return Array.from(grouped.values())
+      .sort((a, b) => a.score - b.score || String(b.createdAt).localeCompare(String(a.createdAt)))
+      .slice(0, Math.max(1, Math.min(Number(options.sessions) || 8, 12)))
+      .map((session) => ({
+        ...session,
+        matchCount: session.matches.length,
+        summary: session.matches.map((match) => `${match.role}: ${match.excerpt}`).join('\n')
+      }));
   }
 
   // ─────────────────────────────────────────────────────────────────────────

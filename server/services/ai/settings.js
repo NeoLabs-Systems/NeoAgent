@@ -4,7 +4,8 @@ const DEFAULT_AI_SETTINGS = Object.freeze({
   cost_mode: 'balanced_auto',
   chat_history_window: 8,
   tool_replay_budget_chars: 1200,
-  subagent_max_iterations: 6
+  subagent_max_iterations: 6,
+  auto_skill_learning: true
 });
 
 function parseSettingValue(value) {
@@ -20,13 +21,14 @@ function ensureDefaultAiSettings(userId) {
   if (!userId) return { ...DEFAULT_AI_SETTINGS };
 
   const existing = db.prepare(
-    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?)'
+    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?)'
   ).all(
     userId,
     'cost_mode',
     'chat_history_window',
     'tool_replay_budget_chars',
-    'subagent_max_iterations'
+    'subagent_max_iterations',
+    'auto_skill_learning'
   );
 
   const seen = new Set(existing.map((row) => row.key));
@@ -47,13 +49,14 @@ function getAiSettings(userId) {
   if (!userId) return { ...DEFAULT_AI_SETTINGS };
 
   const rows = db.prepare(
-    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?)'
+    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?)'
   ).all(
     userId,
     'cost_mode',
     'chat_history_window',
     'tool_replay_budget_chars',
-    'subagent_max_iterations'
+    'subagent_max_iterations',
+    'auto_skill_learning'
   );
 
   const settings = { ...DEFAULT_AI_SETTINGS };
@@ -65,6 +68,7 @@ function getAiSettings(userId) {
   settings.tool_replay_budget_chars = Math.max(400, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 2000));
   settings.subagent_max_iterations = Math.max(2, Math.min(Number(settings.subagent_max_iterations) || DEFAULT_AI_SETTINGS.subagent_max_iterations, 12));
   settings.cost_mode = typeof settings.cost_mode === 'string' ? settings.cost_mode : DEFAULT_AI_SETTINGS.cost_mode;
+  settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
 
   return settings;
 }
