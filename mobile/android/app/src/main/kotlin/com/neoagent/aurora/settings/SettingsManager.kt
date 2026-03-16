@@ -24,22 +24,6 @@ class SettingsManager(context: Context) {
         set(v) = prefs.edit().putString(KEY_PASS, v).apply()
 
     var healthSyncEnabled: Boolean
-        get() = prefs.getBoolean(KEY_HEALTH_ENABLED, false)
-        set(v) = prefs.edit().putBoolean(KEY_HEALTH_ENABLED, v).apply()
-
-    var healthLastAttemptAt: String?
-        get() = prefs.getString(KEY_HEALTH_LAST_ATTEMPT, null)
-        set(v) = prefs.edit().putString(KEY_HEALTH_LAST_ATTEMPT, v).apply()
-
-    var healthLastError: String?
-        get() = prefs.getString(KEY_HEALTH_LAST_ERROR, null)
-        set(v) = prefs.edit().putString(KEY_HEALTH_LAST_ERROR, v).apply()
-
-    var healthLastSuccessfulSyncAt: String?
-        get() = prefs.getString(KEY_HEALTH_LAST_SUCCESS, null)
-        set(v) = prefs.edit().putString(KEY_HEALTH_LAST_SUCCESS, v).apply()
-
-    var healthSyncEnabled: Boolean
         get() = prefs.getBoolean(KEY_HEALTH_SYNC_ENABLED, false)
         set(v) = prefs.edit().putBoolean(KEY_HEALTH_SYNC_ENABLED, v).apply()
 

@@ -81,7 +81,33 @@ class GoogleProvider extends BaseProvider {
       });
     }
 
-    return { systemInstruction, history };
+    const normalizedHistory = [];
+    let currentRole = null;
+    let currentParts = [];
+
+    for (const msg of history) {
+      if (msg.role === currentRole) {
+        currentParts.push(...msg.parts);
+      } else {
+        if (currentRole) {
+          normalizedHistory.push({ role: currentRole, parts: currentParts });
+        }
+        currentRole = msg.role;
+        currentParts = [...msg.parts];
+      }
+    }
+    if (currentRole) {
+      normalizedHistory.push({ role: currentRole, parts: currentParts });
+    }
+
+    if (normalizedHistory.length > 0 && normalizedHistory[0].role !== 'user') {
+      normalizedHistory.unshift({
+        role: 'user',
+        parts: [{ text: '[Conversation Resumed]' }]
+      });
+    }
+
+    return { systemInstruction, history: normalizedHistory };
   }
 
   async chat(messages, tools = [], options = {}) {
