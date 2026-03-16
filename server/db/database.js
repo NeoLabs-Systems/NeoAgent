@@ -228,6 +228,47 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_protocols_user ON protocols(user_id);
 
   CREATE INDEX IF NOT EXISTS idx_core_memory_user ON core_memory(user_id, key);
+
+  CREATE TABLE IF NOT EXISTS health_sync_runs (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    provider TEXT,
+    sync_window_start TEXT,
+    sync_window_end TEXT,
+    record_count INTEGER DEFAULT 0,
+    summary_json TEXT,
+    payload_json TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS health_metric_samples (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    sync_run_id TEXT NOT NULL,
+    metric_type TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    start_time TEXT,
+    end_time TEXT,
+    recorded_at TEXT,
+    numeric_value REAL,
+    text_value TEXT,
+    unit TEXT,
+    source_app_id TEXT,
+    source_device TEXT,
+    last_modified_time TEXT,
+    payload_json TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (sync_run_id) REFERENCES health_sync_runs(id) ON DELETE CASCADE,
+    UNIQUE(user_id, metric_type, record_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_health_sync_runs_user ON health_sync_runs(user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_health_metric_samples_user ON health_metric_samples(user_id, metric_type, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_health_metric_samples_time ON health_metric_samples(user_id, start_time DESC, end_time DESC);
 `);
 
 try {

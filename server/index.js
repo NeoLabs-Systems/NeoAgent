@@ -107,6 +107,7 @@ app.use('/api/store', require('./routes/store'));
 app.use('/api/memory', require('./routes/memory'));
 app.use('/api/scheduler', require('./routes/scheduler'));
 app.use('/api/browser', require('./routes/browser'));
+app.use('/api/mobile/health', require('./routes/mobile-health'));
 
 // ── Telnyx voice webhook ──
 setupTelnyxWebhook(app);
