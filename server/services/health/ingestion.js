@@ -169,7 +169,42 @@ function getHealthSyncStatus(userId) {
   };
 }
 
+function readHealthData(userId, metricType, limit = 50) {
+  if (!metricType) {
+    const metrics = db.prepare(`
+      SELECT metric_type, COUNT(*) AS sample_count, MAX(COALESCE(end_time, recorded_at, start_time)) AS last_seen_at
+      FROM health_metric_samples
+      WHERE user_id = ?
+      GROUP BY metric_type
+      ORDER BY metric_type ASC
+    `).all(userId);
+    return { metrics };
+  }
+
+  const samples = db.prepare(`
+    SELECT
+      start_time, end_time, recorded_at,
+      numeric_value, text_value, unit,
+      source_app_id, source_device,
+      payload_json
+    FROM health_metric_samples
+    WHERE user_id = ? AND metric_type = ?
+    ORDER BY COALESCE(end_time, recorded_at, start_time) DESC
+    LIMIT ?
+  `).all(userId, metricType, limit);
+
+  return {
+    metricType,
+    samples: samples.map(s => ({
+      ...s,
+      payload: s.payload_json ? JSON.parse(s.payload_json) : null,
+      payload_json: undefined
+    }))
+  };
+}
+
 module.exports = {
   getHealthSyncStatus,
   ingestHealthSync,
+  readHealthData,
 };

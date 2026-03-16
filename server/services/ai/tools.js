@@ -581,6 +581,17 @@ function getAvailableTools(app, options = {}) {
                 },
                 required: ['image_path']
             }
+        },
+        {
+            name: 'read_health_data',
+            description: 'Read the user\'s synced mobile health data (like steps, heart rate, sleep). If you omit metric_type, it returns a summary of all available metrics. If you provide a metric_type, it returns the most recent historical records for that metric.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    metric_type: { type: 'string', description: 'The specific metric to query, e.g. "Steps", "HeartRate", "SleepSession". Optional.' },
+                    limit: { type: 'number', description: 'Maximum number of recent records to return if metric_type is specified (default 50, max 200).' }
+                }
+            }
         }
     ];
 
@@ -799,6 +810,12 @@ async function executeTool(toolName, args, context, engine) {
             const mm = new MemoryManager();
             mm.updateCore(userId, args.key, args.value);
             return { success: true, key: args.key, message: 'Core memory updated' };
+        }
+
+        case 'read_health_data': {
+            const { readHealthData } = require('../health/ingestion');
+            const result = readHealthData(userId, args.metric_type, args.limit);
+            return result;
         }
 
         case 'memory_write': {
