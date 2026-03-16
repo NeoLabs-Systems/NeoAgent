@@ -1,7 +1,6 @@
 package com.neoagent.aurora
 
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -18,17 +17,27 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
+import androidx.health.connect.client.PermissionController
+import com.neoagent.aurora.health.HealthConnectGateway
 import com.neoagent.aurora.network.ConnectionState
 import com.neoagent.aurora.service.AuroraService
 import com.neoagent.aurora.settings.SettingsManager
 import com.neoagent.aurora.ui.LogBuffer
 import com.neoagent.aurora.ui.LogEntry
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
 
     private lateinit var settings: SettingsManager
+    private lateinit var healthGateway: HealthConnectGateway
     private val mainHandler = Handler(Looper.getMainLooper())
 
     // ── Views ────────────────────────────────────────────────────────────
@@ -45,9 +54,30 @@ class MainActivity : Activity() {
     private lateinit var inputUsername: EditText
     private lateinit var inputPassword: EditText
     private lateinit var btnSave: Button
+    private lateinit var switchHealthSync: Switch
+    private lateinit var healthStatusText: TextView
+    private lateinit var healthLastSyncText: TextView
+    private lateinit var btnGrantHealthPermissions: Button
+    private lateinit var btnSyncHealthNow: Button
     private lateinit var btnClearLog: TextView
     private lateinit var logScrollView: ScrollView
     private lateinit var logText: TextView
+
+    private val requestHealthPermissions = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { granted ->
+        val enabled = settings.healthSyncEnabled
+        val message = if (granted.isEmpty()) {
+            "Health permissions not granted"
+        } else {
+            "Health permissions updated"
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        if (enabled) {
+            AuroraService.requestImmediateHealthSync(this)
+        }
+        refreshHealthSection()
+    }
 
     // ── Listeners (held so we can remove them in onPause) ────────────────
     private val logListener: (LogEntry) -> Unit = { entry ->
@@ -63,6 +93,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         settings = SettingsManager(this)
+        healthGateway = HealthConnectGateway(this)
 
         webView        = findViewById(R.id.webView)
         settingsPanel  = findViewById(R.id.settingsPanel)
@@ -77,6 +108,11 @@ class MainActivity : Activity() {
         inputUsername  = findViewById(R.id.inputUsername)
         inputPassword  = findViewById(R.id.inputPassword)
         btnSave        = findViewById(R.id.btnSave)
+        switchHealthSync = findViewById(R.id.switchHealthSync)
+        healthStatusText = findViewById(R.id.healthStatusText)
+        healthLastSyncText = findViewById(R.id.healthLastSyncText)
+        btnGrantHealthPermissions = findViewById(R.id.btnGrantHealthPermissions)
+        btnSyncHealthNow = findViewById(R.id.btnSyncHealthNow)
         btnClearLog    = findViewById(R.id.btnClearLog)
         logScrollView  = findViewById(R.id.logScrollView)
         logText        = findViewById(R.id.logText)
@@ -85,9 +121,42 @@ class MainActivity : Activity() {
         inputUrl.setText(settings.backendUrl)
         inputUsername.setText(settings.username)
         inputPassword.setText(settings.password)
+        switchHealthSync.isChecked = settings.healthSyncEnabled
 
         btnReconnect.setOnClickListener { restartService() }
         btnSave.setOnClickListener      { saveAndReconnect() }
+        switchHealthSync.setOnCheckedChangeListener { _, enabled ->
+            settings.healthSyncEnabled = enabled
+            if (enabled) {
+                Toast.makeText(
+                    this,
+                    "Enable permissions below if this is your first sync",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            restartService()
+            refreshHealthSection()
+        }
+        btnGrantHealthPermissions.setOnClickListener {
+            lifecycleScope.launch {
+                val client = healthGateway.getClientOrNull()
+                if (client == null) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Health Connect is unavailable on this device",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    refreshHealthSection()
+                    return@launch
+                }
+                requestHealthPermissions.launch(healthGateway.getRequestedPermissions(client))
+            }
+        }
+        btnSyncHealthNow.setOnClickListener {
+            AuroraService.requestImmediateHealthSync(this)
+            Toast.makeText(this, "Health sync requested", Toast.LENGTH_SHORT).show()
+            refreshHealthSection()
+        }
         btnClearLog.setOnClickListener  {
             logText.text = ""
             LogBuffer.clear()
@@ -116,6 +185,7 @@ class MainActivity : Activity() {
 
         // Ensure service is running
         AuroraService.start(this)
+        refreshHealthSection()
     }
 
     override fun onResume() {
@@ -124,6 +194,7 @@ class MainActivity : Activity() {
         LogBuffer.addListener(logListener)
         updateState(AuroraService.currentState)
         rebuildLog()
+        refreshHealthSection()
     }
 
     override fun onPause() {
@@ -147,6 +218,38 @@ class MainActivity : Activity() {
         connUrlText.text    = settings.backendUrl
             .removePrefix("https://")
             .removePrefix("http://")
+    }
+
+    private fun refreshHealthSection() {
+        lifecycleScope.launch {
+            val sdkAvailable = healthGateway.isAvailable()
+            val client = healthGateway.getClientOrNull()
+            val granted = if (client != null) client.permissionController.getGrantedPermissions() else emptySet()
+            val required = if (client != null) healthGateway.getRequestedPermissions(client) else emptySet()
+            val enabled = settings.healthSyncEnabled
+            val lastSuccess = settings.healthLastSuccessfulSyncAt?.let(::formatTimestamp)
+            val lastError = settings.healthLastError?.takeIf { it.isNotBlank() }
+
+            val status = when {
+                !sdkAvailable -> "Health Connect unavailable"
+                !granted.containsAll(required) -> "Permission required"
+                enabled -> "Background sync active"
+                else -> "Ready but disabled"
+            }
+
+            healthStatusText.text = status
+            healthLastSyncText.text = buildString {
+                append(lastSuccess?.let { "Last sync: $it" } ?: "No health sync yet")
+                if (lastError != null) {
+                    append("\n")
+                    append("Last error: ")
+                    append(lastError)
+                }
+            }
+
+            btnGrantHealthPermissions.isEnabled = sdkAvailable
+            btnSyncHealthNow.isEnabled = enabled && sdkAvailable && granted.containsAll(required)
+        }
     }
 
     private fun setDotColor(argb: Int) {
@@ -254,5 +357,12 @@ class MainActivity : Activity() {
     private fun hideKeyboard() {
         val imm = getSystemService(InputMethodManager::class.java)
         currentFocus?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
+    }
+
+    private fun formatTimestamp(value: String): String {
+        val instant = runCatching { Instant.parse(value) }.getOrNull() ?: return value
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+            .format(instant)
     }
 }

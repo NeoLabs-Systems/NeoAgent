@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.LifecycleService
+import com.neoagent.aurora.health.HealthSyncManager
 import com.neoagent.aurora.R
+import com.neoagent.aurora.network.BackendSessionClient
 import com.neoagent.aurora.network.ConnectionState
 import com.neoagent.aurora.network.NeoSocketManager
 import com.neoagent.aurora.network.RunEvent
@@ -31,6 +33,8 @@ const val SERVICE_NOTIF_ID = 1
  */
 class AuroraService : LifecycleService(), RunEventListener {
 
+    private lateinit var backendSessionClient: BackendSessionClient
+    private lateinit var healthSyncManager: HealthSyncManager
     private lateinit var socketManager: NeoSocketManager
     private lateinit var liveUpdateManager: LiveUpdateManager
     private lateinit var settings: SettingsManager
@@ -40,8 +44,18 @@ class AuroraService : LifecycleService(), RunEventListener {
     override fun onCreate() {
         super.onCreate()
         settings          = SettingsManager(this)
+        backendSessionClient = BackendSessionClient(settings)
         liveUpdateManager = LiveUpdateManager(this)
-        socketManager     = NeoSocketManager(listener = this, settings = settings)
+        socketManager     = NeoSocketManager(
+            listener = this,
+            settings = settings,
+            backendSessionClient = backendSessionClient,
+        )
+        healthSyncManager = HealthSyncManager(
+            context = this,
+            settings = settings,
+            backendSessionClient = backendSessionClient,
+        )
 
         startForeground(SERVICE_NOTIF_ID, buildServiceNotification(
             text = getString(R.string.notif_service_reconnecting),
@@ -50,17 +64,22 @@ class AuroraService : LifecycleService(), RunEventListener {
 
         LogBuffer.info("▶ Aurora service starting")
         socketManager.connect()
+        healthSyncManager.start()
         Log.i(TAG, "Aurora service started")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        when (intent?.action) {
+            ACTION_HEALTH_SYNC_NOW -> healthSyncManager.requestImmediateSync(reason = "manual")
+        }
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
         socketManager.disconnect()
+        healthSyncManager.stop()
         liveUpdateManager.cancelAll()
         notifyState(ConnectionState.DISCONNECTED)
         LogBuffer.warn("■ Aurora service stopped")
@@ -125,6 +144,8 @@ class AuroraService : LifecycleService(), RunEventListener {
     // ── Static state + listeners (used by MainActivity) ─────────────────────
 
     companion object {
+        private const val ACTION_HEALTH_SYNC_NOW = "com.neoagent.aurora.action.HEALTH_SYNC_NOW"
+
         @Volatile var currentState: ConnectionState = ConnectionState.DISCONNECTED
             private set
 
@@ -140,6 +161,14 @@ class AuroraService : LifecycleService(), RunEventListener {
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, AuroraService::class.java))
+        }
+
+        fun requestImmediateHealthSync(context: Context) {
+            context.startService(
+                Intent(context, AuroraService::class.java).apply {
+                    action = ACTION_HEALTH_SYNC_NOW
+                },
+            )
         }
 
         fun stop(context: Context) {

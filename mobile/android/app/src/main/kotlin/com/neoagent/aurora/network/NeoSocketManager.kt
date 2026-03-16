@@ -11,13 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 
 private const val TAG = "NeoSocketManager"
 
@@ -40,13 +34,8 @@ interface RunEventListener {
 class NeoSocketManager(
     private val listener: RunEventListener,
     private val settings: SettingsManager,
+    private val backendSessionClient: BackendSessionClient,
 ) {
-
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .followRedirects(false)
-        .build()
 
     private var socket: Socket? = null
     private val scope = CoroutineScope(Dispatchers.IO + Job())
@@ -75,7 +64,7 @@ class NeoSocketManager(
         while (scope.isActive) {
             listener.onConnectionStateChanged(ConnectionState.CONNECTING)
             try {
-                val cookie = login()
+                val cookie = backendSessionClient.getSessionCookie()
                 setupSocket(cookie)
                 return // success – event handlers drive the rest
             } catch (e: Exception) {
@@ -84,37 +73,6 @@ class NeoSocketManager(
                 delay(backoffMs)
                 backoffMs = minOf(backoffMs * 2, 60_000L)
             }
-        }
-    }
-
-    /**
-     * Authenticates with the NeoAgent backend and returns the session cookie string.
-     * Throws if login fails.
-     */
-    private fun login(): String {
-        val body = JSONObject().apply {
-            put("username", settings.username)
-            put("password", settings.password)
-        }.toString().toRequestBody("application/json".toMediaType())
-
-        val req = Request.Builder()
-            .url("${settings.backendUrl}/api/auth/login")
-            .post(body)
-            .build()
-
-        http.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                LogBuffer.error("✗ Login failed: HTTP ${resp.code}")
-                throw IllegalStateException("Login failed: HTTP ${resp.code}")
-            }
-            val cookies = resp.headers.values("Set-Cookie")
-            if (cookies.isEmpty()) {
-                LogBuffer.error("✗ No session cookie from server")
-                throw IllegalStateException("No session cookie returned from login")
-            }
-            LogBuffer.success("✓ Login OK")
-            // Concatenate all set-cookie values into a single header string
-            return cookies.joinToString("; ") { it.substringBefore(";") }
         }
     }
 
@@ -132,6 +90,7 @@ class NeoSocketManager(
         socket = IO.socket(settings.backendUrl, opts).apply {
             on(Socket.EVENT_CONNECT) {
                 Log.i(TAG, "Socket connected ✓")
+                LogBuffer.success("✓ Login OK")
                 LogBuffer.success("✓ Socket connected")
                 reconnectJob?.cancel()
                 reconnectJob = null
@@ -141,6 +100,7 @@ class NeoSocketManager(
             on(Socket.EVENT_CONNECT_ERROR) { args ->
                 val msg = args.firstOrNull()?.toString() ?: "unknown"
                 Log.w(TAG, "Socket connect error: $msg")
+                backendSessionClient.clearSession()
                 LogBuffer.error("✗ WS error: $msg")
                 listener.onConnectionStateChanged(ConnectionState.RECONNECTING, "WS: $msg")
                 scheduleReconnect()
@@ -149,6 +109,7 @@ class NeoSocketManager(
             on(Socket.EVENT_DISCONNECT) { args ->
                 val reason = args.firstOrNull()?.toString() ?: "unknown"
                 Log.w(TAG, "Socket disconnected: $reason")
+                backendSessionClient.clearSession()
                 scheduleReconnect()
             }
 

@@ -239,6 +239,94 @@
                     android:stateListAnimator="@null" />
             </LinearLayout>
 
+            <!-- ── Health sync card ──────────────────────────────────── -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="HEALTH SYNC"
+                    android:textColor="#44435F"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.15"
+                    android:layout_marginBottom="10dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Sync Samsung Health data through Health Connect to your NeoAgent backend every 10 minutes while the service is running."
+                    android:textColor="#888899"
+                    android:textSize="12sp"
+                    android:lineSpacingExtra="2dp"
+                    android:layout_marginBottom="12dp" />
+
+                <Switch
+                    android:id="@+id/switchHealthSync"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Enable background health sync"
+                    android:textColor="#EEEEEE"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/healthStatusText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Permission required"
+                    android:textColor="#EEEEEE"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/healthLastSyncText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No health sync yet"
+                    android:textColor="#888899"
+                    android:textSize="12sp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="14dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnGrantHealthPermissions"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="Grant Permissions"
+                        android:background="@drawable/bg_button_outline"
+                        android:textColor="#7C4DFF"
+                        android:textSize="12sp"
+                        android:stateListAnimator="@null" />
+
+                    <Button
+                        android:id="@+id/btnSyncHealthNow"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="Sync Now"
+                        android:background="@drawable/bg_button_primary"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:stateListAnimator="@null" />
+                </LinearLayout>
+            </LinearLayout>
+
             <!-- ── Activity log card ─────────────────────────────────── -->
             <LinearLayout
                 android:layout_width="match_parent"

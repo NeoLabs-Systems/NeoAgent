@@ -60,7 +60,9 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.lifecycle.service)
+    implementation(libs.androidx.health.connect)
     implementation(libs.socket.io.client)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.android)
