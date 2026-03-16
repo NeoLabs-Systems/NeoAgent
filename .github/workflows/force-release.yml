@@ -39,10 +39,25 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump Version
+      - name: Fetch Latest Tag & Bump Version
         id: bump
         run: |
-          # Bump package.json version and commit it
+          # Fetch all tags so we know the latest release version
+          git fetch --tags --force
+          
+          # Find the highest semantic version tag (fallback to v1.0.0)
+          LATEST_TAG=$(git tag --list "v*" --sort=-v:refname | head -n 1)
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG="v1.0.0"
+          fi
+          
+          LATEST_VERSION=${LATEST_TAG#v}
+          echo "Syncing package.json to latest known release ($LATEST_VERSION)..."
+          
+          # Force package.json to match the latest tag without making a git tag
+          npm version $LATEST_VERSION --no-git-tag-version --allow-same-version
+          
+          # Now genuinely bump package.json and commit/tag it
           NEW_VERSION=$(npm version ${{ github.event.inputs.version_bump }} -m "chore(release): %s [skip ci]")
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
           echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
