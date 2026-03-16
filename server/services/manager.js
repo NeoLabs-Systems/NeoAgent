@@ -107,8 +107,8 @@ async function startServices(app, io) {
                     : '';
 
                 const prompt = isVoiceCall
-                    ? `You are on a live phone call. The caller (${msg.senderName || msg.sender}) said:\n<caller_speech>\n${msg.content}\n</caller_speech>\n\nRespond via send_message with platform="telnyx" and to="${msg.chatId}".`
-                    : `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${discordContext}${sttNote}\n\nReply via send_message with platform="${msg.platform}" and to="${msg.chatId}".`;
+                    ? `You are on a live phone call. The caller (${msg.senderName || msg.sender}) said:\n<caller_speech>\n${msg.content}\n</caller_speech>\n\nRespond via send_message with platform="telnyx" and to="${msg.chatId}". Note: once you successfully send your voice response, end the tool loop and output exactly [NO RESPONSE] as your final text.`
+                    : `You received a ${msg.platform} message from ${msg.senderName || msg.sender} (chat: ${msg.chatId}):\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${discordContext}${sttNote}\n\nReply via send_message with platform="${msg.platform}" and to="${msg.chatId}". Note: once you successfully send your reply, end the tool loop and output exactly [NO RESPONSE] as your final text to prevent double-notifications.`;
 
                 let convRow = db.prepare(
                     'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?'

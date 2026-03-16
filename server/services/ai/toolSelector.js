@@ -11,7 +11,8 @@ const PACKS = {
   images: ['generate_image', 'analyze_image'],
   tables: ['generate_table', 'generate_graph'],
   subagents: ['spawn_subagent'],
-  mcpAdmin: ['mcp_add_server', 'mcp_list_servers', 'mcp_remove_server']
+  mcpAdmin: ['mcp_add_server', 'mcp_list_servers', 'mcp_remove_server'],
+  health: ['read_health_data']
 };
 
 function containsAny(text, patterns) {
@@ -98,6 +99,10 @@ function detectRequestedPacks(task = '', options = {}) {
 
   if (options.mediaAttachments?.length) {
     packs.add('images');
+  }
+
+  if (containsAny(text, [/\bhealth\b/, /\bfitness\b/, /\bsteps\b/, /\bsleep\b/, /\bheart rate\b/, /\bworkout\b/, /\bblood\b/, /\bsamsung health\b/, /\bhealth connect\b/])) {
+    packs.add('health');
   }
 
   return packs;
