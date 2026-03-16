@@ -243,7 +243,9 @@ class AgentEngine {
     this.emit(userId, 'run:start', { runId, title: runTitle, model, triggerType, triggerSource });
 
     const systemPrompt = await this.buildSystemPrompt(userId, { ...(options.context || {}), userMessage });
-    const builtInTools = this.getAvailableTools(app);
+    // Pass short descriptions so the model always knows every available tool.
+    // compactToolDefinition caps tool desc at 120 chars, param desc at 70 chars.
+    const builtInTools = this.getAvailableTools(app, { includeDescriptions: true });
     const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.mcpManager;
     const mcpTools = mcpManager ? mcpManager.getAllTools(userId) : [];
     const tools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
@@ -468,13 +470,14 @@ class AgentEngine {
 
       const runMeta = this.activeRuns.get(runId);
       const messagingSent = runMeta?.messagingSent || false;
-      const lastToolName = runMeta?.lastToolName;
-      const lastToolTarget = runMeta?.lastToolTarget;
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:complete', { runId, content: lastContent, totalTokens, iterations: iteration, triggerSource });
 
-      const lastActionWasSendToChat = lastToolName === 'send_message' && lastToolTarget === options.chatId;
-      if (triggerSource === 'messaging' && options.source && options.chatId && (!lastActionWasSendToChat || forcedFinalResponse)) {
+      // Fallback: if this was a messaging-triggered run and the AI never called
+      // send_message itself, auto-send its final text as a reply.
+      // We check messagingSent (not just the last tool) so a send_message followed
+      // by any other tool (memory_save, think, etc.) does NOT fire a duplicate.
+      if (triggerSource === 'messaging' && options.source && options.chatId && !messagingSent) {
         if (lastContent && lastContent.trim() && lastContent.trim() !== '[NO RESPONSE]') {
           const manager = this.messagingManager;
           if (manager) {
