@@ -1823,7 +1823,7 @@ $("#settingsBtn").addEventListener("click", async () => {
 
     try {
       const backendVersion = await api("/version");
-      backendVersionLabel = `${backendVersion?.version || "unknown"}${backendVersion?.gitSha ? ` (${backendVersion.gitSha})` : ""}`;
+      backendVersionLabel = backendVersion?.version || "unknown";
       const vEl = $("#settingsAppVersion");
       if (vEl && backendVersionLabel !== "unknown") {
         vEl.textContent = `v${backendVersionLabel}`;

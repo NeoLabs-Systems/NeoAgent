@@ -155,9 +155,15 @@ app.get('/api/health', requireAuth, (req, res) => {
 });
 
 app.get('/api/version', requireAuth, (req, res) => {
+  let version = packageJson.version;
   let gitSha = null;
   try {
     const { execSync } = require('child_process');
+    version = execSync('git describe --tags --always --dirty', {
+      cwd: APP_DIR,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim().replace(/^v/, '') || packageJson.version;
     gitSha = execSync('git rev-parse --short HEAD', {
       cwd: APP_DIR,
       encoding: 'utf8',
@@ -169,7 +175,8 @@ app.get('/api/version', requireAuth, (req, res) => {
 
   res.json({
     name: packageJson.name,
-    version: packageJson.version,
+    version,
+    packageVersion: packageJson.version,
     gitSha
   });
 });
