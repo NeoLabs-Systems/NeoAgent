@@ -51,19 +51,59 @@ function validateString(value, { maxLength = 50000, name = 'value' } = {}) {
 /**
  * Returns true if the string looks like it contains a prompt injection attempt.
  * This is a heuristic for logging/alerting — NOT a hard block (context window still applies).
+ *
+ * Covers: classic override phrases, jailbreak personas (DAN, AIM, etc.), roleplay unlocks,
+ * structural tag injection, credential fishing, and multi-language variants.
  */
 function detectPromptInjection(text) {
   if (typeof text !== 'string') return false;
   const patterns = [
+    // Classic override
     /ignore\s+(all\s+)?previous\s+instructions/i,
-    /you\s+are\s+now\s+(DAN|GPT|jailbreak)/i,
-    /system\s+prompt\s*(override|bypass|end)/i,
+    /disregard\s+(all\s+)?(prior|previous|your)\s+instructions/i,
+    /override\s+(previous|prior|all|your)\s+instructions/i,
+    /forget\s+(all\s+)?(previous|prior|your)\s+(instructions|context|training|rules|guidelines)/i,
+    /do\s+not\s+follow\s+(your\s+)?(previous\s+)?instructions/i,
+
+    // Persona jailbreaks
+    /you\s+are\s+now\s+(DAN|GPT-?Dan|jailbreak|AIM|STAN|DUDE|AntiGPT|BasedGPT|DevMode)/i,
+    /\bDAN\s+mode\b/i,
+    /\bjailbreak\s+mode\b/i,
+    /\bdev(eloper)?\s+mode\b/i,
+    /act\s+as\s+if\s+you\s+have\s+no\s+(rules|restrictions|guidelines|filters|limits)/i,
+    /pretend\s+(that\s+)?(you\s+(have\s+no|are\s+not|don't\s+have)|there\s+are\s+no)\s+(rules|restrictions|guidelines|filters|ethics)/i,
+    /your\s+true\s+self\b/i,
+    /your\s+real\s+(instructions|self|purpose|directives)/i,
+    /hidden\s+(mode|instructions|directives|personality)/i,
+    /(guidelines|restrictions|rules)\s+were\s+(just\s+a\s+)?test/i,
+
+    // Structural tag injection
     /\[SYSTEM\]/i,
-    /###\s*(SYSTEM|OVERRIDE|NEW INSTRUCTIONS)/i,
+    /###\s*(SYSTEM|OVERRIDE|NEW\s+INSTRUCTIONS|ADMIN|ROOT)/i,
     /<\/?system>/i,
-    /reveal\s+(your\s+)?(system\s+)?prompt/i,
-    /act\s+as\s+if\s+you\s+have\s+no\s+(rules|restrictions|guidelines)/i,
-    /forget\s+(all\s+)?(previous|prior)\s+(instructions|context|training)/i,
+    /<\/?instructions?>/i,
+    /<\/?prompt>/i,
+    /\{system\}/i,
+
+    // Credential / prompt fishing
+    /reveal\s+(your\s+)?(system\s+)?(prompt|instructions|configuration|secret|key|token)/i,
+    /print\s+(your\s+)?(system\s+)?(prompt|instructions)/i,
+    /what\s+(is|are)\s+your\s+(system\s+)?(prompt|instructions|directives)/i,
+    /show\s+(me\s+)?(your\s+)?(system\s+)?(prompt|instructions|full\s+context)/i,
+    /output\s+(your\s+)?(system\s+)?(prompt|instructions|initial\s+prompt)/i,
+    /repeat\s+(everything|all|your\s+instructions)\s+(above|before|prior)/i,
+    /send\s+(me\s+)?(your|the)\s+(system\s+)?(prompt|instructions|api[\s_-]?key)/i,
+
+    // Role/context manipulation
+    /you\s+are\s+no\s+longer\s+(an?\s+)?(AI|assistant|language\s+model)/i,
+    /from\s+now\s+on\s+you\s+(will|must|should|are\s+to)\s+.{0,60}(ignore|bypass|disregard)/i,
+    /new\s+(role|persona|instructions|context|prompt)\s*:/i,
+    /\[new\s+(instructions?|context|system)\]/i,
+    /end\s+of\s+system\s+prompt/i,
+    /---+\s*(instructions|system|new prompt)/i,
+
+    // Credential exfiltration
+    /(email|send|forward|transmit|share|leak|dump|export)\s+.{0,60}(api[\s_-]?key|secret|token|password|credential|\.env)/i,
   ];
   return patterns.some(p => p.test(text));
 }
