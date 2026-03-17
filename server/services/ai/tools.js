@@ -588,7 +588,7 @@ function getAvailableTools(app, options = {}) {
             parameters: {
                 type: 'object',
                 properties: {
-                    metric_type: { type: 'string', description: 'Metric to query: "steps", "heart_rate", "sleep_session", "exercise_session", "weight". Omit to see what is available.' },
+                    metric_type: { type: 'string', description: 'Metric to query. Canonical values: "steps" (also accepts: "step", "step_count"), "heart_rate" (also accepts: "heartbeat", "heartrate", "pulse", "bpm"), "sleep_session" (also accepts: "sleep"), "exercise_session" (also accepts: "exercise", "workout", "activity"), "weight" (also accepts: "body_weight"). Omit to see what is available.' },
                     limit: { type: 'number', description: 'Max recent records to return (default 10, max 200). Use a small number unless the user explicitly asks for a full history.' }
                 }
             }

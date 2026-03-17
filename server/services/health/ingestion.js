@@ -169,13 +169,41 @@ function getHealthSyncStatus(userId) {
   };
 }
 
+// Aliases map collapsed/synonym forms → canonical stored metric_type values.
+// Applied after camelCase/space normalization, so keys here are already lowercase+underscored.
+const METRIC_TYPE_ALIASES = {
+  // heart rate variants
+  heartbeat: 'heart_rate',
+  heartrate: 'heart_rate',
+  heart_beat: 'heart_rate',
+  bpm: 'heart_rate',
+  pulse: 'heart_rate',
+  // sleep variants
+  sleep: 'sleep_session',
+  sleeping: 'sleep_session',
+  // exercise variants
+  exercise: 'exercise_session',
+  workout: 'exercise_session',
+  activity: 'exercise_session',
+  // weight variants
+  body_weight: 'weight',
+  bodyweight: 'weight',
+  mass: 'weight',
+  // steps variants
+  step_count: 'steps',
+  stepcount: 'steps',
+  step: 'steps',
+};
+
 function normalizeMetricType(raw) {
   // Accept any casing/spacing: "HeartRate" → "heart_rate", "Steps" → "steps", etc.
-  return String(raw || '')
+  const normalized = String(raw || '')
     .trim()
     .replace(/([a-z])([A-Z])/g, '$1_$2')  // camelCase/PascalCase → snake_case
     .replace(/[\s-]+/g, '_')               // spaces/dashes → underscore
     .toLowerCase();
+  // Resolve known synonyms to canonical stored values
+  return METRIC_TYPE_ALIASES[normalized] || normalized;
 }
 
 function readHealthData(userId, metricType, limit = 50) {
