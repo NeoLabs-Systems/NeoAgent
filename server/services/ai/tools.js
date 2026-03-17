@@ -588,7 +588,7 @@ function getAvailableTools(app, options = {}) {
             parameters: {
                 type: 'object',
                 properties: {
-                    metric_type: { type: 'string', description: 'The specific metric to query, e.g. "Steps", "HeartRate", "SleepSession". Optional.' },
+                    metric_type: { type: 'string', description: 'The specific metric to query, e.g. "steps", "heart_rate", "sleep_session", "exercise_session", "weight". Use the summary (no metric_type) first to see what\'s available. Optional.' },
                     limit: { type: 'number', description: 'Maximum number of recent records to return if metric_type is specified (default 50, max 200).' }
                 }
             }

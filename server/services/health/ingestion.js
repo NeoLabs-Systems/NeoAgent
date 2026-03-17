@@ -169,6 +169,15 @@ function getHealthSyncStatus(userId) {
   };
 }
 
+function normalizeMetricType(raw) {
+  // Accept any casing/spacing: "HeartRate" → "heart_rate", "Steps" → "steps", etc.
+  return String(raw || '')
+    .trim()
+    .replace(/([a-z])([A-Z])/g, '$1_$2')  // camelCase/PascalCase → snake_case
+    .replace(/[\s-]+/g, '_')               // spaces/dashes → underscore
+    .toLowerCase();
+}
+
 function readHealthData(userId, metricType, limit = 50) {
   if (!metricType) {
     const metrics = db.prepare(`
@@ -181,6 +190,8 @@ function readHealthData(userId, metricType, limit = 50) {
     return { metrics };
   }
 
+  const normalizedType = normalizeMetricType(metricType);
+
   const samples = db.prepare(`
     SELECT
       start_time, end_time, recorded_at,
@@ -191,10 +202,10 @@ function readHealthData(userId, metricType, limit = 50) {
     WHERE user_id = ? AND metric_type = ?
     ORDER BY COALESCE(end_time, recorded_at, start_time) DESC
     LIMIT ?
-  `).all(userId, metricType, limit);
+  `).all(userId, normalizedType, limit);
 
   return {
-    metricType,
+    metricType: normalizedType,
     samples: samples.map(s => ({
       ...s,
       payload: s.payload_json ? JSON.parse(s.payload_json) : null,
