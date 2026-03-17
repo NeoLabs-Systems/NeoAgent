@@ -192,6 +192,22 @@ function readHealthData(userId, metricType, limit = 50) {
 
   const normalizedType = normalizeMetricType(metricType);
 
+  // Aggregate summary — useful numbers without dumping raw rows
+  const agg = db.prepare(`
+    SELECT
+      COUNT(*)                                                      AS record_count,
+      SUM(numeric_value)                                            AS total,
+      AVG(numeric_value)                                            AS avg,
+      MIN(numeric_value)                                            AS min,
+      MAX(numeric_value)                                            AS max,
+      MIN(COALESCE(start_time, recorded_at))                        AS window_start,
+      MAX(COALESCE(end_time, recorded_at, start_time))              AS window_end
+    FROM health_metric_samples
+    WHERE user_id = ? AND metric_type = ?
+  `).get(userId, normalizedType);
+
+  // Most-recent records — capped at limit (default 10 for readability)
+  const actualLimit = Math.min(limit, 200);
   const samples = db.prepare(`
     SELECT
       start_time, end_time, recorded_at,
@@ -202,15 +218,29 @@ function readHealthData(userId, metricType, limit = 50) {
     WHERE user_id = ? AND metric_type = ?
     ORDER BY COALESCE(end_time, recorded_at, start_time) DESC
     LIMIT ?
-  `).all(userId, normalizedType, limit);
+  `).all(userId, normalizedType, actualLimit);
 
   return {
     metricType: normalizedType,
-    samples: samples.map(s => ({
-      ...s,
-      payload: s.payload_json ? JSON.parse(s.payload_json) : null,
-      payload_json: undefined
-    }))
+    summary: {
+      recordCount: agg.record_count || 0,
+      total: agg.total ?? null,
+      avg: agg.avg != null ? Math.round(agg.avg * 100) / 100 : null,
+      min: agg.min ?? null,
+      max: agg.max ?? null,
+      windowStart: agg.window_start ?? null,
+      windowEnd: agg.window_end ?? null,
+      unit: samples[0]?.unit ?? null,
+    },
+    recentRecords: samples.map(s => ({
+      startTime: s.start_time,
+      endTime: s.end_time,
+      recordedAt: s.recorded_at,
+      value: s.numeric_value,
+      text: s.text_value,
+      unit: s.unit,
+      payload: s.payload_json ? (() => { try { return JSON.parse(s.payload_json); } catch { return null; } })() : null,
+    })),
   };
 }
 

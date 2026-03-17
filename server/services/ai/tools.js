@@ -584,12 +584,12 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'read_health_data',
-            description: 'Read the user\'s synced mobile health data (like steps, heart rate, sleep). If you omit metric_type, it returns a summary of all available metrics. If you provide a metric_type, it returns the most recent historical records for that metric.',
+            description: 'Read the user\'s synced mobile health data. Omit metric_type for a summary of all available metrics. With metric_type, returns an aggregate summary (total, avg, min, max over all stored data) plus the most recent individual records. Always report the summary figures — avoid listing every raw record.',
             parameters: {
                 type: 'object',
                 properties: {
-                    metric_type: { type: 'string', description: 'The specific metric to query, e.g. "steps", "heart_rate", "sleep_session", "exercise_session", "weight". Use the summary (no metric_type) first to see what\'s available. Optional.' },
-                    limit: { type: 'number', description: 'Maximum number of recent records to return if metric_type is specified (default 50, max 200).' }
+                    metric_type: { type: 'string', description: 'Metric to query: "steps", "heart_rate", "sleep_session", "exercise_session", "weight". Omit to see what is available.' },
+                    limit: { type: 'number', description: 'Max recent records to return (default 10, max 200). Use a small number unless the user explicitly asks for a full history.' }
                 }
             }
         }
