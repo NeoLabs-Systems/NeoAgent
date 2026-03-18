@@ -19,6 +19,32 @@ class OllamaProvider extends BaseProvider {
     }
   }
 
+  async ensureModel(model) {
+    const models = await this.listModels();
+    // Normalization: Ollama often adds :latest if no tag is specified
+    const normalizedModel = model.includes(':') ? model : `${model}:latest`;
+    const found = models.some(m => m === model || m === normalizedModel);
+    
+    if (found) return true;
+
+    console.log(`[Ollama] Model '${model}' not found, pulling from registry...`);
+    try {
+      const res = await fetch(`${this.baseUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: model, stream: false })
+      });
+      if (!res.ok) throw new Error(`Pull failed: ${res.statusText}`);
+      console.log(`[Ollama] Model '${model}' pulled successfully.`);
+      // Refresh local model list
+      await this.listModels();
+      return true;
+    } catch (e) {
+      console.error(`[Ollama] Failed to pull model '${model}':`, e.message);
+      throw e;
+    }
+  }
+
   getContextWindow(model) {
     return 128000;
   }
@@ -36,6 +62,7 @@ class OllamaProvider extends BaseProvider {
 
   async chat(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || 'llama3.1';
+    await this.ensureModel(model);
     const body = {
       model,
       messages: messages.map(m => ({
@@ -86,6 +113,7 @@ class OllamaProvider extends BaseProvider {
 
   async *stream(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || 'llama3.1';
+    await this.ensureModel(model);
     const body = {
       model,
       messages: messages.map(m => ({
