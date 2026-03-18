@@ -25,9 +25,11 @@ function getProviderForUser(userId, task = '', isSubagent = false, modelOverride
   let defaultChatModel = 'auto';
   let defaultSubagentModel = 'auto';
 
+  let smarterSelection = true;
+
   try {
-    const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?)')
-      .all(userId, 'enabled_models', 'default_chat_model', 'default_subagent_model');
+    const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?)')
+      .all(userId, 'enabled_models', 'default_chat_model', 'default_subagent_model', 'smarter_model_selector');
 
     for (const row of rows) {
       if (!row.value) continue;
@@ -40,6 +42,7 @@ function getProviderForUser(userId, task = '', isSubagent = false, modelOverride
       if (row.key === 'enabled_models') enabledIds = parsedVal;
       if (row.key === 'default_chat_model') defaultChatModel = parsedVal;
       if (row.key === 'default_subagent_model') defaultSubagentModel = parsedVal;
+      if (row.key === 'smarter_model_selector') smarterSelection = parsedVal !== false && parsedVal !== 'false';
     }
   } catch (e) {
     console.error('Failed to fetch model settings:', e.message);
@@ -70,9 +73,21 @@ function getProviderForUser(userId, task = '', isSubagent = false, modelOverride
     selectedModelDef = SUPPORTED_MODELS.find((m) => m.id === userSelectedDefault) || fallbackModel;
   } else {
     const taskStr = String(task || '').toLowerCase();
-    const isPlanning = /\b(plan|think|analy[sz]e|complex|step by step)\b/.test(taskStr);
+    
+    // Basic detection
+    let isPlanning = /\b(plan|think|analy[sz]e|complex|step by step)\b/.test(taskStr);
+    let isCoding = false;
+
+    // Enhanced detection if enabled
+    if (smarterSelection) {
+      isPlanning = isPlanning || /\b(reason|strategy|logical|math|complex)\b/.test(taskStr);
+      isCoding = /\b(code|program|script|debug|refactor|function|implementation|logic)\b/.test(taskStr);
+    }
+    
     if (isPlanning) {
       selectedModelDef = availableModels.find((m) => m.purpose === 'planning') || fallbackModel;
+    } else if (isCoding) {
+      selectedModelDef = availableModels.find((m) => m.purpose === 'coding') || availableModels.find((m) => m.purpose === 'planning') || fallbackModel;
     } else if (isSubagent) {
       selectedModelDef = availableModels.find((m) => m.purpose === 'fast') || fallbackModel;
     } else {
@@ -302,28 +317,70 @@ class AgentEngine {
         let streamContent = '';
         const callOptions = { model, reasoningEffort: this.getReasoningEffort(providerName, options) };
 
-        if (options.stream !== false) {
-          const gen = provider.stream(messages, tools, callOptions);
-          for await (const chunk of gen) {
-            if (chunk.type === 'content') {
-              streamContent += chunk.content;
-              this.emit(userId, 'run:stream', { runId, content: streamContent, iteration });
+        const tryModelCall = async (retryForFallback = true) => {
+          try {
+            if (options.stream !== false) {
+              const gen = provider.stream(messages, tools, callOptions);
+              for await (const chunk of gen) {
+                if (chunk.type === 'content') {
+                  streamContent += chunk.content;
+                  this.emit(userId, 'run:stream', { runId, content: streamContent, iteration });
+                }
+                if (chunk.type === 'done') {
+                  response = chunk;
+                }
+                if (chunk.type === 'tool_calls') {
+                  response = {
+                    content: chunk.content || streamContent,
+                    toolCalls: chunk.toolCalls,
+                    finishReason: 'tool_calls',
+                    usage: chunk.usage || null
+                  };
+                }
+              }
+            } else {
+              response = await provider.chat(messages, tools, callOptions);
             }
-            if (chunk.type === 'done') {
-              response = chunk;
-            }
-            if (chunk.type === 'tool_calls') {
-              response = {
-                content: chunk.content || streamContent,
-                toolCalls: chunk.toolCalls,
-                finishReason: 'tool_calls',
-                usage: chunk.usage || null
-              };
+          } catch (err) {
+            console.error(`[Engine] Model call failed (${model}):`, err.message);
+            if (retryForFallback && aiSettings.fallback_model_id && aiSettings.fallback_model_id !== model) {
+              console.log(`[Engine] Attempting fallback to: ${aiSettings.fallback_model_id}`);
+              const fallback = getProviderForUser(userId, userMessage, triggerType === 'subagent', aiSettings.fallback_model_id);
+              // Update local state for the retry
+              const nextProvider = fallback.provider;
+              const nextModel = fallback.model;
+              const nextProviderName = fallback.providerName;
+              
+              // Recursive call once
+              const retryOptions = { ...callOptions, model: nextModel, reasoningEffort: this.getReasoningEffort(nextProviderName, options) };
+              
+              if (options.stream !== false) {
+                const gen = nextProvider.stream(messages, tools, retryOptions);
+                for await (const chunk of gen) {
+                   if (chunk.type === 'content') {
+                    streamContent += chunk.content;
+                    this.emit(userId, 'run:stream', { runId, content: streamContent, iteration });
+                  }
+                  if (chunk.type === 'done') response = chunk;
+                  if (chunk.type === 'tool_calls') {
+                    response = {
+                      content: chunk.content || streamContent,
+                      toolCalls: chunk.toolCalls,
+                      finishReason: 'tool_calls',
+                      usage: chunk.usage || null
+                    };
+                  }
+                }
+              } else {
+                response = await nextProvider.chat(messages, tools, retryOptions);
+              }
+            } else {
+              throw err;
             }
           }
-        } else {
-          response = await provider.chat(messages, tools, callOptions);
-        }
+        };
+
+        await tryModelCall();
 
         if (!response) {
           response = { content: streamContent, toolCalls: [], finishReason: 'stop', usage: null };

@@ -594,6 +594,13 @@
           </label>
         </div>
         <div class="form-group">
+          <label class="form-label">Smart Selection</label>
+          <label class="flex items-center gap-2" style="cursor:pointer;">
+            <input type="checkbox" id="settingSmarterModelSelector" autocomplete="off" data-bwignore="true">
+            <span>Automatically select best model based on task type (coding, planning, etc.)</span>
+          </label>
+        </div>
+        <div class="form-group">
           <label class="form-label">Default Chat Model</label>
           <select id="settingDefaultChatModel" class="input" autocomplete="off" data-bwignore="true">
             <option value="auto">Smart Selector (Auto)</option>
@@ -604,6 +611,13 @@
           <select id="settingDefaultSubagentModel" class="input" autocomplete="off" data-bwignore="true">
             <option value="auto">Smart Selector (Auto)</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fallback Model</label>
+          <select id="settingFallbackModelId" class="input" autocomplete="off" data-bwignore="true">
+            <option value="gpt-5-nano">GPT-5 Nano (Default Cloud Fallback)</option>
+          </select>
+          <small class="text-muted" style="font-size: 11px; display: block; margin-top: 4px;">Used if the primary model fails or is offline.</small>
         </div>
         <div class="form-group">
           <label class="form-label">Smart Selector Allowed Models</label>

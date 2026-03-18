@@ -1,6 +1,7 @@
 const { GrokProvider } = require('./providers/grok');
 const { OpenAIProvider } = require('./providers/openai');
 const { GoogleProvider } = require('./providers/google');
+const { OllamaProvider } = require('./providers/ollama');
 
 const SUPPORTED_MODELS = [
     {
@@ -26,6 +27,30 @@ const SUPPORTED_MODELS = [
         label: 'Gemini 3.1 Flash Lite (Preview)',
         provider: 'google',
         purpose: 'general'
+    },
+    {
+        id: 'llama3.1:8b',
+        label: 'Llama 3.1 8B (Local / General)',
+        provider: 'ollama',
+        purpose: 'general'
+    },
+    {
+        id: 'phi4-mini',
+        label: 'Phi-4 Mini (Local / Fast)',
+        provider: 'ollama',
+        purpose: 'fast'
+    },
+    {
+        id: 'phi4',
+        label: 'Phi-4 (Local / Planning)',
+        provider: 'ollama',
+        purpose: 'planning'
+    },
+    {
+        id: 'qwen2.5-coder:7b',
+        label: 'Qwen 2.5 Coder 7B (Local / Coding)',
+        provider: 'ollama',
+        purpose: 'coding'
     }
 ];
 
@@ -36,6 +61,8 @@ function createProviderInstance(providerStr) {
         return new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
     } else if (providerStr === 'google') {
         return new GoogleProvider({ apiKey: process.env.GOOGLE_AI_KEY });
+    } else if (providerStr === 'ollama') {
+        return new OllamaProvider({ baseUrl: process.env.OLLAMA_URL });
     }
     throw new Error(`Unknown provider: ${providerStr}`);
 }

@@ -1849,6 +1849,9 @@ $("#settingsBtn").addEventListener("click", async () => {
     $("#settingAutoSkillLearning").checked =
       settings.auto_skill_learning !== false &&
       settings.auto_skill_learning !== "false";
+    $("#settingSmarterModelSelector").checked =
+      settings.smarter_model_selector !== false &&
+      settings.smarter_model_selector !== "false";
 
     const enabledModels = Array.isArray(settings.enabled_models) ? settings.enabled_models : (meta.models || []).map(m => m.id);
 
@@ -1858,6 +1861,8 @@ $("#settingsBtn").addEventListener("click", async () => {
     if (chatModelSelect && subagentModelSelect && meta.models) {
       chatModelSelect.innerHTML = '<option value="auto">Smart Selector (Auto)</option>';
       subagentModelSelect.innerHTML = '<option value="auto">Smart Selector (Auto)</option>';
+      const fallbackModelSelect = $("#settingFallbackModelId");
+      if (fallbackModelSelect) fallbackModelSelect.innerHTML = "";
 
       for (const modelDef of meta.models) {
         const chatOption = document.createElement("option");
@@ -1869,10 +1874,20 @@ $("#settingsBtn").addEventListener("click", async () => {
         subagentOption.value = modelDef.id;
         subagentOption.textContent = modelDef.label;
         subagentModelSelect.appendChild(subagentOption);
+
+        if (fallbackModelSelect) {
+          const fallbackOption = document.createElement("option");
+          fallbackOption.value = modelDef.id;
+          fallbackOption.textContent = modelDef.label;
+          fallbackModelSelect.appendChild(fallbackOption);
+        }
       }
 
       chatModelSelect.value = settings.default_chat_model || "auto";
       subagentModelSelect.value = settings.default_subagent_model || "auto";
+      if ($("#settingFallbackModelId")) {
+        $("#settingFallbackModelId").value = settings.fallback_model_id || "gpt-5-nano";
+      }
 
       const indicator = $("#modelIndicator");
       if (indicator) {
@@ -1947,9 +1962,11 @@ $("#saveSettings").addEventListener("click", async () => {
         heartbeat_enabled: $("#settingHeartbeat").checked,
         headless_browser: $("#settingHeadlessBrowser").checked,
         auto_skill_learning: $("#settingAutoSkillLearning").checked,
+        smarter_model_selector: $("#settingSmarterModelSelector").checked,
         enabled_models: enabledModels,
         default_chat_model: defaultChatModel,
-        default_subagent_model: defaultSubagentModel
+        default_subagent_model: defaultSubagentModel,
+        fallback_model_id: $("#settingFallbackModelId") ? $("#settingFallbackModelId").value : 'gpt-5-nano'
       },
     });
 
