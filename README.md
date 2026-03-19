@@ -6,12 +6,11 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-18+-5fa04e?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL-003b57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org)
-[![Multi-platform](https://img.shields.io/badge/macOS%20%2F%20Linux-supported-6366f1?style=flat-square&logo=apple&logoColor=white)](#)
+[![Flutter](https://img.shields.io/badge/Flutter-web%20%2B%20android-02569B?style=flat-square&logo=flutter&logoColor=white)](https://flutter.dev)
 [![License](https://img.shields.io/badge/License-MIT-a855f7?style=flat-square)](LICENSE)
-[![Android APK](https://img.shields.io/badge/Android-Download%20APK-3ddc84?style=flat-square&logo=android&logoColor=white)](https://github.com/NeoLabs-Systems/NeoAgent/releases/latest/download/app-debug.apk)
 
-A self-hosted, proactive AI agent with a web UI — no cloud dependency, no limits.  
-Connects to Anthropic, OpenAI, xAI, Google and local Ollama models.  
+A self-hosted, proactive AI agent with a Flutter client for web and Android.  
+Connects to OpenAI, xAI, Google, and local Ollama with `qwen3.5:4b`.  
 Runs tasks on a schedule, controls a browser, manages files, and talks to you over Telegram, Discord, or WhatsApp.
 
 ```bash
@@ -29,6 +28,21 @@ Manage the service:
 neoagent status
 neoagent update
 neoagent logs
+```
+
+Build the Flutter web client:
+```bash
+npm run flutter:build:web
+```
+
+The installer and npm package ship the bundled web client from `server/public`, so Flutter is only needed when you want to rebuild the frontend locally.
+
+Local development helpers live in `dev/`:
+```bash
+./dev/backend.sh
+./dev/web.sh
+./dev/stack.sh
+./dev/test.sh
 ```
 
 ---

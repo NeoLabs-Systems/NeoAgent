@@ -17,7 +17,7 @@ You can override the runtime root with `NEOAGENT_HOME`.
 
 ### AI Providers
 
-At least one API key is required. The active provider and model are configured in the web UI.
+At least one API key is required. The active provider and model are configured in the Flutter app.
 
 | Variable | Provider |
 |---|---|
@@ -34,7 +34,7 @@ At least one API key is required. The active provider and model are configured i
 |---|---|
 | `TELNYX_WEBHOOK_TOKEN` | Telnyx webhook signature verification |
 
-Telegram, Discord, and WhatsApp tokens are stored in the database via the web UI Settings page — not in `.env`.
+Telegram, Discord, and WhatsApp tokens are stored in the database via the Flutter app settings page — not in `.env`.
 
 ## Runtime data paths
 

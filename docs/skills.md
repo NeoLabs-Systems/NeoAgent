@@ -46,4 +46,4 @@ The agent reads all `.md` files in the skills directory on each conversation tur
 
 ## MCP tools
 
-External tools are connected via the [Model Context Protocol](https://modelcontextprotocol.io). Configure MCP servers in the web UI under **Settings → MCP**. Connected tools appear alongside built-in skills automatically.
+External tools are connected via the [Model Context Protocol](https://modelcontextprotocol.io). Configure MCP servers in the Flutter app under **Models / Settings → MCP**. Connected tools appear alongside built-in skills automatically.

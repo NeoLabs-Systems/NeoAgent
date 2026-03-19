@@ -158,20 +158,6 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
-            name: 'manage_protocols',
-            description: 'Read, list, create, update, or delete text-based protocols (a pre-set list of instructions/actions). If user asks to execute a protocol, you should read it and follow its instructions.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    action: { type: 'string', enum: ['list', 'read', 'create', 'update', 'delete'], description: 'The protocol action to perform.' },
-                    name: { type: 'string', description: 'Name of the protocol (required for read, create, update, delete)' },
-                    description: { type: 'string', description: 'Description of the protocol (optional for create/update)' },
-                    content: { type: 'string', description: 'Text content/instructions of the protocol (required for create/update)' }
-                },
-                required: ['action']
-            }
-        },
-        {
             name: 'memory_save',
             description: 'Save ONE specific, self-contained fact to long-term semantic memory. RULES: (1) One discrete fact per call — if you have 10 facts, call this 10 times. (2) The ENTIRE value must be IN the content string itself — never write a pointer/reference like "user shared a profile" or "see chat history for details". That is useless. (3) Content must be a complete statement a stranger could read cold and understand. GOOD: "Neo lives in Braunschweig, Germany" / "Neo prefers dark mode" / "Neo\'s project WorldEndArchive crawls and compresses websites to offline JSON archives". BAD: "User pasted a profile dump" / "Neo shared lots of details — see chat history" / "Neo gave a big list of projects".',
             parameters: {
@@ -744,39 +730,6 @@ async function executeTool(toolName, args, context, engine) {
                 return { error: err.message };
             } finally {
                 clearTimeout(timer);
-            }
-        }
-
-        case 'manage_protocols': {
-            try {
-                if (args.action === 'list') {
-                    const list = db.prepare('SELECT name, description, updated_at FROM protocols WHERE user_id = ?').all(userId);
-                    return { protocols: list };
-                } else if (args.action === 'read') {
-                    if (!args.name) return { error: "name is required" };
-                    const p = db.prepare('SELECT * FROM protocols WHERE name = ? AND user_id = ?').get(args.name, userId);
-                    return p ? { name: p.name, description: p.description, content: p.content } : { error: `Protocol '${args.name}' not found` };
-                } else if (args.action === 'create') {
-                    if (!args.name || !args.content) return { error: "name and content are required" };
-                    db.prepare('INSERT INTO protocols (user_id, name, description, content) VALUES (?, ?, ?, ?)').run(userId, args.name, args.description || '', args.content);
-                    return { success: true, message: `Protocol '${args.name}' created.` };
-                } else if (args.action === 'update') {
-                    if (!args.name || !args.content) return { error: "name and content are required" };
-                    const p = db.prepare('SELECT id FROM protocols WHERE name = ? AND user_id = ?').get(args.name, userId);
-                    if (!p) return { error: `Protocol '${args.name}' not found` };
-                    db.prepare("UPDATE protocols SET description = ?, content = ?, updated_at = datetime('now') WHERE id = ?").run(args.description || '', args.content, p.id);
-                    return { success: true, message: `Protocol '${args.name}' updated.` };
-                } else if (args.action === 'delete') {
-                    if (!args.name) return { error: "name is required" };
-                    const p = db.prepare('SELECT id FROM protocols WHERE name = ? AND user_id = ?').get(args.name, userId);
-                    if (!p) return { error: `Protocol '${args.name}' not found` };
-                    db.prepare('DELETE FROM protocols WHERE id = ?').run(p.id);
-                    return { success: true, message: `Protocol '${args.name}' deleted.` };
-                }
-                return { error: 'Invalid action' };
-            } catch (err) {
-                if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') return { error: 'Protocol with this name already exists' };
-                return { error: err.message };
             }
         }
 

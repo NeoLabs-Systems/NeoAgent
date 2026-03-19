@@ -20,6 +20,39 @@ const VIEWPORTS = [
   { width: 1920, height: 1080 },
 ];
 
+function resolveBrowserExecutablePath() {
+  const explicitPath =
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    process.env.CHROME_BIN ||
+    process.env.CHROMIUM_BIN;
+
+  if (explicitPath && fs.existsSync(explicitPath)) return explicitPath;
+
+  const platformCandidates = process.platform === 'darwin'
+    ? [
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      ]
+    : process.platform === 'win32'
+      ? [
+          'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+          'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+          'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+          'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        ]
+      : [
+          '/usr/bin/google-chrome',
+          '/usr/bin/google-chrome-stable',
+          '/usr/bin/chromium',
+          '/usr/bin/chromium-browser',
+          '/snap/bin/chromium',
+          '/usr/bin/microsoft-edge',
+        ];
+
+  return platformCandidates.find((candidate) => fs.existsSync(candidate)) || null;
+}
+
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -127,6 +160,7 @@ class BrowserController {
 
       this.browser = await puppeteer.launch({
         headless: this.headless ? 'new' : false,
+        executablePath: resolveBrowserExecutablePath() || undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',

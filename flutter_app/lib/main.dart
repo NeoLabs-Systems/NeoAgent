@@ -1,0 +1,7464 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
+
+import 'src/backend_client.dart';
+import 'src/health_bridge.dart';
+
+const Color _bgPrimary = Color(0xFF07070F);
+const Color _bgSecondary = Color(0xFF0C0C18);
+const Color _bgTertiary = Color(0xFF111120);
+const Color _bgCard = Color(0xFF181828);
+const Color _textPrimary = Color(0xFFEAEAF4);
+const Color _textSecondary = Color(0xFF8080A8);
+const Color _textMuted = Color(0xFF4D4D6A);
+const Color _accent = Color(0xFF6366F1);
+const Color _accentHover = Color(0xFF818CF8);
+const Color _accentMuted = Color(0x266366F1);
+const Color _border = Color(0x12FFFFFF);
+const Color _borderLight = Color(0x22FFFFFF);
+const Color _success = Color(0xFF22C55E);
+const Color _warning = Color(0xFFF59E0B);
+const Color _danger = Color(0xFFEF4444);
+const Color _info = Color(0xFF38BDF8);
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const NeoAgentApp());
+}
+
+enum AppSection {
+  chat,
+  messaging,
+  runs,
+  settings,
+  logs,
+  skills,
+  memory,
+  scheduler,
+  mcp,
+  health,
+}
+
+extension AppSectionX on AppSection {
+  String get label {
+    switch (this) {
+      case AppSection.chat:
+        return 'Chat';
+      case AppSection.messaging:
+        return 'Messaging';
+      case AppSection.runs:
+        return 'Runs';
+      case AppSection.settings:
+        return 'Settings';
+      case AppSection.logs:
+        return 'Logs';
+      case AppSection.skills:
+        return 'Skills';
+      case AppSection.memory:
+        return 'Memory';
+      case AppSection.scheduler:
+        return 'Scheduler';
+      case AppSection.mcp:
+        return 'MCP';
+      case AppSection.health:
+        return 'Health';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case AppSection.chat:
+        return Icons.chat_bubble_outline;
+      case AppSection.messaging:
+        return Icons.forum_outlined;
+      case AppSection.runs:
+        return Icons.history;
+      case AppSection.settings:
+        return Icons.tune;
+      case AppSection.logs:
+        return Icons.article_outlined;
+      case AppSection.skills:
+        return Icons.extension_outlined;
+      case AppSection.memory:
+        return Icons.psychology_outlined;
+      case AppSection.scheduler:
+        return Icons.schedule_outlined;
+      case AppSection.mcp:
+        return Icons.hub_outlined;
+      case AppSection.health:
+        return Icons.favorite_border;
+    }
+  }
+}
+
+class NeoAgentApp extends StatefulWidget {
+  const NeoAgentApp({super.key});
+
+  @override
+  State<NeoAgentApp> createState() => _NeoAgentAppState();
+}
+
+class _NeoAgentAppState extends State<NeoAgentApp> {
+  late final NeoAgentController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = NeoAgentController(
+      backendClient: BackendClient(),
+      healthBridge: HealthBridge(),
+    )..bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: _accent,
+        brightness: Brightness.dark,
+      ),
+    );
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'NeoAgent',
+          debugShowCheckedModeBanner: false,
+          theme: base.copyWith(
+            scaffoldBackgroundColor: _bgPrimary,
+            colorScheme: base.colorScheme.copyWith(
+              primary: _accent,
+              secondary: _accentHover,
+              surface: _bgCard,
+              onSurface: _textPrimary,
+              error: _danger,
+            ),
+            textTheme: GoogleFonts.interTextTheme(
+              base.textTheme,
+            ).apply(bodyColor: _textPrimary, displayColor: _textPrimary),
+            cardTheme: CardThemeData(
+              color: _bgCard,
+              elevation: 0,
+              margin: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: _border),
+              ),
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: _bgSecondary,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _accent),
+              ),
+              labelStyle: const TextStyle(
+                color: _textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              hintStyle: const TextStyle(color: _textMuted),
+            ),
+            dividerColor: _border,
+            iconTheme: const IconThemeData(color: _textSecondary),
+            appBarTheme: AppBarTheme(
+              backgroundColor: _bgPrimary,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: _textPrimary,
+              elevation: 0,
+              titleTextStyle: GoogleFonts.inter(
+                color: _textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            snackBarTheme: const SnackBarThemeData(
+              backgroundColor: _bgCard,
+              contentTextStyle: TextStyle(color: _textPrimary),
+            ),
+          ),
+          home: NeoAgentRoot(controller: _controller),
+        );
+      },
+    );
+  }
+}
+
+class NeoAgentRoot extends StatelessWidget {
+  const NeoAgentRoot({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.isBooting) {
+      return const SplashView();
+    }
+    if (!controller.isAuthenticated) {
+      return AuthView(controller: controller);
+    }
+    return HomeView(controller: controller);
+  }
+}
+
+class NeoAgentController extends ChangeNotifier {
+  NeoAgentController({
+    required BackendClient backendClient,
+    required HealthBridge healthBridge,
+  }) : _backendClient = backendClient,
+       _healthBridge = healthBridge;
+
+  final BackendClient _backendClient;
+  final HealthBridge _healthBridge;
+
+  static const String _configuredBackendUrl = String.fromEnvironment(
+    'NEOAGENT_BACKEND_URL',
+  );
+
+  SharedPreferences? _prefs;
+  io.Socket? _socket;
+  Timer? _updatePollTimer;
+  final Set<String> _backgroundRunIds = <String>{};
+
+  bool isBooting = true;
+  bool isAuthenticated = false;
+  bool isAuthenticating = false;
+  bool isRefreshing = false;
+  bool isSendingMessage = false;
+  bool isSavingSettings = false;
+  bool isTriggeringUpdate = false;
+  bool isSyncingHealth = false;
+  bool socketConnected = false;
+
+  bool hasUser = true;
+  String backendUrl = _defaultBackendUrl;
+  String username = '';
+  String password = '';
+  String? errorMessage;
+
+  AppSection selectedSection = AppSection.chat;
+  Map<String, dynamic>? user;
+  Map<String, dynamic> settings = const <String, dynamic>{};
+  Map<String, dynamic>? versionInfo;
+  Map<String, dynamic>? backendHealthStatus;
+  HealthBridgeStatus? deviceHealthStatus;
+
+  List<ChatEntry> chatMessages = const <ChatEntry>[];
+  List<ModelMeta> supportedModels = const <ModelMeta>[];
+  List<RunSummary> recentRuns = const <RunSummary>[];
+  TokenUsageSnapshot? tokenUsage;
+  UpdateStatusSnapshot updateStatus = const UpdateStatusSnapshot();
+  List<LogEntry> logs = const <LogEntry>[];
+  Map<String, MessagingPlatformStatus> messagingStatuses =
+      const <String, MessagingPlatformStatus>{};
+  List<MessagingMessage> messagingMessages = const <MessagingMessage>[];
+  MessagingQrState? pendingMessagingQr;
+  List<SkillItem> skills = const <SkillItem>[];
+  List<StoreSkillItem> storeSkills = const <StoreSkillItem>[];
+  MemoryOverview memoryOverview = const MemoryOverview();
+  List<MemoryItem> memories = const <MemoryItem>[];
+  List<MemoryItem> memoryRecallResults = const <MemoryItem>[];
+  List<ConversationItem> memoryConversations = const <ConversationItem>[];
+  List<SchedulerTask> schedulerTasks = const <SchedulerTask>[];
+  List<McpServerItem> mcpServers = const <McpServerItem>[];
+  final Map<String, RunDetailSnapshot> _runDetailsCache =
+      <String, RunDetailSnapshot>{};
+
+  ActiveRunState? activeRun;
+  List<ToolEventItem> toolEvents = const <ToolEventItem>[];
+  String streamingAssistant = '';
+
+  static String get _defaultBackendUrl {
+    if (_configuredBackendUrl.trim().isNotEmpty) {
+      return _configuredBackendUrl.trim();
+    }
+    return kIsWeb ? '' : 'http://10.0.2.2:3333';
+  }
+
+  @override
+  void dispose() {
+    _updatePollTimer?.cancel();
+    _socket?.dispose();
+    super.dispose();
+  }
+
+  Future<void> bootstrap() async {
+    _prefs = await SharedPreferences.getInstance();
+    backendUrl = _defaultBackendUrl;
+    username = _prefs?.getString('username') ?? '';
+    password = _prefs?.getString('password') ?? '';
+    notifyListeners();
+
+    try {
+      final status = await _backendClient.getAuthStatus(backendUrl);
+      hasUser = status['hasUser'] != false;
+
+      final me = await _backendClient.getCurrentUser(backendUrl);
+      if (me != null && me['user'] is Map<String, dynamic>) {
+        user = Map<String, dynamic>.from(me['user'] as Map<String, dynamic>);
+        isAuthenticated = true;
+      } else if (!kIsWeb && username.isNotEmpty && password.isNotEmpty) {
+        await _authenticate(register: false, silent: true);
+      }
+
+      if (isAuthenticated) {
+        await refresh();
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isBooting = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> login({
+    required String username,
+    required String password,
+  }) async {
+    this.username = username.trim();
+    this.password = password;
+    await _authenticate(register: false);
+  }
+
+  Future<void> register({
+    required String username,
+    required String password,
+  }) async {
+    this.username = username.trim();
+    this.password = password;
+    await _authenticate(register: true);
+  }
+
+  Future<void> _authenticate({
+    required bool register,
+    bool silent = false,
+  }) async {
+    isAuthenticating = true;
+    errorMessage = null;
+    if (!silent) {
+      notifyListeners();
+    }
+
+    try {
+      final response = register
+          ? await _backendClient.register(
+              baseUrl: backendUrl,
+              username: username,
+              password: password,
+            )
+          : await _backendClient.login(
+              baseUrl: backendUrl,
+              username: username,
+              password: password,
+            );
+      user = Map<String, dynamic>.from(
+        response['user'] as Map<dynamic, dynamic>? ??
+            <String, dynamic>{'username': username},
+      );
+      hasUser = true;
+      isAuthenticated = true;
+      await _persistCredentials();
+      await refresh();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      isAuthenticated = false;
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _backendClient.logout(backendUrl);
+    } catch (_) {}
+    _disconnectSocket();
+    _updatePollTimer?.cancel();
+    isAuthenticated = false;
+    user = null;
+    settings = const <String, dynamic>{};
+    chatMessages = const <ChatEntry>[];
+    supportedModels = const <ModelMeta>[];
+    recentRuns = const <RunSummary>[];
+    tokenUsage = null;
+    updateStatus = const UpdateStatusSnapshot();
+    logs = const <LogEntry>[];
+    messagingStatuses = const <String, MessagingPlatformStatus>{};
+    messagingMessages = const <MessagingMessage>[];
+    pendingMessagingQr = null;
+    skills = const <SkillItem>[];
+    storeSkills = const <StoreSkillItem>[];
+    memoryOverview = const MemoryOverview();
+    memories = const <MemoryItem>[];
+    memoryRecallResults = const <MemoryItem>[];
+    memoryConversations = const <ConversationItem>[];
+    schedulerTasks = const <SchedulerTask>[];
+    mcpServers = const <McpServerItem>[];
+    versionInfo = null;
+    backendHealthStatus = null;
+    activeRun = null;
+    toolEvents = const <ToolEventItem>[];
+    streamingAssistant = '';
+    _runDetailsCache.clear();
+    unawaited(
+      _healthBridge.configureBackgroundSync(
+        enabled: false,
+        backendUrl: backendUrl,
+        sessionCookie: '',
+      ),
+    );
+    notifyListeners();
+  }
+
+  Future<void> _persistCredentials() async {
+    await _prefs?.setString('username', username);
+    await _prefs?.setString('password', password);
+  }
+
+  void setSelectedSection(AppSection section) {
+    selectedSection = section;
+    notifyListeners();
+  }
+
+  void showInlineError(String message) {
+    errorMessage = message;
+    notifyListeners();
+  }
+
+  void clearLogs() {
+    logs = const <LogEntry>[];
+    notifyListeners();
+  }
+
+  Future<void> refresh() async {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    isRefreshing = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final me = await _backendClient.getCurrentUser(backendUrl);
+      if (me == null || me['user'] is! Map<String, dynamic>) {
+        isAuthenticated = false;
+        _disconnectSocket();
+        return;
+      }
+
+      user = Map<String, dynamic>.from(me['user'] as Map<String, dynamic>);
+
+      final historyFuture = _backendClient.fetchChatHistory(backendUrl);
+      final modelsFuture = _backendClient.fetchSupportedModels(backendUrl);
+      final settingsFuture = _backendClient.fetchSettings(backendUrl);
+      final runsFuture = _backendClient.fetchRuns(backendUrl);
+      final versionFuture = _backendClient.fetchVersion(backendUrl);
+      final tokenFuture = _backendClient.fetchTokenUsageSummary(backendUrl);
+      final updateFuture = _backendClient.fetchUpdateStatus(backendUrl);
+      final messagingFuture = _backendClient.fetchMessagingStatus(backendUrl);
+      final messagingMessagesFuture = _backendClient.fetchMessagingMessages(
+        backendUrl,
+      );
+      final skillsFuture = _backendClient.fetchSkills(backendUrl);
+      final storeSkillsFuture = _backendClient.fetchSkillStore(backendUrl);
+      final memoryFuture = _backendClient.fetchMemoryOverview(backendUrl);
+      final memoriesFuture = _backendClient.fetchMemories(backendUrl);
+      final conversationsFuture = _backendClient.fetchConversations(backendUrl);
+      final schedulerFuture = _backendClient.fetchSchedulerTasks(backendUrl);
+      final mcpFuture = _backendClient.fetchMcpServers(backendUrl);
+
+      Map<String, dynamic>? healthResponse;
+      try {
+        healthResponse = await _backendClient.fetchHealthStatus(backendUrl);
+      } catch (_) {
+        healthResponse = null;
+      }
+
+      final history = await historyFuture;
+      final modelsResponse = await modelsFuture;
+      final settingsResponse = await settingsFuture;
+      final runsResponse = await runsFuture;
+      final versionResponse = await versionFuture;
+      final tokenResponse = await tokenFuture;
+      final updateResponse = await updateFuture;
+      final messagingResponse = await messagingFuture;
+      final messagingMessagesResponse = await messagingMessagesFuture;
+      final skillsResponse = await skillsFuture;
+      final storeSkillsResponse = await storeSkillsFuture;
+      final memoryResponse = await memoryFuture;
+      final memoriesResponse = await memoriesFuture;
+      final conversationsResponse = await conversationsFuture;
+      final schedulerResponse = await schedulerFuture;
+      final mcpResponse = await mcpFuture;
+
+      chatMessages = (history['messages'] as List<dynamic>? ?? const [])
+          .whereType<Map<dynamic, dynamic>>()
+          .map((item) => ChatEntry.fromJson(item))
+          .toList();
+
+      supportedModels =
+          (modelsResponse['models'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map((item) => ModelMeta.fromJson(item))
+              .toList();
+
+      settings = Map<String, dynamic>.from(settingsResponse);
+      recentRuns = (runsResponse['runs'] as List<dynamic>? ?? const [])
+          .whereType<Map<dynamic, dynamic>>()
+          .map((item) => RunSummary.fromJson(item))
+          .toList();
+      versionInfo = versionResponse;
+      backendHealthStatus = healthResponse;
+      tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
+      updateStatus = UpdateStatusSnapshot.fromJson(updateResponse);
+      messagingStatuses = messagingResponse.map(
+        (key, value) => MapEntry(
+          key,
+          MessagingPlatformStatus.fromJson(
+            key,
+            value is Map
+                ? Map<String, dynamic>.from(value)
+                : const <String, dynamic>{},
+          ),
+        ),
+      );
+      messagingMessages = messagingMessagesResponse
+          .map(MessagingMessage.fromJson)
+          .toList();
+      skills = skillsResponse.map(SkillItem.fromJson).toList();
+      storeSkills = storeSkillsResponse.map(StoreSkillItem.fromJson).toList();
+      memoryOverview = MemoryOverview.fromJson(memoryResponse);
+      memories = memoriesResponse.map(MemoryItem.fromJson).toList();
+      memoryConversations = conversationsResponse
+          .map(ConversationItem.fromJson)
+          .toList();
+      schedulerTasks = schedulerResponse.map(SchedulerTask.fromJson).toList();
+      mcpServers = mcpResponse.map(McpServerItem.fromJson).toList();
+      deviceHealthStatus = await _healthBridge.getStatus();
+      await _syncBackgroundHealthConfig();
+      _ensureSocketConnected();
+      _ensureUpdatePolling();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRefreshing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshRunsOnly() async {
+    try {
+      final runsResponse = await _backendClient.fetchRuns(backendUrl);
+      recentRuns = (runsResponse['runs'] as List<dynamic>? ?? const [])
+          .whereType<Map<dynamic, dynamic>>()
+          .map((item) => RunSummary.fromJson(item))
+          .toList();
+      tokenUsage = TokenUsageSnapshot.fromJson(
+        await _backendClient.fetchTokenUsageSummary(backendUrl),
+      );
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> refreshMessaging() async {
+    final statuses = await _backendClient.fetchMessagingStatus(backendUrl);
+    messagingStatuses = statuses.map(
+      (key, value) => MapEntry(
+        key,
+        MessagingPlatformStatus.fromJson(
+          key,
+          value is Map
+              ? Map<String, dynamic>.from(value)
+              : const <String, dynamic>{},
+        ),
+      ),
+    );
+    messagingMessages = (await _backendClient.fetchMessagingMessages(
+      backendUrl,
+    )).map(MessagingMessage.fromJson).toList();
+    notifyListeners();
+  }
+
+  Future<void> refreshSkills() async {
+    skills = (await _backendClient.fetchSkills(
+      backendUrl,
+    )).map(SkillItem.fromJson).toList();
+    storeSkills = (await _backendClient.fetchSkillStore(
+      backendUrl,
+    )).map(StoreSkillItem.fromJson).toList();
+    notifyListeners();
+  }
+
+  Future<void> refreshMemory() async {
+    memoryOverview = MemoryOverview.fromJson(
+      await _backendClient.fetchMemoryOverview(backendUrl),
+    );
+    memories = (await _backendClient.fetchMemories(
+      backendUrl,
+    )).map(MemoryItem.fromJson).toList();
+    memoryConversations = (await _backendClient.fetchConversations(
+      backendUrl,
+    )).map(ConversationItem.fromJson).toList();
+    notifyListeners();
+  }
+
+  Future<void> refreshScheduler() async {
+    schedulerTasks = (await _backendClient.fetchSchedulerTasks(
+      backendUrl,
+    )).map(SchedulerTask.fromJson).toList();
+    notifyListeners();
+  }
+
+  Future<void> refreshMcp() async {
+    mcpServers = (await _backendClient.fetchMcpServers(
+      backendUrl,
+    )).map(McpServerItem.fromJson).toList();
+    notifyListeners();
+  }
+
+  Future<void> refreshUpdateStatus() async {
+    try {
+      updateStatus = UpdateStatusSnapshot.fromJson(
+        await _backendClient.fetchUpdateStatus(backendUrl),
+      );
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<RunDetailSnapshot> fetchRunDetail(String runId) async {
+    final cached = _runDetailsCache[runId];
+    if (cached != null) {
+      return cached;
+    }
+    final response = await _backendClient.fetchRunSteps(backendUrl, runId);
+    final detail = RunDetailSnapshot.fromJson(response);
+    _runDetailsCache[runId] = detail;
+    return detail;
+  }
+
+  Future<void> sendMessage(String task) async {
+    final trimmed = task.trim();
+    if (trimmed.isEmpty || isSendingMessage) {
+      return;
+    }
+
+    final optimistic = ChatEntry(
+      role: 'user',
+      content: trimmed,
+      platform: 'flutter',
+      createdAt: DateTime.now(),
+    );
+    chatMessages = <ChatEntry>[...chatMessages, optimistic];
+    isSendingMessage = true;
+    errorMessage = null;
+    toolEvents = const <ToolEventItem>[];
+    streamingAssistant = '';
+    activeRun = ActiveRunState.pending(trimmed);
+    notifyListeners();
+
+    try {
+      if (_socket != null && socketConnected) {
+        _socket!.emit('agent:run', <String, dynamic>{
+          'task': trimmed,
+          'options': const <String, dynamic>{},
+        });
+        return;
+      }
+
+      final response = await _backendClient.runTask(backendUrl, trimmed);
+      final content = response['content']?.toString().trim();
+      if (content != null && content.isNotEmpty) {
+        chatMessages = <ChatEntry>[
+          ...chatMessages,
+          ChatEntry(
+            role: 'assistant',
+            content: content,
+            platform: 'web',
+            createdAt: DateTime.now(),
+          ),
+        ];
+      }
+      activeRun = null;
+      await refreshRunsOnly();
+    } catch (error) {
+      chatMessages = <ChatEntry>[
+        ...chatMessages,
+        ChatEntry(
+          role: 'assistant',
+          content:
+              'I could not complete that request right now. Please try again in a moment.',
+          platform: 'flutter',
+          createdAt: DateTime.now(),
+        ),
+      ];
+      activeRun = null;
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      if (_socket == null || !socketConnected) {
+        isSendingMessage = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> saveSettings({
+    required bool heartbeatEnabled,
+    required bool headlessBrowser,
+    required bool autoSkillLearning,
+    required bool smarterSelector,
+    required List<String> enabledModels,
+    required String defaultChatModel,
+    required String defaultSubagentModel,
+    required String fallbackModel,
+  }) async {
+    isSavingSettings = true;
+    errorMessage = null;
+    notifyListeners();
+
+    final payload = <String, dynamic>{
+      'heartbeat_enabled': heartbeatEnabled,
+      'headless_browser': headlessBrowser,
+      'auto_skill_learning': autoSkillLearning,
+      'smarter_model_selector': smarterSelector,
+      'enabled_models': enabledModels,
+      'default_chat_model': defaultChatModel,
+      'default_subagent_model': defaultSubagentModel,
+      'fallback_model_id': fallbackModel,
+    };
+
+    try {
+      await _backendClient.saveSettings(backendUrl, payload);
+      settings = <String, dynamic>{...settings, ...payload};
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingSettings = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> triggerUpdate() async {
+    isTriggeringUpdate = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _backendClient.triggerUpdate(backendUrl);
+      await refreshUpdateStatus();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isTriggeringUpdate = false;
+      notifyListeners();
+    }
+  }
+
+  Future<SkillDocument> fetchSkillDocument(String name) async {
+    return SkillDocument.fromJson(
+      await _backendClient.fetchSkillDocument(backendUrl, name),
+    );
+  }
+
+  Future<void> saveSkillContent({
+    required String name,
+    required String content,
+  }) async {
+    await _backendClient.saveSkillContent(
+      backendUrl,
+      name: name,
+      content: content,
+    );
+    await refreshSkills();
+  }
+
+  Future<void> createSkill({
+    required String filename,
+    required String content,
+  }) async {
+    await _backendClient.createSkill(
+      backendUrl,
+      filename: filename,
+      content: content,
+    );
+    await refreshSkills();
+  }
+
+  Future<void> setSkillEnabled(String name, bool enabled) async {
+    await _backendClient.setSkillEnabled(
+      backendUrl,
+      name: name,
+      enabled: enabled,
+    );
+    await refreshSkills();
+  }
+
+  Future<void> deleteSkill(String name) async {
+    await _backendClient.deleteSkill(backendUrl, name);
+    await refreshSkills();
+  }
+
+  Future<void> installStoreSkill(String id) async {
+    await _backendClient.installStoreSkill(backendUrl, id);
+    await refreshSkills();
+  }
+
+  Future<void> uninstallStoreSkill(String id) async {
+    await _backendClient.uninstallStoreSkill(backendUrl, id);
+    await refreshSkills();
+  }
+
+  Future<void> connectMessagingPlatform({
+    required String platform,
+    Map<String, dynamic>? config,
+    Map<String, dynamic>? configSnapshot,
+  }) async {
+    if (configSnapshot != null) {
+      await _backendClient.saveSettings(backendUrl, configSnapshot);
+      settings = <String, dynamic>{...settings, ...configSnapshot};
+    }
+    await _backendClient.connectMessagingPlatform(
+      backendUrl,
+      platform: platform,
+      config: config,
+    );
+    await refreshMessaging();
+  }
+
+  Future<void> disconnectMessagingPlatform(String platform) async {
+    await _backendClient.disconnectMessagingPlatform(
+      backendUrl,
+      platform: platform,
+    );
+    await refreshMessaging();
+  }
+
+  Future<void> logoutMessagingPlatform(String platform) async {
+    await _backendClient.logoutMessagingPlatform(
+      backendUrl,
+      platform: platform,
+    );
+    await refreshMessaging();
+  }
+
+  Future<void> saveWhatsAppWhitelist(List<String> values) async {
+    final normalized = values
+        .map((value) => value.replaceAll(RegExp(r'[^0-9]'), ''))
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList();
+    await _backendClient.saveSettings(backendUrl, <String, dynamic>{
+      'platform_whitelist_whatsapp': jsonEncode(normalized),
+    });
+    settings = <String, dynamic>{
+      ...settings,
+      'platform_whitelist_whatsapp': jsonEncode(normalized),
+    };
+    notifyListeners();
+  }
+
+  Future<void> saveTelnyxWhitelist(List<String> values) async {
+    await _backendClient.saveTelnyxWhitelist(backendUrl, values);
+    settings = <String, dynamic>{
+      ...settings,
+      'platform_whitelist_telnyx': values,
+    };
+    notifyListeners();
+  }
+
+  Future<void> saveTelnyxVoiceSecret(String secret) async {
+    await _backendClient.saveTelnyxVoiceSecret(backendUrl, secret);
+    settings = <String, dynamic>{
+      ...settings,
+      'platform_voice_secret_telnyx': secret,
+    };
+    notifyListeners();
+  }
+
+  Future<void> saveDiscordWhitelist(List<String> values) async {
+    await _backendClient.saveDiscordWhitelist(backendUrl, values);
+    settings = <String, dynamic>{
+      ...settings,
+      'platform_whitelist_discord': values,
+    };
+    notifyListeners();
+  }
+
+  Future<void> saveTelegramWhitelist(List<String> values) async {
+    await _backendClient.saveTelegramWhitelist(backendUrl, values);
+    settings = <String, dynamic>{
+      ...settings,
+      'platform_whitelist_telegram': values,
+    };
+    notifyListeners();
+  }
+
+  Future<void> createMemory({
+    required String content,
+    required String category,
+    required int importance,
+  }) async {
+    await _backendClient.createMemory(
+      backendUrl,
+      content: content,
+      category: category,
+      importance: importance,
+    );
+    memoryRecallResults = const <MemoryItem>[];
+    await refreshMemory();
+  }
+
+  Future<void> deleteMemory(int id) async {
+    await _backendClient.deleteMemory(backendUrl, id);
+    await refreshMemory();
+  }
+
+  Future<void> searchMemories(String query) async {
+    memoryRecallResults = (await _backendClient.recallMemories(
+      backendUrl,
+      query,
+    )).map(MemoryItem.fromJson).toList();
+    notifyListeners();
+  }
+
+  void clearMemorySearch() {
+    memoryRecallResults = const <MemoryItem>[];
+    notifyListeners();
+  }
+
+  Future<void> updateSoul(String content) async {
+    await _backendClient.updateSoul(backendUrl, content);
+    await refreshMemory();
+  }
+
+  Future<void> updateCoreMemory(String key, String value) async {
+    await _backendClient.updateCoreMemory(backendUrl, key: key, value: value);
+    await refreshMemory();
+  }
+
+  Future<void> deleteCoreMemory(String key) async {
+    await _backendClient.deleteCoreMemory(backendUrl, key);
+    await refreshMemory();
+  }
+
+  Future<void> saveSchedulerTask({
+    int? id,
+    required String name,
+    required String cronExpression,
+    required String prompt,
+    bool enabled = true,
+  }) async {
+    await _backendClient.saveSchedulerTask(
+      backendUrl,
+      id: id,
+      name: name,
+      cronExpression: cronExpression,
+      prompt: prompt,
+      enabled: enabled,
+    );
+    await refreshScheduler();
+  }
+
+  Future<void> toggleSchedulerTask(SchedulerTask task) async {
+    await _backendClient.updateSchedulerTask(
+      backendUrl,
+      task.id,
+      <String, dynamic>{'enabled': !task.enabled},
+    );
+    await refreshScheduler();
+  }
+
+  Future<void> runSchedulerTask(int id) async {
+    await _backendClient.runSchedulerTask(backendUrl, id);
+    await refreshScheduler();
+    await refreshRunsOnly();
+  }
+
+  Future<void> deleteSchedulerTask(int id) async {
+    await _backendClient.deleteSchedulerTask(backendUrl, id);
+    await refreshScheduler();
+  }
+
+  Future<void> saveMcpServer({
+    int? id,
+    required String name,
+    required String command,
+    required Map<String, dynamic> config,
+    required bool enabled,
+  }) async {
+    await _backendClient.saveMcpServer(
+      backendUrl,
+      id: id,
+      name: name,
+      command: command,
+      config: config,
+      enabled: enabled,
+    );
+    await refreshMcp();
+  }
+
+  Future<void> startMcpServer(int id) async {
+    await _backendClient.startMcpServer(backendUrl, id);
+    await refreshMcp();
+  }
+
+  Future<void> stopMcpServer(int id) async {
+    await _backendClient.stopMcpServer(backendUrl, id);
+    await refreshMcp();
+  }
+
+  Future<void> deleteMcpServer(int id) async {
+    await _backendClient.deleteMcpServer(backendUrl, id);
+    await refreshMcp();
+  }
+
+  Future<void> requestHealthPermissions() async {
+    try {
+      deviceHealthStatus = await _healthBridge.requestPermissions();
+      await _syncBackgroundHealthConfig();
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> syncHealthNow() async {
+    isSyncingHealth = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final deviceStatus = await _healthBridge.getStatus();
+      deviceHealthStatus = deviceStatus;
+      if (!deviceStatus.available) {
+        throw const HealthBridgeException(
+          'Health Connect is not available on this device.',
+        );
+      }
+      if (!deviceStatus.permissionsGranted) {
+        throw const HealthBridgeException(
+          'Grant Health Connect permissions before syncing.',
+        );
+      }
+
+      final lastRun =
+          backendHealthStatus?['lastRun'] as Map<String, dynamic>? ?? const {};
+      final lastWindowEndRaw = lastRun['sync_window_end']?.toString();
+      final windowEnd = DateTime.now().toUtc();
+      final windowStart = lastWindowEndRaw == null
+          ? windowEnd.subtract(const Duration(hours: 24))
+          : DateTime.parse(
+              lastWindowEndRaw,
+            ).toUtc().subtract(const Duration(minutes: 5));
+
+      final payload = await _healthBridge.collectBatch(
+        windowStart: windowStart,
+        windowEnd: windowEnd,
+      );
+
+      await _backendClient.uploadHealthBatch(backendUrl, payload);
+      backendHealthStatus = await _backendClient.fetchHealthStatus(backendUrl);
+      await _syncBackgroundHealthConfig();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSyncingHealth = false;
+      notifyListeners();
+    }
+  }
+
+  String _friendlyErrorMessage(Object error) {
+    final text = error.toString().trim();
+    final lower = text.toLowerCase();
+
+    if (lower.contains('invalid credentials')) {
+      return 'Your username or password is incorrect.';
+    }
+    if (lower.contains('registration is closed')) {
+      return 'This server is already set up. Sign in with an existing account.';
+    }
+    if (lower.contains('too many attempts')) {
+      return 'Too many sign-in attempts. Please wait and try again.';
+    }
+    if (lower.contains('cors') ||
+        lower.contains('xmlhttprequest error') ||
+        lower.contains('failed to fetch') ||
+        lower.contains('network request failed') ||
+        lower.contains('clientexception') ||
+        lower.contains('socketexception')) {
+      return 'The app could not reach the NeoAgent server. Check that the backend is running and that this build points at the correct server.';
+    }
+    if (lower.contains('origin not allowed')) {
+      return 'This build is not allowed to talk to that NeoAgent server.';
+    }
+    if (lower.contains('not authenticated')) {
+      return 'Your session expired. Please sign in again.';
+    }
+    if (lower.contains('health connect')) {
+      return text;
+    }
+
+    return 'Something went wrong. Please try again.';
+  }
+
+  bool get heartbeatEnabled =>
+      settings['heartbeat_enabled'] == true ||
+      settings['heartbeat_enabled'] == 'true';
+
+  bool get headlessBrowser =>
+      settings['headless_browser'] != false &&
+      settings['headless_browser'] != 'false';
+
+  bool get autoSkillLearning =>
+      settings['auto_skill_learning'] != false &&
+      settings['auto_skill_learning'] != 'false';
+
+  bool get smarterSelector => settings['smarter_model_selector'] != false;
+
+  List<String> get enabledModelIds {
+    final raw = settings['enabled_models'];
+    if (raw is List) {
+      return raw.map((item) => item.toString()).toList();
+    }
+    return supportedModels.map((model) => model.id).toList();
+  }
+
+  String get defaultChatModel =>
+      settings['default_chat_model']?.toString() ?? 'auto';
+
+  String get defaultSubagentModel =>
+      settings['default_subagent_model']?.toString() ?? 'auto';
+
+  String get fallbackModel =>
+      settings['fallback_model_id']?.toString() ??
+      (supportedModels.isNotEmpty ? supportedModels.first.id : 'auto');
+
+  String get accountLabel =>
+      user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
+
+  String get modelIndicator {
+    if (defaultChatModel != 'auto') {
+      final selected = _modelById(defaultChatModel);
+      return selected?.label ?? defaultChatModel;
+    }
+    return smarterSelector ? 'Smart selector active' : 'Manual routing';
+  }
+
+  bool get showHealthSection =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<void> _syncBackgroundHealthConfig() async {
+    final cookie = _backendClient.sessionCookie ?? '';
+    await _prefs?.setString('health_sync_backend_url', backendUrl);
+    await _prefs?.setString('health_sync_session_cookie', cookie);
+    final enabled =
+        isAuthenticated &&
+        showHealthSection &&
+        (deviceHealthStatus?.permissionsGranted ?? false);
+    await _prefs?.setBool('health_sync_enabled', enabled);
+    await _healthBridge.configureBackgroundSync(
+      enabled: enabled,
+      backendUrl: backendUrl,
+      sessionCookie: cookie,
+    );
+  }
+
+  List<ChatEntry> get visibleChatMessages {
+    final entries = <ChatEntry>[...chatMessages];
+    if (streamingAssistant.trim().isNotEmpty) {
+      entries.add(
+        ChatEntry(
+          role: 'assistant',
+          content: streamingAssistant,
+          platform: 'live',
+          createdAt: DateTime.now(),
+          transient: true,
+        ),
+      );
+    }
+    return entries;
+  }
+
+  ModelMeta? _modelById(String id) {
+    for (final model in supportedModels) {
+      if (model.id == id) {
+        return model;
+      }
+    }
+    return null;
+  }
+
+  void _ensureUpdatePolling() {
+    _updatePollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+      if (isAuthenticated) {
+        refreshUpdateStatus();
+      }
+    });
+  }
+
+  void _disconnectSocket() {
+    socketConnected = false;
+    _socket?.dispose();
+    _socket = null;
+  }
+
+  void _ensureSocketConnected() {
+    final origin = _socketOrigin();
+    final existing = _socket?.io.uri;
+    if (_socket != null && socketConnected && existing == origin) {
+      return;
+    }
+
+    _disconnectSocket();
+
+    final options = <String, dynamic>{
+      'transports': <String>['websocket', 'polling'],
+      'autoConnect': false,
+      'withCredentials': true,
+    };
+
+    final cookie = _backendClient.sessionCookie;
+    if (!kIsWeb && cookie != null && cookie.isNotEmpty) {
+      options['extraHeaders'] = <String, String>{'Cookie': cookie};
+    }
+
+    final socket = io.io(origin, options);
+    socket.onConnect((_) {
+      socketConnected = true;
+      socket.emit('client:request_logs');
+      notifyListeners();
+    });
+    socket.onDisconnect((_) {
+      socketConnected = false;
+      notifyListeners();
+    });
+    socket.onConnectError((dynamic _) {
+      socketConnected = false;
+      notifyListeners();
+    });
+    socket.on('server:log_history', (dynamic data) {
+      final next = <LogEntry>[];
+      if (data is List) {
+        for (final item in data) {
+          next.add(LogEntry.fromJson(_jsonMap(item)));
+        }
+      }
+      logs = next;
+      notifyListeners();
+    });
+    socket.on('server:log', (dynamic data) {
+      final next = <LogEntry>[...logs, LogEntry.fromJson(_jsonMap(data))];
+      logs = next.length > 400 ? next.sublist(next.length - 400) : next;
+      notifyListeners();
+    });
+    socket.on('messaging:qr', (dynamic data) {
+      final payload = _jsonMap(data);
+      pendingMessagingQr = MessagingQrState(
+        platform: payload['platform']?.toString() ?? 'whatsapp',
+        qr: payload['qr']?.toString() ?? '',
+      );
+      notifyListeners();
+    });
+    socket.on('messaging:connected', (dynamic _) {
+      pendingMessagingQr = null;
+      unawaited(refreshMessaging());
+    });
+    socket.on('messaging:disconnected', (dynamic _) {
+      pendingMessagingQr = null;
+      unawaited(refreshMessaging());
+    });
+    socket.on('messaging:logged_out', (dynamic _) {
+      pendingMessagingQr = null;
+      unawaited(refreshMessaging());
+    });
+    socket.on('messaging:sent', (dynamic data) {
+      messagingMessages = <MessagingMessage>[
+        MessagingMessage.fromSocket(_jsonMap(data), outgoing: true),
+        ...messagingMessages,
+      ];
+      notifyListeners();
+    });
+    socket.on('messaging:message', (dynamic data) {
+      messagingMessages = <MessagingMessage>[
+        MessagingMessage.fromSocket(_jsonMap(data), outgoing: false),
+        ...messagingMessages,
+      ];
+      notifyListeners();
+    });
+    socket.on('messaging:error', (dynamic data) {
+      final payload = _jsonMap(data);
+      errorMessage =
+          payload['error']?.toString() ?? 'Messaging error. Please try again.';
+      notifyListeners();
+    });
+    socket.on('run:start', (dynamic data) {
+      final payload = _jsonMap(data);
+      final triggerSource = payload['triggerSource']?.toString() ?? '';
+      final runId = payload['runId']?.toString() ?? '';
+      if (_isBackgroundRun(triggerSource)) {
+        _backgroundRunIds.add(runId);
+        return;
+      }
+      activeRun = ActiveRunState(
+        runId: runId,
+        title:
+            payload['title']?.toString().ifEmpty('Running task') ??
+            'Running task',
+        model: payload['model']?.toString() ?? '',
+        triggerSource: triggerSource,
+        phase: 'Starting',
+        iteration: 0,
+      );
+      toolEvents = const <ToolEventItem>[];
+      streamingAssistant = '';
+      isSendingMessage = true;
+      notifyListeners();
+    });
+    socket.on('run:thinking', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(
+          phase: 'Thinking',
+          iteration: _asInt(payload['iteration']),
+        );
+        notifyListeners();
+      }
+    });
+    socket.on('run:tool_start', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      final item = ToolEventItem(
+        id:
+            payload['stepId']?.toString().ifEmpty(
+              DateTime.now().microsecondsSinceEpoch.toString(),
+            ) ??
+            DateTime.now().microsecondsSinceEpoch.toString(),
+        toolName: payload['toolName']?.toString() ?? 'tool',
+        type: payload['type']?.toString() ?? '',
+        status: 'running',
+        summary: _summarizeToolArgs(payload['toolArgs']),
+      );
+      toolEvents = <ToolEventItem>[
+        ...toolEvents.where((event) => event.id != item.id),
+        item,
+      ];
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(phase: 'Running tool');
+      }
+      notifyListeners();
+    });
+    socket.on('run:tool_end', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      final stepId = payload['stepId']?.toString() ?? '';
+      final updated = ToolEventItem(
+        id: stepId,
+        toolName: payload['toolName']?.toString() ?? 'tool',
+        type: payload['type']?.toString() ?? '',
+        status: payload['status']?.toString() ?? 'completed',
+        summary:
+            payload['error']?.toString() ??
+            _summarizeToolResult(payload['result']),
+      );
+      var replaced = false;
+      final next = toolEvents.map((event) {
+        if (event.id == stepId) {
+          replaced = true;
+          return updated;
+        }
+        return event;
+      }).toList();
+      if (!replaced) {
+        next.add(updated);
+      }
+      toolEvents = next;
+      notifyListeners();
+    });
+    socket.on('run:interim', (dynamic data) {
+      final payload = _jsonMap(data);
+      toolEvents = <ToolEventItem>[
+        ...toolEvents,
+        ToolEventItem(
+          id: 'note-${DateTime.now().microsecondsSinceEpoch}',
+          toolName: 'note',
+          type: 'note',
+          status: 'completed',
+          summary: payload['message']?.toString() ?? '',
+        ),
+      ];
+      notifyListeners();
+    });
+    socket.on('run:stream', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      streamingAssistant = payload['content']?.toString() ?? '';
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(
+          phase: toolEvents.any((event) => event.status == 'running')
+              ? 'Running tool'
+              : 'Streaming',
+        );
+      }
+      notifyListeners();
+    });
+    socket.on('run:complete', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.remove(runId)) {
+        return;
+      }
+      final content = payload['content']?.toString().trim() ?? '';
+      if (content.isNotEmpty) {
+        chatMessages = <ChatEntry>[
+          ...chatMessages,
+          ChatEntry(
+            role: 'assistant',
+            content: content,
+            platform: 'web',
+            createdAt: DateTime.now(),
+          ),
+        ];
+      }
+      streamingAssistant = '';
+      isSendingMessage = false;
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(phase: 'Completed');
+      }
+      unawaited(refreshRunsOnly());
+      notifyListeners();
+    });
+    socket.on('run:error', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString();
+      if (runId != null) {
+        _backgroundRunIds.remove(runId);
+      }
+      streamingAssistant = '';
+      activeRun = null;
+      isSendingMessage = false;
+      errorMessage =
+          'I could not complete that request right now. Please try again in a moment.';
+      notifyListeners();
+    });
+    socket.on('skill:draft_created', (dynamic _) {
+      unawaited(refreshSkills());
+    });
+    socket.connect();
+    _socket = socket;
+  }
+
+  bool _isBackgroundRun(String triggerSource) {
+    return triggerSource == 'scheduler' ||
+        triggerSource == 'heartbeat' ||
+        triggerSource == 'messaging';
+  }
+
+  String _socketOrigin() {
+    final trimmed = backendUrl.trim();
+    if (trimmed.isEmpty) {
+      final base = Uri.base;
+      final port = base.hasPort ? ':${base.port}' : '';
+      return '${base.scheme}://${base.host}$port';
+    }
+    final uri = Uri.parse(trimmed);
+    final port = uri.hasPort ? ':${uri.port}' : '';
+    return '${uri.scheme}://${uri.host}$port';
+  }
+}
+
+class SplashView extends StatelessWidget {
+  const SplashView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(-0.4, -0.6),
+          radius: 1.3,
+          colors: <Color>[_accent, _bgSecondary, _bgPrimary],
+        ),
+      ),
+      child: const Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              _LogoBadge(size: 52),
+              SizedBox(height: 18),
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading NeoAgent'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AuthView extends StatefulWidget {
+  const AuthView({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<AuthView> createState() => _AuthViewState();
+}
+
+class _AuthViewState extends State<AuthView> {
+  late final TextEditingController _usernameController;
+  late final TextEditingController _passwordController;
+  late final TextEditingController _confirmPasswordController;
+  bool _registerMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameController = TextEditingController(
+      text: widget.controller.username,
+    );
+    _passwordController = TextEditingController(
+      text: widget.controller.password,
+    );
+    _confirmPasswordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    if (!controller.hasUser) {
+      _registerMode = true;
+    }
+
+    final title = _registerMode ? 'Create the first account' : 'Sign in';
+    final subtitle = _registerMode
+        ? 'This account will unlock the workspace.'
+        : 'Enter your NeoAgent account details.';
+
+    return Scaffold(
+      backgroundColor: _bgPrimary,
+      body: Stack(
+        children: <Widget>[
+          const Positioned(
+            top: -100,
+            left: -100,
+            child: _BlurOrb(size: 500, color: _accent),
+          ),
+          const Positioned(
+            right: -80,
+            bottom: -80,
+            child: _BlurOrb(size: 400, color: Color(0xFF8B5CF6)),
+          ),
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Card(
+                    color: const Color.fromRGBO(12, 12, 24, 0.92),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: const BorderSide(color: _borderLight),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(36),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          const Column(
+                            children: <Widget>[
+                              _LogoBadge(size: 52),
+                              SizedBox(height: 16),
+                              Text(
+                                'NeoAgent',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            subtitle,
+                            style: const TextStyle(color: _textSecondary),
+                          ),
+                          const SizedBox(height: 20),
+                          if (!controller.hasUser) ...<Widget>[
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: _bgPrimary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: _AuthTabButton(
+                                      label: 'Sign In',
+                                      active: !_registerMode,
+                                      onTap: () =>
+                                          setState(() => _registerMode = false),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _AuthTabButton(
+                                      label: 'Setup',
+                                      active: _registerMode,
+                                      onTap: () =>
+                                          setState(() => _registerMode = true),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          if (controller.errorMessage != null) ...<Widget>[
+                            _InlineError(message: controller.errorMessage!),
+                            const SizedBox(height: 16),
+                          ],
+                          TextField(
+                            controller: _usernameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Username',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Password',
+                            ),
+                          ),
+                          if (_registerMode) ...<Widget>[
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: _confirmPasswordController,
+                              obscureText: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Confirm Password',
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          FilledButton(
+                            onPressed: controller.isAuthenticating
+                                ? null
+                                : () async {
+                                    if (_registerMode &&
+                                        _passwordController.text !=
+                                            _confirmPasswordController.text) {
+                                      widget.controller.showInlineError(
+                                        'Passwords do not match.',
+                                      );
+                                      return;
+                                    }
+                                    if (_registerMode) {
+                                      await controller.register(
+                                        username: _usernameController.text,
+                                        password: _passwordController.text,
+                                      );
+                                    } else {
+                                      await controller.login(
+                                        username: _usernameController.text,
+                                        password: _passwordController.text,
+                                      );
+                                    }
+                                  },
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(56),
+                              backgroundColor: _accent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: controller.isAuthenticating
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    _registerMode
+                                        ? 'Create account'
+                                        : 'Sign in',
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HomeView extends StatelessWidget {
+  const HomeView({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 1080;
+
+    if (wide) {
+      return Scaffold(
+        backgroundColor: _bgPrimary,
+        body: SafeArea(
+          child: Row(
+            children: <Widget>[
+              _Sidebar(controller: controller),
+              Expanded(child: _SectionBody(controller: controller)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: _bgPrimary,
+      drawer: _MobileDrawer(controller: controller),
+      appBar: AppBar(
+        title: Text(controller.selectedSection.label),
+        actions: <Widget>[
+          IconButton(
+            onPressed: controller.isRefreshing ? null : controller.refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: SafeArea(child: _SectionBody(controller: controller)),
+    );
+  }
+}
+
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 232,
+      decoration: const BoxDecoration(
+        color: _bgSecondary,
+        border: Border(right: BorderSide(color: _border)),
+      ),
+      child: Column(
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: _border)),
+            ),
+            child: Row(
+              children: <Widget>[
+                const _LogoBadge(size: 30),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'NeoAgent',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        controller.accountLabel,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: _textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(8),
+              children: _mainSections(controller).map((section) {
+                return _SidebarButton(
+                  label: section.label,
+                  icon: section.icon,
+                  active: controller.selectedSection == section,
+                  onTap: () => controller.setSelectedSection(section),
+                );
+              }).toList(),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: _border)),
+            ),
+            child: Column(
+              children: <Widget>[
+                _SidebarButton(
+                  label: AppSection.settings.label,
+                  icon: AppSection.settings.icon,
+                  active: controller.selectedSection == AppSection.settings,
+                  onTap: () =>
+                      controller.setSelectedSection(AppSection.settings),
+                ),
+                _SidebarButton(
+                  label: 'Refresh',
+                  icon: Icons.refresh,
+                  onTap: controller.isRefreshing ? null : controller.refresh,
+                ),
+                _SidebarButton(
+                  label: 'Logout',
+                  icon: Icons.logout,
+                  onTap: controller.logout,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: <Widget>[
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: controller.socketConnected ? _success : _warning,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      controller.socketConnected ? 'Live' : 'Offline',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: _textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileDrawer extends StatelessWidget {
+  const _MobileDrawer({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: _bgSecondary,
+      child: SafeArea(
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Row(
+                children: <Widget>[
+                  const _LogoBadge(size: 30),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      controller.accountLabel,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                children: _mainSections(controller).map((section) {
+                  return _SidebarButton(
+                    label: section.label,
+                    icon: section.icon,
+                    active: controller.selectedSection == section,
+                    onTap: () {
+                      controller.setSelectedSection(section);
+                      Navigator.of(context).pop();
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: <Widget>[
+                  _SidebarButton(
+                    label: AppSection.settings.label,
+                    icon: AppSection.settings.icon,
+                    active: controller.selectedSection == AppSection.settings,
+                    onTap: () {
+                      controller.setSelectedSection(AppSection.settings);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  _SidebarButton(
+                    label: 'Refresh',
+                    icon: Icons.refresh,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      controller.refresh();
+                    },
+                  ),
+                  _SidebarButton(
+                    label: 'Logout',
+                    icon: Icons.logout,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      controller.logout();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionBody extends StatelessWidget {
+  const _SectionBody({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (controller.selectedSection) {
+      case AppSection.chat:
+        return ChatPanel(controller: controller);
+      case AppSection.messaging:
+        return MessagingPanel(controller: controller);
+      case AppSection.runs:
+        return RunsPanel(controller: controller);
+      case AppSection.settings:
+        return SettingsPanel(controller: controller);
+      case AppSection.logs:
+        return LogsPanel(controller: controller);
+      case AppSection.skills:
+        return SkillsPanel(controller: controller);
+      case AppSection.memory:
+        return MemoryPanel(controller: controller);
+      case AppSection.scheduler:
+        return SchedulerPanel(controller: controller);
+      case AppSection.mcp:
+        return McpPanel(controller: controller);
+      case AppSection.health:
+        return controller.showHealthSection
+            ? HealthPanel(controller: controller)
+            : ChatPanel(controller: controller);
+    }
+  }
+}
+
+class ChatPanel extends StatefulWidget {
+  const ChatPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<ChatPanel> createState() => _ChatPanelState();
+}
+
+class _ChatPanelState extends State<ChatPanel> {
+  late final TextEditingController _composerController;
+  final ScrollController _scrollController = ScrollController();
+  int _lastMessageCount = 0;
+  int _lastToolCount = 0;
+  String _lastStream = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _composerController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _composerController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final messages = controller.visibleChatMessages;
+    if (_lastMessageCount != messages.length ||
+        _lastToolCount != controller.toolEvents.length ||
+        _lastStream != controller.streamingAssistant) {
+      _lastMessageCount = messages.length;
+      _lastToolCount = controller.toolEvents.length;
+      _lastStream = controller.streamingAssistant;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: ListView(
+            controller: _scrollController,
+            padding: _pagePadding(context),
+            children: <Widget>[
+              _PageTitle(
+                title: 'Chat',
+                subtitle: 'Live agent chat with tool and stream status.',
+                trailing: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    _DotStatus(
+                      label: controller.socketConnected ? 'Live' : 'Offline',
+                      color: controller.socketConnected ? _success : _warning,
+                    ),
+                    _MetaPill(
+                      label: controller.modelIndicator,
+                      icon: Icons.memory_outlined,
+                    ),
+                  ],
+                ),
+              ),
+              if (controller.errorMessage != null) ...<Widget>[
+                _InlineError(message: controller.errorMessage!),
+                const SizedBox(height: 16),
+              ],
+              if (controller.activeRun != null ||
+                  controller.toolEvents.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _RunStatusPanel(
+                    run: controller.activeRun,
+                    tools: controller.toolEvents,
+                  ),
+                ),
+              if (messages.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 64),
+                  child: Center(
+                    child: _EmptyState(
+                      title: 'How can I help?',
+                      subtitle:
+                          'Runs, tools, memory, scheduling, skills, and MCP are all available here.',
+                    ),
+                  ),
+                )
+              else
+                ...messages.map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: 18),
+                    child: _ChatBubble(entry: entry),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          decoration: const BoxDecoration(
+            color: _bgPrimary,
+            border: Border(top: BorderSide(color: _border)),
+          ),
+          child: Column(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
+                decoration: BoxDecoration(
+                  color: _bgTertiary,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Expanded(
+                      child: TextField(
+                        controller: _composerController,
+                        minLines: 1,
+                        maxLines: 6,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        decoration: const InputDecoration(
+                          hintText: 'say something...',
+                          isDense: true,
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                    FilledButton(
+                      onPressed: controller.isSendingMessage
+                          ? null
+                          : () async {
+                              final task = _composerController.text;
+                              _composerController.clear();
+                              await controller.sendMessage(task);
+                            },
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(46, 42),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        backgroundColor: _accent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: controller.isSendingMessage
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.north_east_rounded,
+                              color: Colors.white,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Text(
+                    controller.activeRun == null
+                        ? 'Idle'
+                        : '${controller.activeRun!.phase} (${controller.toolEvents.where((event) => event.status == 'running').length} active tools)',
+                    style: const TextStyle(fontSize: 11, color: _textSecondary),
+                  ),
+                  Text(
+                    controller.modelIndicator,
+                    style: const TextStyle(fontSize: 11, color: _textSecondary),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class MessagingPanel extends StatefulWidget {
+  const MessagingPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<MessagingPanel> createState() => _MessagingPanelState();
+}
+
+class _MessagingPanelState extends State<MessagingPanel> {
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final groups = <MessagingPlatformGroup>[
+      const MessagingPlatformGroup(
+        label: 'Text & Chat',
+        subtitle: 'Send and receive messages',
+        ids: <String>['whatsapp', 'telegram', 'discord'],
+      ),
+      const MessagingPlatformGroup(
+        label: 'Voice',
+        subtitle: 'Inbound and outbound phone calls',
+        ids: <String>['telnyx'],
+      ),
+    ];
+
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        const _PageTitle(
+          title: 'Messaging',
+          subtitle: 'Connect platforms, manage access, and keep channels live.',
+        ),
+        if (controller.pendingMessagingQr != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: <Widget>[
+                    Text(
+                      'Scan to finish ${controller.pendingMessagingQr!.platformLabel}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: 220,
+                      height: 220,
+                      child: Image.network(
+                        'https://api.qrserver.com/v1/create-qr-code/?data=${Uri.encodeComponent(controller.pendingMessagingQr!.qr)}&size=280x280',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ...groups.map((group) {
+          final platforms = messagingPlatforms
+              .where((platform) => group.ids.contains(platform.id))
+              .toList();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: <Widget>[
+                      Text(
+                        group.label,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        group.subtitle,
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final crossAxisCount = width >= 1200
+                        ? 3
+                        : width >= 760
+                        ? 2
+                        : 1;
+                    return GridView.builder(
+                      itemCount: platforms.length,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 1.08,
+                      ),
+                      itemBuilder: (context, index) {
+                        final platform = platforms[index];
+                        final status =
+                            controller.messagingStatuses[platform.id] ??
+                            MessagingPlatformStatus.empty(platform.id);
+                        return _MessagingCard(
+                          controller: controller,
+                          platform: platform,
+                          status: status,
+                          onConfigure: () => _openMessagingConfig(platform),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        }),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Recent Channel Activity'),
+                const SizedBox(height: 12),
+                if (controller.messagingMessages.isEmpty)
+                  const Text(
+                    'No platform traffic has been captured yet.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  ...controller.messagingMessages.take(12).map((message) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _bgSecondary,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                _StatusPill(
+                                  label: message.platform.toUpperCase(),
+                                  color: message.outgoing ? _accent : _info,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    message.senderLabel,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  message.createdAtLabel,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(message.content.ifEmpty('[empty]')),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openMessagingConfig(
+    MessagingPlatformDescriptor platform,
+  ) async {
+    switch (platform.id) {
+      case 'whatsapp':
+        await widget.controller.connectMessagingPlatform(platform: 'whatsapp');
+        return;
+      case 'telnyx':
+        return _openTelnyxConfig();
+      case 'discord':
+        return _openDiscordConfig();
+      case 'telegram':
+        return _openTelegramConfig();
+    }
+  }
+
+  Future<void> _openTelnyxConfig() async {
+    final saved = _jsonMap(
+      _decodeMaybeJson(widget.controller.settings['telnyx_config']),
+    );
+    final apiKey = TextEditingController(
+      text: saved['apiKey']?.toString() ?? '',
+    );
+    final phoneNumber = TextEditingController(
+      text: saved['phoneNumber']?.toString() ?? '',
+    );
+    final connectionId = TextEditingController(
+      text: saved['connectionId']?.toString() ?? '',
+    );
+    final webhookUrl = TextEditingController(
+      text: saved['webhookUrl']?.toString() ?? widget.controller.backendUrl,
+    );
+    String ttsVoice = saved['ttsVoice']?.toString() ?? 'alloy';
+    String ttsModel = saved['ttsModel']?.toString() ?? 'tts-1';
+    String sttModel = saved['sttModel']?.toString() ?? 'whisper-1';
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              backgroundColor: _bgCard,
+              title: const Text('Telnyx Voice'),
+              content: SizedBox(
+                width: 620,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextField(
+                        controller: apiKey,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: 'API Key'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: phoneNumber,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone Number',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: connectionId,
+                        decoration: const InputDecoration(
+                          labelText: 'Connection ID',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: webhookUrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Webhook Base URL',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: ttsVoice,
+                        items:
+                            const <String>[
+                                  'alloy',
+                                  'echo',
+                                  'fable',
+                                  'onyx',
+                                  'nova',
+                                  'shimmer',
+                                ]
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'TTS Voice',
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setLocalState(() => ttsVoice = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: ttsModel,
+                        items:
+                            const <String>[
+                                  'tts-1',
+                                  'tts-1-hd',
+                                  'gpt-4o-mini-tts',
+                                ]
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'TTS Model',
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setLocalState(() => ttsModel = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: sttModel,
+                        items: const <String>['whisper-1', 'gpt-4o-transcribe']
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'STT Model',
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setLocalState(() => sttModel = value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final config = <String, dynamic>{
+                      'apiKey': apiKey.text.trim(),
+                      'phoneNumber': phoneNumber.text.trim(),
+                      'connectionId': connectionId.text.trim(),
+                      'webhookUrl': webhookUrl.text.trim(),
+                      'ttsVoice': ttsVoice,
+                      'ttsModel': ttsModel,
+                      'sttModel': sttModel,
+                    };
+                    await widget.controller.connectMessagingPlatform(
+                      platform: 'telnyx',
+                      config: config,
+                      configSnapshot: <String, dynamic>{
+                        'telnyx_config': jsonEncode(config),
+                      },
+                    );
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('Connect'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _openDiscordConfig() async {
+    final saved = _jsonMap(
+      _decodeMaybeJson(widget.controller.settings['discord_config']),
+    );
+    final token = TextEditingController(text: saved['token']?.toString() ?? '');
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: const Text('Discord'),
+          content: SizedBox(
+            width: 520,
+            child: TextField(
+              controller: token,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Bot Token'),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final config = <String, dynamic>{'token': token.text.trim()};
+                await widget.controller.connectMessagingPlatform(
+                  platform: 'discord',
+                  config: config,
+                  configSnapshot: <String, dynamic>{
+                    'discord_config': jsonEncode(config),
+                  },
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Connect'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openTelegramConfig() async {
+    final saved = _jsonMap(
+      _decodeMaybeJson(widget.controller.settings['telegram_config']),
+    );
+    final token = TextEditingController(
+      text: saved['botToken']?.toString() ?? '',
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: const Text('Telegram'),
+          content: SizedBox(
+            width: 520,
+            child: TextField(
+              controller: token,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Bot Token'),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final config = <String, dynamic>{'botToken': token.text.trim()};
+                await widget.controller.connectMessagingPlatform(
+                  platform: 'telegram',
+                  config: config,
+                  configSnapshot: <String, dynamic>{
+                    'telegram_config': jsonEncode(config),
+                  },
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Connect'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class RunsPanel extends StatefulWidget {
+  const RunsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<RunsPanel> createState() => _RunsPanelState();
+}
+
+class _RunsPanelState extends State<RunsPanel> {
+  String? _selectedRunId;
+  RunDetailSnapshot? _detail;
+  bool _loadingDetail = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncSelection();
+  }
+
+  @override
+  void didUpdateWidget(covariant RunsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncSelection();
+  }
+
+  void _syncSelection() {
+    final runs = widget.controller.recentRuns;
+    if (runs.isEmpty) {
+      _selectedRunId = null;
+      _detail = null;
+      return;
+    }
+    if (_selectedRunId == null ||
+        !runs.any((run) => run.id == _selectedRunId)) {
+      _selectRun(runs.first.id);
+    }
+  }
+
+  Future<void> _selectRun(String runId) async {
+    setState(() {
+      _selectedRunId = runId;
+      _loadingDetail = true;
+    });
+    final detail = await widget.controller.fetchRunDetail(runId);
+    if (!mounted || _selectedRunId != runId) {
+      return;
+    }
+    setState(() {
+      _detail = detail;
+      _loadingDetail = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final selected = controller.recentRuns.cast<RunSummary?>().firstWhere(
+      (run) => run?.id == _selectedRunId,
+      orElse: () => null,
+    );
+    final detail = _detail;
+
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        const _PageTitle(
+          title: 'Runs',
+          subtitle: 'World-style activity view with recent runs and tool flow.',
+        ),
+        if (controller.recentRuns.isEmpty)
+          const _EmptyCard(
+            title: 'No runs yet',
+            subtitle: 'Your next task will wake the world view up.',
+          )
+        else ...<Widget>[
+          _WorldBoard(run: selected, detail: detail, loading: _loadingDetail),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const _SectionTitle('Recent Runs'),
+                  const SizedBox(height: 12),
+                  ...controller.recentRuns.map((run) {
+                    final active = run.id == _selectedRunId;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _selectRun(run.id),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: active ? _accentMuted : _bgSecondary,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: active ? _accent : _border,
+                            ),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      run.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '${run.triggerSource.ifEmpty('web')} • ${run.createdAtLabel}',
+                                      style: const TextStyle(
+                                        color: _textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              _StatusPill(
+                                label: run.status,
+                                color: run.statusColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MessagingCard extends StatelessWidget {
+  const _MessagingCard({
+    required this.controller,
+    required this.platform,
+    required this.status,
+    required this.onConfigure,
+  });
+
+  final NeoAgentController controller;
+  final MessagingPlatformDescriptor platform;
+  final MessagingPlatformStatus status;
+  final Future<void> Function() onConfigure;
+
+  @override
+  Widget build(BuildContext context) {
+    final whitelist = _currentWhitelist();
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            platform.accent.withValues(alpha: 0.16),
+            const Color(0xFF111625),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          leading: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: platform.accent.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: platform.accent.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Icon(platform.icon, color: Colors.white),
+          ),
+          title: Text(
+            platform.label,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              status.authLabel,
+              style: const TextStyle(color: _textSecondary),
+            ),
+          ),
+          trailing: _StatusPill(
+            label: status.statusLabel,
+            color: status.badgeColor,
+          ),
+          children: <Widget>[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                platform.subtitle,
+                style: const TextStyle(color: _textSecondary, height: 1.45),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                if (status.isConnected) ...<Widget>[
+                  FilledButton.icon(
+                    onPressed: () =>
+                        controller.disconnectMessagingPlatform(platform.id),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: platform.accent,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.link_off),
+                    label: const Text('Disconnect'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        controller.logoutMessagingPlatform(platform.id),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Logout'),
+                  ),
+                ] else
+                  FilledButton.icon(
+                    onPressed: onConfigure,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: platform.accent,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: Icon(
+                      platform.connectMethod == MessagingConnectMethod.qr
+                          ? Icons.qr_code_rounded
+                          : Icons.link_rounded,
+                    ),
+                    label: const Text('Connect'),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: () => _editWhitelist(context, whitelist),
+                  icon: const Icon(Icons.verified_user_outlined),
+                  label: Text(
+                    whitelist.isEmpty
+                        ? 'Access list'
+                        : 'Access list (${whitelist.length})',
+                  ),
+                ),
+                if (platform.id == 'telnyx')
+                  OutlinedButton.icon(
+                    onPressed: () => _editTelnyxSecret(context),
+                    icon: const Icon(Icons.password_rounded),
+                    label: const Text('Voice PIN'),
+                  ),
+              ],
+            ),
+            if (whitelist.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: whitelist
+                    .take(8)
+                    .map(
+                      (entry) =>
+                          _MetaPill(label: entry, icon: Icons.shield_outlined),
+                    )
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<String> _currentWhitelist() {
+    dynamic raw;
+    switch (platform.id) {
+      case 'whatsapp':
+        raw = controller.settings['platform_whitelist_whatsapp'];
+        if (raw is String && raw.trim().isNotEmpty) {
+          try {
+            raw = jsonDecode(raw);
+          } catch (_) {
+            raw = const <dynamic>[];
+          }
+        }
+        break;
+      case 'telnyx':
+        raw = controller.settings['platform_whitelist_telnyx'];
+        break;
+      case 'discord':
+        raw = controller.settings['platform_whitelist_discord'];
+        break;
+      case 'telegram':
+        raw = controller.settings['platform_whitelist_telegram'];
+        break;
+    }
+    if (raw is List) {
+      return raw
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    return const <String>[];
+  }
+
+  Future<void> _editWhitelist(
+    BuildContext context,
+    List<String> initialValues,
+  ) async {
+    final controllerText = TextEditingController(
+      text: initialValues.join('\n'),
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: Text('${platform.label} access'),
+          content: SizedBox(
+            width: 620,
+            child: TextField(
+              controller: controllerText,
+              minLines: 10,
+              maxLines: 16,
+              decoration: const InputDecoration(
+                labelText: 'One entry per line',
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final values = controllerText.text
+                    .split('\n')
+                    .map((value) => value.trim())
+                    .where((value) => value.isNotEmpty)
+                    .toList();
+                switch (platform.id) {
+                  case 'whatsapp':
+                    await controller.saveWhatsAppWhitelist(values);
+                    break;
+                  case 'telnyx':
+                    await controller.saveTelnyxWhitelist(values);
+                    break;
+                  case 'discord':
+                    await controller.saveDiscordWhitelist(values);
+                    break;
+                  case 'telegram':
+                    await controller.saveTelegramWhitelist(values);
+                    break;
+                }
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _editTelnyxSecret(BuildContext context) async {
+    final controllerText = TextEditingController(
+      text:
+          controller.settings['platform_voice_secret_telnyx']?.toString() ?? '',
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: const Text('Voice secret code'),
+          content: SizedBox(
+            width: 520,
+            child: TextField(
+              controller: controllerText,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Digits-only PIN'),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await controller.saveTelnyxVoiceSecret(controllerText.text);
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _WorldBoard extends StatelessWidget {
+  const _WorldBoard({
+    required this.run,
+    required this.detail,
+    required this.loading,
+  });
+
+  final RunSummary? run;
+  final RunDetailSnapshot? detail;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeRun = detail?.run ?? run;
+    final steps = detail?.steps ?? const <RunStepItem>[];
+    final response = detail?.response ?? '';
+    final completed = steps.where((step) => step.status == 'completed').length;
+    final failed = steps.where((step) => step.status == 'failed').length;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 1080;
+        final stage = _buildStage(activeRun, steps, loading);
+        final hud = _buildHud(activeRun, steps, completed, failed, response);
+        if (!wide) {
+          return Column(
+            children: <Widget>[stage, const SizedBox(height: 16), hud],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(flex: 7, child: stage),
+            const SizedBox(width: 16),
+            Expanded(flex: 4, child: hud),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStage(RunSummary? run, List<RunStepItem> steps, bool loading) {
+    final statusColor = run?.statusColor ?? _accent;
+    return SizedBox(
+      height: 380,
+      child: Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: <Color>[Color(0xFF0C1020), Color(0xFF090C15)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _WorldStagePainter(
+                accent: statusColor,
+                nodeCount: math.max(steps.length, 4),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    _StatusPill(
+                      label: run?.status.ifEmpty('idle') ?? 'idle',
+                      color: statusColor,
+                    ),
+                    _StatusPill(
+                      label: steps.isEmpty
+                          ? 'Awaiting signal'
+                          : '${steps.length} world events',
+                      color: _info,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  run?.title.ifEmpty('No active run') ?? 'No active run',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  run == null
+                      ? 'The world is idling. Start a task in chat to wake it up.'
+                      : '${run.triggerSource.ifEmpty('web')} trigger • ${run.model.ifEmpty('model pending')}',
+                  style: const TextStyle(color: _textSecondary),
+                ),
+                const Spacer(),
+                if (loading)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: steps.take(5).map((step) {
+                      return Container(
+                        width: 180,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xB0111625),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            _StatusPill(
+                              label: step.status,
+                              color: step.statusColor,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              step.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              step.summary,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _textSecondary,
+                                fontSize: 12,
+                                height: 1.45,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+
+  Widget _buildHud(
+    RunSummary? run,
+    List<RunStepItem> steps,
+    int completed,
+    int failed,
+    String response,
+  ) {
+    return Column(
+      children: <Widget>[
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Live Signals'),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: <Widget>[
+                    _OverviewCard(
+                      title: 'Mode',
+                      value: run?.status.ifEmpty('idle') ?? 'idle',
+                      helper: 'Current run state',
+                    ),
+                    _OverviewCard(
+                      title: 'Tools',
+                      value: '$completed',
+                      helper: 'Completed tool calls',
+                    ),
+                    _OverviewCard(
+                      title: 'Failures',
+                      value: '$failed',
+                      helper: 'Tool errors in this run',
+                    ),
+                    _OverviewCard(
+                      title: 'Tokens',
+                      value: run == null ? '0' : run.totalTokensLabel,
+                      helper: 'Run token total',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Event Feed'),
+                const SizedBox(height: 12),
+                if (steps.isEmpty)
+                  const Text(
+                    'No run steps recorded yet.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  ...steps.reversed.take(6).map((step) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Container(
+                            width: 10,
+                            height: 10,
+                            margin: const EdgeInsets.only(top: 6),
+                            decoration: BoxDecoration(
+                              color: step.statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  step.label,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  step.summary,
+                                  style: const TextStyle(
+                                    color: _textSecondary,
+                                    fontSize: 12,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Response'),
+                const SizedBox(height: 12),
+                Text(
+                  response.ifEmpty(
+                    'No final response captured for this run yet.',
+                  ),
+                  maxLines: 10,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _textSecondary, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WorldStagePainter extends CustomPainter {
+  _WorldStagePainter({required this.accent, required this.nodeCount});
+
+  final Color accent;
+  final int nodeCount;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width * 0.48, size.height * 0.56);
+    final glowPaint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: <Color>[
+              accent.withValues(alpha: 0.22),
+              accent.withValues(alpha: 0.0),
+            ],
+          ).createShader(
+            Rect.fromCircle(center: center, radius: size.shortestSide * 0.34),
+          );
+    canvas.drawCircle(center, size.shortestSide * 0.34, glowPaint);
+
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = const Color(0x30FFFFFF);
+    for (var i = 1; i <= 3; i++) {
+      canvas.drawCircle(center, size.shortestSide * (0.12 * i), ringPaint);
+    }
+
+    final linePaint = Paint()
+      ..strokeWidth = 1
+      ..color = accent.withValues(alpha: 0.22);
+    final nodePaint = Paint()..color = Colors.white.withValues(alpha: 0.9);
+    final orbitCount = math.min(nodeCount, 10);
+    for (var i = 0; i < orbitCount; i++) {
+      final angle = (math.pi * 2 / orbitCount) * i;
+      final radius = size.shortestSide * (0.16 + (i % 3) * 0.08);
+      final point = Offset(
+        center.dx + math.cos(angle) * radius,
+        center.dy + math.sin(angle) * radius,
+      );
+      canvas.drawLine(center, point, linePaint);
+      canvas.drawCircle(point, 4.5, nodePaint);
+    }
+    canvas.drawCircle(center, 10, Paint()..color = accent);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WorldStagePainter oldDelegate) {
+    return oldDelegate.accent != accent || oldDelegate.nodeCount != nodeCount;
+  }
+}
+
+class SettingsPanel extends StatefulWidget {
+  const SettingsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<SettingsPanel> createState() => _SettingsPanelState();
+}
+
+class _SettingsPanelState extends State<SettingsPanel> {
+  late bool _heartbeatEnabled;
+  late bool _headlessBrowser;
+  late bool _autoSkillLearning;
+  late bool _smarterSelector;
+  late Set<String> _enabledModels;
+  late String _defaultChatModel;
+  late String _defaultSubagentModel;
+  late String _fallbackModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _hydrate();
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller.settings != widget.controller.settings ||
+        oldWidget.controller.supportedModels !=
+            widget.controller.supportedModels) {
+      _hydrate();
+    }
+  }
+
+  void _hydrate() {
+    final controller = widget.controller;
+    _heartbeatEnabled = controller.heartbeatEnabled;
+    _headlessBrowser = controller.headlessBrowser;
+    _autoSkillLearning = controller.autoSkillLearning;
+    _smarterSelector = controller.smarterSelector;
+    _enabledModels = controller.enabledModelIds.toSet();
+    _defaultChatModel = controller.defaultChatModel;
+    _defaultSubagentModel = controller.defaultSubagentModel;
+    _fallbackModel = controller.fallbackModel;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final modelChoices = <DropdownMenuItem<String>>[
+      const DropdownMenuItem<String>(
+        value: 'auto',
+        child: Text('Smart Selector (Auto)'),
+      ),
+      ...controller.supportedModels.map(
+        (model) =>
+            DropdownMenuItem<String>(value: model.id, child: Text(model.label)),
+      ),
+    ];
+
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Settings',
+          subtitle: 'Routing, runtime behavior, token usage, and app updates.',
+          trailing: FilledButton.icon(
+            onPressed: controller.isSavingSettings
+                ? null
+                : () => controller.saveSettings(
+                    heartbeatEnabled: _heartbeatEnabled,
+                    headlessBrowser: _headlessBrowser,
+                    autoSkillLearning: _autoSkillLearning,
+                    smarterSelector: _smarterSelector,
+                    enabledModels: _enabledModels.toList(),
+                    defaultChatModel: _defaultChatModel,
+                    defaultSubagentModel: _defaultSubagentModel,
+                    fallbackModel: _fallbackModel,
+                  ),
+            style: FilledButton.styleFrom(backgroundColor: _accent),
+            icon: controller.isSavingSettings
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: const Text('Save'),
+          ),
+        ),
+        if (controller.errorMessage != null) ...<Widget>[
+          _InlineError(message: controller.errorMessage!),
+          const SizedBox(height: 16),
+        ],
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Automation'),
+                const SizedBox(height: 12),
+                _SettingToggle(
+                  title: 'Heartbeat',
+                  subtitle: 'Enable scheduled heartbeat checks',
+                  value: _heartbeatEnabled,
+                  onChanged: (value) =>
+                      setState(() => _heartbeatEnabled = value),
+                ),
+                _SettingToggle(
+                  title: 'Browser',
+                  subtitle: 'Run browser headless (no visible window)',
+                  value: _headlessBrowser,
+                  onChanged: (value) =>
+                      setState(() => _headlessBrowser = value),
+                ),
+                _SettingToggle(
+                  title: 'Skill Learning',
+                  subtitle:
+                      'Create disabled draft skills from successful multi-step runs',
+                  value: _autoSkillLearning,
+                  onChanged: (value) =>
+                      setState(() => _autoSkillLearning = value),
+                ),
+                _SettingToggle(
+                  title: 'Smart Selection',
+                  subtitle:
+                      'Automatically select the best model based on task type',
+                  value: _smarterSelector,
+                  onChanged: (value) =>
+                      setState(() => _smarterSelector = value),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Model Routing'),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _ensureModelValue(
+                    _defaultChatModel,
+                    controller.supportedModels,
+                    allowAuto: true,
+                  ),
+                  items: modelChoices,
+                  decoration: const InputDecoration(
+                    labelText: 'Default Chat Model',
+                  ),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _defaultChatModel = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: _ensureModelValue(
+                    _defaultSubagentModel,
+                    controller.supportedModels,
+                    allowAuto: true,
+                  ),
+                  items: modelChoices,
+                  decoration: const InputDecoration(
+                    labelText: 'Default Sub-agent Model',
+                  ),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _defaultSubagentModel = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: _ensureModelValue(
+                    _fallbackModel,
+                    controller.supportedModels,
+                    allowAuto: false,
+                  ),
+                  items: controller.supportedModels
+                      .map(
+                        (model) => DropdownMenuItem<String>(
+                          value: model.id,
+                          child: Text(model.label),
+                        ),
+                      )
+                      .toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Fallback Model',
+                  ),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _fallbackModel = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Smart Selector Allowed Models',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: controller.supportedModels.map((model) {
+                    final selected = _enabledModels.contains(model.id);
+                    return FilterChip(
+                      label: Text(model.label),
+                      selected: selected,
+                      selectedColor: _accentMuted,
+                      checkmarkColor: _accent,
+                      backgroundColor: _bgSecondary,
+                      side: const BorderSide(color: _border),
+                      onSelected: (value) {
+                        setState(() {
+                          if (value) {
+                            _enabledModels.add(model.id);
+                          } else if (_enabledModels.length > 1) {
+                            _enabledModels.remove(model.id);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Row(
+                  children: <Widget>[
+                    _SectionTitle('Token Usage'),
+                    SizedBox(width: 8),
+                    Icon(Icons.info_outline, size: 16, color: _textSecondary),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (controller.tokenUsage == null)
+                  const Text(
+                    'Token usage unavailable on this server version.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Total: ${controller.tokenUsage!.totalTokensLabel} tokens across ${controller.tokenUsage!.totalRunsLabel} runs',
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Last 7 days: ${controller.tokenUsage!.last7DaysTokensLabel} tokens in ${controller.tokenUsage!.last7DaysRunsLabel} runs',
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Avg/run: ${controller.tokenUsage!.avgTokensPerRunLabel} tokens',
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    const Expanded(child: _SectionTitle('App Update')),
+                    FilledButton.icon(
+                      onPressed: controller.isTriggeringUpdate
+                          ? null
+                          : controller.triggerUpdate,
+                      style: FilledButton.styleFrom(backgroundColor: _accent),
+                      icon: controller.isTriggeringUpdate
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.system_update),
+                      label: const Text('Update'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    _StatusPill(
+                      label: controller.updateStatus.badgeLabel,
+                      color: controller.updateStatus.badgeColor,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        controller.updateStatus.message,
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                    ),
+                    Text('${controller.updateStatus.progress}%'),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    minHeight: 8,
+                    value: controller.updateStatus.progress / 100,
+                    backgroundColor: _bgSecondary,
+                    color: _accent,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(controller.updateStatus.versionLine),
+                const SizedBox(height: 16),
+                const Text(
+                  'Changelog',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                if (controller.updateStatus.changelog.isEmpty)
+                  const Text(
+                    'No commit changes captured',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  ...controller.updateStatus.changelog.map(
+                    (line) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text('• $line'),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Live Output',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 180),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _bgSecondary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: SelectableText(
+                    controller.updateStatus.logsText,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.45,
+                      color: _textPrimary,
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class LogsPanel extends StatelessWidget {
+  const LogsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Logs',
+          subtitle: 'Live backend console output from this server session.',
+          trailing: OutlinedButton.icon(
+            onPressed: controller.clearLogs,
+            icon: const Icon(Icons.clear_all),
+            label: const Text('Clear'),
+          ),
+        ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: controller.logs.isEmpty
+                ? const Text(
+                    'Waiting for log output…',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                : Column(
+                    children: controller.logs.map((log) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        decoration: const BoxDecoration(
+                          border: Border(bottom: BorderSide(color: _border)),
+                        ),
+                        child: Text.rich(
+                          TextSpan(
+                            children: <InlineSpan>[
+                              TextSpan(
+                                text: '[${log.timeLabel}] ',
+                                style: const TextStyle(color: _textMuted),
+                              ),
+                              TextSpan(
+                                text: log.message,
+                                style: TextStyle(color: log.color),
+                              ),
+                            ],
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.5,
+                            fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class SkillsPanel extends StatefulWidget {
+  const SkillsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<SkillsPanel> createState() => _SkillsPanelState();
+}
+
+class _SkillsPanelState extends State<SkillsPanel> {
+  late final TextEditingController _searchController;
+  String _selectedCategory = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final query = _searchController.text.trim().toLowerCase();
+    final categories = <String>{
+      'all',
+      ...controller.storeSkills.map((item) => item.category),
+    }.toList();
+    final filteredStore = controller.storeSkills.where((item) {
+      final matchesQuery =
+          query.isEmpty ||
+          item.name.toLowerCase().contains(query) ||
+          item.description.toLowerCase().contains(query) ||
+          item.category.toLowerCase().contains(query);
+      final matchesCategory =
+          _selectedCategory == 'all' || item.category == _selectedCategory;
+      return matchesQuery && matchesCategory;
+    }).toList();
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Skills',
+          subtitle:
+              'Installed skills, draft skills, local skill files, and the skill store.',
+          trailing: FilledButton.icon(
+            onPressed: () => _openCreateSkill(context),
+            icon: const Icon(Icons.add),
+            label: const Text('New Skill'),
+          ),
+        ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Installed'),
+                const SizedBox(height: 12),
+                if (controller.skills.isEmpty)
+                  const Text(
+                    'No skills installed yet. Drafts from successful runs will appear here too.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  ...controller.skills.map(
+                    (skill) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _bgSecondary,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    skill.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    skill.description.ifEmpty('No description'),
+                                    style: const TextStyle(
+                                      color: _textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: <Widget>[
+                                      _MetaPill(
+                                        label: skill.category,
+                                        icon: Icons.folder_outlined,
+                                      ),
+                                      _MetaPill(
+                                        label: skill.source,
+                                        icon: Icons.source_outlined,
+                                      ),
+                                      if (skill.draft)
+                                        const _MetaPill(
+                                          label: 'Draft',
+                                          icon: Icons.edit_note_outlined,
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              children: <Widget>[
+                                Switch(
+                                  value: skill.enabled,
+                                  onChanged: (value) => controller
+                                      .setSkillEnabled(skill.name, value),
+                                ),
+                                OutlinedButton(
+                                  onPressed: () =>
+                                      _openSkillEditor(context, skill.name),
+                                  child: const Text('Open'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Store'),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: <Color>[Color(0xFF17142A), Color(0xFF111827)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: _borderLight),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Skill Store',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Browse installable skills in an app-style catalog with categories, search, and one-click installs.',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Search skills',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categories.map((category) {
+                    final selected = category == _selectedCategory;
+                    return FilterChip(
+                      selected: selected,
+                      label: Text(category == 'all' ? 'All' : category),
+                      selectedColor: _accentMuted,
+                      checkmarkColor: _accent,
+                      backgroundColor: _bgSecondary,
+                      side: const BorderSide(color: _border),
+                      onSelected: (_) {
+                        setState(() => _selectedCategory = category);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                if (filteredStore.isEmpty)
+                  const Text(
+                    'No store skills match the current filter.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      final columns = width >= 1200
+                          ? 3
+                          : width >= 760
+                          ? 2
+                          : 1;
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: filteredStore.length,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 0.96,
+                        ),
+                        itemBuilder: (context, index) {
+                          final item = filteredStore[index];
+                          return Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: <Color>[
+                                  item.installed
+                                      ? const Color(0xFF12202A)
+                                      : const Color(0xFF17142A),
+                                  item.installed
+                                      ? const Color(0xFF101A24)
+                                      : const Color(0xFF0E1320),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: item.installed ? _accentMuted : _border,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Row(
+                                  children: <Widget>[
+                                    Container(
+                                      width: 52,
+                                      height: 52,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(color: _border),
+                                      ),
+                                      child: Text(
+                                        item.icon,
+                                        style: const TextStyle(fontSize: 22),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    _StatusPill(
+                                      label: item.installed
+                                          ? 'Installed'
+                                          : 'Available',
+                                      color: item.installed ? _success : _info,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  item.name,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  item.category.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: _textMuted,
+                                    fontSize: 11,
+                                    letterSpacing: 1.2,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Expanded(
+                                  child: Text(
+                                    item.description,
+                                    style: const TextStyle(
+                                      color: _textSecondary,
+                                      height: 1.45,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: <Widget>[
+                                    Icon(
+                                      Icons.storefront_outlined,
+                                      size: 15,
+                                      color: item.installed ? _success : _info,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      item.installed
+                                          ? 'Ready in workspace'
+                                          : 'Available to install',
+                                      style: const TextStyle(
+                                        color: _textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: item.installed
+                                      ? OutlinedButton(
+                                          onPressed: () => controller
+                                              .uninstallStoreSkill(item.id),
+                                          child: const Text('Uninstall'),
+                                        )
+                                      : FilledButton(
+                                          onPressed: () => controller
+                                              .installStoreSkill(item.id),
+                                          child: const Text('Install'),
+                                        ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openSkillEditor(BuildContext context, String name) async {
+    final document = await widget.controller.fetchSkillDocument(name);
+    final contentController = TextEditingController(text: document.content);
+    if (!context.mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: Text(name),
+          content: SizedBox(
+            width: 720,
+            child: TextField(
+              controller: contentController,
+              minLines: 16,
+              maxLines: 24,
+              decoration: const InputDecoration(labelText: 'Skill Content'),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await widget.controller.saveSkillContent(
+                  name: name,
+                  content: contentController.text,
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openCreateSkill(BuildContext context) async {
+    final nameController = TextEditingController();
+    final contentController = TextEditingController(
+      text: '''---
+name: New Skill
+description: Describe what this skill does
+---
+Write the instructions for this skill here.
+''',
+    );
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: const Text('New Skill'),
+          content: SizedBox(
+            width: 720,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Filename'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: contentController,
+                    minLines: 16,
+                    maxLines: 24,
+                    decoration: const InputDecoration(labelText: 'Content'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await widget.controller.createSkill(
+                  filename: nameController.text.trim(),
+                  content: contentController.text,
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class MemoryPanel extends StatefulWidget {
+  const MemoryPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<MemoryPanel> createState() => _MemoryPanelState();
+}
+
+class _MemoryPanelState extends State<MemoryPanel> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final memoriesToShow = controller.memoryRecallResults.isNotEmpty
+        ? controller.memoryRecallResults
+        : controller.memories;
+
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Memory',
+          subtitle: 'Core memory, semantic recall, daily logs, and SOUL.md.',
+          trailing: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: () => _openSoulEditor(context, controller),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Edit SOUL'),
+              ),
+              FilledButton.icon(
+                onPressed: () => _openMemoryCreator(context, controller),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Memory'),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _OverviewCard(
+                title: 'SOUL.md',
+                value: '${controller.memoryOverview.soulLength} chars',
+                helper: 'Current self-document length',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _OverviewCard(
+                title: 'Core Memory',
+                value: '${controller.memoryOverview.coreCount}',
+                helper: 'Pinned key/value entries',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _OverviewCard(
+                title: 'Daily Logs',
+                value: '${controller.memoryOverview.dailyLogCount}',
+                helper: 'Recent captured log files',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _OverviewCard(
+                title: 'API Keys',
+                value: '${controller.memoryOverview.apiKeyCount}',
+                helper: 'Masked agent-managed credentials',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Recall Search'),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: const InputDecoration(
+                          labelText: 'Search memory',
+                        ),
+                        onSubmitted: (value) async {
+                          if (value.trim().isEmpty) {
+                            controller.clearMemorySearch();
+                          } else {
+                            await controller.searchMemories(value.trim());
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    FilledButton(
+                      onPressed: () async {
+                        final query = _searchController.text.trim();
+                        if (query.isEmpty) {
+                          controller.clearMemorySearch();
+                        } else {
+                          await controller.searchMemories(query);
+                        }
+                      },
+                      child: const Text('Search'),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      onPressed: () {
+                        _searchController.clear();
+                        controller.clearMemorySearch();
+                      },
+                      child: const Text('Reset'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    const Expanded(child: _SectionTitle('Core Memory')),
+                    TextButton.icon(
+                      onPressed: () =>
+                          _openCoreMemoryEditor(context, controller),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Entry'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (controller.memoryOverview.coreEntries.isEmpty)
+                  const Text(
+                    'No core memory entries yet.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  ...controller.memoryOverview.coreEntries.entries.map((entry) {
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _bgSecondary,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _border),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  entry.key,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(entry.value.toString()),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => _openCoreMemoryEditor(
+                              context,
+                              controller,
+                              keyValue: entry,
+                            ),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                          IconButton(
+                            onPressed: () => _confirmDelete(
+                              context,
+                              title: 'Delete core memory entry?',
+                              message:
+                                  'Remove "${entry.key}" from core memory.',
+                              onConfirm: () =>
+                                  controller.deleteCoreMemory(entry.key),
+                            ),
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Memories'),
+                const SizedBox(height: 10),
+                if (memoriesToShow.isEmpty)
+                  const Text(
+                    'No memory entries found.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  ...memoriesToShow.map((memory) {
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _bgSecondary,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              _MetaPill(
+                                label: memory.category,
+                                icon: Icons.label_outline,
+                              ),
+                              const SizedBox(width: 10),
+                              _MetaPill(
+                                label: 'Importance ${memory.importance}',
+                                icon: Icons.priority_high_outlined,
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                onPressed: () => _confirmDelete(
+                                  context,
+                                  title: 'Delete memory?',
+                                  message:
+                                      'This memory entry will be removed permanently.',
+                                  onConfirm: () =>
+                                      controller.deleteMemory(memory.id),
+                                ),
+                                icon: const Icon(Icons.delete_outline),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(memory.content),
+                          const SizedBox(height: 8),
+                          Text(
+                            memory.createdAtLabel,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Recent Conversations'),
+                const SizedBox(height: 10),
+                if (controller.memoryConversations.isEmpty)
+                  const Text(
+                    'No recent conversations found.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  ...controller.memoryConversations.map(
+                    (conversation) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _bgSecondary,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              conversation.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              conversation.preview,
+                              style: const TextStyle(color: _textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openMemoryCreator(
+    BuildContext context,
+    NeoAgentController controller,
+  ) async {
+    final contentController = TextEditingController();
+    final importanceController = TextEditingController(text: '5');
+    String category = 'episodic';
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: const Text('Add Memory'),
+          content: SizedBox(
+            width: 620,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  items: const <DropdownMenuItem<String>>[
+                    DropdownMenuItem(
+                      value: 'episodic',
+                      child: Text('episodic'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'semantic',
+                      child: Text('semantic'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'procedural',
+                      child: Text('procedural'),
+                    ),
+                  ],
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  onChanged: (value) {
+                    if (value != null) {
+                      category = value;
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: importanceController,
+                  decoration: const InputDecoration(labelText: 'Importance'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contentController,
+                  minLines: 6,
+                  maxLines: 10,
+                  decoration: const InputDecoration(labelText: 'Content'),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await controller.createMemory(
+                  content: contentController.text.trim(),
+                  category: category,
+                  importance:
+                      int.tryParse(importanceController.text.trim()) ?? 5,
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openSoulEditor(
+    BuildContext context,
+    NeoAgentController controller,
+  ) async {
+    final contentController = TextEditingController(
+      text: controller.memoryOverview.soul,
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: const Text('Edit SOUL.md'),
+          content: SizedBox(
+            width: 720,
+            child: TextField(
+              controller: contentController,
+              minLines: 16,
+              maxLines: 24,
+              decoration: const InputDecoration(labelText: 'SOUL.md'),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await controller.updateSoul(contentController.text);
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openCoreMemoryEditor(
+    BuildContext context,
+    NeoAgentController controller, {
+    MapEntry<String, dynamic>? keyValue,
+  }) async {
+    final keyController = TextEditingController(text: keyValue?.key ?? '');
+    final valueController = TextEditingController(
+      text: keyValue?.value?.toString() ?? '',
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: Text(
+            keyValue == null
+                ? 'Add Core Memory Entry'
+                : 'Edit Core Memory Entry',
+          ),
+          content: SizedBox(
+            width: 620,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                TextField(
+                  controller: keyController,
+                  decoration: const InputDecoration(labelText: 'Key'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: valueController,
+                  minLines: 3,
+                  maxLines: 8,
+                  decoration: const InputDecoration(labelText: 'Value'),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await controller.updateCoreMemory(
+                  keyController.text.trim(),
+                  valueController.text.trim(),
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class SchedulerPanel extends StatelessWidget {
+  const SchedulerPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Scheduler',
+          subtitle: 'Recurring tasks and one-click manual runs.',
+          trailing: FilledButton.icon(
+            onPressed: () => _openTaskEditor(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Add Task'),
+          ),
+        ),
+        if (controller.schedulerTasks.isEmpty)
+          const _EmptyCard(
+            title: 'No scheduled tasks',
+            subtitle: 'Create a cron-based task to automate regular work.',
+          )
+        else
+          ...controller.schedulerTasks.map(
+            (task) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              task.name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          _StatusPill(
+                            label: task.enabled ? 'Active' : 'Paused',
+                            color: task.enabled ? _success : _textSecondary,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        task.cronExpression,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        task.prompt,
+                        style: const TextStyle(color: _textPrimary),
+                      ),
+                      if (task.lastRunLabel.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Last run: ${task.lastRunLabel}',
+                          style: const TextStyle(color: _textSecondary),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          OutlinedButton(
+                            onPressed: () =>
+                                _openTaskEditor(context, task: task),
+                            child: const Text('Edit'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () =>
+                                controller.toggleSchedulerTask(task),
+                            child: Text(task.enabled ? 'Pause' : 'Enable'),
+                          ),
+                          FilledButton(
+                            onPressed: () =>
+                                controller.runSchedulerTask(task.id),
+                            child: const Text('Run Now'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => _confirmDelete(
+                              context,
+                              title: 'Delete task?',
+                              message: 'This will remove "${task.name}".',
+                              onConfirm: () =>
+                                  controller.deleteSchedulerTask(task.id),
+                            ),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _openTaskEditor(
+    BuildContext context, {
+    SchedulerTask? task,
+  }) async {
+    final nameController = TextEditingController(text: task?.name ?? '');
+    final cronController = TextEditingController(
+      text: task?.cronExpression ?? '*/30 * * * *',
+    );
+    final promptController = TextEditingController(text: task?.prompt ?? '');
+    var enabled = task?.enabled ?? true;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              backgroundColor: _bgCard,
+              title: Text(task == null ? 'Add Task' : 'Edit Task'),
+              content: SizedBox(
+                width: 680,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(labelText: 'Name'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: cronController,
+                        decoration: const InputDecoration(
+                          labelText: 'Cron Expression',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: promptController,
+                        minLines: 5,
+                        maxLines: 10,
+                        decoration: const InputDecoration(labelText: 'Prompt'),
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        value: enabled,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Enabled'),
+                        onChanged: (value) =>
+                            setLocalState(() => enabled = value),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    await controller.saveSchedulerTask(
+                      id: task?.id,
+                      name: nameController.text.trim(),
+                      cronExpression: cronController.text.trim(),
+                      prompt: promptController.text.trim(),
+                      enabled: enabled,
+                    );
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class McpPanel extends StatelessWidget {
+  const McpPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'MCP',
+          subtitle: 'Configured MCP servers and live server status.',
+          trailing: FilledButton.icon(
+            onPressed: () => _openMcpEditor(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Add Server'),
+          ),
+        ),
+        if (controller.mcpServers.isEmpty)
+          const _EmptyCard(
+            title: 'No MCP servers configured',
+            subtitle: 'Add an MCP server URL and choose an auth method.',
+          )
+        else
+          ...controller.mcpServers.map(
+            (server) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              server.name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          _StatusPill(
+                            label: server.status,
+                            color: server.status == 'running'
+                                ? _success
+                                : _textSecondary,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        server.command,
+                        style: TextStyle(
+                          fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                          color: _textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          _MetaPill(
+                            label: server.enabled ? 'Enabled' : 'Disabled',
+                            icon: Icons.toggle_on_outlined,
+                          ),
+                          _MetaPill(
+                            label: '${server.toolCount} tools',
+                            icon: Icons.build_outlined,
+                          ),
+                          _MetaPill(
+                            label: server.authMethodLabel,
+                            icon: Icons.lock_outline,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          OutlinedButton(
+                            onPressed: () =>
+                                _openMcpEditor(context, server: server),
+                            child: const Text('Edit'),
+                          ),
+                          if (server.status == 'running')
+                            FilledButton(
+                              onPressed: () =>
+                                  controller.stopMcpServer(server.id),
+                              child: const Text('Stop'),
+                            )
+                          else
+                            FilledButton(
+                              onPressed: () =>
+                                  controller.startMcpServer(server.id),
+                              child: const Text('Start'),
+                            ),
+                          OutlinedButton(
+                            onPressed: () => _confirmDelete(
+                              context,
+                              title: 'Delete MCP server?',
+                              message:
+                                  'This will remove "${server.name}" from the server list.',
+                              onConfirm: () =>
+                                  controller.deleteMcpServer(server.id),
+                            ),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _openMcpEditor(
+    BuildContext context, {
+    McpServerItem? server,
+  }) async {
+    final nameController = TextEditingController(text: server?.name ?? '');
+    final urlController = TextEditingController(
+      text: server?.command ?? '',
+    );
+    final auth = _jsonMap(server?.config['auth']);
+    String authType = auth['type']?.toString().ifEmpty('none') ?? 'none';
+    final tokenController = TextEditingController(
+      text: auth['token']?.toString() ?? '',
+    );
+    final clientIdController = TextEditingController(
+      text: auth['clientId']?.toString() ?? '',
+    );
+    final authServerUrlController = TextEditingController(
+      text: auth['authServerUrl']?.toString() ?? '',
+    );
+    var enabled = server?.enabled ?? true;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              backgroundColor: _bgCard,
+              title: Text(
+                server == null ? 'Add MCP Server' : 'Edit MCP Server',
+              ),
+              content: SizedBox(
+                width: 720,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(labelText: 'Name'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: urlController,
+                        decoration: const InputDecoration(
+                          labelText: 'MCP Server URL',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: authType,
+                        decoration: const InputDecoration(
+                          labelText: 'Auth Method',
+                        ),
+                        items: const <DropdownMenuItem<String>>[
+                          DropdownMenuItem(
+                            value: 'none',
+                            child: Text('None'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'bearer',
+                            child: Text('Bearer Token'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'oauth',
+                            child: Text('OAuth'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setLocalState(() => authType = value);
+                          }
+                        },
+                      ),
+                      if (authType == 'bearer') ...<Widget>[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: tokenController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Bearer Token',
+                          ),
+                        ),
+                      ],
+                      if (authType == 'oauth') ...<Widget>[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: clientIdController,
+                          decoration: const InputDecoration(
+                            labelText: 'OAuth Client ID',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: authServerUrlController,
+                          decoration: const InputDecoration(
+                            labelText: 'Auth Server URL',
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Matches the old NeoAgent MCP flow: URL plus auth method.',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        value: enabled,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Enabled'),
+                        onChanged: (value) =>
+                            setLocalState(() => enabled = value),
+                      ),
+                      const SizedBox(height: 4),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Start the server later from the list once the config is saved.',
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final config = <String, dynamic>{
+                      'auth': <String, dynamic>{
+                        'type': authType,
+                        if (authType == 'bearer' &&
+                            tokenController.text.trim().isNotEmpty)
+                          'token': tokenController.text.trim(),
+                        if (authType == 'oauth' &&
+                            clientIdController.text.trim().isNotEmpty)
+                          'clientId': clientIdController.text.trim(),
+                        if (authType == 'oauth' &&
+                            authServerUrlController.text.trim().isNotEmpty)
+                          'authServerUrl':
+                              authServerUrlController.text.trim(),
+                      },
+                    };
+                    await controller.saveMcpServer(
+                      id: server?.id,
+                      name: nameController.text.trim(),
+                      command: urlController.text.trim(),
+                      config: config,
+                      enabled: enabled,
+                    );
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class HealthPanel extends StatelessWidget {
+  const HealthPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final deviceStatus = controller.deviceHealthStatus;
+    final backendStatus = controller.backendHealthStatus;
+    final metrics = backendStatus?['metrics'] as List<dynamic>? ?? const [];
+    final lastRun = backendStatus?['lastRun'] as Map<String, dynamic>?;
+    final lastSummary = _jsonMap(lastRun?['summary']);
+
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        const _PageTitle(
+          title: 'Health',
+          subtitle: 'Health Connect sync status and stored backend metrics.',
+        ),
+        if (controller.errorMessage != null) ...<Widget>[
+          _InlineError(message: controller.errorMessage!),
+          const SizedBox(height: 16),
+        ],
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _HealthSummary(
+                title: 'Device access',
+                value: deviceStatus == null
+                    ? 'Checking...'
+                    : !deviceStatus.available
+                    ? 'Unavailable'
+                    : deviceStatus.permissionsGranted
+                    ? 'Ready'
+                    : 'Permissions needed',
+                helper:
+                    deviceStatus?.message ??
+                    'Reads steps, heart rate, sleep, exercise, and weight.',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _HealthSummary(
+                title: 'Backend sync',
+                value: lastRun == null
+                    ? 'No sync yet'
+                    : '${lastRun['record_count'] ?? 0} records',
+                helper: lastRun == null
+                    ? 'Sync once to seed your backend.'
+                    : 'Last window ended ${lastRun['sync_window_end'] ?? 'unknown'}',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: <Widget>[
+                OutlinedButton.icon(
+                  onPressed: controller.requestHealthPermissions,
+                  icon: const Icon(Icons.health_and_safety_outlined),
+                  label: const Text('Request permissions'),
+                ),
+                FilledButton.icon(
+                  onPressed: controller.isSyncingHealth
+                      ? null
+                      : controller.syncHealthNow,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF5EEAD4),
+                    foregroundColor: const Color(0xFF063238),
+                  ),
+                  icon: controller.isSyncingHealth
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sync),
+                  label: const Text('Sync now'),
+                ),
+                _MetaPill(
+                  label: 'Background sync stays scheduled on Android',
+                  icon: Icons.sync_lock_outlined,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Last Sync Summary'),
+                const SizedBox(height: 12),
+                if (lastSummary.isEmpty)
+                  const Text(
+                    'No detailed sync summary yet.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      _MetaPill(
+                        icon: Icons.directions_walk_outlined,
+                        label: 'Steps ${_asInt(lastSummary['stepsTotal'])}',
+                      ),
+                      _MetaPill(
+                        icon: Icons.favorite_outline,
+                        label:
+                            'Heart ${_asInt(lastSummary['heartRateRecordCount'])} records',
+                      ),
+                      _MetaPill(
+                        icon: Icons.bedtime_outlined,
+                        label:
+                            'Sleep ${_asInt(lastSummary['sleepSessionCount'])} sessions',
+                      ),
+                      _MetaPill(
+                        icon: Icons.fitness_center_outlined,
+                        label:
+                            'Exercise ${_asInt(lastSummary['exerciseSessionCount'])} sessions',
+                      ),
+                      _MetaPill(
+                        icon: Icons.monitor_weight_outlined,
+                        label:
+                            'Weight ${_asInt(lastSummary['weightRecordCount'])} records',
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 18),
+                const _SectionTitle('Stored Metrics'),
+                const SizedBox(height: 12),
+                if (metrics.isEmpty)
+                  const Text('No health samples stored yet.')
+                else
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: metrics.map((item) {
+                      final map = item as Map<dynamic, dynamic>;
+                      return _MetaPill(
+                        icon: Icons.favorite_border,
+                        label:
+                            '${map['metricType']} · ${map['sampleCount']} samples',
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PageTitle extends StatelessWidget {
+  const _PageTitle({
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 760;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(subtitle, style: const TextStyle(color: _textSecondary)),
+                if (trailing != null) ...<Widget>[
+                  const SizedBox(height: 14),
+                  trailing!,
+                ],
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                if (trailing != null) trailing!,
+              ],
+            ),
+    );
+  }
+}
+
+class _RunStatusPanel extends StatelessWidget {
+  const _RunStatusPanel({required this.run, required this.tools});
+
+  final ActiveRunState? run;
+  final List<ToolEventItem> tools;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        run?.title ?? 'Live run',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        run == null
+                            ? 'Waiting for run events...'
+                            : '${run!.phase}${run!.iteration > 0 ? ' · step ${run!.iteration}' : ''}',
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                if (run != null && run!.model.isNotEmpty)
+                  _MetaPill(label: run!.model, icon: Icons.memory_outlined),
+              ],
+            ),
+            if (tools.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: tools.map((tool) => _ToolChip(tool: tool)).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolChip extends StatelessWidget {
+  const _ToolChip({required this.tool});
+
+  final ToolEventItem tool;
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    switch (tool.status) {
+      case 'running':
+        color = _warning;
+        break;
+      case 'failed':
+        color = _danger;
+        break;
+      default:
+        color = _success;
+    }
+    return Container(
+      constraints: const BoxConstraints(minWidth: 220, maxWidth: 340),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                tool.type == 'note' ? Icons.info_outline : Icons.build_outlined,
+                size: 16,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tool.toolName,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              _StatusPill(label: tool.status, color: color),
+            ],
+          ),
+          if (tool.summary.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              tool.summary,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: _textSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingToggle extends StatelessWidget {
+  const _SettingToggle({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      value: value,
+      contentPadding: EdgeInsets.zero,
+      title: Text(title),
+      subtitle: Text(subtitle),
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _OverviewCard extends StatelessWidget {
+  const _OverviewCard({
+    required this.title,
+    required this.value,
+    required this.helper,
+  });
+
+  final String title;
+  final String value;
+  final String helper;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(title, style: const TextStyle(color: _textSecondary)),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(helper, style: const TextStyle(color: _textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: _EmptyState(title: title, subtitle: subtitle),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+    );
+  }
+}
+
+class _DotStatus extends StatelessWidget {
+  const _DotStatus({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+    );
+  }
+}
+
+class _SidebarButton extends StatelessWidget {
+  const _SidebarButton({
+    required this.label,
+    required this.icon,
+    this.active = false,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool active;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: active ? _accentMuted : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: active
+                  ? const Border(left: BorderSide(color: _accent, width: 3))
+                  : null,
+            ),
+            child: Row(
+              children: <Widget>[
+                Icon(icon, size: 18, color: active ? _accent : _textSecondary),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: active ? _accent : _textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlurOrb extends StatelessWidget {
+  const _BlurOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: color.withValues(alpha: 0.18),
+              blurRadius: 120,
+              spreadRadius: 30,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthTabButton extends StatelessWidget {
+  const _AuthTabButton({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? _accent : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: active ? Colors.white : _textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoBadge extends StatelessWidget {
+  const _LogoBadge({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: <Color>[_accent, Color(0xFF8B5CF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(size * 0.28),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x736366F1),
+            blurRadius: 24,
+            offset: Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: _borderLight),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(size * 0.18),
+        child: CustomPaint(painter: _NeoAgentLogoPainter()),
+      ),
+    );
+  }
+}
+
+class _NeoAgentLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fillPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final strokePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.08
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final top = Path()
+      ..moveTo(size.width * 0.5, size.height * 0.08)
+      ..lineTo(size.width * 0.1, size.height * 0.3)
+      ..lineTo(size.width * 0.5, size.height * 0.52)
+      ..lineTo(size.width * 0.9, size.height * 0.3)
+      ..close();
+    canvas.drawPath(top, fillPaint);
+
+    final middle = Path()
+      ..moveTo(size.width * 0.1, size.height * 0.52)
+      ..lineTo(size.width * 0.5, size.height * 0.74)
+      ..lineTo(size.width * 0.9, size.height * 0.52);
+    canvas.drawPath(middle, strokePaint);
+
+    final bottom = Path()
+      ..moveTo(size.width * 0.1, size.height * 0.72)
+      ..lineTo(size.width * 0.5, size.height * 0.94)
+      ..lineTo(size.width * 0.9, size.height * 0.72);
+    canvas.drawPath(bottom, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        const _LogoBadge(size: 52),
+        const SizedBox(height: 12),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: _textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: _textMuted),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChatBubble extends StatelessWidget {
+  const _ChatBubble({required this.entry});
+
+  final ChatEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUser = entry.role == 'user';
+    final isTransient = entry.transient;
+
+    return Opacity(
+      opacity: isTransient ? 0.92 : 1,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        children: <Widget>[
+          if (!isUser) ...<Widget>[
+            const _MessageAvatar(assistant: true),
+            const SizedBox(width: 12),
+          ],
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              decoration: BoxDecoration(
+                color: isUser ? _accent : _bgCard,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(14),
+                  topRight: const Radius.circular(14),
+                  bottomLeft: Radius.circular(isUser ? 14 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 14),
+                ),
+                border: isUser ? null : Border.all(color: _border),
+                boxShadow: isUser
+                    ? const <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0x4D6366F1),
+                          blurRadius: 12,
+                          offset: Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Column(
+                crossAxisAlignment: isUser
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: <Widget>[
+                  if (!isUser && entry.platformTag != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _StatusPill(
+                        label: entry.platformTag!,
+                        color: entry.platform == 'live' ? _info : _warning,
+                      ),
+                    ),
+                  MarkdownBody(
+                    data: entry.content,
+                    selectable: true,
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                        .copyWith(
+                          p: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: isUser ? Colors.white : _textPrimary,
+                            height: 1.65,
+                          ),
+                          code: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontFamily:
+                                    GoogleFonts.jetBrainsMono().fontFamily,
+                                backgroundColor: _bgPrimary,
+                                color: isUser ? Colors.white : _textPrimary,
+                              ),
+                          blockquoteDecoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            color: const Color(0x22000000),
+                          ),
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    entry.createdAtLabel,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: isUser ? const Color(0xCCFFFFFF) : _textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isUser) ...<Widget>[
+            const SizedBox(width: 12),
+            const _MessageAvatar(assistant: false),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageAvatar extends StatelessWidget {
+  const _MessageAvatar({required this.assistant});
+
+  final bool assistant;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: assistant
+            ? const LinearGradient(colors: <Color>[_accent, Color(0xFF8B5CF6)])
+            : null,
+        color: assistant ? null : const Color(0xFF1E1E32),
+        boxShadow: assistant
+            ? const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x596366F1),
+                  blurRadius: 10,
+                  offset: Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Icon(
+        assistant ? Icons.auto_awesome : Icons.person,
+        size: 16,
+        color: assistant ? Colors.white : _textSecondary,
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.12),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaPill extends StatelessWidget {
+  const _MetaPill({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: const Color(0xFF5EEAD4)),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineError extends StatelessWidget {
+  const _InlineError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0x19EF4444),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0x4CEF4444)),
+      ),
+      child: Text(message, style: const TextStyle(fontSize: 13)),
+    );
+  }
+}
+
+class _HealthSummary extends StatelessWidget {
+  const _HealthSummary({
+    required this.title,
+    required this.value,
+    required this.helper,
+  });
+
+  final String title;
+  final String value;
+  final String helper;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(title, style: const TextStyle(color: _textSecondary)),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(helper),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+const List<MessagingPlatformDescriptor> messagingPlatforms =
+    <MessagingPlatformDescriptor>[
+      MessagingPlatformDescriptor(
+        id: 'whatsapp',
+        label: 'WhatsApp',
+        subtitle: 'QR-based phone linking',
+        accent: Color(0xFF25D366),
+        connectMethod: MessagingConnectMethod.qr,
+        icon: Icons.chat_bubble,
+      ),
+      MessagingPlatformDescriptor(
+        id: 'telegram',
+        label: 'Telegram',
+        subtitle: 'Bot token and approved chats',
+        accent: Color(0xFF2AABEE),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.send_rounded,
+      ),
+      MessagingPlatformDescriptor(
+        id: 'discord',
+        label: 'Discord',
+        subtitle: 'Bot token and server/channel access',
+        accent: Color(0xFF5865F2),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.sports_esports_rounded,
+      ),
+      MessagingPlatformDescriptor(
+        id: 'telnyx',
+        label: 'Telnyx Voice',
+        subtitle: 'Inbound and outbound calling',
+        accent: Color(0xFF00C8A0),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.call_rounded,
+      ),
+    ];
+
+enum MessagingConnectMethod { qr, config }
+
+class MessagingPlatformDescriptor {
+  const MessagingPlatformDescriptor({
+    required this.id,
+    required this.label,
+    required this.subtitle,
+    required this.accent,
+    required this.connectMethod,
+    required this.icon,
+  });
+
+  final String id;
+  final String label;
+  final String subtitle;
+  final Color accent;
+  final MessagingConnectMethod connectMethod;
+  final IconData icon;
+}
+
+class MessagingPlatformGroup {
+  const MessagingPlatformGroup({
+    required this.label,
+    required this.subtitle,
+    required this.ids,
+  });
+
+  final String label;
+  final String subtitle;
+  final List<String> ids;
+}
+
+class MessagingPlatformStatus {
+  const MessagingPlatformStatus({
+    required this.platform,
+    required this.status,
+    this.lastConnected,
+    this.authInfo = const <String, dynamic>{},
+  });
+
+  factory MessagingPlatformStatus.fromJson(
+    String platform,
+    Map<String, dynamic> json,
+  ) {
+    return MessagingPlatformStatus(
+      platform: platform,
+      status:
+          json['status']?.toString().ifEmpty('not_configured') ??
+          'not_configured',
+      lastConnected: _parseOptionalTimestamp(json['lastConnected']?.toString()),
+      authInfo: _jsonMap(json['authInfo']),
+    );
+  }
+
+  factory MessagingPlatformStatus.empty(String platform) {
+    return MessagingPlatformStatus(
+      platform: platform,
+      status: 'not_configured',
+    );
+  }
+
+  final String platform;
+  final String status;
+  final DateTime? lastConnected;
+  final Map<String, dynamic> authInfo;
+
+  bool get isConnected => status == 'connected';
+  bool get isConnecting => status == 'connecting' || status == 'awaiting_qr';
+
+  String get statusLabel => status.replaceAll('_', ' ');
+
+  String get authLabel {
+    for (final key in <String>['phoneNumber', 'tag', 'username']) {
+      final value = authInfo[key]?.toString();
+      if (value != null && value.trim().isNotEmpty) {
+        return key == 'username' ? '@$value' : value;
+      }
+    }
+    if (lastConnected != null) {
+      return 'Last seen ${_formatTimestamp(lastConnected!)}';
+    }
+    return 'Not connected';
+  }
+
+  Color get badgeColor {
+    switch (status) {
+      case 'connected':
+        return _success;
+      case 'awaiting_qr':
+      case 'connecting':
+        return _warning;
+      case 'logged_out':
+        return _danger;
+      default:
+        return _textSecondary;
+    }
+  }
+}
+
+class MessagingMessage {
+  const MessagingMessage({
+    required this.platform,
+    required this.content,
+    required this.createdAt,
+    required this.outgoing,
+    this.chatId,
+    this.sender,
+    this.senderName,
+    this.target,
+  });
+
+  factory MessagingMessage.fromJson(Map<dynamic, dynamic> json) {
+    final metadata = _decodeMaybeJson(json['metadata']);
+    return MessagingMessage(
+      platform: json['platform']?.toString() ?? 'web',
+      content: json['content']?.toString() ?? '',
+      createdAt: _parseTimestamp(json['created_at']?.toString()),
+      outgoing: json['role']?.toString() == 'assistant',
+      chatId: json['platform_chat_id']?.toString(),
+      sender: metadata['sender']?.toString(),
+      senderName: metadata['senderName']?.toString(),
+      target: json['platform_chat_id']?.toString(),
+    );
+  }
+
+  factory MessagingMessage.fromSocket(
+    Map<String, dynamic> json, {
+    required bool outgoing,
+  }) {
+    return MessagingMessage(
+      platform: json['platform']?.toString() ?? 'web',
+      content: json['content']?.toString() ?? '',
+      createdAt: DateTime.now(),
+      outgoing: outgoing,
+      chatId: json['chatId']?.toString() ?? json['to']?.toString(),
+      sender: json['sender']?.toString(),
+      senderName: json['senderName']?.toString(),
+      target: json['to']?.toString(),
+    );
+  }
+
+  final String platform;
+  final String content;
+  final DateTime createdAt;
+  final bool outgoing;
+  final String? chatId;
+  final String? sender;
+  final String? senderName;
+  final String? target;
+
+  String get createdAtLabel => _formatTimestamp(createdAt);
+
+  String get senderLabel {
+    if (outgoing) {
+      return target?.ifEmpty('Outgoing message') ?? 'Outgoing message';
+    }
+    return senderName?.ifEmpty(sender ?? platform.toUpperCase()) ??
+        sender?.ifEmpty(platform.toUpperCase()) ??
+        platform.toUpperCase();
+  }
+}
+
+class MessagingQrState {
+  const MessagingQrState({required this.platform, required this.qr});
+
+  final String platform;
+  final String qr;
+
+  String get platformLabel {
+    for (final item in messagingPlatforms) {
+      if (item.id == platform) {
+        return item.label;
+      }
+    }
+    return platform;
+  }
+}
+
+class RunDetailSnapshot {
+  const RunDetailSnapshot({
+    required this.run,
+    required this.steps,
+    required this.response,
+  });
+
+  factory RunDetailSnapshot.fromJson(Map<dynamic, dynamic> json) {
+    return RunDetailSnapshot(
+      run: RunSummary.fromJson(_jsonMap(json['run'])),
+      steps: (json['steps'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<dynamic, dynamic>>()
+          .map(RunStepItem.fromJson)
+          .toList(),
+      response: json['response']?.toString() ?? '',
+    );
+  }
+
+  final RunSummary run;
+  final List<RunStepItem> steps;
+  final String response;
+
+  int get completedTools => steps
+      .where((step) => step.toolName.isNotEmpty && step.status == 'completed')
+      .length;
+
+  int get failedTools => steps.where((step) => step.status == 'failed').length;
+
+  int get helperCount => steps.where((step) {
+    final label = '${step.type} ${step.toolName}'.toLowerCase();
+    return label.contains('subagent') || label.contains('helper');
+  }).length;
+}
+
+class RunStepItem {
+  const RunStepItem({
+    required this.id,
+    required this.index,
+    required this.type,
+    required this.description,
+    required this.status,
+    required this.toolName,
+    required this.toolInput,
+    required this.result,
+    required this.error,
+    required this.tokensUsed,
+    required this.startedAt,
+    required this.completedAt,
+  });
+
+  factory RunStepItem.fromJson(Map<dynamic, dynamic> json) {
+    return RunStepItem(
+      id: json['id']?.toString() ?? '',
+      index: _asInt(json['step_index']),
+      type: json['type']?.toString().ifEmpty('step') ?? 'step',
+      description: json['description']?.toString() ?? '',
+      status: json['status']?.toString().ifEmpty('pending') ?? 'pending',
+      toolName: json['tool_name']?.toString() ?? '',
+      toolInput: json['tool_input']?.toString() ?? '',
+      result: json['result']?.toString() ?? '',
+      error: json['error']?.toString() ?? '',
+      tokensUsed: _asInt(json['tokens_used']),
+      startedAt: _parseOptionalTimestamp(json['started_at']?.toString()),
+      completedAt: _parseOptionalTimestamp(json['completed_at']?.toString()),
+    );
+  }
+
+  final String id;
+  final int index;
+  final String type;
+  final String description;
+  final String status;
+  final String toolName;
+  final String toolInput;
+  final String result;
+  final String error;
+  final int tokensUsed;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+
+  String get label => toolName.ifEmpty(type.replaceAll('_', ' '));
+
+  String get summary {
+    final resultText = _summarizeToolResult(_decodeMaybeJson(result));
+    if (error.trim().isNotEmpty) {
+      return error;
+    }
+    if (resultText.trim().isNotEmpty) {
+      return resultText;
+    }
+    return description.ifEmpty('No details captured.');
+  }
+
+  Color get statusColor {
+    switch (status) {
+      case 'completed':
+        return _success;
+      case 'failed':
+        return _danger;
+      case 'running':
+        return _warning;
+      default:
+        return _textSecondary;
+    }
+  }
+}
+
+Map<String, dynamic> _decodeMaybeJson(dynamic value) {
+  if (value == null) {
+    return const <String, dynamic>{};
+  }
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return Map<String, dynamic>.from(value);
+  }
+  if (value is String && value.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+  }
+  return const <String, dynamic>{};
+}
+
+class ChatEntry {
+  const ChatEntry({
+    required this.role,
+    required this.content,
+    required this.platform,
+    required this.createdAt,
+    this.senderName,
+    this.transient = false,
+  });
+
+  factory ChatEntry.fromJson(Map<dynamic, dynamic> json) {
+    return ChatEntry(
+      role: json['role']?.toString() ?? 'assistant',
+      content: json['content']?.toString() ?? '',
+      platform: json['platform']?.toString() ?? 'web',
+      senderName: json['sender_name']?.toString(),
+      createdAt: _parseTimestamp(json['created_at']?.toString()),
+    );
+  }
+
+  final String role;
+  final String content;
+  final String platform;
+  final String? senderName;
+  final DateTime createdAt;
+  final bool transient;
+
+  String get createdAtLabel => _formatTimestamp(createdAt);
+
+  String? get platformTag {
+    if (platform == 'live') {
+      return 'LIVE';
+    }
+    if (platform != 'web' && platform != 'flutter' && platform.isNotEmpty) {
+      return platform.toUpperCase();
+    }
+    return null;
+  }
+}
+
+class ModelMeta {
+  const ModelMeta({
+    required this.id,
+    required this.label,
+    required this.provider,
+    required this.purpose,
+  });
+
+  factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
+    return ModelMeta(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      provider: json['provider']?.toString() ?? '',
+      purpose: json['purpose']?.toString() ?? '',
+    );
+  }
+
+  final String id;
+  final String label;
+  final String provider;
+  final String purpose;
+}
+
+class RunSummary {
+  const RunSummary({
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.model,
+    required this.triggerSource,
+    required this.totalTokens,
+    required this.createdAt,
+    this.completedAt,
+    this.error = '',
+  });
+
+  factory RunSummary.fromJson(Map<dynamic, dynamic> json) {
+    return RunSummary(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Untitled',
+      status: json['status']?.toString() ?? 'unknown',
+      model: json['model']?.toString() ?? '',
+      triggerSource: json['trigger_source']?.toString() ?? '',
+      totalTokens: _asInt(json['total_tokens']),
+      createdAt: _parseTimestamp(json['created_at']?.toString()),
+      completedAt: _parseOptionalTimestamp(json['completed_at']?.toString()),
+      error: json['error']?.toString() ?? '',
+    );
+  }
+
+  final String id;
+  final String title;
+  final String status;
+  final String model;
+  final String triggerSource;
+  final int totalTokens;
+  final DateTime createdAt;
+  final DateTime? completedAt;
+  final String error;
+
+  String get createdAtLabel => _formatTimestamp(createdAt);
+
+  String get totalTokensLabel => _formatNumber(totalTokens);
+
+  Color get statusColor {
+    switch (status) {
+      case 'completed':
+        return _success;
+      case 'failed':
+      case 'error':
+        return _danger;
+      case 'running':
+        return _warning;
+      default:
+        return _textSecondary;
+    }
+  }
+}
+
+class TokenUsageSnapshot {
+  const TokenUsageSnapshot({
+    required this.totalTokens,
+    required this.totalRuns,
+    required this.avgTokensPerRun,
+    required this.last7DaysTokens,
+    required this.last7DaysRuns,
+  });
+
+  factory TokenUsageSnapshot.fromJson(Map<dynamic, dynamic> json) {
+    final totals = json['totals'] is Map
+        ? Map<String, dynamic>.from(json['totals'] as Map)
+        : const <String, dynamic>{};
+    return TokenUsageSnapshot(
+      totalTokens: _asInt(totals['totalTokens']),
+      totalRuns: _asInt(totals['totalRuns']),
+      avgTokensPerRun: _asInt(totals['avgTokensPerRun']),
+      last7DaysTokens: _asInt(totals['last7DaysTokens']),
+      last7DaysRuns: _asInt(totals['last7DaysRuns']),
+    );
+  }
+
+  final int totalTokens;
+  final int totalRuns;
+  final int avgTokensPerRun;
+  final int last7DaysTokens;
+  final int last7DaysRuns;
+
+  String get totalTokensLabel => _formatNumber(totalTokens);
+  String get totalRunsLabel => _formatNumber(totalRuns);
+  String get avgTokensPerRunLabel => _formatNumber(avgTokensPerRun);
+  String get last7DaysTokensLabel => _formatNumber(last7DaysTokens);
+  String get last7DaysRunsLabel => _formatNumber(last7DaysRuns);
+}
+
+class UpdateStatusSnapshot {
+  const UpdateStatusSnapshot({
+    this.state = 'idle',
+    this.progress = 0,
+    this.message = 'No update running',
+    this.versionBefore,
+    this.versionAfter,
+    this.backendVersion,
+    this.changelog = const <String>[],
+    this.logs = const <String>[],
+  });
+
+  factory UpdateStatusSnapshot.fromJson(Map<dynamic, dynamic> json) {
+    return UpdateStatusSnapshot(
+      state: json['state']?.toString() ?? 'idle',
+      progress: _asInt(json['progress']).clamp(0, 100),
+      message: json['message']?.toString() ?? 'No update running',
+      versionBefore: json['versionBefore']?.toString(),
+      versionAfter: json['versionAfter']?.toString(),
+      backendVersion: json['backendVersion']?.toString(),
+      changelog: (json['changelog'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+      logs: (json['logs'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+    );
+  }
+
+  final String state;
+  final int progress;
+  final String message;
+  final String? versionBefore;
+  final String? versionAfter;
+  final String? backendVersion;
+  final List<String> changelog;
+  final List<String> logs;
+
+  String get badgeLabel {
+    switch (state) {
+      case 'running':
+        return 'Running';
+      case 'completed':
+        return 'Completed';
+      case 'failed':
+        return 'Failed';
+      default:
+        return 'Idle';
+    }
+  }
+
+  Color get badgeColor {
+    switch (state) {
+      case 'running':
+        return _info;
+      case 'completed':
+        return _success;
+      case 'failed':
+        return _danger;
+      default:
+        return _textSecondary;
+    }
+  }
+
+  String get versionLine {
+    final before = versionBefore?.ifEmpty('—') ?? '—';
+    final after = versionAfter?.ifEmpty('—') ?? '—';
+    final updateVersion = after == '—' ? before : '$before -> $after';
+    final backend = backendVersion == null ? '' : ' | Backend: $backendVersion';
+    return 'Update Version: $updateVersion$backend';
+  }
+
+  String get logsText =>
+      logs.isEmpty ? 'Waiting for update job output…' : logs.join('\n');
+}
+
+class LogEntry {
+  const LogEntry({
+    required this.type,
+    required this.message,
+    required this.timestamp,
+  });
+
+  factory LogEntry.fromJson(Map<dynamic, dynamic> json) {
+    return LogEntry(
+      type: json['type']?.toString() ?? 'log',
+      message: json['message']?.toString() ?? '',
+      timestamp: _parseTimestamp(json['timestamp']?.toString()),
+    );
+  }
+
+  final String type;
+  final String message;
+  final DateTime timestamp;
+
+  String get timeLabel => _formatTimeOnly(timestamp);
+
+  Color get color {
+    switch (type) {
+      case 'error':
+        return _danger;
+      case 'warn':
+        return _warning;
+      case 'info':
+        return _info;
+      default:
+        return _textPrimary;
+    }
+  }
+}
+
+class SkillItem {
+  const SkillItem({
+    required this.name,
+    required this.description,
+    required this.enabled,
+    required this.draft,
+    required this.category,
+    required this.source,
+  });
+
+  factory SkillItem.fromJson(Map<dynamic, dynamic> json) {
+    return SkillItem(
+      name: json['name']?.toString() ?? 'Skill',
+      description: json['description']?.toString() ?? '',
+      enabled: json['enabled'] != false,
+      draft: json['draft'] == true,
+      category: json['category']?.toString().ifEmpty('general') ?? 'general',
+      source: json['source']?.toString().ifEmpty('local') ?? 'local',
+    );
+  }
+
+  final String name;
+  final String description;
+  final bool enabled;
+  final bool draft;
+  final String category;
+  final String source;
+}
+
+class StoreSkillItem {
+  const StoreSkillItem({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.category,
+    required this.icon,
+    required this.installed,
+  });
+
+  factory StoreSkillItem.fromJson(Map<dynamic, dynamic> json) {
+    return StoreSkillItem(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Skill',
+      description: json['description']?.toString() ?? '',
+      category: json['category']?.toString().ifEmpty('general') ?? 'general',
+      icon: json['icon']?.toString().ifEmpty('🧩') ?? '🧩',
+      installed: json['installed'] == true,
+    );
+  }
+
+  final String id;
+  final String name;
+  final String description;
+  final String category;
+  final String icon;
+  final bool installed;
+}
+
+class SkillDocument {
+  const SkillDocument({required this.name, required this.content});
+
+  factory SkillDocument.fromJson(Map<dynamic, dynamic> json) {
+    return SkillDocument(
+      name: json['name']?.toString() ?? 'Skill',
+      content: json['content']?.toString() ?? '',
+    );
+  }
+
+  final String name;
+  final String content;
+}
+
+class MemoryOverview {
+  const MemoryOverview({
+    this.soul = '',
+    this.dailyLogs = const <String>[],
+    this.apiKeys = const <String, String>{},
+    this.coreEntries = const <String, dynamic>{},
+  });
+
+  factory MemoryOverview.fromJson(Map<dynamic, dynamic> json) {
+    final apiKeysRaw = json['apiKeys'];
+    final coreRaw = json['coreMemory'];
+    return MemoryOverview(
+      soul: json['soul']?.toString() ?? '',
+      dailyLogs: (json['dailyLogs'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+      apiKeys: apiKeysRaw is Map
+          ? Map<String, String>.from(
+              apiKeysRaw.map(
+                (key, value) =>
+                    MapEntry(key.toString(), value?.toString() ?? ''),
+              ),
+            )
+          : const <String, String>{},
+      coreEntries: coreRaw is Map
+          ? Map<String, dynamic>.from(coreRaw)
+          : const <String, dynamic>{},
+    );
+  }
+
+  final String soul;
+  final List<String> dailyLogs;
+  final Map<String, String> apiKeys;
+  final Map<String, dynamic> coreEntries;
+
+  int get soulLength => soul.length;
+  int get dailyLogCount => dailyLogs.length;
+  int get apiKeyCount => apiKeys.length;
+  int get coreCount => coreEntries.length;
+}
+
+class MemoryItem {
+  const MemoryItem({
+    required this.id,
+    required this.content,
+    required this.category,
+    required this.importance,
+    required this.createdAt,
+  });
+
+  factory MemoryItem.fromJson(Map<dynamic, dynamic> json) {
+    return MemoryItem(
+      id: _asInt(json['id']),
+      content: json['content']?.toString() ?? '',
+      category: json['category']?.toString().ifEmpty('memory') ?? 'memory',
+      importance: _asInt(json['importance']),
+      createdAt: _parseTimestamp(json['created_at']?.toString()),
+    );
+  }
+
+  final int id;
+  final String content;
+  final String category;
+  final int importance;
+  final DateTime createdAt;
+
+  String get createdAtLabel => _formatTimestamp(createdAt);
+}
+
+class ConversationItem {
+  const ConversationItem({required this.title, required this.preview});
+
+  factory ConversationItem.fromJson(Map<dynamic, dynamic> json) {
+    final raw =
+        json['summary']?.toString().ifEmpty(
+          json['content']?.toString() ?? '',
+        ) ??
+        '';
+    return ConversationItem(
+      title:
+          json['title']?.toString().ifEmpty('Conversation') ?? 'Conversation',
+      preview: raw.ifEmpty('No summary available.'),
+    );
+  }
+
+  final String title;
+  final String preview;
+}
+
+class SchedulerTask {
+  const SchedulerTask({
+    required this.id,
+    required this.name,
+    required this.cronExpression,
+    required this.prompt,
+    required this.enabled,
+    required this.lastRun,
+  });
+
+  factory SchedulerTask.fromJson(Map<dynamic, dynamic> json) {
+    final config = json['config'] is Map
+        ? Map<String, dynamic>.from(json['config'] as Map)
+        : const <String, dynamic>{};
+    return SchedulerTask(
+      id: _asInt(json['id']),
+      name: json['name']?.toString() ?? 'Task',
+      cronExpression: json['cronExpression']?.toString() ?? '',
+      prompt:
+          json['prompt']?.toString().ifEmpty(
+            config['prompt']?.toString() ?? '',
+          ) ??
+          '',
+      enabled: json['enabled'] != false,
+      lastRun: _parseOptionalTimestamp(json['lastRun']?.toString()),
+    );
+  }
+
+  final int id;
+  final String name;
+  final String cronExpression;
+  final String prompt;
+  final bool enabled;
+  final DateTime? lastRun;
+
+  String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
+}
+
+class McpServerItem {
+  const McpServerItem({
+    required this.id,
+    required this.name,
+    required this.command,
+    required this.config,
+    required this.enabled,
+    required this.status,
+    required this.toolCount,
+  });
+
+  factory McpServerItem.fromJson(Map<dynamic, dynamic> json) {
+    return McpServerItem(
+      id: _asInt(json['id']),
+      name: json['name']?.toString() ?? 'MCP Server',
+      command: json['command']?.toString() ?? '',
+      config: json['config'] is Map
+          ? Map<String, dynamic>.from(json['config'] as Map)
+          : const <String, dynamic>{},
+      enabled: json['enabled'] == true,
+      status: json['status']?.toString().ifEmpty('stopped') ?? 'stopped',
+      toolCount: _asInt(json['toolCount']),
+    );
+  }
+
+  final int id;
+  final String name;
+  final String command;
+  final Map<String, dynamic> config;
+  final bool enabled;
+  final String status;
+  final int toolCount;
+
+  String get authMethodLabel {
+    final auth = _jsonMap(config['auth']);
+    final type = auth['type']?.toString().ifEmpty('none') ?? 'none';
+    switch (type) {
+      case 'bearer':
+        return 'Bearer token';
+      case 'oauth':
+        return 'OAuth';
+      default:
+        return 'No auth';
+    }
+  }
+}
+
+class ActiveRunState {
+  const ActiveRunState({
+    required this.runId,
+    required this.title,
+    required this.model,
+    required this.triggerSource,
+    required this.phase,
+    required this.iteration,
+  });
+
+  factory ActiveRunState.pending(String task) {
+    return ActiveRunState(
+      runId: 'pending',
+      title: task,
+      model: '',
+      triggerSource: 'web',
+      phase: 'Queued',
+      iteration: 0,
+    );
+  }
+
+  final String runId;
+  final String title;
+  final String model;
+  final String triggerSource;
+  final String phase;
+  final int iteration;
+
+  ActiveRunState copyWith({
+    String? runId,
+    String? title,
+    String? model,
+    String? triggerSource,
+    String? phase,
+    int? iteration,
+  }) {
+    return ActiveRunState(
+      runId: runId ?? this.runId,
+      title: title ?? this.title,
+      model: model ?? this.model,
+      triggerSource: triggerSource ?? this.triggerSource,
+      phase: phase ?? this.phase,
+      iteration: iteration ?? this.iteration,
+    );
+  }
+}
+
+class ToolEventItem {
+  const ToolEventItem({
+    required this.id,
+    required this.toolName,
+    required this.type,
+    required this.status,
+    required this.summary,
+  });
+
+  final String id;
+  final String toolName;
+  final String type;
+  final String status;
+  final String summary;
+}
+
+EdgeInsets _pagePadding(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width >= 1280) {
+    return const EdgeInsets.fromLTRB(36, 28, 36, 36);
+  }
+  if (width >= 900) {
+    return const EdgeInsets.fromLTRB(28, 24, 28, 28);
+  }
+  return const EdgeInsets.fromLTRB(18, 18, 18, 26);
+}
+
+List<AppSection> _mainSections(NeoAgentController controller) {
+  return <AppSection>[
+    AppSection.chat,
+    AppSection.messaging,
+    AppSection.runs,
+    AppSection.logs,
+    AppSection.skills,
+    AppSection.memory,
+    AppSection.scheduler,
+    AppSection.mcp,
+    if (controller.showHealthSection) AppSection.health,
+  ];
+}
+
+Future<void> _confirmDelete(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required Future<void> Function() onConfirm,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: _bgCard,
+        title: Text(title),
+        content: Text(message),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed == true) {
+    await onConfirm();
+  }
+}
+
+String _ensureModelValue(
+  String value,
+  List<ModelMeta> models, {
+  required bool allowAuto,
+}) {
+  if (allowAuto && value == 'auto') {
+    return 'auto';
+  }
+  for (final model in models) {
+    if (model.id == value) {
+      return value;
+    }
+  }
+  if (allowAuto) {
+    return 'auto';
+  }
+  return models.isNotEmpty ? models.first.id : value;
+}
+
+Map<String, dynamic> _jsonMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return Map<String, dynamic>.from(value);
+  }
+  return const <String, dynamic>{};
+}
+
+int _asInt(dynamic value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is double) {
+    return value.round();
+  }
+  return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+DateTime _parseTimestamp(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return DateTime.now();
+  }
+  final normalized = raw.contains('T') ? raw : '${raw.replaceFirst(' ', 'T')}Z';
+  return DateTime.tryParse(normalized)?.toLocal() ?? DateTime.now();
+}
+
+DateTime? _parseOptionalTimestamp(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return null;
+  }
+  return _parseTimestamp(raw);
+}
+
+String _formatTimestamp(DateTime value) {
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '$month/$day $hour:$minute';
+}
+
+String _formatTimeOnly(DateTime value) {
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  final second = value.second.toString().padLeft(2, '0');
+  return '$hour:$minute:$second';
+}
+
+String _formatNumber(int value) {
+  final chars = value.abs().toString().split('').reversed.toList();
+  final buffer = StringBuffer();
+  for (var i = 0; i < chars.length; i++) {
+    if (i > 0 && i % 3 == 0) {
+      buffer.write('.');
+    }
+    buffer.write(chars[i]);
+  }
+  final formatted = buffer.toString().split('').reversed.join();
+  return value < 0 ? '-$formatted' : formatted;
+}
+
+String _summarizeToolArgs(dynamic raw) {
+  if (raw is Map && raw.isNotEmpty) {
+    final first = raw.entries.first;
+    return '${first.key}: ${first.value}'.trim();
+  }
+  return '';
+}
+
+String _summarizeToolResult(dynamic raw) {
+  if (raw == null) {
+    return '';
+  }
+  if (raw is Map) {
+    if (raw['error'] != null) {
+      return raw['error'].toString();
+    }
+    if (raw['message'] != null) {
+      return raw['message'].toString();
+    }
+    if (raw['content'] != null) {
+      return raw['content'].toString();
+    }
+    return raw.entries
+        .take(2)
+        .map((entry) => '${entry.key}: ${entry.value}')
+        .join(' • ');
+  }
+  final text = raw.toString();
+  return text.length > 140 ? '${text.substring(0, 140)}…' : text;
+}
+
+extension on String {
+  String ifEmpty(String fallback) => trim().isEmpty ? fallback : this;
+}
