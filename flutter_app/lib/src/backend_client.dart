@@ -404,6 +404,50 @@ class BackendClient {
     return getList(baseUrl, '/api/mcp');
   }
 
+  Future<List<Map<String, dynamic>>> fetchRecordingSessions(
+    String baseUrl, {
+    int limit = 24,
+  }) async {
+    return getList(baseUrl, '/api/recordings?limit=$limit');
+  }
+
+  Future<Map<String, dynamic>> fetchRecordingSession(
+    String baseUrl,
+    String sessionId,
+  ) async {
+    return getMap(baseUrl, '/api/recordings/$sessionId');
+  }
+
+  Future<Map<String, dynamic>> createRecordingSession(
+    String baseUrl,
+    Map<String, dynamic> payload,
+  ) async {
+    return postMap(baseUrl, '/api/recordings', payload);
+  }
+
+  Future<Map<String, dynamic>> finalizeRecordingSession(
+    String baseUrl,
+    String sessionId, {
+    String stopReason = 'stopped',
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/recordings/$sessionId/finalize',
+      <String, dynamic>{'stopReason': stopReason},
+    );
+  }
+
+  Future<Map<String, dynamic>> retryRecordingSession(
+    String baseUrl,
+    String sessionId,
+  ) async {
+    return postMap(
+      baseUrl,
+      '/api/recordings/$sessionId/retry',
+      const <String, dynamic>{},
+    );
+  }
+
   Future<Map<String, dynamic>> saveMcpServer(
     String baseUrl, {
     int? id,

@@ -15,6 +15,7 @@ const routeRegistry = [
   { basePath: '/api/memory', modulePath: '../routes/memory' },
   { basePath: '/api/scheduler', modulePath: '../routes/scheduler' },
   { basePath: '/api/browser', modulePath: '../routes/browser' },
+  { basePath: '/api/recordings', modulePath: '../routes/recordings' },
   { basePath: '/api/mobile/health', modulePath: '../routes/mobile-health' }
 ];
 

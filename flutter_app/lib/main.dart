@@ -11,6 +11,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import 'src/backend_client.dart';
 import 'src/health_bridge.dart';
+import 'src/recording_bridge.dart';
 
 const Color _bgPrimary = Color(0xFF07070F);
 const Color _bgSecondary = Color(0xFF0C0C18);
@@ -36,6 +37,7 @@ void main() {
 
 enum AppSection {
   chat,
+  recordings,
   messaging,
   runs,
   settings,
@@ -52,6 +54,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return 'Chat';
+      case AppSection.recordings:
+        return 'Recordings';
       case AppSection.messaging:
         return 'Messaging';
       case AppSection.runs:
@@ -77,6 +81,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return Icons.chat_bubble_outline;
+      case AppSection.recordings:
+        return Icons.fiber_smart_record_outlined;
       case AppSection.messaging:
         return Icons.forum_outlined;
       case AppSection.runs:
@@ -115,6 +121,7 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
     _controller = NeoAgentController(
       backendClient: BackendClient(),
       healthBridge: HealthBridge(),
+      recordingBridge: createRecordingBridge(),
     )..bootstrap();
   }
 
@@ -229,11 +236,17 @@ class NeoAgentController extends ChangeNotifier {
   NeoAgentController({
     required BackendClient backendClient,
     required HealthBridge healthBridge,
+    required RecordingBridge recordingBridge,
   }) : _backendClient = backendClient,
-       _healthBridge = healthBridge;
+       _healthBridge = healthBridge,
+       _recordingBridge = recordingBridge {
+    _recordingBridge.onRecordingStopped = _handleRecordingStopped;
+    _recordingBridge.addListener(_handleRecordingBridgeChanged);
+  }
 
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
+  final RecordingBridge _recordingBridge;
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
@@ -266,6 +279,7 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic>? versionInfo;
   Map<String, dynamic>? backendHealthStatus;
   HealthBridgeStatus? deviceHealthStatus;
+  List<RecordingSessionItem> recordingSessions = const <RecordingSessionItem>[];
 
   List<ChatEntry> chatMessages = const <ChatEntry>[];
   List<ModelMeta> supportedModels = const <ModelMeta>[];
@@ -291,19 +305,73 @@ class NeoAgentController extends ChangeNotifier {
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
   String streamingAssistant = '';
+  bool isStartingRecording = false;
+  bool isStoppingRecording = false;
 
   static String get _defaultBackendUrl {
-    if (_configuredBackendUrl.trim().isNotEmpty) {
-      return _configuredBackendUrl.trim();
+    final configured = _configuredBackendUrl.trim();
+
+    if (kIsWeb) {
+      if (configured.isEmpty) {
+        return '';
+      }
+
+      final configuredUri = Uri.tryParse(configured);
+      final currentHost = Uri.base.host;
+      final currentIsLoopback = _isLoopbackHost(currentHost);
+      final configuredHost = configuredUri?.host ?? '';
+
+      // If a web bundle was accidentally built against localhost and is later
+      // served from a real host, prefer same-origin instead of bricking prod.
+      if (!currentIsLoopback && _isLoopbackHost(configuredHost)) {
+        return '';
+      }
+
+      return configured;
     }
-    return kIsWeb ? '' : 'http://10.0.2.2:3333';
+
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+
+    return 'http://10.0.2.2:3333';
+  }
+
+  static bool _isLoopbackHost(String host) {
+    final normalized = host.trim().toLowerCase();
+    return normalized == 'localhost' ||
+        normalized == '127.0.0.1' ||
+        normalized == '::1' ||
+        normalized == '[::1]';
   }
 
   @override
   void dispose() {
     _updatePollTimer?.cancel();
     _socket?.dispose();
+    _recordingBridge.removeListener(_handleRecordingBridgeChanged);
+    _recordingBridge.dispose();
     super.dispose();
+  }
+
+  RecordingRuntimeStatus get recordingRuntime => _recordingBridge.status;
+
+  void _handleRecordingBridgeChanged() {
+    notifyListeners();
+  }
+
+  Future<void> _handleRecordingStopped(String sessionId) async {
+    try {
+      await _backendClient.finalizeRecordingSession(
+        backendUrl,
+        sessionId,
+        stopReason: 'ended',
+      );
+      await refreshRecordings();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
   }
 
   Future<void> bootstrap() async {
@@ -311,6 +379,7 @@ class NeoAgentController extends ChangeNotifier {
     backendUrl = _defaultBackendUrl;
     username = _prefs?.getString('username') ?? '';
     password = _prefs?.getString('password') ?? '';
+    await _recordingBridge.refreshStatus();
     notifyListeners();
 
     try {
@@ -394,6 +463,19 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    final recordingSessionId = recordingRuntime.sessionId;
+    if (recordingRuntime.active && recordingSessionId != null) {
+      try {
+        await _recordingBridge.stopActiveRecording();
+        if (!recordingRuntime.supportsBackgroundMic) {
+          await _backendClient.finalizeRecordingSession(
+            backendUrl,
+            recordingSessionId,
+            stopReason: 'ended',
+          );
+        }
+      } catch (_) {}
+    }
     try {
       await _backendClient.logout(backendUrl);
     } catch (_) {}
@@ -421,6 +503,7 @@ class NeoAgentController extends ChangeNotifier {
     mcpServers = const <McpServerItem>[];
     versionInfo = null;
     backendHealthStatus = null;
+    recordingSessions = const <RecordingSessionItem>[];
     activeRun = null;
     toolEvents = const <ToolEventItem>[];
     streamingAssistant = '';
@@ -492,6 +575,9 @@ class NeoAgentController extends ChangeNotifier {
       final conversationsFuture = _backendClient.fetchConversations(backendUrl);
       final schedulerFuture = _backendClient.fetchSchedulerTasks(backendUrl);
       final mcpFuture = _backendClient.fetchMcpServers(backendUrl);
+      final recordingsFuture = _backendClient.fetchRecordingSessions(
+        backendUrl,
+      );
 
       Map<String, dynamic>? healthResponse;
       try {
@@ -516,6 +602,7 @@ class NeoAgentController extends ChangeNotifier {
       final conversationsResponse = await conversationsFuture;
       final schedulerResponse = await schedulerFuture;
       final mcpResponse = await mcpFuture;
+      final recordingsResponse = await recordingsFuture;
 
       chatMessages = (history['messages'] as List<dynamic>? ?? const [])
           .whereType<Map<dynamic, dynamic>>()
@@ -560,6 +647,10 @@ class NeoAgentController extends ChangeNotifier {
           .toList();
       schedulerTasks = schedulerResponse.map(SchedulerTask.fromJson).toList();
       mcpServers = mcpResponse.map(McpServerItem.fromJson).toList();
+      recordingSessions = recordingsResponse
+          .map(RecordingSessionItem.fromJson)
+          .toList();
+      await _recordingBridge.refreshStatus();
       deviceHealthStatus = await _healthBridge.getStatus();
       await _syncBackgroundHealthConfig();
       _ensureSocketConnected();
@@ -640,6 +731,195 @@ class NeoAgentController extends ChangeNotifier {
       backendUrl,
     )).map(McpServerItem.fromJson).toList();
     notifyListeners();
+  }
+
+  Future<void> refreshRecordings() async {
+    recordingSessions = (await _backendClient.fetchRecordingSessions(
+      backendUrl,
+    )).map(RecordingSessionItem.fromJson).toList();
+    await _recordingBridge.refreshStatus();
+    notifyListeners();
+  }
+
+  Future<void> startWebRecording() async {
+    if (isStartingRecording || recordingRuntime.active) {
+      return;
+    }
+    isStartingRecording = true;
+    errorMessage = null;
+    notifyListeners();
+
+    String? sessionId;
+    try {
+      final response = await _backendClient.createRecordingSession(
+        backendUrl,
+        <String, dynamic>{
+          'platform': 'web',
+          'screenAnalysisReady': true,
+          'sources': const <Map<String, dynamic>>[
+            <String, dynamic>{
+              'sourceKey': 'screen',
+              'sourceKind': 'screen-share',
+              'mediaKind': 'video',
+              'mimeType': 'video/webm',
+              'metadata': <String, dynamic>{'analysisReady': true},
+            },
+            <String, dynamic>{
+              'sourceKey': 'microphone',
+              'sourceKind': 'microphone',
+              'mediaKind': 'audio',
+              'mimeType': 'audio/webm',
+            },
+          ],
+        },
+      );
+      final session = RecordingSessionItem.fromJson(
+        _jsonMap(response['session']),
+      );
+      sessionId = session.id;
+      recordingSessions = <RecordingSessionItem>[
+        session,
+        ...recordingSessions.where((item) => item.id != session.id),
+      ];
+      await _recordingBridge.startWebRecording(
+        baseUrl: backendUrl,
+        sessionId: session.id,
+      );
+      notifyListeners();
+    } catch (error) {
+      if (sessionId != null) {
+        try {
+          await _backendClient.finalizeRecordingSession(
+            backendUrl,
+            sessionId,
+            stopReason: 'cancelled',
+          );
+        } catch (_) {}
+      }
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshRecordings();
+    } finally {
+      isStartingRecording = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> startBackgroundRecording() async {
+    if (isStartingRecording || recordingRuntime.active) {
+      return;
+    }
+    isStartingRecording = true;
+    errorMessage = null;
+    notifyListeners();
+
+    String? sessionId;
+    try {
+      final response = await _backendClient.createRecordingSession(
+        backendUrl,
+        <String, dynamic>{
+          'platform': 'android',
+          'screenAnalysisReady': false,
+          'sources': const <Map<String, dynamic>>[
+            <String, dynamic>{
+              'sourceKey': 'microphone',
+              'sourceKind': 'microphone',
+              'mediaKind': 'audio',
+              'mimeType': 'audio/wav',
+              'metadata': <String, dynamic>{'backgroundCapable': true},
+            },
+          ],
+        },
+      );
+      final session = RecordingSessionItem.fromJson(
+        _jsonMap(response['session']),
+      );
+      sessionId = session.id;
+      recordingSessions = <RecordingSessionItem>[
+        session,
+        ...recordingSessions.where((item) => item.id != session.id),
+      ];
+      await _recordingBridge.startBackgroundRecording(
+        baseUrl: backendUrl,
+        sessionCookie: _backendClient.sessionCookie ?? '',
+        sessionId: session.id,
+      );
+      notifyListeners();
+    } catch (error) {
+      if (sessionId != null) {
+        try {
+          await _backendClient.finalizeRecordingSession(
+            backendUrl,
+            sessionId,
+            stopReason: 'cancelled',
+          );
+        } catch (_) {}
+      }
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshRecordings();
+    } finally {
+      isStartingRecording = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> pauseBackgroundRecording() async {
+    try {
+      await _recordingBridge.pauseBackgroundRecording();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> resumeBackgroundRecording() async {
+    try {
+      await _recordingBridge.resumeBackgroundRecording();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopRecording() async {
+    final sessionId = recordingRuntime.sessionId;
+    if (sessionId == null || isStoppingRecording) {
+      return;
+    }
+    final isAndroidBackgroundStop =
+        recordingRuntime.supportsBackgroundMic &&
+        !recordingRuntime.supportsScreenAndMic;
+    isStoppingRecording = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _recordingBridge.stopActiveRecording();
+      if (isAndroidBackgroundStop) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+      } else {
+        await _backendClient.finalizeRecordingSession(
+          backendUrl,
+          sessionId,
+          stopReason: 'stopped',
+        );
+      }
+      await refreshRecordings();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    } finally {
+      isStoppingRecording = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> retryRecording(String sessionId) async {
+    try {
+      await _backendClient.retryRecordingSession(backendUrl, sessionId);
+      await refreshRecordings();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
   }
 
   Future<void> refreshUpdateStatus() async {
@@ -1481,6 +1761,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('skill:draft_created', (dynamic _) {
       unawaited(refreshSkills());
     });
+    socket.on('recordings:updated', (dynamic _) {
+      unawaited(refreshRecordings());
+    });
     socket.connect();
     _socket = socket;
   }
@@ -2011,6 +2294,8 @@ class _SectionBody extends StatelessWidget {
     switch (controller.selectedSection) {
       case AppSection.chat:
         return ChatPanel(controller: controller);
+      case AppSection.recordings:
+        return RecordingsPanel(controller: controller);
       case AppSection.messaging:
         return MessagingPanel(controller: controller);
       case AppSection.runs:
@@ -2032,6 +2317,293 @@ class _SectionBody extends StatelessWidget {
             ? HealthPanel(controller: controller)
             : ChatPanel(controller: controller);
     }
+  }
+}
+
+class RecordingsPanel extends StatelessWidget {
+  const RecordingsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final runtime = controller.recordingRuntime;
+
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        const _SectionTitle('Record meetings and conversations'),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    _DotStatus(
+                      label: runtime.active
+                          ? (runtime.paused ? 'Paused' : 'Recording')
+                          : 'Idle',
+                      color: runtime.active
+                          ? (runtime.paused ? _warning : _danger)
+                          : _success,
+                    ),
+                    if (runtime.platformLabel != null &&
+                        runtime.platformLabel!.isNotEmpty)
+                      Text(
+                        runtime.platformLabel!,
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Web can capture screen share plus microphone at the same time. Android can keep a microphone recording running in the background through a foreground service.',
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: <Widget>[
+                    if (runtime.supportsScreenAndMic)
+                      FilledButton.icon(
+                        onPressed:
+                            controller.isStartingRecording || runtime.active
+                            ? null
+                            : controller.startWebRecording,
+                        icon: const Icon(Icons.desktop_windows_outlined),
+                        label: const Text('Start screen + mic'),
+                      ),
+                    if (runtime.supportsBackgroundMic)
+                      FilledButton.icon(
+                        onPressed:
+                            controller.isStartingRecording || runtime.active
+                            ? null
+                            : controller.startBackgroundRecording,
+                        icon: const Icon(Icons.mic_none_outlined),
+                        label: const Text('Start background mic'),
+                      ),
+                    if (runtime.supportsBackgroundMic && runtime.active)
+                      OutlinedButton.icon(
+                        onPressed: runtime.paused
+                            ? controller.resumeBackgroundRecording
+                            : controller.pauseBackgroundRecording,
+                        icon: Icon(
+                          runtime.paused ? Icons.play_arrow : Icons.pause,
+                        ),
+                        label: Text(runtime.paused ? 'Resume' : 'Pause'),
+                      ),
+                    if (runtime.active)
+                      OutlinedButton.icon(
+                        onPressed: controller.isStoppingRecording
+                            ? null
+                            : controller.stopRecording,
+                        icon: const Icon(Icons.stop_circle_outlined),
+                        label: const Text('Stop'),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: controller.refreshRecordings,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Refresh'),
+                    ),
+                  ],
+                ),
+                if (runtime.errorMessage != null &&
+                    runtime.errorMessage!.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 14),
+                  Text(
+                    runtime.errorMessage!,
+                    style: const TextStyle(color: _danger),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _bgSecondary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Capture pipeline',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Each session stores screen and microphone as separate sources, uploads chunked media with ordering, and persists transcript segments with timestamps for replay and retry.',
+                        style: TextStyle(color: _textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        const _SectionTitle('Transcription history'),
+        const SizedBox(height: 12),
+        if (controller.recordingSessions.isEmpty)
+          const _EmptyCard(
+            title: 'No recordings yet',
+            subtitle:
+                'Start a recording and your persisted transcripts will appear here with timestamps.',
+          )
+        else
+          ...controller.recordingSessions.map(
+            (session) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _RecordingSessionCard(
+                session: session,
+                onRetry: session.status == 'failed'
+                    ? () => controller.retryRecording(session.id)
+                    : null,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RecordingSessionCard extends StatelessWidget {
+  const _RecordingSessionCard({required this.session, this.onRetry});
+
+  final RecordingSessionItem session;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        session.title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${session.startedAtLabel} • ${session.platformLabel} • ${session.durationLabel}',
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                _StatusPill(
+                  label: session.statusLabel,
+                  color: session.statusColor,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: session.sources
+                  .map(
+                    (source) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _bgSecondary,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: _border),
+                      ),
+                      child: Text(
+                        '${source.label} • ${source.durationLabel}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            if (session.lastError != null &&
+                session.lastError!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  session.lastError!,
+                  style: const TextStyle(color: _danger),
+                ),
+              ),
+            if (session.transcriptSegments.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 16),
+              ...session.transcriptSegments
+                  .take(16)
+                  .map(
+                    (segment) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SizedBox(
+                            width: 88,
+                            child: Text(
+                              segment.timestampLabel,
+                              style: const TextStyle(color: _textSecondary),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              segment.displayText,
+                              style: const TextStyle(height: 1.45),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+            ] else if (session.transcriptText.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 16),
+              Text(
+                session.transcriptText,
+                style: const TextStyle(height: 1.45),
+              ),
+            ] else ...<Widget>[
+              const SizedBox(height: 16),
+              Text(
+                session.status == 'processing'
+                    ? 'Transcription is being processed.'
+                    : 'Transcript is not available yet.',
+                style: const TextStyle(color: _textSecondary),
+              ),
+            ],
+            if (onRetry != null) ...<Widget>[
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.replay),
+                label: const Text('Retry transcription'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -3182,120 +3754,120 @@ class _WorldBoard extends StatelessWidget {
     return SizedBox(
       height: 380,
       child: Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFF0C1020), Color(0xFF090C15)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFF0C1020), Color(0xFF090C15)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: _borderLight),
         ),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _WorldStagePainter(
-                accent: statusColor,
-                nodeCount: math.max(steps.length, 4),
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _WorldStagePainter(
+                  accent: statusColor,
+                  nodeCount: math.max(steps.length, 4),
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    _StatusPill(
-                      label: run?.status.ifEmpty('idle') ?? 'idle',
-                      color: statusColor,
-                    ),
-                    _StatusPill(
-                      label: steps.isEmpty
-                          ? 'Awaiting signal'
-                          : '${steps.length} world events',
-                      color: _info,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  run?.title.ifEmpty('No active run') ?? 'No active run',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  run == null
-                      ? 'The world is idling. Start a task in chat to wake it up.'
-                      : '${run.triggerSource.ifEmpty('web')} trigger • ${run.model.ifEmpty('model pending')}',
-                  style: const TextStyle(color: _textSecondary),
-                ),
-                const Spacer(),
-                if (loading)
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: SizedBox.square(
-                      dimension: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                else
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
                   Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: steps.take(5).map((step) {
-                      return Container(
-                        width: 180,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xB0111625),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: _border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            _StatusPill(
-                              label: step.status,
-                              color: step.statusColor,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              step.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              step.summary,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: _textSecondary,
-                                fontSize: 12,
-                                height: 1.45,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      _StatusPill(
+                        label: run?.status.ifEmpty('idle') ?? 'idle',
+                        color: statusColor,
+                      ),
+                      _StatusPill(
+                        label: steps.isEmpty
+                            ? 'Awaiting signal'
+                            : '${steps.length} world events',
+                        color: _info,
+                      ),
+                    ],
                   ),
-              ],
+                  const SizedBox(height: 18),
+                  Text(
+                    run?.title.ifEmpty('No active run') ?? 'No active run',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    run == null
+                        ? 'The world is idling. Start a task in chat to wake it up.'
+                        : '${run.triggerSource.ifEmpty('web')} trigger • ${run.model.ifEmpty('model pending')}',
+                    style: const TextStyle(color: _textSecondary),
+                  ),
+                  const Spacer(),
+                  if (loading)
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: steps.take(5).map((step) {
+                        return Container(
+                          width: 180,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xB0111625),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              _StatusPill(
+                                label: step.status,
+                                color: step.statusColor,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                step.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                step.summary,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: _textSecondary,
+                                  fontSize: 12,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -4120,10 +4692,7 @@ class _SkillsPanelState extends State<SkillsPanel> {
                       SizedBox(height: 8),
                       Text(
                         'Browse installable skills in an app-style catalog with categories, search, and one-click installs.',
-                        style: TextStyle(
-                          color: _textSecondary,
-                          height: 1.5,
-                        ),
+                        style: TextStyle(color: _textSecondary, height: 1.5),
                       ),
                     ],
                   ),
@@ -5275,9 +5844,7 @@ class McpPanel extends StatelessWidget {
     McpServerItem? server,
   }) async {
     final nameController = TextEditingController(text: server?.name ?? '');
-    final urlController = TextEditingController(
-      text: server?.command ?? '',
-    );
+    final urlController = TextEditingController(text: server?.command ?? '');
     final auth = _jsonMap(server?.config['auth']);
     String authType = auth['type']?.toString().ifEmpty('none') ?? 'none';
     final tokenController = TextEditingController(
@@ -5325,10 +5892,7 @@ class McpPanel extends StatelessWidget {
                           labelText: 'Auth Method',
                         ),
                         items: const <DropdownMenuItem<String>>[
-                          DropdownMenuItem(
-                            value: 'none',
-                            child: Text('None'),
-                          ),
+                          DropdownMenuItem(value: 'none', child: Text('None')),
                           DropdownMenuItem(
                             value: 'bearer',
                             child: Text('Bearer Token'),
@@ -5391,10 +5955,7 @@ class McpPanel extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Start the server later from the list once the config is saved.',
-                          style: TextStyle(
-                            color: _textSecondary,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: _textSecondary, fontSize: 12),
                         ),
                       ),
                     ],
@@ -5419,8 +5980,7 @@ class McpPanel extends StatelessWidget {
                           'clientId': clientIdController.text.trim(),
                         if (authType == 'oauth' &&
                             authServerUrlController.text.trim().isNotEmpty)
-                          'authServerUrl':
-                              authServerUrlController.text.trim(),
+                          'authServerUrl': authServerUrlController.text.trim(),
                       },
                     };
                     await controller.saveMcpServer(
@@ -6588,6 +7148,175 @@ class MessagingQrState {
   }
 }
 
+class RecordingSessionItem {
+  const RecordingSessionItem({
+    required this.id,
+    required this.title,
+    required this.platform,
+    required this.status,
+    required this.startedAt,
+    required this.endedAt,
+    required this.durationMs,
+    required this.transcriptText,
+    required this.lastError,
+    required this.sources,
+    required this.transcriptSegments,
+  });
+
+  factory RecordingSessionItem.fromJson(Map<dynamic, dynamic> json) {
+    return RecordingSessionItem(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString().ifEmpty('Recording') ?? 'Recording',
+      platform: json['platform']?.toString() ?? 'unknown',
+      status: json['status']?.toString() ?? 'recording',
+      startedAt: _parseTimestamp(json['startedAt']?.toString()),
+      endedAt: _parseOptionalTimestamp(json['endedAt']?.toString()),
+      durationMs: _asInt(json['durationMs']),
+      transcriptText: json['transcriptText']?.toString() ?? '',
+      lastError: json['lastError']?.toString(),
+      sources: (json['sources'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<dynamic, dynamic>>()
+          .map(RecordingSourceItem.fromJson)
+          .toList(),
+      transcriptSegments:
+          (json['transcriptSegments'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map(RecordingTranscriptSegment.fromJson)
+              .toList(),
+    );
+  }
+
+  final String id;
+  final String title;
+  final String platform;
+  final String status;
+  final DateTime startedAt;
+  final DateTime? endedAt;
+  final int durationMs;
+  final String transcriptText;
+  final String? lastError;
+  final List<RecordingSourceItem> sources;
+  final List<RecordingTranscriptSegment> transcriptSegments;
+
+  String get startedAtLabel => _formatTimestamp(startedAt);
+
+  String get platformLabel {
+    switch (platform) {
+      case 'web':
+        return 'Web';
+      case 'android':
+        return 'Android';
+      default:
+        return platform.ifEmpty('Unknown');
+    }
+  }
+
+  String get durationLabel => _formatDuration(durationMs);
+
+  String get statusLabel {
+    switch (status) {
+      case 'recording':
+        return 'Recording';
+      case 'processing':
+        return 'Processing';
+      case 'completed':
+        return 'Completed';
+      case 'failed':
+        return 'Failed';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
+  Color get statusColor {
+    switch (status) {
+      case 'recording':
+        return _danger;
+      case 'processing':
+        return _warning;
+      case 'completed':
+        return _success;
+      case 'failed':
+        return _danger;
+      case 'cancelled':
+        return _textSecondary;
+      default:
+        return _textSecondary;
+    }
+  }
+}
+
+class RecordingSourceItem {
+  const RecordingSourceItem({
+    required this.sourceKey,
+    required this.sourceKind,
+    required this.mediaKind,
+    required this.durationMs,
+    required this.chunkCount,
+  });
+
+  factory RecordingSourceItem.fromJson(Map<dynamic, dynamic> json) {
+    return RecordingSourceItem(
+      sourceKey: json['sourceKey']?.toString() ?? '',
+      sourceKind: json['sourceKind']?.toString() ?? '',
+      mediaKind: json['mediaKind']?.toString() ?? '',
+      durationMs: _asInt(json['durationMs']),
+      chunkCount: _asInt(json['chunkCount']),
+    );
+  }
+
+  final String sourceKey;
+  final String sourceKind;
+  final String mediaKind;
+  final int durationMs;
+  final int chunkCount;
+
+  String get label {
+    switch (sourceKind) {
+      case 'screen-share':
+        return 'Screen';
+      case 'microphone':
+        return 'Microphone';
+      default:
+        return sourceKind.ifEmpty(sourceKey);
+    }
+  }
+
+  String get durationLabel => _formatDuration(durationMs);
+}
+
+class RecordingTranscriptSegment {
+  const RecordingTranscriptSegment({
+    required this.speaker,
+    required this.text,
+    required this.startMs,
+  });
+
+  factory RecordingTranscriptSegment.fromJson(Map<dynamic, dynamic> json) {
+    return RecordingTranscriptSegment(
+      speaker:
+          json['speaker']?.toString() ?? json['sourceKey']?.toString() ?? '',
+      text: json['text']?.toString() ?? '',
+      startMs: _asInt(json['startMs']),
+    );
+  }
+
+  final String speaker;
+  final String text;
+  final int startMs;
+
+  String get timestampLabel => _formatDuration(startMs);
+
+  String get displayText {
+    if (speaker.trim().isEmpty) {
+      return text;
+    }
+    return '${speaker.replaceAll('-', ' ')}: $text';
+  }
+}
+
 class RunDetailSnapshot {
   const RunDetailSnapshot({
     required this.run,
@@ -7304,6 +8033,7 @@ EdgeInsets _pagePadding(BuildContext context) {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
+    AppSection.recordings,
     AppSection.messaging,
     AppSection.runs,
     AppSection.logs,
@@ -7413,6 +8143,17 @@ String _formatTimeOnly(DateTime value) {
   final minute = value.minute.toString().padLeft(2, '0');
   final second = value.second.toString().padLeft(2, '0');
   return '$hour:$minute:$second';
+}
+
+String _formatDuration(int milliseconds) {
+  final totalSeconds = math.max(0, milliseconds ~/ 1000);
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 }
 
 String _formatNumber(int value) {

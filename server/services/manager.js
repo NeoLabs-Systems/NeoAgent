@@ -12,6 +12,7 @@ const { MessagingManager } = require('./messaging/manager');
 const { Scheduler } = require('./scheduler/cron');
 const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
+const { RecordingManager } = require('./recordings/manager');
 
 async function startServices(app, io) {
     try {
@@ -55,6 +56,9 @@ async function startServices(app, io) {
 
         messagingManager.restoreConnections().catch(err => console.error('[Messaging] Restore error:', err.message));
 
+        const recordingManager = new RecordingManager(io);
+        app.locals.recordingManager = recordingManager;
+
         const users = db.prepare('SELECT id FROM users').all();
         for (const u of users) {
             mcpClient.loadFromDB(u.id).catch(err => console.error('[MCP] Auto-start error:', err.message));
@@ -77,10 +81,15 @@ async function startServices(app, io) {
             messagingManager,
             mcpClient,
             scheduler,
+            recordingManager,
             memoryManager,
             app
         });
         app.locals.io = io;
+
+        recordingManager.resumePendingSessions().catch((err) => {
+            console.error('[Recordings] Resume error:', err.message);
+        });
 
         console.log('All services initialized');
     } catch (err) {

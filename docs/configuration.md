@@ -26,6 +26,9 @@ At least one API key is required. The active provider and model are configured i
 | `XAI_API_KEY` | Grok (xAI) |
 | `GOOGLE_AI_KEY` | Gemini (Google) |
 | `BRAVE_SEARCH_API_KEY` | Brave Search API for the native `web_search` tool |
+| `DEEPGRAM_API_KEY` | Recordings transcription with Deepgram Nova-3 multilingual |
+| `DEEPGRAM_MODEL` | Deepgram speech model override (defaults to `nova-3`) |
+| `DEEPGRAM_LANGUAGE` | Deepgram language override (defaults to `multi`) |
 | `OLLAMA_URL` | Local Ollama (`http://localhost:11434`) |
 
 ### Messaging
