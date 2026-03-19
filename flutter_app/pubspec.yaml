@@ -1,0 +1,27 @@
+name: neoagent_flutter
+description: NeoAgent client for Flutter web and Android.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_markdown: ^0.7.4+1
+  google_fonts: ^6.3.1
+  http: ^1.5.0
+  shared_preferences: ^2.5.3
+  socket_io_client: ^3.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - web/icons/Icon-192.png
