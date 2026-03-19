@@ -18,8 +18,9 @@ function generateTitle(task) {
   return cleaned.slice(0, 90);
 }
 
-function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null) {
-  const { SUPPORTED_MODELS, createProviderInstance } = require('./models');
+async function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null) {
+  const { getSupportedModels, createProviderInstance } = require('./models');
+  const models = await getSupportedModels();
 
   let enabledIds = [];
   let defaultChatModel = 'auto';
@@ -49,16 +50,16 @@ function getProviderForUser(userId, task = '', isSubagent = false, modelOverride
   }
 
   if (!Array.isArray(enabledIds) || enabledIds.length === 0) {
-    enabledIds = SUPPORTED_MODELS.map((m) => m.id);
+    enabledIds = models.map((m) => m.id);
   }
 
-  const availableModels = SUPPORTED_MODELS.filter((m) => enabledIds.includes(m.id));
-  const fallbackModel = availableModels.length > 0 ? availableModels[0] : SUPPORTED_MODELS[0];
+  const availableModels = models.filter((m) => enabledIds.includes(m.id));
+  const fallbackModel = availableModels.length > 0 ? availableModels[0] : models[0];
   let selectedModelDef = fallbackModel;
   const userSelectedDefault = isSubagent ? defaultSubagentModel : defaultChatModel;
 
   if (modelOverride && typeof modelOverride === 'string') {
-    const requested = SUPPORTED_MODELS.find((m) => m.id === modelOverride.trim());
+    const requested = models.find((m) => m.id === modelOverride.trim());
     if (requested && enabledIds.includes(requested.id)) {
       selectedModelDef = requested;
       return {
@@ -70,10 +71,10 @@ function getProviderForUser(userId, task = '', isSubagent = false, modelOverride
   }
 
   if (userSelectedDefault && userSelectedDefault !== 'auto') {
-    selectedModelDef = SUPPORTED_MODELS.find((m) => m.id === userSelectedDefault) || fallbackModel;
+    selectedModelDef = models.find((m) => m.id === userSelectedDefault) || fallbackModel;
   } else {
     const taskStr = String(task || '').toLowerCase();
-    
+
     // Basic detection
     let isPlanning = /\b(plan|think|analy[sz]e|complex|step by step)\b/.test(taskStr);
     let isCoding = false;
@@ -83,7 +84,7 @@ function getProviderForUser(userId, task = '', isSubagent = false, modelOverride
       isPlanning = isPlanning || /\b(reason|strategy|logical|math|complex)\b/.test(taskStr);
       isCoding = /\b(code|program|script|debug|refactor|function|implementation|logic)\b/.test(taskStr);
     }
-    
+
     if (isPlanning) {
       selectedModelDef = availableModels.find((m) => m.purpose === 'planning') || fallbackModel;
     } else if (isCoding) {
@@ -240,7 +241,7 @@ class AgentEngine {
     const triggerType = options.triggerType || 'user';
     ensureDefaultAiSettings(userId);
     const aiSettings = getAiSettings(userId);
-    const { provider, model, providerName } = getProviderForUser(userId, userMessage, triggerType === 'subagent', _modelOverride);
+    const { provider, model, providerName } = await getProviderForUser(userId, userMessage, triggerType === 'subagent', _modelOverride);
 
     const runId = options.runId || uuidv4();
     const conversationId = options.conversationId;
@@ -345,19 +346,19 @@ class AgentEngine {
             console.error(`[Engine] Model call failed (${model}):`, err.message);
             if (retryForFallback && aiSettings.fallback_model_id && aiSettings.fallback_model_id !== model) {
               console.log(`[Engine] Attempting fallback to: ${aiSettings.fallback_model_id}`);
-              const fallback = getProviderForUser(userId, userMessage, triggerType === 'subagent', aiSettings.fallback_model_id);
+              const fallback = await getProviderForUser(userId, userMessage, triggerType === 'subagent', aiSettings.fallback_model_id);
               // Update local state for the retry
               const nextProvider = fallback.provider;
               const nextModel = fallback.model;
               const nextProviderName = fallback.providerName;
-              
+
               // Recursive call once
               const retryOptions = { ...callOptions, model: nextModel, reasoningEffort: this.getReasoningEffort(nextProviderName, options) };
-              
+
               if (options.stream !== false) {
                 const gen = nextProvider.stream(messages, tools, retryOptions);
                 for await (const chunk of gen) {
-                   if (chunk.type === 'content') {
+                  if (chunk.type === 'content') {
                     streamContent += chunk.content;
                     this.emit(userId, 'run:stream', { runId, content: streamContent, iteration });
                   }

@@ -29,9 +29,10 @@ function readUpdateStatus() {
 }
 
 // Get supported models metadata
-router.get('/meta/models', (req, res) => {
-  const { SUPPORTED_MODELS } = require('../services/ai/models');
-  res.json({ models: SUPPORTED_MODELS });
+router.get('/meta/models', async (req, res) => {
+  const { getSupportedModels } = require('../services/ai/models');
+  const models = await getSupportedModels();
+  res.json({ models });
 });
 
 // Get all settings

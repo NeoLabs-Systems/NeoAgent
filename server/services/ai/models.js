@@ -3,7 +3,7 @@ const { OpenAIProvider } = require('./providers/openai');
 const { GoogleProvider } = require('./providers/google');
 const { OllamaProvider } = require('./providers/ollama');
 
-const SUPPORTED_MODELS = [
+const STATIC_MODELS = [
     {
         id: 'grok-4-1-fast-reasoning',
         label: 'Grok 4.1 (Personality / Default)',
@@ -54,6 +54,46 @@ const SUPPORTED_MODELS = [
     }
 ];
 
+let dynamicModels = [];
+let lastRefresh = 0;
+const REFRESH_INTERVAL = 30000; // 30 seconds
+
+async function getSupportedModels() {
+    const now = Date.now();
+    if (now - lastRefresh > REFRESH_INTERVAL) {
+        await refreshDynamicModels();
+    }
+
+    const all = [...STATIC_MODELS];
+    const staticIds = new Set(STATIC_MODELS.map(m => m.id));
+
+    for (const dm of dynamicModels) {
+        if (!staticIds.has(dm.id)) {
+            all.push(dm);
+        }
+    }
+
+    return all;
+}
+
+async function refreshDynamicModels() {
+    try {
+        const ollama = new OllamaProvider({ baseUrl: process.env.OLLAMA_URL });
+        const models = await ollama.listModels();
+
+        dynamicModels = models.map(name => ({
+            id: name,
+            label: `${name} (Ollama / Local)`,
+            provider: 'ollama',
+            purpose: 'general'
+        }));
+
+        lastRefresh = Date.now();
+    } catch (err) {
+        console.warn('[Models] Failed to refresh Ollama models:', err.message);
+    }
+}
+
 function createProviderInstance(providerStr) {
     if (providerStr === 'grok') {
         return new GrokProvider({ apiKey: process.env.XAI_API_KEY });
@@ -68,6 +108,7 @@ function createProviderInstance(providerStr) {
 }
 
 module.exports = {
-    SUPPORTED_MODELS,
+    SUPPORTED_MODELS: STATIC_MODELS, // Backward compatibility
+    getSupportedModels,
     createProviderInstance
 };
