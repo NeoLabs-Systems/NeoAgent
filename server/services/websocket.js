@@ -81,7 +81,7 @@ function setupWebSocket(io, services) {
             .run(userId, result.runId, 'assistant', result.content, JSON.stringify({ tokens: result.totalTokens }));
         }
 
-        const { provider, model } = getProviderForUser(userId, task, false, options?.model || null);
+        const { provider, model } = await getProviderForUser(userId, task, false, options?.model || null);
         refreshWebChatSummary(userId, provider, model, aiSettings.chat_history_window).catch((summaryErr) => {
           console.error('[WS] Web summary refresh failed:', summaryErr.message);
         });

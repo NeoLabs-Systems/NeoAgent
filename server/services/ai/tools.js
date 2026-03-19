@@ -4,44 +4,44 @@ const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 
 function compactText(text, maxChars = 120) {
-  const str = String(text || '').replace(/\s+/g, ' ').trim();
-  if (str.length <= maxChars) return str;
-  const trimmed = str.slice(0, maxChars);
-  const sentenceBreak = Math.max(trimmed.lastIndexOf('. '), trimmed.lastIndexOf('; '), trimmed.lastIndexOf(', '));
-  if (sentenceBreak > 40) return trimmed.slice(0, sentenceBreak + 1).trim();
-  return `${trimmed.trim()}...`;
+    const str = String(text || '').replace(/\s+/g, ' ').trim();
+    if (str.length <= maxChars) return str;
+    const trimmed = str.slice(0, maxChars);
+    const sentenceBreak = Math.max(trimmed.lastIndexOf('. '), trimmed.lastIndexOf('; '), trimmed.lastIndexOf(', '));
+    if (sentenceBreak > 40) return trimmed.slice(0, sentenceBreak + 1).trim();
+    return `${trimmed.trim()}...`;
 }
 
 function compactToolDefinition(tool, options = {}) {
-  const compact = {
-    name: tool.name,
-    parameters: {
-      ...(tool.parameters || { type: 'object', properties: {} }),
-      properties: {}
-    }
-  };
-
-  if (options.includeDescriptions) {
-    compact.description = compactText(tool.description, 120);
-  }
-
-  if (tool.parameters?.properties) {
-    const properties = {};
-    for (const [key, value] of Object.entries(tool.parameters.properties)) {
-      properties[key] = { ...value };
-      if (options.includeDescriptions && value.description) {
-        properties[key].description = compactText(value.description, 70);
-      } else {
-        delete properties[key].description;
-      }
-    }
-    compact.parameters = {
-      ...compact.parameters,
-      properties
+    const compact = {
+        name: tool.name,
+        parameters: {
+            ...(tool.parameters || { type: 'object', properties: {} }),
+            properties: {}
+        }
     };
-  }
 
-  return compact;
+    if (options.includeDescriptions) {
+        compact.description = compactText(tool.description, 120);
+    }
+
+    if (tool.parameters?.properties) {
+        const properties = {};
+        for (const [key, value] of Object.entries(tool.parameters.properties)) {
+            properties[key] = { ...value };
+            if (options.includeDescriptions && value.description) {
+                properties[key].description = compactText(value.description, 70);
+            } else {
+                delete properties[key].description;
+            }
+        }
+        compact.parameters = {
+            ...compact.parameters,
+            properties
+        };
+    }
+
+    return compact;
 }
 
 /**
@@ -1199,7 +1199,7 @@ async function executeTool(toolName, args, context, engine) {
                 const mimeMap = { '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
                 const mime = mimeMap[ext] || 'image/jpeg';
                 const { getProviderForUser } = require('./engine');
-                const { provider: visionProvider, model: visionModel } = getProviderForUser(userId);
+                const { provider: visionProvider, model: visionModel } = await getProviderForUser(userId);
                 const visionResponse = await visionProvider.chat(
                     [{
                         role: 'user', content: [

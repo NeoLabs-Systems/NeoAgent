@@ -11,13 +11,10 @@ const {
 } = require('./embeddings');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 
-/**
- * Derive the active AI provider name from user settings so the right
- * embedding model is selected automatically (e.g. Gemini when using Google).
- */
-function getActiveProvider(userId) {
+async function getActiveProvider(userId) {
   try {
-    const { SUPPORTED_MODELS } = require('../ai/models');
+    const { getSupportedModels } = require('../ai/models');
+    const models = await getSupportedModels();
     const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?)')
       .all(userId || 1, 'default_chat_model', 'enabled_models');
 
@@ -36,7 +33,7 @@ function getActiveProvider(userId) {
       : (Array.isArray(enabledIds) && enabledIds.length > 0 ? enabledIds[0] : null);
 
     if (modelId) {
-      const def = SUPPORTED_MODELS.find(m => m.id === modelId);
+      const def = models.find(m => m.id === modelId);
       if (def) return def.provider;
     }
   } catch { }
@@ -118,7 +115,7 @@ class MemoryManager {
     category = CATEGORIES.includes(category) ? category : 'episodic';
     importance = Math.max(1, Math.min(10, Number(importance) || 5));
 
-    const embedding = await getEmbedding(content, getActiveProvider(userId));
+    const embedding = await getEmbedding(content, await getActiveProvider(userId));
 
     // Dedup check: compare against existing non-archived memories for this user
     const existing = db.prepare(
@@ -171,7 +168,7 @@ class MemoryManager {
 
     if (!all.length) return [];
 
-    const queryVec = await getEmbedding(query, getActiveProvider(userId));
+    const queryVec = await getEmbedding(query, await getActiveProvider(userId));
 
     const scored = all.map(mem => {
       let score = 0;
@@ -235,7 +232,7 @@ class MemoryManager {
 
     let newEmbed = mem.embedding;
     if (content && content !== mem.content) {
-      const vec = await getEmbedding(newContent, getActiveProvider(null));
+      const vec = await getEmbedding(newContent, await getActiveProvider(null));
       newEmbed = vec ? serializeEmbedding(vec) : mem.embedding;
     }
 
