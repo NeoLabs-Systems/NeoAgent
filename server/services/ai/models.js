@@ -29,22 +29,10 @@ const STATIC_MODELS = [
         purpose: 'general'
     },
     {
-        id: 'llama3.1:8b',
-        label: 'Llama 3.1 8B (Local / General)',
+        id: 'qwen2.5-coder:7b-instruct',
+        label: 'Qwen 2.5 Coder 7B Instruct (Local / General)',
         provider: 'ollama',
         purpose: 'general'
-    },
-    {
-        id: 'phi4-mini',
-        label: 'Phi-4 Mini (Local / Fast)',
-        provider: 'ollama',
-        purpose: 'fast'
-    },
-    {
-        id: 'phi4',
-        label: 'Phi-4 (Local / Planning)',
-        provider: 'ollama',
-        purpose: 'planning'
     },
     {
         id: 'qwen2.5-coder:7b',
