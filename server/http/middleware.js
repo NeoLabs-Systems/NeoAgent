@@ -21,7 +21,8 @@ function buildHelmetOptions({ secureCookies }) {
           "'unsafe-inline'",
           "'unsafe-eval'",
           'blob:',
-          'https://cdn.jsdelivr.net'
+          'https://cdn.jsdelivr.net',
+          'https://www.gstatic.com'
         ],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
@@ -30,6 +31,7 @@ function buildHelmetOptions({ secureCookies }) {
           "'self'",
           'https://fonts.googleapis.com',
           'https://fonts.gstatic.com',
+          'https://www.gstatic.com',
           ...wsConnectSrc
         ],
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
