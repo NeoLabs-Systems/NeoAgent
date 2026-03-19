@@ -61,6 +61,14 @@ function createSessionMiddleware({ secureCookies }) {
 }
 
 function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOrigin }) {
+  const rawRecordingChunkBody = require('express').raw({ limit: '50mb', type: '*/*' });
+  const jsonBody = require('express').json({ limit: '10mb' });
+  const urlencodedBody = require('express').urlencoded({ extended: true });
+  const isRecordingChunkPath = (value = '') => {
+    const path = `${value}`.split('?')[0];
+    return /^\/api\/recordings\/[^/]+\/chunks$/i.test(path);
+  };
+
   if (secureCookies) {
     app.set('trust proxy', 1);
   }
@@ -72,8 +80,24 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
       credentials: true
     })
   );
-  app.use(require('express').json({ limit: '10mb' }));
-  app.use(require('express').urlencoded({ extended: true }));
+  app.use((req, res, next) => {
+    if (isRecordingChunkPath(req.originalUrl || req.url || req.path)) {
+      return rawRecordingChunkBody(req, res, next);
+    }
+    return next();
+  });
+  app.use((req, res, next) => {
+    if (isRecordingChunkPath(req.originalUrl || req.url || req.path)) {
+      return next();
+    }
+    return jsonBody(req, res, next);
+  });
+  app.use((req, res, next) => {
+    if (isRecordingChunkPath(req.originalUrl || req.url || req.path)) {
+      return next();
+    }
+    return urlencodedBody(req, res, next);
+  });
   app.use(sessionMiddleware);
 }
 

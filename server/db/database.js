@@ -256,6 +256,78 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_health_sync_runs_user ON health_sync_runs(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_health_metric_samples_user ON health_metric_samples(user_id, metric_type, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_health_metric_samples_time ON health_metric_samples(user_id, start_time DESC, end_time DESC);
+
+  CREATE TABLE IF NOT EXISTS recording_sessions (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    title TEXT,
+    platform TEXT DEFAULT 'unknown',
+    status TEXT DEFAULT 'recording',
+    transcript_text TEXT,
+    transcript_language TEXT,
+    transcript_model TEXT,
+    started_at TEXT DEFAULT (datetime('now')),
+    ended_at TEXT,
+    duration_ms INTEGER DEFAULT 0,
+    last_error TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS recording_sources (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    source_key TEXT NOT NULL,
+    source_kind TEXT NOT NULL,
+    media_kind TEXT NOT NULL,
+    mime_type TEXT,
+    status TEXT DEFAULT 'recording',
+    chunk_count INTEGER DEFAULT 0,
+    bytes_received INTEGER DEFAULT 0,
+    duration_ms INTEGER DEFAULT 0,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (session_id) REFERENCES recording_sessions(id) ON DELETE CASCADE,
+    UNIQUE(session_id, source_key)
+  );
+
+  CREATE TABLE IF NOT EXISTS recording_chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id TEXT NOT NULL,
+    sequence_index INTEGER NOT NULL,
+    start_ms INTEGER DEFAULT 0,
+    end_ms INTEGER DEFAULT 0,
+    byte_count INTEGER DEFAULT 0,
+    mime_type TEXT,
+    file_path TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (source_id) REFERENCES recording_sources(id) ON DELETE CASCADE,
+    UNIQUE(source_id, sequence_index)
+  );
+
+  CREATE TABLE IF NOT EXISTS recording_transcript_segments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    source_id TEXT,
+    source_key TEXT,
+    speaker TEXT,
+    text TEXT NOT NULL,
+    start_ms INTEGER DEFAULT 0,
+    end_ms INTEGER DEFAULT 0,
+    confidence REAL,
+    words_json TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (session_id) REFERENCES recording_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_id) REFERENCES recording_sources(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_recording_sessions_user ON recording_sessions(user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_recording_sources_session ON recording_sources(session_id, source_key);
+  CREATE INDEX IF NOT EXISTS idx_recording_chunks_source ON recording_chunks(source_id, sequence_index);
+  CREATE INDEX IF NOT EXISTS idx_recording_segments_session ON recording_transcript_segments(session_id, start_ms, created_at);
 `);
 
 try {
@@ -320,6 +392,9 @@ for (const col of [
   "ALTER TABLE conversations ADD COLUMN summary TEXT",
   "ALTER TABLE conversations ADD COLUMN summary_message_count INTEGER DEFAULT 0",
   "ALTER TABLE conversations ADD COLUMN last_summary TEXT",
+  "ALTER TABLE recording_sessions ADD COLUMN transcript_language TEXT",
+  "ALTER TABLE recording_sessions ADD COLUMN transcript_model TEXT",
+  "ALTER TABLE recording_sessions ADD COLUMN duration_ms INTEGER DEFAULT 0",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }

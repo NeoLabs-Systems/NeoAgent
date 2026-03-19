@@ -27,8 +27,23 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Build bundled web client
+        run: NEOAGENT_BACKEND_URL= npm run flutter:build:web
+
+      - name: Verify production web bundle
+        run: |
+          if rg -n "http://localhost:3333|127\\.0\\.0\\.1:3333" server/public/main.dart.js; then
+            echo "Bundled web client still points at localhost."
+            exit 1
+          fi
 
       - name: Check npm auth
         env:
