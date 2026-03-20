@@ -86,8 +86,10 @@ class TelegramPlatform extends BasePlatform {
   _checkAccess(msg) {
     const userId = String(msg.from.id);
     const chatId = String(msg.chat.id); // negative for groups
+    const isPrivate = msg.chat.type === 'private';
 
-    if (this.allowedEntries.size === 0) return { allowed: false, requireMention: false };
+    // Default behavior with no allow-list: respond in private chats and require @mention in groups.
+    if (this.allowedEntries.size === 0) return { allowed: true, requireMention: !isPrivate };
 
     if (super._checkAccess(`user:${userId}`)) return { allowed: true, requireMention: false };
     if (super._checkAccess(userId)) return { allowed: true, requireMention: false }; // legacy

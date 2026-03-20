@@ -65,6 +65,30 @@ class DiscordPlatform extends BasePlatform {
 
       this._client.once('error', (err) => { clearTimeout(timeout); reject(err); });
       this._client.on('error', (err) => console.error('[Discord] Client error:', err.message));
+      this._client.on('shardDisconnect', (event, shardId) => {
+        this.status = 'disconnected';
+        console.warn(`[Discord] Shard ${shardId} disconnected (${event?.code || 'unknown'})`);
+        this.emit('disconnected', {
+          manual: false,
+          shardId,
+          code: event?.code || null,
+          reason: event?.reason || null,
+        });
+      });
+      this._client.on('shardReconnecting', (shardId) => {
+        this.status = 'connecting';
+        console.log(`[Discord] Shard ${shardId} reconnecting`);
+      });
+      this._client.on('shardResume', (_replayedEvents, shardId) => {
+        this.status = 'connected';
+        console.log(`[Discord] Shard ${shardId} resumed`);
+        this.emit('connected');
+      });
+      this._client.on('invalidated', () => {
+        this.status = 'logged_out';
+        console.warn('[Discord] Session invalidated');
+        this.emit('logged_out');
+      });
       this._client.on('messageCreate', (msg) => this._handleMessage(msg));
 
       this._client.login(this.token).catch((err) => { clearTimeout(timeout); reject(err); });
@@ -88,8 +112,11 @@ class DiscordPlatform extends BasePlatform {
 
   /** Returns {allowed, requireMention} */
   _checkAccess(message) {
-    // Empty whitelist: block everyone (add via the allow popup)
-    if (this.allowedEntries.size === 0) return { allowed: false, requireMention: false };
+    // Default behavior with no allow-list: respond in DMs and require a mention in guilds.
+    if (this.allowedEntries.size === 0) {
+      const isDM = message.channel.type === ChannelType.DM;
+      return { allowed: true, requireMention: !isDM };
+    }
 
     // Check prefixed entries
     const userId = message.author.id;
