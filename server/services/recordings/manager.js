@@ -441,9 +441,7 @@ class RecordingManager {
         }
       })();
 
-      const transcriptText = ordered
-        .map((segment) => `[${this.#formatTimestamp(segment.startMs)}] ${segment.text}`)
-        .join('\n');
+      const transcriptText = this.#composeTranscriptText(ordered);
       db.prepare(`
         UPDATE recording_sessions
         SET
@@ -485,6 +483,57 @@ class RecordingManager {
       this.#emitUpdate(userId, sessionId);
       throw error;
     }
+
+    this.#emitUpdate(userId, sessionId);
+    return this.getSession(userId, sessionId);
+  }
+
+  deleteTranscriptSegment(userId, sessionId, segmentId) {
+    const session = db.prepare(`
+      SELECT id
+      FROM recording_sessions
+      WHERE id = ? AND user_id = ?
+    `).get(sessionId, userId);
+    if (!session) {
+      throw new Error('Recording session not found.');
+    }
+
+    const normalizedSegmentId = Number(segmentId);
+    if (!Number.isInteger(normalizedSegmentId) || normalizedSegmentId <= 0) {
+      throw new Error('segmentId must be a positive integer.');
+    }
+
+    const segment = db.prepare(`
+      SELECT id
+      FROM recording_transcript_segments
+      WHERE session_id = ? AND id = ?
+    `).get(sessionId, normalizedSegmentId);
+    if (!segment) {
+      throw new Error('Transcript segment not found.');
+    }
+
+    const now = new Date().toISOString();
+    let transcriptText = '';
+    db.transaction(() => {
+      db.prepare(`
+        DELETE FROM recording_transcript_segments
+        WHERE session_id = ? AND id = ?
+      `).run(sessionId, normalizedSegmentId);
+
+      const remainingSegments = db.prepare(`
+        SELECT start_ms, text
+        FROM recording_transcript_segments
+        WHERE session_id = ?
+        ORDER BY start_ms ASC, id ASC
+      `).all(sessionId);
+      transcriptText = this.#composeTranscriptText(remainingSegments);
+
+      db.prepare(`
+        UPDATE recording_sessions
+        SET transcript_text = ?, updated_at = ?
+        WHERE id = ?
+      `).run(transcriptText, now, sessionId);
+    })();
 
     this.#emitUpdate(userId, sessionId);
     return this.getSession(userId, sessionId);
@@ -675,6 +724,20 @@ class RecordingManager {
       confidence: row.confidence == null ? null : Number(row.confidence),
       words: this.#parseJson(row.words_json, []),
     };
+  }
+
+  #composeTranscriptText(segments) {
+    return (Array.isArray(segments) ? segments : [])
+      .map((segment) => {
+        const startMs = Number(segment.startMs ?? segment.start_ms) || 0;
+        const text = `${segment.text || ''}`.trim();
+        if (!text) {
+          return null;
+        }
+        return `[${this.#formatTimestamp(startMs)}] ${text}`;
+      })
+      .filter((line) => line != null)
+      .join('\n');
   }
 
   #emitUpdate(userId, sessionId) {

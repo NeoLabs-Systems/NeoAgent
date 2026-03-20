@@ -1006,6 +1006,39 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteRecordingSegment(String sessionId, int segmentId) async {
+    try {
+      errorMessage = null;
+      final response = await _backendClient.deleteRecordingTranscriptSegment(
+        backendUrl,
+        sessionId,
+        segmentId,
+      );
+      final session = RecordingSessionItem.fromJson(
+        _jsonMap(response['session']),
+      );
+      final existingIndex = recordingSessions.indexWhere(
+        (item) => item.id == session.id,
+      );
+      if (existingIndex >= 0) {
+        recordingSessions = <RecordingSessionItem>[
+          ...recordingSessions.sublist(0, existingIndex),
+          session,
+          ...recordingSessions.sublist(existingIndex + 1),
+        ];
+      } else {
+        recordingSessions = <RecordingSessionItem>[
+          session,
+          ...recordingSessions,
+        ];
+      }
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
   Future<void> refreshUpdateStatus() async {
     try {
       updateStatus = UpdateStatusSnapshot.fromJson(
@@ -2538,6 +2571,21 @@ class RecordingsPanel extends StatelessWidget {
 
   final NeoAgentController controller;
 
+  Future<void> _deleteSegment(
+    BuildContext context,
+    RecordingSessionItem session,
+    RecordingTranscriptSegment segment,
+  ) async {
+    await _confirmDelete(
+      context,
+      title: 'Delete segment?',
+      message:
+          'Remove the transcript segment at ${segment.timestampLabel} from "${session.title}"?',
+      onConfirm: () =>
+          controller.deleteRecordingSegment(session.id, segment.id),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final runtime = controller.recordingRuntime;
@@ -2680,6 +2728,8 @@ class RecordingsPanel extends StatelessWidget {
                 onRetry: session.status == 'failed'
                     ? () => controller.retryRecording(session.id)
                     : null,
+                onDeleteSegment: (segment) =>
+                    _deleteSegment(context, session, segment),
               ),
             ),
           ),
@@ -2689,10 +2739,16 @@ class RecordingsPanel extends StatelessWidget {
 }
 
 class _RecordingSessionCard extends StatelessWidget {
-  const _RecordingSessionCard({required this.session, this.onRetry});
+  const _RecordingSessionCard({
+    required this.session,
+    this.onRetry,
+    this.onDeleteSegment,
+  });
 
   final RecordingSessionItem session;
   final VoidCallback? onRetry;
+  final Future<void> Function(RecordingTranscriptSegment segment)?
+  onDeleteSegment;
 
   @override
   Widget build(BuildContext context) {
@@ -2765,31 +2821,41 @@ class _RecordingSessionCard extends StatelessWidget {
               ),
             if (session.transcriptSegments.isNotEmpty) ...<Widget>[
               const SizedBox(height: 16),
-              ...session.transcriptSegments
-                  .take(16)
-                  .map(
-                    (segment) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          SizedBox(
-                            width: 88,
-                            child: Text(
-                              segment.timestampLabel,
-                              style: const TextStyle(color: _textSecondary),
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              segment.displayText,
-                              style: const TextStyle(height: 1.45),
-                            ),
-                          ),
-                        ],
+              ...session.transcriptSegments.map(
+                (segment) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      SizedBox(
+                        width: 88,
+                        child: Text(
+                          segment.timestampLabel,
+                          style: const TextStyle(color: _textSecondary),
+                        ),
                       ),
-                    ),
+                      Expanded(
+                        child: Text(
+                          segment.displayText,
+                          style: const TextStyle(height: 1.45),
+                        ),
+                      ),
+                      if (onDeleteSegment != null &&
+                          segment.id > 0) ...<Widget>[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () async {
+                            await onDeleteSegment!(segment);
+                          },
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: 'Delete segment',
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ],
                   ),
+                ),
+              ),
             ] else if (session.transcriptText.isNotEmpty) ...<Widget>[
               const SizedBox(height: 16),
               Text(
@@ -8152,6 +8218,7 @@ class RecordingSourceItem {
 
 class RecordingTranscriptSegment {
   const RecordingTranscriptSegment({
+    required this.id,
     required this.speaker,
     required this.text,
     required this.startMs,
@@ -8159,6 +8226,7 @@ class RecordingTranscriptSegment {
 
   factory RecordingTranscriptSegment.fromJson(Map<dynamic, dynamic> json) {
     return RecordingTranscriptSegment(
+      id: _asInt(json['id']),
       speaker:
           json['speaker']?.toString() ?? json['sourceKey']?.toString() ?? '',
       text: json['text']?.toString() ?? '',
@@ -8166,6 +8234,7 @@ class RecordingTranscriptSegment {
     );
   }
 
+  final int id;
   final String speaker;
   final String text;
   final int startMs;
