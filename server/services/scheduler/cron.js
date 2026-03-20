@@ -108,7 +108,7 @@ class Scheduler {
     }
   }
 
-  createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null, runAt = null, oneTime = false }) {
+  createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null, model = null, runAt = null, oneTime = false }) {
     if (oneTime) {
       if (!runAt) throw new Error('runAt is required for one-time tasks');
       const runAtDate = new Date(runAt);
@@ -116,12 +116,13 @@ class Scheduler {
 
       const config = { prompt };
       if (callTo) { config.callTo = callTo; config.callGreeting = callGreeting || ''; }
+      if (typeof model === 'string' && model.trim()) config.model = model.trim();
 
       const result = db.prepare(
         'INSERT INTO scheduled_tasks (user_id, name, cron_expression, run_at, one_time, task_type, task_config, enabled) VALUES (?, ?, NULL, ?, 1, ?, ?, ?)'
       ).run(userId, name, runAtDate.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ''), 'agent_prompt', JSON.stringify(config), enabled ? 1 : 0);
 
-      return { id: result.lastInsertRowid, name, runAt: runAtDate.toISOString(), oneTime: true, enabled };
+      return { id: result.lastInsertRowid, name, runAt: runAtDate.toISOString(), oneTime: true, enabled, model: config.model || null };
     }
 
     if (!cronExpression || !cron.validate(cronExpression)) {
@@ -130,6 +131,7 @@ class Scheduler {
 
     const config = { prompt };
     if (callTo) { config.callTo = callTo; config.callGreeting = callGreeting || ''; }
+    if (typeof model === 'string' && model.trim()) config.model = model.trim();
 
     const result = db.prepare(
       'INSERT INTO scheduled_tasks (user_id, name, cron_expression, task_type, task_config, enabled) VALUES (?, ?, ?, ?, ?, ?)'
@@ -141,7 +143,7 @@ class Scheduler {
       this._scheduleTask(taskId, userId, cronExpression, config);
     }
 
-    return { id: taskId, name, cronExpression, enabled, callTo: config.callTo || null };
+    return { id: taskId, name, cronExpression, enabled, callTo: config.callTo || null, model: config.model || null };
   }
 
   updateTask(taskId, userId, updates) {
@@ -157,6 +159,13 @@ class Scheduler {
     if (updates.prompt !== undefined) config.prompt = updates.prompt;
     if (updates.callTo !== undefined) config.callTo = updates.callTo || null;
     if (updates.callGreeting !== undefined) config.callGreeting = updates.callGreeting || null;
+    if (updates.model !== undefined) {
+      if (typeof updates.model === 'string' && updates.model.trim()) {
+        config.model = updates.model.trim();
+      } else {
+        delete config.model;
+      }
+    }
     // Clean up nulls
     if (!config.callTo) { delete config.callTo; delete config.callGreeting; }
 
@@ -178,7 +187,7 @@ class Scheduler {
       this._scheduleTask(taskId, userId, cronExpr, config);
     }
 
-    return { id: taskId, name, cronExpression: cronExpr, enabled, callTo: config.callTo || null };
+    return { id: taskId, name, cronExpression: cronExpr, enabled, callTo: config.callTo || null, model: config.model || null };
   }
 
   deleteTask(taskId, userId) {
@@ -197,17 +206,21 @@ class Scheduler {
 
   listTasks(userId) {
     const tasks = db.prepare('SELECT * FROM scheduled_tasks WHERE user_id = ? ORDER BY created_at DESC').all(userId);
-    return tasks.map(t => ({
-      id: t.id,
-      name: t.name,
-      cronExpression: t.cron_expression,
-      runAt: t.run_at || null,
-      oneTime: !!t.one_time,
-      enabled: !!t.enabled,
-      lastRun: t.last_run,
-      nextRun: t.one_time ? t.run_at : this._getNextRun(t.cron_expression),
-      config: JSON.parse(t.task_config || '{}')
-    }));
+    return tasks.map(t => {
+      const config = JSON.parse(t.task_config || '{}');
+      return {
+        id: t.id,
+        name: t.name,
+        cronExpression: t.cron_expression,
+        runAt: t.run_at || null,
+        oneTime: !!t.one_time,
+        enabled: !!t.enabled,
+        lastRun: t.last_run,
+        nextRun: t.one_time ? t.run_at : this._getNextRun(t.cron_expression),
+        config,
+        model: config.model || null
+      };
+    });
   }
 
   runTaskNow(taskId, userId) {
@@ -248,13 +261,16 @@ class Scheduler {
 
         const convId = this._getMessagingConversation(userId);
 
-        const result = await this.agentEngine.run(userId, config.prompt + notifyHint, {
+        const runOptions = {
           triggerType: 'scheduler',
           triggerSource: 'scheduler',
           app: this.app,
           ...(convId ? { conversationId: convId } : {}),
           taskId,
-        });
+        };
+        const result = typeof this.agentEngine.runWithModel === 'function'
+          ? await this.agentEngine.runWithModel(userId, config.prompt + notifyHint, runOptions, config.model || null)
+          : await this.agentEngine.run(userId, config.prompt + notifyHint, runOptions);
         this.io.to(`user:${userId}`).emit('scheduler:task_complete', { taskId, result });
       }
     } catch (err) {

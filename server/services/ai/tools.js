@@ -437,6 +437,7 @@ function getAvailableTools(app, options = {}) {
                     cron_expression: { type: 'string', description: 'Cron expression for the schedule, e.g. "0 9 * * 1-5" for weekdays at 9am, "*/30 * * * *" for every 30 minutes. Use standard 5-field cron syntax.' },
                     prompt: { type: 'string', description: 'The prompt/instructions the agent will run when triggered. Be specific about what to do and who to notify.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately (default true)' },
+                    model: { type: 'string', description: 'Optional specific AI model ID to force for this task. Omit to use the normal automatic/default model selection.' },
                     call_to: { type: 'string', description: 'E.164 phone number to call via Telnyx when this task fires, e.g. "+12125550100".' },
                     call_greeting: { type: 'string', description: 'Opening sentence spoken to the user when the call is answered. Required if call_to is set.' }
                 },
@@ -452,6 +453,7 @@ function getAvailableTools(app, options = {}) {
                     name: { type: 'string', description: 'Short descriptive name, e.g. "Remind about meeting"' },
                     run_at: { type: 'string', description: 'ISO 8601 datetime when the run should fire, e.g. "2026-03-09T22:00:00"' },
                     prompt: { type: 'string', description: 'The prompt/instructions the agent will execute at that time. Be specific.' },
+                    model: { type: 'string', description: 'Optional specific AI model ID to force for this run. Omit to use the normal automatic/default model selection.' },
                     call_to: { type: 'string', description: 'Optional E.164 phone number to call via Telnyx when this fires.' },
                     call_greeting: { type: 'string', description: 'Opening sentence spoken when the Telnyx call is answered.' }
                 },
@@ -485,6 +487,7 @@ function getAvailableTools(app, options = {}) {
                     cron_expression: { type: 'string', description: 'New cron expression, e.g. "0 8 * * *" for daily at 8am' },
                     prompt: { type: 'string', description: 'New prompt/instructions for the task' },
                     enabled: { type: 'boolean', description: 'Enable or disable the task' },
+                    model: { type: 'string', description: 'Specific AI model ID for this task. Set to empty string to clear the override and go back to automatic/default selection.' },
                     call_to: { type: 'string', description: 'E.164 phone number to call via Telnyx when this task fires. Set to empty string to remove.' },
                     call_greeting: { type: 'string', description: 'New opening sentence spoken when the Telnyx call is answered.' }
                 },
@@ -997,6 +1000,7 @@ async function executeTool(toolName, args, context, engine) {
                     cronExpression: args.cron_expression,
                     prompt: args.prompt,
                     enabled: args.enabled !== false,
+                    model: args.model || null,
                     callTo: args.call_to || null,
                     callGreeting: args.call_greeting || null
                 });
@@ -1016,6 +1020,7 @@ async function executeTool(toolName, args, context, engine) {
                     prompt: args.prompt,
                     runAt: args.run_at,
                     oneTime: true,
+                    model: args.model || null,
                     callTo: args.call_to || null,
                     callGreeting: args.call_greeting || null
                 });
@@ -1052,6 +1057,7 @@ async function executeTool(toolName, args, context, engine) {
                 if (args.cron_expression !== undefined) updates.cronExpression = args.cron_expression;
                 if (args.prompt !== undefined) updates.prompt = args.prompt;
                 if (args.enabled !== undefined) updates.enabled = args.enabled;
+                if (args.model !== undefined) updates.model = args.model || null;
                 if (args.call_to !== undefined) updates.callTo = args.call_to || null;
                 if (args.call_greeting !== undefined) updates.callGreeting = args.call_greeting || null;
                 const updated = s.updateTask(args.task_id, userId, updates);

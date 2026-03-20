@@ -1380,6 +1380,7 @@ class NeoAgentController extends ChangeNotifier {
     required String name,
     required String cronExpression,
     required String prompt,
+    String? model,
     bool enabled = true,
   }) async {
     await _backendClient.saveSchedulerTask(
@@ -1388,6 +1389,7 @@ class NeoAgentController extends ChangeNotifier {
       name: name,
       cronExpression: cronExpression,
       prompt: prompt,
+      model: model,
       enabled: enabled,
     );
     await refreshScheduler();
@@ -6369,6 +6371,13 @@ class SchedulerPanel extends StatelessWidget {
                           fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                         ),
                       ),
+                      if (task.hasModelOverride) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Model: ${_modelLabelForValue(task.model, controller.supportedModels)}',
+                          style: const TextStyle(color: _textSecondary),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Text(
                         task.prompt,
@@ -6433,6 +6442,11 @@ class SchedulerPanel extends StatelessWidget {
     );
     final promptController = TextEditingController(text: task?.prompt ?? '');
     var enabled = task?.enabled ?? true;
+    var selectedModel = _ensureModelValue(
+      task?.model ?? 'auto',
+      controller.supportedModels,
+      allowAuto: true,
+    );
 
     await showDialog<void>(
       context: context,
@@ -6467,6 +6481,28 @@ class SchedulerPanel extends StatelessWidget {
                         decoration: const InputDecoration(labelText: 'Prompt'),
                       ),
                       const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedModel,
+                        decoration: const InputDecoration(
+                          labelText: 'Model Override',
+                        ),
+                        items: <DropdownMenuItem<String>>[
+                          const DropdownMenuItem<String>(
+                            value: 'auto',
+                            child: Text('Auto (default routing)'),
+                          ),
+                          ...controller.supportedModels.map(
+                            (model) => DropdownMenuItem<String>(
+                              value: model.id,
+                              child: Text(model.label),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) => setLocalState(
+                          () => selectedModel = value ?? 'auto',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       SwitchListTile(
                         value: enabled,
                         contentPadding: EdgeInsets.zero,
@@ -6490,6 +6526,7 @@ class SchedulerPanel extends StatelessWidget {
                       name: nameController.text.trim(),
                       cronExpression: cronController.text.trim(),
                       prompt: promptController.text.trim(),
+                      model: selectedModel == 'auto' ? null : selectedModel,
                       enabled: enabled,
                     );
                     if (context.mounted) {
@@ -8841,6 +8878,7 @@ class SchedulerTask {
     required this.name,
     required this.cronExpression,
     required this.prompt,
+    required this.model,
     required this.enabled,
     required this.lastRun,
   });
@@ -8858,6 +8896,11 @@ class SchedulerTask {
             config['prompt']?.toString() ?? '',
           ) ??
           '',
+      model:
+          json['model']?.toString().ifEmpty(
+            config['model']?.toString() ?? '',
+          ) ??
+          '',
       enabled: json['enabled'] != false,
       lastRun: _parseOptionalTimestamp(json['lastRun']?.toString()),
     );
@@ -8867,10 +8910,12 @@ class SchedulerTask {
   final String name;
   final String cronExpression;
   final String prompt;
+  final String model;
   final bool enabled;
   final DateTime? lastRun;
 
   String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
+  bool get hasModelOverride => model.trim().isNotEmpty;
 }
 
 class McpServerItem {
@@ -9057,6 +9102,18 @@ String _ensureModelValue(
     return 'auto';
   }
   return models.isNotEmpty ? models.first.id : value;
+}
+
+String _modelLabelForValue(String value, List<ModelMeta> models) {
+  if (value == 'auto' || value.trim().isEmpty) {
+    return 'Auto';
+  }
+  for (final model in models) {
+    if (model.id == value) {
+      return model.label;
+    }
+  }
+  return value;
 }
 
 Map<String, dynamic> _jsonMap(dynamic value) {
