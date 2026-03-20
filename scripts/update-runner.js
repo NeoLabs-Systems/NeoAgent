@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
+const path = require('path');
 const { spawnSync } = require('child_process');
 const {
   APP_DIR,

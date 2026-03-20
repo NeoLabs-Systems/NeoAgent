@@ -1,5 +1,6 @@
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
@@ -26,6 +27,17 @@ function readUpdateStatus() {
       logs: []
     };
   }
+}
+
+function writeUpdateStatus(patch) {
+  const next = {
+    ...readUpdateStatus(),
+    ...patch,
+    updatedAt: new Date().toISOString()
+  };
+  fs.mkdirSync(path.dirname(UPDATE_STATUS_FILE), { recursive: true });
+  fs.writeFileSync(UPDATE_STATUS_FILE, JSON.stringify(next, null, 2));
+  return next;
 }
 
 // Get supported models metadata
@@ -221,12 +233,32 @@ router.post('/update', (req, res) => {
     return res.status(409).json({ success: false, error: 'An update is already running' });
   }
   console.log('[Settings] Triggering update-runner...');
+  writeUpdateStatus({
+    state: 'running',
+    progress: 1,
+    phase: 'starting',
+    message: 'Launching update job',
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    changelog: [],
+    logs: []
+  });
 
   // Spawn detached runner so status survives server restarts.
   const child = spawn(process.execPath, ['scripts/update-runner.js'], {
     detached: true,
     stdio: 'ignore',
     cwd: APP_DIR
+  });
+
+  child.once('error', (error) => {
+    writeUpdateStatus({
+      state: 'failed',
+      progress: 100,
+      phase: 'failed',
+      message: `Failed to launch update job: ${error.message}`,
+      completedAt: new Date().toISOString()
+    });
   });
 
   child.unref();

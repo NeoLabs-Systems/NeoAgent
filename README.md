@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-MIT-a855f7?style=flat-square)](LICENSE)
 
 A self-hosted, proactive AI agent with a Flutter client for web and Android.  
-Connects to OpenAI, xAI, Google, and local Ollama with `qwen3.5:4b`.  
+Connects to OpenAI, xAI, Google, and local Ollama.  
 Runs tasks on a schedule, controls a browser, manages files, and talks to you over Telegram, Discord, or WhatsApp.
 
 ```bash
@@ -18,31 +18,11 @@ npm install -g neoagent
 neoagent install
 ```
 
-From source:
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
-```
-
 Manage the service:
 ```bash
 neoagent status
 neoagent update
 neoagent logs
-```
-
-Build the Flutter web client:
-```bash
-npm run flutter:build:web
-```
-
-The installer and npm package ship the bundled web client from `server/public`, so Flutter is only needed when you want to rebuild the frontend locally.
-
-Local development helpers live in `dev/`:
-```bash
-./dev/backend.sh
-./dev/web.sh
-./dev/stack.sh
-./dev/test.sh
 ```
 
 ---
