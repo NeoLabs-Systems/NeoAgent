@@ -137,12 +137,30 @@ function ingestHealthSync(userId, body = {}) {
   return ingestHealthSyncTx(userId, body);
 }
 
+function hydrateRun(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    summary: (() => {
+      try { return JSON.parse(row.summary_json || '{}'); } catch { return {}; }
+    })(),
+  };
+}
+
 function getHealthSyncStatus(userId) {
   const lastRun = db.prepare(`
     SELECT id, source, provider, sync_window_start, sync_window_end, record_count, summary_json, created_at
     FROM health_sync_runs
     WHERE user_id = ?
-    ORDER BY created_at DESC
+    ORDER BY created_at DESC, rowid DESC
+    LIMIT 1
+  `).get(userId);
+
+  const lastNonEmptyRun = db.prepare(`
+    SELECT id, source, provider, sync_window_start, sync_window_end, record_count, summary_json, created_at
+    FROM health_sync_runs
+    WHERE user_id = ? AND record_count > 0
+    ORDER BY created_at DESC, rowid DESC
     LIMIT 1
   `).get(userId);
 
@@ -155,12 +173,8 @@ function getHealthSyncStatus(userId) {
   `).all(userId);
 
   return {
-    lastRun: lastRun ? {
-      ...lastRun,
-      summary: (() => {
-        try { return JSON.parse(lastRun.summary_json || '{}'); } catch { return {}; }
-      })(),
-    } : null,
+    lastRun: hydrateRun(lastRun),
+    lastNonEmptyRun: hydrateRun(lastNonEmptyRun),
     metrics: metrics.map((metric) => ({
       metricType: metric.metric_type,
       sampleCount: Number(metric.sample_count || 0),

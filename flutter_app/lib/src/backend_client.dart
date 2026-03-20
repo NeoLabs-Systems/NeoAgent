@@ -112,6 +112,10 @@ class BackendClient {
     return getMap(baseUrl, '/api/agents/$runId/steps');
   }
 
+  Future<void> deleteRun(String baseUrl, String runId) async {
+    await deleteMap(baseUrl, '/api/agents/$runId');
+  }
+
   Future<Map<String, dynamic>> fetchVersion(String baseUrl) async {
     return getMap(baseUrl, '/api/version');
   }
