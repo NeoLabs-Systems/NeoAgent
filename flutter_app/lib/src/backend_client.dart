@@ -370,12 +370,14 @@ class BackendClient {
     required String name,
     required String cronExpression,
     required String prompt,
+    String? model,
     bool enabled = true,
   }) async {
     final payload = <String, dynamic>{
       'name': name,
       'cronExpression': cronExpression,
       'prompt': prompt,
+      'model': model,
       'enabled': enabled,
     };
     if (id == null) {

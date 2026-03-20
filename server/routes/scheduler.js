@@ -14,13 +14,13 @@ router.get('/', (req, res) => {
 // Create a new scheduled task
 router.post('/', (req, res) => {
   try {
-    const { name, cronExpression, prompt, enabled } = req.body;
+    const { name, cronExpression, prompt, enabled, model } = req.body;
     if (!name || !cronExpression || !prompt) {
       return res.status(400).json({ error: 'name, cronExpression, and prompt required' });
     }
 
     const scheduler = req.app.locals.scheduler;
-    const task = scheduler.createTask(req.session.userId, { name, cronExpression, prompt, enabled });
+    const task = scheduler.createTask(req.session.userId, { name, cronExpression, prompt, enabled, model });
     res.status(201).json(task);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
