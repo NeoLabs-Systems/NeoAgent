@@ -110,4 +110,24 @@ router.post('/:sessionId/retry', async (req, res) => {
   }
 });
 
+router.delete('/:sessionId/segments/:segmentId', (req, res) => {
+  try {
+    const manager = req.app.locals.recordingManager;
+    const session = manager.deleteTranscriptSegment(
+      req.session.userId,
+      req.params.sessionId,
+      req.params.segmentId,
+    );
+    res.json({ session });
+  } catch (err) {
+    const message = sanitizeError(err);
+    const status = /not found/i.test(message)
+      ? 404
+      : /positive integer/i.test(message)
+        ? 400
+        : 500;
+    res.status(status).json({ error: message });
+  }
+});
+
 module.exports = router;

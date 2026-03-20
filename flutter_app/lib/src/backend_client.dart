@@ -452,6 +452,14 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> deleteRecordingTranscriptSegment(
+    String baseUrl,
+    String sessionId,
+    int segmentId,
+  ) async {
+    return deleteMap(baseUrl, '/api/recordings/$sessionId/segments/$segmentId');
+  }
+
   Future<Map<String, dynamic>> saveMcpServer(
     String baseUrl, {
     int? id,
