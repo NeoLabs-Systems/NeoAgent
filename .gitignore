@@ -140,3 +140,6 @@ dist
 agent-data/
 /.npm-cache
 /dev
+server/public/.last_build_id
+server/public/assets/fonts/MaterialIcons-Regular.otf
+server/public/main.dart.js
