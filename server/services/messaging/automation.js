@@ -180,8 +180,7 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     }
   }
 
-  const enforceEmptyWhitelist = msg.platform === 'whatsapp';
-  const shouldCheckWhitelist = whitelist.length > 0 || enforceEmptyWhitelist;
+  const shouldCheckWhitelist = whitelist.length > 0;
 
   if (!shouldCheckWhitelist) {
     return true;
@@ -196,11 +195,22 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
   console.log(
     `[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`
   );
+  const suggestions = [];
+  if (msg.platform === 'whatsapp') {
+    const normalizedSender = normalizeWhatsAppId(msg.sender || msg.chatId);
+    if (normalizedSender) {
+      suggestions.push({
+        label: `Add sender (${msg.senderName || normalizedSender})`,
+        prefixedId: normalizedSender
+      });
+    }
+  }
   io.to(`user:${userId}`).emit('messaging:blocked_sender', {
     platform: msg.platform,
     sender: msg.sender,
     chatId: msg.chatId,
-    senderName: msg.senderName || null
+    senderName: msg.senderName || null,
+    suggestions: suggestions.length > 0 ? suggestions : null
   });
   return false;
 }

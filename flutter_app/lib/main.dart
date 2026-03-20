@@ -292,6 +292,7 @@ class NeoAgentController extends ChangeNotifier {
       const <String, MessagingPlatformStatus>{};
   List<MessagingMessage> messagingMessages = const <MessagingMessage>[];
   MessagingQrState? pendingMessagingQr;
+  final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
   List<SkillItem> skills = const <SkillItem>[];
   List<StoreSkillItem> storeSkills = const <StoreSkillItem>[];
   MemoryOverview memoryOverview = const MemoryOverview();
@@ -356,6 +357,9 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   RecordingRuntimeStatus get recordingRuntime => _recordingBridge.status;
+
+  BlockedSenderNotice? get pendingBlockedSenderNotice =>
+      _blockedSenderQueue.isEmpty ? null : _blockedSenderQueue.first;
 
   void _handleRecordingBridgeChanged() {
     notifyListeners();
@@ -537,6 +541,84 @@ class NeoAgentController extends ChangeNotifier {
   void clearLogs() {
     logs = const <LogEntry>[];
     notifyListeners();
+  }
+
+  List<String> currentMessagingWhitelist(String platform) {
+    dynamic raw;
+    switch (platform) {
+      case 'whatsapp':
+        raw = settings['platform_whitelist_whatsapp'];
+        if (raw is String && raw.trim().isNotEmpty) {
+          try {
+            raw = jsonDecode(raw);
+          } catch (_) {
+            raw = const <dynamic>[];
+          }
+        }
+        break;
+      case 'telnyx':
+        raw = settings['platform_whitelist_telnyx'];
+        break;
+      case 'discord':
+        raw = settings['platform_whitelist_discord'];
+        break;
+      case 'telegram':
+        raw = settings['platform_whitelist_telegram'];
+        break;
+      default:
+        raw = const <dynamic>[];
+        break;
+    }
+    if (raw is List) {
+      return raw
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    return const <String>[];
+  }
+
+  Future<void> allowMessagingEntry(String platform, String entry) async {
+    try {
+      final current = currentMessagingWhitelist(platform).toSet()..add(entry);
+      switch (platform) {
+        case 'whatsapp':
+          await saveWhatsAppWhitelist(current.toList());
+          break;
+        case 'telnyx':
+          await saveTelnyxWhitelist(current.toList());
+          break;
+        case 'discord':
+          await saveDiscordWhitelist(current.toList());
+          break;
+        case 'telegram':
+          await saveTelegramWhitelist(current.toList());
+          break;
+        default:
+          return;
+      }
+      errorMessage = null;
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  void consumeBlockedSenderNotice(String id) {
+    if (_blockedSenderQueue.isNotEmpty && _blockedSenderQueue.first.id == id) {
+      _blockedSenderQueue.removeAt(0);
+    } else {
+      _blockedSenderQueue.removeWhere((notice) => notice.id == id);
+    }
+    notifyListeners();
+  }
+
+  void _enqueueBlockedSenderNotice(BlockedSenderNotice notice) {
+    final exists = _blockedSenderQueue.any((item) => item.id == notice.id);
+    if (!exists) {
+      _blockedSenderQueue.add(notice);
+    }
   }
 
   Future<void> refresh() async {
@@ -1605,6 +1687,15 @@ class NeoAgentController extends ChangeNotifier {
       ];
       notifyListeners();
     });
+    socket.on('messaging:blocked_sender', (dynamic data) {
+      final blockedNotice = BlockedSenderNotice.fromSocket(_jsonMap(data));
+      final blocked = MessagingMessage.fromBlockedNotice(blockedNotice);
+      messagingMessages = <MessagingMessage>[blocked, ...messagingMessages];
+      _enqueueBlockedSenderNotice(blockedNotice);
+      errorMessage =
+          '${blocked.senderLabel} is blocked on ${blocked.platform.toUpperCase()}. Update the access list to allow replies.';
+      notifyListeners();
+    });
     socket.on('messaging:error', (dynamic data) {
       final payload = _jsonMap(data);
       errorMessage =
@@ -2059,13 +2150,32 @@ class _AuthViewState extends State<AuthView> {
   }
 }
 
-class HomeView extends StatelessWidget {
+class HomeView extends StatefulWidget {
   const HomeView({super.key, required this.controller});
 
   final NeoAgentController controller;
 
   @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  bool _blockedDialogOpen = false;
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final pendingBlockedSender = controller.pendingBlockedSenderNotice;
+
+    if (!_blockedDialogOpen && pendingBlockedSender != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _blockedDialogOpen) {
+          return;
+        }
+        _showBlockedSenderDialog(pendingBlockedSender);
+      });
+    }
+
     final wide = MediaQuery.sizeOf(context).width >= 1080;
 
     if (wide) {
@@ -2096,6 +2206,94 @@ class HomeView extends StatelessWidget {
       ),
       body: SafeArea(child: _SectionBody(controller: controller)),
     );
+  }
+
+  Future<void> _showBlockedSenderDialog(BlockedSenderNotice notice) async {
+    _blockedDialogOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) {
+          return AlertDialog(
+            backgroundColor: _bgCard,
+            title: Text('Allow sender on ${notice.platform.toUpperCase()}?'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      notice.senderLabel,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (notice.meta.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 6),
+                      Text(
+                        notice.meta,
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    const Text(
+                      'This sender is currently blocked by the access list. You can allow them now or jump to Messaging to edit the full list.',
+                      style: TextStyle(color: _textSecondary, height: 1.45),
+                    ),
+                    if (notice.suggestions.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 18),
+                      ...notice.suggestions.map(
+                        (suggestion) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: () async {
+                                Navigator.of(dialogContext).pop();
+                                await widget.controller.allowMessagingEntry(
+                                  notice.platform,
+                                  suggestion.entry,
+                                );
+                              },
+                              icon: const Icon(Icons.verified_user_outlined),
+                              label: Text(suggestion.label),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  widget.controller.setSelectedSection(AppSection.messaging);
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('Open Messaging'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Dismiss'),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      widget.controller.consumeBlockedSenderNotice(notice.id);
+      if (mounted) {
+        setState(() => _blockedDialogOpen = false);
+      } else {
+        _blockedDialogOpen = false;
+      }
+    }
   }
 }
 
@@ -3579,7 +3777,7 @@ class _MessagingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final whitelist = _currentWhitelist();
+    final whitelist = controller.currentMessagingWhitelist(platform.id);
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -3704,38 +3902,6 @@ class _MessagingCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  List<String> _currentWhitelist() {
-    dynamic raw;
-    switch (platform.id) {
-      case 'whatsapp':
-        raw = controller.settings['platform_whitelist_whatsapp'];
-        if (raw is String && raw.trim().isNotEmpty) {
-          try {
-            raw = jsonDecode(raw);
-          } catch (_) {
-            raw = const <dynamic>[];
-          }
-        }
-        break;
-      case 'telnyx':
-        raw = controller.settings['platform_whitelist_telnyx'];
-        break;
-      case 'discord':
-        raw = controller.settings['platform_whitelist_discord'];
-        break;
-      case 'telegram':
-        raw = controller.settings['platform_whitelist_telegram'];
-        break;
-    }
-    if (raw is List) {
-      return raw
-          .map((item) => item.toString())
-          .where((item) => item.isNotEmpty)
-          .toList();
-    }
-    return const <String>[];
   }
 
   Future<void> _editWhitelist(
@@ -7713,6 +7879,26 @@ class MessagingMessage {
     );
   }
 
+  factory MessagingMessage.fromBlockedNotice(BlockedSenderNotice notice) {
+    final summary = <String>[
+      'Blocked incoming message from ${notice.senderLabel}.',
+      if (notice.meta.isNotEmpty) notice.meta,
+      if (notice.suggestions.isNotEmpty)
+        'Suggestions: ${notice.suggestions.map((item) => item.label).join(', ')}',
+      'Update the access list to allow replies.',
+    ].join('\n');
+
+    return MessagingMessage(
+      platform: notice.platform,
+      content: summary,
+      createdAt: DateTime.now(),
+      outgoing: false,
+      chatId: notice.chatId,
+      sender: notice.sender,
+      senderName: notice.senderName,
+    );
+  }
+
   final String platform;
   final String content;
   final DateTime createdAt;
@@ -7748,6 +7934,81 @@ class MessagingQrState {
     }
     return platform;
   }
+}
+
+class BlockedSenderNotice {
+  const BlockedSenderNotice({
+    required this.id,
+    required this.platform,
+    required this.chatId,
+    required this.sender,
+    required this.senderName,
+    required this.meta,
+    required this.suggestions,
+  });
+
+  factory BlockedSenderNotice.fromSocket(Map<String, dynamic> json) {
+    final platform = json['platform']?.toString() ?? 'web';
+    final sender = json['sender']?.toString();
+    final senderName = json['senderName']?.toString();
+    final chatId = json['chatId']?.toString();
+    final meta = (json['meta']?.toString() ?? '').trim();
+    final suggestionsRaw = json['suggestions'];
+    final suggestions = suggestionsRaw is List
+        ? suggestionsRaw
+              .whereType<Map>()
+              .map(
+                (item) => QuickAllowSuggestion.fromJson(
+                  platform,
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .where((item) => item.entry.isNotEmpty)
+              .toList()
+        : const <QuickAllowSuggestion>[];
+
+    return BlockedSenderNotice(
+      id: '$platform:${chatId ?? ''}:${sender ?? ''}',
+      platform: platform,
+      chatId: chatId,
+      sender: sender,
+      senderName: senderName,
+      meta: meta,
+      suggestions: suggestions,
+    );
+  }
+
+  final String id;
+  final String platform;
+  final String? chatId;
+  final String? sender;
+  final String? senderName;
+  final String meta;
+  final List<QuickAllowSuggestion> suggestions;
+
+  String get senderLabel =>
+      senderName?.ifEmpty(sender ?? platform.toUpperCase()) ??
+      sender?.ifEmpty(platform.toUpperCase()) ??
+      platform.toUpperCase();
+}
+
+class QuickAllowSuggestion {
+  const QuickAllowSuggestion({required this.label, required this.entry});
+
+  factory QuickAllowSuggestion.fromJson(
+    String platform,
+    Map<String, dynamic> json,
+  ) {
+    final prefixedId = json['prefixedId']?.toString().trim() ?? '';
+    return QuickAllowSuggestion(
+      label:
+          json['label']?.toString().ifEmpty('Allow sender') ?? 'Allow sender',
+      entry: _normalizeSuggestedWhitelistEntry(platform, prefixedId),
+    );
+  }
+
+  final String label;
+  final String entry;
 }
 
 class RecordingSessionItem {
@@ -8737,6 +8998,27 @@ Map<String, dynamic> _jsonMap(dynamic value) {
     return Map<String, dynamic>.from(value);
   }
   return const <String, dynamic>{};
+}
+
+String _normalizeSuggestedWhitelistEntry(String platform, String entry) {
+  final trimmed = entry.trim();
+  if (trimmed.isEmpty) {
+    return '';
+  }
+  switch (platform) {
+    case 'whatsapp':
+      return trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+    case 'telnyx':
+      return trimmed.replaceAll(RegExp(r'[^0-9+]'), '');
+    case 'discord':
+    case 'telegram':
+      return trimmed.replaceAll(
+        RegExp(r'[^0-9a-z:_-]', caseSensitive: false),
+        '',
+      );
+    default:
+      return trimmed;
+  }
 }
 
 int _asInt(dynamic value) {
