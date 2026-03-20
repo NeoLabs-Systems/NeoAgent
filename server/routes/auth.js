@@ -13,6 +13,30 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 
+function establishSession(req, res, user) {
+  req.session.regenerate((regenerateError) => {
+    if (regenerateError) {
+      console.error('Auth session regenerate error:', regenerateError);
+      return res.status(500).json({ error: 'Session error' });
+    }
+
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.save((saveError) => {
+      if (saveError) {
+        console.error('Auth session save error:', saveError);
+        return res.status(500).json({ error: 'Session save error' });
+      }
+
+      return res.json({
+        success: true,
+        redirect: '/app',
+        user: { id: user.id, username: user.username }
+      });
+    });
+  });
+}
+
 router.get('/api/auth/status', (req, res) => {
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get();
   res.json({ hasUser: count.count > 0 });
@@ -36,14 +60,9 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
     const hash = await bcrypt.hash(password, 12);
     const result = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(username, hash);
 
-    req.session.regenerate((err) => {
-      if (err) return res.status(500).json({ error: 'Session error' });
-      req.session.userId = result.lastInsertRowid;
-      req.session.username = username;
-      req.session.save((err) => {
-        if (err) return res.status(500).json({ error: 'Session save error' });
-        res.json({ success: true, redirect: '/app', user: { id: result.lastInsertRowid, username } });
-      });
+    establishSession(req, res, {
+      id: result.lastInsertRowid,
+      username
     });
   } catch (err) {
     console.error('Register error:', err);
@@ -68,17 +87,14 @@ router.post('/api/auth/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
+    try {
+      db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
+    } catch (updateError) {
+      // Keep login functional even if analytics-style metadata cannot be written.
+      console.warn('Login last_login update failed:', updateError);
+    }
 
-    req.session.regenerate((err) => {
-      if (err) return res.status(500).json({ error: 'Session error' });
-      req.session.userId = user.id;
-      req.session.username = user.username;
-      req.session.save((err) => {
-        if (err) return res.status(500).json({ error: 'Session save error' });
-        res.json({ success: true, redirect: '/app', user: { id: user.id, username: user.username } });
-      });
-    });
+    establishSession(req, res, user);
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
