@@ -54,15 +54,15 @@ function getAvailableTools(app, options = {}) {
     const tools = [
         {
             name: 'execute_command',
-            description: 'Execute a terminal/shell command. Supports PTY for interactive programs (npm, git, ssh, etc). Returns stdout, stderr, and exit code.',
+            description: 'Execute a terminal/shell command. Waits for the process to exit, supports PTY for interactive programs, and returns stdout, stderr, exit code, timeout state, and duration.',
             parameters: {
                 type: 'object',
                 properties: {
                     command: { type: 'string', description: 'The shell command to execute' },
                     cwd: { type: 'string', description: 'Working directory (optional, default $HOME)' },
-                    timeout: { type: 'number', description: 'Timeout in ms (default 60000)' },
+                    timeout: { type: 'number', description: 'Maximum runtime in ms. Default 900000 (15 minutes); use longer values for installs, builds, or package managers.' },
                     stdin_input: { type: 'string', description: 'Input to pipe to stdin' },
-                    pty: { type: 'boolean', description: 'Use PTY for interactive programs like npm/git prompts (default false)' },
+                    pty: { type: 'boolean', description: 'Use PTY for interactive programs, progress UIs, or commands that need a real terminal (default false)' },
                     inputs: { type: 'array', items: { type: 'string' }, description: 'Sequence of inputs for interactive PTY prompts' }
                 },
                 required: ['command']
@@ -783,17 +783,20 @@ async function executeTool(toolName, args, context, engine) {
     switch (toolName) {
         case 'execute_command': {
             const { CLIExecutor } = require('../cli/executor');
-            const executor = new CLIExecutor();
+            const executor = app?.locals?.cliExecutor || engine.cliExecutor || new CLIExecutor();
+            const onSpawn = (pid) => engine.attachProcessToRun(runId, pid);
             if (args.pty) {
                 return await executor.executeInteractive(args.command, args.inputs || [], {
                     cwd: args.cwd,
-                    timeout: args.timeout || 120000
+                    timeout: args.timeout || 20 * 60 * 1000,
+                    onSpawn
                 });
             }
             return await executor.execute(args.command, {
                 cwd: args.cwd,
-                timeout: args.timeout || 60000,
-                stdinInput: args.stdin_input
+                timeout: args.timeout || 15 * 60 * 1000,
+                stdinInput: args.stdin_input,
+                onSpawn
             });
         }
 
@@ -1434,6 +1437,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'spawn_subagent': {
             const { AgentEngine } = require('./engine');
             const subEngine = new AgentEngine(engine.io, {
+                cliExecutor: engine.cliExecutor,
                 browserController: engine.browserController,
                 messagingManager: engine.messagingManager,
                 mcpManager: engine.mcpManager,

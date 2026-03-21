@@ -2318,6 +2318,17 @@ class NeoAgentController extends ChangeNotifier {
         notifyListeners();
       }
     });
+    socket.on('run:stopping', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(phase: 'Stopping');
+        notifyListeners();
+      }
+    });
     socket.on('run:tool_start', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
@@ -2444,6 +2455,20 @@ class NeoAgentController extends ChangeNotifier {
       isSendingMessage = false;
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Completed');
+      }
+      unawaited(refreshRunsOnly());
+      notifyListeners();
+    });
+    socket.on('run:stopped', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.remove(runId)) {
+        return;
+      }
+      streamingAssistant = '';
+      isSendingMessage = false;
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(phase: 'Stopped');
       }
       unawaited(refreshRunsOnly());
       notifyListeners();
@@ -11803,8 +11828,21 @@ String _summarizeToolResult(dynamic raw) {
     return '';
   }
   if (raw is Map) {
+    if (raw['timedOut'] == true) {
+      final durationMs = _asInt(raw['durationMs']);
+      final durationText = durationMs > 0
+          ? ' after ${_formatDuration(durationMs)}'
+          : '';
+      return 'Timed out$durationText';
+    }
+    if (raw['killed'] == true) {
+      return 'Stopped before completion';
+    }
     if (raw['error'] != null) {
       return raw['error'].toString();
+    }
+    if (raw['status'] != null && raw['status'].toString() == 'stopped') {
+      return 'Stopped';
     }
     if (raw['message'] != null) {
       return raw['message'].toString();

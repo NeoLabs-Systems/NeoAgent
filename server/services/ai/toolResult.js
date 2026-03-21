@@ -46,9 +46,13 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'execute_command':
       envelope = trimObject({
         tool: toolName,
+        status: toolResult?.timedOut ? 'timed_out' : (toolResult?.exitCode === 0 ? 'ok' : 'error'),
         exitCode: toolResult?.exitCode,
         cwd: toolResult?.cwd || toolArgs.cwd,
         killed: toolResult?.killed || false,
+        timedOut: toolResult?.timedOut || false,
+        signal: toolResult?.signal,
+        durationMs: toolResult?.durationMs,
         stdout: lineExcerpt(toolResult?.stdout, 12, Math.floor(softLimit * 0.45)),
         stderr: lineExcerpt(toolResult?.stderr, 8, Math.floor(softLimit * 0.25))
       });
