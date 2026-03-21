@@ -75,8 +75,10 @@ class WebRecordingBridge extends RecordingBridge {
       final microphoneStream = await mediaDevices.getUserMedia(
         <String, dynamic>{
           'audio': <String, dynamic>{
-            'echoCancellation': true,
-            'noiseSuppression': true,
+            'channelCount': 1,
+            'echoCancellation': false,
+            'noiseSuppression': false,
+            'autoGainControl': false,
           },
         },
       );
@@ -121,10 +123,6 @@ class WebRecordingBridge extends RecordingBridge {
             ? null
             : <String, String>{'mimeType': screenMimeType},
       );
-      _microphoneRecorder = html.MediaRecorder(
-        microphoneStream,
-        micMimeType == null ? null : <String, String>{'mimeType': micMimeType},
-      );
 
       _displayEndedSub = displayStream.getVideoTracks().first.onEnded.listen((
         _,
@@ -136,6 +134,10 @@ class WebRecordingBridge extends RecordingBridge {
         recorder: _screenRecorder!,
         sourceKey: 'screen',
         mimeType: screenMimeType ?? 'video/webm',
+      );
+      _microphoneRecorder = html.MediaRecorder(
+        microphoneStream,
+        micMimeType == null ? null : <String, String>{'mimeType': micMimeType},
       );
       _bindRecorder(
         recorder: _microphoneRecorder!,

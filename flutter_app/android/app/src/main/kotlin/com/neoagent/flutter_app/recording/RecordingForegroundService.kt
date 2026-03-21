@@ -12,6 +12,8 @@ import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.media.audiofx.AutomaticGainControl
+import android.media.audiofx.NoiseSuppressor
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -41,6 +43,8 @@ class RecordingForegroundService : Service() {
     private var config: RecordingConfig? = null
     private var audioRecord: AudioRecord? = null
     private var captureJob: Job? = null
+    private var noiseSuppressor: NoiseSuppressor? = null
+    private var automaticGainControl: AutomaticGainControl? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -57,8 +61,7 @@ class RecordingForegroundService : Service() {
 
     override fun onDestroy() {
         captureJob?.cancel()
-        audioRecord?.release()
-        audioRecord = null
+        stopRecorder()
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -159,27 +162,23 @@ class RecordingForegroundService : Service() {
             return
         }
         val current = config ?: return
-        val sampleRate = SAMPLE_RATE
-        val minBufferSize = AudioRecord.getMinBufferSize(
-            sampleRate,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        )
-        val record = AudioRecord(
-            MediaRecorder.AudioSource.MIC,
-            sampleRate,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-            maxOf(minBufferSize, CHUNK_FRAME_BYTES),
-        )
+        val recorderConfig = buildRecorderConfig()
+        val sampleRate = recorderConfig.sampleRate
+        val record = recorderConfig.audioRecord
         audioRecord = record
+        attachAudioEnhancers(record.audioSessionId)
         record.startRecording()
+        if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+            stopRecorder()
+            throw IllegalStateException("Microphone capture did not start correctly.")
+        }
 
         captureJob = serviceScope.launch {
-            val readBuffer = ByteArray(maxOf(minBufferSize, 4096))
+            val readBuffer = ByteArray(maxOf(recorderConfig.bufferSize, 4096))
             val chunkBuffer = ByteArrayOutputStream()
             var chunkStartMs = config?.capturedAudioMs ?: 0L
-            var chunkDurationMs = 0L
+            var chunkBytes = 0L
+            var capturedBytes = millisToBytes(current.capturedAudioMs, sampleRate)
 
             while (isActive) {
                 val read = record.read(readBuffer, 0, readBuffer.size)
@@ -188,22 +187,24 @@ class RecordingForegroundService : Service() {
                     continue
                 }
                 chunkBuffer.write(readBuffer, 0, read)
-                val audioMs = read.toLong() / BYTES_PER_SAMPLE * 1000L / sampleRate
-                chunkDurationMs += audioMs
+                chunkBytes += read.toLong()
+                capturedBytes += read.toLong()
                 val currentConfig = config ?: break
-                val updatedCaptured = currentConfig.capturedAudioMs + audioMs
+                val updatedCaptured = bytesToMillis(capturedBytes, sampleRate)
                 config = currentConfig.copy(capturedAudioMs = updatedCaptured)
                 stateStore.saveConfig(config!!)
 
-                if (chunkDurationMs >= CHUNK_DURATION_MS) {
+                if (bytesToMillis(chunkBytes, sampleRate) >= CHUNK_DURATION_MS) {
+                    val chunkEndMs = chunkStartMs + bytesToMillis(chunkBytes, sampleRate)
                     flushChunk(
                         bytes = chunkBuffer.toByteArray(),
                         startMs = chunkStartMs,
-                        endMs = chunkStartMs + chunkDurationMs,
+                        endMs = chunkEndMs,
+                        sampleRate = sampleRate,
                     )
                     chunkBuffer.reset()
-                    chunkStartMs += chunkDurationMs
-                    chunkDurationMs = 0L
+                    chunkStartMs = chunkEndMs
+                    chunkBytes = 0L
                 }
             }
 
@@ -211,14 +212,15 @@ class RecordingForegroundService : Service() {
                 flushChunk(
                     bytes = chunkBuffer.toByteArray(),
                     startMs = chunkStartMs,
-                    endMs = chunkStartMs + chunkDurationMs,
+                    endMs = chunkStartMs + bytesToMillis(chunkBytes, sampleRate),
+                    sampleRate = sampleRate,
                 )
             }
         }
         updateNotification()
     }
 
-    private fun flushChunk(bytes: ByteArray, startMs: Long, endMs: Long) {
+    private fun flushChunk(bytes: ByteArray, startMs: Long, endMs: Long, sampleRate: Int) {
         if (bytes.isEmpty()) {
             return
         }
@@ -228,12 +230,13 @@ class RecordingForegroundService : Service() {
         pendingDir.mkdirs()
         val audioFile = File(pendingDir, "${sequence.toString().padStart(6, '0')}.wav")
         val metaFile = File(pendingDir, "${sequence.toString().padStart(6, '0')}.json")
-        audioFile.writeBytes(wrapPcmAsWav(bytes))
+        audioFile.writeBytes(wrapPcmAsWav(bytes, sampleRate))
         val meta = JSONObject()
             .put("sequence", sequence)
             .put("startMs", startMs)
             .put("endMs", endMs)
             .put("mimeType", "audio/wav")
+            .put("sampleRate", sampleRate)
         OutputStreamWriter(metaFile.outputStream(), Charsets.UTF_8).use { writer ->
             writer.write(meta.toString())
         }
@@ -352,6 +355,10 @@ class RecordingForegroundService : Service() {
             audioRecord?.stop()
         } catch (_: Exception) {
         }
+        noiseSuppressor?.release()
+        noiseSuppressor = null
+        automaticGainControl?.release()
+        automaticGainControl = null
         audioRecord?.release()
         audioRecord = null
     }
@@ -359,8 +366,8 @@ class RecordingForegroundService : Service() {
     private fun pendingDir(sessionId: String): File =
         File(filesDir, "recording-pending/$sessionId")
 
-    private fun wrapPcmAsWav(pcmBytes: ByteArray): ByteArray {
-        val byteRate = SAMPLE_RATE * CHANNEL_COUNT * BYTES_PER_SAMPLE
+    private fun wrapPcmAsWav(pcmBytes: ByteArray, sampleRate: Int): ByteArray {
+        val byteRate = sampleRate * CHANNEL_COUNT * BYTES_PER_SAMPLE
         val totalDataLen = pcmBytes.size + 36
         return ByteArrayOutputStream().use { output ->
             output.write("RIFF".toByteArray())
@@ -370,7 +377,7 @@ class RecordingForegroundService : Service() {
             output.write(intToLittleEndian(16))
             output.write(shortToLittleEndian(1))
             output.write(shortToLittleEndian(CHANNEL_COUNT.toShort()))
-            output.write(intToLittleEndian(SAMPLE_RATE))
+            output.write(intToLittleEndian(sampleRate))
             output.write(intToLittleEndian(byteRate))
             output.write(shortToLittleEndian((CHANNEL_COUNT * BYTES_PER_SAMPLE).toShort()))
             output.write(shortToLittleEndian((BYTES_PER_SAMPLE * 8).toShort()))
@@ -401,6 +408,81 @@ class RecordingForegroundService : Service() {
         require(granted) { "Microphone permission is required." }
     }
 
+    private fun buildRecorderConfig(): RecorderConfig {
+        val sampleRates = listOf(16_000, 48_000, 44_100)
+        val audioSources = listOf(
+            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            MediaRecorder.AudioSource.MIC,
+        )
+        var lastError: String? = null
+
+        for (audioSource in audioSources) {
+            for (sampleRate in sampleRates) {
+                val minBufferSize = AudioRecord.getMinBufferSize(
+                    sampleRate,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                )
+                if (minBufferSize <= 0) {
+                    lastError = "Unsupported buffer size for ${sampleRate} Hz."
+                    continue
+                }
+
+                val bufferSize = maxOf(minBufferSize * 2, 4096)
+                val record = try {
+                    AudioRecord(
+                        audioSource,
+                        sampleRate,
+                        AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        bufferSize,
+                    )
+                } catch (error: Exception) {
+                    lastError = error.message
+                    null
+                }
+
+                if (record?.state == AudioRecord.STATE_INITIALIZED) {
+                    return RecorderConfig(
+                        audioRecord = record,
+                        sampleRate = sampleRate,
+                        bufferSize = bufferSize,
+                    )
+                }
+
+                record?.release()
+                lastError = "AudioRecord could not initialize for ${sampleRate} Hz."
+            }
+        }
+
+        throw IllegalStateException(lastError ?: "Unable to initialize microphone capture.")
+    }
+
+    private fun attachAudioEnhancers(audioSessionId: Int) {
+        if (NoiseSuppressor.isAvailable()) {
+            noiseSuppressor = NoiseSuppressor.create(audioSessionId)?.apply {
+                enabled = true
+            }
+        }
+        if (AutomaticGainControl.isAvailable()) {
+            automaticGainControl = AutomaticGainControl.create(audioSessionId)?.apply {
+                enabled = true
+            }
+        }
+    }
+
+    private fun bytesToMillis(byteCount: Long, sampleRate: Int): Long {
+        val bytesPerSecond = sampleRate.toLong() * CHANNEL_COUNT * BYTES_PER_SAMPLE
+        if (bytesPerSecond <= 0L) {
+            return 0L
+        }
+        return (byteCount * 1000L) / bytesPerSecond
+    }
+
+    private fun millisToBytes(durationMs: Long, sampleRate: Int): Long {
+        return (durationMs * sampleRate.toLong() * CHANNEL_COUNT * BYTES_PER_SAMPLE) / 1000L
+    }
+
     companion object {
         private const val ACTION_START = "neoagent.recordings.START"
         private const val ACTION_RESTORE = "neoagent.recordings.RESTORE"
@@ -412,11 +494,9 @@ class RecordingForegroundService : Service() {
         private const val EXTRA_SESSION_ID = "session_id"
         private const val CHANNEL_ID = "neoagent_recordings"
         private const val NOTIFICATION_ID = 4021
-        private const val SAMPLE_RATE = 16_000
         private const val CHANNEL_COUNT = 1
         private const val BYTES_PER_SAMPLE = 2
         private const val CHUNK_DURATION_MS = 4_000L
-        private const val CHUNK_FRAME_BYTES = SAMPLE_RATE * CHANNEL_COUNT * BYTES_PER_SAMPLE
 
         fun buildStartIntent(
             context: Context,
@@ -451,3 +531,9 @@ class RecordingForegroundService : Service() {
             }
     }
 }
+
+private data class RecorderConfig(
+    val audioRecord: AudioRecord,
+    val sampleRate: Int,
+    val bufferSize: Int,
+)

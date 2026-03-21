@@ -38,6 +38,7 @@ void main() {
 
 enum AppSection {
   chat,
+  devices,
   recordings,
   messaging,
   runs,
@@ -55,6 +56,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return 'Chat';
+      case AppSection.devices:
+        return 'Devices';
       case AppSection.recordings:
         return 'Recordings';
       case AppSection.messaging:
@@ -82,6 +85,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return Icons.chat_bubble_outline;
+      case AppSection.devices:
+        return Icons.devices_other_outlined;
       case AppSection.recordings:
         return Icons.fiber_smart_record_outlined;
       case AppSection.messaging:
@@ -262,10 +267,12 @@ class NeoAgentController extends ChangeNotifier {
   bool isAuthenticated = false;
   bool isAuthenticating = false;
   bool isRefreshing = false;
+  bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
   bool isTriggeringUpdate = false;
   bool isSyncingHealth = false;
+  bool isRunningDeviceAction = false;
   bool socketConnected = false;
 
   bool hasUser = true;
@@ -301,6 +308,15 @@ class NeoAgentController extends ChangeNotifier {
   List<ConversationItem> memoryConversations = const <ConversationItem>[];
   List<SchedulerTask> schedulerTasks = const <SchedulerTask>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
+  Map<String, dynamic> browserRuntime = const <String, dynamic>{};
+  Map<String, dynamic> androidRuntime = const <String, dynamic>{};
+  List<String> androidInstalledApps = const <String>[];
+  List<Map<String, dynamic>> androidUiPreview = const <Map<String, dynamic>>[];
+  String? browserScreenshotPath;
+  String? androidScreenshotPath;
+  String? browserLastResult;
+  String? androidLastResult;
+  String? androidUiDumpPath;
   final Map<String, RunDetailSnapshot> _runDetailsCache =
       <String, RunDetailSnapshot>{};
 
@@ -506,6 +522,15 @@ class NeoAgentController extends ChangeNotifier {
     memoryConversations = const <ConversationItem>[];
     schedulerTasks = const <SchedulerTask>[];
     mcpServers = const <McpServerItem>[];
+    browserRuntime = const <String, dynamic>{};
+    androidRuntime = const <String, dynamic>{};
+    androidInstalledApps = const <String>[];
+    androidUiPreview = const <Map<String, dynamic>>[];
+    browserScreenshotPath = null;
+    androidScreenshotPath = null;
+    browserLastResult = null;
+    androidLastResult = null;
+    androidUiDumpPath = null;
     versionInfo = null;
     backendHealthStatus = null;
     recordingSessions = const <RecordingSessionItem>[];
@@ -530,6 +555,9 @@ class NeoAgentController extends ChangeNotifier {
 
   void setSelectedSection(AppSection section) {
     selectedSection = section;
+    if (section == AppSection.devices) {
+      unawaited(refreshDevices());
+    }
     notifyListeners();
   }
 
@@ -661,6 +689,8 @@ class NeoAgentController extends ChangeNotifier {
       final recordingsFuture = _backendClient.fetchRecordingSessions(
         backendUrl,
       );
+      final browserFuture = _backendClient.fetchBrowserStatus(backendUrl);
+      final androidFuture = _backendClient.fetchAndroidStatus(backendUrl);
 
       Map<String, dynamic>? healthResponse;
       try {
@@ -686,6 +716,8 @@ class NeoAgentController extends ChangeNotifier {
       final schedulerResponse = await schedulerFuture;
       final mcpResponse = await mcpFuture;
       final recordingsResponse = await recordingsFuture;
+      final browserResponse = await browserFuture;
+      final androidResponse = await androidFuture;
 
       chatMessages = (history['messages'] as List<dynamic>? ?? const [])
           .whereType<Map<dynamic, dynamic>>()
@@ -733,6 +765,8 @@ class NeoAgentController extends ChangeNotifier {
       recordingSessions = recordingsResponse
           .map(RecordingSessionItem.fromJson)
           .toList();
+      browserRuntime = Map<String, dynamic>.from(browserResponse);
+      androidRuntime = Map<String, dynamic>.from(androidResponse);
       await _recordingBridge.refreshStatus();
       deviceHealthStatus = await _healthBridge.getStatus();
       await _syncBackgroundHealthConfig();
@@ -825,6 +859,363 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> refreshDevices() async {
+    if (!isAuthenticated || isRefreshingDevices) {
+      return;
+    }
+    isRefreshingDevices = true;
+    notifyListeners();
+    try {
+      final browserResponse = await _backendClient.fetchBrowserStatus(
+        backendUrl,
+      );
+      final androidResponse = await _backendClient.fetchAndroidStatus(
+        backendUrl,
+      );
+      browserRuntime = Map<String, dynamic>.from(browserResponse);
+      androidRuntime = Map<String, dynamic>.from(androidResponse);
+      errorMessage = null;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRefreshingDevices = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshAndroidApps({bool includeSystem = false}) async {
+    try {
+      final response = await _backendClient.fetchAndroidApps(
+        backendUrl,
+        includeSystem: includeSystem,
+      );
+      androidInstalledApps =
+          (response['packages'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .where((item) => item.isNotEmpty)
+              .toList();
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> _runDeviceAction(
+    Future<Map<String, dynamic>> Function() action, {
+    required bool browser,
+    bool refreshApps = false,
+  }) async {
+    if (isRunningDeviceAction) {
+      return;
+    }
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await action();
+      final pretty = const JsonEncoder.withIndent('  ').convert(result);
+      if (browser) {
+        browserLastResult = pretty;
+        final screenshot = result['screenshotPath']?.toString();
+        if (screenshot != null && screenshot.isNotEmpty) {
+          browserScreenshotPath = screenshot;
+        }
+      } else {
+        androidLastResult = pretty;
+        final screenshot = result['screenshotPath']?.toString();
+        if (screenshot != null && screenshot.isNotEmpty) {
+          androidScreenshotPath = screenshot;
+        }
+        final dumpPath = result['uiDumpPath']?.toString();
+        if (dumpPath != null && dumpPath.isNotEmpty) {
+          androidUiDumpPath = dumpPath;
+        }
+        final preview = result['preview'];
+        if (preview is List) {
+          androidUiPreview = preview
+              .whereType<Map<dynamic, dynamic>>()
+              .map(
+                (item) =>
+                    item.map((key, value) => MapEntry(key.toString(), value)),
+              )
+              .toList();
+        }
+      }
+      await refreshDevices();
+      if (refreshApps) {
+        await refreshAndroidApps();
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> launchBrowserRuntime() async {
+    await _runDeviceAction(
+      () => _backendClient.launchBrowser(backendUrl),
+      browser: true,
+    );
+  }
+
+  Future<void> navigateBrowserRuntime({
+    required String url,
+    String? waitFor,
+  }) async {
+    await _runDeviceAction(
+      () => _backendClient.navigateBrowser(
+        backendUrl,
+        url: url,
+        waitFor: waitFor,
+      ),
+      browser: true,
+    );
+  }
+
+  Future<void> clickBrowserRuntime({String? selector, String? text}) async {
+    await _runDeviceAction(
+      () => _backendClient.clickBrowser(
+        backendUrl,
+        selector: selector,
+        text: text,
+      ),
+      browser: true,
+    );
+  }
+
+  Future<void> clickBrowserPointRuntime({
+    required int x,
+    required int y,
+  }) async {
+    await _runDeviceAction(
+      () => _backendClient.clickBrowserPoint(backendUrl, x: x, y: y),
+      browser: true,
+    );
+  }
+
+  Future<void> fillBrowserRuntime({
+    required String selector,
+    required String value,
+    bool pressEnter = false,
+  }) async {
+    await _runDeviceAction(
+      () => _backendClient.fillBrowser(
+        backendUrl,
+        selector: selector,
+        value: value,
+        pressEnter: pressEnter,
+      ),
+      browser: true,
+    );
+  }
+
+  Future<void> typeBrowserTextRuntime(
+    String text, {
+    bool pressEnter = false,
+  }) async {
+    await _runDeviceAction(
+      () => _backendClient.typeBrowserText(
+        backendUrl,
+        text: text,
+        pressEnter: pressEnter,
+      ),
+      browser: true,
+    );
+  }
+
+  Future<void> pressBrowserKeyRuntime(String key) async {
+    await _runDeviceAction(
+      () => _backendClient.pressBrowserKey(backendUrl, key: key),
+      browser: true,
+    );
+  }
+
+  Future<void> scrollBrowserRuntime({int deltaX = 0, int deltaY = 0}) async {
+    await _runDeviceAction(
+      () => _backendClient.scrollBrowser(
+        backendUrl,
+        deltaX: deltaX,
+        deltaY: deltaY,
+      ),
+      browser: true,
+    );
+  }
+
+  Future<void> screenshotBrowserRuntime() async {
+    await _runDeviceAction(
+      () => _backendClient.screenshotBrowser(backendUrl),
+      browser: true,
+    );
+  }
+
+  Future<void> refreshBrowserFrameRuntime() async {
+    if (isRunningDeviceAction || browserRuntime['launched'] != true) {
+      return;
+    }
+    try {
+      final result = await _backendClient.screenshotBrowser(backendUrl);
+      final screenshot = result['screenshotPath']?.toString();
+      if (screenshot != null && screenshot.isNotEmpty) {
+        browserScreenshotPath = screenshot;
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> closeBrowserRuntime() async {
+    await _runDeviceAction(
+      () => _backendClient.closeBrowser(backendUrl),
+      browser: true,
+    );
+  }
+
+  Future<void> startAndroidRuntime() async {
+    await _runDeviceAction(
+      () => _backendClient.startAndroidEmulator(backendUrl),
+      browser: false,
+      refreshApps: true,
+    );
+  }
+
+  Future<void> stopAndroidRuntime() async {
+    await _runDeviceAction(
+      () => _backendClient.stopAndroidEmulator(backendUrl),
+      browser: false,
+    );
+  }
+
+  Future<void> screenshotAndroidRuntime() async {
+    await _runDeviceAction(
+      () => _backendClient.screenshotAndroid(backendUrl),
+      browser: false,
+    );
+  }
+
+  Future<void> refreshAndroidFrameRuntime() async {
+    if (isRunningDeviceAction) {
+      return;
+    }
+    final devices =
+        (androidRuntime['devices'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<dynamic, dynamic>>();
+    final online = devices.any(
+      (device) => device['status']?.toString() == 'device',
+    );
+    if (!online) {
+      return;
+    }
+    try {
+      final result = await _backendClient.screenshotAndroid(backendUrl);
+      final screenshot = result['screenshotPath']?.toString();
+      if (screenshot != null && screenshot.isNotEmpty) {
+        androidScreenshotPath = screenshot;
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> dumpAndroidUiRuntime() async {
+    await _runDeviceAction(
+      () => _backendClient.dumpAndroidUi(backendUrl),
+      browser: false,
+    );
+  }
+
+  Future<void> openAndroidAppRuntime({
+    required String packageName,
+    String? activity,
+  }) async {
+    await _runDeviceAction(
+      () => _backendClient.openAndroidApp(
+        backendUrl,
+        packageName: packageName,
+        activity: activity,
+      ),
+      browser: false,
+      refreshApps: true,
+    );
+  }
+
+  Future<void> openAndroidIntentRuntime({
+    String? action,
+    String? dataUri,
+    String? packageName,
+    String? component,
+  }) async {
+    await _runDeviceAction(
+      () => _backendClient.openAndroidIntent(
+        backendUrl,
+        action: action,
+        dataUri: dataUri,
+        packageName: packageName,
+        component: component,
+      ),
+      browser: false,
+    );
+  }
+
+  Future<void> tapAndroidRuntime(Map<String, dynamic> payload) async {
+    await _runDeviceAction(
+      () => _backendClient.tapAndroid(backendUrl, payload),
+      browser: false,
+    );
+  }
+
+  Future<void> typeAndroidRuntime(Map<String, dynamic> payload) async {
+    await _runDeviceAction(
+      () => _backendClient.typeAndroid(backendUrl, payload),
+      browser: false,
+    );
+  }
+
+  Future<void> swipeAndroidRuntime(Map<String, dynamic> payload) async {
+    await _runDeviceAction(
+      () => _backendClient.swipeAndroid(backendUrl, payload),
+      browser: false,
+    );
+  }
+
+  Future<void> pressAndroidKeyRuntime(String key) async {
+    await _runDeviceAction(
+      () => _backendClient.pressAndroidKey(backendUrl, key: key),
+      browser: false,
+    );
+  }
+
+  Future<void> waitForAndroidRuntime(Map<String, dynamic> payload) async {
+    await _runDeviceAction(
+      () => _backendClient.waitForAndroid(backendUrl, payload),
+      browser: false,
+    );
+  }
+
+  Uri resolveRuntimeAsset(String path) {
+    final separator = path.contains('?') ? '&' : '?';
+    return _backendClient.resolveAssetUri(
+      backendUrl,
+      '$path${separator}t=${DateTime.now().millisecondsSinceEpoch}',
+    );
+  }
+
+  Future<Uint8List> fetchRuntimeAssetBytes(String path) {
+    final separator = path.contains('?') ? '&' : '?';
+    return _backendClient.fetchBinary(
+      backendUrl,
+      '$path${separator}t=${DateTime.now().millisecondsSinceEpoch}',
+    );
+  }
+
+  Map<String, String>? get authenticatedImageHeaders {
+    final cookie = _backendClient.sessionCookie;
+    if (cookie == null || cookie.isEmpty) {
+      return null;
+    }
+    return <String, String>{'Cookie': cookie};
+  }
+
   Future<void> startWebRecording() async {
     if (isStartingRecording || recordingRuntime.active) {
       return;
@@ -846,7 +1237,10 @@ class NeoAgentController extends ChangeNotifier {
               'sourceKind': 'screen-share',
               'mediaKind': 'video',
               'mimeType': 'video/webm',
-              'metadata': <String, dynamic>{'analysisReady': true},
+              'metadata': <String, dynamic>{
+                'analysisReady': true,
+                'transcribe': false,
+              },
             },
             <String, dynamic>{
               'sourceKey': 'microphone',
@@ -1828,6 +2222,24 @@ class NeoAgentController extends ChangeNotifier {
         next.add(updated);
       }
       toolEvents = next;
+      final toolName = payload['toolName']?.toString() ?? '';
+      final screenshotPath =
+          payload['screenshotPath']?.toString() ??
+          (payload['result'] is Map
+              ? (payload['result'] as Map)['screenshotPath']?.toString()
+              : null);
+      if (screenshotPath != null && screenshotPath.isNotEmpty) {
+        if (toolName.startsWith('browser_')) {
+          browserScreenshotPath = screenshotPath;
+        } else if (toolName.startsWith('android_')) {
+          androidScreenshotPath = screenshotPath;
+        }
+      }
+      if (toolName.startsWith('browser_')) {
+        unawaited(refreshDevices());
+      } else if (toolName.startsWith('android_')) {
+        unawaited(refreshDevices());
+      }
       notifyListeners();
     });
     socket.on('run:interim', (dynamic data) {
@@ -2542,6 +2954,8 @@ class _SectionBody extends StatelessWidget {
     switch (controller.selectedSection) {
       case AppSection.chat:
         return ChatPanel(controller: controller);
+      case AppSection.devices:
+        return DevicesPanel(controller: controller);
       case AppSection.recordings:
         return RecordingsPanel(controller: controller);
       case AppSection.messaging:
@@ -2565,6 +2979,1911 @@ class _SectionBody extends StatelessWidget {
             ? HealthPanel(controller: controller)
             : ChatPanel(controller: controller);
     }
+  }
+}
+
+class DevicesPanel extends StatefulWidget {
+  const DevicesPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<DevicesPanel> createState() => _DevicesPanelState();
+}
+
+class _DevicesPanelState extends State<DevicesPanel> {
+  late final TextEditingController _browserUrlController;
+  late final TextEditingController _androidLaunchController;
+  late final TextEditingController _textEntryController;
+  Timer? _surfaceFrameTimer;
+  _DeviceSurface _surface = _DeviceSurface.browser;
+
+  @override
+  void initState() {
+    super.initState();
+    _browserUrlController = TextEditingController(text: 'https://example.com');
+    _androidLaunchController = TextEditingController(
+      text: 'com.android.settings',
+    );
+    _textEntryController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_bootstrapSurface());
+    });
+    _surfaceFrameTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      unawaited(_refreshSurfaceFrame());
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final controller in <TextEditingController>[
+      _browserUrlController,
+      _androidLaunchController,
+      _textEntryController,
+    ]) {
+      controller.dispose();
+    }
+    _surfaceFrameTimer?.cancel();
+    super.dispose();
+  }
+
+  bool get _isBrowser => _surface == _DeviceSurface.browser;
+
+  bool get _androidOnline {
+    final status = widget.controller.androidRuntime;
+    final devices = (status['devices'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<dynamic, dynamic>>();
+    return devices.any((device) => device['status']?.toString() == 'device');
+  }
+
+  String? get _activeScreenshotPath => _isBrowser
+      ? widget.controller.browserScreenshotPath
+      : widget.controller.androidScreenshotPath;
+
+  Future<void> _bootstrapSurface() async {
+    await widget.controller.refreshDevices();
+    await _ensurePreview();
+  }
+
+  Future<void> _ensurePreview() async {
+    final controller = widget.controller;
+    if (_isBrowser) {
+      if (controller.browserRuntime['launched'] != true) {
+        return;
+      }
+      if ((controller.browserScreenshotPath ?? '').isEmpty) {
+        final currentUrl =
+            controller.browserRuntime['pageInfo'] is Map<dynamic, dynamic>
+            ? (controller.browserRuntime['pageInfo'] as Map)['url']?.toString()
+            : null;
+        if (currentUrl != null && currentUrl.isNotEmpty) {
+          await controller.navigateBrowserRuntime(url: currentUrl);
+        } else {
+          await controller.screenshotBrowserRuntime();
+        }
+      }
+      return;
+    }
+
+    if (_androidOnline && (controller.androidScreenshotPath ?? '').isEmpty) {
+      await controller.screenshotAndroidRuntime();
+    }
+  }
+
+  Future<void> _refreshSurfaceFrame() async {
+    if (!mounted ||
+        widget.controller.selectedSection != AppSection.devices ||
+        widget.controller.isRunningDeviceAction ||
+        widget.controller.isRefreshingDevices) {
+      return;
+    }
+    if (_isBrowser) {
+      await widget.controller.refreshBrowserFrameRuntime();
+      return;
+    }
+    await widget.controller.refreshAndroidFrameRuntime();
+  }
+
+  Future<void> _switchSurface(int delta) async {
+    final surfaces = _DeviceSurface.values;
+    final currentIndex = surfaces.indexOf(_surface);
+    final nextIndex = (currentIndex + delta) % surfaces.length;
+    setState(
+      () =>
+          _surface = surfaces[nextIndex < 0 ? surfaces.length - 1 : nextIndex],
+    );
+    await _ensurePreview();
+  }
+
+  Future<void> _openPrimary() async {
+    final controller = widget.controller;
+    if (_isBrowser) {
+      await controller.navigateBrowserRuntime(
+        url: _browserUrlController.text.trim(),
+      );
+      return;
+    }
+
+    if (!_androidOnline) {
+      await controller.startAndroidRuntime();
+      await widget.controller.refreshDevices();
+      if (_androidOnline) {
+        await controller.screenshotAndroidRuntime();
+      }
+      return;
+    }
+
+    final raw = _androidLaunchController.text.trim();
+    if (raw.isEmpty) {
+      return;
+    }
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      await controller.openAndroidIntentRuntime(
+        action: 'android.intent.action.VIEW',
+        dataUri: raw,
+      );
+      return;
+    }
+    await controller.openAndroidAppRuntime(packageName: raw);
+  }
+
+  Future<void> _sleepPrimary() async {
+    final controller = widget.controller;
+    if (_isBrowser) {
+      if (controller.browserRuntime['launched'] != true) {
+        return;
+      }
+      await controller.closeBrowserRuntime();
+      return;
+    }
+    if (!_androidOnline) {
+      return;
+    }
+    await controller.stopAndroidRuntime();
+  }
+
+  Future<void> _sendText() async {
+    final text = _textEntryController.text;
+    if (text.trim().isEmpty) {
+      return;
+    }
+    if (_isBrowser) {
+      await widget.controller.typeBrowserTextRuntime(text, pressEnter: true);
+    } else {
+      await widget.controller.typeAndroidRuntime(<String, dynamic>{
+        'text': text,
+        'pressEnter': true,
+      });
+    }
+  }
+
+  Future<void> _handleTap(Offset point) async {
+    if (_isBrowser) {
+      await widget.controller.clickBrowserPointRuntime(
+        x: point.dx.round(),
+        y: point.dy.round(),
+      );
+      return;
+    }
+    if (!_androidOnline) {
+      await widget.controller.startAndroidRuntime();
+      return;
+    }
+    await widget.controller.tapAndroidRuntime(<String, dynamic>{
+      'x': point.dx.round(),
+      'y': point.dy.round(),
+    });
+  }
+
+  Future<void> _handleSwipe(Offset start, Offset end) async {
+    if (_isBrowser) {
+      await widget.controller.scrollBrowserRuntime(
+        deltaY: (start.dy - end.dy).round(),
+      );
+      return;
+    }
+    if (!_androidOnline) {
+      return;
+    }
+    await widget.controller.swipeAndroidRuntime(<String, dynamic>{
+      'x1': start.dx.round(),
+      'y1': start.dy.round(),
+      'x2': end.dx.round(),
+      'y2': end.dy.round(),
+      'durationMs': 280,
+    });
+  }
+
+  Future<void> _runQuickAction(String action) async {
+    final controller = widget.controller;
+    switch (action) {
+      case 'browser_refresh':
+        await controller.navigateBrowserRuntime(
+          url: controller.browserRuntime['pageInfo'] is Map<dynamic, dynamic>
+              ? ((controller.browserRuntime['pageInfo'] as Map)['url']
+                        ?.toString() ??
+                    _browserUrlController.text.trim())
+              : _browserUrlController.text.trim(),
+        );
+        break;
+      case 'browser_enter':
+        await controller.pressBrowserKeyRuntime('Enter');
+        break;
+      case 'android_back':
+        await controller.pressAndroidKeyRuntime('back');
+        break;
+      case 'android_home':
+        await controller.pressAndroidKeyRuntime('home');
+        break;
+      case 'android_recent':
+        await controller.pressAndroidKeyRuntime('app_switch');
+        break;
+      case 'surface_refresh':
+        await _ensurePreview();
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final browserStatus = controller.browserRuntime;
+    final browserPageInfo = browserStatus['pageInfo'] is Map<dynamic, dynamic>
+        ? Map<String, dynamic>.from(browserStatus['pageInfo'] as Map)
+        : const <String, dynamic>{};
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Remote Device',
+          subtitle:
+              'Tap, swipe, and type directly on the live surface. Use the arrows below to switch between browser and phone.',
+          trailing: OutlinedButton.icon(
+            onPressed:
+                controller.isRefreshingDevices ||
+                    controller.isRunningDeviceAction
+                ? null
+                : _bootstrapSurface,
+            icon: const Icon(Icons.sync),
+            label: const Text('Sync Surface'),
+          ),
+        ),
+        if (controller.errorMessage case final message?)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _InlineError(message: message),
+          ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 980),
+            child: Card(
+              color: const Color(0xFF131520),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+                side: const BorderSide(color: _borderLight),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: <Widget>[
+                    _DeviceSurfaceHeader(
+                      surface: _surface,
+                      browserStatus: browserStatus,
+                      browserPageInfo: browserPageInfo,
+                      androidRuntime: controller.androidRuntime,
+                      androidOnline: _androidOnline,
+                    ),
+                    const SizedBox(height: 16),
+                    _DeviceLaunchBar(
+                      surface: _surface,
+                      controller: _isBrowser
+                          ? _browserUrlController
+                          : _androidLaunchController,
+                      active: _isBrowser
+                          ? browserStatus['launched'] == true
+                          : _androidOnline,
+                      busy: controller.isRunningDeviceAction,
+                      onSubmit: _openPrimary,
+                      onSleep: _sleepPrimary,
+                    ),
+                    const SizedBox(height: 18),
+                    _InteractiveSurfacePreview(
+                      surface: _surface,
+                      controller: controller,
+                      screenshotPath: _activeScreenshotPath,
+                      busy: controller.isRunningDeviceAction,
+                      enabled: _isBrowser || _androidOnline,
+                      onTapPoint: _handleTap,
+                      onSwipe: _handleSwipe,
+                      onWakeRequested: _openPrimary,
+                    ),
+                    if (!_isBrowser) ...<Widget>[
+                      const SizedBox(height: 12),
+                      _AndroidNavDock(
+                        busy: controller.isRunningDeviceAction,
+                        androidOnline: _androidOnline,
+                        onAction: _runQuickAction,
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    _DeviceTypeDock(
+                      controller: _textEntryController,
+                      busy: controller.isRunningDeviceAction,
+                      surface: _surface,
+                      onSubmit: _sendText,
+                    ),
+                    if (_isBrowser) ...<Widget>[
+                      const SizedBox(height: 14),
+                      _DeviceQuickActions(
+                        surface: _surface,
+                        androidOnline: _androidOnline,
+                        busy: controller.isRunningDeviceAction,
+                        onAction: _runQuickAction,
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    _SurfaceSwitcher(
+                      surface: _surface,
+                      onPrevious: () => _switchSurface(-1),
+                      onNext: () => _switchSurface(1),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum _DeviceSurface { browser, android }
+
+extension _DeviceSurfaceX on _DeviceSurface {
+  String get label => this == _DeviceSurface.browser ? 'Browser' : 'Phone';
+
+  String get helper => this == _DeviceSurface.browser
+      ? 'Tap to click. Drag to scroll.'
+      : 'Tap to touch. Drag to swipe.';
+
+  IconData get icon => this == _DeviceSurface.browser
+      ? Icons.language_outlined
+      : Icons.smartphone_outlined;
+}
+
+class _DeviceSurfaceHeader extends StatelessWidget {
+  const _DeviceSurfaceHeader({
+    required this.surface,
+    required this.browserStatus,
+    required this.browserPageInfo,
+    required this.androidRuntime,
+    required this.androidOnline,
+  });
+
+  final _DeviceSurface surface;
+  final Map<String, dynamic> browserStatus;
+  final Map<String, dynamic> browserPageInfo;
+  final Map<String, dynamic> androidRuntime;
+  final bool androidOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = surface == _DeviceSurface.browser
+        ? (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
+              ? browserPageInfo['title'].toString()
+              : 'Live Browser'
+        : 'Android Phone';
+    final subtitle = surface == _DeviceSurface.browser
+        ? (browserPageInfo['url']?.toString() ?? 'Ready for navigation')
+        : (androidOnline
+              ? 'Tap and swipe directly on the preview.'
+              : (androidRuntime['lastLogLine']?.toString().trim().isNotEmpty ??
+                    false)
+              ? androidRuntime['lastLogLine'].toString()
+              : 'Phone is offline. Open or start it from below.');
+
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: _accentMuted,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(surface.icon, color: _textPrimary),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _textSecondary, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        _DotStatus(
+          label: surface == _DeviceSurface.browser
+              ? (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
+              : (androidOnline ? 'Live' : 'Offline'),
+          color:
+              (surface == _DeviceSurface.browser
+                  ? browserStatus['launched'] == true
+                  : androidOnline)
+              ? _success
+              : _warning,
+        ),
+      ],
+    );
+  }
+}
+
+class _DeviceLaunchBar extends StatelessWidget {
+  const _DeviceLaunchBar({
+    required this.surface,
+    required this.controller,
+    required this.active,
+    required this.busy,
+    required this.onSubmit,
+    required this.onSleep,
+  });
+
+  final _DeviceSurface surface;
+  final TextEditingController controller;
+  final bool active;
+  final bool busy;
+  final Future<void> Function() onSubmit;
+  final Future<void> Function() onSleep;
+
+  @override
+  Widget build(BuildContext context) {
+    final hint = surface == _DeviceSurface.browser
+        ? 'https://example.com'
+        : 'Package name or URL';
+    final buttonLabel = surface == _DeviceSurface.browser ? 'Open' : 'Launch';
+    final sleepLabel = surface == _DeviceSurface.browser
+        ? 'Sleep Browser'
+        : 'Sleep Phone';
+    final narrow = MediaQuery.sizeOf(context).width < 720;
+
+    final input = TextField(
+      controller: controller,
+      onSubmitted: (_) => onSubmit(),
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(
+          surface == _DeviceSurface.browser
+              ? Icons.travel_explore
+              : Icons.open_in_new,
+        ),
+      ),
+    );
+
+    final button = FilledButton.icon(
+      onPressed: busy ? null : onSubmit,
+      icon: Icon(
+        surface == _DeviceSurface.browser
+            ? Icons.arrow_forward
+            : Icons.play_arrow,
+      ),
+      label: Text(buttonLabel),
+    );
+    final sleepButton = OutlinedButton.icon(
+      onPressed: busy || !active ? null : onSleep,
+      icon: const Icon(Icons.bedtime_outlined),
+      label: Text(sleepLabel),
+    );
+
+    if (narrow) {
+      return Column(
+        children: <Widget>[
+          input,
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(child: button),
+              const SizedBox(width: 10),
+              Expanded(child: sleepButton),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: <Widget>[
+        Expanded(child: input),
+        const SizedBox(width: 10),
+        sleepButton,
+        const SizedBox(width: 10),
+        button,
+      ],
+    );
+  }
+}
+
+class _DeviceTypeDock extends StatelessWidget {
+  const _DeviceTypeDock({
+    required this.controller,
+    required this.busy,
+    required this.surface,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final bool busy;
+  final _DeviceSurface surface;
+  final Future<void> Function() onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final hint = surface == _DeviceSurface.browser
+        ? 'Type into the currently focused field'
+        : 'Type into the current phone field';
+    final narrow = MediaQuery.sizeOf(context).width < 720;
+
+    final input = TextField(
+      controller: controller,
+      onSubmitted: (_) => onSubmit(),
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: const Icon(Icons.keyboard_outlined),
+      ),
+    );
+
+    final button = FilledButton.icon(
+      onPressed: busy ? null : onSubmit,
+      icon: const Icon(Icons.send_rounded),
+      label: const Text('Send'),
+    );
+
+    if (narrow) {
+      return Column(
+        children: <Widget>[
+          input,
+          const SizedBox(height: 10),
+          SizedBox(width: double.infinity, child: button),
+        ],
+      );
+    }
+
+    return Row(
+      children: <Widget>[
+        Expanded(child: input),
+        const SizedBox(width: 10),
+        button,
+      ],
+    );
+  }
+}
+
+class _DeviceQuickActions extends StatelessWidget {
+  const _DeviceQuickActions({
+    required this.surface,
+    required this.androidOnline,
+    required this.busy,
+    required this.onAction,
+  });
+
+  final _DeviceSurface surface;
+  final bool androidOnline;
+  final bool busy;
+  final Future<void> Function(String action) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = const <MapEntry<String, IconData>>[
+      MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
+      MapEntry<String, IconData>('browser_refresh', Icons.replay_rounded),
+      MapEntry<String, IconData>(
+        'browser_enter',
+        Icons.keyboard_return_rounded,
+      ),
+    ];
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: actions.map((entry) {
+        final disabled =
+            busy ||
+            (surface != _DeviceSurface.browser &&
+                entry.key.startsWith('browser_')) ||
+            (!androidOnline && entry.key.startsWith('android_'));
+        return InkWell(
+          onTap: disabled ? null : () => onAction(entry.key),
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: disabled ? _bgSecondary : const Color(0xFF1B1F2D),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _borderLight),
+            ),
+            child: Icon(
+              entry.value,
+              color: disabled ? _textMuted : _textPrimary,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _AndroidNavDock extends StatelessWidget {
+  const _AndroidNavDock({
+    required this.busy,
+    required this.androidOnline,
+    required this.onAction,
+  });
+
+  final bool busy;
+  final bool androidOnline;
+  final Future<void> Function(String action) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    const actions = <MapEntry<String, IconData>>[
+      MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
+      MapEntry<String, IconData>('android_back', Icons.arrow_back_rounded),
+      MapEntry<String, IconData>('android_home', Icons.home_rounded),
+      MapEntry<String, IconData>('android_recent', Icons.crop_square_rounded),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121624),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: actions.map((entry) {
+          final disabled =
+              busy || (!androidOnline && entry.key.startsWith('android_'));
+          return IconButton.filledTonal(
+            onPressed: disabled ? null : () => onAction(entry.key),
+            icon: Icon(entry.value),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _SurfaceSwitcher extends StatelessWidget {
+  const _SurfaceSwitcher({
+    required this.surface,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final _DeviceSurface surface;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        IconButton.filledTonal(
+          onPressed: onPrevious,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
+        const SizedBox(width: 14),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              surface.label,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(surface.helper, style: const TextStyle(color: _textSecondary)),
+          ],
+        ),
+        const SizedBox(width: 14),
+        IconButton.filledTonal(
+          onPressed: onNext,
+          icon: const Icon(Icons.arrow_forward_ios_rounded),
+        ),
+      ],
+    );
+  }
+}
+
+class _InteractiveSurfacePreview extends StatefulWidget {
+  const _InteractiveSurfacePreview({
+    required this.surface,
+    required this.controller,
+    required this.screenshotPath,
+    required this.busy,
+    required this.enabled,
+    required this.onTapPoint,
+    required this.onSwipe,
+    required this.onWakeRequested,
+  });
+
+  final _DeviceSurface surface;
+  final NeoAgentController controller;
+  final String? screenshotPath;
+  final bool busy;
+  final bool enabled;
+  final Future<void> Function(Offset point) onTapPoint;
+  final Future<void> Function(Offset start, Offset end) onSwipe;
+  final Future<void> Function() onWakeRequested;
+
+  @override
+  State<_InteractiveSurfacePreview> createState() =>
+      _InteractiveSurfacePreviewState();
+}
+
+class _InteractiveSurfacePreviewState
+    extends State<_InteractiveSurfacePreview> {
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageListener;
+  Size? _pixelSize;
+  Uint8List? _imageBytes;
+  Object? _imageError;
+  Offset? _dragStart;
+  Offset? _dragEnd;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadImage());
+  }
+
+  @override
+  void didUpdateWidget(covariant _InteractiveSurfacePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.screenshotPath != widget.screenshotPath) {
+      unawaited(_loadImage());
+    }
+  }
+
+  @override
+  void dispose() {
+    _detachImageListener();
+    super.dispose();
+  }
+
+  void _detachImageListener() {
+    if (_imageStream != null && _imageListener != null) {
+      _imageStream!.removeListener(_imageListener!);
+    }
+    _imageStream = null;
+    _imageListener = null;
+  }
+
+  Future<void> _loadImage() async {
+    _detachImageListener();
+    final path = widget.screenshotPath;
+    if (path == null || path.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _pixelSize = null;
+        _imageBytes = null;
+        _imageError = null;
+      });
+      return;
+    }
+    try {
+      final bytes = await widget.controller.fetchRuntimeAssetBytes(path);
+      if (!mounted || widget.screenshotPath != path) {
+        return;
+      }
+      setState(() {
+        _imageBytes = bytes;
+        _imageError = null;
+        _pixelSize = null;
+      });
+      final provider = MemoryImage(bytes);
+      final stream = provider.resolve(const ImageConfiguration());
+      final listener = ImageStreamListener((image, _) {
+        if (!mounted || widget.screenshotPath != path) {
+          return;
+        }
+        setState(() {
+          _pixelSize = Size(
+            image.image.width.toDouble(),
+            image.image.height.toDouble(),
+          );
+        });
+      });
+      _imageStream = stream;
+      _imageListener = listener;
+      stream.addListener(listener);
+    } catch (error) {
+      if (!mounted || widget.screenshotPath != path) {
+        return;
+      }
+      setState(() {
+        _imageBytes = null;
+        _pixelSize = null;
+        _imageError = error;
+      });
+    }
+  }
+
+  Offset? _mapToPixels(Offset localPosition, Size boxSize) {
+    final pixelSize = _pixelSize;
+    if (pixelSize == null) {
+      return null;
+    }
+    final boxAspect = boxSize.width / boxSize.height;
+    final imageAspect = pixelSize.width / pixelSize.height;
+    late final double renderWidth;
+    late final double renderHeight;
+    late final double offsetX;
+    late final double offsetY;
+
+    if (boxAspect > imageAspect) {
+      renderHeight = boxSize.height;
+      renderWidth = renderHeight * imageAspect;
+      offsetX = (boxSize.width - renderWidth) / 2;
+      offsetY = 0;
+    } else {
+      renderWidth = boxSize.width;
+      renderHeight = renderWidth / imageAspect;
+      offsetX = 0;
+      offsetY = (boxSize.height - renderHeight) / 2;
+    }
+
+    if (localPosition.dx < offsetX ||
+        localPosition.dx > offsetX + renderWidth ||
+        localPosition.dy < offsetY ||
+        localPosition.dy > offsetY + renderHeight) {
+      return null;
+    }
+
+    return Offset(
+      ((localPosition.dx - offsetX) / renderWidth) * pixelSize.width,
+      ((localPosition.dy - offsetY) / renderHeight) * pixelSize.height,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = widget.screenshotPath;
+    final hasImage = path != null && path.isNotEmpty;
+    final aspectRatio = widget.surface == _DeviceSurface.browser
+        ? 16 / 10
+        : 10 / 16;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[Color(0xFF171B29), Color(0xFF0E111A)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _borderLight),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: <Widget>[
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: widget.surface == _DeviceSurface.browser ? 560 : 640,
+            ),
+            child: AspectRatio(
+              aspectRatio: aspectRatio,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final boxSize = Size(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    if (!hasImage) {
+                      return _EmptySurfaceState(
+                        surface: widget.surface,
+                        enabled: widget.enabled,
+                        busy: widget.busy,
+                        errorMessage: _imageError?.toString(),
+                        onPressed: widget.onWakeRequested,
+                      );
+                    }
+                    final imageBytes = _imageBytes;
+                    if (imageBytes == null) {
+                      return _EmptySurfaceState(
+                        surface: widget.surface,
+                        enabled: widget.enabled,
+                        busy: widget.busy,
+                        errorMessage: _imageError?.toString(),
+                        onPressed: widget.onWakeRequested,
+                      );
+                    }
+                    return GestureDetector(
+                      onTapUp: widget.busy
+                          ? null
+                          : (details) async {
+                              final point = _mapToPixels(
+                                details.localPosition,
+                                boxSize,
+                              );
+                              if (point != null) {
+                                await widget.onTapPoint(point);
+                              }
+                            },
+                      onPanStart: widget.busy
+                          ? null
+                          : (details) {
+                              _dragStart = details.localPosition;
+                              _dragEnd = details.localPosition;
+                            },
+                      onPanUpdate: widget.busy
+                          ? null
+                          : (details) {
+                              _dragEnd = details.localPosition;
+                            },
+                      onPanEnd: widget.busy
+                          ? null
+                          : (_) async {
+                              final start = _dragStart;
+                              final end = _dragEnd;
+                              _dragStart = null;
+                              _dragEnd = null;
+                              if (start == null || end == null) {
+                                return;
+                              }
+                              if ((start - end).distance < 12) {
+                                return;
+                              }
+                              final mappedStart = _mapToPixels(start, boxSize);
+                              final mappedEnd = _mapToPixels(end, boxSize);
+                              if (mappedStart != null && mappedEnd != null) {
+                                await widget.onSwipe(mappedStart, mappedEnd);
+                              }
+                            },
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: <Widget>[
+                          Container(color: _bgSecondary),
+                          Image.memory(
+                            imageBytes,
+                            fit: BoxFit.contain,
+                            gaplessPlayback: true,
+                          ),
+                          Positioned(
+                            left: 12,
+                            right: 12,
+                            bottom: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xB20A0C12),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: _borderLight),
+                              ),
+                              child: Text(
+                                widget.surface.helper,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: _textPrimary),
+                              ),
+                            ),
+                          ),
+                          if (widget.busy)
+                            const Center(child: CircularProgressIndicator()),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySurfaceState extends StatelessWidget {
+  const _EmptySurfaceState({
+    required this.surface,
+    required this.enabled,
+    required this.busy,
+    this.errorMessage,
+    required this.onPressed,
+  });
+
+  final _DeviceSurface surface;
+  final bool enabled;
+  final bool busy;
+  final String? errorMessage;
+  final Future<void> Function() onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = surface == _DeviceSurface.browser
+        ? 'Wake Browser'
+        : (enabled ? 'Refresh Phone' : 'Start Phone');
+    final message = surface == _DeviceSurface.browser
+        ? 'Browser is sleeping. Press Open to start it.'
+        : (errorMessage != null && errorMessage!.trim().isNotEmpty)
+        ? errorMessage!
+        : 'Phone is offline. Press Start Phone to boot it.';
+    return Container(
+      color: _bgSecondary,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(surface.icon, size: 46, color: _textSecondary),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: const TextStyle(color: _textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          if (errorMessage != null &&
+              surface == _DeviceSurface.browser &&
+              errorMessage!.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Text(
+                errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _textMuted, fontSize: 12),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: busy ? null : onPressed,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: Text(label),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _RuntimeControlCard extends StatelessWidget {
+  const _RuntimeControlCard({
+    required this.title,
+    required this.subtitle,
+    required this.status,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget status;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: _textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                status,
+              ],
+            ),
+            const SizedBox(height: 18),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _BrowserControls extends StatelessWidget {
+  const _BrowserControls({
+    required this.controller,
+    required this.browserStatus,
+    required this.browserPageInfo,
+    required this.urlController,
+    required this.waitForController,
+    required this.clickSelectorController,
+    required this.clickTextController,
+    required this.fillSelectorController,
+    required this.fillValueController,
+  });
+
+  final NeoAgentController controller;
+  final Map<String, dynamic> browserStatus;
+  final Map<String, dynamic> browserPageInfo;
+  final TextEditingController urlController;
+  final TextEditingController waitForController;
+  final TextEditingController clickSelectorController;
+  final TextEditingController clickTextController;
+  final TextEditingController fillSelectorController;
+  final TextEditingController fillValueController;
+
+  @override
+  Widget build(BuildContext context) {
+    final launched = browserStatus['launched'] == true;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            _MetaPill(
+              label: launched ? 'Launched' : 'Idle',
+              icon: Icons.language_outlined,
+            ),
+            _MetaPill(
+              label: 'Pages ${browserStatus['pages'] ?? 0}',
+              icon: Icons.filter_none_outlined,
+            ),
+            _MetaPill(
+              label: browserStatus['headless'] == false
+                  ? 'Visible window'
+                  : 'Headless',
+              icon: Icons.visibility_outlined,
+            ),
+          ],
+        ),
+        if ((browserPageInfo['url']?.toString().isNotEmpty ?? false) ||
+            (browserPageInfo['title']?.toString().isNotEmpty ??
+                false)) ...<Widget>[
+          const SizedBox(height: 14),
+          SelectableText(
+            '${browserPageInfo['title'] ?? 'Untitled'}\n${browserPageInfo['url'] ?? ''}',
+            style: const TextStyle(color: _textSecondary, height: 1.5),
+          ),
+        ],
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'URL',
+              child: TextField(controller: urlController),
+            ),
+            _DeviceField(
+              label: 'Wait For Selector',
+              child: TextField(controller: waitForController),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            FilledButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : controller.launchBrowserRuntime,
+              icon: const Icon(Icons.rocket_launch_outlined),
+              label: const Text('Launch'),
+            ),
+            FilledButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : () => controller.navigateBrowserRuntime(
+                      url: urlController.text.trim(),
+                      waitFor: waitForController.text.trim(),
+                    ),
+              icon: const Icon(Icons.open_in_browser_outlined),
+              label: const Text('Navigate'),
+            ),
+            OutlinedButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : controller.screenshotBrowserRuntime,
+              icon: const Icon(Icons.photo_camera_back_outlined),
+              label: const Text('Screenshot'),
+            ),
+            OutlinedButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : controller.closeBrowserRuntime,
+              icon: const Icon(Icons.close),
+              label: const Text('Close'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Click Selector',
+              child: TextField(controller: clickSelectorController),
+            ),
+            _DeviceField(
+              label: 'Click Text',
+              child: TextField(controller: clickTextController),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            OutlinedButton(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : () => controller.clickBrowserRuntime(
+                      selector: clickSelectorController.text.trim(),
+                    ),
+              child: const Text('Click Selector'),
+            ),
+            OutlinedButton(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : () => controller.clickBrowserRuntime(
+                      text: clickTextController.text.trim(),
+                    ),
+              child: const Text('Click Text'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Type Selector',
+              child: TextField(controller: fillSelectorController),
+            ),
+            _DeviceField(
+              label: 'Value',
+              child: TextField(controller: fillValueController),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: controller.isRunningDeviceAction
+              ? null
+              : () => controller.fillBrowserRuntime(
+                  selector: fillSelectorController.text.trim(),
+                  value: fillValueController.text,
+                ),
+          icon: const Icon(Icons.keyboard_outlined),
+          label: const Text('Type Into Field'),
+        ),
+        const SizedBox(height: 18),
+        _RuntimePreview(
+          title: 'Latest Browser Screenshot',
+          screenshotPath: controller.browserScreenshotPath,
+          controller: controller,
+        ),
+        if (controller.browserLastResult?.trim().isNotEmpty ??
+            false) ...<Widget>[
+          const SizedBox(height: 14),
+          _ResultBlock(
+            label: 'Last browser result',
+            value: controller.browserLastResult!,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ignore: unused_element
+class _AndroidControls extends StatelessWidget {
+  const _AndroidControls({
+    required this.controller,
+    required this.androidStatus,
+    required this.androidDevices,
+    required this.packageController,
+    required this.activityController,
+    required this.intentActionController,
+    required this.intentDataController,
+    required this.tapTextController,
+    required this.tapDescriptionController,
+    required this.tapResourceIdController,
+    required this.tapXController,
+    required this.tapYController,
+    required this.typeTextController,
+    required this.typeFieldTextController,
+    required this.typeFieldDescriptionController,
+    required this.waitTextController,
+    required this.keyController,
+    required this.swipeX1Controller,
+    required this.swipeY1Controller,
+    required this.swipeX2Controller,
+    required this.swipeY2Controller,
+    required this.toInt,
+  });
+
+  final NeoAgentController controller;
+  final Map<String, dynamic> androidStatus;
+  final List<Map<String, dynamic>> androidDevices;
+  final TextEditingController packageController;
+  final TextEditingController activityController;
+  final TextEditingController intentActionController;
+  final TextEditingController intentDataController;
+  final TextEditingController tapTextController;
+  final TextEditingController tapDescriptionController;
+  final TextEditingController tapResourceIdController;
+  final TextEditingController tapXController;
+  final TextEditingController tapYController;
+  final TextEditingController typeTextController;
+  final TextEditingController typeFieldTextController;
+  final TextEditingController typeFieldDescriptionController;
+  final TextEditingController waitTextController;
+  final TextEditingController keyController;
+  final TextEditingController swipeX1Controller;
+  final TextEditingController swipeY1Controller;
+  final TextEditingController swipeX2Controller;
+  final TextEditingController swipeY2Controller;
+  final int? Function(String text) toInt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            _MetaPill(
+              label: androidStatus['bootstrapped'] == true
+                  ? 'SDK Ready'
+                  : 'Bootstrap Needed',
+              icon: Icons.adb_outlined,
+            ),
+            _MetaPill(
+              label: androidStatus['serial']?.toString().isNotEmpty == true
+                  ? androidStatus['serial'].toString()
+                  : 'No active serial',
+              icon: Icons.phone_android_outlined,
+            ),
+            _MetaPill(
+              label: '${androidDevices.length} device(s)',
+              icon: Icons.devices_other_outlined,
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            FilledButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : controller.startAndroidRuntime,
+              icon: const Icon(Icons.play_arrow_outlined),
+              label: const Text('Start Emulator'),
+            ),
+            OutlinedButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : controller.stopAndroidRuntime,
+              icon: const Icon(Icons.stop_circle_outlined),
+              label: const Text('Stop'),
+            ),
+            OutlinedButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : controller.screenshotAndroidRuntime,
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: const Text('Screenshot'),
+            ),
+            OutlinedButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : controller.dumpAndroidUiRuntime,
+              icon: const Icon(Icons.data_object_outlined),
+              label: const Text('Dump UI'),
+            ),
+            OutlinedButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : controller.refreshAndroidApps,
+              icon: const Icon(Icons.apps_outlined),
+              label: const Text('Load Apps'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Package',
+              child: TextField(controller: packageController),
+            ),
+            _DeviceField(
+              label: 'Activity',
+              child: TextField(controller: activityController),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            OutlinedButton.icon(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : () => controller.openAndroidAppRuntime(
+                      packageName: packageController.text.trim(),
+                      activity: activityController.text.trim(),
+                    ),
+              icon: const Icon(Icons.apps),
+              label: const Text('Open App'),
+            ),
+            if (controller.androidInstalledApps.isNotEmpty)
+              SizedBox(width: 1, height: 1, child: Container()),
+          ],
+        ),
+        if (controller.androidInstalledApps.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: controller.androidInstalledApps.take(10).map((appId) {
+              return ActionChip(
+                label: Text(appId),
+                onPressed: () => packageController.text = appId,
+              );
+            }).toList(),
+          ),
+        ],
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Intent Action',
+              child: TextField(controller: intentActionController),
+            ),
+            _DeviceField(
+              label: 'Intent Data',
+              child: TextField(controller: intentDataController),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: controller.isRunningDeviceAction
+              ? null
+              : () => controller.openAndroidIntentRuntime(
+                  action: intentActionController.text.trim(),
+                  dataUri: intentDataController.text.trim(),
+                  packageName: packageController.text.trim(),
+                ),
+          icon: const Icon(Icons.route_outlined),
+          label: const Text('Open Intent'),
+        ),
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Wait For Text',
+              child: TextField(controller: waitTextController),
+            ),
+            _DeviceField(
+              label: 'Key',
+              child: TextField(controller: keyController),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            OutlinedButton(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : () => controller.waitForAndroidRuntime(<String, dynamic>{
+                      'text': waitTextController.text.trim(),
+                      'timeoutMs': 20000,
+                      'intervalMs': 1200,
+                    }),
+              child: const Text('Wait For UI'),
+            ),
+            OutlinedButton(
+              onPressed: controller.isRunningDeviceAction
+                  ? null
+                  : () => controller.pressAndroidKeyRuntime(
+                      keyController.text.trim(),
+                    ),
+              child: const Text('Press Key'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Tap Text',
+              child: TextField(controller: tapTextController),
+            ),
+            _DeviceField(
+              label: 'Tap Description',
+              child: TextField(controller: tapDescriptionController),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Tap Resource Id',
+              child: TextField(controller: tapResourceIdController),
+            ),
+            _DeviceField(
+              label: 'Tap X / Y',
+              child: Row(
+                children: <Widget>[
+                  Expanded(child: TextField(controller: tapXController)),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: tapYController)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: controller.isRunningDeviceAction
+              ? null
+              : () => controller.tapAndroidRuntime(<String, dynamic>{
+                  if (tapTextController.text.trim().isNotEmpty)
+                    'text': tapTextController.text.trim(),
+                  if (tapDescriptionController.text.trim().isNotEmpty)
+                    'description': tapDescriptionController.text.trim(),
+                  if (tapResourceIdController.text.trim().isNotEmpty)
+                    'resourceId': tapResourceIdController.text.trim(),
+                  if (toInt(tapXController.text) != null)
+                    'x': toInt(tapXController.text),
+                  if (toInt(tapYController.text) != null)
+                    'y': toInt(tapYController.text),
+                }),
+          icon: const Icon(Icons.touch_app_outlined),
+          label: const Text('Tap'),
+        ),
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Type Text',
+              child: TextField(controller: typeTextController),
+            ),
+            _DeviceField(
+              label: 'Focus Field Text / Description',
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(controller: typeFieldTextController),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: typeFieldDescriptionController,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: controller.isRunningDeviceAction
+              ? null
+              : () => controller.typeAndroidRuntime(<String, dynamic>{
+                  'text': typeTextController.text,
+                  if (typeFieldTextController.text.trim().isNotEmpty)
+                    'textSelector': typeFieldTextController.text.trim(),
+                  if (typeFieldDescriptionController.text.trim().isNotEmpty)
+                    'description': typeFieldDescriptionController.text.trim(),
+                  'pressEnter': true,
+                }),
+          icon: const Icon(Icons.keyboard_outlined),
+          label: const Text('Type'),
+        ),
+        const SizedBox(height: 18),
+        _DeviceFieldRow(
+          children: <Widget>[
+            _DeviceField(
+              label: 'Swipe X1 / Y1',
+              child: Row(
+                children: <Widget>[
+                  Expanded(child: TextField(controller: swipeX1Controller)),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: swipeY1Controller)),
+                ],
+              ),
+            ),
+            _DeviceField(
+              label: 'Swipe X2 / Y2',
+              child: Row(
+                children: <Widget>[
+                  Expanded(child: TextField(controller: swipeX2Controller)),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: swipeY2Controller)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: controller.isRunningDeviceAction
+              ? null
+              : () => controller.swipeAndroidRuntime(<String, dynamic>{
+                  'x1': toInt(swipeX1Controller.text),
+                  'y1': toInt(swipeY1Controller.text),
+                  'x2': toInt(swipeX2Controller.text),
+                  'y2': toInt(swipeY2Controller.text),
+                }),
+          icon: const Icon(Icons.swipe_outlined),
+          label: const Text('Swipe'),
+        ),
+        const SizedBox(height: 18),
+        _RuntimePreview(
+          title: 'Latest Android Screenshot',
+          screenshotPath: controller.androidScreenshotPath,
+          controller: controller,
+        ),
+        if (controller.androidUiPreview.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 14),
+          Text(
+            'Latest UI dump preview',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          ...controller.androidUiPreview.take(6).map((node) {
+            final title = node['text']?.toString().trim().isNotEmpty == true
+                ? node['text'].toString()
+                : node['description']?.toString().trim().isNotEmpty == true
+                ? node['description'].toString()
+                : node['resourceId']?.toString().trim().isNotEmpty == true
+                ? node['resourceId'].toString()
+                : node['className']?.toString() ?? 'node';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _bgSecondary,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _border),
+              ),
+              child: Text(
+                '$title\n${node['packageName'] ?? ''}',
+                style: const TextStyle(color: _textSecondary, height: 1.5),
+              ),
+            );
+          }),
+        ],
+        if (controller.androidLastResult?.trim().isNotEmpty ??
+            false) ...<Widget>[
+          const SizedBox(height: 14),
+          _ResultBlock(
+            label: 'Last Android result',
+            value: controller.androidLastResult!,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DeviceFieldRow extends StatelessWidget {
+  const _DeviceFieldRow({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final stacked = MediaQuery.sizeOf(context).width < 860;
+    if (stacked) {
+      return Column(
+        children: children
+            .map(
+              (child) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: child,
+              ),
+            )
+            .toList(),
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        for (var index = 0; index < children.length; index++) ...<Widget>[
+          if (index > 0) const SizedBox(width: 12),
+          Expanded(child: children[index]),
+        ],
+      ],
+    );
+  }
+}
+
+class _DeviceField extends StatelessWidget {
+  const _DeviceField({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          label,
+          style: const TextStyle(
+            color: _textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+}
+
+class _RuntimePreview extends StatelessWidget {
+  const _RuntimePreview({
+    required this.title,
+    required this.screenshotPath,
+    required this.controller,
+  });
+
+  final String title;
+  final String? screenshotPath;
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (screenshotPath == null || screenshotPath!.isEmpty) {
+      return _EmptyCard(
+        title: title,
+        subtitle:
+            'Run a screenshot-capable action to preview the live runtime.',
+      );
+    }
+
+    final uri = controller.resolveRuntimeAsset(screenshotPath!);
+    return Card(
+      color: _bgSecondary,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+              screenshotPath!,
+              style: const TextStyle(color: _textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                uri.toString(),
+                headers: controller.authenticatedImageHeaders,
+                fit: BoxFit.cover,
+                errorBuilder: (context, _, __) {
+                  return Container(
+                    height: 220,
+                    color: _bgCard,
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Could not load preview image',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultBlock extends StatelessWidget {
+  const _ResultBlock({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          SelectableText(
+            value,
+            style: TextStyle(
+              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+              fontSize: 12,
+              color: _textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -9078,6 +11397,7 @@ EdgeInsets _pagePadding(BuildContext context) {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
+    AppSection.devices,
     AppSection.recordings,
     AppSection.messaging,
     AppSection.runs,

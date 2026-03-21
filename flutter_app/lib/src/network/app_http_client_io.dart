@@ -15,6 +15,7 @@ class IoAppHttpClient implements AppHttpClient {
     return HttpResponseData(
       statusCode: response.statusCode,
       body: response.body,
+      bodyBytes: response.bodyBytes,
       headers: response.headers,
     );
   }
@@ -34,6 +35,7 @@ class IoAppHttpClient implements AppHttpClient {
     return HttpResponseData(
       statusCode: response.statusCode,
       body: response.body,
+      bodyBytes: response.bodyBytes,
       headers: response.headers,
     );
   }
@@ -53,6 +55,7 @@ class IoAppHttpClient implements AppHttpClient {
     return HttpResponseData(
       statusCode: response.statusCode,
       body: response.body,
+      bodyBytes: response.bodyBytes,
       headers: response.headers,
     );
   }
@@ -72,6 +75,7 @@ class IoAppHttpClient implements AppHttpClient {
     return HttpResponseData(
       statusCode: response.statusCode,
       body: response.body,
+      bodyBytes: response.bodyBytes,
       headers: response.headers,
     );
   }

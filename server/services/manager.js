@@ -4,6 +4,7 @@ const db = require('../db/database');
 const { MemoryManager } = require('./memory/manager');
 const { MCPClient } = require('./mcp/client');
 const { BrowserController } = require('./browser/controller');
+const { AndroidController } = require('./android/controller');
 const { AgentEngine } = require('./ai/engine');
 const { LearningManager } = require('./ai/learning');
 const { MultiStepOrchestrator } = require('./ai/multiStep');
@@ -30,6 +31,9 @@ async function startServices(app, io) {
         }
         app.locals.browserController = browserController;
 
+        const androidController = new AndroidController();
+        app.locals.androidController = androidController;
+
         const skillRunner = new SkillRunner();
         await skillRunner.loadSkills();
         app.locals.skillRunner = skillRunner;
@@ -41,6 +45,7 @@ async function startServices(app, io) {
             memoryManager,
             mcpClient,
             browserController,
+            androidController,
             messagingManager: null,
             skillRunner,
             learningManager
@@ -120,6 +125,14 @@ async function stopServices(app) {
         tasks.push(
             app.locals.browserController.closeBrowser().catch((err) => {
                 console.error('[Browser] Shutdown error:', err.message);
+            }),
+        );
+    }
+
+    if (app.locals.androidController) {
+        tasks.push(
+            app.locals.androidController.close().catch((err) => {
+                console.error('[Android] Shutdown error:', err.message);
             }),
         );
     }

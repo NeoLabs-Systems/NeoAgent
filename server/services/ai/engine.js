@@ -115,6 +115,7 @@ class AgentEngine {
     this.maxIterations = 12;
     this.activeRuns = new Map();
     this.browserController = services.browserController || null;
+    this.androidController = services.androidController || null;
     this.messagingManager = services.messagingManager || null;
     this.mcpManager = services.mcpManager || services.mcpClient || null;
     this.skillRunner = services.skillRunner || null;
@@ -587,6 +588,7 @@ class AgentEngine {
 
   getStepType(toolName) {
     if (toolName.startsWith('browser_')) return 'browser';
+    if (toolName.startsWith('android_')) return 'android';
     if (toolName === 'execute_command') return 'cli';
     if (toolName.startsWith('memory_')) return 'memory';
     if (toolName === 'send_message') return 'messaging';

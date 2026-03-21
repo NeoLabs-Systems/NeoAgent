@@ -307,6 +307,59 @@ class BrowserController {
     }
   }
 
+  async clickPoint(x, y, screenshot = true) {
+    const page = await this.ensurePage();
+
+    try {
+      const px = Math.max(0, Math.round(Number(x) || 0));
+      const py = Math.max(0, Math.round(Number(y) || 0));
+      await page.mouse.move(px, py, { steps: rand(4, 10) });
+      await sleep(rand(40, 140));
+      await page.mouse.down();
+      await sleep(rand(30, 110));
+      await page.mouse.up();
+      await sleep(rand(500, 1200));
+
+      let screenshotResult = null;
+      if (screenshot) screenshotResult = await this.takeScreenshot();
+
+      return {
+        success: true,
+        x: px,
+        y: py,
+        url: page.url(),
+        title: await page.title(),
+        screenshotPath: screenshotResult?.screenshotPath || null
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  async scroll(deltaX = 0, deltaY = 0, screenshot = true) {
+    const page = await this.ensurePage();
+
+    try {
+      await page.mouse.wheel({
+        deltaX: Math.round(Number(deltaX) || 0),
+        deltaY: Math.round(Number(deltaY) || 0),
+      });
+      await sleep(rand(300, 900));
+
+      let screenshotResult = null;
+      if (screenshot) screenshotResult = await this.takeScreenshot();
+
+      return {
+        success: true,
+        url: page.url(),
+        title: await page.title(),
+        screenshotPath: screenshotResult?.screenshotPath || null
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
   async type(selector, text, options = {}) {
     const page = await this.ensurePage();
 
@@ -331,6 +384,56 @@ class BrowserController {
       return {
         success: true,
         typed: text,
+        screenshotPath: screenshotResult?.screenshotPath || null
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  async typeText(text, options = {}) {
+    const page = await this.ensurePage();
+
+    try {
+      for (const char of String(text || '')) {
+        await page.keyboard.type(char, { delay: rand(25, 110) });
+      }
+
+      if (options.pressEnter) {
+        await page.keyboard.press('Enter');
+        await sleep(800);
+      }
+
+      let screenshotResult = null;
+      if (options.screenshot !== false) screenshotResult = await this.takeScreenshot();
+
+      return {
+        success: true,
+        typed: String(text || ''),
+        screenshotPath: screenshotResult?.screenshotPath || null
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  async pressKey(key, screenshot = true) {
+    const page = await this.ensurePage();
+
+    try {
+      const normalized = String(key || '').trim();
+      if (!normalized) {
+        return { error: 'key required' };
+      }
+      await page.keyboard.press(normalized);
+      await sleep(rand(250, 700));
+
+      let screenshotResult = null;
+      if (screenshot) screenshotResult = await this.takeScreenshot();
+
+      return {
+        success: true,
+        key: normalized,
         screenshotPath: screenshotResult?.screenshotPath || null
       };
     } catch (err) {

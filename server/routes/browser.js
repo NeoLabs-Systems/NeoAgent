@@ -6,13 +6,19 @@ const { sanitizeError } = require('../utils/security');
 router.use(requireAuth);
 
 // Get browser status
-router.get('/status', (req, res) => {
-  const bc = req.app.locals.browserController;
-  res.json({
-    launched: bc.isLaunched(),
-    pages: bc.getPageCount(),
-    headless: bc.headless
-  });
+router.get('/status', async (req, res) => {
+  try {
+    const bc = req.app.locals.browserController;
+    const pageInfo = await bc.getPageInfo();
+    res.json({
+      launched: bc.isLaunched(),
+      pages: bc.getPageCount(),
+      headless: bc.headless,
+      pageInfo,
+    });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
 });
 
 // Launch browser
@@ -56,7 +62,21 @@ router.post('/click', async (req, res) => {
   try {
     const { selector, text } = req.body;
     const bc = req.app.locals.browserController;
-    const result = await bc.click(selector, { text });
+    const result = await bc.click(selector, text, req.body?.screenshot !== false);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/click-point', async (req, res) => {
+  try {
+    const { x, y } = req.body || {};
+    if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+      return res.status(400).json({ error: 'x and y required' });
+    }
+    const bc = req.app.locals.browserController;
+    const result = await bc.clickPoint(x, y, req.body?.screenshot !== false);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -70,7 +90,51 @@ router.post('/fill', async (req, res) => {
     if (!selector || value === undefined) return res.status(400).json({ error: 'selector and value required' });
 
     const bc = req.app.locals.browserController;
-    const result = await bc.fill(selector, value);
+    const result = await bc.type(selector, String(value), {
+      clear: req.body?.clear !== false,
+      pressEnter: req.body?.pressEnter === true,
+      screenshot: req.body?.screenshot !== false,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/type-text', async (req, res) => {
+  try {
+    const { text } = req.body || {};
+    const bc = req.app.locals.browserController;
+    const result = await bc.typeText(String(text || ''), {
+      pressEnter: req.body?.pressEnter === true,
+      screenshot: req.body?.screenshot !== false,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/press-key', async (req, res) => {
+  try {
+    const { key } = req.body || {};
+    if (!key) return res.status(400).json({ error: 'key required' });
+    const bc = req.app.locals.browserController;
+    const result = await bc.pressKey(key, req.body?.screenshot !== false);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/scroll', async (req, res) => {
+  try {
+    const bc = req.app.locals.browserController;
+    const result = await bc.scroll(
+      req.body?.deltaX ?? 0,
+      req.body?.deltaY ?? 0,
+      req.body?.screenshot !== false,
+    );
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'network/app_http_client.dart';
 import 'network/app_http_client_factory.dart';
@@ -118,6 +119,234 @@ class BackendClient {
 
   Future<Map<String, dynamic>> fetchVersion(String baseUrl) async {
     return getMap(baseUrl, '/api/version');
+  }
+
+  Future<Map<String, dynamic>> fetchBrowserStatus(String baseUrl) async {
+    return getMap(baseUrl, '/api/browser/status');
+  }
+
+  Future<Map<String, dynamic>> launchBrowser(
+    String baseUrl, {
+    Map<String, dynamic>? payload,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/browser/launch',
+      payload ?? const <String, dynamic>{},
+    );
+  }
+
+  Future<Map<String, dynamic>> navigateBrowser(
+    String baseUrl, {
+    required String url,
+    String? waitFor,
+  }) async {
+    return postMap(baseUrl, '/api/browser/navigate', <String, dynamic>{
+      'url': url,
+      if (waitFor != null && waitFor.isNotEmpty) 'waitFor': waitFor,
+    });
+  }
+
+  Future<Map<String, dynamic>> clickBrowser(
+    String baseUrl, {
+    String? selector,
+    String? text,
+    bool screenshot = true,
+  }) async {
+    return postMap(baseUrl, '/api/browser/click', <String, dynamic>{
+      if (selector != null && selector.isNotEmpty) 'selector': selector,
+      if (text != null && text.isNotEmpty) 'text': text,
+      'screenshot': screenshot,
+    });
+  }
+
+  Future<Map<String, dynamic>> clickBrowserPoint(
+    String baseUrl, {
+    required int x,
+    required int y,
+    bool screenshot = true,
+  }) async {
+    return postMap(baseUrl, '/api/browser/click-point', <String, dynamic>{
+      'x': x,
+      'y': y,
+      'screenshot': screenshot,
+    });
+  }
+
+  Future<Map<String, dynamic>> fillBrowser(
+    String baseUrl, {
+    required String selector,
+    required String value,
+    bool clear = true,
+    bool pressEnter = false,
+    bool screenshot = true,
+  }) async {
+    return postMap(baseUrl, '/api/browser/fill', <String, dynamic>{
+      'selector': selector,
+      'value': value,
+      'clear': clear,
+      'pressEnter': pressEnter,
+      'screenshot': screenshot,
+    });
+  }
+
+  Future<Map<String, dynamic>> typeBrowserText(
+    String baseUrl, {
+    required String text,
+    bool pressEnter = false,
+    bool screenshot = true,
+  }) async {
+    return postMap(baseUrl, '/api/browser/type-text', <String, dynamic>{
+      'text': text,
+      'pressEnter': pressEnter,
+      'screenshot': screenshot,
+    });
+  }
+
+  Future<Map<String, dynamic>> pressBrowserKey(
+    String baseUrl, {
+    required String key,
+    bool screenshot = true,
+  }) async {
+    return postMap(baseUrl, '/api/browser/press-key', <String, dynamic>{
+      'key': key,
+      'screenshot': screenshot,
+    });
+  }
+
+  Future<Map<String, dynamic>> scrollBrowser(
+    String baseUrl, {
+    int deltaX = 0,
+    int deltaY = 0,
+    bool screenshot = true,
+  }) async {
+    return postMap(baseUrl, '/api/browser/scroll', <String, dynamic>{
+      'deltaX': deltaX,
+      'deltaY': deltaY,
+      'screenshot': screenshot,
+    });
+  }
+
+  Future<Map<String, dynamic>> screenshotBrowser(
+    String baseUrl, {
+    bool fullPage = false,
+    String? selector,
+  }) async {
+    return postMap(baseUrl, '/api/browser/screenshot', <String, dynamic>{
+      'fullPage': fullPage,
+      if (selector != null && selector.isNotEmpty) 'selector': selector,
+    });
+  }
+
+  Future<Map<String, dynamic>> closeBrowser(String baseUrl) async {
+    return postMap(baseUrl, '/api/browser/close', const <String, dynamic>{});
+  }
+
+  Future<Map<String, dynamic>> fetchAndroidStatus(String baseUrl) async {
+    return getMap(baseUrl, '/api/android/status');
+  }
+
+  Future<Map<String, dynamic>> fetchAndroidApps(
+    String baseUrl, {
+    bool includeSystem = false,
+  }) async {
+    return getMap(baseUrl, '/api/android/apps?includeSystem=$includeSystem');
+  }
+
+  Future<Map<String, dynamic>> startAndroidEmulator(
+    String baseUrl, {
+    bool headless = true,
+    int timeoutMs = 240000,
+  }) async {
+    return postMap(baseUrl, '/api/android/start', <String, dynamic>{
+      'headless': headless,
+      'timeoutMs': timeoutMs,
+    });
+  }
+
+  Future<Map<String, dynamic>> stopAndroidEmulator(String baseUrl) async {
+    return postMap(baseUrl, '/api/android/stop', const <String, dynamic>{});
+  }
+
+  Future<Map<String, dynamic>> screenshotAndroid(String baseUrl) async {
+    return postMap(
+      baseUrl,
+      '/api/android/screenshot',
+      const <String, dynamic>{},
+    );
+  }
+
+  Future<Map<String, dynamic>> dumpAndroidUi(
+    String baseUrl, {
+    bool includeNodes = true,
+  }) async {
+    return postMap(baseUrl, '/api/android/ui-dump', <String, dynamic>{
+      'includeNodes': includeNodes,
+    });
+  }
+
+  Future<Map<String, dynamic>> openAndroidApp(
+    String baseUrl, {
+    required String packageName,
+    String? activity,
+  }) async {
+    return postMap(baseUrl, '/api/android/open-app', <String, dynamic>{
+      'packageName': packageName,
+      if (activity != null && activity.isNotEmpty) 'activity': activity,
+    });
+  }
+
+  Future<Map<String, dynamic>> openAndroidIntent(
+    String baseUrl, {
+    String? action,
+    String? dataUri,
+    String? packageName,
+    String? component,
+  }) async {
+    return postMap(baseUrl, '/api/android/open-intent', <String, dynamic>{
+      if (action != null && action.isNotEmpty) 'action': action,
+      if (dataUri != null && dataUri.isNotEmpty) 'dataUri': dataUri,
+      if (packageName != null && packageName.isNotEmpty)
+        'packageName': packageName,
+      if (component != null && component.isNotEmpty) 'component': component,
+    });
+  }
+
+  Future<Map<String, dynamic>> tapAndroid(
+    String baseUrl,
+    Map<String, dynamic> payload,
+  ) async {
+    return postMap(baseUrl, '/api/android/tap', payload);
+  }
+
+  Future<Map<String, dynamic>> typeAndroid(
+    String baseUrl,
+    Map<String, dynamic> payload,
+  ) async {
+    return postMap(baseUrl, '/api/android/type', payload);
+  }
+
+  Future<Map<String, dynamic>> swipeAndroid(
+    String baseUrl,
+    Map<String, dynamic> payload,
+  ) async {
+    return postMap(baseUrl, '/api/android/swipe', payload);
+  }
+
+  Future<Map<String, dynamic>> pressAndroidKey(
+    String baseUrl, {
+    required String key,
+  }) async {
+    return postMap(baseUrl, '/api/android/press-key', <String, dynamic>{
+      'key': key,
+    });
+  }
+
+  Future<Map<String, dynamic>> waitForAndroid(
+    String baseUrl,
+    Map<String, dynamic> payload,
+  ) async {
+    return postMap(baseUrl, '/api/android/wait-for', payload);
   }
 
   Future<Map<String, dynamic>> fetchHealthStatus(String baseUrl) async {
@@ -579,6 +808,15 @@ class BackendClient {
       return Uri.parse(path);
     }
     return Uri.parse(trimmed.replaceFirst(RegExp(r'/$'), '') + path);
+  }
+
+  Uri resolveAssetUri(String baseUrl, String path) =>
+      _resolveUri(baseUrl, path);
+
+  Future<Uint8List> fetchBinary(String baseUrl, String path) async {
+    final response = await _httpClient.get(_resolveUri(baseUrl, path));
+    _throwIfError(response);
+    return response.bodyBytes;
   }
 
   Future<HttpResponseData> _request(
