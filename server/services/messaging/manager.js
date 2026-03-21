@@ -9,6 +9,7 @@ class MessagingManager {
     this.io = io;
     this.platforms = new Map();
     this.messageHandlers = [];
+    this.isShuttingDown = false;
     this.platformTypes = {
       whatsapp: WhatsAppPlatform,
       telnyx:   TelnyxVoicePlatform,
@@ -81,8 +82,10 @@ class MessagingManager {
 
     platform.on('disconnected', (info) => {
       this.io.to(`user:${userId}`).emit('messaging:disconnected', { platform: platformName, ...info });
-      db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND platform = ?')
-        .run('disconnected', userId, platformName);
+      if (!this.isShuttingDown) {
+        db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND platform = ?')
+          .run('disconnected', userId, platformName);
+      }
     });
 
     platform.on('logged_out', () => {
@@ -229,6 +232,7 @@ class MessagingManager {
   }
 
   async restoreConnections() {
+    this.isShuttingDown = false;
     const rows = db.prepare(
       "SELECT user_id, platform, config FROM platform_connections WHERE status IN ('connected', 'awaiting_qr')"
     ).all();
@@ -243,6 +247,20 @@ class MessagingManager {
           .run(row.user_id, row.platform);
       }
     }
+  }
+
+  async shutdown() {
+    this.isShuttingDown = true;
+
+    const tasks = [];
+    for (const platform of this.platforms.values()) {
+      if (typeof platform.disconnect === 'function') {
+        tasks.push(platform.disconnect().catch(() => {}));
+      }
+    }
+
+    await Promise.allSettled(tasks);
+    this.platforms.clear();
   }
 
   async makeCall(userId, to, greeting) {
