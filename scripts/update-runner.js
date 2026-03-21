@@ -12,6 +12,8 @@ const {
 } = require('../runtime/paths');
 
 const MAX_LOG_LINES = 220;
+const FLUTTER_APP_DIR = path.join(APP_DIR, 'flutter_app');
+const WEB_CLIENT_DIR = path.join(APP_DIR, 'server', 'public');
 
 function nowIso() {
   return new Date().toISOString();
@@ -57,6 +59,14 @@ function appendLog(line) {
   writeStatus({ logs });
 }
 
+function withInstallEnv(extraEnv = {}) {
+  return {
+    ...process.env,
+    PUPPETEER_SKIP_DOWNLOAD: process.env.PUPPETEER_SKIP_DOWNLOAD || 'true',
+    ...extraEnv
+  };
+}
+
 function run(cmd, args, options = {}) {
   appendLog(`$ ${cmd} ${args.join(' ')}`);
   const res = spawnSync(cmd, args, {
@@ -83,6 +93,55 @@ function run(cmd, args, options = {}) {
 function commandExists(cmd) {
   const r = run('bash', ['-lc', `command -v ${cmd}`]);
   return r.status === 0;
+}
+
+function hasBundledWebClient() {
+  return fs.existsSync(path.join(WEB_CLIENT_DIR, 'index.html'));
+}
+
+function buildBundledWebClientIfPossible({ required = false } = {}) {
+  if (!fs.existsSync(FLUTTER_APP_DIR)) {
+    if (hasBundledWebClient()) {
+      appendLog('Flutter app sources not found. Keeping existing bundled web client.');
+      return false;
+    }
+    if (required) {
+      fail(`Missing Flutter app sources at ${FLUTTER_APP_DIR}`);
+    }
+    appendLog('Flutter app sources not found and no bundled web client was detected.');
+    return false;
+  }
+
+  if (!commandExists('flutter')) {
+    if (hasBundledWebClient()) {
+      appendLog('Flutter SDK not found. Keeping existing bundled web client.');
+      return false;
+    }
+    fail('Flutter SDK is required because no bundled web client was found.');
+  }
+
+  info(82, 'building', 'Building bundled Flutter web client');
+  const build = run('flutter', [
+    'build',
+    'web',
+    '--output',
+    '../server/public',
+    `--dart-define=NEOAGENT_BACKEND_URL=${process.env.NEOAGENT_BACKEND_URL || ''}`
+  ], {
+    cwd: FLUTTER_APP_DIR,
+    env: process.env
+  });
+
+  if (build.status !== 0) {
+    if (hasBundledWebClient()) {
+      appendLog('Flutter build failed, but an existing bundled web client is still present.');
+      return false;
+    }
+    fail('Flutter web build failed and no bundled web client is available.');
+  }
+
+  appendLog('Bundled Flutter web client updated.');
+  return true;
 }
 
 function fail(message) {
@@ -113,6 +172,8 @@ function main() {
     message: 'Preparing update job',
     startedAt,
     completedAt: null,
+    versionBefore: null,
+    versionAfter: null,
     changelog: [],
     logs: []
   });
@@ -121,7 +182,23 @@ function main() {
   const hasGit = fs.existsSync(gitDir) && commandExists('git');
 
   if (!hasGit) {
-    info(40, 'checking', 'No git repository detected. Skipping source update.');
+    info(20, 'checking', 'No git repository detected. Trying package-based update.');
+    if (!commandExists('npm')) {
+      fail('Update unavailable: no git repository detected and npm is not installed.');
+    }
+
+    info(45, 'updating', 'Installing latest NeoAgent package');
+    const npmUpdate = run('npm', ['install', '-g', 'neoagent@latest'], {
+      env: withInstallEnv()
+    });
+    if (npmUpdate.status !== 0) {
+      fail('npm global update failed');
+    }
+
+    if (!hasBundledWebClient()) {
+      fail('No bundled Flutter web client found after package update.');
+    }
+
     info(70, 'restarting', 'Restarting NeoAgent service');
     const restart = run(process.execPath, ['bin/neoagent.js', 'restart']);
     if (restart.status !== 0) fail('Restart failed while trying to refresh runtime');
@@ -130,7 +207,7 @@ function main() {
       state: 'completed',
       progress: 100,
       phase: 'completed',
-      message: 'No source update available in this install mode. Service restarted.',
+      message: 'Package update completed and service restarted.',
       completedAt: nowIso()
     });
     return;
@@ -148,7 +225,7 @@ function main() {
   if (fetch.status !== 0) fail('git fetch failed');
 
   info(35, 'pulling', `Rebasing with origin/${branch}`);
-  const pull = run('git', ['pull', '--rebase', 'origin', branch]);
+  const pull = run('git', ['pull', '--rebase', '--autostash', 'origin', branch]);
   if (pull.status !== 0) fail('git pull --rebase failed');
 
   const nextRes = run('git', ['rev-parse', '--short', 'HEAD']);
@@ -168,14 +245,18 @@ function main() {
     writeStatus({ changelog });
 
     info(70, 'dependencies', 'Installing updated dependencies');
-    const npmInstall = run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund']);
+    const npmInstall = run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], {
+      env: withInstallEnv()
+    });
     if (npmInstall.status !== 0) fail('Dependency installation failed');
   } else {
     info(68, 'changelog', 'Already up to date. No new commits to apply.');
     writeStatus({ changelog: [] });
   }
 
-  info(85, 'restarting', 'Restarting NeoAgent service');
+  buildBundledWebClientIfPossible();
+
+  info(92, 'restarting', 'Restarting NeoAgent service');
   const restart = run(process.execPath, ['bin/neoagent.js', 'restart']);
   if (restart.status !== 0) fail('Service restart failed');
 
