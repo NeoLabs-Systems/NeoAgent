@@ -54,13 +54,17 @@ async function processQueuedMessage({
   }
 
   queue.running = true;
+  let stopTypingKeepalive = async () => {};
   try {
     await messagingManager
       .markRead(userId, msg.platform, msg.chatId, msg.messageId)
       .catch(() => {});
-    await messagingManager
-      .sendTyping(userId, msg.platform, msg.chatId, true)
-      .catch(() => {});
+    stopTypingKeepalive = startTypingKeepalive({
+      messagingManager,
+      userId,
+      platform: msg.platform,
+      chatId: msg.chatId
+    });
 
     const prompt = buildIncomingPrompt(msg);
     const conversationId = ensureConversation(userId, msg);
@@ -80,9 +84,7 @@ async function processQueuedMessage({
 
     await agentEngine.run(userId, prompt, runOptions);
   } finally {
-    await messagingManager
-      .sendTyping(userId, msg.platform, msg.chatId, false)
-      .catch(() => {});
+    await stopTypingKeepalive();
     queue.running = false;
     if (queue.pending.length > 0) {
       const next = queue.pending.shift();
@@ -95,6 +97,51 @@ async function processQueuedMessage({
       });
     }
   }
+}
+
+function startTypingKeepalive({
+  messagingManager,
+  userId,
+  platform,
+  chatId,
+  intervalMs = 4000
+}) {
+  let stopped = false;
+  let timer = null;
+  let releaseWait = null;
+
+  const wait = () =>
+    new Promise((resolve) => {
+      releaseWait = resolve;
+      timer = setTimeout(resolve, intervalMs);
+    });
+
+  const loop = (async () => {
+    while (!stopped) {
+      await messagingManager
+        .sendTyping(userId, platform, chatId, true)
+        .catch(() => {});
+
+      if (stopped) break;
+      await wait();
+    }
+  })();
+
+  return async () => {
+    stopped = true;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    if (releaseWait) {
+      releaseWait();
+      releaseWait = null;
+    }
+    await loop.catch(() => {});
+    await messagingManager
+      .sendTyping(userId, platform, chatId, false)
+      .catch(() => {});
+  };
 }
 
 function ensureConversation(userId, msg) {
