@@ -14,9 +14,13 @@ const { Scheduler } = require('./scheduler/cron');
 const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
+const { CLIExecutor } = require('./cli/executor');
 
 async function startServices(app, io) {
     try {
+        const cliExecutor = new CLIExecutor();
+        app.locals.cliExecutor = cliExecutor;
+
         const memoryManager = new MemoryManager();
         app.locals.memoryManager = memoryManager;
 
@@ -34,7 +38,7 @@ async function startServices(app, io) {
         const androidController = new AndroidController();
         app.locals.androidController = androidController;
 
-        const skillRunner = new SkillRunner();
+        const skillRunner = new SkillRunner({ executor: cliExecutor });
         await skillRunner.loadSkills();
         app.locals.skillRunner = skillRunner;
 
@@ -42,6 +46,7 @@ async function startServices(app, io) {
         app.locals.learningManager = learningManager;
 
         const agentEngine = new AgentEngine(io, {
+            cliExecutor,
             memoryManager,
             mcpClient,
             browserController,
@@ -143,6 +148,14 @@ async function stopServices(app) {
                 console.error('[Messaging] Shutdown error:', err.message);
             }),
         );
+    }
+
+    if (app.locals.cliExecutor) {
+        try {
+            app.locals.cliExecutor.killAll('shutdown');
+        } catch (err) {
+            console.error('[CLI] Shutdown error:', err.message);
+        }
     }
 
     await Promise.allSettled(tasks);

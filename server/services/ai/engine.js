@@ -114,6 +114,7 @@ class AgentEngine {
     this.io = io;
     this.maxIterations = 12;
     this.activeRuns = new Map();
+    this.cliExecutor = services.cliExecutor || null;
     this.browserController = services.browserController || null;
     this.androidController = services.androidController || null;
     this.messagingManager = services.messagingManager || null;
@@ -139,6 +140,29 @@ class AgentEngine {
   async executeTool(toolName, args, context) {
     const { executeTool } = require('./tools');
     return executeTool(toolName, args, context, this);
+  }
+
+  getRunMeta(runId) {
+    return this.activeRuns.get(runId) || null;
+  }
+
+  isRunStopped(runId) {
+    return this.getRunMeta(runId)?.aborted === true;
+  }
+
+  attachProcessToRun(runId, pid) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta || !pid) return;
+    runMeta.toolPids.add(pid);
+    if (runMeta.aborted && this.cliExecutor) {
+      this.cliExecutor.kill(pid, 'aborted');
+    }
+  }
+
+  detachProcessFromRun(runId, pid) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta || !pid) return;
+    runMeta.toolPids.delete(pid);
   }
 
   getIterationLimit(triggerType, aiSettings) {
@@ -256,7 +280,15 @@ class AgentEngine {
     db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, title, status, trigger_type, trigger_source, model)
       VALUES(?, ?, ?, 'running', ?, ?, ?)`).run(runId, userId, runTitle, triggerType, triggerSource, model);
 
-    this.activeRuns.set(runId, { userId, status: 'running', messagingSent: false, lastToolName: null, lastToolTarget: null });
+    this.activeRuns.set(runId, {
+      userId,
+      status: 'running',
+      aborted: false,
+      messagingSent: false,
+      lastToolName: null,
+      lastToolTarget: null,
+      toolPids: new Set()
+    });
     this.emit(userId, 'run:start', { runId, title: runTitle, model, triggerType, triggerSource });
 
     const systemPrompt = await this.buildSystemPrompt(userId, { ...(options.context || {}), userMessage });
@@ -301,6 +333,7 @@ class AgentEngine {
 
     try {
       while (iteration < maxIterations) {
+        if (this.isRunStopped(runId)) break;
         iteration++;
 
         let metrics = this.estimatePromptMetrics(messages, tools);
@@ -412,6 +445,7 @@ class AgentEngine {
         if (!response.toolCalls || response.toolCalls.length === 0) break;
 
         for (const toolCall of response.toolCalls) {
+          if (this.isRunStopped(runId)) break;
           stepIndex++;
           const stepId = uuidv4();
           const toolName = toolCall.function.name;
@@ -438,12 +472,15 @@ class AgentEngine {
               app,
               triggerSource
             });
+            this.detachProcessFromRun(runId, toolResult?.pid);
             const screenshotPath = toolResult?.screenshotPath || null;
+            const stepStatus = this.isRunStopped(runId) ? 'stopped' : 'completed';
             db.prepare('UPDATE agent_steps SET status = ?, result = ?, screenshot_path = ?, completed_at = datetime(\'now\') WHERE id = ?')
-              .run('completed', JSON.stringify(toolResult).slice(0, 20000), screenshotPath, stepId);
-            this.emit(userId, 'run:tool_end', { runId, stepId, toolName, result: toolResult, screenshotPath, status: 'completed' });
+              .run(stepStatus, JSON.stringify(toolResult).slice(0, 20000), screenshotPath, stepId);
+            this.emit(userId, 'run:tool_end', { runId, stepId, toolName, result: toolResult, screenshotPath, status: stepStatus });
           } catch (err) {
             toolResult = { error: err.message };
+            this.detachProcessFromRun(runId, toolResult?.pid);
             db.prepare('UPDATE agent_steps SET status = ?, error = ?, completed_at = datetime(\'now\') WHERE id = ?')
               .run('failed', err.message, stepId);
             this.emit(userId, 'run:tool_end', { runId, stepId, toolName, error: err.message, status: 'failed' });
@@ -460,6 +497,13 @@ class AgentEngine {
           };
           messages.push(toolMessage);
 
+          if (toolName === 'execute_command' && (toolResult?.timedOut || toolResult?.killed)) {
+            messages.push({
+              role: 'system',
+              content: 'The previous shell command did not finish cleanly. Keep working until you rerun it with enough time or verify the requested outcome with follow-up commands.'
+            });
+          }
+
           if (conversationId) {
             db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tool_call_id, name) VALUES (?, ?, ?, ?, ?)')
               .run(conversationId, 'tool', toolMessage.content, toolCall.id, toolName);
@@ -472,7 +516,16 @@ class AgentEngine {
           }
         }
 
+        if (this.isRunStopped(runId)) break;
         if (!this.activeRuns.has(runId)) break;
+      }
+
+      if (this.isRunStopped(runId)) {
+        db.prepare('UPDATE agent_runs SET status = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
+          .run('stopped', runId);
+        this.activeRuns.delete(runId);
+        this.emit(userId, 'run:stopped', { runId, triggerSource });
+        return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
       }
 
       if ((iteration >= maxIterations && messages[messages.length - 1]?.role === 'tool')
@@ -562,6 +615,14 @@ class AgentEngine {
 
       return { runId, content: lastContent, totalTokens, iterations: iteration, status: 'completed' };
     } catch (err) {
+      if (this.isRunStopped(runId)) {
+        db.prepare('UPDATE agent_runs SET status = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
+          .run('stopped', runId);
+        this.activeRuns.delete(runId);
+        this.emit(userId, 'run:stopped', { runId, triggerSource });
+        return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
+      }
+
       db.prepare('UPDATE agent_runs SET status = ?, error = ?, updated_at = datetime(\'now\') WHERE id = ?')
         .run('failed', err.message, runId);
 
@@ -572,7 +633,16 @@ class AgentEngine {
   }
 
   stopRun(runId) {
-    this.activeRuns.delete(runId);
+    const runMeta = this.activeRuns.get(runId);
+    if (runMeta) {
+      runMeta.status = 'stopped';
+      runMeta.aborted = true;
+      this.emit(runMeta.userId, 'run:stopping', { runId });
+      for (const pid of runMeta.toolPids) {
+        this.cliExecutor?.kill(pid, 'aborted');
+      }
+      runMeta.toolPids.clear();
+    }
     db.prepare("UPDATE agent_runs SET status = 'stopped', updated_at = datetime('now') WHERE id = ?").run(runId);
   }
 

@@ -6,8 +6,9 @@ const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const SKILLS_DIR = path.join(AGENT_DATA_DIR, 'skills');
 
 class SkillRunner {
-  constructor() {
+  constructor(options = {}) {
     this.skills = new Map();
+    this.executor = options.executor || null;
   }
 
   async loadSkills() {
@@ -123,7 +124,7 @@ class SkillRunner {
 
     if (skill.metadata.command) {
       const { CLIExecutor } = require('../cli/executor');
-      const executor = new CLIExecutor();
+      const executor = this.executor || new CLIExecutor();
       let command = skill.metadata.command;
       for (const [key, value] of Object.entries(args)) {
         command = command.replace(`{${key}}`, value);

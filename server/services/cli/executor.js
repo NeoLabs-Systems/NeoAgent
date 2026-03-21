@@ -1,7 +1,35 @@
 const { spawn, execFileSync } = require('child_process');
-const path = require('path');
 
 let _cachedLoginPath = null;
+const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
+const DEFAULT_INTERACTIVE_TIMEOUT_MS = 20 * 60 * 1000;
+const FORCE_KILL_GRACE_MS = 5000;
+const MAX_STDOUT_CHARS = 50000;
+const MAX_STDERR_CHARS = 10000;
+
+function clampTimeout(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
+function truncateOutput(str, max) {
+  if (str.length > max) return str.slice(0, max) + `\n...[truncated, ${str.length} total chars]`;
+  return str;
+}
+
+function terminateProcess(proc, signal = 'SIGTERM') {
+  if (!proc) return;
+  if (proc.__neoagentDetached && typeof proc.pid === 'number' && process.platform !== 'win32') {
+    try {
+      process.kill(-proc.pid, signal);
+      return;
+    } catch {
+      // Fall back to direct kill below.
+    }
+  }
+  proc.kill?.(signal) || proc.kill?.();
+}
 
 class CLIExecutor {
   constructor() {
@@ -34,23 +62,27 @@ class CLIExecutor {
 
   async execute(command, options = {}) {
     const cwd = options.cwd || process.env.HOME;
-    const timeout = options.timeout || 60000;
+    const timeout = clampTimeout(options.timeout, DEFAULT_TIMEOUT_MS);
     const stdinInput = options.stdinInput;
 
     return new Promise((resolve) => {
       let stdout = '';
       let stderr = '';
       let killed = false;
+      let timedOut = false;
+      const startedAt = Date.now();
 
       const proc = spawn(this.defaultShell, ['-l', '-c', command], {
         cwd,
+        detached: process.platform !== 'win32',
         env: this._buildEnv(options.env),
-        timeout,
         stdio: ['pipe', 'pipe', 'pipe']
       });
+      proc.__neoagentDetached = process.platform !== 'win32';
 
       const pid = proc.pid;
       this.activeProcesses.set(pid, proc);
+      options.onSpawn?.(pid);
 
       proc.stdout.on('data', (data) => {
         stdout += data.toString();
@@ -73,26 +105,29 @@ class CLIExecutor {
 
       const timer = setTimeout(() => {
         killed = true;
-        proc.kill('SIGTERM');
+        timedOut = true;
+        proc.__neoagentKilled = true;
+        proc.__neoagentKillReason = 'timeout';
+        terminateProcess(proc, 'SIGTERM');
         setTimeout(() => {
-          if (!proc.killed) proc.kill('SIGKILL');
-        }, 5000);
+          if (!proc.killed) terminateProcess(proc, 'SIGKILL');
+        }, FORCE_KILL_GRACE_MS);
       }, timeout);
 
-      proc.on('close', (code) => {
+      proc.on('close', (code, signal) => {
         clearTimeout(timer);
         this.activeProcesses.delete(pid);
-
-        const truncate = (str, max) => {
-          if (str.length > max) return str.slice(0, max) + `\n...[truncated, ${str.length} total chars]`;
-          return str;
-        };
+        const durationMs = Date.now() - startedAt;
 
         resolve({
-          exitCode: code,
-          stdout: truncate(stdout.trim(), 50000),
-          stderr: truncate(stderr.trim(), 10000),
-          killed,
+          exitCode: typeof code === 'number' ? code : null,
+          stdout: truncateOutput(stdout.trim(), MAX_STDOUT_CHARS),
+          stderr: truncateOutput(stderr.trim(), MAX_STDERR_CHARS),
+          killed: killed || proc.__neoagentKilled === true,
+          timedOut: timedOut || proc.__neoagentKillReason === 'timeout',
+          signal: signal || null,
+          durationMs,
+          pid,
           command,
           cwd
         });
@@ -106,6 +141,10 @@ class CLIExecutor {
           stdout: '',
           stderr: err.message,
           killed: false,
+          timedOut: false,
+          signal: null,
+          durationMs: Date.now() - startedAt,
+          pid,
           command,
           cwd,
           error: err.message
@@ -116,12 +155,14 @@ class CLIExecutor {
 
   async executeInteractive(command, inputs = [], options = {}) {
     const cwd = options.cwd || process.env.HOME;
-    const timeout = options.timeout || 120000;
+    const timeout = clampTimeout(options.timeout, DEFAULT_INTERACTIVE_TIMEOUT_MS);
 
     return new Promise((resolve) => {
       let output = '';
       let inputIndex = 0;
       let killed = false;
+      let timedOut = false;
+      const startedAt = Date.now();
 
       let pty;
       try {
@@ -140,6 +181,7 @@ class CLIExecutor {
 
       const pid = proc.pid;
       this.activeProcesses.set(pid, proc);
+      options.onSpawn?.(pid);
 
       proc.onData((data) => {
         output += data;
@@ -162,19 +204,26 @@ class CLIExecutor {
 
       const timer = setTimeout(() => {
         killed = true;
+        timedOut = true;
+        proc.__neoagentKilled = true;
+        proc.__neoagentKillReason = 'timeout';
         proc.kill();
       }, timeout);
 
-      proc.onExit(({ exitCode }) => {
+      proc.onExit(({ exitCode, signal }) => {
         clearTimeout(timer);
         this.activeProcesses.delete(pid);
 
         const cleanOutput = output.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
         resolve({
           exitCode,
-          stdout: cleanOutput.slice(0, 50000),
+          stdout: truncateOutput(cleanOutput, MAX_STDOUT_CHARS),
           stderr: '',
-          killed,
+          killed: killed || proc.__neoagentKilled === true,
+          timedOut: timedOut || proc.__neoagentKillReason === 'timeout',
+          signal: typeof signal === 'number' ? String(signal) : signal || null,
+          durationMs: Date.now() - startedAt,
+          pid,
           command,
           cwd,
           interactive: true
@@ -183,19 +232,23 @@ class CLIExecutor {
     });
   }
 
-  kill(pid) {
+  kill(pid, reason = 'aborted') {
     const proc = this.activeProcesses.get(pid);
     if (proc) {
-      proc.kill?.('SIGTERM') || proc.kill?.();
+      proc.__neoagentKilled = true;
+      proc.__neoagentKillReason = reason;
+      terminateProcess(proc, 'SIGTERM');
       this.activeProcesses.delete(pid);
       return true;
     }
     return false;
   }
 
-  killAll() {
+  killAll(reason = 'aborted') {
     for (const [pid, proc] of this.activeProcesses) {
-      proc.kill?.('SIGTERM') || proc.kill?.();
+      proc.__neoagentKilled = true;
+      proc.__neoagentKillReason = reason;
+      terminateProcess(proc, 'SIGTERM');
     }
     this.activeProcesses.clear();
   }
