@@ -51,13 +51,7 @@ enum AppSection {
   health,
 }
 
-enum SidebarGroup {
-  chat,
-  recordings,
-  activity,
-  automation,
-  settings,
-}
+enum SidebarGroup { chat, recordings, activity, automation, settings }
 
 extension SidebarGroupX on SidebarGroup {
   String get label {
@@ -7513,7 +7507,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   children: <Widget>[
                     const Expanded(child: _SectionTitle('App Update')),
                     FilledButton.icon(
-                      onPressed: controller.isTriggeringUpdate
+                      onPressed:
+                          controller.isTriggeringUpdate ||
+                              controller.updateStatus.state == 'running'
                           ? null
                           : controller.triggerUpdate,
                       style: FilledButton.styleFrom(backgroundColor: _accent),
@@ -11484,10 +11480,9 @@ List<Widget> _buildSidebarItems(
 }) {
   final List<Widget> widgets = <Widget>[];
   for (final group in SidebarGroup.values) {
-    final sections =
-        _mainSections(controller)
-            .where((section) => section.group == group)
-            .toList();
+    final sections = _mainSections(
+      controller,
+    ).where((section) => section.group == group).toList();
     if (sections.isEmpty) {
       continue;
     }

@@ -240,6 +240,8 @@ router.post('/update', (req, res) => {
     message: 'Launching update job',
     startedAt: new Date().toISOString(),
     completedAt: null,
+    versionBefore: null,
+    versionAfter: null,
     changelog: [],
     logs: []
   });
