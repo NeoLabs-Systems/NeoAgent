@@ -5,6 +5,7 @@ const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
+const { getVersionInfo } = require('../utils/version');
 const { UPDATE_STATUS_FILE, APP_DIR } = require('../../runtime/paths');
 const { ensureDefaultAiSettings, DEFAULT_AI_SETTINGS } = require('../services/ai/settings');
 
@@ -268,7 +269,16 @@ router.post('/update', (req, res) => {
 });
 
 router.get('/update/status', (req, res) => {
-  res.json(readUpdateStatus());
+  const status = readUpdateStatus();
+  const version = getVersionInfo();
+  res.json({
+    ...status,
+    backendVersion: version.version,
+    installedVersion: version.installedVersion,
+    packageVersion: version.packageVersion,
+    gitVersion: version.gitVersion,
+    gitSha: version.gitSha
+  });
 });
 
 module.exports = router;

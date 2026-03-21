@@ -11024,6 +11024,7 @@ class UpdateStatusSnapshot {
     this.versionBefore,
     this.versionAfter,
     this.backendVersion,
+    this.installedVersion,
     this.changelog = const <String>[],
     this.logs = const <String>[],
   });
@@ -11036,6 +11037,9 @@ class UpdateStatusSnapshot {
       versionBefore: json['versionBefore']?.toString(),
       versionAfter: json['versionAfter']?.toString(),
       backendVersion: json['backendVersion']?.toString(),
+      installedVersion:
+          json['installedVersion']?.toString() ??
+          json['packageVersion']?.toString(),
       changelog: (json['changelog'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
           .toList(),
@@ -11051,6 +11055,7 @@ class UpdateStatusSnapshot {
   final String? versionBefore;
   final String? versionAfter;
   final String? backendVersion;
+  final String? installedVersion;
   final List<String> changelog;
   final List<String> logs;
 
@@ -11084,8 +11089,11 @@ class UpdateStatusSnapshot {
     final before = versionBefore?.ifEmpty('—') ?? '—';
     final after = versionAfter?.ifEmpty('—') ?? '—';
     final updateVersion = after == '—' ? before : '$before -> $after';
-    final backend = backendVersion == null ? '' : ' | Backend: $backendVersion';
-    return 'Update Version: $updateVersion$backend';
+    final installed = installedVersion == null
+        ? ''
+        : ' | Installed: $installedVersion';
+    final backend = backendVersion == null ? '' : ' | Runtime: $backendVersion';
+    return 'Update Version: $updateVersion$installed$backend';
   }
 
   String get logsText =>
