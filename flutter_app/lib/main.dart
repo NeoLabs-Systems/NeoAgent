@@ -51,6 +51,46 @@ enum AppSection {
   health,
 }
 
+enum SidebarGroup {
+  chat,
+  recordings,
+  activity,
+  automation,
+  settings,
+}
+
+extension SidebarGroupX on SidebarGroup {
+  String get label {
+    switch (this) {
+      case SidebarGroup.chat:
+        return 'Chat';
+      case SidebarGroup.recordings:
+        return 'Recording';
+      case SidebarGroup.activity:
+        return 'Activity';
+      case SidebarGroup.automation:
+        return 'Automation';
+      case SidebarGroup.settings:
+        return 'Settings';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case SidebarGroup.chat:
+        return Icons.chat_bubble_outline;
+      case SidebarGroup.recordings:
+        return Icons.fiber_smart_record_outlined;
+      case SidebarGroup.activity:
+        return Icons.insights_outlined;
+      case SidebarGroup.automation:
+        return Icons.auto_awesome_outlined;
+      case SidebarGroup.settings:
+        return Icons.tune;
+    }
+  }
+}
+
 extension AppSectionX on AppSection {
   String get label {
     switch (this) {
@@ -108,6 +148,39 @@ extension AppSectionX on AppSection {
       case AppSection.health:
         return Icons.favorite_border;
     }
+  }
+
+  SidebarGroup get group {
+    switch (this) {
+      case AppSection.chat:
+        return SidebarGroup.chat;
+      case AppSection.recordings:
+        return SidebarGroup.recordings;
+      case AppSection.runs:
+      case AppSection.logs:
+        return SidebarGroup.activity;
+      case AppSection.devices:
+      case AppSection.skills:
+      case AppSection.memory:
+      case AppSection.scheduler:
+      case AppSection.mcp:
+      case AppSection.health:
+        return SidebarGroup.automation;
+      case AppSection.settings:
+      case AppSection.messaging:
+        return SidebarGroup.settings;
+    }
+  }
+
+  String get navigationTitle {
+    final groupLabel = group.label;
+    if (group == SidebarGroup.chat || group == SidebarGroup.recordings) {
+      return groupLabel;
+    }
+    if (groupLabel == label) {
+      return groupLabel;
+    }
+    return '$groupLabel · $label';
   }
 }
 
@@ -2643,7 +2716,7 @@ class _HomeViewState extends State<HomeView> {
       backgroundColor: _bgPrimary,
       drawer: _MobileDrawer(controller: controller),
       appBar: AppBar(
-        title: Text(controller.selectedSection.label),
+        title: Text(controller.selectedSection.navigationTitle),
         actions: <Widget>[
           IconButton(
             onPressed: controller.isRefreshing ? null : controller.refresh,
@@ -2797,14 +2870,10 @@ class _Sidebar extends StatelessWidget {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(8),
-              children: _mainSections(controller).map((section) {
-                return _SidebarButton(
-                  label: section.label,
-                  icon: section.icon,
-                  active: controller.selectedSection == section,
-                  onTap: () => controller.setSelectedSection(section),
-                );
-              }).toList(),
+              children: _buildSidebarItems(
+                controller,
+                onSelect: controller.setSelectedSection,
+              ),
             ),
           ),
           Container(
@@ -2814,13 +2883,6 @@ class _Sidebar extends StatelessWidget {
             ),
             child: Column(
               children: <Widget>[
-                _SidebarButton(
-                  label: AppSection.settings.label,
-                  icon: AppSection.settings.icon,
-                  active: controller.selectedSection == AppSection.settings,
-                  onTap: () =>
-                      controller.setSelectedSection(AppSection.settings),
-                ),
                 _SidebarButton(
                   label: 'Refresh',
                   icon: Icons.refresh,
@@ -2892,32 +2954,19 @@ class _MobileDrawer extends StatelessWidget {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                children: _mainSections(controller).map((section) {
-                  return _SidebarButton(
-                    label: section.label,
-                    icon: section.icon,
-                    active: controller.selectedSection == section,
-                    onTap: () {
-                      controller.setSelectedSection(section);
-                      Navigator.of(context).pop();
-                    },
-                  );
-                }).toList(),
+                children: _buildSidebarItems(
+                  controller,
+                  onSelect: (section) {
+                    controller.setSelectedSection(section);
+                    Navigator.of(context).pop();
+                  },
+                ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.all(8),
               child: Column(
                 children: <Widget>[
-                  _SidebarButton(
-                    label: AppSection.settings.label,
-                    icon: AppSection.settings.icon,
-                    active: controller.selectedSection == AppSection.settings,
-                    onTap: () {
-                      controller.setSelectedSection(AppSection.settings);
-                      Navigator.of(context).pop();
-                    },
-                  ),
                   _SidebarButton(
                     label: 'Refresh',
                     icon: Icons.refresh,
@@ -9700,12 +9749,20 @@ class _SidebarButton extends StatelessWidget {
     required this.label,
     required this.icon,
     this.active = false,
+    this.indent = 0,
+    this.iconSize = 18,
+    this.fontSize = 13,
+    this.trailing,
     required this.onTap,
   });
 
   final String label;
   final IconData icon;
   final bool active;
+  final double indent;
+  final double iconSize;
+  final double fontSize;
+  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
@@ -9720,7 +9777,7 @@ class _SidebarButton extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            padding: EdgeInsets.fromLTRB(10 + indent, 9, 10, 9),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: active
@@ -9729,16 +9786,26 @@ class _SidebarButton extends StatelessWidget {
             ),
             child: Row(
               children: <Widget>[
-                Icon(icon, size: 18, color: active ? _accent : _textSecondary),
+                Icon(
+                  icon,
+                  size: iconSize,
+                  color: active ? _accent : _textSecondary,
+                ),
                 const SizedBox(width: 10),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: active ? _accent : _textSecondary,
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w500,
+                      color: active ? _accent : _textSecondary,
+                    ),
                   ),
                 ),
+                if (trailing != null) ...<Widget>[
+                  const SizedBox(width: 8),
+                  trailing!,
+                ],
               ],
             ),
           ),
@@ -11397,17 +11464,73 @@ EdgeInsets _pagePadding(BuildContext context) {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
-    AppSection.devices,
     AppSection.recordings,
-    AppSection.messaging,
     AppSection.runs,
     AppSection.logs,
-    AppSection.skills,
-    AppSection.memory,
+    AppSection.devices,
     AppSection.scheduler,
+    AppSection.skills,
     AppSection.mcp,
+    AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
+    AppSection.settings,
+    AppSection.messaging,
   ];
+}
+
+List<Widget> _buildSidebarItems(
+  NeoAgentController controller, {
+  required ValueChanged<AppSection> onSelect,
+}) {
+  final List<Widget> widgets = <Widget>[];
+  for (final group in SidebarGroup.values) {
+    final sections =
+        _mainSections(controller)
+            .where((section) => section.group == group)
+            .toList();
+    if (sections.isEmpty) {
+      continue;
+    }
+
+    final active = controller.selectedSection.group == group;
+    final defaultSection = sections.first;
+    final hasChildren = sections.length > 1;
+
+    widgets.add(
+      _SidebarButton(
+        label: group.label,
+        icon: group.icon,
+        active: active,
+        trailing: hasChildren
+            ? Icon(
+                active ? Icons.expand_less : Icons.expand_more,
+                size: 16,
+                color: active ? _accent : _textMuted,
+              )
+            : null,
+        onTap: () => onSelect(defaultSection),
+      ),
+    );
+
+    if (!hasChildren || !active) {
+      continue;
+    }
+
+    for (final section in sections) {
+      widgets.add(
+        _SidebarButton(
+          label: section.label,
+          icon: section.icon,
+          active: controller.selectedSection == section,
+          indent: 18,
+          iconSize: 16,
+          fontSize: 12,
+          onTap: () => onSelect(section),
+        ),
+      );
+    }
+  }
+  return widgets;
 }
 
 Future<void> _confirmDelete(
