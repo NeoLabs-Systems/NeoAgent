@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 abstract class AppHttpClient {
   Future<HttpResponseData> get(Uri uri, {Map<String, String>? headers});
 
@@ -30,10 +32,12 @@ class HttpResponseData {
   const HttpResponseData({
     required this.statusCode,
     required this.body,
+    required this.bodyBytes,
     required this.headers,
   });
 
   final int statusCode;
   final String body;
+  final Uint8List bodyBytes;
   final Map<String, String> headers;
 }

@@ -85,6 +85,25 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
+    case 'android_dump_ui':
+      envelope = trimObject({
+        tool: toolName,
+        serial: toolResult?.serial,
+        nodeCount: toolResult?.nodeCount,
+        uiDumpPath: toolResult?.uiDumpPath,
+        preview: clampText(JSON.stringify(toolResult?.preview || []).slice(0, Math.floor(softLimit * 0.55)), Math.floor(softLimit * 0.55))
+      });
+      break;
+
+    case 'android_list_apps':
+      envelope = trimObject({
+        tool: toolName,
+        serial: toolResult?.serial,
+        count: toolResult?.count,
+        preview: lineExcerpt((toolResult?.packages || []).slice(0, 20).join('\n'), 20, Math.floor(softLimit * 0.6))
+      });
+      break;
+
     case 'http_request':
       envelope = trimObject({
         tool: toolName,

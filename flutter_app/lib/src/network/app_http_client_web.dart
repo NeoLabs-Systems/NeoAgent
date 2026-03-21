@@ -15,6 +15,7 @@ class WebAppHttpClient implements AppHttpClient {
     return HttpResponseData(
       statusCode: response.statusCode,
       body: response.body,
+      bodyBytes: response.bodyBytes,
       headers: response.headers,
     );
   }
@@ -29,6 +30,7 @@ class WebAppHttpClient implements AppHttpClient {
     return HttpResponseData(
       statusCode: response.statusCode,
       body: response.body,
+      bodyBytes: response.bodyBytes,
       headers: response.headers,
     );
   }
@@ -43,6 +45,7 @@ class WebAppHttpClient implements AppHttpClient {
     return HttpResponseData(
       statusCode: response.statusCode,
       body: response.body,
+      bodyBytes: response.bodyBytes,
       headers: response.headers,
     );
   }
@@ -57,6 +60,7 @@ class WebAppHttpClient implements AppHttpClient {
     return HttpResponseData(
       statusCode: response.statusCode,
       body: response.body,
+      bodyBytes: response.bodyBytes,
       headers: response.headers,
     );
   }

@@ -378,6 +378,7 @@ class RecordingManager {
 
     try {
       for (const source of sources) {
+        const sourceMetadata = this.#parseJson(source.metadata_json, {});
         const chunks = db.prepare(`
           SELECT *
           FROM recording_chunks
@@ -390,11 +391,31 @@ class RecordingManager {
         }
 
         this.#assertSequentialChunks(source.source_key, chunks);
+        const sourceDuration = Math.max(
+          Number(source.duration_ms) || 0,
+          ...chunks.map((chunk) => Number(chunk.end_ms) || 0),
+        );
+        maxDuration = Math.max(maxDuration, sourceDuration);
+
+        if (!this.#shouldTranscribeSource(source, sourceMetadata)) {
+          db.prepare(`
+            UPDATE recording_sources
+            SET status = ?, duration_ms = ?, updated_at = ?
+            WHERE id = ?
+          `).run(
+            SESSION_STATUS.completed,
+            sourceDuration,
+            new Date().toISOString(),
+            source.id,
+          );
+          continue;
+        }
+
         const sourceSegments = await this.#transcribeSourceChunks(source, chunks);
         maxDuration = Math.max(
           maxDuration,
           ...sourceSegments.map((segment) => Number(segment.endMs) || 0),
-          Number(source.duration_ms) || 0,
+          sourceDuration,
         );
         collectedSegments.push(...sourceSegments);
 
@@ -404,10 +425,7 @@ class RecordingManager {
           WHERE id = ?
         `).run(
           SESSION_STATUS.completed,
-          Math.max(
-            Number(source.duration_ms) || 0,
-            ...sourceSegments.map((segment) => Number(segment.endMs) || 0),
-          ),
+          Math.max(sourceDuration, ...sourceSegments.map((segment) => Number(segment.endMs) || 0)),
           new Date().toISOString(),
           source.id,
         );
@@ -540,6 +558,10 @@ class RecordingManager {
   }
 
   async #transcribeSourceChunks(source, chunks) {
+    if (this.#canTranscribeAsSingleWav(source, chunks)) {
+      return this.#transcribeMergedWavSource(source, chunks);
+    }
+
     const segments = [];
 
     for (const chunk of chunks) {
@@ -555,20 +577,90 @@ class RecordingManager {
     return segments;
   }
 
+  async #transcribeMergedWavSource(source, chunks) {
+    const wavParts = chunks.map((chunk) => {
+      const audioBytes = fs.readFileSync(chunk.file_path);
+      return {
+        chunk,
+        wav: this.#parseWav(audioBytes),
+      };
+    });
+
+    const reference = wavParts[0]?.wav;
+    if (!reference) {
+      return [];
+    }
+
+    for (const part of wavParts.slice(1)) {
+      if (
+        part.wav.audioFormat !== reference.audioFormat
+        || part.wav.channelCount !== reference.channelCount
+        || part.wav.sampleRate !== reference.sampleRate
+        || part.wav.bitsPerSample !== reference.bitsPerSample
+      ) {
+        throw new Error(`Recording source "${source.source_key}" changed WAV format mid-session.`);
+      }
+    }
+
+    const spans = [];
+    let mergedCursorMs = 0;
+    for (const part of wavParts) {
+      const actualDurationMs = this.#pcmDurationMs(part.wav.data.length, part.wav.sampleRate, part.wav.blockAlign);
+      const sessionStartMs = Math.max(0, Number(part.chunk.start_ms) || 0);
+      const sessionEndMs = Math.max(sessionStartMs, Number(part.chunk.end_ms) || (sessionStartMs + actualDurationMs));
+      spans.push({
+        mergedStartMs: mergedCursorMs,
+        mergedEndMs: mergedCursorMs + actualDurationMs,
+        sessionStartMs,
+        sessionEndMs,
+      });
+      mergedCursorMs += actualDurationMs;
+    }
+
+    const mergedAudioBytes = this.#buildWavBuffer({
+      audioFormat: reference.audioFormat,
+      channelCount: reference.channelCount,
+      sampleRate: reference.sampleRate,
+      bitsPerSample: reference.bitsPerSample,
+      data: Buffer.concat(wavParts.map((part) => part.wav.data)),
+    });
+
+    const payload = await transcribeChunkWithDeepgram({
+      audioBytes: mergedAudioBytes,
+      mimeType: chunks[0].mime_type || source.mime_type || 'audio/wav',
+      detectLanguage: DEFAULT_LANGUAGE,
+    });
+
+    const lastSpan = spans[spans.length - 1];
+    return this.#extractSegmentsFromPayload(source, payload, {
+      mapMs: (mergedMs) => this.#mapMergedTimelineMs(mergedMs, spans),
+      defaultStartMs: spans[0]?.sessionStartMs || 0,
+      defaultEndMs: lastSpan?.sessionEndMs || spans[0]?.sessionStartMs || 0,
+    });
+  }
+
   #extractSegments(source, chunk, payload) {
+    const chunkStartMs = Number(chunk.start_ms) || 0;
+    const chunkEndMs = Number(chunk.end_ms) || chunkStartMs;
+    return this.#extractSegmentsFromPayload(source, payload, {
+      mapMs: (relativeMs) => chunkStartMs + Math.max(0, relativeMs),
+      defaultStartMs: chunkStartMs,
+      defaultEndMs: Math.max(chunkStartMs, chunkEndMs),
+    });
+  }
+
+  #extractSegmentsFromPayload(source, payload, { mapMs, defaultStartMs, defaultEndMs }) {
     const results = payload?.results || {};
     const channels = Array.isArray(results.channels) ? results.channels : [];
     const alternative = channels[0]?.alternatives?.[0] || {};
     const utterances = Array.isArray(results.utterances) ? results.utterances : [];
     const words = Array.isArray(alternative.words) ? alternative.words : [];
-    const chunkStartMs = Number(chunk.start_ms) || 0;
-    const chunkEndMs = Number(chunk.end_ms) || chunkStartMs;
 
     if (utterances.length > 0) {
       return utterances
         .map((utterance, index) => {
-          const startMs = chunkStartMs + Math.max(0, Math.round((Number(utterance.start) || 0) * 1000));
-          const endMs = chunkStartMs + Math.max(0, Math.round((Number(utterance.end) || 0) * 1000));
+          const startMs = mapMs(Math.max(0, Math.round((Number(utterance.start) || 0) * 1000)));
+          const endMs = mapMs(Math.max(0, Math.round((Number(utterance.end) || 0) * 1000)));
           return {
             sourceId: source.id,
             sourceKey: source.source_key,
@@ -577,7 +669,7 @@ class RecordingManager {
             startMs,
             endMs: Math.max(startMs, endMs),
             confidence: Number(utterance.confidence) || null,
-            words: Array.isArray(utterance.words) ? utterance.words : [],
+            words: this.#mapWordsTimeline(Array.isArray(utterance.words) ? utterance.words : [], mapMs),
             index,
           };
         })
@@ -595,12 +687,124 @@ class RecordingManager {
         sourceKey: source.source_key,
         speaker: source.source_kind,
         text: transcript,
-        startMs: chunkStartMs,
-        endMs: Math.max(chunkStartMs, chunkEndMs),
+        startMs: defaultStartMs,
+        endMs: Math.max(defaultStartMs, defaultEndMs),
         confidence: Number(alternative.confidence) || null,
-        words,
+        words: this.#mapWordsTimeline(words, mapMs),
       },
     ];
+  }
+
+  #canTranscribeAsSingleWav(source, chunks) {
+    if (!Array.isArray(chunks) || chunks.length === 0) {
+      return false;
+    }
+    const sourceMime = `${source.mime_type || ''}`.toLowerCase();
+    if (!/wav/.test(sourceMime)) {
+      return false;
+    }
+    return chunks.every((chunk) => /wav/.test(`${chunk.mime_type || source.mime_type || ''}`.toLowerCase()));
+  }
+
+  #parseWav(buffer) {
+    if (!Buffer.isBuffer(buffer) || buffer.length < 44) {
+      throw new Error('Invalid WAV chunk.');
+    }
+    if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WAVE') {
+      throw new Error('Unsupported WAV container.');
+    }
+
+    let cursor = 12;
+    let format = null;
+    let data = null;
+
+    while (cursor + 8 <= buffer.length) {
+      const chunkId = buffer.toString('ascii', cursor, cursor + 4);
+      const chunkSize = buffer.readUInt32LE(cursor + 4);
+      const chunkStart = cursor + 8;
+      const chunkEnd = Math.min(buffer.length, chunkStart + chunkSize);
+
+      if (chunkId === 'fmt ' && chunkSize >= 16) {
+        format = {
+          audioFormat: buffer.readUInt16LE(chunkStart),
+          channelCount: buffer.readUInt16LE(chunkStart + 2),
+          sampleRate: buffer.readUInt32LE(chunkStart + 4),
+          byteRate: buffer.readUInt32LE(chunkStart + 8),
+          blockAlign: buffer.readUInt16LE(chunkStart + 12),
+          bitsPerSample: buffer.readUInt16LE(chunkStart + 14),
+        };
+      } else if (chunkId === 'data') {
+        data = buffer.subarray(chunkStart, chunkEnd);
+      }
+
+      cursor = chunkStart + chunkSize + (chunkSize % 2);
+    }
+
+    if (!format || !data) {
+      throw new Error('WAV chunk is missing format or audio data.');
+    }
+
+    return {
+      ...format,
+      data,
+    };
+  }
+
+  #buildWavBuffer({ audioFormat, channelCount, sampleRate, bitsPerSample, data }) {
+    const blockAlign = channelCount * (bitsPerSample / 8);
+    const byteRate = sampleRate * blockAlign;
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0, 4, 'ascii');
+    header.writeUInt32LE(36 + data.length, 4);
+    header.write('WAVE', 8, 4, 'ascii');
+    header.write('fmt ', 12, 4, 'ascii');
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(audioFormat, 20);
+    header.writeUInt16LE(channelCount, 22);
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(byteRate, 28);
+    header.writeUInt16LE(blockAlign, 32);
+    header.writeUInt16LE(bitsPerSample, 34);
+    header.write('data', 36, 4, 'ascii');
+    header.writeUInt32LE(data.length, 40);
+    return Buffer.concat([header, data]);
+  }
+
+  #pcmDurationMs(byteLength, sampleRate, blockAlign) {
+    const safeSampleRate = Number(sampleRate) || 0;
+    const safeBlockAlign = Number(blockAlign) || 0;
+    if (safeSampleRate <= 0 || safeBlockAlign <= 0) {
+      return 0;
+    }
+    return Math.round((byteLength / safeBlockAlign) * 1000 / safeSampleRate);
+  }
+
+  #mapMergedTimelineMs(mergedMs, spans) {
+    const clampedMs = Math.max(0, Number(mergedMs) || 0);
+    for (const span of spans) {
+      if (clampedMs <= span.mergedEndMs || span === spans[spans.length - 1]) {
+        const mergedDuration = Math.max(1, span.mergedEndMs - span.mergedStartMs);
+        const sessionDuration = Math.max(0, span.sessionEndMs - span.sessionStartMs);
+        const relative = Math.max(0, clampedMs - span.mergedStartMs);
+        if (sessionDuration === 0) {
+          return span.sessionStartMs;
+        }
+        return span.sessionStartMs + Math.round((relative / mergedDuration) * sessionDuration);
+      }
+    }
+    return 0;
+  }
+
+  #mapWordsTimeline(words, mapMs) {
+    return (Array.isArray(words) ? words : []).map((word) => {
+      const start = Math.max(0, Math.round((Number(word?.start) || 0) * 1000));
+      const end = Math.max(start, Math.round((Number(word?.end) || 0) * 1000));
+      return {
+        ...word,
+        start: mapMs(start) / 1000,
+        end: mapMs(end) / 1000,
+      };
+    });
   }
 
   #assertSequentialChunks(sourceKey, chunks) {
@@ -609,6 +813,16 @@ class RecordingManager {
         throw new Error(`Recording source "${sourceKey}" is missing chunk ${index}.`);
       }
     }
+  }
+
+  #shouldTranscribeSource(source, metadata = {}) {
+    if (metadata.transcribe === false) {
+      return false;
+    }
+    if (metadata.transcribe === true) {
+      return true;
+    }
+    return `${source.media_kind || ''}`.trim().toLowerCase() === 'audio';
   }
 
   #resolveTitle(title, platform, nowIso) {
@@ -642,7 +856,7 @@ class RecordingManager {
             sourceKind: 'screen-share',
             mediaKind: 'video',
             mimeType: 'video/webm',
-            metadata: { analysisReady: true },
+            metadata: { analysisReady: true, transcribe: false },
           },
           {
             sourceKey: 'microphone',
