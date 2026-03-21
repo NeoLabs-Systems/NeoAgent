@@ -5243,10 +5243,33 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 }
 
-class LogsPanel extends StatelessWidget {
+class LogsPanel extends StatefulWidget {
   const LogsPanel({super.key, required this.controller});
 
   final NeoAgentController controller;
+
+  @override
+  State<LogsPanel> createState() => _LogsPanelState();
+}
+
+class _LogsPanelState extends State<LogsPanel> {
+  Future<void> _copyLogs() async {
+    final logsText = widget.controller.logs
+        .map((log) => log.clipboardLine)
+        .join('\n');
+    if (logsText.trim().isEmpty) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: logsText));
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Copied logs')));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -5256,22 +5279,33 @@ class LogsPanel extends StatelessWidget {
         _PageTitle(
           title: 'Logs',
           subtitle: 'Live backend console output from this server session.',
-          trailing: OutlinedButton.icon(
-            onPressed: controller.clearLogs,
-            icon: const Icon(Icons.clear_all),
-            label: const Text('Clear'),
+          trailing: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: widget.controller.logs.isEmpty ? null : _copyLogs,
+                icon: const Icon(Icons.copy_all_outlined),
+                label: const Text('Copy'),
+              ),
+              OutlinedButton.icon(
+                onPressed: widget.controller.clearLogs,
+                icon: const Icon(Icons.clear_all),
+                label: const Text('Clear'),
+              ),
+            ],
           ),
         ),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: controller.logs.isEmpty
+            child: widget.controller.logs.isEmpty
                 ? const Text(
                     'Waiting for log output…',
                     style: TextStyle(color: _textSecondary),
                   )
                 : Column(
-                    children: controller.logs.map((log) {
+                    children: widget.controller.logs.map((log) {
                       return Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -8696,6 +8730,8 @@ class LogEntry {
   final DateTime timestamp;
 
   String get timeLabel => _formatTimeOnly(timestamp);
+
+  String get clipboardLine => '[$timeLabel] $message';
 
   Color get color {
     switch (type) {
