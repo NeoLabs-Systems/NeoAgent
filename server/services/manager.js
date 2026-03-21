@@ -137,16 +137,12 @@ async function stopServices(app) {
         );
     }
 
-    if (app.locals.messagingManager?.platforms instanceof Map) {
-        for (const platform of app.locals.messagingManager.platforms.values()) {
-            if (typeof platform.disconnect === 'function') {
-                tasks.push(
-                    platform.disconnect().catch((err) => {
-                        console.error('[Messaging] Disconnect error:', err.message);
-                    }),
-                );
-            }
-        }
+    if (app.locals.messagingManager) {
+        tasks.push(
+            app.locals.messagingManager.shutdown().catch((err) => {
+                console.error('[Messaging] Shutdown error:', err.message);
+            }),
+        );
     }
 
     await Promise.allSettled(tasks);

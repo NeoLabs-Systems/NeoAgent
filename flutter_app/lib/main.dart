@@ -1966,7 +1966,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   String _friendlyErrorMessage(Object error) {
-    final text = error.toString().trim();
+    final text = _normalizeErrorText(error);
     final lower = text.toLowerCase();
 
     if (lower.contains('invalid credentials')) {
@@ -1992,11 +1992,94 @@ class NeoAgentController extends ChangeNotifier {
     if (lower.contains('not authenticated')) {
       return 'Your session expired. Please sign in again.';
     }
+    if (lower.contains('unable to locate a java runtime') ||
+        lower.contains('java runtime')) {
+      final details = _extractMeaningfulErrorDetails(text);
+      if (details.isNotEmpty) {
+        return 'Mobile setup failed because Java is not available on the machine running NeoAgent.\n\n$details';
+      }
+      return 'Mobile setup failed because Java is not available on the machine running NeoAgent. Install a JDK and try again.';
+    }
+    if (lower.contains('android sdk') ||
+        lower.contains('sdkmanager') ||
+        lower.contains('adb') ||
+        lower.contains('emulator') ||
+        lower.contains('gradle')) {
+      final details = _extractMeaningfulErrorDetails(text);
+      if (details.isNotEmpty) {
+        return 'Mobile setup failed.\n\n$details';
+      }
+      return 'Mobile setup failed. Check that Android tooling is installed correctly and try again.';
+    }
     if (lower.contains('health connect')) {
       return text;
     }
+    if (_shouldExposeErrorText(text)) {
+      return _extractMeaningfulErrorDetails(text);
+    }
 
     return 'Something went wrong. Please try again.';
+  }
+
+  String _normalizeErrorText(Object error) {
+    var text = error.toString().trim();
+    const prefixes = <String>[
+      'BackendException: ',
+      'HealthBridgeException: ',
+      'Exception: ',
+    ];
+    for (final prefix in prefixes) {
+      if (text.startsWith(prefix)) {
+        text = text.substring(prefix.length).trim();
+      }
+    }
+    if (text.startsWith('PlatformException(') && text.endsWith(')')) {
+      final inner = text.substring(
+        'PlatformException('.length,
+        text.length - 1,
+      );
+      final parts = inner.split(', ');
+      if (parts.length >= 2) {
+        text = parts[1].trim();
+      }
+    }
+    return text;
+  }
+
+  String _extractMeaningfulErrorDetails(String text) {
+    final lines = text
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .where((line) => !line.startsWith('{') && !line.startsWith('"error"'))
+        .toList();
+    if (lines.isEmpty) {
+      return text.trim();
+    }
+    return lines.join('\n');
+  }
+
+  bool _shouldExposeErrorText(String text) {
+    if (text.isEmpty) {
+      return false;
+    }
+
+    final lower = text.toLowerCase();
+    if (lower.contains('stack trace') ||
+        lower.contains('typeerror:') ||
+        lower.contains('referenceerror:') ||
+        lower.contains('syntaxerror:') ||
+        lower.contains(' at ') ||
+        lower.contains('/users/') ||
+        lower.contains('/var/') ||
+        lower.contains('/tmp/')) {
+      return false;
+    }
+
+    final details = _extractMeaningfulErrorDetails(text);
+    return details.isNotEmpty &&
+        details != 'Something went wrong. Please try again.' &&
+        details.length <= 800;
   }
 
   bool get heartbeatEnabled =>
