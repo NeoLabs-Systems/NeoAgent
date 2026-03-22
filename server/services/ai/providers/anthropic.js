@@ -18,7 +18,8 @@ class AnthropicProvider extends BaseProvider {
       'claude-3-opus-20240229': 200000
     };
     this.client = new Anthropic({
-      apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY
+      apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY,
+      baseURL: config.baseUrl || process.env.ANTHROPIC_BASE_URL || undefined
     });
   }
 

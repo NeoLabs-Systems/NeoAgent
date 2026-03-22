@@ -358,6 +358,7 @@ class NeoAgentController extends ChangeNotifier {
 
   List<ChatEntry> chatMessages = const <ChatEntry>[];
   List<ModelMeta> supportedModels = const <ModelMeta>[];
+  List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
   List<RunSummary> recentRuns = const <RunSummary>[];
   TokenUsageSnapshot? tokenUsage;
   UpdateStatusSnapshot updateStatus = const UpdateStatusSnapshot();
@@ -574,6 +575,7 @@ class NeoAgentController extends ChangeNotifier {
     settings = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
     supportedModels = const <ModelMeta>[];
+    aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
     tokenUsage = null;
     updateStatus = const UpdateStatusSnapshot();
@@ -737,6 +739,7 @@ class NeoAgentController extends ChangeNotifier {
 
       final historyFuture = _backendClient.fetchChatHistory(backendUrl);
       final modelsFuture = _backendClient.fetchSupportedModels(backendUrl);
+      final providersFuture = _backendClient.fetchAiProviders(backendUrl);
       final settingsFuture = _backendClient.fetchSettings(backendUrl);
       final runsFuture = _backendClient.fetchRuns(backendUrl);
       final versionFuture = _backendClient.fetchVersion(backendUrl);
@@ -768,6 +771,7 @@ class NeoAgentController extends ChangeNotifier {
 
       final history = await historyFuture;
       final modelsResponse = await modelsFuture;
+      final providersResponse = await providersFuture;
       final settingsResponse = await settingsFuture;
       final runsResponse = await runsFuture;
       final versionResponse = await versionFuture;
@@ -795,6 +799,13 @@ class NeoAgentController extends ChangeNotifier {
           (modelsResponse['models'] as List<dynamic>? ?? const <dynamic>[])
               .whereType<Map<dynamic, dynamic>>()
               .map((item) => ModelMeta.fromJson(item))
+              .toList();
+
+      aiProviders =
+          (providersResponse['providers'] as List<dynamic>? ??
+                  const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map((item) => AiProviderMeta.fromJson(item))
               .toList();
 
       settings = Map<String, dynamic>.from(settingsResponse);
@@ -941,7 +952,6 @@ class NeoAgentController extends ChangeNotifier {
       );
       browserRuntime = Map<String, dynamic>.from(browserResponse);
       androidRuntime = Map<String, dynamic>.from(androidResponse);
-      errorMessage = null;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -1607,6 +1617,7 @@ class NeoAgentController extends ChangeNotifier {
     required String defaultChatModel,
     required String defaultSubagentModel,
     required String fallbackModel,
+    required Map<String, dynamic> aiProviderConfigs,
   }) async {
     isSavingSettings = true;
     errorMessage = null;
@@ -1621,6 +1632,7 @@ class NeoAgentController extends ChangeNotifier {
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
       'fallback_model_id': fallbackModel,
+      'ai_provider_configs': aiProviderConfigs,
     };
 
     try {
@@ -2096,12 +2108,37 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
 
+  Map<String, AiProviderConfig> get aiProviderConfigs {
+    final raw = settings['ai_provider_configs'];
+    final decoded = raw is Map
+        ? raw.map(
+            (key, value) => MapEntry(
+              key.toString(),
+              AiProviderConfig.fromJson(key.toString(), value),
+            ),
+          )
+        : const <String, AiProviderConfig>{};
+
+    if (aiProviders.isEmpty) {
+      return decoded;
+    }
+
+    return <String, AiProviderConfig>{
+      for (final provider in aiProviders)
+        provider.id:
+            decoded[provider.id] ?? AiProviderConfig.empty(provider.id),
+    };
+  }
+
   List<String> get enabledModelIds {
     final raw = settings['enabled_models'];
     if (raw is List) {
       return raw.map((item) => item.toString()).toList();
     }
-    return supportedModels.map((model) => model.id).toList();
+    return supportedModels
+        .where((model) => model.available)
+        .map((model) => model.id)
+        .toList();
   }
 
   String get defaultChatModel =>
@@ -2112,7 +2149,7 @@ class NeoAgentController extends ChangeNotifier {
 
   String get fallbackModel =>
       settings['fallback_model_id']?.toString() ??
-      (supportedModels.isNotEmpty ? supportedModels.first.id : 'auto');
+      _firstAvailableModelId(supportedModels);
 
   String get accountLabel =>
       user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
@@ -3523,6 +3560,7 @@ class _DeviceSurfaceHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final androidVersion = _androidRuntimeVersionLabel(androidRuntime);
     final title = surface == _DeviceSurface.browser
         ? (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
               ? browserPageInfo['title'].toString()
@@ -3531,10 +3569,14 @@ class _DeviceSurfaceHeader extends StatelessWidget {
     final subtitle = surface == _DeviceSurface.browser
         ? (browserPageInfo['url']?.toString() ?? 'Ready for navigation')
         : (androidOnline
-              ? 'Tap and swipe directly on the preview.'
+              ? androidVersion == null
+                    ? 'Tap and swipe directly on the preview.'
+                    : '$androidVersion · Tap and swipe directly on the preview.'
               : (androidRuntime['lastLogLine']?.toString().trim().isNotEmpty ??
                     false)
               ? androidRuntime['lastLogLine'].toString()
+              : androidVersion != null
+              ? '$androidVersion selected. Phone is offline.'
               : 'Phone is offline. Open or start it from below.');
 
     return Row(
@@ -5095,11 +5137,6 @@ class RecordingsPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Web can capture screen share plus microphone at the same time. Android can keep a microphone recording running in the background through a foreground service.',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                const SizedBox(height: 16),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -5155,29 +5192,6 @@ class RecordingsPanel extends StatelessWidget {
                     style: const TextStyle(color: _danger),
                   ),
                 ],
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _bgSecondary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _border),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Capture pipeline',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Each session stores screen and microphone as separate sources, uploads chunked media with ordering, and persists transcript segments with timestamps for replay and retry.',
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -7342,6 +7356,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late String _defaultChatModel;
   late String _defaultSubagentModel;
   late String _fallbackModel;
+  final Map<String, bool> _providerEnabled = <String, bool>{};
+  final Map<String, TextEditingController> _providerApiKeyControllers =
+      <String, TextEditingController>{};
+  final Map<String, TextEditingController> _providerBaseUrlControllers =
+      <String, TextEditingController>{};
+  final Set<String> _revealedProviderIds = <String>{};
+  final Set<String> _expandedProviderIds = <String>{};
 
   @override
   void initState() {
@@ -7350,9 +7371,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   @override
+  void dispose() {
+    for (final controller in _providerApiKeyControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _providerBaseUrlControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(covariant SettingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller.settings != widget.controller.settings ||
+        oldWidget.controller.aiProviders != widget.controller.aiProviders ||
         oldWidget.controller.supportedModels !=
             widget.controller.supportedModels) {
       _hydrate();
@@ -7361,36 +7394,79 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   void _hydrate() {
     final controller = widget.controller;
+    final availableModels = controller.supportedModels
+        .where((model) => model.available)
+        .map((model) => model.id)
+        .toSet();
     _heartbeatEnabled = controller.heartbeatEnabled;
     _headlessBrowser = controller.headlessBrowser;
     _autoSkillLearning = controller.autoSkillLearning;
     _smarterSelector = controller.smarterSelector;
     _enabledModels = controller.enabledModelIds.toSet();
+    if (_enabledModels.isEmpty && availableModels.isNotEmpty) {
+      _enabledModels = availableModels;
+    }
     _defaultChatModel = controller.defaultChatModel;
     _defaultSubagentModel = controller.defaultSubagentModel;
     _fallbackModel = controller.fallbackModel;
+
+    final providerConfigs = controller.aiProviderConfigs;
+    final providerIds = <String>{
+      ...providerConfigs.keys,
+      ...controller.aiProviders.map((provider) => provider.id),
+    };
+
+    for (final providerId in providerIds) {
+      final config =
+          providerConfigs[providerId] ?? AiProviderConfig.empty(providerId);
+      _providerEnabled[providerId] = config.enabled;
+      _syncTextController(
+        _providerApiKeyControllers,
+        providerId,
+        config.apiKey,
+      );
+      _syncTextController(
+        _providerBaseUrlControllers,
+        providerId,
+        config.baseUrl,
+      );
+    }
+
+    _pruneControllers(_providerApiKeyControllers, providerIds);
+    _pruneControllers(_providerBaseUrlControllers, providerIds);
+    _providerEnabled.removeWhere((id, _) => !providerIds.contains(id));
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
+    final availableModels = controller.supportedModels
+        .where((model) => model.available)
+        .toList();
+    final routingModels = availableModels.isEmpty
+        ? controller.supportedModels
+        : availableModels;
     final modelChoices = <DropdownMenuItem<String>>[
       const DropdownMenuItem<String>(
         value: 'auto',
         child: Text('Smart Selector (Auto)'),
       ),
-      ...controller.supportedModels.map(
+      ...routingModels.map(
         (model) =>
             DropdownMenuItem<String>(value: model.id, child: Text(model.label)),
       ),
     ];
+    final enabledSmartModels = _enabledModels
+        .where((id) => routingModels.any((model) => model.id == id))
+        .length;
 
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
           title: 'Settings',
-          subtitle: 'Routing, runtime behavior, token usage, and app updates.',
+          subtitle:
+              'Configure providers, routing, runtime behavior, and app updates from one place.',
           trailing: FilledButton.icon(
             onPressed: controller.isSavingSettings
                 ? null
@@ -7403,6 +7479,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     defaultChatModel: _defaultChatModel,
                     defaultSubagentModel: _defaultSubagentModel,
                     fallbackModel: _fallbackModel,
+                    aiProviderConfigs: _buildProviderPayload(),
                   ),
             style: FilledButton.styleFrom(backgroundColor: _accent),
             icon: controller.isSavingSettings
@@ -7421,6 +7498,230 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _InlineError(message: controller.errorMessage!),
           const SizedBox(height: 16),
         ],
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('AI Providers'),
+                const SizedBox(height: 14),
+                if (controller.aiProviders.isEmpty)
+                  const Text(
+                    'Provider metadata is unavailable on this server version.',
+                    style: TextStyle(color: _textSecondary),
+                  )
+                else
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 960;
+                      final cardWidth = compact
+                          ? constraints.maxWidth
+                          : (constraints.maxWidth - 16) / 2;
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: controller.aiProviders.map((provider) {
+                          return SizedBox(
+                            width: cardWidth,
+                            child: _AiProviderCard(
+                              provider: provider,
+                              enabled:
+                                  _providerEnabled[provider.id] ??
+                                  controller
+                                      .aiProviderConfigs[provider.id]
+                                      ?.enabled ??
+                                  true,
+                              models: controller.supportedModels
+                                  .where(
+                                    (model) => model.provider == provider.id,
+                                  )
+                                  .toList(),
+                              apiKeyController:
+                                  _providerApiKeyControllers[provider.id]!,
+                              baseUrlController:
+                                  _providerBaseUrlControllers[provider.id]!,
+                              revealSecret: _revealedProviderIds.contains(
+                                provider.id,
+                              ),
+                              expanded: _expandedProviderIds.contains(
+                                provider.id,
+                              ),
+                              onRevealToggle: () {
+                                setState(() {
+                                  if (_revealedProviderIds.contains(
+                                    provider.id,
+                                  )) {
+                                    _revealedProviderIds.remove(provider.id);
+                                  } else {
+                                    _revealedProviderIds.add(provider.id);
+                                  }
+                                });
+                              },
+                              onEnabledChanged: (value) {
+                                setState(() {
+                                  _providerEnabled[provider.id] = value;
+                                });
+                              },
+                              onExpandToggle: () {
+                                setState(() {
+                                  if (_expandedProviderIds.contains(
+                                    provider.id,
+                                  )) {
+                                    _expandedProviderIds.remove(provider.id);
+                                  } else {
+                                    _expandedProviderIds.add(provider.id);
+                                  }
+                                });
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Model Routing'),
+                const SizedBox(height: 14),
+                if (routingModels.isNotEmpty) ...<Widget>[
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 940;
+                      final cardWidth = compact
+                          ? constraints.maxWidth
+                          : (constraints.maxWidth - 24) / 3;
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: <Widget>[
+                          SizedBox(
+                            width: cardWidth,
+                            child: _RoutingSelectCard(
+                              label: 'Chat',
+                              icon: Icons.chat_bubble_outline,
+                              value: _ensureModelValue(
+                                _defaultChatModel,
+                                routingModels,
+                                allowAuto: true,
+                              ),
+                              items: modelChoices,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _defaultChatModel = value);
+                                }
+                              },
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _RoutingSelectCard(
+                              label: 'Sub-agent',
+                              icon: Icons.bolt_outlined,
+                              value: _ensureModelValue(
+                                _defaultSubagentModel,
+                                routingModels,
+                                allowAuto: true,
+                              ),
+                              items: modelChoices,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _defaultSubagentModel = value);
+                                }
+                              },
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _RoutingSelectCard(
+                              label: 'Fallback',
+                              icon: Icons.shield_outlined,
+                              value: _ensureModelValue(
+                                _fallbackModel,
+                                routingModels,
+                                allowAuto: false,
+                              ),
+                              items: routingModels
+                                  .map(
+                                    (model) => DropdownMenuItem<String>(
+                                      value: model.id,
+                                      child: Text(model.label),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _fallbackModel = value);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                const Text(
+                  'Smart Selector Allowed Models',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: controller.supportedModels.map((model) {
+                    final selected = _enabledModels.contains(model.id);
+                    return FilterChip(
+                      label: Text(
+                        model.available
+                            ? model.label
+                            : '${model.label} (${model.providerStatusLabel})',
+                      ),
+                      selected: selected,
+                      selectedColor: _accentMuted,
+                      checkmarkColor: _accent,
+                      backgroundColor: _bgSecondary,
+                      side: BorderSide(
+                        color: model.available
+                            ? _border
+                            : _warning.withValues(alpha: 0.35),
+                      ),
+                      onSelected: model.available
+                          ? (value) {
+                              setState(() {
+                                if (value) {
+                                  _enabledModels.add(model.id);
+                                } else if (_enabledModels.length > 1) {
+                                  _enabledModels.remove(model.id);
+                                }
+                              });
+                            }
+                          : null,
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  availableModels.isEmpty
+                      ? 'Enable a provider above to unlock model routing.'
+                      : '$enabledSmartModels models are currently eligible for smart routing.',
+                  style: const TextStyle(color: _textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -7458,106 +7759,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   value: _smarterSelector,
                   onChanged: (value) =>
                       setState(() => _smarterSelector = value),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Model Routing'),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _ensureModelValue(
-                    _defaultChatModel,
-                    controller.supportedModels,
-                    allowAuto: true,
-                  ),
-                  items: modelChoices,
-                  decoration: const InputDecoration(
-                    labelText: 'Default Chat Model',
-                  ),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _defaultChatModel = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _ensureModelValue(
-                    _defaultSubagentModel,
-                    controller.supportedModels,
-                    allowAuto: true,
-                  ),
-                  items: modelChoices,
-                  decoration: const InputDecoration(
-                    labelText: 'Default Sub-agent Model',
-                  ),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _defaultSubagentModel = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _ensureModelValue(
-                    _fallbackModel,
-                    controller.supportedModels,
-                    allowAuto: false,
-                  ),
-                  items: controller.supportedModels
-                      .map(
-                        (model) => DropdownMenuItem<String>(
-                          value: model.id,
-                          child: Text(model.label),
-                        ),
-                      )
-                      .toList(),
-                  decoration: const InputDecoration(
-                    labelText: 'Fallback Model',
-                  ),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _fallbackModel = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Smart Selector Allowed Models',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: controller.supportedModels.map((model) {
-                    final selected = _enabledModels.contains(model.id);
-                    return FilterChip(
-                      label: Text(model.label),
-                      selected: selected,
-                      selectedColor: _accentMuted,
-                      checkmarkColor: _accent,
-                      backgroundColor: _bgSecondary,
-                      side: const BorderSide(color: _border),
-                      onSelected: (value) {
-                        setState(() {
-                          if (value) {
-                            _enabledModels.add(model.id);
-                          } else if (_enabledModels.length > 1) {
-                            _enabledModels.remove(model.id);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
                 ),
               ],
             ),
@@ -7663,54 +7864,361 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ),
                 const SizedBox(height: 12),
                 Text(controller.updateStatus.versionLine),
-                const SizedBox(height: 16),
-                const Text(
-                  'Changelog',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                if (controller.updateStatus.changelog.isEmpty)
-                  const Text(
-                    'No commit changes captured',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  ...controller.updateStatus.changelog.map(
-                    (line) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text('• $line'),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Live Output',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: 180),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _bgSecondary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _border),
-                  ),
-                  child: SelectableText(
-                    controller.updateStatus.logsText,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.45,
-                      color: _textPrimary,
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Map<String, dynamic> _buildProviderPayload() {
+    final providerIds = <String>{
+      ...widget.controller.aiProviders.map((provider) => provider.id),
+      ...widget.controller.aiProviderConfigs.keys,
+    };
+
+    return <String, dynamic>{
+      for (final providerId in providerIds)
+        providerId: <String, dynamic>{
+          'enabled':
+              _providerEnabled[providerId] ??
+              widget.controller.aiProviderConfigs[providerId]?.enabled ??
+              true,
+          'apiKey': _providerApiKeyControllers[providerId]?.text.trim() ?? '',
+          'baseUrl': _providerBaseUrlControllers[providerId]?.text.trim() ?? '',
+        },
+    };
+  }
+
+  void _syncTextController(
+    Map<String, TextEditingController> controllers,
+    String id,
+    String value,
+  ) {
+    final controller = controllers.putIfAbsent(
+      id,
+      () => TextEditingController(text: value),
+    );
+    if (controller.text != value) {
+      controller.text = value;
+    }
+  }
+
+  void _pruneControllers(
+    Map<String, TextEditingController> controllers,
+    Set<String> activeIds,
+  ) {
+    final staleIds = controllers.keys
+        .where((id) => !activeIds.contains(id))
+        .toList();
+    for (final id in staleIds) {
+      controllers.remove(id)?.dispose();
+    }
+  }
+}
+
+class _AiProviderCard extends StatelessWidget {
+  const _AiProviderCard({
+    required this.provider,
+    required this.enabled,
+    required this.expanded,
+    required this.models,
+    required this.apiKeyController,
+    required this.baseUrlController,
+    required this.revealSecret,
+    required this.onRevealToggle,
+    required this.onEnabledChanged,
+    required this.onExpandToggle,
+  });
+
+  final AiProviderMeta provider;
+  final bool enabled;
+  final bool expanded;
+  final List<ModelMeta> models;
+  final TextEditingController apiKeyController;
+  final TextEditingController baseUrlController;
+  final bool revealSecret;
+  final VoidCallback onRevealToggle;
+  final ValueChanged<bool> onEnabledChanged;
+  final VoidCallback onExpandToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final availableCount = models.where((model) => model.available).length;
+    final hasAdvancedFields =
+        provider.supportsApiKey || provider.supportsBaseUrl;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _accentMuted,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(provider.icon, color: _accentHover),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      provider.label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      provider.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  _StatusPill(
+                    label: enabled ? provider.statusLabel : 'Disabled',
+                    color: enabled ? provider.statusColor : _textSecondary,
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: hasAdvancedFields || models.isNotEmpty
+                        ? onExpandToggle
+                        : null,
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _bgCard,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: _border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            expanded ? 'Hide' : 'Setup',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            expanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            size: 16,
+                            color: _textSecondary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _MetaPill(
+                label: '$availableCount of ${models.length} models ready',
+                icon: Icons.memory_outlined,
+              ),
+              if (provider.usesEnvironmentApiKey)
+                const _MetaPill(
+                  label: 'Env fallback active',
+                  icon: Icons.lock_outline,
+                ),
+              if (provider.hasStoredApiKey)
+                const _MetaPill(
+                  label: 'Key saved in UI',
+                  icon: Icons.key_outlined,
+                ),
+              if (provider.supportsBaseUrl &&
+                  baseUrlController.text.trim().isNotEmpty)
+                _MetaPill(
+                  label: _friendlyBaseUrlLabel(baseUrlController.text.trim()),
+                  icon: Icons.link_outlined,
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: _bgCard,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    provider.availabilityReason,
+                    style: const TextStyle(color: _textSecondary, height: 1.35),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Switch(value: enabled, onChanged: onEnabledChanged),
+              ],
+            ),
+          ),
+          if (expanded) ...<Widget>[
+            const SizedBox(height: 14),
+            if (provider.supportsApiKey) ...<Widget>[
+              TextField(
+                controller: apiKeyController,
+                obscureText: !revealSecret,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: 'API Key',
+                  hintText: provider.hasEnvironmentApiKey
+                      ? 'Leave blank to keep server env fallback'
+                      : 'Paste API key',
+                  helperText: provider.hasEnvironmentApiKey
+                      ? 'Blank keeps the current server environment fallback.'
+                      : 'Stored on this NeoAgent server for your account.',
+                  suffixIcon: IconButton(
+                    onPressed: onRevealToggle,
+                    icon: Icon(
+                      revealSecret ? Icons.visibility_off : Icons.visibility,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (provider.supportsBaseUrl) ...<Widget>[
+              TextField(
+                controller: baseUrlController,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: provider.id == 'ollama'
+                      ? 'Server URL'
+                      : 'Base URL',
+                  helperText: provider.defaultBaseUrl.trim().isEmpty
+                      ? 'Optional override.'
+                      : 'Default: ${provider.defaultBaseUrl}',
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (models.isNotEmpty) ...<Widget>[
+              const Text(
+                'Models',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: models
+                    .map(
+                      (model) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: model.available ? _bgCard : _bgPrimary,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: model.available ? _border : _borderLight,
+                          ),
+                        ),
+                        child: Text(
+                          model.label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: model.available
+                                ? _textPrimary
+                                : _textSecondary,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RoutingSelectCard extends StatelessWidget {
+  const _RoutingSelectCard({
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String label;
+  final IconData icon;
+  final String value;
+  final List<DropdownMenuItem<String>> items;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(icon, size: 16, color: _accentHover),
+              const SizedBox(width: 8),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            initialValue: value,
+            items: items,
+            decoration: const InputDecoration(isDense: true),
+            onChanged: onChanged,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -11003,6 +11511,9 @@ class ModelMeta {
     required this.label,
     required this.provider,
     required this.purpose,
+    this.available = true,
+    this.providerStatus = '',
+    this.providerStatusLabel = '',
   });
 
   factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -11011,6 +11522,9 @@ class ModelMeta {
       label: json['label']?.toString() ?? '',
       provider: json['provider']?.toString() ?? '',
       purpose: json['purpose']?.toString() ?? '',
+      available: json['available'] != false,
+      providerStatus: json['providerStatus']?.toString() ?? '',
+      providerStatusLabel: json['providerStatusLabel']?.toString() ?? '',
     );
   }
 
@@ -11018,6 +11532,159 @@ class ModelMeta {
   final String label;
   final String provider;
   final String purpose;
+  final bool available;
+  final String providerStatus;
+  final String providerStatusLabel;
+}
+
+class AiProviderConfig {
+  const AiProviderConfig({
+    required this.id,
+    required this.enabled,
+    required this.apiKey,
+    required this.baseUrl,
+  });
+
+  factory AiProviderConfig.empty(String id) {
+    return AiProviderConfig(
+      id: id,
+      enabled: true,
+      apiKey: '',
+      baseUrl: id == 'ollama' ? 'http://localhost:11434' : '',
+    );
+  }
+
+  factory AiProviderConfig.fromJson(String id, dynamic json) {
+    final map = json is Map
+        ? Map<String, dynamic>.from(json)
+        : const <String, dynamic>{};
+    return AiProviderConfig(
+      id: id,
+      enabled: map['enabled'] != false,
+      apiKey: map['apiKey']?.toString() ?? '',
+      baseUrl:
+          map['baseUrl']?.toString() ??
+          (id == 'ollama' ? 'http://localhost:11434' : ''),
+    );
+  }
+
+  final String id;
+  final bool enabled;
+  final String apiKey;
+  final String baseUrl;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'enabled': enabled,
+      'apiKey': apiKey.trim(),
+      'baseUrl': baseUrl.trim(),
+    };
+  }
+}
+
+class AiProviderMeta {
+  const AiProviderMeta({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.enabled,
+    required this.available,
+    required this.supportsApiKey,
+    required this.supportsBaseUrl,
+    required this.defaultBaseUrl,
+    required this.hasStoredApiKey,
+    required this.hasEnvironmentApiKey,
+    required this.usesEnvironmentApiKey,
+    required this.baseUrl,
+    required this.status,
+    required this.statusLabel,
+    required this.availabilityReason,
+    required this.modelCount,
+    required this.availableModelCount,
+  });
+
+  factory AiProviderMeta.fromJson(Map<dynamic, dynamic> json) {
+    return AiProviderMeta(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      enabled: json['enabled'] != false,
+      available: json['available'] == true,
+      supportsApiKey: json['supportsApiKey'] == true,
+      supportsBaseUrl: json['supportsBaseUrl'] == true,
+      defaultBaseUrl: json['defaultBaseUrl']?.toString() ?? '',
+      hasStoredApiKey: json['hasStoredApiKey'] == true,
+      hasEnvironmentApiKey: json['hasEnvironmentApiKey'] == true,
+      usesEnvironmentApiKey: json['usesEnvironmentApiKey'] == true,
+      baseUrl: json['baseUrl']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      statusLabel: json['statusLabel']?.toString() ?? '',
+      availabilityReason: json['availabilityReason']?.toString() ?? '',
+      modelCount: _asInt(json['modelCount']),
+      availableModelCount: _asInt(json['availableModelCount']),
+    );
+  }
+
+  final String id;
+  final String label;
+  final String description;
+  final bool enabled;
+  final bool available;
+  final bool supportsApiKey;
+  final bool supportsBaseUrl;
+  final String defaultBaseUrl;
+  final bool hasStoredApiKey;
+  final bool hasEnvironmentApiKey;
+  final bool usesEnvironmentApiKey;
+  final String baseUrl;
+  final String status;
+  final String statusLabel;
+  final String availabilityReason;
+  final int modelCount;
+  final int availableModelCount;
+
+  IconData get icon {
+    switch (id) {
+      case 'openai':
+        return Icons.auto_awesome;
+      case 'anthropic':
+        return Icons.edit_note_outlined;
+      case 'google':
+        return Icons.multitrack_audio_outlined;
+      case 'grok':
+        return Icons.bolt_outlined;
+      case 'ollama':
+        return Icons.storage_outlined;
+      default:
+        return Icons.hub_outlined;
+    }
+  }
+
+  Color get statusColor {
+    switch (status) {
+      case 'ready':
+      case 'stored_key':
+      case 'env_key':
+      case 'local':
+        return _success;
+      case 'disabled':
+        return _textSecondary;
+      case 'needs_key':
+        return _warning;
+      default:
+        return _info;
+    }
+  }
+
+  String get modelSummary {
+    if (modelCount == 0) {
+      return 'No models discovered yet';
+    }
+    if (availableModelCount == modelCount) {
+      return '$modelCount models ready';
+    }
+    return '$availableModelCount of $modelCount models ready';
+  }
 }
 
 class RunSummary {
@@ -11694,6 +12361,15 @@ String _ensureModelValue(
   return models.isNotEmpty ? models.first.id : value;
 }
 
+String _firstAvailableModelId(List<ModelMeta> models) {
+  for (final model in models) {
+    if (model.available) {
+      return model.id;
+    }
+  }
+  return models.isNotEmpty ? models.first.id : 'auto';
+}
+
 String _modelLabelForValue(String value, List<ModelMeta> models) {
   if (value == 'auto' || value.trim().isEmpty) {
     return 'Auto';
@@ -11704,6 +12380,31 @@ String _modelLabelForValue(String value, List<ModelMeta> models) {
     }
   }
   return value;
+}
+
+String _friendlyBaseUrlLabel(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null || uri.host.trim().isEmpty) {
+    return value;
+  }
+  final port = uri.hasPort ? ':${uri.port}' : '';
+  return '${uri.host}$port';
+}
+
+String? _androidRuntimeVersionLabel(Map<String, dynamic> runtime) {
+  final apiLevel = _asInt(runtime['apiLevel']);
+  final systemImage = runtime['systemImage']?.toString().trim() ?? '';
+  if (apiLevel <= 0 && systemImage.isEmpty) {
+    return null;
+  }
+
+  if (apiLevel > 0 && systemImage.isNotEmpty) {
+    return 'Android $apiLevel';
+  }
+  if (apiLevel > 0) {
+    return 'Android $apiLevel';
+  }
+  return systemImage;
 }
 
 Map<String, dynamic> _jsonMap(dynamic value) {

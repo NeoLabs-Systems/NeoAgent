@@ -14,7 +14,7 @@ const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 async function getActiveProvider(userId) {
   try {
     const { getSupportedModels } = require('../ai/models');
-    const models = await getSupportedModels();
+    const models = await getSupportedModels(userId);
     const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?)')
       .all(userId || 1, 'default_chat_model', 'enabled_models');
 
@@ -33,7 +33,7 @@ async function getActiveProvider(userId) {
       : (Array.isArray(enabledIds) && enabledIds.length > 0 ? enabledIds[0] : null);
 
     if (modelId) {
-      const def = models.find(m => m.id === modelId);
+      const def = models.find(m => m.id === modelId && m.available !== false);
       if (def) return def.provider;
     }
   } catch { }

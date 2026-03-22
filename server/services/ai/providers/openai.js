@@ -28,7 +28,8 @@ class OpenAIProvider extends BaseProvider {
       'o3-mini': 200000
     };
     this.client = new OpenAI({
-      apiKey: config.apiKey || process.env.OPENAI_API_KEY
+      apiKey: config.apiKey || process.env.OPENAI_API_KEY,
+      baseURL: config.baseUrl || process.env.OPENAI_BASE_URL || undefined
     });
   }
 

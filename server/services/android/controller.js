@@ -88,6 +88,32 @@ function systemImageArch() {
   return 'x86_64';
 }
 
+function parseSystemImagePlatform(platformId) {
+  const stable = String(platformId || '').match(/^android-(\d+)$/);
+  if (stable) {
+    return {
+      platformId,
+      apiLevel: Number(stable[1] || 0),
+      stable: true,
+    };
+  }
+
+  const preview = String(platformId || '').match(/^android-([A-Za-z][A-Za-z0-9_-]*)$/);
+  if (preview) {
+    return {
+      platformId,
+      apiLevel: 0,
+      stable: false,
+    };
+  }
+
+  return {
+    platformId,
+    apiLevel: 0,
+    stable: false,
+  };
+}
+
 function sdkEnv() {
   const base = {
     ...process.env,
@@ -205,21 +231,51 @@ function parseLatestCmdlineToolsUrl(xml) {
   throw new Error(`Could not find a command line tools archive for ${tag}`);
 }
 
+function systemImageTagScore(tag) {
+  const value = String(tag || '').toLowerCase();
+  if (value.startsWith('google_apis_playstore')) return 50;
+  if (value.startsWith('google_apis')) return 40;
+  if (value === 'google_atd') return 30;
+  if (value === 'aosp_atd') return 20;
+  if (value === 'default') return 10;
+  return 0;
+}
+
 function chooseLatestSystemImage(listOutput) {
   const arch = systemImageArch();
   const matches = [];
-  const regex = new RegExp(`system-images;android-(\\d+);google_apis;${arch}`, 'g');
+  const regex = /system-images;(android-[^;\s]+);([^;\s]+);([^;\s]+)/g;
   let match = regex.exec(listOutput);
   while (match) {
+    if (match[3] !== arch) {
+      match = regex.exec(listOutput);
+      continue;
+    }
+
+    const platform = parseSystemImagePlatform(match[1]);
     matches.push({
-      apiLevel: Number(match[1] || 0),
       packageName: match[0],
+      platformId: match[1],
+      tag: match[2],
+      arch: match[3],
+      apiLevel: platform.apiLevel,
+      stable: platform.stable,
+      tagScore: systemImageTagScore(match[2]),
     });
     match = regex.exec(listOutput);
   }
 
-  matches.sort((a, b) => b.apiLevel - a.apiLevel);
-  return matches[0] || null;
+  const preferredMatches = matches.filter((candidate) => candidate.tagScore > 0);
+  const pool = preferredMatches.length > 0 ? preferredMatches : matches;
+
+  pool.sort((a, b) =>
+    Number(b.stable) - Number(a.stable) ||
+    b.apiLevel - a.apiLevel ||
+    b.tagScore - a.tagScore ||
+    a.packageName.localeCompare(b.packageName)
+  );
+
+  return pool[0] || null;
 }
 
 function parseApiLevelFromSystemImage(packageName) {
@@ -349,7 +405,7 @@ class AndroidController {
     const available = await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} --list`, { timeout: 300000 });
     const latestSystemImage = chooseLatestSystemImage(available);
     if (!latestSystemImage) {
-      throw new Error(`No stable Google APIs system image found for ${systemImageArch()}`);
+      throw new Error(`No compatible Android system image found for ${systemImageArch()}`);
     }
 
     const state = readState();
@@ -401,7 +457,7 @@ class AndroidController {
     const available = await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} --list`, { timeout: 300000 });
     const systemImage = chooseLatestSystemImage(available);
     if (!systemImage) {
-      throw new Error(`No stable Google APIs system image found for ${systemImageArch()}`);
+      throw new Error(`No compatible Android system image found for ${systemImageArch()}`);
     }
 
     await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} "${systemImage.packageName}"`, { timeout: 300000 });
@@ -869,6 +925,9 @@ class AndroidController {
       emulatorPath: emulatorBinary(),
       serial: state.serial,
       emulatorPid: state.emulatorPid,
+      systemImage: state.systemImage || null,
+      apiLevel: Number(state.apiLevel || 0) || null,
+      avdSystemImage: state.avdSystemImage || null,
       logPath: state.logPath || null,
       lastLogLine,
       devices,

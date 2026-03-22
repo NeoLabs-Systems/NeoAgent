@@ -83,6 +83,10 @@ class BackendClient {
     return getMap(baseUrl, '/api/settings/meta/models');
   }
 
+  Future<Map<String, dynamic>> fetchAiProviders(String baseUrl) async {
+    return getMap(baseUrl, '/api/settings/meta/ai-providers');
+  }
+
   Future<Map<String, dynamic>> saveSettings(
     String baseUrl,
     Map<String, dynamic> payload,
