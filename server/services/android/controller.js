@@ -47,6 +47,18 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function tailFile(filePath, maxLines = 40) {
+  try {
+    const lines = fs.readFileSync(filePath, 'utf8')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    return lines.slice(-maxLines);
+  } catch {
+    return [];
+  }
+}
+
 function commandExists(command) {
   const probe = spawnSync('bash', ['-lc', `command -v "${command}"`], { encoding: 'utf8' });
   return probe.status === 0;
@@ -693,7 +705,6 @@ class AndroidController {
       stdio: ['ignore', out, out],
       env: sdkEnv(),
     });
-    child.unref();
 
     console.log(`[Android] Emulator process started (pid ${child.pid})`);
     appendState({
@@ -706,7 +717,38 @@ class AndroidController {
       lastLogLine: 'Android emulator process started. Waiting for boot completion...',
     });
 
-    const onlineSerial = await this.waitForDevice({ timeoutMs: options.timeoutMs || 240000 });
+    const processExit = new Promise((resolve) => {
+      child.once('exit', (code, signal) => {
+        resolve({ code, signal });
+      });
+      child.once('error', (error) => {
+        resolve({ code: null, signal: null, error });
+      });
+    });
+
+    child.unref();
+
+    const bootResult = await Promise.race([
+      this.waitForDevice({ timeoutMs: options.timeoutMs || 240000 }).then((serial) => ({
+        serial,
+        exited: false,
+      })),
+      processExit.then((result) => ({
+        exited: true,
+        ...result,
+      })),
+    ]);
+
+    if (bootResult.exited) {
+      const recentLogLines = tailFile(logPath, 12);
+      const lastLine =
+        bootResult.error?.message ||
+        recentLogLines[recentLogLines.length - 1] ||
+        `Emulator process exited before boot completed (code ${bootResult.code ?? 'unknown'}, signal ${bootResult.signal ?? 'none'}).`;
+      throw new Error(lastLine);
+    }
+
+    const onlineSerial = bootResult.serial;
     appendState({
       serial: onlineSerial,
       emulatorPid: child.pid,
@@ -772,14 +814,17 @@ class AndroidController {
         lastLogLine: 'Android start requested.',
       });
       const startPromise = this.#startEmulatorBlocking(options).catch((err) => {
+        const state = readState();
+        const recentLogLines = state.logPath ? tailFile(state.logPath, 12) : [];
+        const detailedMessage = recentLogLines[recentLogLines.length - 1] || err.message;
         appendState({
           starting: false,
           startupPhase: 'Start failed',
-          lastStartError: err.message,
-          lastLogLine: err.message,
+          lastStartError: detailedMessage,
+          lastLogLine: detailedMessage,
         });
-        console.error('[Android] Emulator start failed:', err.message);
-        throw err;
+        console.error('[Android] Emulator start failed:', detailedMessage);
+        throw new Error(detailedMessage);
       }).finally(() => {
         if (this.startPromise === startPromise) {
           this.startPromise = null;
