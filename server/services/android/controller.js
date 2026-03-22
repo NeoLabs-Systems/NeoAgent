@@ -88,6 +88,12 @@ function systemImageArch() {
   return 'x86_64';
 }
 
+function systemImageArchCandidates() {
+  const preferred = systemImageArch();
+  const fallbacks = ['x86_64', 'arm64-v8a'];
+  return [preferred, ...fallbacks].filter((arch, index, list) => list.indexOf(arch) === index);
+}
+
 function parseSystemImagePlatform(platformId) {
   const stable = String(platformId || '').match(/^android-(\d+)$/);
   if (stable) {
@@ -241,17 +247,11 @@ function systemImageTagScore(tag) {
   return 0;
 }
 
-function chooseLatestSystemImage(listOutput) {
-  const arch = systemImageArch();
+function parseSystemImages(listOutput) {
   const matches = [];
   const regex = /system-images;(android-[^;\s]+);([^;\s]+);([^;\s]+)/g;
   let match = regex.exec(listOutput);
   while (match) {
-    if (match[3] !== arch) {
-      match = regex.exec(listOutput);
-      continue;
-    }
-
     const platform = parseSystemImagePlatform(match[1]);
     matches.push({
       packageName: match[0],
@@ -265,17 +265,43 @@ function chooseLatestSystemImage(listOutput) {
     match = regex.exec(listOutput);
   }
 
-  const preferredMatches = matches.filter((candidate) => candidate.tagScore > 0);
-  const pool = preferredMatches.length > 0 ? preferredMatches : matches;
+  return matches;
+}
 
-  pool.sort((a, b) =>
+function chooseLatestSystemImage(listOutput, preferredArchs = systemImageArchCandidates()) {
+  const matches = parseSystemImages(listOutput);
+  const archPool = Array.isArray(preferredArchs) && preferredArchs.length > 0
+    ? preferredArchs
+    : systemImageArchCandidates();
+
+  let pool = [];
+  for (const arch of archPool) {
+    pool = matches.filter((candidate) => candidate.arch === arch);
+    if (pool.length > 0) break;
+  }
+
+  if (pool.length === 0) {
+    pool = matches;
+  }
+
+  const preferredMatches = pool.filter((candidate) => candidate.tagScore > 0);
+  const rankedPool = preferredMatches.length > 0 ? preferredMatches : pool;
+
+  rankedPool.sort((a, b) =>
     Number(b.stable) - Number(a.stable) ||
     b.apiLevel - a.apiLevel ||
     b.tagScore - a.tagScore ||
     a.packageName.localeCompare(b.packageName)
   );
 
-  return pool[0] || null;
+  return rankedPool[0] || null;
+}
+
+function formatSystemImageError(listOutput) {
+  const availableArchs = [...new Set(parseSystemImages(listOutput).map((candidate) => candidate.arch))].sort();
+  const wantedArchs = systemImageArchCandidates().join(', ');
+  const available = availableArchs.length > 0 ? availableArchs.join(', ') : 'none';
+  return `No compatible Android system image found. Preferred architectures: ${wantedArchs}. Available architectures: ${available}.`;
 }
 
 function parseApiLevelFromSystemImage(packageName) {
@@ -404,9 +430,7 @@ class AndroidController {
     const sdkmanager = sdkManagerBinary();
     const available = await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} --list`, { timeout: 300000 });
     const latestSystemImage = chooseLatestSystemImage(available);
-    if (!latestSystemImage) {
-      throw new Error(`No compatible Android system image found for ${systemImageArch()}`);
-    }
+    if (!latestSystemImage) throw new Error(formatSystemImageError(available));
 
     const state = readState();
     const currentApiLevel = parseApiLevelFromSystemImage(state.systemImage);
@@ -422,6 +446,7 @@ class AndroidController {
         bootstrapped: true,
         systemImage: latestSystemImage.packageName,
         apiLevel: latestSystemImage.apiLevel,
+        systemImageArch: latestSystemImage.arch,
       });
     }
   }
@@ -456,12 +481,15 @@ class AndroidController {
 
     const available = await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} --list`, { timeout: 300000 });
     const systemImage = chooseLatestSystemImage(available);
-    if (!systemImage) {
-      throw new Error(`No compatible Android system image found for ${systemImageArch()}`);
-    }
+    if (!systemImage) throw new Error(formatSystemImageError(available));
 
     await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} "${systemImage.packageName}"`, { timeout: 300000 });
-    appendState({ bootstrapped: true, systemImage: systemImage.packageName, apiLevel: systemImage.apiLevel });
+    appendState({
+      bootstrapped: true,
+      systemImage: systemImage.packageName,
+      apiLevel: systemImage.apiLevel,
+      systemImageArch: systemImage.arch,
+    });
   }
 
   async ensureAvd() {
@@ -926,6 +954,7 @@ class AndroidController {
       serial: state.serial,
       emulatorPid: state.emulatorPid,
       systemImage: state.systemImage || null,
+      systemImageArch: state.systemImageArch || null,
       apiLevel: Number(state.apiLevel || 0) || null,
       avdSystemImage: state.avdSystemImage || null,
       logPath: state.logPath || null,
@@ -944,6 +973,9 @@ module.exports = {
   AndroidController,
   androidTextEscape,
   chooseLatestSystemImage,
+  formatSystemImageError,
   parseLatestCmdlineToolsUrl,
+  parseSystemImages,
   sanitizeUiXml,
+  systemImageArchCandidates,
 };

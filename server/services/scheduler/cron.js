@@ -109,6 +109,8 @@ class Scheduler {
   }
 
   createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null, model = null, runAt = null, oneTime = false }) {
+    const notifyTarget = this._getDefaultNotifyTarget(userId);
+
     if (oneTime) {
       if (!runAt) throw new Error('runAt is required for one-time tasks');
       const runAtDate = new Date(runAt);
@@ -117,6 +119,10 @@ class Scheduler {
       const config = { prompt };
       if (callTo) { config.callTo = callTo; config.callGreeting = callGreeting || ''; }
       if (typeof model === 'string' && model.trim()) config.model = model.trim();
+      if (notifyTarget.platform && notifyTarget.to) {
+        config.notifyPlatform = notifyTarget.platform;
+        config.notifyTo = notifyTarget.to;
+      }
 
       const result = db.prepare(
         'INSERT INTO scheduled_tasks (user_id, name, cron_expression, run_at, one_time, task_type, task_config, enabled) VALUES (?, ?, NULL, ?, 1, ?, ?, ?)'
@@ -132,6 +138,10 @@ class Scheduler {
     const config = { prompt };
     if (callTo) { config.callTo = callTo; config.callGreeting = callGreeting || ''; }
     if (typeof model === 'string' && model.trim()) config.model = model.trim();
+    if (notifyTarget.platform && notifyTarget.to) {
+      config.notifyPlatform = notifyTarget.platform;
+      config.notifyTo = notifyTarget.to;
+    }
 
     const result = db.prepare(
       'INSERT INTO scheduled_tasks (user_id, name, cron_expression, task_type, task_config, enabled) VALUES (?, ?, ?, ?, ?, ?)'
@@ -164,6 +174,13 @@ class Scheduler {
         config.model = updates.model.trim();
       } else {
         delete config.model;
+      }
+    }
+    if (!config.notifyPlatform || !config.notifyTo) {
+      const notifyTarget = this._getDefaultNotifyTarget(userId);
+      if (notifyTarget.platform && notifyTarget.to) {
+        config.notifyPlatform = notifyTarget.platform;
+        config.notifyTo = notifyTarget.to;
       }
     }
     // Clean up nulls
@@ -243,6 +260,16 @@ class Scheduler {
   async _executeTask(taskId, userId, config) {
     db.prepare('UPDATE scheduled_tasks SET last_run = datetime(\'now\') WHERE id = ?').run(taskId);
 
+    if (!config.callTo && (!config.notifyPlatform || !config.notifyTo)) {
+      const notifyTarget = this._getDefaultNotifyTarget(userId);
+      if (notifyTarget.platform && notifyTarget.to) {
+        config.notifyPlatform = notifyTarget.platform;
+        config.notifyTo = notifyTarget.to;
+        db.prepare('UPDATE scheduled_tasks SET task_config = ? WHERE id = ?')
+          .run(JSON.stringify(config), taskId);
+      }
+    }
+
     this.io.to(`user:${userId}`).emit('scheduler:task_running', { taskId, timestamp: new Date().toISOString() });
 
     try {
@@ -252,10 +279,8 @@ class Scheduler {
         if (config.callTo) {
           notifyHint = `\n\nThis task is configured to notify the user by phone. Use the make_call tool to call "${config.callTo}" with an appropriate greeting based on your findings. The configured greeting hint is: "${config.callGreeting || 'Hello, this is your scheduled reminder.'}"`;
         } else {
-          const lastPlatform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_platform')?.value;
-          const lastChatId = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_chat_id')?.value;
-          notifyHint = lastPlatform && lastChatId
-            ? `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${lastPlatform}" to="${lastChatId}".`
+          notifyHint = config.notifyPlatform && config.notifyTo
+            ? `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${config.notifyPlatform}" to="${config.notifyTo}".`
             : '';
         }
 
@@ -327,6 +352,14 @@ class Scheduler {
     }
 
     return convRow.id;
+  }
+
+  _getDefaultNotifyTarget(userId) {
+    const platform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+      .get(userId, 'last_platform')?.value || null;
+    const to = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+      .get(userId, 'last_chat_id')?.value || null;
+    return { platform, to };
   }
 }
 
