@@ -103,6 +103,10 @@ function configuredSystemImagePlatform() {
   return String(process.env.ANDROID_SYSTEM_IMAGE_PLATFORM || '').trim() || null;
 }
 
+function shouldForceSdkRefresh() {
+  return String(process.env.ANDROID_FORCE_SDK_REFRESH || '').trim().toLowerCase() === 'true';
+}
+
 function systemImageArchCandidates() {
   const configured = parseCsvEnv(process.env.ANDROID_SYSTEM_IMAGE_ARCH);
   if (configured.length > 0) {
@@ -399,6 +403,7 @@ class AndroidController {
     this.cli = new CLIExecutor();
     this.avdName = readState().avdName || DEFAULT_AVD_NAME;
     this.bootstrapPromise = null;
+    this.startPromise = null;
     this.#registerProcessCleanup();
   }
 
@@ -465,7 +470,12 @@ class AndroidController {
   }
 
   async ensureBootstrapped() {
-    if (!(isExecutable(adbBinary()) && isExecutable(sdkManagerBinary()) && isExecutable(emulatorBinary()))) {
+    const binariesReady =
+      isExecutable(adbBinary()) &&
+      isExecutable(sdkManagerBinary()) &&
+      isExecutable(emulatorBinary());
+
+    if (!binariesReady) {
       if (this.bootstrapPromise) {
         await this.bootstrapPromise;
       } else {
@@ -478,16 +488,25 @@ class AndroidController {
       }
     }
 
+    const state = readState();
+    if (
+      state.bootstrapped === true &&
+      state.systemImage &&
+      !shouldForceSdkRefresh()
+    ) {
+      return;
+    }
+
     appendState({ bootstrapped: true });
     const sdkmanager = sdkManagerBinary();
     const available = await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} --list`, { timeout: 300000 });
     const latestSystemImage = chooseConfiguredSystemImage(available) || chooseLatestSystemImage(available);
     if (!latestSystemImage) throw new Error(formatSystemImageError(available));
 
-    const state = readState();
-    const currentApiLevel = parseApiLevelFromSystemImage(state.systemImage);
+    const refreshedState = readState();
+    const currentApiLevel = parseApiLevelFromSystemImage(refreshedState.systemImage);
     const shouldUpgrade =
-      state.systemImage !== latestSystemImage.packageName ||
+      refreshedState.systemImage !== latestSystemImage.packageName ||
       currentApiLevel < latestSystemImage.apiLevel;
 
     if (shouldUpgrade) {
@@ -583,8 +602,13 @@ class AndroidController {
     fs.writeFileSync(configPath, content);
   }
 
-  async listDevices() {
-    await this.ensureBootstrapped();
+  async listDevices(options = {}) {
+    if (options.ensureBootstrapped !== false) {
+      await this.ensureBootstrapped();
+    }
+    if (!isExecutable(adbBinary())) {
+      return [];
+    }
     const out = await this.#run(`${quoteShell(adbBinary())} devices -l`);
     const lines = out.split('\n').map((line) => line.trim()).filter(Boolean);
     return lines
@@ -600,9 +624,9 @@ class AndroidController {
       });
   }
 
-  async getPrimarySerial() {
+  async getPrimarySerial(options = {}) {
     const state = readState();
-    const devices = await this.listDevices();
+    const devices = await this.listDevices(options);
     const preferred = state.serial ? devices.find((device) => device.serial === state.serial && device.status === 'device') : null;
     if (preferred) return preferred.serial;
     const emulator = devices.find((device) => device.emulator && device.status === 'device');
@@ -615,11 +639,30 @@ class AndroidController {
     return null;
   }
 
-  async startEmulator(options = {}) {
+  async #startEmulatorBlocking(options = {}) {
+    appendState({
+      starting: true,
+      startupPhase: 'Preparing Android runtime',
+      lastStartError: null,
+      startRequestedAt: readState().startRequestedAt || new Date().toISOString(),
+    });
+    console.log('[Android] Preparing emulator start');
     await this.ensureAvd();
+    appendState({
+      starting: true,
+      startupPhase: 'Checking for an existing Android device',
+      lastStartError: null,
+    });
     this.#normalizeAvdConfig();
     const serial = await this.getPrimarySerial();
     if (serial) {
+      appendState({
+        starting: false,
+        startupPhase: null,
+        serial,
+        lastStartError: null,
+        lastLogLine: 'Android device already running.',
+      });
       return {
         success: true,
         serial,
@@ -652,16 +695,109 @@ class AndroidController {
     });
     child.unref();
 
-    appendState({ emulatorPid: child.pid, avdName: this.avdName, logPath });
+    console.log(`[Android] Emulator process started (pid ${child.pid})`);
+    appendState({
+      emulatorPid: child.pid,
+      avdName: this.avdName,
+      logPath,
+      starting: true,
+      startupPhase: 'Waiting for Android emulator to boot',
+      lastStartError: null,
+      lastLogLine: 'Android emulator process started. Waiting for boot completion...',
+    });
 
     const onlineSerial = await this.waitForDevice({ timeoutMs: options.timeoutMs || 240000 });
-    appendState({ serial: onlineSerial, emulatorPid: child.pid });
+    appendState({
+      serial: onlineSerial,
+      emulatorPid: child.pid,
+      starting: false,
+      startupPhase: null,
+      lastStartError: null,
+      lastLogLine: 'Android emulator boot completed.',
+    });
+    console.log(`[Android] Emulator ready on ${onlineSerial}`);
 
     return {
       success: true,
       serial: onlineSerial,
       emulatorPid: child.pid,
       logPath,
+    };
+  }
+
+  async startEmulator(options = {}) {
+    if (this.startPromise) {
+      await this.startPromise;
+      const serial = await this.getPrimarySerial();
+      if (!serial) {
+        throw new Error(readState().lastStartError || 'Android emulator did not finish starting.');
+      }
+      return {
+        success: true,
+        serial,
+        reused: false,
+        bootstrapped: readState().bootstrapped === true,
+      };
+    }
+
+    return this.#startEmulatorBlocking(options);
+  }
+
+  async requestStartEmulator(options = {}) {
+    const serial = await this.getPrimarySerial({ ensureBootstrapped: false }).catch(() => null);
+    if (serial) {
+      appendState({
+        starting: false,
+        startupPhase: null,
+        serial,
+        lastStartError: null,
+        lastLogLine: 'Android device already running.',
+      });
+      return {
+        success: true,
+        pending: false,
+        serial,
+        reused: true,
+        bootstrapped: readState().bootstrapped === true,
+      };
+    }
+
+    if (!this.startPromise) {
+      const requestedAt = new Date().toISOString();
+      appendState({
+        starting: true,
+        startupPhase: 'Preparing Android runtime',
+        lastStartError: null,
+        startRequestedAt: requestedAt,
+        lastLogLine: 'Android start requested.',
+      });
+      const startPromise = this.#startEmulatorBlocking(options).catch((err) => {
+        appendState({
+          starting: false,
+          startupPhase: 'Start failed',
+          lastStartError: err.message,
+          lastLogLine: err.message,
+        });
+        console.error('[Android] Emulator start failed:', err.message);
+        throw err;
+      }).finally(() => {
+        if (this.startPromise === startPromise) {
+          this.startPromise = null;
+        }
+      });
+      this.startPromise = startPromise;
+      startPromise.catch(() => {});
+    }
+
+    const state = readState();
+    return {
+      success: true,
+      pending: true,
+      bootstrapped: state.bootstrapped === true,
+      starting: true,
+      startupPhase: state.startupPhase || 'Preparing Android runtime',
+      startRequestedAt: state.startRequestedAt || null,
+      logPath: state.logPath || null,
     };
   }
 
@@ -699,7 +835,14 @@ class AndroidController {
     if (state.emulatorPid) {
       try { process.kill(state.emulatorPid, 'SIGTERM'); } catch {}
     }
-    appendState({ serial: null, emulatorPid: null });
+    appendState({
+      serial: null,
+      emulatorPid: null,
+      starting: false,
+      startupPhase: null,
+      lastStartError: null,
+      lastLogLine: 'Android emulator stopped.',
+    });
 
     const deadline = Date.now() + 30000;
     while (Date.now() < deadline) {
@@ -980,24 +1123,39 @@ class AndroidController {
   }
 
   async getStatus() {
-    const devices = isExecutable(adbBinary()) ? await this.listDevices().catch(() => []) : [];
+    const devices = isExecutable(adbBinary())
+      ? await this.listDevices({ ensureBootstrapped: false }).catch(() => [])
+      : [];
     const state = readState();
-    let lastLogLine = null;
+    let lastLogLine =
+      state.lastStartError ||
+      state.lastLogLine ||
+      state.startupPhase ||
+      null;
     if (state.logPath && fs.existsSync(state.logPath)) {
       try {
         const lines = fs.readFileSync(state.logPath, 'utf8')
           .split('\n')
           .map((line) => line.trim())
           .filter(Boolean);
-        lastLogLine = [...lines].reverse().find((line) =>
+        const emulatorLogLine = [...lines].reverse().find((line) =>
           /fatal|error|warning|boot completed|disk space|running avd/i.test(line)
         ) || lines[lines.length - 1] || null;
+        lastLogLine = emulatorLogLine || lastLogLine;
       } catch {
-        lastLogLine = null;
+        lastLogLine =
+          state.lastStartError ||
+          state.lastLogLine ||
+          state.startupPhase ||
+          null;
       }
     }
     return {
       bootstrapped: state.bootstrapped === true,
+      starting: state.starting === true || this.startPromise != null,
+      startupPhase: state.startupPhase || null,
+      startRequestedAt: state.startRequestedAt || null,
+      lastStartError: state.lastStartError || null,
       sdkRoot: SDK_ROOT,
       avdHome: AVD_HOME,
       avdName: this.avdName,

@@ -2446,6 +2446,7 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:interim', (dynamic data) {
       final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
       toolEvents = <ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
@@ -2456,6 +2457,12 @@ class NeoAgentController extends ChangeNotifier {
           summary: payload['message']?.toString() ?? '',
         ),
       ];
+      if (runId.isNotEmpty && activeRun?.runId == runId) {
+        final phase = payload['phase']?.toString().trim() ?? '';
+        if (phase.isNotEmpty) {
+          activeRun = activeRun!.copyWith(phase: phase);
+        }
+      }
       notifyListeners();
     });
     socket.on('run:stream', (dynamic data) {
@@ -2613,6 +2620,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
     return devices.any((device) => device['status']?.toString() == 'device');
   }
 
+  bool get _androidStarting =>
+      widget.controller.androidRuntime['starting'] == true;
+
   String? get _activeScreenshotPath => _isBrowser
       ? widget.controller.browserScreenshotPath
       : widget.controller.androidScreenshotPath;
@@ -2656,6 +2666,14 @@ class _DevicesPanelState extends State<DevicesPanel> {
     }
     if (_isBrowser) {
       await widget.controller.refreshBrowserFrameRuntime();
+      return;
+    }
+    if (_androidStarting) {
+      await widget.controller.refreshDevices();
+      if (_androidOnline &&
+          (widget.controller.androidScreenshotPath ?? '').isEmpty) {
+        await widget.controller.screenshotAndroidRuntime();
+      }
       return;
     }
     await widget.controller.refreshAndroidFrameRuntime();
@@ -2858,7 +2876,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
                           : _androidLaunchController,
                       active: _isBrowser
                           ? browserStatus['launched'] == true
-                          : _androidOnline,
+                          : _androidOnline || _androidStarting,
+                      starting: !_isBrowser && _androidStarting,
                       busy: controller.isRunningDeviceAction,
                       onSubmit: _openPrimary,
                       onSleep: _sleepPrimary,
@@ -2869,6 +2888,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       controller: controller,
                       screenshotPath: _activeScreenshotPath,
                       busy: controller.isRunningDeviceAction,
+                      wakingUp: !_isBrowser && _androidStarting,
                       enabled: _isBrowser || _androidOnline,
                       onTapPoint: _handleTap,
                       onSwipe: _handleSwipe,
@@ -2946,6 +2966,7 @@ class _DeviceSurfaceHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final androidStarting = androidRuntime['starting'] == true;
     final androidVersion = _androidRuntimeVersionLabel(androidRuntime);
     final title = surface == _DeviceSurface.browser
         ? (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
@@ -2958,6 +2979,11 @@ class _DeviceSurfaceHeader extends StatelessWidget {
               ? androidVersion == null
                     ? 'Tap and swipe directly on the preview.'
                     : '$androidVersion · Tap and swipe directly on the preview.'
+              : androidStarting
+              ? (androidRuntime['startupPhase']?.toString().trim().isNotEmpty ??
+                        false)
+                    ? androidRuntime['startupPhase'].toString()
+                    : 'Starting the phone. This can take a little while.'
               : (androidRuntime['lastLogLine']?.toString().trim().isNotEmpty ??
                     false)
               ? androidRuntime['lastLogLine'].toString()
@@ -3004,12 +3030,18 @@ class _DeviceSurfaceHeader extends StatelessWidget {
         _DotStatus(
           label: surface == _DeviceSurface.browser
               ? (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
-              : (androidOnline ? 'Live' : 'Offline'),
+              : (androidOnline
+                    ? 'Live'
+                    : androidStarting
+                    ? 'Starting'
+                    : 'Offline'),
           color:
               (surface == _DeviceSurface.browser
                   ? browserStatus['launched'] == true
                   : androidOnline)
               ? _success
+              : (surface == _DeviceSurface.android && androidStarting)
+              ? _accent
               : _warning,
         ),
       ],
@@ -3022,6 +3054,7 @@ class _DeviceLaunchBar extends StatelessWidget {
     required this.surface,
     required this.controller,
     required this.active,
+    required this.starting,
     required this.busy,
     required this.onSubmit,
     required this.onSleep,
@@ -3030,6 +3063,7 @@ class _DeviceLaunchBar extends StatelessWidget {
   final _DeviceSurface surface;
   final TextEditingController controller;
   final bool active;
+  final bool starting;
   final bool busy;
   final Future<void> Function() onSubmit;
   final Future<void> Function() onSleep;
@@ -3039,7 +3073,11 @@ class _DeviceLaunchBar extends StatelessWidget {
     final hint = surface == _DeviceSurface.browser
         ? 'https://example.com'
         : 'Package name or URL';
-    final buttonLabel = surface == _DeviceSurface.browser ? 'Open' : 'Launch';
+    final buttonLabel = surface == _DeviceSurface.browser
+        ? 'Open'
+        : starting
+        ? 'Starting...'
+        : 'Launch';
     final sleepLabel = surface == _DeviceSurface.browser
         ? 'Sleep Browser'
         : 'Sleep Phone';
@@ -3059,7 +3097,7 @@ class _DeviceLaunchBar extends StatelessWidget {
     );
 
     final button = FilledButton.icon(
-      onPressed: busy ? null : onSubmit,
+      onPressed: busy || starting ? null : onSubmit,
       icon: Icon(
         surface == _DeviceSurface.browser
             ? Icons.arrow_forward
@@ -3301,6 +3339,7 @@ class _InteractiveSurfacePreview extends StatefulWidget {
     required this.controller,
     required this.screenshotPath,
     required this.busy,
+    required this.wakingUp,
     required this.enabled,
     required this.onTapPoint,
     required this.onSwipe,
@@ -3311,6 +3350,7 @@ class _InteractiveSurfacePreview extends StatefulWidget {
   final NeoAgentController controller;
   final String? screenshotPath;
   final bool busy;
+  final bool wakingUp;
   final bool enabled;
   final Future<void> Function(Offset point) onTapPoint;
   final Future<void> Function(Offset start, Offset end) onSwipe;
@@ -3488,6 +3528,7 @@ class _InteractiveSurfacePreviewState
                         surface: widget.surface,
                         enabled: widget.enabled,
                         busy: widget.busy,
+                        isLoadingPreview: widget.wakingUp,
                         errorMessage: _imageError?.toString(),
                         onPressed: widget.onWakeRequested,
                       );
@@ -3498,6 +3539,7 @@ class _InteractiveSurfacePreviewState
                         surface: widget.surface,
                         enabled: widget.enabled,
                         busy: widget.busy,
+                        isLoadingPreview: _imageError == null,
                         errorMessage: _imageError?.toString(),
                         onPressed: widget.onWakeRequested,
                       );
@@ -3595,6 +3637,7 @@ class _EmptySurfaceState extends StatelessWidget {
     required this.surface,
     required this.enabled,
     required this.busy,
+    required this.isLoadingPreview,
     this.errorMessage,
     required this.onPressed,
   });
@@ -3602,27 +3645,49 @@ class _EmptySurfaceState extends StatelessWidget {
   final _DeviceSurface surface;
   final bool enabled;
   final bool busy;
+  final bool isLoadingPreview;
   final String? errorMessage;
   final Future<void> Function() onPressed;
 
   @override
   Widget build(BuildContext context) {
     final label = surface == _DeviceSurface.browser
-        ? 'Wake Browser'
+        ? (busy ? 'Opening Browser...' : 'Wake Browser')
+        : busy
+        ? 'Starting Phone...'
         : (enabled ? 'Refresh Phone' : 'Start Phone');
-    final message = surface == _DeviceSurface.browser
-        ? 'Browser is sleeping. Press Open to start it.'
-        : (errorMessage != null && errorMessage!.trim().isNotEmpty)
-        ? errorMessage!
-        : 'Phone is offline. Press Start Phone to boot it.';
+    final message = switch ((surface, busy, isLoadingPreview)) {
+      (_DeviceSurface.browser, true, _) =>
+        'Opening the browser and downloading the first preview...',
+      (_DeviceSurface.browser, false, true) =>
+        'Downloading the latest browser preview...',
+      (_DeviceSurface.android, true, _) =>
+        'Waking the phone and downloading the first preview. This can take a little while.',
+      (_DeviceSurface.android, false, true) =>
+        'Downloading the latest phone preview...',
+      _ =>
+        surface == _DeviceSurface.browser
+            ? 'Browser is sleeping. Press Open to start it.'
+            : (errorMessage != null && errorMessage!.trim().isNotEmpty)
+            ? errorMessage!
+            : 'Phone is offline. Press Start Phone to boot it.',
+    };
     return Container(
       color: _bgSecondary,
       alignment: Alignment.center,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(surface.icon, size: 46, color: _textSecondary),
-          const SizedBox(height: 12),
+          if (busy || isLoadingPreview) ...<Widget>[
+            const SizedBox(
+              width: 38,
+              height: 38,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+            const SizedBox(height: 14),
+          ] else
+            Icon(surface.icon, size: 46, color: _textSecondary),
+          if (!(busy || isLoadingPreview)) const SizedBox(height: 12),
           Text(
             message,
             style: const TextStyle(color: _textSecondary),
