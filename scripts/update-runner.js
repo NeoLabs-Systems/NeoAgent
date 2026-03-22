@@ -4,6 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const {
+  buildBundledWebClientIfPossible: buildWebClient,
+  commandExists: sharedCommandExists,
+  hasBundledWebClient,
+  withInstallEnv,
+} = require('../lib/install_helpers');
+const {
   APP_DIR,
   DATA_DIR,
   UPDATE_STATUS_FILE: STATUS_FILE,
@@ -59,14 +65,6 @@ function appendLog(line) {
   writeStatus({ logs });
 }
 
-function withInstallEnv(extraEnv = {}) {
-  return {
-    ...process.env,
-    PUPPETEER_SKIP_DOWNLOAD: process.env.PUPPETEER_SKIP_DOWNLOAD || 'true',
-    ...extraEnv
-  };
-}
-
 function run(cmd, args, options = {}) {
   appendLog(`$ ${cmd} ${args.join(' ')}`);
   const res = spawnSync(cmd, args, {
@@ -91,57 +89,29 @@ function run(cmd, args, options = {}) {
 }
 
 function commandExists(cmd) {
-  const r = run('bash', ['-lc', `command -v ${cmd}`]);
-  return r.status === 0;
-}
-
-function hasBundledWebClient() {
-  return fs.existsSync(path.join(WEB_CLIENT_DIR, 'index.html'));
+  return sharedCommandExists((command, args) => run(command, args), cmd);
 }
 
 function buildBundledWebClientIfPossible({ required = false } = {}) {
-  if (!fs.existsSync(FLUTTER_APP_DIR)) {
-    if (hasBundledWebClient()) {
-      appendLog('Flutter app sources not found. Keeping existing bundled web client.');
-      return false;
-    }
-    if (required) {
-      fail(`Missing Flutter app sources at ${FLUTTER_APP_DIR}`);
-    }
-    appendLog('Flutter app sources not found and no bundled web client was detected.');
-    return false;
-  }
-
-  if (!commandExists('flutter')) {
-    if (hasBundledWebClient()) {
-      appendLog('Flutter SDK not found. Keeping existing bundled web client.');
-      return false;
-    }
-    fail('Flutter SDK is required because no bundled web client was found.');
-  }
-
-  info(82, 'building', 'Building bundled Flutter web client');
-  const build = run('flutter', [
-    'build',
-    'web',
-    '--output',
-    '../server/public',
-    `--dart-define=NEOAGENT_BACKEND_URL=${process.env.NEOAGENT_BACKEND_URL || ''}`
-  ], {
-    cwd: FLUTTER_APP_DIR,
-    env: process.env
+  return buildWebClient({
+    flutterAppDir: FLUTTER_APP_DIR,
+    webClientDir: WEB_CLIENT_DIR,
+    runCommand: run,
+    commandExistsFn: commandExists,
+    onMissingSources: () =>
+      appendLog('Flutter app sources not found and no bundled web client was detected.'),
+    onUsingBundledClient: () =>
+      appendLog('Flutter app sources not found. Keeping existing bundled web client.'),
+    onMissingFlutter: () =>
+      appendLog('Flutter SDK not found. Keeping existing bundled web client.'),
+    onBuildStart: () =>
+      info(82, 'building', 'Building bundled Flutter web client'),
+    onBuildSuccess: () => appendLog('Bundled Flutter web client updated.'),
+    onBuildFailed: () =>
+      appendLog('Flutter build failed, but an existing bundled web client is still present.'),
+    fail,
+    required,
   });
-
-  if (build.status !== 0) {
-    if (hasBundledWebClient()) {
-      appendLog('Flutter build failed, but an existing bundled web client is still present.');
-      return false;
-    }
-    fail('Flutter web build failed and no bundled web client is available.');
-  }
-
-  appendLog('Bundled Flutter web client updated.');
-  return true;
 }
 
 function fail(message) {

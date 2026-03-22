@@ -8,40 +8,34 @@ const { OpenAI } = require('openai');
 const { DATA_DIR, AGENT_DATA_DIR } = require('../../../runtime/paths');
 
 const AUDIO_DIR = path.join(DATA_DIR, 'telnyx-audio');
-const RECORDING_TURN_LIMIT_MS = 4000; // auto-stop recording after 4 s of silence
+const RECORDING_TURN_LIMIT_MS = 4000;
 
 class TelnyxVoicePlatform extends BasePlatform {
   constructor(config = {}) {
     super('telnyx', config);
     this.supportsVoice = true;
 
-    // Config fields set via the web UI connect modal
-    this.apiKey      = config.apiKey      || '';
+    this.apiKey = config.apiKey || '';
     this.phoneNumber = config.phoneNumber || '';
     this.connectionId = config.connectionId || '';
-    this.webhookUrl  = config.webhookUrl  || '';   // e.g. https://xyz.ngrok.io
-    this.ttsVoice    = config.ttsVoice   || 'alloy';
-    this.ttsModel    = config.ttsModel   || 'tts-1';
-    this.sttModel    = config.sttModel   || 'whisper-1';
-
-    // Allowed-numbers whitelist (empty = allow all)
-    this.allowedNumbers = Array.isArray(config.allowedNumbers) ? config.allowedNumbers : [];
-
-    // Secret code for non-whitelisted inbound callers (digits only; empty = feature disabled)
+    this.webhookUrl = config.webhookUrl || '';
+    this.ttsVoice = config.ttsVoice || 'alloy';
+    this.ttsModel = config.ttsModel || 'tts-1';
+    this.sttModel = config.sttModel || 'whisper-1';
+    this.allowedNumbers = Array.isArray(config.allowedNumbers)
+      ? config.allowedNumbers
+      : [];
     this.voiceSecret = String(config.voiceSecret || '').replace(/\D/g, '');
 
-    // Runtime state
-    this._sessions        = new Map(); // ccId → session object
-    this._recordingTimers = new Map(); // ccId → setTimeout handle
-    this._secretTimers    = new Map(); // ccId → secret-entry timeout handle
-    this._bannedNumbers   = new Map(); // normalizedNumber → ban expiry timestamp
-    this._client          = null;      // Telnyx SDK instance
-    this._openai          = null;      // OpenAI client
-    this._webhookToken    = null;      // resolved at connect time from TELNYX_WEBHOOK_TOKEN
-    this._thinkAudioFile  = null;      // pre-cached "hold" audio filename
+    this._sessions = new Map();
+    this._recordingTimers = new Map();
+    this._secretTimers = new Map();
+    this._bannedNumbers = new Map();
+    this._client = null;
+    this._openai = null;
+    this._webhookToken = null;
+    this._thinkAudioFile = null;
   }
-
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   async connect() {
     if (!this.apiKey || !this.phoneNumber || !this.connectionId || !this.webhookUrl) {
@@ -54,14 +48,13 @@ class TelnyxVoicePlatform extends BasePlatform {
     const TelnyxClient = TelnyxSDK.default || TelnyxSDK;
     this._client = new TelnyxClient({ apiKey: this.apiKey });
 
-    // Resolve OpenAI key: env var → stored API_KEYS.json → none (fallback to Telnyx speak)
     let openAiKey = process.env.OPENAI_API_KEY;
     if (!openAiKey) {
       try {
         const keysPath = path.join(AGENT_DATA_DIR, 'API_KEYS.json');
         const keys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
         openAiKey = keys.OPENAI_API_KEY || keys.openai_api_key || keys.openai || null;
-      } catch { /* file missing or unreadable — fine */ }
+      } catch {}
     }
     if (openAiKey) {
       this._openai = new OpenAI({ apiKey: openAiKey });
@@ -70,13 +63,11 @@ class TelnyxVoicePlatform extends BasePlatform {
       console.warn('[TelnyxVoice] No OpenAI API key found — TTS will use Telnyx native speak (language auto-detected)');
     }
 
-    // Derive the full inbound webhook URL (with token) so it can be logged / displayed
     const token = process.env.TELNYX_WEBHOOK_TOKEN;
     this._webhookToken = token || null;
     const inboundUrl = `${this.webhookUrl}/api/telnyx/webhook${token ? `?token=${token}` : ''}`;
     console.log(`[TelnyxVoice] Inbound webhook URL (configure this in the Telnyx portal): ${inboundUrl}`);
 
-    // Pre-generate the "thinking" hold audio so it's instant during calls
     this._precacheThinkAudio();
 
     this.status = 'connected';
@@ -105,8 +96,6 @@ class TelnyxVoicePlatform extends BasePlatform {
 
   getStatus() { return this.status; }
   getAuthInfo() { return { phoneNumber: this.phoneNumber }; }
-
-  // ── Whitelist management ────────────────────────────────────────────────────
 
   setAllowedNumbers(numbers) {
     this.allowedNumbers = Array.isArray(numbers) ? numbers : [];
@@ -169,19 +158,16 @@ class TelnyxVoicePlatform extends BasePlatform {
     if (t) { clearTimeout(t); this._secretTimers.delete(ccId); }
   }
 
-  // ── Session helpers ────────────────────────────────────────────────────────
-
   _initSession(ccId, callerNumber = '') {
     this._sessions.set(ccId, {
       callerNumber,
-      isProcessing:        false,
-      awaitingUserInput:   false,
-      isThinking:          false, // true while agent is processing — gates playback.ended mutations
-      replySent:           false, // prevents double-reply within one agent turn
+      isProcessing: false,
+      awaitingUserInput: false,
+      isThinking: false,
+      replySent: false,
       processedRecordings: new Set(),
-      // Secret-code gating (non-whitelisted callers)
-      awaitingSecret:      false,
-      secretDigits:        '',
+      awaitingSecret: false,
+      secretDigits: '',
     });
   }
 
@@ -209,8 +195,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     const t = this._recordingTimers.get(ccId);
     if (t) { clearTimeout(t); this._recordingTimers.delete(ccId); }
   }
-
-  // ── Telnyx call-control wrappers ───────────────────────────────────────────
 
   _isTerminalError(err) {
     const errs = (err.error?.errors) || err.errors ||
@@ -263,10 +247,8 @@ class TelnyxVoicePlatform extends BasePlatform {
     catch (err) { if (!this._isTerminalError(err)) throw err; }
   }
 
-  // ── Pre-cached think audio ─────────────────────────────────────────────────
-
   async _precacheThinkAudio() {
-    if (!this._openai) return; // will use Telnyx speak fallback at playback time
+    if (!this._openai) return;
     try {
       const file = `think_hold_${Date.now()}.mp3`;
       const filePath = path.join(AUDIO_DIR, file);
@@ -284,7 +266,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     }
   }
 
-  // Play the pre-cached hold phrase (instant) or fall back to Telnyx speak.
   async _playThinkAudio(ccId) {
     if (this._thinkAudioFile) {
       try {
@@ -294,7 +275,6 @@ class TelnyxVoicePlatform extends BasePlatform {
         console.warn(`[TelnyxVoice] Pre-cached think audio failed: ${err.message}`);
       }
     }
-    // Fallback: Telnyx native speak (still fast — no file gen needed)
     try {
       await this._client.calls.actions.speak(ccId, {
         payload:  'One moment please.',
@@ -306,8 +286,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     }
   }
 
-  // ── OpenAI TTS / STT ───────────────────────────────────────────────────────
-
   async _tts(text, destPath) {
     const mp3 = await this._openai.audio.speech.create({
       model: this.ttsModel,
@@ -318,8 +296,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     await fs.promises.writeFile(destPath, buf);
   }
 
-  // Say text on a call — tries OpenAI TTS+hosted audio first, falls back to
-  // Telnyx native speak (no external hosting or OpenAI key required).
   async _sayText(ccId, text) {
     if (this._openai) {
       try {
@@ -333,7 +309,6 @@ class TelnyxVoicePlatform extends BasePlatform {
         console.warn(`[TelnyxVoice] OpenAI TTS failed (${err.message}), falling back to Telnyx speak`);
       }
     }
-    // Telnyx native speak fallback
     try {
       const isGerman = /\b(ich|du|ist|und|der|die|das|nicht|ein|hallo|auf|danke|bitte|wie|was|wer|wo|warum|kann|haben|sein|noch|auch|mit|von|bei|nach|für)\b/i.test(text);
       await this._client.calls.actions.speak(ccId, {
@@ -360,8 +335,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     }
   }
 
-  // ── File helpers ───────────────────────────────────────────────────────────
-
   async _downloadRecording(url, dest) {
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(dest);
@@ -384,74 +357,58 @@ class TelnyxVoicePlatform extends BasePlatform {
     return `${prefix}_${ccId.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now()}.mp3`;
   }
 
-  // ── Main webhook handler ───────────────────────────────────────────────────
-  //   Called by MessagingManager.handleTelnyxWebhook() from /api/telnyx/webhook
-
   async handleWebhook(event) {
     if (!event?.data?.event_type) return;
     const { event_type: eventType, payload } = event.data;
     const ccId = payload?.call_control_id;
     if (!ccId) return;
 
-    // Ignore events for sessions we don't know about (except the ones that start one)
     if (!this._hasSession(ccId) &&
         eventType !== 'call.initiated' &&
         eventType !== 'call.answered') {
       return;
     }
 
-    // Outbound call.initiated is handled by initiateCall() already
     if (eventType === 'call.initiated' && payload.direction === 'outbound') return;
 
     console.log(`[TelnyxVoice] ${eventType} — ccId=${ccId.slice(-8)}`);
 
     try {
       switch (eventType) {
-
-        // ── Inbound call received ───────────────────────────────────────────
         case 'call.initiated': {
           if (payload.direction !== 'incoming') break;
           const caller = payload.from;
           if (!this._isAllowed(caller)) {
-            // Check ban list first — banned callers are rejected immediately
             if (this._isBanned(caller)) {
               console.log(`[TelnyxVoice] Rejecting banned caller: ${caller}`);
               await this._rejectCall(ccId);
               this.emit('blocked_caller', { caller, ccId });
               break;
             }
-            // If no secret is configured, fall back to the old reject behaviour
             if (!this.voiceSecret) {
               console.log(`[TelnyxVoice] Blocked non-whitelisted caller (no secret set): ${caller}`);
               await this._rejectCall(ccId);
               this.emit('blocked_caller', { caller, ccId });
               break;
             }
-            // Secret configured — answer and wait silently for code entry
             console.log(`[TelnyxVoice] Non-whitelisted caller ${caller} — awaiting secret code`);
             this._initSession(ccId, caller);
             this._session(ccId).awaitingSecret = true;
             await this._answerCall(ccId);
             break;
           }
-          // Init session BEFORE answering so call.answered (which arrives as a
-          // separate concurrent webhook) always finds a valid session.
           this._initSession(ccId, caller);
           await this._answerCall(ccId);
           console.log(`[TelnyxVoice] Answered inbound call from ${caller}`);
           break;
         }
-
-        // ── Call connected — play greeting ──────────────────────────────────
         case 'call.answered': {
-          // Fallback: if call.initiated raced and session isn't created yet, init now.
           if (!this._hasSession(ccId)) {
             const caller = payload.from || payload.to || ccId;
             this._initSession(ccId, caller);
             console.log(`[TelnyxVoice] call.answered race — session created late for ${ccId.slice(-8)}`);
           }
           const sess = this._session(ccId);
-          // Non-whitelisted caller in secret-code mode — stay silent and start timer
           if (sess.awaitingSecret) {
             this._startSecretTimer(ccId);
             break;
@@ -463,10 +420,7 @@ class TelnyxVoicePlatform extends BasePlatform {
           await this._sayText(ccId, greetText);
           break;
         }
-
-        // ── Playback lifecycle ──────────────────────────────────────────────
         case 'call.playback.started':
-          // Only set isProcessing for audio we care about (not mid-think noise).
           if (this._hasSession(ccId) && !this._session(ccId).isThinking)
             this._session(ccId).isProcessing = true;
           break;
@@ -475,8 +429,6 @@ class TelnyxVoicePlatform extends BasePlatform {
         case 'call.speak.ended': {
           if (!this._hasSession(ccId)) break;
           const sess = this._session(ccId);
-          // While the agent is thinking (think audio looping) or already thinking,
-          // ignore these events — they are from the think-loop audio, not the response.
           if (sess.isThinking) break;
           sess.isProcessing = false;
           if (!sess.awaitingUserInput) break;
@@ -489,30 +441,23 @@ class TelnyxVoicePlatform extends BasePlatform {
           }, 200);
           break;
         }
-
-        // ── DTMF key — secret-code entry or interrupt-and-restart recording ──
         case 'call.dtmf.received': {
           if (!this._hasSession(ccId)) break;
           const sess = this._session(ccId);
-
-          // ── Secret-code gating mode ─────────────────────────────────────────
           if (sess.awaitingSecret) {
             const digit = String(payload.digit ?? payload.dtmf_digit ?? '').trim();
             if (/^[0-9]$/.test(digit)) {
               sess.secretDigits += digit;
-              // Compare once we have enough digits
               if (this.voiceSecret && sess.secretDigits.length >= this.voiceSecret.length) {
                 this._cancelSecretTimer(ccId);
                 if (sess.secretDigits === this.voiceSecret) {
-                  // ── Correct code — transition to normal call flow ──────────
                   console.log(`[TelnyxVoice] Secret accepted for ${ccId.slice(-8)} (${sess.callerNumber})`);
-                  sess.awaitingSecret    = false;
-                  sess.secretDigits      = '';
-                  sess.isProcessing      = true;
+                  sess.awaitingSecret = false;
+                  sess.secretDigits = '';
+                  sess.isProcessing = true;
                   sess.awaitingUserInput = true;
                   await this._sayText(ccId, 'Hello! I am your AI assistant. How can I help you?');
                 } else {
-                  // ── Wrong code — ban and hang up ───────────────────────────
                   console.log(`[TelnyxVoice] Wrong secret from ${sess.callerNumber}, banning`);
                   this._banNumber(sess.callerNumber);
                   this._endSession(ccId);
