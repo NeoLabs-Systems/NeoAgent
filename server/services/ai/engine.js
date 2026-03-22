@@ -475,7 +475,8 @@ class AgentEngine {
               userId,
               runId,
               app,
-              triggerSource
+              triggerSource,
+              taskId: options.taskId || null
             });
             this.detachProcessFromRun(runId, toolResult?.pid);
             const screenshotPath = toolResult?.screenshotPath || null;

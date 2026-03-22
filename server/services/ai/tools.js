@@ -772,7 +772,7 @@ function getAvailableTools(app, options = {}) {
  * @returns {Promise<any>} Execution result.
  */
 async function executeTool(toolName, args, context, engine) {
-    const { userId, runId, app } = context;
+    const { userId, runId, app, triggerSource, taskId } = context;
     const bc = () => app?.locals?.browserController || engine.browserController;
     const ac = () => app?.locals?.androidController || engine.androidController;
     const msg = () => app?.locals?.messagingManager || engine.messagingManager;
@@ -1246,8 +1246,70 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'notify_user': {
-            engine.emit(userId, 'run:interim', { runId, message: args.message });
-            return { sent: true };
+            const message = typeof args.message === 'string' ? args.message.trim() : '';
+            if (!message) return { error: 'message is required' };
+
+            if (triggerSource === 'scheduler' || triggerSource === 'heartbeat') {
+                const manager = msg();
+                let platform = null;
+                let to = null;
+
+                if (triggerSource === 'scheduler' && taskId) {
+                    const task = db.prepare('SELECT task_config FROM scheduled_tasks WHERE id = ? AND user_id = ?')
+                        .get(taskId, userId);
+                    if (task?.task_config) {
+                        try {
+                            const config = JSON.parse(task.task_config || '{}');
+                            platform = config.notifyPlatform || null;
+                            to = config.notifyTo || null;
+                        } catch { }
+                    }
+                }
+
+                if (!platform || !to) {
+                    platform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+                        .get(userId, 'last_platform')?.value || null;
+                    to = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+                        .get(userId, 'last_chat_id')?.value || null;
+                }
+
+                if (!platform || !to) {
+                    return {
+                        sent: false,
+                        error: 'No messaging target is configured for this scheduled run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.'
+                    };
+                }
+
+                if (!manager) {
+                    return { sent: false, error: 'Messaging manager not available' };
+                }
+
+                const status = typeof manager.getPlatformStatus === 'function'
+                    ? manager.getPlatformStatus(userId, platform)
+                    : null;
+                if (!status || status.status !== 'connected') {
+                    return {
+                        sent: false,
+                        error: `Platform ${platform} is not connected on this server.`,
+                        platform,
+                        to
+                    };
+                }
+
+                const sendResult = await manager.sendMessage(userId, platform, to, message);
+                const runState = runId ? engine.activeRuns.get(runId) : null;
+                if (runState) runState.messagingSent = true;
+                return {
+                    sent: true,
+                    via: 'messaging',
+                    platform,
+                    to,
+                    result: sendResult
+                };
+            }
+
+            engine.emit(userId, 'run:interim', { runId, message });
+            return { sent: true, via: 'interim' };
         }
 
         case 'create_scheduled_task': {
