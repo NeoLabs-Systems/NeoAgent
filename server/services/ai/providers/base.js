@@ -3,6 +3,7 @@ class BaseProvider {
     this.config = config;
     this.name = 'base';
     this.models = [];
+    this.onStatus = typeof config.onStatus === 'function' ? config.onStatus : null;
   }
 
   getDefaultModel() {

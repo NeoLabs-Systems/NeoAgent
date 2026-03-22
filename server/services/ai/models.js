@@ -192,7 +192,7 @@ async function refreshDynamicModels(baseUrl) {
     }
 }
 
-function createProviderInstance(providerStr, userId = null) {
+function createProviderInstance(providerStr, userId = null, configOverrides = {}) {
     const runtime = getProviderRuntimeConfig(userId, providerStr);
 
     if (!runtime.enabled) {
@@ -203,15 +203,15 @@ function createProviderInstance(providerStr, userId = null) {
     }
 
     if (providerStr === 'grok') {
-        return new GrokProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl });
+        return new GrokProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
     } else if (providerStr === 'openai') {
-        return new OpenAIProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl });
+        return new OpenAIProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
     } else if (providerStr === 'anthropic') {
-        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl });
+        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
     } else if (providerStr === 'google') {
-        return new GoogleProvider({ apiKey: runtime.apiKey });
+        return new GoogleProvider({ apiKey: runtime.apiKey, ...configOverrides });
     } else if (providerStr === 'ollama') {
-        return new OllamaProvider({ baseUrl: runtime.baseUrl });
+        return new OllamaProvider({ baseUrl: runtime.baseUrl, ...configOverrides });
     }
     throw new Error(`Unknown provider: ${providerStr}`);
 }

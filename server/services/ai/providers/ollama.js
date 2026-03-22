@@ -28,6 +28,13 @@ class OllamaProvider extends BaseProvider {
     if (found) return true;
 
     console.log(`[Ollama] Model '${model}' not found, pulling from registry...`);
+    this.onStatus?.({
+      kind: 'model_download',
+      status: 'started',
+      model,
+      phase: 'Downloading model',
+      message: `Downloading local Ollama model '${model}'. First-time pulls can take a while.`
+    });
     try {
       const res = await fetch(`${this.baseUrl}/api/pull`, {
         method: 'POST',
@@ -36,10 +43,24 @@ class OllamaProvider extends BaseProvider {
       });
       if (!res.ok) throw new Error(`Pull failed: ${res.statusText}`);
       console.log(`[Ollama] Model '${model}' pulled successfully.`);
+      this.onStatus?.({
+        kind: 'model_download',
+        status: 'completed',
+        model,
+        phase: 'Thinking',
+        message: `Local Ollama model '${model}' is ready.`
+      });
       // Refresh local model list
       await this.listModels();
       return true;
     } catch (e) {
+      this.onStatus?.({
+        kind: 'model_download',
+        status: 'failed',
+        model,
+        phase: 'Model download failed',
+        message: `Failed to download local Ollama model '${model}': ${e.message}`
+      });
       console.error(`[Ollama] Failed to pull model '${model}':`, e.message);
       throw e;
     }

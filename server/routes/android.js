@@ -17,7 +17,7 @@ router.get('/status', async (req, res) => {
 router.post('/start', async (req, res) => {
   try {
     const controller = req.app.locals.androidController;
-    res.json(await controller.startEmulator(req.body || {}));
+    res.json(await controller.requestStartEmulator(req.body || {}));
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }

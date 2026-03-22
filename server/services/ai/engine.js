@@ -18,7 +18,7 @@ function generateTitle(task) {
   return cleaned.slice(0, 90);
 }
 
-async function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null) {
+async function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null, providerConfig = {}) {
   const { getSupportedModels, createProviderInstance } = require('./models');
   const models = await getSupportedModels(userId);
 
@@ -68,7 +68,7 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
     if (requested && requested.available !== false && enabledIds.includes(requested.id)) {
       selectedModelDef = requested;
       return {
-        provider: createProviderInstance(selectedModelDef.provider, userId),
+        provider: createProviderInstance(selectedModelDef.provider, userId, providerConfig),
         model: selectedModelDef.id,
         providerName: selectedModelDef.provider
       };
@@ -102,7 +102,7 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
   }
 
   return {
-    provider: createProviderInstance(selectedModelDef.provider, userId),
+    provider: createProviderInstance(selectedModelDef.provider, userId, providerConfig),
     model: selectedModelDef.id,
     providerName: selectedModelDef.provider
   };
@@ -271,7 +271,6 @@ class AgentEngine {
     const triggerType = options.triggerType || 'user';
     ensureDefaultAiSettings(userId);
     const aiSettings = getAiSettings(userId);
-    const { provider, model, providerName } = await getProviderForUser(userId, userMessage, triggerType === 'subagent', _modelOverride);
 
     const runId = options.runId || uuidv4();
     const conversationId = options.conversationId;
@@ -280,6 +279,23 @@ class AgentEngine {
     const historyWindow = aiSettings.chat_history_window;
     const toolReplayBudget = aiSettings.tool_replay_budget_chars;
     const maxIterations = this.getIterationLimit(triggerType, aiSettings);
+    const providerStatusConfig = {
+      onStatus: (status) => {
+        if (!status?.message) return;
+        this.emit(userId, 'run:interim', {
+          runId,
+          message: status.message,
+          phase: status.phase
+        });
+      }
+    };
+    const { provider, model, providerName } = await getProviderForUser(
+      userId,
+      userMessage,
+      triggerType === 'subagent',
+      _modelOverride,
+      providerStatusConfig
+    );
 
     const runTitle = generateTitle(userMessage);
     db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, title, status, trigger_type, trigger_source, model)
@@ -385,7 +401,13 @@ class AgentEngine {
             console.error(`[Engine] Model call failed (${model}):`, err.message);
             if (retryForFallback && aiSettings.fallback_model_id && aiSettings.fallback_model_id !== model) {
               console.log(`[Engine] Attempting fallback to: ${aiSettings.fallback_model_id}`);
-              const fallback = await getProviderForUser(userId, userMessage, triggerType === 'subagent', aiSettings.fallback_model_id);
+              const fallback = await getProviderForUser(
+                userId,
+                userMessage,
+                triggerType === 'subagent',
+                aiSettings.fallback_model_id,
+                providerStatusConfig
+              );
               // Update local state for the retry
               const nextProvider = fallback.provider;
               const nextModel = fallback.model;
