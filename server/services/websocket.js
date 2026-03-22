@@ -164,14 +164,14 @@ function setupWebSocket(io, services) {
     // ── MCP ──
 
     socket.on('mcp:status', () => {
-      socket.emit('mcp:status', mcpClient.getStatus());
+      socket.emit('mcp:status', mcpClient.getStatus(userId));
     });
 
     socket.on('mcp:tools', async (data) => {
       try {
         const tools = data?.serverId
-          ? await mcpClient.listTools(data.serverId)
-          : mcpClient.getAllTools();
+          ? await mcpClient.listTools(data.serverId, userId)
+          : mcpClient.getAllTools(userId);
         socket.emit('mcp:tools', tools);
       } catch (err) {
         socket.emit('mcp:error', { error: sanitizeError(err) });
@@ -182,14 +182,14 @@ function setupWebSocket(io, services) {
 
     socket.on('memory:read', () => {
       socket.emit('memory:data', {
-        memory: memoryManager.readMemory(),
-        soul: memoryManager.readSoul(),
-        dailyLogs: memoryManager.listDailyLogs(3)
+        memory: memoryManager.readMemory(userId),
+        soul: memoryManager.readSoul(userId),
+        dailyLogs: memoryManager.listDailyLogs(3, userId)
       });
     });
 
-    socket.on('memory:search', (data) => {
-      const results = memoryManager.searchMemory(data.query);
+    socket.on('memory:search', async (data) => {
+      const results = await memoryManager.searchMemory(data?.query, userId);
       socket.emit('memory:search_results', results);
     });
 

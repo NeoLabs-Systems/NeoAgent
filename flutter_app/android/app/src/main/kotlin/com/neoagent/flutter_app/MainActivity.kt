@@ -116,8 +116,38 @@ class MainActivity : FlutterFragmentActivity() {
                         }
 
                         val args = call.arguments as? Map<*, *>
-                        val windowStart = Instant.parse(args?.get("windowStart")?.toString())
-                        val windowEnd = Instant.parse(args?.get("windowEnd")?.toString())
+                        val windowStartRaw = args?.get("windowStart")?.toString()
+                        val windowEndRaw = args?.get("windowEnd")?.toString()
+                        if (windowStartRaw.isNullOrBlank() || windowEndRaw.isNullOrBlank()) {
+                            result.error(
+                                "health_sync_window",
+                                "windowStart and windowEnd are required.",
+                                null,
+                            )
+                            return@launch
+                        }
+                        val windowStart =
+                            try {
+                                Instant.parse(windowStartRaw)
+                            } catch (_: Exception) {
+                                result.error(
+                                    "health_sync_window",
+                                    "windowStart must be an ISO-8601 timestamp.",
+                                    null,
+                                )
+                                return@launch
+                            }
+                        val windowEnd =
+                            try {
+                                Instant.parse(windowEndRaw)
+                            } catch (_: Exception) {
+                                result.error(
+                                    "health_sync_window",
+                                    "windowEnd must be an ISO-8601 timestamp.",
+                                    null,
+                                )
+                                return@launch
+                            }
                         val payload = healthGateway.collectBatch(client, windowStart, windowEnd)
                         result.success(payload.toJson().toString())
                     } catch (err: Exception) {

@@ -28,7 +28,10 @@ async function startServices(app, io) {
         app.locals.mcpClient = mcpClient;
 
         const browserController = new BrowserController();
-        const headlessSetting = db.prepare('SELECT value FROM user_settings WHERE key = ? ORDER BY user_id LIMIT 1').get('headless_browser');
+        const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get()?.count || 0;
+        const headlessSetting = userCount === 1
+          ? db.prepare('SELECT value FROM user_settings WHERE user_id = (SELECT id FROM users LIMIT 1) AND key = ?').get('headless_browser')
+          : null;
         if (headlessSetting) {
             const val = headlessSetting.value;
             browserController.headless = val !== 'false' && val !== false && val !== '0';

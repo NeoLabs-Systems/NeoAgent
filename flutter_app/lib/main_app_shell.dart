@@ -138,36 +138,6 @@ class _AuthViewState extends State<AuthView> {
                             style: const TextStyle(color: _textSecondary),
                           ),
                           const SizedBox(height: 20),
-                          if (!controller.hasUser) ...<Widget>[
-                            Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                color: _bgPrimary,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: <Widget>[
-                                  Expanded(
-                                    child: _AuthTabButton(
-                                      label: 'Sign In',
-                                      active: !_registerMode,
-                                      onTap: () =>
-                                          setState(() => _registerMode = false),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _AuthTabButton(
-                                      label: 'Setup',
-                                      active: _registerMode,
-                                      onTap: () =>
-                                          setState(() => _registerMode = true),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                          ],
                           if (controller.errorMessage != null) ...<Widget>[
                             _InlineError(message: controller.errorMessage!),
                             const SizedBox(height: 16),

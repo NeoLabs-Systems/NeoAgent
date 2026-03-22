@@ -293,9 +293,8 @@ class MessagingManager {
    * back to the first connected Telnyx instance.
    */
   async handleTelnyxWebhook(event) {
-    // Try to find the platform by connection_id or phone number from event payload
-    for (const [key, platform] of this.platforms.entries()) {
-      if (platform.name === 'telnyx') {
+    for (const [, platform] of this.platforms.entries()) {
+      if (platform.name === 'telnyx' && typeof platform.matchesWebhookEvent === 'function' && platform.matchesWebhookEvent(event)) {
         await platform.handleWebhook(event);
         return true;
       }

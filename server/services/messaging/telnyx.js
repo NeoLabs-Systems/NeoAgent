@@ -121,6 +121,24 @@ class TelnyxVoicePlatform extends BasePlatform {
     return n.replace(/\D/g, '');
   }
 
+  matchesWebhookEvent(event) {
+    const payload = event?.data?.payload || {};
+    const ccId = payload.call_control_id;
+    if (ccId && this._hasSession(ccId)) {
+      return true;
+    }
+
+    if (payload.connection_id && String(payload.connection_id) === String(this.connectionId)) {
+      return true;
+    }
+
+    const targetNumbers = [payload.to, payload.from]
+      .map((value) => this._normalizeNumber(String(value || '')))
+      .filter(Boolean);
+    const ownNumber = this._normalizeNumber(String(this.phoneNumber || ''));
+    return !!ownNumber && targetNumbers.some((value) => value === ownNumber || value.endsWith(ownNumber) || ownNumber.endsWith(value));
+  }
+
   _isBanned(number) {
     const key = this._normalizeNumber(number);
     const expiry = this._bannedNumbers.get(key);

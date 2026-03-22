@@ -71,7 +71,7 @@ class MCPClient extends EventEmitter {
     this.servers = new Map();
   }
 
-  async startServer(serverId, url, name = '') {
+  async startServer(serverId, url, name = '', userId = null) {
     if (this.servers.has(serverId)) {
       await this.stopServer(serverId);
     }
@@ -108,6 +108,7 @@ class MCPClient extends EventEmitter {
 
       const serverObj = {
         id: serverId,
+        userId,
         url,
         slug,
         name: name || String(serverId),
@@ -165,8 +166,15 @@ class MCPClient extends EventEmitter {
     this.emit('server_status', { serverId, status: 'stopped' });
   }
 
-  async listTools(serverId) {
+  _getOwnedServer(serverId, userId = null) {
     const server = this.servers.get(serverId);
+    if (!server) return null;
+    if (userId != null && server.userId !== userId) return null;
+    return server;
+  }
+
+  async listTools(serverId, userId = null) {
+    const server = this._getOwnedServer(serverId, userId);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverId} not running`);
     }
@@ -176,8 +184,8 @@ class MCPClient extends EventEmitter {
     return server.tools;
   }
 
-  async callTool(serverId, toolName, args = {}) {
-    const server = this.servers.get(serverId);
+  async callTool(serverId, toolName, args = {}, userId = null) {
+    const server = this._getOwnedServer(serverId, userId);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverId} not running`);
     }
@@ -188,20 +196,22 @@ class MCPClient extends EventEmitter {
     });
   }
 
-  async callToolByName(fullName, args = {}) {
+  async callToolByName(fullName, args = {}, userId = null) {
     for (const [serverId, server] of this.servers) {
+      if (userId != null && server.userId !== userId) continue;
       const prefix = `mcp_${server.slug}_`;
       if (fullName.startsWith(prefix)) {
         const originalName = fullName.substring(prefix.length);
-        return await this.callTool(serverId, originalName, args);
+        return await this.callTool(serverId, originalName, args, userId);
       }
     }
     return null;
   }
 
-  getAllTools() {
+  getAllTools(userId = null) {
     const allTools = [];
     for (const [serverId, server] of this.servers) {
+      if (userId != null && server.userId !== userId) continue;
       if (server.status !== 'running') continue;
       for (const tool of server.tools) {
         allTools.push({
@@ -216,9 +226,10 @@ class MCPClient extends EventEmitter {
     return allTools;
   }
 
-  getStatus() {
+  getStatus(userId = null) {
     const statuses = {};
     for (const [serverId, server] of this.servers) {
+      if (userId != null && server.userId !== userId) continue;
       statuses[serverId] = {
         status: server.status,
         command: server.url,
@@ -236,8 +247,8 @@ class MCPClient extends EventEmitter {
 
     for (const srv of servers) {
       try {
-        await this.startServer(srv.id, srv.command, srv.name);
-        await this.listTools(srv.id);
+        await this.startServer(srv.id, srv.command, srv.name, userId);
+        await this.listTools(srv.id, userId);
         results.push({ id: srv.id, name: srv.name, status: 'running' });
       } catch (err) {
         console.error(`Failed to start MCP server ${srv.name}:`, err.message);

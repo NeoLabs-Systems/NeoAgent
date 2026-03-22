@@ -45,6 +45,11 @@ function writeUpdateStatus(patch) {
   return next;
 }
 
+function canApplyGlobalBrowserSetting(userId) {
+  const users = db.prepare('SELECT id FROM users ORDER BY id ASC').all();
+  return users.length <= 1 || users[0]?.id === userId;
+}
+
 // Get supported models metadata
 router.get('/meta/models', async (req, res) => {
   const { getSupportedModels } = require('../services/ai/models');
@@ -129,7 +134,9 @@ router.put('/', (req, res) => {
   // Apply headless toggle immediately without restarting
   if ('headless_browser' in normalizedBody) {
     const bc = req.app.locals.browserController;
-    if (bc) bc.setHeadless(normalizedBody.headless_browser).catch(() => { });
+    if (bc && canApplyGlobalBrowserSetting(userId)) {
+      bc.setHeadless(normalizedBody.headless_browser).catch(() => { });
+    }
   }
 
   res.json({ success: true });
@@ -252,6 +259,12 @@ router.put('/:key', (req, res) => {
   const v = typeof value === 'string' ? value : JSON.stringify(value);
   db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
     .run(req.session.userId, req.params.key, v);
+  if (req.params.key === 'headless_browser') {
+    const bc = req.app.locals.browserController;
+    if (bc && canApplyGlobalBrowserSetting(req.session.userId)) {
+      bc.setHeadless(value).catch(() => { });
+    }
+  }
   res.json({ success: true });
 });
 

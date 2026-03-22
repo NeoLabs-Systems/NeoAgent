@@ -88,7 +88,26 @@ function systemImageArch() {
   return 'x86_64';
 }
 
+function parseCsvEnv(value) {
+  return String(value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function configuredSystemImagePackage() {
+  return String(process.env.ANDROID_SYSTEM_IMAGE_PACKAGE || '').trim() || null;
+}
+
+function configuredSystemImagePlatform() {
+  return String(process.env.ANDROID_SYSTEM_IMAGE_PLATFORM || '').trim() || null;
+}
+
 function systemImageArchCandidates() {
+  const configured = parseCsvEnv(process.env.ANDROID_SYSTEM_IMAGE_ARCH);
+  if (configured.length > 0) {
+    return configured.filter((arch, index, list) => list.indexOf(arch) === index);
+  }
   const preferred = systemImageArch();
   const fallbacks = ['x86_64', 'arm64-v8a'];
   return [preferred, ...fallbacks].filter((arch, index, list) => list.indexOf(arch) === index);
@@ -268,6 +287,42 @@ function parseSystemImages(listOutput) {
   return matches;
 }
 
+function rankSystemImagePool(pool) {
+  const preferredMatches = pool.filter((candidate) => candidate.tagScore > 0);
+  const rankedPool = preferredMatches.length > 0 ? preferredMatches : pool;
+
+  rankedPool.sort((a, b) =>
+    Number(b.stable) - Number(a.stable) ||
+    b.apiLevel - a.apiLevel ||
+    b.tagScore - a.tagScore ||
+    a.packageName.localeCompare(b.packageName)
+  );
+
+  return rankedPool;
+}
+
+function chooseConfiguredSystemImage(listOutput) {
+  const matches = parseSystemImages(listOutput);
+  const packageName = configuredSystemImagePackage();
+  if (packageName) {
+    return matches.find((candidate) => candidate.packageName === packageName) || null;
+  }
+
+  const platformId = configuredSystemImagePlatform();
+  if (!platformId) return null;
+
+  const pool = matches.filter((candidate) => candidate.platformId === platformId);
+  if (pool.length === 0) return null;
+
+  let archPool = [];
+  for (const arch of systemImageArchCandidates()) {
+    archPool = pool.filter((candidate) => candidate.arch === arch);
+    if (archPool.length > 0) break;
+  }
+
+  return rankSystemImagePool(archPool.length > 0 ? archPool : pool)[0] || null;
+}
+
 function chooseLatestSystemImage(listOutput, preferredArchs = systemImageArchCandidates()) {
   const matches = parseSystemImages(listOutput);
   const archPool = Array.isArray(preferredArchs) && preferredArchs.length > 0
@@ -284,24 +339,21 @@ function chooseLatestSystemImage(listOutput, preferredArchs = systemImageArchCan
     pool = matches;
   }
 
-  const preferredMatches = pool.filter((candidate) => candidate.tagScore > 0);
-  const rankedPool = preferredMatches.length > 0 ? preferredMatches : pool;
-
-  rankedPool.sort((a, b) =>
-    Number(b.stable) - Number(a.stable) ||
-    b.apiLevel - a.apiLevel ||
-    b.tagScore - a.tagScore ||
-    a.packageName.localeCompare(b.packageName)
-  );
-
-  return rankedPool[0] || null;
+  return rankSystemImagePool(pool)[0] || null;
 }
 
 function formatSystemImageError(listOutput) {
   const availableArchs = [...new Set(parseSystemImages(listOutput).map((candidate) => candidate.arch))].sort();
   const wantedArchs = systemImageArchCandidates().join(', ');
+  const packageName = configuredSystemImagePackage();
+  const platformId = configuredSystemImagePlatform();
   const available = availableArchs.length > 0 ? availableArchs.join(', ') : 'none';
-  return `No compatible Android system image found. Preferred architectures: ${wantedArchs}. Available architectures: ${available}.`;
+  const overrideDetails = [
+    packageName ? `package=${packageName}` : null,
+    platformId ? `platform=${platformId}` : null,
+  ].filter(Boolean);
+  const overrideText = overrideDetails.length > 0 ? ` Configured override: ${overrideDetails.join(', ')}.` : '';
+  return `No compatible Android system image found. Preferred architectures: ${wantedArchs}. Available architectures: ${available}.${overrideText}`;
 }
 
 function parseApiLevelFromSystemImage(packageName) {
@@ -429,7 +481,7 @@ class AndroidController {
     appendState({ bootstrapped: true });
     const sdkmanager = sdkManagerBinary();
     const available = await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} --list`, { timeout: 300000 });
-    const latestSystemImage = chooseLatestSystemImage(available);
+    const latestSystemImage = chooseConfiguredSystemImage(available) || chooseLatestSystemImage(available);
     if (!latestSystemImage) throw new Error(formatSystemImageError(available));
 
     const state = readState();
@@ -480,7 +532,7 @@ class AndroidController {
     await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} "platform-tools" "emulator"`, { timeout: 300000 });
 
     const available = await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} --list`, { timeout: 300000 });
-    const systemImage = chooseLatestSystemImage(available);
+    const systemImage = chooseConfiguredSystemImage(available) || chooseLatestSystemImage(available);
     if (!systemImage) throw new Error(formatSystemImageError(available));
 
     await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} "${systemImage.packageName}"`, { timeout: 300000 });
@@ -955,6 +1007,9 @@ class AndroidController {
       emulatorPid: state.emulatorPid,
       systemImage: state.systemImage || null,
       systemImageArch: state.systemImageArch || null,
+      preferredSystemImageArchs: systemImageArchCandidates(),
+      configuredSystemImagePackage: configuredSystemImagePackage(),
+      configuredSystemImagePlatform: configuredSystemImagePlatform(),
       apiLevel: Number(state.apiLevel || 0) || null,
       avdSystemImage: state.avdSystemImage || null,
       logPath: state.logPath || null,
@@ -972,7 +1027,10 @@ class AndroidController {
 module.exports = {
   AndroidController,
   androidTextEscape,
+  chooseConfiguredSystemImage,
   chooseLatestSystemImage,
+  configuredSystemImagePackage,
+  configuredSystemImagePlatform,
   formatSystemImageError,
   parseLatestCmdlineToolsUrl,
   parseSystemImages,

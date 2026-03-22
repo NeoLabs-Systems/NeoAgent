@@ -41,11 +41,12 @@ async function getActiveProvider(userId) {
 }
 
 const DATA_DIR = AGENT_DATA_DIR;
-const SOUL_FILE = path.join(DATA_DIR, 'SOUL.md');
-const API_KEYS_FILE = path.join(DATA_DIR, 'API_KEYS.json');
-const DAILY_DIR = path.join(DATA_DIR, 'daily');
+const SHARED_SOUL_FILE = path.join(DATA_DIR, 'SOUL.md');
+const SHARED_API_KEYS_FILE = path.join(DATA_DIR, 'API_KEYS.json');
+const SHARED_DAILY_DIR = path.join(DATA_DIR, 'daily');
 const MEMORY_DIR = path.join(DATA_DIR, 'memory');
 const SKILLS_DIR = path.join(DATA_DIR, 'skills');
+const USERS_DIR = path.join(DATA_DIR, 'users');
 
 const DEFAULT_SOUL = `you have no name yet. maybe the user will give you one.
 you live on their machine. you have full access to everything.
@@ -95,11 +96,40 @@ class MemoryManager {
   }
 
   _ensureDirs() {
-    for (const dir of [DATA_DIR, DAILY_DIR, MEMORY_DIR, SKILLS_DIR]) {
+    for (const dir of [DATA_DIR, USERS_DIR, SHARED_DAILY_DIR, MEMORY_DIR, SKILLS_DIR]) {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     }
-    if (!fs.existsSync(SOUL_FILE)) fs.writeFileSync(SOUL_FILE, DEFAULT_SOUL, 'utf-8');
-    if (!fs.existsSync(API_KEYS_FILE)) fs.writeFileSync(API_KEYS_FILE, '{}', 'utf-8');
+    if (!fs.existsSync(SHARED_SOUL_FILE)) fs.writeFileSync(SHARED_SOUL_FILE, DEFAULT_SOUL, 'utf-8');
+    if (!fs.existsSync(SHARED_API_KEYS_FILE)) fs.writeFileSync(SHARED_API_KEYS_FILE, '{}', 'utf-8');
+  }
+
+  _userDir(userId) {
+    return path.join(USERS_DIR, String(userId || 'shared'));
+  }
+
+  _ensureUserDirs(userId) {
+    const userDir = this._userDir(userId);
+    const dailyDir = path.join(userDir, 'daily');
+    fs.mkdirSync(userDir, { recursive: true });
+    fs.mkdirSync(dailyDir, { recursive: true });
+    return { userDir, dailyDir };
+  }
+
+  _userSoulPath(userId) {
+    if (userId == null) return SHARED_SOUL_FILE;
+    const { userDir } = this._ensureUserDirs(userId);
+    return path.join(userDir, 'SOUL.md');
+  }
+
+  _userApiKeysPath(userId) {
+    if (userId == null) return SHARED_API_KEYS_FILE;
+    const { userDir } = this._ensureUserDirs(userId);
+    return path.join(userDir, 'API_KEYS.json');
+  }
+
+  _userDailyDir(userId) {
+    if (userId == null) return SHARED_DAILY_DIR;
+    return this._ensureUserDirs(userId).dailyDir;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -290,76 +320,101 @@ class MemoryManager {
   // SOUL.md
   // ─────────────────────────────────────────────────────────────────────────
 
-  readSoul() {
-    if (!fs.existsSync(SOUL_FILE)) return '';
-    return fs.readFileSync(SOUL_FILE, 'utf-8');
+  readSoul(userId = null) {
+    const filePath = this._userSoulPath(userId);
+    if (!fs.existsSync(filePath)) {
+      if (userId == null) return '';
+      if (fs.existsSync(SHARED_SOUL_FILE)) {
+        fs.copyFileSync(SHARED_SOUL_FILE, filePath);
+      } else {
+        fs.writeFileSync(filePath, DEFAULT_SOUL, 'utf-8');
+      }
+    }
+    return fs.readFileSync(filePath, 'utf-8');
   }
 
-  writeSoul(content) {
-    fs.writeFileSync(SOUL_FILE, content, 'utf-8');
+  writeSoul(content, userId = null) {
+    fs.writeFileSync(this._userSoulPath(userId), content, 'utf-8');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // API_KEYS.json
   // ─────────────────────────────────────────────────────────────────────────
 
-  readApiKeys() {
-    if (!fs.existsSync(API_KEYS_FILE)) return {};
-    try { return JSON.parse(fs.readFileSync(API_KEYS_FILE, 'utf-8')); } catch { return {}; }
+  readApiKeys(userId = null) {
+    const filePath = this._userApiKeysPath(userId);
+    if (!fs.existsSync(filePath)) {
+      if (userId != null && fs.existsSync(SHARED_API_KEYS_FILE)) {
+        fs.copyFileSync(SHARED_API_KEYS_FILE, filePath);
+      } else {
+        return {};
+      }
+    }
+    try { return JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch { return {}; }
   }
 
-  writeApiKeys(keys) {
-    fs.writeFileSync(API_KEYS_FILE, JSON.stringify(keys, null, 2), 'utf-8');
+  writeApiKeys(keys, userId = null) {
+    fs.writeFileSync(this._userApiKeysPath(userId), JSON.stringify(keys, null, 2), 'utf-8');
   }
 
-  setApiKey(service, key) {
-    const keys = this.readApiKeys();
+  setApiKey(service, key, userId = null) {
+    const keys = this.readApiKeys(userId);
     keys[service] = key;
-    this.writeApiKeys(keys);
+    this.writeApiKeys(keys, userId);
   }
 
-  getApiKey(service) {
-    return this.readApiKeys()[service] || null;
+  getApiKey(service, userId = null) {
+    return this.readApiKeys(userId)[service] || null;
   }
 
-  deleteApiKey(service) {
-    const keys = this.readApiKeys();
+  deleteApiKey(service, userId = null) {
+    const keys = this.readApiKeys(userId);
     delete keys[service];
-    this.writeApiKeys(keys);
+    this.writeApiKeys(keys, userId);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Daily Logs
   // ─────────────────────────────────────────────────────────────────────────
 
-  _dailyPath(date) {
+  _dailyPath(date, userId = null) {
     const d = date ? (date instanceof Date ? date : new Date(date)) : new Date();
     const name = d.toISOString().split('T')[0] + '.md';
-    return path.join(DAILY_DIR, name);
+    return path.join(this._userDailyDir(userId), name);
   }
 
-  readDailyLog(date) {
-    const fp = this._dailyPath(date);
+  readDailyLog(date, userId = null) {
+    const fp = this._dailyPath(date, userId);
     if (!fs.existsSync(fp)) return '';
     return fs.readFileSync(fp, 'utf-8');
   }
 
-  appendDailyLog(entry, date) {
-    const fp = this._dailyPath(date);
+  appendDailyLog(entry, date, userId = null) {
+    const fp = this._dailyPath(date, userId);
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     const line = `\n- [${timestamp}] ${entry}`;
     fs.appendFileSync(fp, line, 'utf-8');
     return line.trim();
   }
 
-  listDailyLogs(limit = 7) {
-    if (!fs.existsSync(DAILY_DIR)) return [];
-    return fs.readdirSync(DAILY_DIR)
+  listDailyLogs(limit = 7, userId = null) {
+    const dailyDir = this._userDailyDir(userId);
+    if (userId != null && fs.existsSync(SHARED_DAILY_DIR) && (!fs.existsSync(dailyDir) || fs.readdirSync(dailyDir).length === 0)) {
+      for (const entry of fs.readdirSync(SHARED_DAILY_DIR)) {
+        if (!entry.endsWith('.md')) continue;
+        const dest = path.join(dailyDir, entry);
+        if (!fs.existsSync(dest)) {
+          fs.copyFileSync(path.join(SHARED_DAILY_DIR, entry), dest);
+        }
+      }
+    }
+    if (!fs.existsSync(dailyDir)) return [];
+    return fs.readdirSync(dailyDir)
       .filter(f => f.endsWith('.md'))
       .sort().reverse().slice(0, limit)
       .map(f => ({
         date: f.replace('.md', ''),
-        content: fs.readFileSync(path.join(DAILY_DIR, f), 'utf-8')
+        content: fs.readFileSync(path.join(dailyDir, f), 'utf-8')
       }));
   }
 
@@ -534,14 +589,14 @@ class MemoryManager {
   write(target, content, mode = 'append', userId = null) {
     switch (target) {
       case 'daily':
-        return { line: this.appendDailyLog(content), target: 'daily' };
+        return { line: this.appendDailyLog(content, undefined, userId), target: 'daily' };
       case 'soul':
-        this.writeSoul(content);
+        this.writeSoul(content, userId);
         return { success: true, target: 'soul' };
       case 'api_keys':
         try {
           const parsed = JSON.parse(content);
-          for (const [k, v] of Object.entries(parsed)) this.setApiKey(k, v);
+          for (const [k, v] of Object.entries(parsed)) this.setApiKey(k, v, userId);
           return { success: true, target: 'api_keys' };
         } catch {
           return { error: 'Invalid JSON for api_keys' };
@@ -552,15 +607,16 @@ class MemoryManager {
   }
 
   read(target, options = {}) {
+    const userId = options.userId ?? null;
     switch (target) {
       case 'daily':
-        return { content: this.readDailyLog(options.date ? new Date(options.date) : undefined) };
+        return { content: this.readDailyLog(options.date ? new Date(options.date) : undefined, userId) };
       case 'all_daily':
-        return { logs: this.listDailyLogs(7) };
+        return { logs: this.listDailyLogs(7, userId) };
       case 'soul':
-        return { content: this.readSoul() };
+        return { content: this.readSoul(userId) };
       case 'api_keys':
-        return { keys: Object.keys(this.readApiKeys()) };
+        return { keys: Object.keys(this.readApiKeys(userId)) };
       default:
         return { error: `Unknown target: ${target}` };
     }
@@ -576,7 +632,7 @@ class MemoryManager {
    * messages at the right position in the messages array by the engine.
    */
   async buildContext(userId = null) {
-    const soul = this.readSoul();
+    const soul = this.readSoul(userId);
     let ctx = '';
 
     // 1. Soul / personality (always)
@@ -616,6 +672,14 @@ class MemoryManager {
     } catch {
       return null;
     }
+  }
+
+  readMemory(userId = null) {
+    return this.read('all_daily', { userId });
+  }
+
+  searchMemory(query, userId = null) {
+    return this.recallMemory(userId, query, 6);
   }
 }
 

@@ -13,9 +13,9 @@ router.get('/', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
   res.json({
-    soul: mm.readSoul(),
-    dailyLogs: mm.listDailyLogs(7),
-    apiKeys: Object.keys(mm.readApiKeys()),
+    soul: mm.readSoul(userId),
+    dailyLogs: mm.listDailyLogs(7, userId),
+    apiKeys: Object.keys(mm.readApiKeys(userId)),
     coreMemory: mm.getCoreMemory(userId)
   });
 });
@@ -129,11 +129,11 @@ router.delete('/core/:key', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/soul', (req, res) => {
-  res.json({ content: req.app.locals.memoryManager.readSoul() });
+  res.json({ content: req.app.locals.memoryManager.readSoul(req.session.userId) });
 });
 
 router.put('/soul', (req, res) => {
-  req.app.locals.memoryManager.writeSoul(req.body.content);
+  req.app.locals.memoryManager.writeSoul(req.body.content, req.session.userId);
   res.json({ success: true });
 });
 
@@ -143,11 +143,11 @@ router.put('/soul', (req, res) => {
 
 router.get('/daily', (req, res) => {
   const limit = parseInt(req.query.limit) || 7;
-  res.json(req.app.locals.memoryManager.listDailyLogs(limit));
+  res.json(req.app.locals.memoryManager.listDailyLogs(limit, req.session.userId));
 });
 
 router.get('/daily/:date', (req, res) => {
-  const content = req.app.locals.memoryManager.readDailyLog(new Date(req.params.date));
+  const content = req.app.locals.memoryManager.readDailyLog(new Date(req.params.date), req.session.userId);
   res.json({ date: req.params.date, content });
 });
 
@@ -156,7 +156,7 @@ router.get('/daily/:date', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/api-keys', (req, res) => {
-  const keys = req.app.locals.memoryManager.readApiKeys();
+  const keys = req.app.locals.memoryManager.readApiKeys(req.session.userId);
   const masked = {};
   for (const [k, v] of Object.entries(keys)) {
     masked[k] = v ? `${v.slice(0, 4)}...${v.slice(-4)}` : null;
@@ -165,12 +165,12 @@ router.get('/api-keys', (req, res) => {
 });
 
 router.put('/api-keys/:service', (req, res) => {
-  req.app.locals.memoryManager.setApiKey(req.params.service, req.body.key);
+  req.app.locals.memoryManager.setApiKey(req.params.service, req.body.key, req.session.userId);
   res.json({ success: true });
 });
 
 router.delete('/api-keys/:service', (req, res) => {
-  req.app.locals.memoryManager.deleteApiKey(req.params.service);
+  req.app.locals.memoryManager.deleteApiKey(req.params.service, req.session.userId);
   res.json({ success: true });
 });
 
