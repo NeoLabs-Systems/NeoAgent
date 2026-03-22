@@ -10,7 +10,7 @@ router.use(requireAuth);
 router.get('/', (req, res) => {
   const servers = db.prepare('SELECT * FROM mcp_servers WHERE user_id = ? ORDER BY name ASC').all(req.session.userId);
   const mcpClient = req.app.locals.mcpClient;
-  const liveStatuses = mcpClient.getStatus();
+  const liveStatuses = mcpClient.getStatus(req.session.userId);
 
   const result = servers.map(s => ({
     id: s.id,
@@ -67,8 +67,8 @@ router.post('/:id/start', async (req, res) => {
     if (!server) return res.status(404).json({ error: 'Server not found' });
 
     const mcpClient = req.app.locals.mcpClient;
-    const result = await mcpClient.startServer(server.id, server.command, server.name);
-    const tools = await mcpClient.listTools(server.id);
+    const result = await mcpClient.startServer(server.id, server.command, server.name, req.session.userId);
+    const tools = await mcpClient.listTools(server.id, req.session.userId);
 
     res.json({ ...result, tools });
   } catch (err) {
@@ -101,7 +101,7 @@ router.get('/:id/tools', async (req, res) => {
     const server = db.prepare('SELECT id FROM mcp_servers WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
     if (!server) return res.status(404).json({ error: 'Server not found' });
     const mcpClient = req.app.locals.mcpClient;
-    const tools = await mcpClient.listTools(req.params.id);
+    const tools = await mcpClient.listTools(req.params.id, req.session.userId);
     res.json(tools);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -144,7 +144,7 @@ router.get('/oauth/callback', async (req, res) => {
 // Get all tools from all running servers
 router.get('/tools/all', (req, res) => {
   const mcpClient = req.app.locals.mcpClient;
-  res.json(mcpClient.getAllTools());
+  res.json(mcpClient.getAllTools(req.session.userId));
 });
 
 // Call a tool
@@ -152,9 +152,11 @@ router.post('/tools/call', async (req, res) => {
   try {
     const { serverId, toolName, args } = req.body;
     if (!serverId || !toolName) return res.status(400).json({ error: 'serverId and toolName required' });
+    const server = db.prepare('SELECT id FROM mcp_servers WHERE id = ? AND user_id = ?').get(serverId, req.session.userId);
+    if (!server) return res.status(404).json({ error: 'Server not found' });
 
     const mcpClient = req.app.locals.mcpClient;
-    const result = await mcpClient.callTool(serverId, toolName, args || {});
+    const result = await mcpClient.callTool(serverId, toolName, args || {}, req.session.userId);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });

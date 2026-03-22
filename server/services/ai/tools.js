@@ -1042,7 +1042,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'memory_read': {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
-            return mm.read(args.target, { date: args.date });
+            return mm.read(args.target, { date: args.date, userId });
         }
 
         case 'make_call': {
@@ -1519,7 +1519,7 @@ async function executeTool(toolName, args, context, engine) {
             const { detectPromptInjection } = require('../../utils/security');
             const mcpManager = mcp();
             if (mcpManager) {
-                const mcpResult = await mcpManager.callToolByName(toolName, args);
+                const mcpResult = await mcpManager.callToolByName(toolName, args, userId);
                 if (mcpResult !== null) {
                     const resultText = typeof mcpResult === 'string' ? mcpResult : JSON.stringify(mcpResult);
                     if (detectPromptInjection(resultText)) {
