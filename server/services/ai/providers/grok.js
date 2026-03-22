@@ -7,7 +7,7 @@ class GrokProvider extends BaseProvider {
     this.name = 'grok';
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.XAI_API_KEY,
-      baseURL: 'https://api.x.ai/v1'
+      baseURL: config.baseUrl || process.env.XAI_BASE_URL || 'https://api.x.ai/v1'
     });
   }
 

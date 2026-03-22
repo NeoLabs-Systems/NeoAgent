@@ -20,7 +20,7 @@ function generateTitle(task) {
 
 async function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null) {
   const { getSupportedModels, createProviderInstance } = require('./models');
-  const models = await getSupportedModels();
+  const models = await getSupportedModels(userId);
 
   let enabledIds = [];
   let defaultChatModel = 'auto';
@@ -53,17 +53,22 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
     enabledIds = models.map((m) => m.id);
   }
 
-  const availableModels = models.filter((m) => enabledIds.includes(m.id));
-  const fallbackModel = availableModels.length > 0 ? availableModels[0] : models[0];
+  const availableModels = models.filter((m) => enabledIds.includes(m.id) && m.available !== false);
+  const fallbackModel = availableModels.length > 0 ? availableModels[0] : models.find((m) => m.available !== false);
+
+  if (!fallbackModel) {
+    throw new Error('No AI providers are currently available. Open Settings and configure at least one provider.');
+  }
+
   let selectedModelDef = fallbackModel;
   const userSelectedDefault = isSubagent ? defaultSubagentModel : defaultChatModel;
 
   if (modelOverride && typeof modelOverride === 'string') {
     const requested = models.find((m) => m.id === modelOverride.trim());
-    if (requested && enabledIds.includes(requested.id)) {
+    if (requested && requested.available !== false && enabledIds.includes(requested.id)) {
       selectedModelDef = requested;
       return {
-        provider: createProviderInstance(selectedModelDef.provider),
+        provider: createProviderInstance(selectedModelDef.provider, userId),
         model: selectedModelDef.id,
         providerName: selectedModelDef.provider
       };
@@ -97,7 +102,7 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
   }
 
   return {
-    provider: createProviderInstance(selectedModelDef.provider),
+    provider: createProviderInstance(selectedModelDef.provider, userId),
     model: selectedModelDef.id,
     providerName: selectedModelDef.provider
   };

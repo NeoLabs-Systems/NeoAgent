@@ -7,7 +7,11 @@ const { requireAuth } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { getVersionInfo } = require('../utils/version');
 const { UPDATE_STATUS_FILE, APP_DIR } = require('../../runtime/paths');
-const { ensureDefaultAiSettings, DEFAULT_AI_SETTINGS } = require('../services/ai/settings');
+const {
+  createDefaultAiSettings,
+  ensureDefaultAiSettings,
+  normalizeProviderConfigs,
+} = require('../services/ai/settings');
 
 router.use(requireAuth);
 
@@ -44,15 +48,39 @@ function writeUpdateStatus(patch) {
 // Get supported models metadata
 router.get('/meta/models', async (req, res) => {
   const { getSupportedModels } = require('../services/ai/models');
-  const models = await getSupportedModels();
+  const models = await getSupportedModels(req.session.userId);
   res.json({ models });
+});
+
+router.get('/meta/ai-providers', async (req, res) => {
+  const { getProviderCatalog, getSupportedModels } = require('../services/ai/models');
+  const [providers, models] = await Promise.all([
+    getProviderCatalog(req.session.userId),
+    getSupportedModels(req.session.userId),
+  ]);
+
+  const modelCounts = models.reduce((acc, model) => {
+    acc[model.provider] = (acc[model.provider] || 0) + 1;
+    if (model.available !== false) {
+      acc[`${model.provider}:available`] = (acc[`${model.provider}:available`] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  res.json({
+    providers: providers.map((provider) => ({
+      ...provider,
+      modelCount: modelCounts[provider.id] || 0,
+      availableModelCount: modelCounts[`${provider.id}:available`] || 0,
+    })),
+  });
 });
 
 // Get all settings
 router.get('/', (req, res) => {
   ensureDefaultAiSettings(req.session.userId);
   const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId);
-  const settings = { ...DEFAULT_AI_SETTINGS };
+  const settings = createDefaultAiSettings();
   for (const row of rows) {
     try {
       settings[row.key] = JSON.parse(row.value);
@@ -63,6 +91,7 @@ router.get('/', (req, res) => {
       settings[row.key] = row.value;
     }
   }
+  settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
   res.json(settings);
 });
 
@@ -82,6 +111,10 @@ router.put('/', (req, res) => {
       }
     }
     normalizedBody.platform_whitelist_whatsapp = JSON.stringify(normalizeWhatsAppWhitelist(whitelist));
+  }
+
+  if ('ai_provider_configs' in normalizedBody) {
+    normalizedBody.ai_provider_configs = normalizeProviderConfigs(normalizedBody.ai_provider_configs);
   }
 
   const tx = db.transaction((entries) => {
@@ -213,6 +246,8 @@ router.put('/:key', (req, res) => {
       }
     }
     value = normalizeWhatsAppWhitelist(value);
+  } else if (req.params.key === 'ai_provider_configs') {
+    value = normalizeProviderConfigs(value);
   }
   const v = typeof value === 'string' ? value : JSON.stringify(value);
   db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
