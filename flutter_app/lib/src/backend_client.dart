@@ -353,6 +353,21 @@ class BackendClient {
     return postMap(baseUrl, '/api/android/wait-for', payload);
   }
 
+  Future<Map<String, dynamic>> installAndroidApk(
+    String baseUrl, {
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    final response = await _httpClient.postMultipart(
+      _resolveUri(baseUrl, '/api/android/install-apk'),
+      fieldName: 'apk',
+      filename: filename,
+      bytes: bytes,
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
   Future<Map<String, dynamic>> fetchHealthStatus(String baseUrl) async {
     return getMap(baseUrl, '/api/mobile/health/status');
   }

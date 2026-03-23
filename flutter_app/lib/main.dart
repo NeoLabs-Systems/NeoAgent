@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import 'src/android_apk_drop_zone.dart';
 import 'src/backend_client.dart';
 import 'src/health_bridge.dart';
 import 'src/recording_bridge.dart';
@@ -1270,6 +1272,21 @@ class NeoAgentController extends ChangeNotifier {
     await _runDeviceAction(
       () => _backendClient.waitForAndroid(backendUrl, payload),
       browser: false,
+    );
+  }
+
+  Future<void> installAndroidApkRuntime({
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    await _runDeviceAction(
+      () => _backendClient.installAndroidApk(
+        backendUrl,
+        filename: filename,
+        bytes: bytes,
+      ),
+      browser: false,
+      refreshApps: true,
     );
   }
 
@@ -2908,6 +2925,19 @@ class _DevicesPanelState extends State<DevicesPanel> {
                         androidOnline: _androidOnline,
                         onAction: _runQuickAction,
                       ),
+                      if (kIsWeb) ...<Widget>[
+                        const SizedBox(height: 14),
+                        AndroidApkDropZone(
+                          enabled: _androidOnline,
+                          busy: controller.isRunningDeviceAction,
+                          onInstall: ({required filename, required bytes}) {
+                            return controller.installAndroidApkRuntime(
+                              filename: filename,
+                              bytes: bytes,
+                            );
+                          },
+                        ),
+                      ],
                     ],
                     const SizedBox(height: 18),
                     _DeviceTypeDock(

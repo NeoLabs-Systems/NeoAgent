@@ -9,6 +9,14 @@ abstract class AppHttpClient {
     Object? body,
   });
 
+  Future<HttpResponseData> postMultipart(
+    Uri uri, {
+    Map<String, String>? headers,
+    required String fieldName,
+    required String filename,
+    required Uint8List bytes,
+  });
+
   Future<HttpResponseData> put(
     Uri uri, {
     Map<String, String>? headers,

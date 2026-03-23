@@ -1,9 +1,44 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const router = express.Router();
+const { DATA_DIR } = require('../../runtime/paths');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 
 router.use(requireAuth);
+
+const androidApkUploadDir = path.join(DATA_DIR, 'uploads', 'android-apks');
+fs.mkdirSync(androidApkUploadDir, { recursive: true });
+
+const androidApkUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, androidApkUploadDir),
+    filename: (_req, file, cb) => {
+      const extension = path.extname(file.originalname || '').toLowerCase();
+      const stem = path.basename(file.originalname || 'upload', extension)
+        .replace(/[^a-z0-9._-]+/gi, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 64) || 'upload';
+      cb(
+        null,
+        `${Date.now()}-${Math.random().toString(16).slice(2)}-${stem}${extension || '.apk'}`
+      );
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    if (!String(file.originalname || '').toLowerCase().endsWith('.apk')) {
+      cb(new Error('Only .apk files can be installed.'));
+      return;
+    }
+    cb(null, true);
+  },
+  limits: {
+    fileSize: 512 * 1024 * 1024,
+    files: 1,
+  },
+});
 
 router.get('/status', async (req, res) => {
   try {
@@ -131,6 +166,40 @@ router.post('/wait-for', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }
+});
+
+router.post('/install-apk', (req, res) => {
+  androidApkUpload.single('apk')(req, res, async (uploadError) => {
+    if (uploadError) {
+      const message =
+        uploadError instanceof multer.MulterError &&
+          uploadError.code === 'LIMIT_FILE_SIZE'
+        ? 'APK upload is too large. Limit is 512MB.'
+        : sanitizeError(uploadError);
+      res.status(400).json({ error: message });
+      return;
+    }
+
+    const uploadedApkPath = req.file?.path;
+    if (!uploadedApkPath) {
+      res.status(400).json({ error: 'No APK file was uploaded.' });
+      return;
+    }
+
+    try {
+      const controller = req.app.locals.androidController;
+      const result = await controller.installApk({ apkPath: uploadedApkPath });
+      res.json({
+        ...result,
+        filename: req.file.originalname,
+        size: req.file.size,
+      });
+    } catch (err) {
+      res.status(500).json({ error: sanitizeError(err) });
+    } finally {
+      fs.promises.unlink(uploadedApkPath).catch(() => {});
+    }
+  });
 });
 
 module.exports = router;

@@ -6,6 +6,7 @@ const { getConversationContext, buildSummaryCarrier, refreshConversationSummary 
 const { ensureDefaultAiSettings, getAiSettings } = require('./settings');
 const { selectToolsForTask } = require('./toolSelector');
 const { compactToolResult } = require('./toolResult');
+const { salvageTextToolCalls } = require('./toolCallSalvage');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -463,6 +464,16 @@ class AgentEngine {
         }
 
         lastContent = response.content || streamContent || '';
+
+        if ((!response.toolCalls || response.toolCalls.length === 0) && lastContent) {
+          const salvaged = salvageTextToolCalls(lastContent, tools);
+          if (salvaged.toolCalls.length > 0) {
+            response.toolCalls = salvaged.toolCalls;
+            response.finishReason = 'tool_calls';
+            response.content = salvaged.content;
+            lastContent = salvaged.content;
+          }
+        }
 
         const assistantMessage = { role: 'assistant', content: lastContent };
         if (response.toolCalls?.length) assistantMessage.tool_calls = response.toolCalls;

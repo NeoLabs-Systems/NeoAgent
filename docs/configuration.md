@@ -1,6 +1,6 @@
 # Configuration
 
-All settings live in `~/.neoagent/.env` by default. Run `neoagent setup` to regenerate interactively.
+All settings live in `~/.neoagent/.env` by default. Run `neoagent setup` to regenerate interactively. If a self-edit or local install issue leaves NeoAgent broken, `neoagent fix` will back up `~/.neoagent`, repair the installation, and restart the service.
 You can override the runtime root with `NEOAGENT_HOME`.
 
 ## Variables

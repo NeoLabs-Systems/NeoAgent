@@ -470,6 +470,39 @@ function systemImagePackageToRelativeDir(packageName) {
   return `${parts.join('/')}/`;
 }
 
+function systemImagePackageToAbi(packageName) {
+  const parts = String(packageName || '').split(';').filter(Boolean);
+  if (parts.length !== 4 || parts[0] !== 'system-images') {
+    return null;
+  }
+  return parts[3] || null;
+}
+
+function abiToCpuArch(abi) {
+  const value = String(abi || '').trim().toLowerCase();
+  if (value === 'arm64-v8a') return 'arm64';
+  if (value === 'armeabi-v7a' || value === 'armeabi') return 'arm';
+  if (value === 'x86_64') return 'x86_64';
+  if (value === 'x86') return 'x86';
+  return null;
+}
+
+function systemImagePackageToCpuArch(packageName) {
+  return abiToCpuArch(systemImagePackageToAbi(packageName));
+}
+
+function describeAutoFixChanges(current, next, fields = []) {
+  return fields
+    .map((field) => {
+      const before = current?.[field] ?? null;
+      const after = next?.[field] ?? null;
+      if (before === after) return null;
+      return `${field}: ${before ?? 'null'} -> ${after ?? 'null'}`;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
 function sanitizeUiXml(raw) {
   const text = String(raw || '');
   const start = text.indexOf('<?xml');
@@ -581,7 +614,28 @@ class AndroidController {
         if (!preferredInstalled) {
           throw new Error(formatSystemImageError(installedImages));
         }
-        if (preferredInstalled.packageName !== state.systemImage) {
+        const stateApiLevel = Number(state.apiLevel || 0) || 0;
+        const stateNeedsRefresh =
+          preferredInstalled.packageName !== state.systemImage ||
+          preferredInstalled.apiLevel !== stateApiLevel ||
+          preferredInstalled.arch !== state.systemImageArch;
+        if (stateNeedsRefresh) {
+          const changeSummary = describeAutoFixChanges(
+            {
+              systemImage: state.systemImage || null,
+              apiLevel: stateApiLevel || null,
+              systemImageArch: state.systemImageArch || null,
+            },
+            {
+              systemImage: preferredInstalled.packageName,
+              apiLevel: preferredInstalled.apiLevel,
+              systemImageArch: preferredInstalled.arch,
+            },
+            ['systemImage', 'apiLevel', 'systemImageArch']
+          );
+          if (changeSummary) {
+            console.log(`[Android] Auto-fixed preferred system image (${changeSummary})`);
+          }
           appendState({
             bootstrapped: true,
             systemImage: preferredInstalled.packageName,
@@ -670,19 +724,39 @@ class AndroidController {
     if (!pkg) throw new Error('Android system image not installed');
     const avdExists = list.includes(`Name: ${this.avdName}`);
     let avdNeedsRecreate = avdExists && (!state.avdSystemImage || state.avdSystemImage !== pkg);
+    const avdRecreateReasons = [];
+    if (avdNeedsRecreate && state.avdSystemImage !== pkg) {
+      avdRecreateReasons.push(`systemImage: ${state.avdSystemImage || 'null'} -> ${pkg}`);
+    }
     const configPath = path.join(AVD_HOME, `${this.avdName}.avd`, 'config.ini');
     if (avdExists && fs.existsSync(configPath)) {
       try {
         const config = fs.readFileSync(configPath, 'utf8');
         const currentImageDir = readIniValue(config, 'image.sysdir.1');
         const expectedImageDir = systemImagePackageToRelativeDir(pkg);
+        const currentAbi = readIniValue(config, 'abi.type');
+        const expectedAbi = systemImagePackageToAbi(pkg);
+        const currentCpuArch = readIniValue(config, 'hw.cpu.arch');
+        const expectedCpuArch = systemImagePackageToCpuArch(pkg);
         if (expectedImageDir && currentImageDir && currentImageDir !== expectedImageDir) {
           avdNeedsRecreate = true;
+          avdRecreateReasons.push(`image.sysdir.1: ${currentImageDir} -> ${expectedImageDir}`);
+        }
+        if (expectedAbi && currentAbi && currentAbi !== expectedAbi) {
+          avdNeedsRecreate = true;
+          avdRecreateReasons.push(`abi.type: ${currentAbi} -> ${expectedAbi}`);
+        }
+        if (expectedCpuArch && currentCpuArch && currentCpuArch !== expectedCpuArch) {
+          avdNeedsRecreate = true;
+          avdRecreateReasons.push(`hw.cpu.arch: ${currentCpuArch} -> ${expectedCpuArch}`);
         }
       } catch {}
     }
 
     if (avdNeedsRecreate) {
+      if (avdRecreateReasons.length > 0) {
+        console.log(`[Android] Recreating AVD to repair config mismatch (${avdRecreateReasons.join(', ')})`);
+      }
       await this.stopEmulator().catch(() => {});
       await this.#run(`${quoteShell(avdManagerBinary())} delete avd -n ${quoteShell(this.avdName)}`, {
         timeout: 120000,
