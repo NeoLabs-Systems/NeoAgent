@@ -282,25 +282,75 @@ function systemImageTagScore(tag) {
   return 0;
 }
 
+function parseSystemImageCandidates(entries = []) {
+  return entries.map((entry) => {
+    const platform = parseSystemImagePlatform(entry.platformId);
+    return {
+      packageName: entry.packageName,
+      platformId: entry.platformId,
+      tag: entry.tag,
+      arch: entry.arch,
+      apiLevel: platform.apiLevel,
+      stable: platform.stable,
+      tagScore: systemImageTagScore(entry.tag),
+    };
+  });
+}
+
 function parseSystemImages(listOutput) {
   const matches = [];
   const regex = /system-images;(android-[^;\s]+);([^;\s]+);([^;\s]+)/g;
   let match = regex.exec(listOutput);
   while (match) {
-    const platform = parseSystemImagePlatform(match[1]);
     matches.push({
       packageName: match[0],
       platformId: match[1],
       tag: match[2],
       arch: match[3],
-      apiLevel: platform.apiLevel,
-      stable: platform.stable,
-      tagScore: systemImageTagScore(match[2]),
     });
     match = regex.exec(listOutput);
   }
 
-  return matches;
+  return parseSystemImageCandidates(matches);
+}
+
+function parseInstalledSystemImages() {
+  const root = path.join(SDK_ROOT, 'system-images');
+  if (!fs.existsSync(root)) {
+    return [];
+  }
+
+  const matches = [];
+  const platforms = fs.readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+
+  for (const platformId of platforms) {
+    const platformDir = path.join(root, platformId);
+    const tags = fs.readdirSync(platformDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    for (const tag of tags) {
+      const tagDir = path.join(platformDir, tag);
+      const archs = fs.readdirSync(tagDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name);
+      for (const arch of archs) {
+        const packageXml = path.join(tagDir, arch, 'package.xml');
+        if (!fs.existsSync(packageXml)) {
+          continue;
+        }
+        matches.push({
+          packageName: `system-images;${platformId};${tag};${arch}`,
+          platformId,
+          tag,
+          arch,
+        });
+      }
+    }
+  }
+
+  return parseSystemImageCandidates(matches);
 }
 
 function rankSystemImagePool(pool) {
@@ -309,8 +359,8 @@ function rankSystemImagePool(pool) {
 
   rankedPool.sort((a, b) =>
     Number(b.stable) - Number(a.stable) ||
-    b.apiLevel - a.apiLevel ||
     b.tagScore - a.tagScore ||
+    b.apiLevel - a.apiLevel ||
     a.packageName.localeCompare(b.packageName)
   );
 
@@ -318,7 +368,9 @@ function rankSystemImagePool(pool) {
 }
 
 function chooseConfiguredSystemImage(listOutput) {
-  const matches = parseSystemImages(listOutput);
+  const matches = Array.isArray(listOutput)
+    ? parseSystemImageCandidates(listOutput)
+    : parseSystemImages(listOutput);
   const packageName = configuredSystemImagePackage();
   if (packageName) {
     return matches.find((candidate) => candidate.packageName === packageName) || null;
@@ -340,7 +392,9 @@ function chooseConfiguredSystemImage(listOutput) {
 }
 
 function chooseLatestSystemImage(listOutput, preferredArchs = systemImageArchCandidates()) {
-  const matches = parseSystemImages(listOutput);
+  const matches = Array.isArray(listOutput)
+    ? parseSystemImageCandidates(listOutput)
+    : parseSystemImages(listOutput);
   const archPool = Array.isArray(preferredArchs) && preferredArchs.length > 0
     ? preferredArchs
     : systemImageArchCandidates();
@@ -359,7 +413,10 @@ function chooseLatestSystemImage(listOutput, preferredArchs = systemImageArchCan
 }
 
 function formatSystemImageError(listOutput) {
-  const availableArchs = [...new Set(parseSystemImages(listOutput).map((candidate) => candidate.arch))].sort();
+  const candidates = Array.isArray(listOutput)
+    ? parseSystemImageCandidates(listOutput)
+    : parseSystemImages(listOutput);
+  const availableArchs = [...new Set(candidates.map((candidate) => candidate.arch))].sort();
   const wantedArchs = systemImageArchCandidates().join(', ');
   const packageName = configuredSystemImagePackage();
   const platformId = configuredSystemImagePlatform();
@@ -501,12 +558,27 @@ class AndroidController {
     }
 
     const state = readState();
-    if (
-      state.bootstrapped === true &&
-      state.systemImage &&
-      !shouldForceSdkRefresh()
-    ) {
-      return;
+    if (!shouldForceSdkRefresh()) {
+      const installedImages = parseInstalledSystemImages();
+      if (installedImages.length > 0) {
+        const preferredInstalled =
+          chooseConfiguredSystemImage(installedImages) ||
+          chooseLatestSystemImage(installedImages);
+        if (
+          preferredInstalled &&
+          preferredInstalled.packageName !== state.systemImage
+        ) {
+          appendState({
+            bootstrapped: true,
+            systemImage: preferredInstalled.packageName,
+            apiLevel: preferredInstalled.apiLevel,
+            systemImageArch: preferredInstalled.arch,
+          });
+        }
+        return;
+      } else if (state.bootstrapped === true && state.systemImage) {
+        return;
+      }
     }
 
     appendState({ bootstrapped: true });
