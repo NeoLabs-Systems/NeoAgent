@@ -332,11 +332,11 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'android_install_apk',
-            description: 'Install or replace an APK on the Android emulator.',
+            description: 'Install or replace an APK or universal .apks bundle on the Android emulator.',
             parameters: {
                 type: 'object',
                 properties: {
-                    apkPath: { type: 'string', description: 'Absolute path to the APK file on disk' }
+                    apkPath: { type: 'string', description: 'Absolute path to an .apk file or universal .apks bundle on disk' }
                 },
                 required: ['apkPath']
             }

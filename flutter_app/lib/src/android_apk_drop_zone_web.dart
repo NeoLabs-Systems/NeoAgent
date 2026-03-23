@@ -6,6 +6,10 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 
 int _androidApkDropZoneViewId = 0;
+const Set<String> _supportedAndroidInstallExtensions = <String>{
+  '.apk',
+  '.apks',
+};
 
 Widget buildAndroidApkDropZone(
   BuildContext context, {
@@ -57,7 +61,10 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
     _viewType = 'neoagent-android-apk-drop-zone-${_androidApkDropZoneViewId++}';
     _dropElement = html.DivElement()
       ..setAttribute('role', 'button')
-      ..setAttribute('aria-label', 'Drop an APK file here to install it')
+      ..setAttribute(
+        'aria-label',
+        'Drop an APK or APK bundle here to install it',
+      )
       ..tabIndex = 0
       ..style.width = '100%'
       ..style.height = '100%'
@@ -65,7 +72,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
       ..style.background = 'rgba(0, 0, 0, 0.001)'
       ..style.cursor = 'pointer';
     _fileInput = html.FileUploadInputElement()
-      ..accept = '.apk'
+      ..accept = '.apk,.apks'
       ..multiple = false
       ..style.display = 'none';
     _dropElement.append(_fileInput);
@@ -143,8 +150,8 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
     if (!widget.enabled || widget.busy) {
       return;
     }
-    if (!file.name.toLowerCase().endsWith('.apk')) {
-      _showError('Only .apk files can be installed.');
+    if (!_isSupportedInstallFile(file.name)) {
+      _showError('Only .apk or .apks files can be installed.');
       return;
     }
     try {
@@ -172,13 +179,15 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
         return;
       }
       if (!completer.isCompleted) {
-        completer.completeError(StateError('Could not read the APK file.'));
+        completer.completeError(
+          StateError('Could not read the Android app package.'),
+        );
       }
     });
     reader.onError.listen((_) {
       if (!completer.isCompleted) {
         completer.completeError(
-          reader.error ?? StateError('Could not read the APK file.'),
+          reader.error ?? StateError('Could not read the Android app package.'),
         );
       }
     });
@@ -207,10 +216,10 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
         ? const Color(0xFF111120)
         : const Color(0xFF0C0C18);
     final subtitle = widget.busy
-        ? 'Installing APK on the phone...'
+        ? 'Installing app package on the phone...'
         : widget.enabled
-        ? 'Drag and drop a .apk file here, or click to browse.'
-        : 'Start the Android phone first, then drop a .apk file here.';
+        ? 'Drag and drop a .apk or .apks file here, or click to browse.'
+        : 'Start the Android phone first, then drop a .apk or .apks file here.';
 
     return Container(
       width: double.infinity,
@@ -245,7 +254,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Install APK',
+                      'Install APK / Bundle',
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: const Color(0xFFEAEAF4),
                         fontWeight: FontWeight.w700,
@@ -287,8 +296,8 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                         widget.busy
                             ? 'Installing...'
                             : _dragActive
-                            ? 'Release to install this APK'
-                            : 'Drop APK Here',
+                            ? 'Release to install this package'
+                            : 'Drop APK or .apks Here',
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: const Color(0xFFEAEAF4),
                           fontWeight: FontWeight.w700,
@@ -311,4 +320,9 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
       ),
     );
   }
+}
+
+bool _isSupportedInstallFile(String filename) {
+  final normalized = filename.toLowerCase();
+  return _supportedAndroidInstallExtensions.any(normalized.endsWith);
 }

@@ -11,6 +11,7 @@ router.use(requireAuth);
 
 const androidApkUploadDir = path.join(DATA_DIR, 'uploads', 'android-apks');
 fs.mkdirSync(androidApkUploadDir, { recursive: true });
+const INSTALLABLE_ANDROID_PACKAGE_EXTENSIONS = new Set(['.apk', '.apks']);
 
 const androidApkUpload = multer({
   storage: multer.diskStorage({
@@ -28,8 +29,9 @@ const androidApkUpload = multer({
     },
   }),
   fileFilter: (_req, file, cb) => {
-    if (!String(file.originalname || '').toLowerCase().endsWith('.apk')) {
-      cb(new Error('Only .apk files can be installed.'));
+    const extension = path.extname(String(file.originalname || '')).toLowerCase();
+    if (!INSTALLABLE_ANDROID_PACKAGE_EXTENSIONS.has(extension)) {
+      cb(new Error('Only .apk or .apks files can be installed.'));
       return;
     }
     cb(null, true);
@@ -192,7 +194,7 @@ router.post('/install-apk', (req, res) => {
       const message =
         uploadError instanceof multer.MulterError &&
           uploadError.code === 'LIMIT_FILE_SIZE'
-        ? 'APK upload is too large. Limit is 512MB.'
+        ? 'Android app upload is too large. Limit is 512MB.'
         : sanitizeError(uploadError);
       res.status(400).json({ error: message });
       return;
@@ -200,7 +202,7 @@ router.post('/install-apk', (req, res) => {
 
     const uploadedApkPath = req.file?.path;
     if (!uploadedApkPath) {
-      res.status(400).json({ error: 'No APK file was uploaded.' });
+      res.status(400).json({ error: 'No APK or APK bundle was uploaded.' });
       return;
     }
 
