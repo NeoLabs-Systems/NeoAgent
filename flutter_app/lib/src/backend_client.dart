@@ -280,6 +280,15 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> observeAndroid(
+    String baseUrl, {
+    bool includeNodes = true,
+  }) async {
+    return postMap(baseUrl, '/api/android/observe', <String, dynamic>{
+      'includeNodes': includeNodes,
+    });
+  }
+
   Future<Map<String, dynamic>> dumpAndroidUi(
     String baseUrl, {
     bool includeNodes = true,

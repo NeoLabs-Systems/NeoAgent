@@ -400,6 +400,28 @@ class NeoAgentController extends ChangeNotifier {
   bool isStartingRecording = false;
   bool isStoppingRecording = false;
 
+  bool get hasLiveRun => isSendingMessage && activeRun != null;
+
+  String get chatComposerHint => hasLiveRun
+      ? 'Send a steering update or next-up note for the current run...'
+      : 'Ask a question or start a task...';
+
+  String get chatStatusLabel {
+    if (activeRun == null) {
+      return 'Idle';
+    }
+
+    final base =
+        '${activeRun!.phase} (${toolEvents.where((event) => event.status == 'running').length} active tools)';
+    if (activeRun!.pendingSteeringCount > 0) {
+      return '$base · ${activeRun!.pendingSteeringCount} steering queued';
+    }
+    if (hasLiveRun) {
+      return '$base · new messages steer this run';
+    }
+    return base;
+  }
+
   static String get _defaultBackendUrl {
     final configured = _configuredBackendUrl.trim();
 
@@ -1566,7 +1588,8 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> sendMessage(String task) async {
     final trimmed = task.trim();
-    if (trimmed.isEmpty || isSendingMessage) {
+    final canSteerLiveRun = hasLiveRun && _socket != null && socketConnected;
+    if (trimmed.isEmpty || (isSendingMessage && !canSteerLiveRun)) {
       return;
     }
 
@@ -1577,11 +1600,13 @@ class NeoAgentController extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     chatMessages = <ChatEntry>[...chatMessages, optimistic];
-    isSendingMessage = true;
     errorMessage = null;
-    toolEvents = const <ToolEventItem>[];
-    streamingAssistant = '';
-    activeRun = ActiveRunState.pending(trimmed);
+    if (!canSteerLiveRun) {
+      isSendingMessage = true;
+      toolEvents = const <ToolEventItem>[];
+      streamingAssistant = '';
+      activeRun = ActiveRunState.pending(trimmed);
+    }
     notifyListeners();
 
     try {
@@ -2350,6 +2375,7 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final triggerSource = payload['triggerSource']?.toString() ?? '';
       final runId = payload['runId']?.toString() ?? '';
+      final pendingSteeringCount = activeRun?.pendingSteeringCount ?? 0;
       if (_isBackgroundRun(triggerSource)) {
         _backgroundRunIds.add(runId);
         return;
@@ -2363,6 +2389,7 @@ class NeoAgentController extends ChangeNotifier {
         triggerSource: triggerSource,
         phase: 'Starting',
         iteration: 0,
+        pendingSteeringCount: pendingSteeringCount,
       );
       toolEvents = const <ToolEventItem>[];
       streamingAssistant = '';
@@ -2468,6 +2495,56 @@ class NeoAgentController extends ChangeNotifier {
       }
       notifyListeners();
     });
+    socket.on('run:steer_queued', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      toolEvents = <ToolEventItem>[
+        ...toolEvents,
+        ToolEventItem(
+          id: 'steer-queued-${DateTime.now().microsecondsSinceEpoch}',
+          toolName: 'steering',
+          type: 'note',
+          status: 'completed',
+          summary:
+              'Queued as steering for the current run: ${payload['content']?.toString() ?? ''}',
+        ),
+      ];
+      if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
+        activeRun = activeRun!.copyWith(
+          pendingSteeringCount: _asInt(payload['pendingCount']),
+        );
+      }
+      notifyListeners();
+    });
+    socket.on('run:steer_applied', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      toolEvents = <ToolEventItem>[
+        ...toolEvents,
+        ToolEventItem(
+          id: 'steer-applied-${DateTime.now().microsecondsSinceEpoch}',
+          toolName: 'steering',
+          type: 'note',
+          status: 'completed',
+          summary: payload['count'] == 1
+              ? 'Applied the latest steering update to the current run.'
+              : 'Applied ${_asInt(payload['count'])} queued steering updates to the current run.',
+        ),
+      ];
+      if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
+        activeRun = activeRun!.copyWith(
+          pendingSteeringCount: _asInt(payload['pendingCount']),
+          phase: 'Incorporating steering',
+        );
+      }
+      notifyListeners();
+    });
     socket.on('run:interim', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
@@ -2526,7 +2603,10 @@ class NeoAgentController extends ChangeNotifier {
       streamingAssistant = '';
       isSendingMessage = false;
       if (activeRun?.runId == runId) {
-        activeRun = activeRun!.copyWith(phase: 'Completed');
+        activeRun = activeRun!.copyWith(
+          phase: 'Completed',
+          pendingSteeringCount: 0,
+        );
       }
       unawaited(refreshRunsOnly());
       notifyListeners();
@@ -2540,7 +2620,10 @@ class NeoAgentController extends ChangeNotifier {
       streamingAssistant = '';
       isSendingMessage = false;
       if (activeRun?.runId == runId) {
-        activeRun = activeRun!.copyWith(phase: 'Stopped');
+        activeRun = activeRun!.copyWith(
+          phase: 'Stopped',
+          pendingSteeringCount: 0,
+        );
       }
       unawaited(refreshRunsOnly());
       notifyListeners();
@@ -4995,8 +5078,8 @@ class _ChatPanelState extends State<ChatPanel> {
                         maxLines: 6,
                         keyboardType: TextInputType.multiline,
                         textInputAction: TextInputAction.newline,
-                        decoration: const InputDecoration(
-                          hintText: 'say something...',
+                        decoration: InputDecoration(
+                          hintText: controller.chatComposerHint,
                           isDense: true,
                           filled: false,
                           border: InputBorder.none,
@@ -5006,13 +5089,11 @@ class _ChatPanelState extends State<ChatPanel> {
                       ),
                     ),
                     FilledButton(
-                      onPressed: controller.isSendingMessage
-                          ? null
-                          : () async {
-                              final task = _composerController.text;
-                              _composerController.clear();
-                              await controller.sendMessage(task);
-                            },
+                      onPressed: () async {
+                        final task = _composerController.text;
+                        _composerController.clear();
+                        await controller.sendMessage(task);
+                      },
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(46, 42),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -5021,18 +5102,12 @@ class _ChatPanelState extends State<ChatPanel> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: controller.isSendingMessage
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.north_east_rounded,
-                              color: Colors.white,
-                            ),
+                      child: Icon(
+                        controller.hasLiveRun
+                            ? Icons.alt_route_rounded
+                            : Icons.north_east_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -5042,13 +5117,13 @@ class _ChatPanelState extends State<ChatPanel> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
                   Text(
-                    controller.activeRun == null
-                        ? 'Idle'
-                        : '${controller.activeRun!.phase} (${controller.toolEvents.where((event) => event.status == 'running').length} active tools)',
+                    controller.chatStatusLabel,
                     style: const TextStyle(fontSize: 11, color: _textSecondary),
                   ),
                   Text(
-                    controller.modelIndicator,
+                    controller.hasLiveRun
+                        ? 'Steering mode'
+                        : controller.modelIndicator,
                     style: const TextStyle(fontSize: 11, color: _textSecondary),
                   ),
                 ],

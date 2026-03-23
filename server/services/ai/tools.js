@@ -293,6 +293,16 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'android_observe',
+            description: 'Capture the current Android screen end-to-end: fresh screenshot, UI dump path, and a preview of visible UI nodes.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    includeNodes: { type: 'boolean', description: 'Include a preview of parsed UI nodes (default true)' }
+                }
+            }
+        },
+        {
             name: 'android_dump_ui',
             description: 'Capture the current Android UIAutomator XML dump and return a preview of the nodes.',
             parameters: {
@@ -763,7 +773,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'analyze_image',
-            description: 'Analyze an image file using Grok vision. Use this to describe photos, read QR codes, extract text from screenshots, or answer any visual question about an image.',
+            description: 'Analyze an image file using the best available vision-capable model. Use this to describe photos, read QR codes, extract text from screenshots, or answer visual questions.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -938,6 +948,12 @@ async function executeTool(toolName, args, context, engine) {
             const controller = ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.waitFor(args || {});
+        }
+
+        case 'android_observe': {
+            const controller = ac();
+            if (!controller) return { error: 'Android controller not available' };
+            return await controller.observe(args || {});
         }
 
         case 'android_dump_ui': {
@@ -1541,23 +1557,67 @@ async function executeTool(toolName, args, context, engine) {
         case 'analyze_image': {
             try {
                 if (!fs.existsSync(args.image_path)) return { error: `File not found: ${args.image_path}` };
-                const b64 = fs.readFileSync(args.image_path).toString('base64');
                 const ext = path.extname(args.image_path).toLowerCase();
                 const mimeMap = { '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
                 const mime = mimeMap[ext] || 'image/jpeg';
+                const question = args.question || 'Describe this image in detail.';
                 const { getProviderForUser } = require('./engine');
-                const { provider: visionProvider, model: visionModel } = await getProviderForUser(userId);
-                const visionResponse = await visionProvider.chat(
-                    [{
-                        role: 'user', content: [
-                            { type: 'text', text: args.question || 'Describe this image in detail.' },
-                            { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } }
-                        ]
-                    }],
-                    [],
-                    { model: visionModel }
-                );
-                return { description: visionResponse.content };
+                const { createProviderInstance, getProviderCatalog } = require('./models');
+
+                const attempted = [];
+                const candidates = [];
+
+                try {
+                    const preferred = await getProviderForUser(userId);
+                    candidates.push({
+                        providerName: preferred.providerName,
+                        provider: preferred.provider,
+                    });
+                } catch (err) {
+                    attempted.push(`default-provider lookup failed: ${err.message}`);
+                }
+
+                for (const providerInfo of getProviderCatalog(userId)) {
+                    if (!providerInfo.available) continue;
+                    if (candidates.some((candidate) => candidate.providerName === providerInfo.id)) continue;
+                    if (!['grok', 'openai'].includes(providerInfo.id)) continue;
+                    try {
+                        candidates.push({
+                            providerName: providerInfo.id,
+                            provider: createProviderInstance(providerInfo.id, userId),
+                        });
+                    } catch (err) {
+                        attempted.push(`${providerInfo.id}: ${err.message}`);
+                    }
+                }
+
+                for (const candidate of candidates) {
+                    if (typeof candidate.provider.supportsVision !== 'function' || candidate.provider.supportsVision() !== true) {
+                        attempted.push(`${candidate.providerName}: image analysis is not supported by this provider integration`);
+                        continue;
+                    }
+
+                    try {
+                        const visionResponse = await candidate.provider.analyzeImage({
+                            imagePath: args.image_path,
+                            mimeType: mime,
+                            question,
+                        });
+                        return {
+                            description: visionResponse.content,
+                            model: visionResponse.model || null,
+                            provider: candidate.providerName,
+                        };
+                    } catch (err) {
+                        attempted.push(`${candidate.providerName}: ${err.message}`);
+                    }
+                }
+
+                return {
+                    error: attempted.length > 0
+                        ? `Image analysis failed. ${attempted.join(' | ')}`
+                        : 'No vision-capable provider is currently available. Configure OpenAI or xAI for image analysis.',
+                };
             } catch (err) {
                 return { error: err.message };
             }

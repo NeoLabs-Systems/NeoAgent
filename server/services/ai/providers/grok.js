@@ -15,6 +15,14 @@ class GrokProvider extends BaseProvider {
     return 131072; // grok-4 context window
   }
 
+  supportsVision() {
+    return true;
+  }
+
+  getDefaultVisionModel() {
+    return 'grok-4.20-beta-latest-non-reasoning';
+  }
+
   _buildParams(model, messages, tools, options) {
     const params = {
       model,
@@ -115,6 +123,32 @@ class GrokProvider extends BaseProvider {
         parameters: tool.parameters
       }
     }));
+  }
+
+  async analyzeImage(options = {}) {
+    const model = options.model || this.getDefaultVisionModel();
+    const b64 = BaseProvider.readImageAsBase64(options.imagePath);
+    const response = await this.client.chat.completions.create({
+      model,
+      max_tokens: options.maxTokens || 4096,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: options.question || 'Describe this image in detail.' },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${options.mimeType || 'image/jpeg'};base64,${b64}`
+            }
+          }
+        ]
+      }]
+    });
+
+    return {
+      content: response.choices[0]?.message?.content || '',
+      model: response.model || model,
+    };
   }
 }
 
