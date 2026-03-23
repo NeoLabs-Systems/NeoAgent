@@ -108,6 +108,16 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
+    case 'android_shell':
+      envelope = trimObject({
+        tool: toolName,
+        serial: toolResult?.serial,
+        command: toolArgs.command,
+        screenshotPath: toolResult?.screenshotPath,
+        excerpt: lineExcerpt(toolResult?.stdout || toolResult?.result || toolResult, 18, Math.floor(softLimit * 0.65))
+      });
+      break;
+
     case 'http_request':
       envelope = trimObject({
         tool: toolName,
