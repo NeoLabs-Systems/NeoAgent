@@ -276,6 +276,49 @@ function extractZip(zipPath, destDir) {
   throw new Error('Neither unzip nor ditto is available to extract Android SDK archives');
 }
 
+function listFilesRecursive(rootDir, predicate, bucket = []) {
+  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+    const fullPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      listFilesRecursive(fullPath, predicate, bucket);
+      continue;
+    }
+    if (!predicate || predicate(fullPath, entry)) {
+      bucket.push(fullPath);
+    }
+  }
+  return bucket;
+}
+
+function resolveBundleInstallTargets(bundleDir) {
+  const apkFiles = listFilesRecursive(bundleDir, (filePath) => path.extname(filePath).toLowerCase() === '.apk')
+    .sort((a, b) => a.localeCompare(b));
+  if (apkFiles.length === 0) {
+    throw new Error('APK bundle did not contain any installable .apk files.');
+  }
+
+  const universalApk = apkFiles.find((filePath) => path.basename(filePath).toLowerCase() === 'universal.apk');
+  if (universalApk) {
+    return {
+      mode: 'single',
+      installPaths: [universalApk],
+      layout: 'universal',
+    };
+  }
+
+  if (apkFiles.length === 1) {
+    return {
+      mode: 'single',
+      installPaths: apkFiles,
+      layout: 'single-apk',
+    };
+  }
+
+  throw new Error(
+    'APK bundles must include a universal APK. Export a universal .apks bundle or upload a single .apk instead.'
+  );
+}
+
 function parseLatestCmdlineToolsUrl(xml) {
   const tag = platformTag() === 'mac' ? 'macosx' : 'linux';
   const packageMatch = xml.match(new RegExp(`<remotePackage\\s+path="cmdline-tools;latest">([\\s\\S]*?)<\\/remotePackage>`));
@@ -1456,11 +1499,38 @@ class AndroidController {
     const apkPath = path.resolve(String(args.apkPath || ''));
     if (!apkPath || !fs.existsSync(apkPath)) throw new Error(`APK not found: ${apkPath}`);
     const serial = await this.ensureDevice();
+    const extension = path.extname(apkPath).toLowerCase();
+
+    if (extension === '.aab') {
+      throw new Error('.aab app bundles are not directly installable. Export a .apks bundle or .apk first.');
+    }
+
+    if (extension === '.apks') {
+      const extractDir = fs.mkdtempSync(path.join(TMP_DIR, 'apk-bundle-'));
+      try {
+        extractZip(apkPath, extractDir);
+        const bundle = resolveBundleInstallTargets(extractDir);
+        await this.#adb(serial, `install -r ${quoteShell(bundle.installPaths[0])}`, { timeout: 300000 });
+        return {
+          success: true,
+          serial,
+          apkPath,
+          artifactType: 'apks',
+          installedPaths: bundle.installPaths,
+          bundleLayout: bundle.layout,
+        };
+      } finally {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+      }
+    }
+
     await this.#adb(serial, `install -r ${quoteShell(apkPath)}`, { timeout: 300000 });
     return {
       success: true,
       serial,
       apkPath,
+      artifactType: 'apk',
+      installedPaths: [apkPath],
     };
   }
 
