@@ -33,6 +33,7 @@ function buildHelmetOptions({ secureCookies }) {
           'https://fonts.googleapis.com',
           'https://fonts.gstatic.com',
           'https://www.gstatic.com',
+          'https://api.qrserver.com',
           ...wsConnectSrc
         ],
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
