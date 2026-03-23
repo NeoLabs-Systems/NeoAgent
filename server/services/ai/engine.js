@@ -7,6 +7,7 @@ const { ensureDefaultAiSettings, getAiSettings } = require('./settings');
 const { selectToolsForTask } = require('./toolSelector');
 const { compactToolResult } = require('./toolResult');
 const { salvageTextToolCalls } = require('./toolCallSalvage');
+const { sanitizeModelOutput } = require('./outputSanitizer');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -300,13 +301,16 @@ class AgentEngine {
         });
       }
     };
-    const { provider, model, providerName } = await getProviderForUser(
+    const selectedProvider = await getProviderForUser(
       userId,
       userMessage,
       triggerType === 'subagent',
       _modelOverride,
       providerStatusConfig
     );
+    let provider = selectedProvider.provider;
+    let model = selectedProvider.model;
+    let providerName = selectedProvider.providerName;
 
     const runTitle = generateTitle(userMessage);
     db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, title, status, trigger_type, trigger_source, model)
@@ -381,6 +385,7 @@ class AgentEngine {
         this.emit(userId, 'run:thinking', { runId, iteration });
 
         let response;
+        let responseModel = model;
         let streamContent = '';
         const callOptions = { model, reasoningEffort: this.getReasoningEffort(providerName, options) };
 
@@ -391,22 +396,30 @@ class AgentEngine {
               for await (const chunk of gen) {
                 if (chunk.type === 'content') {
                   streamContent += chunk.content;
-                  this.emit(userId, 'run:stream', { runId, content: streamContent, iteration });
+                  this.emit(userId, 'run:stream', {
+                    runId,
+                    content: sanitizeModelOutput(streamContent, { model }),
+                    iteration
+                  });
                 }
                 if (chunk.type === 'done') {
                   response = chunk;
+                  responseModel = model;
                 }
                 if (chunk.type === 'tool_calls') {
                   response = {
                     content: chunk.content || streamContent,
                     toolCalls: chunk.toolCalls,
+                    providerContentBlocks: chunk.providerContentBlocks || null,
                     finishReason: 'tool_calls',
                     usage: chunk.usage || null
                   };
+                  responseModel = model;
                 }
               }
             } else {
               response = await provider.chat(messages, tools, callOptions);
+              responseModel = model;
             }
           } catch (err) {
             console.error(`[Engine] Model call failed (${model}):`, err.message);
@@ -419,33 +432,42 @@ class AgentEngine {
                 aiSettings.fallback_model_id,
                 providerStatusConfig
               );
-              // Update local state for the retry
-              const nextProvider = fallback.provider;
-              const nextModel = fallback.model;
-              const nextProviderName = fallback.providerName;
+              provider = fallback.provider;
+              model = fallback.model;
+              providerName = fallback.providerName;
 
               // Recursive call once
-              const retryOptions = { ...callOptions, model: nextModel, reasoningEffort: this.getReasoningEffort(nextProviderName, options) };
+              const retryOptions = { ...callOptions, model, reasoningEffort: this.getReasoningEffort(providerName, options) };
 
               if (options.stream !== false) {
-                const gen = nextProvider.stream(messages, tools, retryOptions);
+                const gen = provider.stream(messages, tools, retryOptions);
                 for await (const chunk of gen) {
                   if (chunk.type === 'content') {
                     streamContent += chunk.content;
-                    this.emit(userId, 'run:stream', { runId, content: streamContent, iteration });
+                    this.emit(userId, 'run:stream', {
+                      runId,
+                      content: sanitizeModelOutput(streamContent, { model }),
+                      iteration
+                    });
                   }
-                  if (chunk.type === 'done') response = chunk;
+                  if (chunk.type === 'done') {
+                    response = chunk;
+                    responseModel = model;
+                  }
                   if (chunk.type === 'tool_calls') {
                     response = {
                       content: chunk.content || streamContent,
                       toolCalls: chunk.toolCalls,
+                      providerContentBlocks: chunk.providerContentBlocks || null,
                       finishReason: 'tool_calls',
                       usage: chunk.usage || null
                     };
+                    responseModel = model;
                   }
                 }
               } else {
-                response = await nextProvider.chat(messages, tools, retryOptions);
+                response = await provider.chat(messages, tools, retryOptions);
+                responseModel = model;
               }
             } else {
               throw err;
@@ -463,7 +485,7 @@ class AgentEngine {
           totalTokens += response.usage.totalTokens || 0;
         }
 
-        lastContent = response.content || streamContent || '';
+        lastContent = sanitizeModelOutput(response.content || streamContent || '', { model: responseModel });
 
         if ((!response.toolCalls || response.toolCalls.length === 0) && lastContent) {
           const salvaged = salvageTextToolCalls(lastContent, tools);
@@ -477,6 +499,7 @@ class AgentEngine {
 
         const assistantMessage = { role: 'assistant', content: lastContent };
         if (response.toolCalls?.length) assistantMessage.tool_calls = response.toolCalls;
+        if (response.providerContentBlocks?.length) assistantMessage.providerContentBlocks = response.providerContentBlocks;
         messages.push(assistantMessage);
 
         if (conversationId) {
@@ -583,10 +606,14 @@ class AgentEngine {
           model,
           reasoningEffort: this.getReasoningEffort(providerName, options)
         });
-        lastContent = finalResponse.content || '';
+        lastContent = sanitizeModelOutput(finalResponse.content || '', { model });
         forcedFinalResponse = true;
 
-        messages.push({ role: 'assistant', content: lastContent });
+        const finalAssistantMessage = { role: 'assistant', content: lastContent };
+        if (finalResponse.providerContentBlocks?.length) {
+          finalAssistantMessage.providerContentBlocks = finalResponse.providerContentBlocks;
+        }
+        messages.push(finalAssistantMessage);
         if (conversationId) {
           db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
             .run(conversationId, 'assistant', lastContent, finalResponse.usage?.totalTokens || 0);

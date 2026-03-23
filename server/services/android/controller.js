@@ -64,6 +64,25 @@ function commandExists(command) {
   return probe.status === 0;
 }
 
+function parseResolvedLaunchComponent(output, packageName) {
+  const lines = String(output || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const normalizedPackage = String(packageName || '').trim();
+  const componentPattern = /^[A-Za-z0-9._$]+\/[A-Za-z0-9._$]+$/;
+  const relativePattern = /^[A-Za-z0-9._$]+\/\.[A-Za-z0-9._$]+$/;
+
+  const exact = lines.find((line) =>
+    normalizedPackage
+      ? line.startsWith(`${normalizedPackage}/`)
+      : componentPattern.test(line) || relativePattern.test(line)
+  );
+  if (exact) return exact;
+
+  return lines.find((line) => componentPattern.test(line) || relativePattern.test(line)) || null;
+}
+
 function appendState(patch) {
   const current = readState();
   const next = {
@@ -1305,7 +1324,20 @@ class AndroidController {
     if (args.activity) {
       await this.#adb(serial, `shell am start -n ${quoteShell(`${args.packageName}/${args.activity}`)}`, { timeout: 20000 });
     } else if (args.packageName) {
-      await this.#adb(serial, `shell monkey -p ${quoteShell(args.packageName)} -c android.intent.category.LAUNCHER 1`, { timeout: 30000 });
+      const resolved = await this.#runAllowFailure(
+        `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER ${quoteShell(args.packageName)}`,
+        { timeout: 15000 },
+      );
+      const component = parseResolvedLaunchComponent(
+        `${resolved.stdout || ''}\n${resolved.stderr || ''}`,
+        args.packageName,
+      );
+
+      if (component) {
+        await this.#adb(serial, `shell am start -n ${quoteShell(component)}`, { timeout: 20000 });
+      } else {
+        await this.#adb(serial, `shell monkey -p ${quoteShell(args.packageName)} -c android.intent.category.LAUNCHER 1`, { timeout: 30000 });
+      }
     } else {
       throw new Error('packageName is required for android_open_app');
     }
@@ -1458,6 +1490,7 @@ module.exports = {
   configuredSystemImagePackage,
   configuredSystemImagePlatform,
   formatSystemImageError,
+  parseResolvedLaunchComponent,
   parseLatestCmdlineToolsUrl,
   parseSystemImages,
   sanitizeUiXml,

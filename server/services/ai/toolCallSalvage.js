@@ -3,12 +3,36 @@ const { v4: uuidv4 } = require('uuid')
 const INVOKE_OPEN_RE = /(?:[A-Za-z0-9_.-]+:tool_call\s*)?<invoke\s+name="([^"]+)">/g
 const PARAM_OPEN_RE = /<parameter\s+name="([^"]+)">/g
 const PARAM_CLOSED_RE = /<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/g
+const TOOL_WRAPPER_RE = /<\/?[A-Za-z0-9_.-]+:tool_call>/g
+const COMPLETE_INLINE_CALL_RE = /(?:[A-Za-z0-9_.-]+:tool_call\s*)?<invoke\s+name="[^"]+">[\s\S]*?<\/invoke>/g
 const INVOKE_CLOSE = '</invoke>'
 
 function trimLooseControlText(text) {
   return String(text || '')
+    .replace(TOOL_WRAPPER_RE, '')
     .replace(/(?:^|\s)[A-Za-z0-9_.-]+:tool_call\s*$/g, '')
     .trim()
+}
+
+function sanitizeStreamingToolCallText(text) {
+  let visible = String(text || '')
+    .replace(COMPLETE_INLINE_CALL_RE, '')
+    .replace(TOOL_WRAPPER_RE, '')
+
+  const partialStarts = [
+    visible.lastIndexOf('<invoke'),
+    visible.lastIndexOf(':tool_call')
+  ].filter((index) => index >= 0)
+
+  if (partialStarts.length > 0) {
+    const partialStart = Math.max(...partialStarts)
+    const suffix = visible.slice(partialStart)
+    if (!suffix.includes(INVOKE_CLOSE)) {
+      visible = visible.slice(0, partialStart)
+    }
+  }
+
+  return trimLooseControlText(visible).replace(/\n{3,}/g, '\n\n')
 }
 
 function parseParameterMap(body) {
@@ -113,5 +137,6 @@ function salvageTextToolCalls(content, tools = []) {
 }
 
 module.exports = {
-  salvageTextToolCalls
+  salvageTextToolCalls,
+  sanitizeStreamingToolCallText
 }
