@@ -41,6 +41,16 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: true,
     defaultBaseUrl: 'https://api.x.ai/v1'
   },
+  minimax: {
+    id: 'minimax',
+    label: 'MiniMax Code',
+    description: 'MiniMax Coding Plan for MiniMax-M2.7 through the Anthropic-compatible endpoint.',
+    envKey: 'MINIMAX_API_KEY',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://api.minimax.io/anthropic'
+  },
   ollama: {
     id: 'ollama',
     label: 'Ollama',

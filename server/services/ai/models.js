@@ -46,6 +46,12 @@ const STATIC_MODELS = [
         purpose: 'general'
     },
     {
+        id: 'MiniMax-M2.7',
+        label: 'MiniMax M2.7 (Coding Plan)',
+        provider: 'minimax',
+        purpose: 'coding'
+    },
+    {
         id: 'qwen3.5:4b',
         label: 'Qwen 3.5 4B (Local / Ollama)',
         provider: 'ollama',
@@ -210,6 +216,8 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
         return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
     } else if (providerStr === 'google') {
         return new GoogleProvider({ apiKey: runtime.apiKey, ...configOverrides });
+    } else if (providerStr === 'minimax') {
+        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
     } else if (providerStr === 'ollama') {
         return new OllamaProvider({ baseUrl: runtime.baseUrl, ...configOverrides });
     }

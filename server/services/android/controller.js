@@ -456,6 +456,20 @@ function updateIniValue(content, key, value) {
   return `${content.replace(/\s*$/, '')}\n${line}\n`;
 }
 
+function readIniValue(content, key) {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = content.match(new RegExp(`^${escapedKey}=(.*)$`, 'm'));
+  return match ? String(match[1] || '').trim() : null;
+}
+
+function systemImagePackageToRelativeDir(packageName) {
+  const parts = String(packageName || '').split(';').filter(Boolean);
+  if (parts.length !== 4 || parts[0] !== 'system-images') {
+    return null;
+  }
+  return `${parts.join('/')}/`;
+}
+
 function sanitizeUiXml(raw) {
   const text = String(raw || '');
   const start = text.indexOf('<?xml');
@@ -564,10 +578,10 @@ class AndroidController {
         const preferredInstalled =
           chooseConfiguredSystemImage(installedImages) ||
           chooseLatestSystemImage(installedImages);
-        if (
-          preferredInstalled &&
-          preferredInstalled.packageName !== state.systemImage
-        ) {
+        if (!preferredInstalled) {
+          throw new Error(formatSystemImageError(installedImages));
+        }
+        if (preferredInstalled.packageName !== state.systemImage) {
           appendState({
             bootstrapped: true,
             systemImage: preferredInstalled.packageName,
@@ -655,7 +669,18 @@ class AndroidController {
     const pkg = state.systemImage;
     if (!pkg) throw new Error('Android system image not installed');
     const avdExists = list.includes(`Name: ${this.avdName}`);
-    const avdNeedsRecreate = avdExists && (!state.avdSystemImage || state.avdSystemImage !== pkg);
+    let avdNeedsRecreate = avdExists && (!state.avdSystemImage || state.avdSystemImage !== pkg);
+    const configPath = path.join(AVD_HOME, `${this.avdName}.avd`, 'config.ini');
+    if (avdExists && fs.existsSync(configPath)) {
+      try {
+        const config = fs.readFileSync(configPath, 'utf8');
+        const currentImageDir = readIniValue(config, 'image.sysdir.1');
+        const expectedImageDir = systemImagePackageToRelativeDir(pkg);
+        if (expectedImageDir && currentImageDir && currentImageDir !== expectedImageDir) {
+          avdNeedsRecreate = true;
+        }
+      } catch {}
+    }
 
     if (avdNeedsRecreate) {
       await this.stopEmulator().catch(() => {});

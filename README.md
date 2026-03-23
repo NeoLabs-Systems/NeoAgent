@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-MIT-a855f7?style=flat-square)](LICENSE)
 
 A self-hosted, proactive AI agent with a Flutter client for web and Android.  
-Connects to OpenAI, xAI, Google, and local Ollama.  
+Connects to OpenAI, xAI, Google, MiniMax Code, and local Ollama.  
 Runs tasks on a schedule, controls a browser, manages files, and talks to you over Telegram, Discord, or WhatsApp.
 
 ```bash

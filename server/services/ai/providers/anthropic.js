@@ -9,13 +9,15 @@ class AnthropicProvider extends BaseProvider {
       'claude-sonnet-4-20250514',
       'claude-3-5-sonnet-20241022',
       'claude-3-5-haiku-20241022',
-      'claude-3-opus-20240229'
+      'claude-3-opus-20240229',
+      'MiniMax-M2.7'
     ];
     this.contextWindows = {
       'claude-sonnet-4-20250514': 200000,
       'claude-3-5-sonnet-20241022': 200000,
       'claude-3-5-haiku-20241022': 200000,
-      'claude-3-opus-20240229': 200000
+      'claude-3-opus-20240229': 200000,
+      'MiniMax-M2.7': 204800
     };
     this.client = new Anthropic({
       apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY,
