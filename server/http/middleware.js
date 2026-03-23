@@ -5,6 +5,7 @@ const SQLiteStore = require('connect-sqlite3')(session);
 const helmet = require('helmet');
 const cors = require('cors');
 const { DATA_DIR } = require('../../runtime/paths');
+const { logRequestSummary } = require('../utils/logger');
 
 function buildHelmetOptions({ secureCookies }) {
   const wsConnectSrc = secureCookies ? ['wss:'] : ['ws:', 'wss:'];
@@ -71,6 +72,7 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
 
   if (secureCookies) {
     app.set('trust proxy', 1);
+    console.log('[HTTP] trust proxy enabled because secure cookies are active');
   }
 
   app.use(helmet(buildHelmetOptions({ secureCookies })));
@@ -80,6 +82,27 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
       credentials: true
     })
   );
+  app.use((req, res, next) => {
+    const startedAt = Date.now();
+    logRequestSummary('log', req, 'started');
+
+    res.on('finish', () => {
+      const durationMs = Date.now() - startedAt;
+      const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'log';
+      logRequestSummary(level, req, `completed ${res.statusCode} in ${durationMs}ms`, {
+        contentLength: res.getHeader('content-length') || null
+      });
+    });
+
+    res.on('close', () => {
+      if (res.writableEnded) return;
+      logRequestSummary('warn', req, 'connection closed before response finished', {
+        durationMs: Date.now() - startedAt
+      });
+    });
+
+    next();
+  });
   app.use((req, res, next) => {
     if (isRecordingChunkPath(req.originalUrl || req.url || req.path)) {
       return rawRecordingChunkBody(req, res, next);

@@ -1251,61 +1251,85 @@ async function executeTool(toolName, args, context, engine) {
 
             if (triggerSource === 'scheduler' || triggerSource === 'heartbeat') {
                 const manager = msg();
-                let platform = null;
-                let to = null;
+                if (!manager) {
+                    throw new Error('Messaging manager not available');
+                }
 
+                const loadDefaultTarget = () => ({
+                    platform: db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+                        .get(userId, 'last_platform')?.value || null,
+                    to: db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+                        .get(userId, 'last_chat_id')?.value || null
+                });
+
+                let taskConfig = null;
+                let taskTarget = null;
                 if (triggerSource === 'scheduler' && taskId) {
                     const task = db.prepare('SELECT task_config FROM scheduled_tasks WHERE id = ? AND user_id = ?')
                         .get(taskId, userId);
                     if (task?.task_config) {
                         try {
-                            const config = JSON.parse(task.task_config || '{}');
-                            platform = config.notifyPlatform || null;
-                            to = config.notifyTo || null;
+                            taskConfig = JSON.parse(task.task_config || '{}');
+                            taskTarget = {
+                                platform: taskConfig.notifyPlatform || null,
+                                to: taskConfig.notifyTo || null
+                            };
                         } catch { }
                     }
                 }
 
-                if (!platform || !to) {
-                    platform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-                        .get(userId, 'last_platform')?.value || null;
-                    to = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-                        .get(userId, 'last_chat_id')?.value || null;
-                }
-
-                if (!platform || !to) {
-                    return {
-                        sent: false,
-                        error: 'No messaging target is configured for this scheduled run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.'
-                    };
-                }
-
-                if (!manager) {
-                    return { sent: false, error: 'Messaging manager not available' };
-                }
-
-                const status = typeof manager.getPlatformStatus === 'function'
-                    ? manager.getPlatformStatus(userId, platform)
-                    : null;
-                if (!status || status.status !== 'connected') {
-                    return {
-                        sent: false,
-                        error: `Platform ${platform} is not connected on this server.`,
-                        platform,
-                        to
-                    };
-                }
-
-                const sendResult = await manager.sendMessage(userId, platform, to, message);
-                const runState = runId ? engine.activeRuns.get(runId) : null;
-                if (runState) runState.messagingSent = true;
-                return {
-                    sent: true,
-                    via: 'messaging',
-                    platform,
-                    to,
-                    result: sendResult
+                const fallbackTarget = loadDefaultTarget();
+                const candidateTargets = [];
+                const seenTargets = new Set();
+                const addCandidate = (target) => {
+                    if (!target?.platform || !target?.to) return;
+                    const key = `${target.platform}:${target.to}`;
+                    if (seenTargets.has(key)) return;
+                    seenTargets.add(key);
+                    candidateTargets.push(target);
                 };
+
+                addCandidate(taskTarget);
+                addCandidate(fallbackTarget);
+
+                if (candidateTargets.length === 0) {
+                    throw new Error('No messaging target is configured for this scheduled run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.');
+                }
+
+                let lastError = null;
+                for (const target of candidateTargets) {
+                    const status = typeof manager.getPlatformStatus === 'function'
+                        ? manager.getPlatformStatus(userId, target.platform)
+                        : null;
+                    if (!status || status.status !== 'connected') {
+                        lastError = new Error(`Platform ${target.platform} is not connected on this server.`);
+                        continue;
+                    }
+
+                    try {
+                        const sendResult = await manager.sendMessage(userId, target.platform, target.to, message);
+                        if (taskId && taskConfig && (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to)) {
+                            taskConfig.notifyPlatform = target.platform;
+                            taskConfig.notifyTo = target.to;
+                            db.prepare('UPDATE scheduled_tasks SET task_config = ? WHERE id = ? AND user_id = ?')
+                                .run(JSON.stringify(taskConfig), taskId, userId);
+                        }
+
+                        const runState = runId ? engine.activeRuns.get(runId) : null;
+                        if (runState) runState.messagingSent = true;
+                        return {
+                            sent: true,
+                            via: 'messaging',
+                            platform: target.platform,
+                            to: target.to,
+                            result: sendResult
+                        };
+                    } catch (err) {
+                        lastError = err;
+                    }
+                }
+
+                throw (lastError || new Error('Failed to deliver scheduled notification.'));
             }
 
             engine.emit(userId, 'run:interim', { runId, message });
