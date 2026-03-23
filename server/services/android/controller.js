@@ -1169,6 +1169,41 @@ class AndroidController {
     };
   }
 
+  async longPress(args = {}) {
+    let x = Number(args.x);
+    let y = Number(args.y);
+    let node = null;
+    let serial = await this.ensureDevice();
+    let uiDumpPath = null;
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      const resolved = await this.#resolveSelector(args);
+      serial = resolved.serial;
+      node = resolved.node;
+      uiDumpPath = resolved.uiDumpPath;
+      x = node.bounds.centerX;
+      y = node.bounds.centerY;
+    }
+
+    const durationMs = Math.max(250, Number(args.durationMs) || 650);
+    await this.#adb(
+      serial,
+      `shell input swipe ${Math.round(x)} ${Math.round(y)} ${Math.round(x)} ${Math.round(y)} ${Math.round(durationMs)}`,
+      { timeout: Math.max(15000, durationMs + 5000) },
+    );
+    const shot = await this.screenshot();
+    return {
+      success: true,
+      serial,
+      x: Math.round(x),
+      y: Math.round(y),
+      durationMs,
+      target: summarizeNode(node),
+      uiDumpPath,
+      screenshotPath: shot.screenshotPath,
+    };
+  }
+
   async type(args = {}) {
     const serial = await this.ensureDevice();
     if (args.clear === true) {
@@ -1335,6 +1370,23 @@ class AndroidController {
       success: true,
       serial,
       apkPath,
+    };
+  }
+
+  async shell(args = {}) {
+    const serial = await this.ensureDevice();
+    const command = String(args.command || '').trim();
+    if (!command) throw new Error('command is required for android_shell');
+
+    const timeout = Math.max(1000, Number(args.timeoutMs) || 20000);
+    const stdout = await this.#adb(serial, `shell ${quoteShell(command)}`, { timeout });
+    const shot = args.screenshot === true ? await this.screenshot() : null;
+    return {
+      success: true,
+      serial,
+      command,
+      stdout,
+      screenshotPath: shot?.screenshotPath || null,
     };
   }
 

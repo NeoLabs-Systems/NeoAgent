@@ -214,6 +214,24 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'android_long_press',
+            description: 'Long-press an Android UI element or screen coordinate. Useful for context menus, drag handles, rearranging icons, and long-click actions.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    x: { type: 'number', description: 'Absolute X coordinate' },
+                    y: { type: 'number', description: 'Absolute Y coordinate' },
+                    text: { type: 'string', description: 'Visible text to match in the UI dump' },
+                    resourceId: { type: 'string', description: 'Android resource-id to match' },
+                    description: { type: 'string', description: 'content-desc / accessibility label to match' },
+                    className: { type: 'string', description: 'Optional class name filter' },
+                    packageName: { type: 'string', description: 'Optional package filter' },
+                    clickable: { type: 'boolean', description: 'Prefer clickable elements' },
+                    durationMs: { type: 'number', description: 'Press duration in milliseconds (default 650)' }
+                }
+            }
+        },
+        {
             name: 'android_type',
             description: 'Type text into the focused Android field, optionally tapping a matched element first.',
             parameters: {
@@ -311,6 +329,19 @@ function getAvailableTools(app, options = {}) {
                     apkPath: { type: 'string', description: 'Absolute path to the APK file on disk' }
                 },
                 required: ['apkPath']
+            }
+        },
+        {
+            name: 'android_shell',
+            description: 'Run an adb shell command on the active Android device or emulator. Use this when a needed phone action is not covered by a higher-level Android tool.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    command: { type: 'string', description: 'Shell command to run on-device, without the leading "adb shell"' },
+                    timeoutMs: { type: 'number', description: 'Timeout in milliseconds (default 20000)' },
+                    screenshot: { type: 'boolean', description: 'Capture a screenshot after the command if it changes the UI (default false)' }
+                },
+                required: ['command']
             }
         },
         {
@@ -879,6 +910,12 @@ async function executeTool(toolName, args, context, engine) {
             return await controller.tap(args || {});
         }
 
+        case 'android_long_press': {
+            const controller = ac();
+            if (!controller) return { error: 'Android controller not available' };
+            return await controller.longPress(args || {});
+        }
+
         case 'android_type': {
             const controller = ac();
             if (!controller) return { error: 'Android controller not available' };
@@ -925,6 +962,12 @@ async function executeTool(toolName, args, context, engine) {
             const controller = ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.installApk(args || {});
+        }
+
+        case 'android_shell': {
+            const controller = ac();
+            if (!controller) return { error: 'Android controller not available' };
+            return await controller.shell(args || {});
         }
 
         case 'web_search': {

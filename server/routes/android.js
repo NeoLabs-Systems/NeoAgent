@@ -132,6 +132,15 @@ router.post('/tap', async (req, res) => {
   }
 });
 
+router.post('/long-press', async (req, res) => {
+  try {
+    const controller = req.app.locals.androidController;
+    res.json(await controller.longPress(req.body || {}));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 router.post('/type', async (req, res) => {
   try {
     const controller = req.app.locals.androidController;
@@ -200,6 +209,15 @@ router.post('/install-apk', (req, res) => {
       fs.promises.unlink(uploadedApkPath).catch(() => {});
     }
   });
+});
+
+router.post('/shell', async (req, res) => {
+  try {
+    const controller = req.app.locals.androidController;
+    res.json(await controller.shell(req.body || {}));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
 });
 
 module.exports = router;
