@@ -37,6 +37,50 @@ class AnthropicProvider extends BaseProvider {
     }));
   }
 
+  normalizeContentBlocks(blocks = []) {
+    const normalized = [];
+
+    for (const block of blocks) {
+      if (!block || !block.type) continue;
+
+      if (block.type === 'thinking') {
+        normalized.push({
+          type: 'thinking',
+          thinking: block.thinking || '',
+          ...(block.signature ? { signature: block.signature } : {})
+        });
+        continue;
+      }
+
+      if (block.type === 'redacted_thinking') {
+        normalized.push({
+          type: 'redacted_thinking',
+          data: block.data
+        });
+        continue;
+      }
+
+      if (block.type === 'text') {
+        normalized.push({
+          type: 'text',
+          text: block.text || ''
+        });
+        continue;
+      }
+
+      if (block.type === 'tool_use') {
+        normalized.push({
+          type: 'tool_use',
+          id: block.id,
+          name: block.name,
+          input: block.input || {}
+        });
+      }
+    }
+
+    return normalized;
+  }
+
   convertMessages(messages) {
     let system = '';
     const converted = [];
@@ -60,6 +104,14 @@ class AnthropicProvider extends BaseProvider {
       }
 
       if (msg.role === 'assistant' && msg.tool_calls) {
+        if (Array.isArray(msg.providerContentBlocks) && msg.providerContentBlocks.length > 0) {
+          converted.push({
+            role: 'assistant',
+            content: this.normalizeContentBlocks(msg.providerContentBlocks)
+          });
+          continue;
+        }
+
         const content = [];
         if (msg.content) content.push({ type: 'text', text: msg.content });
         for (const tc of msg.tool_calls) {
@@ -100,6 +152,7 @@ class AnthropicProvider extends BaseProvider {
 
     let content = '';
     const toolCalls = [];
+    const providerContentBlocks = this.normalizeContentBlocks(response.content);
 
     for (const block of response.content) {
       if (block.type === 'text') {
@@ -119,6 +172,7 @@ class AnthropicProvider extends BaseProvider {
     return {
       content,
       toolCalls,
+      providerContentBlocks,
       finishReason: response.stop_reason === 'tool_use' ? 'tool_calls' : 'stop',
       usage: {
         promptTokens: response.usage.input_tokens,
@@ -148,31 +202,106 @@ class AnthropicProvider extends BaseProvider {
     let content = '';
     let currentToolCalls = [];
     let currentToolIndex = -1;
+    const providerContentBlocks = [];
 
     for await (const event of stream) {
       if (event.type === 'content_block_start') {
-        if (event.content_block.type === 'tool_use') {
+        if (event.content_block.type === 'thinking') {
+          providerContentBlocks[event.index] = {
+            type: 'thinking',
+            thinking: event.content_block.thinking || '',
+            signature: event.content_block.signature || ''
+          };
+        } else if (event.content_block.type === 'redacted_thinking') {
+          providerContentBlocks[event.index] = {
+            type: 'redacted_thinking',
+            data: event.content_block.data
+          };
+        } else if (event.content_block.type === 'text') {
+          providerContentBlocks[event.index] = {
+            type: 'text',
+            text: event.content_block.text || ''
+          };
+        } else if (event.content_block.type === 'tool_use') {
           currentToolIndex++;
           currentToolCalls.push({
             id: event.content_block.id,
             type: 'function',
             function: { name: event.content_block.name, arguments: '' }
           });
+          providerContentBlocks[event.index] = {
+            type: 'tool_use',
+            id: event.content_block.id,
+            name: event.content_block.name,
+            input: {}
+          };
         }
       } else if (event.type === 'content_block_delta') {
         if (event.delta.type === 'text_delta') {
           content += event.delta.text;
+          if (providerContentBlocks[event.index]?.type === 'text') {
+            providerContentBlocks[event.index].text += event.delta.text;
+          }
           yield { type: 'content', content: event.delta.text };
+        } else if (event.delta.type === 'thinking_delta') {
+          if (providerContentBlocks[event.index]?.type === 'thinking') {
+            providerContentBlocks[event.index].thinking += event.delta.thinking || '';
+          }
+        } else if (event.delta.type === 'signature_delta') {
+          if (providerContentBlocks[event.index]?.type === 'thinking') {
+            providerContentBlocks[event.index].signature = event.delta.signature || '';
+          }
         } else if (event.delta.type === 'input_json_delta') {
           if (currentToolCalls[currentToolIndex]) {
             currentToolCalls[currentToolIndex].function.arguments += event.delta.partial_json;
           }
+          if (providerContentBlocks[event.index]?.type === 'tool_use') {
+            const currentJson = providerContentBlocks[event.index]._inputJson || '';
+            providerContentBlocks[event.index]._inputJson = currentJson + (event.delta.partial_json || '');
+          }
         }
       } else if (event.type === 'message_stop') {
+        const normalizedBlocks = providerContentBlocks
+          .filter(Boolean)
+          .map((block) => {
+            if (block.type === 'tool_use') {
+              let parsedInput = block.input || {};
+              if (typeof block._inputJson === 'string' && block._inputJson.trim()) {
+                try {
+                  parsedInput = JSON.parse(block._inputJson);
+                } catch { }
+              }
+              return {
+                type: 'tool_use',
+                id: block.id,
+                name: block.name,
+                input: parsedInput
+              };
+            }
+            if (block.type === 'thinking') {
+              return {
+                type: 'thinking',
+                thinking: block.thinking || '',
+                ...(block.signature ? { signature: block.signature } : {})
+              };
+            }
+            if (block.type === 'redacted_thinking') {
+              return {
+                type: 'redacted_thinking',
+                data: block.data
+              };
+            }
+            return {
+              type: 'text',
+              text: block.text || ''
+            };
+          });
+
         yield {
           type: 'done',
           content,
           toolCalls: currentToolCalls,
+          providerContentBlocks: normalizedBlocks,
           finishReason: currentToolCalls.length > 0 ? 'tool_calls' : 'stop',
           usage: null
         };
