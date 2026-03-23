@@ -237,7 +237,11 @@ class _RunStatusPanel extends StatelessWidget {
                       Text(
                         run == null
                             ? 'Waiting for run events...'
-                            : '${run!.phase}${run!.iteration > 0 ? ' · step ${run!.iteration}' : ''}',
+                            : [
+                                '${run!.phase}${run!.iteration > 0 ? ' · step ${run!.iteration}' : ''}',
+                                if (run!.pendingSteeringCount > 0)
+                                  '${run!.pendingSteeringCount} steering ${run!.pendingSteeringCount == 1 ? 'update' : 'updates'} queued',
+                              ].join(' · '),
                         style: const TextStyle(color: _textSecondary),
                       ),
                     ],

@@ -90,10 +90,12 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       break;
 
     case 'android_dump_ui':
+    case 'android_observe':
       envelope = trimObject({
         tool: toolName,
         serial: toolResult?.serial,
         nodeCount: toolResult?.nodeCount,
+        screenshotPath: toolResult?.screenshotPath,
         uiDumpPath: toolResult?.uiDumpPath,
         preview: clampText(JSON.stringify(toolResult?.preview || []).slice(0, Math.floor(softLimit * 0.55)), Math.floor(softLimit * 0.55))
       });

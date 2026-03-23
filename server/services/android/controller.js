@@ -1104,7 +1104,7 @@ class AndroidController {
   }
 
   async screenshot(options = {}) {
-    const serial = await this.ensureDevice();
+    const serial = options.serial || await this.ensureDevice();
     const filename = `android_${Date.now()}.png`;
     const fullPath = path.join(SCREENSHOTS_DIR, filename);
     await this.#run(`${quoteShell(adbBinary())} -s ${quoteShell(serial)} exec-out screencap -p > ${quoteShell(fullPath)}`, { timeout: 30000 });
@@ -1117,7 +1117,7 @@ class AndroidController {
   }
 
   async dumpUi(options = {}) {
-    const serial = await this.ensureDevice();
+    const serial = options.serial || await this.ensureDevice();
     let xml = await this.#adb(serial, 'shell uiautomator dump --compressed /dev/tty', { timeout: 30000 });
     if (!String(xml || '').includes('<hierarchy')) {
       const remote = '/sdcard/neoagent-ui.xml';
@@ -1137,6 +1137,63 @@ class AndroidController {
       uiDumpPath: fullPath,
       preview: options.includeNodes === false ? undefined : nodes.slice(0, 25).map((node) => summarizeNode(node)),
       xml,
+    };
+  }
+
+  async #captureObservation(serial, options = {}) {
+    const resolvedSerial = serial || await this.ensureDevice();
+    const observation = {
+      serial: resolvedSerial,
+      screenshotPath: null,
+      fullPath: null,
+      uiDumpPath: null,
+      nodeCount: null,
+      preview: undefined,
+      observationWarnings: [],
+    };
+
+    if (options.screenshot !== false) {
+      try {
+        const shot = await this.screenshot({ serial: resolvedSerial });
+        observation.screenshotPath = shot?.screenshotPath || null;
+        observation.fullPath = shot?.fullPath || null;
+      } catch (err) {
+        observation.observationWarnings.push(`screenshot: ${err.message}`);
+      }
+    }
+
+    try {
+      const dump = await this.dumpUi({
+        serial: resolvedSerial,
+        includeNodes: options.includeNodes !== false,
+      });
+      observation.uiDumpPath = dump.uiDumpPath;
+      observation.nodeCount = dump.nodeCount;
+      observation.preview = dump.preview;
+    } catch (err) {
+      observation.observationWarnings.push(`ui_dump: ${err.message}`);
+    }
+
+    if (observation.observationWarnings.length === 0) {
+      delete observation.observationWarnings;
+    }
+
+    return observation;
+  }
+
+  async observe(options = {}) {
+    const serial = options.serial || await this.ensureDevice();
+    const observation = await this.#captureObservation(serial, options);
+    if (!observation.screenshotPath && !observation.uiDumpPath) {
+      throw new Error(
+        Array.isArray(observation.observationWarnings) && observation.observationWarnings.length > 0
+          ? observation.observationWarnings.join(' | ')
+          : 'Unable to capture Android observation',
+      );
+    }
+    return {
+      success: true,
+      ...observation,
     };
   }
 
@@ -1164,27 +1221,27 @@ class AndroidController {
     let y = Number(args.y);
     let node = null;
     let serial = await this.ensureDevice();
-    let uiDumpPath = null;
+    let resolvedFromUiDumpPath = null;
 
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
       const resolved = await this.#resolveSelector(args);
       serial = resolved.serial;
       node = resolved.node;
-      uiDumpPath = resolved.uiDumpPath;
+      resolvedFromUiDumpPath = resolved.uiDumpPath;
       x = node.bounds.centerX;
       y = node.bounds.centerY;
     }
 
     await this.#adb(serial, `shell input tap ${Math.round(x)} ${Math.round(y)}`, { timeout: 15000 });
-    const shot = await this.screenshot();
+    const observation = await this.#captureObservation(serial);
     return {
       success: true,
       serial,
       x: Math.round(x),
       y: Math.round(y),
       target: summarizeNode(node),
-      uiDumpPath,
-      screenshotPath: shot.screenshotPath,
+      resolvedFromUiDumpPath,
+      ...observation,
     };
   }
 
@@ -1193,13 +1250,13 @@ class AndroidController {
     let y = Number(args.y);
     let node = null;
     let serial = await this.ensureDevice();
-    let uiDumpPath = null;
+    let resolvedFromUiDumpPath = null;
 
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
       const resolved = await this.#resolveSelector(args);
       serial = resolved.serial;
       node = resolved.node;
-      uiDumpPath = resolved.uiDumpPath;
+      resolvedFromUiDumpPath = resolved.uiDumpPath;
       x = node.bounds.centerX;
       y = node.bounds.centerY;
     }
@@ -1210,7 +1267,7 @@ class AndroidController {
       `shell input swipe ${Math.round(x)} ${Math.round(y)} ${Math.round(x)} ${Math.round(y)} ${Math.round(durationMs)}`,
       { timeout: Math.max(15000, durationMs + 5000) },
     );
-    const shot = await this.screenshot();
+    const observation = await this.#captureObservation(serial);
     return {
       success: true,
       serial,
@@ -1218,8 +1275,8 @@ class AndroidController {
       y: Math.round(y),
       durationMs,
       target: summarizeNode(node),
-      uiDumpPath,
-      screenshotPath: shot.screenshotPath,
+      resolvedFromUiDumpPath,
+      ...observation,
     };
   }
 
@@ -1244,12 +1301,12 @@ class AndroidController {
     if (args.pressEnter) {
       await this.#adb(serial, 'shell input keyevent 66', { timeout: 10000 });
     }
-    const shot = await this.screenshot();
+    const observation = await this.#captureObservation(serial);
     return {
       success: true,
       serial,
       typed: args.text || '',
-      screenshotPath: shot.screenshotPath,
+      ...observation,
     };
   }
 
@@ -1264,11 +1321,11 @@ class AndroidController {
       throw new Error('x1, y1, x2, and y2 are required for android_swipe');
     }
     await this.#adb(serial, `shell input swipe ${Math.round(x1)} ${Math.round(y1)} ${Math.round(x2)} ${Math.round(y2)} ${Math.round(duration)}`, { timeout: 15000 });
-    const shot = await this.screenshot();
+    const observation = await this.#captureObservation(serial);
     return {
       success: true,
       serial,
-      screenshotPath: shot.screenshotPath,
+      ...observation,
     };
   }
 
@@ -1278,13 +1335,13 @@ class AndroidController {
     const keyCode = Number.isFinite(Number(raw)) ? Number(raw) : (DEFAULT_KEYEVENTS[raw] || null);
     if (!keyCode) throw new Error(`Unsupported Android key: ${args.key}`);
     await this.#adb(serial, `shell input keyevent ${keyCode}`, { timeout: 10000 });
-    const shot = await this.screenshot();
+    const observation = await this.#captureObservation(serial);
     return {
       success: true,
       serial,
       key: args.key,
       keyCode,
-      screenshotPath: shot.screenshotPath,
+      ...observation,
     };
   }
 
@@ -1304,13 +1361,15 @@ class AndroidController {
         clickable: args.clickable,
       });
       if (node) {
-        const shot = args.screenshot === false ? null : await this.screenshot();
+        const observation = await this.#captureObservation(dump.serial, {
+          screenshot: args.screenshot !== false,
+        });
         return {
           success: true,
           serial: dump.serial,
           matched: summarizeNode(node),
-          uiDumpPath: dump.uiDumpPath,
-          screenshotPath: shot?.screenshotPath || null,
+          matchedFromUiDumpPath: dump.uiDumpPath,
+          ...observation,
         };
       }
       await sleep(intervalMs);
@@ -1341,13 +1400,13 @@ class AndroidController {
     } else {
       throw new Error('packageName is required for android_open_app');
     }
-    const shot = await this.screenshot();
+    const observation = await this.#captureObservation(serial);
     return {
       success: true,
       serial,
       packageName: args.packageName,
       activity: args.activity || null,
-      screenshotPath: shot.screenshotPath,
+      ...observation,
     };
   }
 
@@ -1367,11 +1426,11 @@ class AndroidController {
     }
 
     await this.#adb(serial, parts.join(' '), { timeout: 20000 });
-    const shot = await this.screenshot();
+    const observation = await this.#captureObservation(serial);
     return {
       success: true,
       serial,
-      screenshotPath: shot.screenshotPath,
+      ...observation,
     };
   }
 
@@ -1412,13 +1471,19 @@ class AndroidController {
 
     const timeout = Math.max(1000, Number(args.timeoutMs) || 20000);
     const stdout = await this.#adb(serial, `shell ${quoteShell(command)}`, { timeout });
-    const shot = args.screenshot === true ? await this.screenshot() : null;
+    const observation = args.screenshot === true
+      ? await this.#captureObservation(serial)
+      : null;
     return {
       success: true,
       serial,
       command,
       stdout,
-      screenshotPath: shot?.screenshotPath || null,
+      screenshotPath: observation?.screenshotPath || null,
+      fullPath: observation?.fullPath || null,
+      uiDumpPath: observation?.uiDumpPath || null,
+      nodeCount: observation?.nodeCount,
+      preview: observation?.preview,
     };
   }
 

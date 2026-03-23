@@ -163,6 +163,86 @@ class AgentEngine {
     return this.activeRuns.get(runId) || null;
   }
 
+  findActiveRunForUser(userId, predicate = null) {
+    let candidate = null;
+    for (const [runId, runMeta] of this.activeRuns.entries()) {
+      if (runMeta.userId !== userId || runMeta.aborted) continue;
+      if (typeof predicate === 'function' && !predicate(runMeta, runId)) continue;
+      if (!candidate || (runMeta.startedAt || 0) >= (candidate.startedAt || 0)) {
+        candidate = { runId, ...runMeta };
+      }
+    }
+    return candidate;
+  }
+
+  findSteerableRunForUser(userId, triggerSource = 'web') {
+    return this.findActiveRunForUser(
+      userId,
+      (runMeta) => runMeta.triggerSource === triggerSource && runMeta.triggerType === 'user'
+    );
+  }
+
+  enqueueSteering(runId, content, metadata = {}) {
+    const runMeta = this.getRunMeta(runId);
+    const trimmed = typeof content === 'string' ? content.trim() : '';
+    if (!runMeta || runMeta.aborted || !trimmed) return null;
+
+    const item = {
+      id: uuidv4(),
+      content: trimmed,
+      metadata,
+      createdAt: new Date().toISOString()
+    };
+
+    runMeta.steeringQueue.push(item);
+    this.emit(runMeta.userId, 'run:steer_queued', {
+      runId,
+      content: item.content,
+      pendingCount: runMeta.steeringQueue.length
+    });
+
+    return {
+      runId,
+      pendingCount: runMeta.steeringQueue.length,
+      item
+    };
+  }
+
+  applyQueuedSteering(runId, messages, { userId, conversationId }) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta?.steeringQueue?.length) {
+      return { messages, appliedCount: 0 };
+    }
+
+    const queued = runMeta.steeringQueue.splice(0, runMeta.steeringQueue.length);
+    messages.push({
+      role: 'system',
+      content: [
+        'The user sent follow-up messages while you were already working.',
+        'Treat them as steering or next-up context for the same conversation.',
+        'If a message materially changes the active task, incorporate it now.',
+        'If it is unrelated or better handled after the current task, finish the current work first and then address it.'
+      ].join(' ')
+    });
+
+    for (const entry of queued) {
+      messages.push({ role: 'user', content: entry.content });
+      if (conversationId) {
+        db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
+          .run(conversationId, 'user', entry.content);
+      }
+    }
+
+    this.emit(userId, 'run:steer_applied', {
+      runId,
+      count: queued.length,
+      pendingCount: runMeta.steeringQueue.length,
+      latestContent: queued[queued.length - 1]?.content || ''
+    });
+
+    return { messages, appliedCount: queued.length };
+  }
+
   isRunStopped(runId) {
     return this.getRunMeta(runId)?.aborted === true;
   }
@@ -321,8 +401,12 @@ class AgentEngine {
       status: 'running',
       aborted: false,
       messagingSent: false,
+      triggerType,
+      triggerSource,
+      startedAt: Date.now(),
       lastToolName: null,
       lastToolTarget: null,
+      steeringQueue: [],
       toolPids: new Set()
     });
     this.emit(userId, 'run:start', { runId, title: runTitle, model, triggerType, triggerSource });
@@ -371,6 +455,12 @@ class AgentEngine {
       while (iteration < maxIterations) {
         if (this.isRunStopped(runId)) break;
         iteration++;
+
+        const steeringAtLoopStart = this.applyQueuedSteering(runId, messages, {
+          userId,
+          conversationId
+        });
+        messages = steeringAtLoopStart.messages;
 
         let metrics = this.estimatePromptMetrics(messages, tools);
         const contextWindow = provider.getContextWindow(model);
@@ -513,7 +603,19 @@ class AgentEngine {
             );
         }
 
-        if (!response.toolCalls || response.toolCalls.length === 0) break;
+        if (!response.toolCalls || response.toolCalls.length === 0) {
+          const steeringAfterResponse = this.applyQueuedSteering(runId, messages, {
+            userId,
+            conversationId
+          });
+          messages = steeringAfterResponse.messages;
+          if (steeringAfterResponse.appliedCount > 0) {
+            iteration = Math.max(0, iteration - 1);
+            lastContent = '';
+            continue;
+          }
+          break;
+        }
 
         for (const toolCall of response.toolCalls) {
           if (this.isRunStopped(runId)) break;

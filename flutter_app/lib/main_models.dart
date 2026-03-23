@@ -1337,6 +1337,7 @@ class ActiveRunState {
     required this.triggerSource,
     required this.phase,
     required this.iteration,
+    this.pendingSteeringCount = 0,
   });
 
   factory ActiveRunState.pending(String task) {
@@ -1347,6 +1348,7 @@ class ActiveRunState {
       triggerSource: 'web',
       phase: 'Queued',
       iteration: 0,
+      pendingSteeringCount: 0,
     );
   }
 
@@ -1356,6 +1358,7 @@ class ActiveRunState {
   final String triggerSource;
   final String phase;
   final int iteration;
+  final int pendingSteeringCount;
 
   ActiveRunState copyWith({
     String? runId,
@@ -1364,6 +1367,7 @@ class ActiveRunState {
     String? triggerSource,
     String? phase,
     int? iteration,
+    int? pendingSteeringCount,
   }) {
     return ActiveRunState(
       runId: runId ?? this.runId,
@@ -1372,6 +1376,7 @@ class ActiveRunState {
       triggerSource: triggerSource ?? this.triggerSource,
       phase: phase ?? this.phase,
       iteration: iteration ?? this.iteration,
+      pendingSteeringCount: pendingSteeringCount ?? this.pendingSteeringCount,
     );
   }
 }

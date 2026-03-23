@@ -76,6 +76,25 @@ function setupWebSocket(io, services) {
           }
         }
 
+        const activeRun = agentEngine.findSteerableRunForUser(userId, 'web');
+        if (activeRun) {
+          const queued = agentEngine.enqueueSteering(activeRun.runId, task, {
+            platform: 'web',
+            socketId: socket.id
+          });
+          if (queued) {
+            db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+              .run(
+                userId,
+                activeRun.runId,
+                'user',
+                task,
+                JSON.stringify({ platform: 'web', steering: true })
+              );
+            return;
+          }
+        }
+
         db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
           .run(userId, 'user', task, JSON.stringify({ platform: 'web' }));
 

@@ -48,6 +48,14 @@ class OpenAIProvider extends BaseProvider {
     return 128000;
   }
 
+  supportsVision() {
+    return true;
+  }
+
+  getDefaultVisionModel() {
+    return 'gpt-4.1-mini';
+  }
+
   _buildParams(model, messages, tools, options) {
     const isReasoning = this.isReasoningModel(model);
     // Reasoning models (GPT-5, o-series): use developer role for system messages
@@ -162,6 +170,32 @@ class OpenAIProvider extends BaseProvider {
         };
       }
     }
+  }
+
+  async analyzeImage(options = {}) {
+    const model = options.model || this.getDefaultVisionModel();
+    const b64 = BaseProvider.readImageAsBase64(options.imagePath);
+    const response = await this.client.chat.completions.create({
+      model,
+      max_tokens: options.maxTokens || 4096,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: options.question || 'Describe this image in detail.' },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${options.mimeType || 'image/jpeg'};base64,${b64}`
+            }
+          }
+        ]
+      }]
+    });
+
+    return {
+      content: response.choices[0]?.message?.content || '',
+      model: response.model || model,
+    };
   }
 }
 

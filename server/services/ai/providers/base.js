@@ -1,4 +1,9 @@
 class BaseProvider {
+  static readImageAsBase64(imagePath) {
+    const fs = require('fs');
+    return fs.readFileSync(imagePath).toString('base64');
+  }
+
   constructor(config = {}) {
     this.config = config;
     this.name = 'base';
@@ -35,6 +40,18 @@ class BaseProvider {
 
   getContextWindow(model) {
     return 128000;
+  }
+
+  supportsVision() {
+    return false;
+  }
+
+  getDefaultVisionModel() {
+    return null;
+  }
+
+  async analyzeImage(_options = {}) {
+    throw new Error(`Provider '${this.name}' does not support image analysis`);
   }
 }
 

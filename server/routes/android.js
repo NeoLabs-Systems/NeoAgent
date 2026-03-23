@@ -85,6 +85,15 @@ router.post('/screenshot', async (req, res) => {
   }
 });
 
+router.post('/observe', async (req, res) => {
+  try {
+    const controller = req.app.locals.androidController;
+    res.json(await controller.observe(req.body || {}));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 router.post('/ui-dump', async (req, res) => {
   try {
     const controller = req.app.locals.androidController;
