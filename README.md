@@ -22,8 +22,11 @@ Manage the service:
 ```bash
 neoagent status
 neoagent update
+neoagent fix
 neoagent logs
 ```
+
+Use `neoagent fix` if a self-edit or broken local install leaves NeoAgent in a bad state. On git installs it backs up runtime data, saves local tracked changes, resets tracked source files, reinstalls dependencies, and restarts the service.
 
 ---
 
