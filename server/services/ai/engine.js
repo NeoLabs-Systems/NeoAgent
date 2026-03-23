@@ -49,12 +49,22 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
     console.error('Failed to fetch model settings:', e.message);
   }
 
-  if (!Array.isArray(enabledIds) || enabledIds.length === 0) {
-    enabledIds = models.map((m) => m.id);
+  const knownModelIds = new Set(models.map((m) => m.id));
+  const selectableModels = models.filter((m) => m.available !== false);
+
+  enabledIds = Array.isArray(enabledIds)
+    ? enabledIds
+      .map((id) => String(id))
+      .filter((id) => knownModelIds.has(id))
+    : [];
+
+  let availableModels = selectableModels.filter((m) => enabledIds.includes(m.id));
+  if (availableModels.length === 0) {
+    enabledIds = selectableModels.map((m) => m.id);
+    availableModels = [...selectableModels];
   }
 
-  const availableModels = models.filter((m) => enabledIds.includes(m.id) && m.available !== false);
-  const fallbackModel = availableModels.length > 0 ? availableModels[0] : models.find((m) => m.available !== false);
+  const fallbackModel = availableModels.length > 0 ? availableModels[0] : selectableModels[0];
 
   if (!fallbackModel) {
     throw new Error('No AI providers are currently available. Open Settings and configure at least one provider.');

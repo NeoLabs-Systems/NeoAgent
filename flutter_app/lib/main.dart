@@ -2137,7 +2137,14 @@ class NeoAgentController extends ChangeNotifier {
   List<String> get enabledModelIds {
     final raw = settings['enabled_models'];
     if (raw is List) {
-      return raw.map((item) => item.toString()).toList();
+      final knownIds = supportedModels.map((model) => model.id).toSet();
+      final filtered = raw
+          .map((item) => item.toString())
+          .where((id) => knownIds.contains(id))
+          .toList();
+      if (filtered.isNotEmpty) {
+        return filtered;
+      }
     }
     return supportedModels
         .where((model) => model.available)
@@ -6845,6 +6852,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   void _hydrate() {
     final controller = widget.controller;
+    final knownModels = controller.supportedModels
+        .map((model) => model.id)
+        .toSet();
     final availableModels = controller.supportedModels
         .where((model) => model.available)
         .map((model) => model.id)
@@ -6853,7 +6863,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _headlessBrowser = controller.headlessBrowser;
     _autoSkillLearning = controller.autoSkillLearning;
     _smarterSelector = controller.smarterSelector;
-    _enabledModels = controller.enabledModelIds.toSet();
+    _enabledModels = controller.enabledModelIds
+        .where((id) => knownModels.contains(id))
+        .toSet();
     if (_enabledModels.isEmpty && availableModels.isNotEmpty) {
       _enabledModels = availableModels;
     }
