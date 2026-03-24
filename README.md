@@ -15,7 +15,7 @@
   Runs tasks on a schedule, controls a browser, manages files, and talks to you over Telegram, Discord, or WhatsApp.
 </p>
 
-| Web UI | Mobile Telegram |
+| | |
 | --- | --- |
 | <img alt="WebUI" src="https://github.com/user-attachments/assets/3c76d59a-b6e3-4698-929b-9c94741ccf1e"> | <img alt="Mobile Telegram" src="https://github.com/user-attachments/assets/1fd41a9b-5452-4aa4-9478-888c8ad7363a" width="280"> |
 
