@@ -302,10 +302,16 @@ class BackendClient {
     String baseUrl, {
     required String packageName,
     String? activity,
+    bool screenshot = true,
+    bool uiDump = true,
+    bool includeNodes = true,
   }) async {
     return postMap(baseUrl, '/api/android/open-app', <String, dynamic>{
       'packageName': packageName,
       if (activity != null && activity.isNotEmpty) 'activity': activity,
+      'screenshot': screenshot,
+      'uiDump': uiDump,
+      'includeNodes': includeNodes,
     });
   }
 
@@ -315,6 +321,9 @@ class BackendClient {
     String? dataUri,
     String? packageName,
     String? component,
+    bool screenshot = true,
+    bool uiDump = true,
+    bool includeNodes = true,
   }) async {
     return postMap(baseUrl, '/api/android/open-intent', <String, dynamic>{
       if (action != null && action.isNotEmpty) 'action': action,
@@ -322,6 +331,9 @@ class BackendClient {
       if (packageName != null && packageName.isNotEmpty)
         'packageName': packageName,
       if (component != null && component.isNotEmpty) 'component': component,
+      'screenshot': screenshot,
+      'uiDump': uiDump,
+      'includeNodes': includeNodes,
     });
   }
 
@@ -349,9 +361,15 @@ class BackendClient {
   Future<Map<String, dynamic>> pressAndroidKey(
     String baseUrl, {
     required String key,
+    bool screenshot = true,
+    bool uiDump = true,
+    bool includeNodes = true,
   }) async {
     return postMap(baseUrl, '/api/android/press-key', <String, dynamic>{
       'key': key,
+      'screenshot': screenshot,
+      'uiDump': uiDump,
+      'includeNodes': includeNodes,
     });
   }
 
