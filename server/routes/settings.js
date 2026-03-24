@@ -8,6 +8,12 @@ const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { getVersionInfo } = require('../utils/version');
 const { UPDATE_STATUS_FILE, APP_DIR } = require('../../runtime/paths');
 const {
+  parseReleaseChannel,
+  getReleaseChannelBranch,
+  getReleaseChannelDistTag,
+  writeReleaseChannelToEnvFile,
+} = require('../../runtime/release_channel');
+const {
   createDefaultAiSettings,
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
@@ -316,6 +322,27 @@ router.post('/update', (req, res) => {
   res.json({ success: true, message: 'Update triggered', pid: child.pid });
 });
 
+router.put('/update/channel', (req, res) => {
+  const requested = req.body?.channel;
+  const releaseChannel = parseReleaseChannel(requested);
+  if (!releaseChannel) {
+    return res.status(400).json({
+      success: false,
+      error: 'Release channel must be "stable" or "beta".',
+    });
+  }
+
+  writeReleaseChannelToEnvFile(releaseChannel);
+  process.env.NEOAGENT_RELEASE_CHANNEL = releaseChannel;
+
+  res.json({
+    success: true,
+    releaseChannel,
+    targetBranch: getReleaseChannelBranch(releaseChannel),
+    npmDistTag: getReleaseChannelDistTag(releaseChannel),
+  });
+});
+
 router.get('/update/status', (req, res) => {
   const status = readUpdateStatus();
   const version = getVersionInfo();
@@ -325,7 +352,11 @@ router.get('/update/status', (req, res) => {
     installedVersion: version.installedVersion,
     packageVersion: version.packageVersion,
     gitVersion: version.gitVersion,
-    gitSha: version.gitSha
+    gitSha: version.gitSha,
+    gitBranch: version.gitBranch,
+    releaseChannel: version.releaseChannel,
+    targetBranch: version.targetBranch,
+    npmDistTag: version.npmDistTag,
   });
 });
 

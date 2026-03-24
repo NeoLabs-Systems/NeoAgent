@@ -959,6 +959,9 @@ class UpdateStatusSnapshot {
     this.state = 'idle',
     this.progress = 0,
     this.message = 'No update running',
+    this.releaseChannel = 'stable',
+    this.targetBranch,
+    this.npmDistTag,
     this.versionBefore,
     this.versionAfter,
     this.backendVersion,
@@ -972,6 +975,9 @@ class UpdateStatusSnapshot {
       state: json['state']?.toString() ?? 'idle',
       progress: _asInt(json['progress']).clamp(0, 100),
       message: json['message']?.toString() ?? 'No update running',
+      releaseChannel: json['releaseChannel']?.toString() ?? 'stable',
+      targetBranch: json['targetBranch']?.toString(),
+      npmDistTag: json['npmDistTag']?.toString(),
       versionBefore: json['versionBefore']?.toString(),
       versionAfter: json['versionAfter']?.toString(),
       backendVersion: json['backendVersion']?.toString(),
@@ -990,6 +996,9 @@ class UpdateStatusSnapshot {
   final String state;
   final int progress;
   final String message;
+  final String releaseChannel;
+  final String? targetBranch;
+  final String? npmDistTag;
   final String? versionBefore;
   final String? versionAfter;
   final String? backendVersion;
@@ -1023,15 +1032,24 @@ class UpdateStatusSnapshot {
     }
   }
 
+  String get releaseChannelLabel =>
+      releaseChannel.toLowerCase() == 'beta' ? 'Beta' : 'Stable';
+
   String get versionLine {
     final before = versionBefore?.ifEmpty('—') ?? '—';
     final after = versionAfter?.ifEmpty('—') ?? '—';
     final updateVersion = after == '—' ? before : '$before -> $after';
+    final branch = targetBranch?.trim().isNotEmpty == true
+        ? ' | Branch: $targetBranch'
+        : '';
+    final npm = npmDistTag?.trim().isNotEmpty == true
+        ? ' | npm: $npmDistTag'
+        : '';
     final installed = installedVersion == null
         ? ''
         : ' | Installed: $installedVersion';
     final backend = backendVersion == null ? '' : ' | Runtime: $backendVersion';
-    return 'Update Version: $updateVersion$installed$backend';
+    return 'Channel: $releaseChannelLabel$branch$npm | Update Version: $updateVersion$installed$backend';
   }
 
   String get logsText =>

@@ -1,0 +1,172 @@
+name: Beta Release
+
+on:
+  push:
+    branches:
+      - beta
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Git Config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve next beta version
+        id: beta_version
+        run: |
+          git fetch --tags --force
+
+          node <<'EOF'
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          function cmd(command) {
+            return execSync(command, { encoding: 'utf8' }).trim();
+          }
+
+          function parse(version) {
+            const match = String(version).trim().match(/^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/);
+            if (!match) {
+              return null;
+            }
+            return {
+              major: Number(match[1]),
+              minor: Number(match[2]),
+              patch: Number(match[3]),
+              beta: match[4] == null ? null : Number(match[4]),
+            };
+          }
+
+          function compare(a, b) {
+            for (const key of ['major', 'minor', 'patch']) {
+              if (a[key] !== b[key]) {
+                return a[key] - b[key];
+              }
+            }
+            const aBeta = a.beta == null ? Number.POSITIVE_INFINITY : a.beta;
+            const bBeta = b.beta == null ? Number.POSITIVE_INFINITY : b.beta;
+            return aBeta - bBeta;
+          }
+
+          function maxVersion(a, b) {
+            return compare(a, b) >= 0 ? a : b;
+          }
+
+          function format(version) {
+            return `${version.major}.${version.minor}.${version.patch}`;
+          }
+
+          function patchBump(version) {
+            return {
+              major: version.major,
+              minor: version.minor,
+              patch: version.patch + 1,
+              beta: null,
+            };
+          }
+
+          function readPackageVersion() {
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            return parse(String(pkg.version || '0.0.0').replace(/^v/, '').split('-')[0]);
+          }
+
+          const stableTags = cmd("git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname")
+            .split('\n')
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+            .filter((tag) => /^v\d+\.\d+\.\d+$/.test(tag))
+            .map((tag) => parse(tag.slice(1)));
+
+          const latestStable = stableTags[0] || { major: 0, minor: 0, patch: 0, beta: null };
+          const packageVersion = readPackageVersion() || latestStable;
+          const baseVersion = maxVersion(packageVersion, patchBump(latestStable));
+          const baseLabel = format(baseVersion);
+
+          const betaTags = cmd(`git tag --list 'v${baseLabel}-beta.*' --sort=-v:refname`)
+            .split('\n')
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+            .map((tag) => parse(tag.slice(1)))
+            .filter(Boolean)
+            .sort((a, b) => compare(b, a));
+
+          const nextBetaNumber = betaTags.length > 0 ? (betaTags[0].beta || 0) + 1 : 0;
+          const nextVersion = `${baseLabel}-beta.${nextBetaNumber}`;
+
+          fs.appendFileSync(process.env.GITHUB_ENV, `NEW_VERSION=v${nextVersion}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${nextVersion}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `base_version=${baseLabel}\n`);
+          EOF
+
+      - name: Set package version
+        run: npm version "${{ steps.beta_version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Commit and tag beta release
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore(beta-release): v${{ steps.beta_version.outputs.version }} [skip ci]"
+          git tag "${{ env.NEW_VERSION }}" -m "chore(beta-release): v${{ steps.beta_version.outputs.version }}"
+
+      - name: Push beta release commit and tag
+        run: |
+          git push origin HEAD
+          git push origin "${{ env.NEW_VERSION }}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build bundled web client
+        run: NEOAGENT_BACKEND_URL= npm run flutter:build:web
+
+      - name: Verify production web bundle
+        run: |
+          if rg -n "http://localhost:3333|127\\.0\\.0\\.1:3333" server/public/main.dart.js; then
+            echo "Bundled web client still points at localhost."
+            exit 1
+          fi
+
+      - name: Check npm auth
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm whoami --registry=https://registry.npmjs.org/
+
+      - name: Publish beta package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --tag beta
+
+      - name: Create GitHub prerelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ env.NEW_VERSION }}" \
+            --title "Beta ${{ env.NEW_VERSION }}" \
+            --generate-notes \
+            --prerelease
