@@ -562,7 +562,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'create_skill',
-            description: 'Create a new SKILL.md file — a persistent custom tool or workflow you can call by name in future runs. Use this to save reusable capabilities.',
+            description: 'Create a new SKILL.md file — a persistent custom tool or workflow you can call by name in future runs. Use this sparingly and only for genuinely reusable, well-specified capabilities.',
             parameters: {
                 type: 'object',
                 properties: {

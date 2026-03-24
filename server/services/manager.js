@@ -6,7 +6,6 @@ const { MCPClient } = require('./mcp/client');
 const { BrowserController } = require('./browser/controller');
 const { AndroidController } = require('./android/controller');
 const { AgentEngine } = require('./ai/engine');
-const { LearningManager } = require('./ai/learning');
 const { MultiStepOrchestrator } = require('./ai/multiStep');
 const { SkillRunner } = require('./ai/toolRunner');
 const { MessagingManager } = require('./messaging/manager');
@@ -88,16 +87,6 @@ async function createSkillRunner(app, cliExecutor) {
   return skillRunner;
 }
 
-function createLearningManager(app, skillRunner, io) {
-  const learningManager = registerLocal(
-    app,
-    'learningManager',
-    new LearningManager(skillRunner, io),
-  );
-  logServiceReady('Learning manager ready');
-  return learningManager;
-}
-
 function createAgentEngine(
   app,
   io,
@@ -108,7 +97,6 @@ function createAgentEngine(
     browserController,
     androidController,
     skillRunner,
-    learningManager,
   },
 ) {
   const agentEngine = registerLocal(
@@ -122,7 +110,6 @@ function createAgentEngine(
       androidController,
       messagingManager: null,
       skillRunner,
-      learningManager,
     }),
   );
   logServiceReady('Agent engine ready');
@@ -215,7 +202,6 @@ async function startServices(app, io) {
     const browserController = createBrowserController(app);
     const androidController = createAndroidController(app);
     const skillRunner = await createSkillRunner(app, cliExecutor);
-    const learningManager = createLearningManager(app, skillRunner, io);
     const agentEngine = createAgentEngine(app, io, {
       cliExecutor,
       memoryManager,
@@ -223,7 +209,6 @@ async function startServices(app, io) {
       browserController,
       androidController,
       skillRunner,
-      learningManager,
     });
 
     createMultiStep(app, agentEngine, io);
