@@ -5,9 +5,9 @@ const path = require('path');
 const { execSync } = require('child_process');
 const { APP_DIR } = require('../../runtime/paths');
 const {
-  getReleaseChannelBranch,
-  getReleaseChannelDistTag,
   readConfiguredReleaseChannel,
+  getReleaseChannelBranchPolicy,
+  getReleaseChannelNpmPolicy,
 } = require('../../runtime/release_channel');
 
 const PACKAGE_JSON_PATH = path.join(APP_DIR, 'package.json');
@@ -67,8 +67,8 @@ function getVersionInfo() {
     gitSha,
     installedVersion: packageVersion,
     releaseChannel,
-    targetBranch: getReleaseChannelBranch(releaseChannel),
-    npmDistTag: getReleaseChannelDistTag(releaseChannel),
+    targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
+    npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
   };
 }
 

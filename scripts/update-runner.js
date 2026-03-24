@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const {
@@ -11,7 +10,6 @@ const {
 } = require('../lib/install_helpers');
 const {
   APP_DIR,
-  DATA_DIR,
   UPDATE_STATUS_FILE: STATUS_FILE,
   migrateLegacyRuntime,
   ensureRuntimeDirs
@@ -21,7 +19,15 @@ const {
   getReleaseChannelDistTag,
   getReleaseChannelLabel,
   readConfiguredReleaseChannel,
+  choosePreferredBranchForChannel,
+  choosePreferredNpmTagForChannel,
+  getReleaseChannelBranchPolicy,
+  getReleaseChannelNpmPolicy,
 } = require('../runtime/release_channel');
+const {
+  readUpdateStatus,
+  writeUpdateStatusFile: writeStatus,
+} = require('../server/utils/update_status');
 
 const MAX_LOG_LINES = 220;
 const FLUTTER_APP_DIR = path.join(APP_DIR, 'flutter_app');
@@ -31,48 +37,30 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function readStatus() {
-  try {
-    return JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-function writeStatus(patch) {
-  const next = {
-    state: 'idle',
-    progress: 0,
-    phase: 'idle',
-    message: 'No update running',
-    startedAt: null,
-    completedAt: null,
-    versionBefore: null,
-    versionAfter: null,
-    releaseChannel: readConfiguredReleaseChannel(),
-    releaseChannelLabel: getReleaseChannelLabel(readConfiguredReleaseChannel()),
-    targetBranch: getReleaseChannelBranch(readConfiguredReleaseChannel()),
-    npmDistTag: getReleaseChannelDistTag(readConfiguredReleaseChannel()),
-    changelog: [],
-    logs: [],
-    ...readStatus(),
-    ...patch,
-    updatedAt: nowIso()
-  };
-
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(STATUS_FILE, JSON.stringify(next, null, 2));
-  return next;
-}
-
 function appendLog(line) {
-  const status = readStatus();
+  const status = readUpdateStatus(STATUS_FILE);
   const logs = Array.isArray(status.logs) ? status.logs : [];
   logs.push(`[${new Date().toLocaleTimeString('en-US', { hour12: false })}] ${line}`);
   if (logs.length > MAX_LOG_LINES) {
     logs.splice(0, logs.length - MAX_LOG_LINES);
   }
-  writeStatus({ logs });
+  writeStatus({
+    state: status.state,
+    progress: status.progress,
+    phase: status.phase,
+    message: status.message,
+    startedAt: status.startedAt,
+    completedAt: status.completedAt,
+    versionBefore: status.versionBefore,
+    versionAfter: status.versionAfter,
+    runnerPid: status.runnerPid,
+    releaseChannel: status.releaseChannel,
+    releaseChannelLabel: status.releaseChannelLabel,
+    targetBranch: status.targetBranch,
+    npmDistTag: status.npmDistTag,
+    changelog: status.changelog,
+    logs,
+  }, STATUS_FILE);
 }
 
 function run(cmd, args, options = {}) {
@@ -102,6 +90,16 @@ function commandExists(cmd) {
   return sharedCommandExists((command, args) => run(command, args), cmd);
 }
 
+function latestGitTagVersion(pattern) {
+  const res = run('git', ['tag', '--list', pattern, '--sort=-v:refname']);
+  if (res.status !== 0) return null;
+  const tag = (res.stdout || '')
+    .split('\n')
+    .map((value) => value.trim())
+    .find(Boolean);
+  return tag ? tag.replace(/^v/, '') : null;
+}
+
 function gitWorkingTreeDirty() {
   const res = run('git', ['status', '--porcelain']);
   return res.status === 0 && Boolean((res.stdout || '').trim());
@@ -113,6 +111,45 @@ function gitLocalBranchExists(branch) {
 
 function gitRemoteBranchExists(branch) {
   return run('git', ['ls-remote', '--exit-code', '--heads', 'origin', branch]).status === 0;
+}
+
+function resolvePreferredGitBranch(channel) {
+  if (channel === 'stable') {
+    return getReleaseChannelBranch(channel);
+  }
+
+  const preferred = choosePreferredBranchForChannel(channel, {
+    stable: latestGitTagVersion('v[0-9]*.[0-9]*.[0-9]*'),
+    beta: latestGitTagVersion('v[0-9]*.[0-9]*.[0-9]*-beta.*'),
+  });
+
+  if (preferred === 'beta' && !gitRemoteBranchExists('beta')) {
+    return 'main';
+  }
+  return preferred;
+}
+
+function resolvePreferredNpmTag(channel) {
+  if (channel === 'stable') {
+    return getReleaseChannelDistTag(channel);
+  }
+
+  const tagsRes = run('npm', ['view', 'neoagent', 'dist-tags', '--json'], {
+    env: withInstallEnv(),
+  });
+  let distTags = {};
+  if (tagsRes.status === 0) {
+    try {
+      distTags = JSON.parse(tagsRes.stdout || '{}') || {};
+    } catch {
+      distTags = {};
+    }
+  }
+
+  return choosePreferredNpmTagForChannel(channel, {
+    latest: distTags.latest,
+    beta: distTags.beta,
+  });
 }
 
 function ensureGitBranchForReleaseChannel(targetBranch) {
@@ -176,14 +213,15 @@ function fail(message) {
     progress: 100,
     phase: 'failed',
     message,
-    completedAt: nowIso()
-  });
+    completedAt: nowIso(),
+    runnerPid: null,
+  }, STATUS_FILE);
   appendLog(`FAILED: ${message}`);
   process.exit(1);
 }
 
 function info(progress, phase, message) {
-  writeStatus({ state: 'running', progress, phase, message });
+  writeStatus({ state: 'running', progress, phase, message, runnerPid: process.pid }, STATUS_FILE);
   appendLog(message);
 }
 
@@ -192,8 +230,6 @@ function main() {
   ensureRuntimeDirs();
   const startedAt = nowIso();
   const releaseChannel = readConfiguredReleaseChannel();
-  const targetBranch = getReleaseChannelBranch(releaseChannel);
-  const npmTag = getReleaseChannelDistTag(releaseChannel);
   writeStatus({
     state: 'running',
     progress: 2,
@@ -203,13 +239,14 @@ function main() {
     completedAt: null,
     releaseChannel,
     releaseChannelLabel: getReleaseChannelLabel(releaseChannel),
-    targetBranch,
-    npmDistTag: npmTag,
+    targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
+    npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
     versionBefore: null,
     versionAfter: null,
+    runnerPid: process.pid,
     changelog: [],
     logs: []
-  });
+  }, STATUS_FILE);
 
   const gitDir = path.join(APP_DIR, '.git');
   const hasGit = fs.existsSync(gitDir) && commandExists('git');
@@ -220,8 +257,10 @@ function main() {
       fail('Update unavailable: no git repository detected and npm is not installed.');
     }
 
-    info(45, 'updating', `Installing NeoAgent from the ${npmTag} channel`);
-    const npmUpdate = run('npm', ['install', '-g', `neoagent@${npmTag}`], {
+    const resolvedNpmTag = resolvePreferredNpmTag(releaseChannel);
+    writeStatus({ npmDistTag: resolvedNpmTag, runnerPid: process.pid }, STATUS_FILE);
+    info(45, 'updating', `Installing NeoAgent from the ${resolvedNpmTag} channel`);
+    const npmUpdate = run('npm', ['install', '-g', `neoagent@${resolvedNpmTag}`], {
       env: withInstallEnv()
     });
     if (npmUpdate.status !== 0) {
@@ -241,29 +280,34 @@ function main() {
       progress: 100,
       phase: 'completed',
       message: 'Package update completed and service restarted.',
-      completedAt: nowIso()
-    });
+      completedAt: nowIso(),
+      runnerPid: null,
+    }, STATUS_FILE);
     return;
   }
 
   info(8, 'checking', `Preparing ${releaseChannel} channel update`);
   const currentRes = run('git', ['rev-parse', '--short', 'HEAD']);
   const current = (currentRes.stdout || '').trim() || null;
-  writeStatus({ versionBefore: current });
+  writeStatus({ versionBefore: current, runnerPid: process.pid }, STATUS_FILE);
 
-  info(20, 'fetching', `Fetching latest commits from origin/${targetBranch}`);
-  const fetch = run('git', ['fetch', 'origin', targetBranch]);
+  info(20, 'fetching', 'Fetching latest commits and tags from origin');
+  const fetch = run('git', ['fetch', 'origin', '--tags']);
   if (fetch.status !== 0) fail('git fetch failed');
 
-  ensureGitBranchForReleaseChannel(targetBranch);
+  const resolvedBranch = resolvePreferredGitBranch(releaseChannel);
+  writeStatus({ targetBranch: resolvedBranch, runnerPid: process.pid }, STATUS_FILE);
+  appendLog(`Using git branch ${resolvedBranch} for the ${releaseChannel} channel.`);
 
-  info(35, 'pulling', `Rebasing with origin/${targetBranch}`);
-  const pull = run('git', ['pull', '--rebase', '--autostash', 'origin', targetBranch]);
+  ensureGitBranchForReleaseChannel(resolvedBranch);
+
+  info(35, 'pulling', `Rebasing with origin/${resolvedBranch}`);
+  const pull = run('git', ['pull', '--rebase', '--autostash', 'origin', resolvedBranch]);
   if (pull.status !== 0) fail('git pull --rebase failed');
 
   const nextRes = run('git', ['rev-parse', '--short', 'HEAD']);
   const next = (nextRes.stdout || '').trim() || null;
-  writeStatus({ versionAfter: next });
+  writeStatus({ versionAfter: next, runnerPid: process.pid }, STATUS_FILE);
 
   const changed = current && next && current !== next;
 
@@ -275,7 +319,7 @@ function main() {
       .map((v) => v.trim())
       .filter(Boolean)
       .slice(0, 25);
-    writeStatus({ changelog });
+    writeStatus({ changelog, runnerPid: process.pid }, STATUS_FILE);
 
     info(70, 'dependencies', 'Installing updated dependencies');
     const npmInstall = run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], {
@@ -284,7 +328,7 @@ function main() {
     if (npmInstall.status !== 0) fail('Dependency installation failed');
   } else {
     info(68, 'changelog', 'Already up to date. No new commits to apply.');
-    writeStatus({ changelog: [] });
+    writeStatus({ changelog: [], runnerPid: process.pid }, STATUS_FILE);
   }
 
   buildBundledWebClientIfPossible();
@@ -300,8 +344,9 @@ function main() {
     message: changed
       ? `Update completed successfully (${current} -> ${next})`
       : 'Already up to date. Service restarted.',
-    completedAt: nowIso()
-  });
+    completedAt: nowIso(),
+    runnerPid: null,
+  }, STATUS_FILE);
 }
 
 try {
