@@ -25,25 +25,21 @@ function registerApiRoutes(app) {
     const handler = require(route.modulePath);
     if (route.basePath) {
       app.use(route.basePath, handler);
-      console.log(`[HTTP] Registered API route ${route.basePath} -> ${route.modulePath}`);
     } else {
       app.use(handler);
-      console.log(`[HTTP] Registered API route ${route.modulePath}`);
     }
   }
 
   setupTelnyxWebhook(app);
-  console.log('[HTTP] Registered Telnyx webhook');
 
   app.get('/api/health', requireAuth, (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
-  console.log('[HTTP] Registered API route /api/health');
 
   app.get('/api/version', requireAuth, (req, res) => {
     res.json(getVersionInfo());
   });
-  console.log('[HTTP] Registered API route /api/version');
+  console.log(`[HTTP] Registered ${routeRegistry.length + 3} routes`);
 }
 
 module.exports = {
