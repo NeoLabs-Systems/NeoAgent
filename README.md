@@ -17,7 +17,7 @@
 
 | | |
 | --- | --- |
-| <img alt="WebUI" src="https://github.com/user-attachments/assets/3c76d59a-b6e3-4698-929b-9c94741ccf1e"> | <img alt="Mobile Telegram" src="https://github.com/user-attachments/assets/1fd41a9b-5452-4aa4-9478-888c8ad7363a" width="280"> |
+| <img alt="WebUI" src="https://github.com/user-attachments/assets/3c76d59a-b6e3-4698-929b-9c94741ccf1e" height="420"> | <img alt="Mobile Telegram" src="https://github.com/user-attachments/assets/1fd41a9b-5452-4aa4-9478-888c8ad7363a" height="420"> |
 
 ## Install
 
