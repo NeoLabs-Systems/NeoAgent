@@ -457,7 +457,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'send_message',
-            description: 'Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, and Telegram. For WhatsApp: use media_path to attach files. To stay silent, send content "[NO RESPONSE]". For Telnyx Voice: always reply with plain spoken text; never use [NO RESPONSE] or markdown.',
+            description: 'Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, and Telegram. For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence or no reply. For Telnyx Voice: always reply with plain spoken text; never use [NO RESPONSE] or markdown.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1113,12 +1113,18 @@ async function executeTool(toolName, args, context, engine) {
         case 'send_message': {
             const manager = msg();
             if (!manager) return { error: 'Messaging not available' };
-            const sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, args.media_path);
+            const sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
+                mediaPath: args.media_path,
+                runId
+            });
             // Track that the agent explicitly sent a message during this run
             const runState = runId ? engine.activeRuns.get(runId) : null;
             if (runState && args.content !== '[NO RESPONSE]') {
                 runState.messagingSent = true;
                 runState.lastSentMessage = args.content || '';
+                if (Array.isArray(runState.sentMessages)) {
+                    runState.sentMessages.push(args.content || '');
+                }
             }
             return sendResult;
         }
@@ -1369,7 +1375,9 @@ async function executeTool(toolName, args, context, engine) {
                     }
 
                     try {
-                        const sendResult = await manager.sendMessage(userId, target.platform, target.to, message);
+                        const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
+                            runId
+                        });
                         if (taskId && taskConfig && (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to)) {
                             taskConfig.notifyPlatform = target.platform;
                             taskConfig.notifyTo = target.to;
@@ -1381,6 +1389,9 @@ async function executeTool(toolName, args, context, engine) {
                         if (runState) {
                             runState.messagingSent = true;
                             runState.lastSentMessage = message;
+                            if (Array.isArray(runState.sentMessages)) {
+                                runState.sentMessages.push(message);
+                            }
                         }
                         return {
                             sent: true,

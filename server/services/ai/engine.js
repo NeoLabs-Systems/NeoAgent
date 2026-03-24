@@ -138,6 +138,22 @@ function normalizeOutgoingMessage(content) {
     .trim();
 }
 
+function joinSentMessages(messages = []) {
+  if (!Array.isArray(messages)) return '';
+  return messages
+    .map((message) => String(message || '').trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function buildForcedFinalReplyPrompt(triggerSource) {
+  if (triggerSource === 'messaging') {
+    return 'Tool work is finished. Write the user-visible reply that should be sent back now. Do not call tools. Do not use [NO RESPONSE] unless the user explicitly asked for silence or no confirmation.';
+  }
+
+  return 'Tool work is finished. Write the final user-facing reply now. Do not call tools.';
+}
+
 function clampRunContext(text, maxChars) {
   const value = normalizeOutgoingMessage(text);
   if (!value) return '';
@@ -458,6 +474,7 @@ class AgentEngine {
       aborted: false,
       messagingSent: false,
       lastSentMessage: '',
+      sentMessages: [],
       triggerType,
       triggerSource,
       startedAt: Date.now(),
@@ -506,7 +523,6 @@ class AgentEngine {
     let totalTokens = 0;
     let lastContent = '';
     let stepIndex = 0;
-    let forcedFinalResponse = false;
     let promptMetrics = {};
 
     try {
@@ -766,12 +782,17 @@ class AgentEngine {
 
       if ((iteration >= maxIterations && messages[messages.length - 1]?.role === 'tool')
         || (iteration < maxIterations && stepIndex > 0 && !lastContent.trim() && messages[messages.length - 1]?.role !== 'tool')) {
-        const finalResponse = await provider.chat(sanitizeConversationMessages(messages), [], {
+        const finalResponse = await provider.chat(sanitizeConversationMessages([
+          ...messages,
+          {
+            role: 'system',
+            content: buildForcedFinalReplyPrompt(triggerSource)
+          }
+        ]), [], {
           model,
           reasoningEffort: this.getReasoningEffort(providerName, options)
         });
         lastContent = sanitizeModelOutput(finalResponse.content || '', { model });
-        forcedFinalResponse = true;
 
         const finalAssistantMessage = { role: 'assistant', content: lastContent };
         if (finalResponse.providerContentBlocks?.length) {
@@ -785,8 +806,18 @@ class AgentEngine {
         totalTokens += finalResponse.usage?.totalTokens || 0;
       }
 
-      db.prepare('UPDATE agent_runs SET status = ?, total_tokens = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
-        .run('completed', totalTokens, runId);
+      const runMeta = this.activeRuns.get(runId);
+      const messagingSent = runMeta?.messagingSent || false;
+      const sentMessageText = joinSentMessages(runMeta?.sentMessages);
+      const finalResponseText = lastContent.trim() ? lastContent : sentMessageText;
+      const lastSentMessage = normalizeOutgoingMessage(
+        runMeta?.lastSentMessage
+        || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
+        || ''
+      );
+
+      db.prepare('UPDATE agent_runs SET status = ?, total_tokens = ?, final_response = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
+        .run('completed', totalTokens, finalResponseText || null, runId);
 
       if (conversationId) {
         db.prepare('UPDATE conversations SET total_tokens = total_tokens + ?, updated_at = datetime(\'now\') WHERE id = ?')
@@ -805,13 +836,10 @@ class AgentEngine {
         triggerSource,
         runTitle,
         userMessage,
-        lastContent,
+        lastContent: finalResponseText,
         stepIndex
       });
 
-      const runMeta = this.activeRuns.get(runId);
-      const messagingSent = runMeta?.messagingSent || false;
-      const lastSentMessage = normalizeOutgoingMessage(runMeta?.lastSentMessage || '');
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:complete', { runId, content: lastContent, totalTokens, iterations: iteration, triggerSource });
 
@@ -836,7 +864,7 @@ class AgentEngine {
                   await manager.sendTyping(userId, options.source, options.chatId, true).catch(() => { });
                   await new Promise((resolve) => setTimeout(resolve, delay));
                 }
-                await manager.sendMessage(userId, options.source, options.chatId, chunks[i]).catch((err) =>
+                await manager.sendMessage(userId, options.source, options.chatId, chunks[i], { runId }).catch((err) =>
                   console.error('[Engine] Auto-reply fallback failed:', err.message)
                 );
               }

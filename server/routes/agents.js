@@ -94,11 +94,23 @@ router.get('/:id/steps', (req, res) => {
   if (!run) return res.status(404).json({ error: 'Run not found' });
 
   const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(run.id);
-  const response = db.prepare(
+  const historyResponse = db.prepare(
     `SELECT content FROM conversation_history WHERE user_id = ? AND agent_run_id = ? AND role = 'assistant' ORDER BY created_at DESC LIMIT 1`
   ).get(req.session.userId, run.id);
+  const sentMessages = db.prepare(
+    `SELECT content FROM messages WHERE user_id = ? AND run_id = ? AND role = 'assistant' ORDER BY created_at ASC, id ASC`
+  ).all(req.session.userId, run.id);
+  const sentResponse = sentMessages
+    .map((row) => row?.content?.toString().trim() || '')
+    .filter(Boolean)
+    .join('\n\n');
+  const response =
+    sentResponse
+    || historyResponse?.content
+    || run.final_response
+    || null;
 
-  res.json({ run, steps, response: response?.content || null });
+  res.json({ run, steps, response });
 });
 
 // Abort a run
