@@ -53,6 +53,7 @@ registerStaticRoutes(app);
 registerErrorHandler(app);
 
 let shuttingDown = false;
+let shutdownExitCode = 0;
 
 httpServer.on('connection', (socket) => {
   activeSockets.add(socket);
@@ -146,7 +147,8 @@ function closeHttpServer(server, sockets, timeoutMs = 5000) {
   });
 }
 
-async function shutdown() {
+async function shutdown(exitCode = 0) {
+  shutdownExitCode = Math.max(shutdownExitCode, exitCode);
   if (shuttingDown) return;
   shuttingDown = true;
 
@@ -159,12 +161,15 @@ async function shutdown() {
   ]);
 
   db.close();
-  process.exit(0);
+  process.exit(shutdownExitCode);
 }
 
-httpServer.listen(PORT, async () => {
+httpServer.listen(PORT, () => {
   console.log(`NeoAgent running on http://localhost:${PORT}`);
-  await startServices(app, io);
+  startServices(app, io).catch(async (err) => {
+    console.error('[Startup] Service initialization failed:', err);
+    await shutdown(1);
+  });
 });
 
 process.on('SIGINT', shutdown);

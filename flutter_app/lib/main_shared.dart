@@ -546,41 +546,6 @@ class _BlurOrb extends StatelessWidget {
   }
 }
 
-class _AuthTabButton extends StatelessWidget {
-  const _AuthTabButton({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? _accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: active ? Colors.white : _textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _LogoBadge extends StatelessWidget {
   const _LogoBadge({required this.size});
 

@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+
 import 'dart:async';
 import 'dart:html' as html;
 import 'dart:typed_data';
@@ -93,7 +95,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
       }),
       _dropElement.onDragOver.listen((event) {
         event.preventDefault();
-        event.dataTransfer?.dropEffect = 'copy';
+        event.dataTransfer.dropEffect = 'copy';
         if (!_dragActive && mounted) {
           setState(() => _dragActive = true);
         }
@@ -109,7 +111,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
         if (_dragActive && mounted) {
           setState(() => _dragActive = false);
         }
-        final files = event.dataTransfer?.files;
+        final files = event.dataTransfer.files;
         if (files == null || files.isEmpty) {
           return;
         }
@@ -199,9 +201,11 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(message)));
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) {
+      return;
+    }
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

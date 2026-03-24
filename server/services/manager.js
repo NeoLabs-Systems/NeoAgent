@@ -15,173 +15,309 @@ const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
 const { CLIExecutor } = require('./cli/executor');
+const {
+  getErrorMessage,
+  restoreBrowserHeadlessPreference,
+  runBackgroundTask,
+} = require('./bootstrap_helpers');
+
+function registerLocal(app, key, value) {
+  app.locals[key] = value;
+  return value;
+}
+
+function logServiceReady(message) {
+  console.log(`[Services] ${message}`);
+}
+
+function createCliExecutor(app) {
+  const cliExecutor = registerLocal(app, 'cliExecutor', new CLIExecutor());
+  logServiceReady('CLI executor ready');
+  return cliExecutor;
+}
+
+function createMemoryManager(app) {
+  const memoryManager = registerLocal(app, 'memoryManager', new MemoryManager());
+  logServiceReady('Memory manager ready');
+  return memoryManager;
+}
+
+function createMcpClient(app) {
+  const mcpClient = registerLocal(app, 'mcpClient', new MCPClient());
+  logServiceReady('MCP client ready');
+  return mcpClient;
+}
+
+function createBrowserController(app) {
+  const browserController = registerLocal(
+    app,
+    'browserController',
+    new BrowserController(),
+  );
+  const { restored, userCount, headless } = restoreBrowserHeadlessPreference(
+    browserController,
+    db,
+  );
+
+  if (restored) {
+    logServiceReady(`Browser headless setting restored to ${headless}`);
+  }
+
+  logServiceReady(`Browser controller ready for ${userCount} user(s)`);
+  return browserController;
+}
+
+function createAndroidController(app) {
+  const androidController = registerLocal(
+    app,
+    'androidController',
+    new AndroidController(),
+  );
+  logServiceReady('Android controller ready');
+  return androidController;
+}
+
+async function createSkillRunner(app, cliExecutor) {
+  const skillRunner = registerLocal(
+    app,
+    'skillRunner',
+    new SkillRunner({ executor: cliExecutor }),
+  );
+  await skillRunner.loadSkills();
+  logServiceReady('Skills loaded');
+  return skillRunner;
+}
+
+function createLearningManager(app, skillRunner, io) {
+  const learningManager = registerLocal(
+    app,
+    'learningManager',
+    new LearningManager(skillRunner, io),
+  );
+  logServiceReady('Learning manager ready');
+  return learningManager;
+}
+
+function createAgentEngine(
+  app,
+  io,
+  {
+    cliExecutor,
+    memoryManager,
+    mcpClient,
+    browserController,
+    androidController,
+    skillRunner,
+    learningManager,
+  },
+) {
+  const agentEngine = registerLocal(
+    app,
+    'agentEngine',
+    new AgentEngine(io, {
+      cliExecutor,
+      memoryManager,
+      mcpClient,
+      browserController,
+      androidController,
+      messagingManager: null,
+      skillRunner,
+      learningManager,
+    }),
+  );
+  logServiceReady('Agent engine ready');
+  return agentEngine;
+}
+
+function createMultiStep(app, agentEngine, io) {
+  const multiStep = registerLocal(
+    app,
+    'multiStep',
+    new MultiStepOrchestrator(agentEngine, io),
+  );
+  logServiceReady('Multi-step orchestrator ready');
+  return multiStep;
+}
+
+function createMessagingManager(app, io, agentEngine) {
+  const messagingManager = registerLocal(
+    app,
+    'messagingManager',
+    new MessagingManager(io),
+  );
+  agentEngine.messagingManager = messagingManager;
+  logServiceReady('Messaging manager ready');
+  return messagingManager;
+}
+
+function createRecordingManager(app, io) {
+  const recordingManager = registerLocal(
+    app,
+    'recordingManager',
+    new RecordingManager(io),
+  );
+  logServiceReady('Recording manager ready');
+  return recordingManager;
+}
+
+function restoreMessagingConnections(messagingManager) {
+  void runBackgroundTask('[Messaging] Restore error:', () =>
+    messagingManager.restoreConnections(),
+  );
+}
+
+function restoreMcpClients(mcpClient) {
+  const users = db.prepare('SELECT id FROM users').all();
+  logServiceReady(`Restoring MCP clients for ${users.length} user(s)`);
+
+  for (const user of users) {
+    void runBackgroundTask('[MCP] Auto-start error:', () =>
+      mcpClient.loadFromDB(user.id),
+    );
+  }
+}
+
+function startScheduler(app, io, agentEngine) {
+  const scheduler = registerLocal(app, 'scheduler', new Scheduler(io, agentEngine, app));
+  agentEngine.scheduler = scheduler;
+  scheduler.start();
+  logServiceReady('Scheduler started');
+  return scheduler;
+}
+
+function configureRealtime(app, io, services) {
+  setupWebSocket(io, {
+    agentEngine: services.agentEngine,
+    messagingManager: services.messagingManager,
+    mcpClient: services.mcpClient,
+    scheduler: services.scheduler,
+    recordingManager: services.recordingManager,
+    memoryManager: services.memoryManager,
+    app,
+  });
+  app.locals.io = io;
+  logServiceReady('WebSocket handlers registered');
+}
+
+function resumePendingRecordingSessions(recordingManager) {
+  void runBackgroundTask('[Recordings] Resume error:', () =>
+    recordingManager.resumePendingSessions(),
+  );
+}
 
 async function startServices(app, io) {
-    try {
-        console.log('[Services] Starting service initialization');
-        const cliExecutor = new CLIExecutor();
-        app.locals.cliExecutor = cliExecutor;
-        console.log('[Services] CLI executor ready');
+  console.log('[Services] Starting service initialization');
 
-        const memoryManager = new MemoryManager();
-        app.locals.memoryManager = memoryManager;
-        console.log('[Services] Memory manager ready');
+  try {
+    const cliExecutor = createCliExecutor(app);
+    const memoryManager = createMemoryManager(app);
+    const mcpClient = createMcpClient(app);
+    const browserController = createBrowserController(app);
+    const androidController = createAndroidController(app);
+    const skillRunner = await createSkillRunner(app, cliExecutor);
+    const learningManager = createLearningManager(app, skillRunner, io);
+    const agentEngine = createAgentEngine(app, io, {
+      cliExecutor,
+      memoryManager,
+      mcpClient,
+      browserController,
+      androidController,
+      skillRunner,
+      learningManager,
+    });
 
-        const mcpClient = new MCPClient();
-        app.locals.mcpClient = mcpClient;
-        console.log('[Services] MCP client ready');
+    createMultiStep(app, agentEngine, io);
 
-        const browserController = new BrowserController();
-        const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get()?.count || 0;
-        const headlessSetting = userCount === 1
-          ? db.prepare('SELECT value FROM user_settings WHERE user_id = (SELECT id FROM users LIMIT 1) AND key = ?').get('headless_browser')
-          : null;
-        if (headlessSetting) {
-            const val = headlessSetting.value;
-            browserController.headless = val !== 'false' && val !== false && val !== '0';
-            console.log(`[Services] Browser headless setting restored to ${browserController.headless}`);
-        }
-        app.locals.browserController = browserController;
-        console.log(`[Services] Browser controller ready for ${userCount} user(s)`);
+    const messagingManager = createMessagingManager(app, io, agentEngine);
+    const recordingManager = createRecordingManager(app, io);
 
-        const androidController = new AndroidController();
-        app.locals.androidController = androidController;
-        console.log('[Services] Android controller ready');
+    restoreMessagingConnections(messagingManager);
+    restoreMcpClients(mcpClient);
 
-        const skillRunner = new SkillRunner({ executor: cliExecutor });
-        await skillRunner.loadSkills();
-        app.locals.skillRunner = skillRunner;
-        console.log('[Services] Skills loaded');
+    registerMessagingAutomation({
+      app,
+      io,
+      messagingManager,
+      agentEngine,
+    });
 
-        const learningManager = new LearningManager(skillRunner, io);
-        app.locals.learningManager = learningManager;
-        console.log('[Services] Learning manager ready');
+    const scheduler = startScheduler(app, io, agentEngine);
 
-        const agentEngine = new AgentEngine(io, {
-            cliExecutor,
-            memoryManager,
-            mcpClient,
-            browserController,
-            androidController,
-            messagingManager: null,
-            skillRunner,
-            learningManager
-        });
-        app.locals.agentEngine = agentEngine;
-        console.log('[Services] Agent engine ready');
+    configureRealtime(app, io, {
+      agentEngine,
+      messagingManager,
+      mcpClient,
+      scheduler,
+      recordingManager,
+      memoryManager,
+    });
 
-        const multiStep = new MultiStepOrchestrator(agentEngine, io);
-        app.locals.multiStep = multiStep;
-        console.log('[Services] Multi-step orchestrator ready');
+    resumePendingRecordingSessions(recordingManager);
 
-        const messagingManager = new MessagingManager(io);
-        app.locals.messagingManager = messagingManager;
-        agentEngine.messagingManager = messagingManager;
-        console.log('[Services] Messaging manager ready');
-
-        messagingManager.restoreConnections().catch(err => console.error('[Messaging] Restore error:', err.message));
-
-        const recordingManager = new RecordingManager(io);
-        app.locals.recordingManager = recordingManager;
-        console.log('[Services] Recording manager ready');
-
-        const users = db.prepare('SELECT id FROM users').all();
-        console.log(`[Services] Restoring MCP clients for ${users.length} user(s)`);
-        for (const u of users) {
-            mcpClient.loadFromDB(u.id).catch(err => console.error('[MCP] Auto-start error:', err.message));
-        }
-
-        registerMessagingAutomation({
-            app,
-            io,
-            messagingManager,
-            agentEngine,
-        });
-
-        const scheduler = new Scheduler(io, agentEngine, app);
-        app.locals.scheduler = scheduler;
-        agentEngine.scheduler = scheduler;
-        scheduler.start();
-        console.log('[Services] Scheduler started');
-
-        setupWebSocket(io, {
-            agentEngine,
-            messagingManager,
-            mcpClient,
-            scheduler,
-            recordingManager,
-            memoryManager,
-            app
-        });
-        app.locals.io = io;
-        console.log('[Services] WebSocket handlers registered');
-
-        recordingManager.resumePendingSessions().catch((err) => {
-            console.error('[Recordings] Resume error:', err.message);
-        });
-
-        console.log('All services initialized');
-    } catch (err) {
-        console.error('Service init error:', err);
-    }
+    console.log('All services initialized');
+  } catch (err) {
+    console.error('Service init error:', err);
+    await stopServices(app);
+    throw err;
+  }
 }
 
 async function stopServices(app) {
-    const tasks = [];
-    console.log('[Services] Stopping services');
+  const tasks = [];
+  console.log('[Services] Stopping services');
 
-    if (app.locals.scheduler) {
-        try {
-            app.locals.scheduler.stop();
-            console.log('[Services] Scheduler stopped');
-        } catch (err) {
-            console.error('[Scheduler] Stop error:', err.message);
-        }
+  if (app.locals.scheduler) {
+    try {
+      app.locals.scheduler.stop();
+      logServiceReady('Scheduler stopped');
+    } catch (err) {
+      console.error('[Scheduler] Stop error:', getErrorMessage(err));
     }
+  }
 
-    if (app.locals.mcpClient) {
-        tasks.push(
-            app.locals.mcpClient.shutdown().catch((err) => {
-                console.error('[MCP] Shutdown error:', err.message);
-            }),
-        );
+  if (app.locals.mcpClient) {
+    tasks.push(
+      app.locals.mcpClient.shutdown().catch((err) => {
+        console.error('[MCP] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (app.locals.browserController) {
+    tasks.push(
+      app.locals.browserController.closeBrowser().catch((err) => {
+        console.error('[Browser] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (app.locals.androidController) {
+    tasks.push(
+      app.locals.androidController.close().catch((err) => {
+        console.error('[Android] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (app.locals.messagingManager) {
+    tasks.push(
+      app.locals.messagingManager.shutdown().catch((err) => {
+        console.error('[Messaging] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (app.locals.cliExecutor) {
+    try {
+      app.locals.cliExecutor.killAll('shutdown');
+      logServiceReady('CLI executor processes terminated');
+    } catch (err) {
+      console.error('[CLI] Shutdown error:', getErrorMessage(err));
     }
+  }
 
-    if (app.locals.browserController) {
-        tasks.push(
-            app.locals.browserController.closeBrowser().catch((err) => {
-                console.error('[Browser] Shutdown error:', err.message);
-            }),
-        );
-    }
-
-    if (app.locals.androidController) {
-        tasks.push(
-            app.locals.androidController.close().catch((err) => {
-                console.error('[Android] Shutdown error:', err.message);
-            }),
-        );
-    }
-
-    if (app.locals.messagingManager) {
-        tasks.push(
-            app.locals.messagingManager.shutdown().catch((err) => {
-                console.error('[Messaging] Shutdown error:', err.message);
-            }),
-        );
-    }
-
-    if (app.locals.cliExecutor) {
-        try {
-            app.locals.cliExecutor.killAll('shutdown');
-            console.log('[Services] CLI executor processes terminated');
-        } catch (err) {
-            console.error('[CLI] Shutdown error:', err.message);
-        }
-    }
-
-    await Promise.allSettled(tasks);
-    console.log('[Services] Shutdown tasks settled');
+  await Promise.allSettled(tasks);
+  logServiceReady('Shutdown tasks settled');
 }
 
 module.exports = { startServices, stopServices };
