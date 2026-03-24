@@ -164,10 +164,17 @@ class MessagingManager {
     return { status: 'disconnected' };
   }
 
-  async sendMessage(userId, platformName, to, content, mediaPath) {
+  async sendMessage(userId, platformName, to, content, mediaPathOrOptions) {
     const key = `${userId}:${platformName}`;
     const platform = this.platforms.get(key);
     if (!platform) throw new Error(`Platform ${platformName} not connected`);
+
+    const sendOptions =
+      mediaPathOrOptions && typeof mediaPathOrOptions === 'object' && !Array.isArray(mediaPathOrOptions)
+        ? mediaPathOrOptions
+        : { mediaPath: mediaPathOrOptions };
+    const mediaPath = sendOptions.mediaPath || null;
+    const runId = sendOptions.runId || null;
 
     // Sentinel: agent can choose not to reply by sending [NO RESPONSE]
     if (!mediaPath && typeof content === 'string' && content.trim().toUpperCase() === '[NO RESPONSE]') {
@@ -176,15 +183,16 @@ class MessagingManager {
 
     const result = await platform.sendMessage(to, content, { mediaPath });
 
-    db.prepare('INSERT INTO messages (user_id, role, content, platform, platform_chat_id, media_path) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(userId, 'assistant', content, platformName, to, mediaPath || null);
+    db.prepare('INSERT INTO messages (user_id, run_id, role, content, platform, platform_chat_id, media_path) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, runId, 'assistant', content, platformName, to, mediaPath);
 
     // Notify the web UI so the sent message appears in chat
     this.io.to(`user:${userId}`).emit('messaging:sent', {
       platform: platformName,
       to,
       content,
-      mediaPath: mediaPath || null
+      mediaPath,
+      runId
     });
 
     return { success: true, result };
