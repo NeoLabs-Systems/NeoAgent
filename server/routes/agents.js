@@ -54,8 +54,23 @@ router.post('/', async (req, res) => {
     if (!task || typeof task !== 'string') return res.status(400).json({ error: 'Task must be a non-empty string' });
     if (task.length > 50000) return res.status(400).json({ error: 'Task exceeds maximum length of 50,000 characters' });
 
+    db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
+      .run(req.session.userId, 'user', task, JSON.stringify({ platform: 'flutter' }));
+
     const engine = req.app.locals.agentEngine;
     const result = await engine.run(req.session.userId, task, options || {});
+
+    if (result?.content) {
+      db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+        .run(
+          req.session.userId,
+          result.runId,
+          'assistant',
+          result.content,
+          JSON.stringify({ tokens: result.totalTokens, platform: 'flutter' })
+        );
+    }
+
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
