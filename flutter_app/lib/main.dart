@@ -7930,10 +7930,147 @@ class LogsPanel extends StatefulWidget {
 }
 
 class _LogsPanelState extends State<LogsPanel> {
+  static const JsonEncoder _debugJsonEncoder = JsonEncoder.withIndent('  ');
+
+  String _recentLogsText() =>
+      widget.controller.logs.map((log) => log.clipboardLine).join('\n');
+
+  String _prettyJson(Object? value) => _debugJsonEncoder.convert(value);
+
+  String _buildDebugInfo() {
+    final controller = widget.controller;
+    final now = DateTime.now().toIso8601String();
+    final versionInfo = controller.versionInfo;
+    final backendStatus = controller.backendHealthStatus;
+    final lastRun = _jsonMap(backendStatus?['lastRun']);
+    final lastNonEmptyRun = _jsonMap(backendStatus?['lastNonEmptyRun']);
+
+    final snapshot = <String, dynamic>{
+      'generatedAt': now,
+      'platform': kIsWeb
+          ? 'web'
+          : defaultTargetPlatform.name,
+      'session': <String, dynamic>{
+        'backendUrl': controller.backendUrl,
+        'authenticated': controller.isAuthenticated,
+        'socketConnected': controller.socketConnected,
+        'selectedSection': controller.selectedSection.label,
+        'account': controller.accountLabel,
+      },
+      'version': <String, dynamic>{
+        'name': versionInfo?['name'],
+        'version': versionInfo?['version'],
+        'packageVersion': versionInfo?['packageVersion'],
+        'gitVersion': versionInfo?['gitVersion'],
+        'gitBranch': versionInfo?['gitBranch'],
+        'gitSha': versionInfo?['gitSha'],
+        'releaseChannel': versionInfo?['releaseChannel'] ??
+            controller.updateStatus.releaseChannel,
+        'targetBranch': versionInfo?['targetBranch'] ??
+            controller.updateStatus.targetBranch,
+        'npmDistTag': versionInfo?['npmDistTag'] ??
+            controller.updateStatus.npmDistTag,
+      },
+      'ai': <String, dynamic>{
+        'defaultChatModel': controller.defaultChatModel,
+        'defaultSubagentModel': controller.defaultSubagentModel,
+        'fallbackModel': controller.fallbackModel,
+        'smarterSelector': controller.smarterSelector,
+        'enabledModelCount': controller.enabledModelIds.length,
+        'availableModelCount': controller.supportedModels
+            .where((model) => model.available)
+            .length,
+        'providerStatus': controller.aiProviders
+            .map(
+              (provider) => <String, dynamic>{
+                'id': provider.id,
+                'enabled': provider.enabled,
+                'available': provider.available,
+                'status': provider.status,
+                'statusLabel': provider.statusLabel,
+                'modelCount': provider.modelCount,
+                'availableModelCount': provider.availableModelCount,
+                'baseUrl': provider.supportsBaseUrl ? provider.baseUrl : null,
+                'hasStoredApiKey': provider.hasStoredApiKey,
+                'hasEnvironmentApiKey': provider.hasEnvironmentApiKey,
+              },
+            )
+            .toList(),
+      },
+      'runtime': <String, dynamic>{
+        'heartbeatEnabled': controller.heartbeatEnabled,
+        'headlessBrowser': controller.headlessBrowser,
+        'hasLiveRun': controller.hasLiveRun,
+        'activeRun': controller.activeRun == null
+            ? null
+            : <String, dynamic>{
+                'runId': controller.activeRun!.runId,
+                'title': controller.activeRun!.title,
+                'model': controller.activeRun!.model,
+                'phase': controller.activeRun!.phase,
+                'iteration': controller.activeRun!.iteration,
+                'pendingSteeringCount':
+                    controller.activeRun!.pendingSteeringCount,
+                'triggerSource': controller.activeRun!.triggerSource,
+              },
+      },
+      'updateStatus': <String, dynamic>{
+        'state': controller.updateStatus.state,
+        'progress': controller.updateStatus.progress,
+        'message': controller.updateStatus.message,
+        'versionBefore': controller.updateStatus.versionBefore,
+        'versionAfter': controller.updateStatus.versionAfter,
+        'installedVersion': controller.updateStatus.installedVersion,
+        'backendVersion': controller.updateStatus.backendVersion,
+        'releaseChannel': controller.updateStatus.releaseChannel,
+        'targetBranch': controller.updateStatus.targetBranch,
+        'npmDistTag': controller.updateStatus.npmDistTag,
+        'changelog': controller.updateStatus.changelog,
+        'updateLogs': controller.updateStatus.logs,
+      },
+      'health': <String, dynamic>{
+        'status': backendStatus?['status'],
+        'timestamp': backendStatus?['timestamp'],
+        'metricsCount': (backendStatus?['metrics'] as List<dynamic>?)?.length ??
+            0,
+        'lastRun': lastRun.isEmpty
+            ? null
+            : <String, dynamic>{
+                'startedAt': lastRun['started_at'],
+                'completedAt': lastRun['completed_at'],
+                'recordCount': lastRun['record_count'],
+                'syncWindowEnd': lastRun['sync_window_end'],
+                'summary': _jsonMap(lastRun['summary']),
+              },
+        'lastNonEmptyRun': lastNonEmptyRun.isEmpty
+            ? null
+            : <String, dynamic>{
+                'startedAt': lastNonEmptyRun['started_at'],
+                'completedAt': lastNonEmptyRun['completed_at'],
+                'recordCount': lastNonEmptyRun['record_count'],
+                'syncWindowEnd': lastNonEmptyRun['sync_window_end'],
+                'summary': _jsonMap(lastNonEmptyRun['summary']),
+              },
+      },
+      'recentLogs': controller.logs
+          .map(
+            (log) => <String, dynamic>{
+              'time': log.timeLabel,
+              'type': log.type,
+              'message': log.message,
+            },
+          )
+          .toList(),
+    };
+
+    return [
+      'NeoAgent debug info',
+      _prettyJson(snapshot),
+    ].join('\n\n');
+  }
+
   Future<void> _copyLogs() async {
-    final logsText = widget.controller.logs
-        .map((log) => log.clipboardLine)
-        .join('\n');
+    final logsText = _recentLogsText();
     if (logsText.trim().isEmpty) {
       return;
     }
@@ -7946,6 +8083,17 @@ class _LogsPanelState extends State<LogsPanel> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Copied logs')));
+  }
+
+  Future<void> _copyDebugInfo() async {
+    await Clipboard.setData(ClipboardData(text: _buildDebugInfo()));
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Copied debug info')));
   }
 
   @override
@@ -7961,9 +8109,14 @@ class _LogsPanelState extends State<LogsPanel> {
             runSpacing: 12,
             children: <Widget>[
               OutlinedButton.icon(
+                onPressed: _copyDebugInfo,
+                icon: const Icon(Icons.bug_report_outlined),
+                label: const Text('Copy debug info'),
+              ),
+              OutlinedButton.icon(
                 onPressed: widget.controller.logs.isEmpty ? null : _copyLogs,
                 icon: const Icon(Icons.copy_all_outlined),
-                label: const Text('Copy'),
+                label: const Text('Copy logs'),
               ),
               OutlinedButton.icon(
                 onPressed: widget.controller.clearLogs,
