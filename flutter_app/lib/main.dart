@@ -1594,9 +1594,12 @@ class NeoAgentController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<RunDetailSnapshot> fetchRunDetail(String runId) async {
+  Future<RunDetailSnapshot> fetchRunDetail(
+    String runId, {
+    bool force = false,
+  }) async {
     final cached = _runDetailsCache[runId];
-    if (cached != null) {
+    if (!force && cached != null && cached.response.trim().isNotEmpty) {
       return cached;
     }
     final response = await _backendClient.fetchRunSteps(backendUrl, runId);
@@ -2659,6 +2662,8 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
       if (_backgroundRunIds.remove(runId)) {
+        unawaited(refreshRunsOnly());
+        notifyListeners();
         return;
       }
       final content = payload['content']?.toString().trim() ?? '';
@@ -2688,6 +2693,8 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
       if (_backgroundRunIds.remove(runId)) {
+        unawaited(refreshRunsOnly());
+        notifyListeners();
         return;
       }
       streamingAssistant = '';
@@ -2705,7 +2712,11 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString();
       if (runId != null) {
-        _backgroundRunIds.remove(runId);
+        if (_backgroundRunIds.remove(runId)) {
+          unawaited(refreshRunsOnly());
+          notifyListeners();
+          return;
+        }
       }
       streamingAssistant = '';
       activeRun = null;
@@ -5770,13 +5781,16 @@ class _RunsPanelState extends State<RunsPanel> {
     }
   }
 
-  Future<void> _selectRun(String runId) async {
+  Future<void> _selectRun(String runId, {bool force = false}) async {
     setState(() {
       _selectedRunId = runId;
       _loadingDetail = true;
     });
     try {
-      final detail = await widget.controller.fetchRunDetail(runId);
+      final detail = await widget.controller.fetchRunDetail(
+        runId,
+        force: force,
+      );
       if (!mounted || _selectedRunId != runId) {
         return;
       }
@@ -5799,7 +5813,13 @@ class _RunsPanelState extends State<RunsPanel> {
     if (!mounted) {
       return;
     }
-    _syncSelection();
+    final selectedRunId = _selectedRunId;
+    if (selectedRunId != null &&
+        widget.controller.recentRuns.any((run) => run.id == selectedRunId)) {
+      await _selectRun(selectedRunId, force: true);
+    } else {
+      _syncSelection();
+    }
     setState(() {});
   }
 
@@ -7947,9 +7967,7 @@ class _LogsPanelState extends State<LogsPanel> {
 
     final snapshot = <String, dynamic>{
       'generatedAt': now,
-      'platform': kIsWeb
-          ? 'web'
-          : defaultTargetPlatform.name,
+      'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
       'session': <String, dynamic>{
         'backendUrl': controller.backendUrl,
         'authenticated': controller.isAuthenticated,
@@ -7964,12 +7982,14 @@ class _LogsPanelState extends State<LogsPanel> {
         'gitVersion': versionInfo?['gitVersion'],
         'gitBranch': versionInfo?['gitBranch'],
         'gitSha': versionInfo?['gitSha'],
-        'releaseChannel': versionInfo?['releaseChannel'] ??
+        'releaseChannel':
+            versionInfo?['releaseChannel'] ??
             controller.updateStatus.releaseChannel,
-        'targetBranch': versionInfo?['targetBranch'] ??
+        'targetBranch':
+            versionInfo?['targetBranch'] ??
             controller.updateStatus.targetBranch,
-        'npmDistTag': versionInfo?['npmDistTag'] ??
-            controller.updateStatus.npmDistTag,
+        'npmDistTag':
+            versionInfo?['npmDistTag'] ?? controller.updateStatus.npmDistTag,
       },
       'ai': <String, dynamic>{
         'defaultChatModel': controller.defaultChatModel,
@@ -8031,8 +8051,8 @@ class _LogsPanelState extends State<LogsPanel> {
       'health': <String, dynamic>{
         'status': backendStatus?['status'],
         'timestamp': backendStatus?['timestamp'],
-        'metricsCount': (backendStatus?['metrics'] as List<dynamic>?)?.length ??
-            0,
+        'metricsCount':
+            (backendStatus?['metrics'] as List<dynamic>?)?.length ?? 0,
         'lastRun': lastRun.isEmpty
             ? null
             : <String, dynamic>{
@@ -8063,10 +8083,7 @@ class _LogsPanelState extends State<LogsPanel> {
           .toList(),
     };
 
-    return [
-      'NeoAgent debug info',
-      _prettyJson(snapshot),
-    ].join('\n\n');
+    return ['NeoAgent debug info', _prettyJson(snapshot)].join('\n\n');
   }
 
   Future<void> _copyLogs() async {

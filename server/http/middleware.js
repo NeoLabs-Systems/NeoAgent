@@ -85,14 +85,15 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
   );
   app.use((req, res, next) => {
     const startedAt = Date.now();
-    logRequestSummary('log', req, 'started');
 
     res.on('finish', () => {
       const durationMs = Date.now() - startedAt;
-      const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'log';
-      logRequestSummary(level, req, `completed ${res.statusCode} in ${durationMs}ms`, {
-        contentLength: res.getHeader('content-length') || null
-      });
+      if (res.statusCode >= 400) {
+        const level = res.statusCode >= 500 ? 'error' : 'warn';
+        logRequestSummary(level, req, `completed ${res.statusCode} in ${durationMs}ms`, {
+          contentLength: res.getHeader('content-length') || null
+        });
+      }
     });
 
     res.on('close', () => {
