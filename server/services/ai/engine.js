@@ -2,7 +2,12 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const db = require('../../db/database');
 const { compact } = require('./compaction');
-const { getConversationContext, buildSummaryCarrier, refreshConversationSummary } = require('./history');
+const {
+  getConversationContext,
+  buildSummaryCarrier,
+  refreshConversationSummary,
+  sanitizeConversationMessages
+} = require('./history');
 const { ensureDefaultAiSettings, getAiSettings } = require('./settings');
 const { selectToolsForTask } = require('./toolSelector');
 const { compactToolResult } = require('./toolResult');
@@ -438,6 +443,7 @@ class AgentEngine {
 
     let messages = this.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
     messages.push(this.buildUserMessage(userMessage, options));
+    messages = sanitizeConversationMessages(messages);
 
     if (conversationId) {
       db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
@@ -461,11 +467,13 @@ class AgentEngine {
           conversationId
         });
         messages = steeringAtLoopStart.messages;
+        messages = sanitizeConversationMessages(messages);
 
         let metrics = this.estimatePromptMetrics(messages, tools);
         const contextWindow = provider.getContextWindow(model);
         if (metrics.totalEstimatedTokens > contextWindow * 0.7) {
           messages = await compact(messages, provider, model);
+          messages = sanitizeConversationMessages(messages);
           this.emit(userId, 'run:compaction', { runId, iteration });
           metrics = this.estimatePromptMetrics(messages, tools);
         }
@@ -480,9 +488,10 @@ class AgentEngine {
         const callOptions = { model, reasoningEffort: this.getReasoningEffort(providerName, options) };
 
         const tryModelCall = async (retryForFallback = true) => {
+          const requestMessages = sanitizeConversationMessages(messages);
           try {
             if (options.stream !== false) {
-              const gen = provider.stream(messages, tools, callOptions);
+              const gen = provider.stream(requestMessages, tools, callOptions);
               for await (const chunk of gen) {
                 if (chunk.type === 'content') {
                   streamContent += chunk.content;
@@ -508,7 +517,7 @@ class AgentEngine {
                 }
               }
             } else {
-              response = await provider.chat(messages, tools, callOptions);
+              response = await provider.chat(requestMessages, tools, callOptions);
               responseModel = model;
             }
           } catch (err) {
@@ -528,9 +537,10 @@ class AgentEngine {
 
               // Recursive call once
               const retryOptions = { ...callOptions, model, reasoningEffort: this.getReasoningEffort(providerName, options) };
+              const retryMessages = sanitizeConversationMessages(messages);
 
               if (options.stream !== false) {
-                const gen = provider.stream(messages, tools, retryOptions);
+                const gen = provider.stream(retryMessages, tools, retryOptions);
                 for await (const chunk of gen) {
                   if (chunk.type === 'content') {
                     streamContent += chunk.content;
@@ -556,7 +566,7 @@ class AgentEngine {
                   }
                 }
               } else {
-                response = await provider.chat(messages, tools, retryOptions);
+                response = await provider.chat(retryMessages, tools, retryOptions);
                 responseModel = model;
               }
             } else {
@@ -704,7 +714,7 @@ class AgentEngine {
 
       if ((iteration >= maxIterations && messages[messages.length - 1]?.role === 'tool')
         || (iteration < maxIterations && stepIndex > 0 && !lastContent.trim() && messages[messages.length - 1]?.role !== 'tool')) {
-        const finalResponse = await provider.chat(messages, [], {
+        const finalResponse = await provider.chat(sanitizeConversationMessages(messages), [], {
           model,
           reasoningEffort: this.getReasoningEffort(providerName, options)
         });

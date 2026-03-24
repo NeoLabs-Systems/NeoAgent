@@ -34,6 +34,67 @@ function normalizeHistoryRows(rows) {
   });
 }
 
+function sanitizeConversationMessages(messages) {
+  const sanitized = [];
+  let pendingToolSequence = null;
+
+  const dropPendingSequence = () => {
+    pendingToolSequence = null;
+  };
+
+  const flushPendingSequence = () => {
+    if (!pendingToolSequence) return;
+    if (pendingToolSequence.pendingIds.size === 0) {
+      sanitized.push(...pendingToolSequence.messages);
+    }
+    pendingToolSequence = null;
+  };
+
+  for (const msg of messages || []) {
+    if (!msg || !msg.role) continue;
+
+    if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+      const toolCallIds = msg.tool_calls
+        .map((toolCall) => toolCall?.id)
+        .filter(Boolean);
+
+      if (toolCallIds.length === 0) {
+        dropPendingSequence();
+        sanitized.push(msg);
+        continue;
+      }
+
+      dropPendingSequence();
+      pendingToolSequence = {
+        messages: [msg],
+        pendingIds: new Set(toolCallIds)
+      };
+      continue;
+    }
+
+    if (msg.role === 'tool') {
+      if (
+        pendingToolSequence
+        && msg.tool_call_id
+        && pendingToolSequence.pendingIds.has(msg.tool_call_id)
+      ) {
+        pendingToolSequence.messages.push(msg);
+        pendingToolSequence.pendingIds.delete(msg.tool_call_id);
+        if (pendingToolSequence.pendingIds.size === 0) {
+          flushPendingSequence();
+        }
+      }
+      continue;
+    }
+
+    dropPendingSequence();
+    sanitized.push(msg);
+  }
+
+  flushPendingSequence();
+  return sanitized;
+}
+
 function serializeHistoryForSummary(messages) {
   return messages.map((msg) => {
     if (msg.role === 'tool') {
@@ -143,7 +204,7 @@ function getConversationContext(conversationId, recentLimit) {
   return {
     summary: convo?.summary || '',
     summaryCount: Number(convo?.summary_message_count || 0),
-    recentMessages: normalizeHistoryRows(recent),
+    recentMessages: sanitizeConversationMessages(normalizeHistoryRows(recent)),
     totalMessages: db.prepare('SELECT COUNT(*) AS count FROM conversation_messages WHERE conversation_id = ?').get(conversationId).count
   };
 }
@@ -184,5 +245,6 @@ module.exports = {
   getWebChatContext,
   refreshConversationSummary,
   refreshWebChatSummary,
+  sanitizeConversationMessages,
   summarizeMessages
 };
