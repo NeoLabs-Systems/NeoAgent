@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -1009,7 +1008,8 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _runDeviceAction(
     Future<Map<String, dynamic>> Function() action, {
     required bool browser,
-    bool refreshApps = false,
+    bool refreshDevicesAfter = true,
+    bool refreshAppsAfter = false,
   }) async {
     if (isRunningDeviceAction) {
       return;
@@ -1047,8 +1047,10 @@ class NeoAgentController extends ChangeNotifier {
               .toList();
         }
       }
-      await refreshDevices();
-      if (refreshApps) {
+      if (refreshDevicesAfter) {
+        await refreshDevices();
+      }
+      if (refreshAppsAfter) {
         await refreshAndroidApps();
       }
     } catch (error) {
@@ -1181,7 +1183,7 @@ class NeoAgentController extends ChangeNotifier {
     await _runDeviceAction(
       () => _backendClient.startAndroidEmulator(backendUrl),
       browser: false,
-      refreshApps: true,
+      refreshAppsAfter: true,
     );
   }
 
@@ -1196,6 +1198,7 @@ class NeoAgentController extends ChangeNotifier {
     await _runDeviceAction(
       () => _backendClient.screenshotAndroid(backendUrl),
       browser: false,
+      refreshDevicesAfter: false,
     );
   }
 
@@ -1226,6 +1229,7 @@ class NeoAgentController extends ChangeNotifier {
     await _runDeviceAction(
       () => _backendClient.dumpAndroidUi(backendUrl),
       browser: false,
+      refreshDevicesAfter: false,
     );
   }
 
@@ -1238,9 +1242,11 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         packageName: packageName,
         activity: activity,
+        uiDump: false,
+        includeNodes: false,
       ),
       browser: false,
-      refreshApps: true,
+      refreshDevicesAfter: false,
     );
   }
 
@@ -1257,36 +1263,60 @@ class NeoAgentController extends ChangeNotifier {
         dataUri: dataUri,
         packageName: packageName,
         component: component,
+        uiDump: false,
+        includeNodes: false,
       ),
       browser: false,
+      refreshDevicesAfter: false,
     );
   }
 
   Future<void> tapAndroidRuntime(Map<String, dynamic> payload) async {
     await _runDeviceAction(
-      () => _backendClient.tapAndroid(backendUrl, payload),
+      () => _backendClient.tapAndroid(backendUrl, <String, dynamic>{
+        ...payload,
+        'uiDump': false,
+        'includeNodes': false,
+      }),
       browser: false,
+      refreshDevicesAfter: false,
     );
   }
 
   Future<void> typeAndroidRuntime(Map<String, dynamic> payload) async {
     await _runDeviceAction(
-      () => _backendClient.typeAndroid(backendUrl, payload),
+      () => _backendClient.typeAndroid(backendUrl, <String, dynamic>{
+        ...payload,
+        'uiDump': false,
+        'includeNodes': false,
+      }),
       browser: false,
+      refreshDevicesAfter: false,
     );
   }
 
   Future<void> swipeAndroidRuntime(Map<String, dynamic> payload) async {
     await _runDeviceAction(
-      () => _backendClient.swipeAndroid(backendUrl, payload),
+      () => _backendClient.swipeAndroid(backendUrl, <String, dynamic>{
+        ...payload,
+        'uiDump': false,
+        'includeNodes': false,
+      }),
       browser: false,
+      refreshDevicesAfter: false,
     );
   }
 
   Future<void> pressAndroidKeyRuntime(String key) async {
     await _runDeviceAction(
-      () => _backendClient.pressAndroidKey(backendUrl, key: key),
+      () => _backendClient.pressAndroidKey(
+        backendUrl,
+        key: key,
+        uiDump: false,
+        includeNodes: false,
+      ),
       browser: false,
+      refreshDevicesAfter: false,
     );
   }
 
@@ -1294,6 +1324,7 @@ class NeoAgentController extends ChangeNotifier {
     await _runDeviceAction(
       () => _backendClient.waitForAndroid(backendUrl, payload),
       browser: false,
+      refreshDevicesAfter: false,
     );
   }
 
@@ -1308,7 +1339,7 @@ class NeoAgentController extends ChangeNotifier {
         bytes: bytes,
       ),
       browser: false,
-      refreshApps: true,
+      refreshAppsAfter: true,
     );
   }
 

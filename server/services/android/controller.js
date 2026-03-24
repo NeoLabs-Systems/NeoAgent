@@ -1205,16 +1205,18 @@ class AndroidController {
       }
     }
 
-    try {
-      const dump = await this.dumpUi({
-        serial: resolvedSerial,
-        includeNodes: options.includeNodes !== false,
-      });
-      observation.uiDumpPath = dump.uiDumpPath;
-      observation.nodeCount = dump.nodeCount;
-      observation.preview = dump.preview;
-    } catch (err) {
-      observation.observationWarnings.push(`ui_dump: ${err.message}`);
+    if (options.uiDump !== false) {
+      try {
+        const dump = await this.dumpUi({
+          serial: resolvedSerial,
+          includeNodes: options.includeNodes !== false,
+        });
+        observation.uiDumpPath = dump.uiDumpPath;
+        observation.nodeCount = dump.nodeCount;
+        observation.preview = dump.preview;
+      } catch (err) {
+        observation.observationWarnings.push(`ui_dump: ${err.message}`);
+      }
     }
 
     if (observation.observationWarnings.length === 0) {
@@ -1276,7 +1278,7 @@ class AndroidController {
     }
 
     await this.#adb(serial, `shell input tap ${Math.round(x)} ${Math.round(y)}`, { timeout: 15000 });
-    const observation = await this.#captureObservation(serial);
+    const observation = await this.#captureObservation(serial, args);
     return {
       success: true,
       serial,
@@ -1310,7 +1312,7 @@ class AndroidController {
       `shell input swipe ${Math.round(x)} ${Math.round(y)} ${Math.round(x)} ${Math.round(y)} ${Math.round(durationMs)}`,
       { timeout: Math.max(15000, durationMs + 5000) },
     );
-    const observation = await this.#captureObservation(serial);
+    const observation = await this.#captureObservation(serial, args);
     return {
       success: true,
       serial,
@@ -1337,6 +1339,8 @@ class AndroidController {
         description: args.description,
         className: args.className,
         clickable: true,
+        screenshot: false,
+        uiDump: false,
       }).catch(() => {});
     }
 
@@ -1344,7 +1348,7 @@ class AndroidController {
     if (args.pressEnter) {
       await this.#adb(serial, 'shell input keyevent 66', { timeout: 10000 });
     }
-    const observation = await this.#captureObservation(serial);
+    const observation = await this.#captureObservation(serial, args);
     return {
       success: true,
       serial,
@@ -1364,7 +1368,7 @@ class AndroidController {
       throw new Error('x1, y1, x2, and y2 are required for android_swipe');
     }
     await this.#adb(serial, `shell input swipe ${Math.round(x1)} ${Math.round(y1)} ${Math.round(x2)} ${Math.round(y2)} ${Math.round(duration)}`, { timeout: 15000 });
-    const observation = await this.#captureObservation(serial);
+    const observation = await this.#captureObservation(serial, args);
     return {
       success: true,
       serial,
@@ -1378,7 +1382,7 @@ class AndroidController {
     const keyCode = Number.isFinite(Number(raw)) ? Number(raw) : (DEFAULT_KEYEVENTS[raw] || null);
     if (!keyCode) throw new Error(`Unsupported Android key: ${args.key}`);
     await this.#adb(serial, `shell input keyevent ${keyCode}`, { timeout: 10000 });
-    const observation = await this.#captureObservation(serial);
+    const observation = await this.#captureObservation(serial, args);
     return {
       success: true,
       serial,
@@ -1406,6 +1410,8 @@ class AndroidController {
       if (node) {
         const observation = await this.#captureObservation(dump.serial, {
           screenshot: args.screenshot !== false,
+          uiDump: args.uiDump !== false,
+          includeNodes: args.includeNodes,
         });
         return {
           success: true,
@@ -1443,7 +1449,7 @@ class AndroidController {
     } else {
       throw new Error('packageName is required for android_open_app');
     }
-    const observation = await this.#captureObservation(serial);
+    const observation = await this.#captureObservation(serial, args);
     return {
       success: true,
       serial,
@@ -1469,7 +1475,7 @@ class AndroidController {
     }
 
     await this.#adb(serial, parts.join(' '), { timeout: 20000 });
-    const observation = await this.#captureObservation(serial);
+    const observation = await this.#captureObservation(serial, args);
     return {
       success: true,
       serial,
