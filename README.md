@@ -1,4 +1,6 @@
 <h1 align="center">NeoAgent</h1>
+<img width="1462" height="696" alt="WebUI" src="https://github.com/user-attachments/assets/3c76d59a-b6e3-4698-929b-9c94741ccf1e" />
+<img width="1001" height="2048" alt="Mobile Telegram" src="https://github.com/user-attachments/assets/1fd41a9b-5452-4aa4-9478-888c8ad7363a" />
 
 <p align="center"><strong>Your agent. Your server. Your rules.</strong></p>
 
@@ -8,6 +10,7 @@
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-web%20%2B%20android-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-a855f7?style=flat-square" alt="License"></a>
 </p>
+
 
 <p align="center">
   A self-hosted, proactive AI agent with a Flutter client for web and Android.<br>
