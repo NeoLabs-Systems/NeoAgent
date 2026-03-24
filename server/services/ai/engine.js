@@ -138,6 +138,13 @@ function normalizeOutgoingMessage(content) {
     .trim();
 }
 
+function clampRunContext(text, maxChars) {
+  const value = normalizeOutgoingMessage(text);
+  if (!value) return '';
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, maxChars)}...`;
+}
+
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
@@ -168,6 +175,44 @@ class AgentEngine {
   async executeTool(toolName, args, context) {
     const { executeTool } = require('./tools');
     return executeTool(toolName, args, context, this);
+  }
+
+  async persistRunContext(userId, {
+    triggerSource,
+    runTitle,
+    userMessage,
+    lastContent,
+    stepIndex
+  }) {
+    const cleanedOutput = clampRunContext(lastContent, 1200);
+    const cleanedInput = clampRunContext(userMessage, 700);
+    const meaningfulTrigger = ['messaging', 'scheduler', 'heartbeat'].includes(triggerSource);
+
+    if ((!meaningfulTrigger && stepIndex < 2) || !cleanedOutput) {
+      return;
+    }
+
+    const parts = [
+      `Recent ${triggerSource || 'agent'} run`,
+      runTitle ? `Title: ${clampRunContext(runTitle, 140)}` : '',
+      cleanedInput ? `Request: ${cleanedInput}` : '',
+      `Outcome: ${cleanedOutput}`
+    ].filter(Boolean);
+    const summary = parts.join('\n');
+
+    try {
+      const { MemoryManager } = require('../memory/manager');
+      const memoryManager = this.memoryManager || new MemoryManager();
+      memoryManager.updateCore(userId, 'active_context', summary);
+      await memoryManager.saveMemory(
+        userId,
+        summary,
+        'episodic',
+        meaningfulTrigger ? 7 : 5
+      );
+    } catch (err) {
+      console.error('[AI] Failed to persist run context:', err.message);
+    }
   }
 
   getRunMeta(runId) {
@@ -754,6 +799,14 @@ class AgentEngine {
       await this.persistPromptMetrics(runId, {
         ...promptMetrics,
         finalTotalTokens: totalTokens
+      });
+
+      await this.persistRunContext(userId, {
+        triggerSource,
+        runTitle,
+        userMessage,
+        lastContent,
+        stepIndex
       });
 
       const runMeta = this.activeRuns.get(runId);
