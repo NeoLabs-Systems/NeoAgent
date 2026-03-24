@@ -139,11 +139,6 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'memory_update_core':
     case 'memory_read':
     case 'memory_write':
-    case 'create_scheduled_task':
-    case 'schedule_run':
-    case 'list_scheduled_tasks':
-    case 'delete_scheduled_task':
-    case 'update_scheduled_task':
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',

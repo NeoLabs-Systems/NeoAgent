@@ -260,6 +260,10 @@ class Scheduler {
   async _executeTask(taskId, userId, config) {
     db.prepare('UPDATE scheduled_tasks SET last_run = datetime(\'now\') WHERE id = ?').run(taskId);
 
+    const taskRecord = db.prepare('SELECT name, cron_expression, one_time FROM scheduled_tasks WHERE id = ?').get(taskId);
+    const taskName = taskRecord ? taskRecord.name : `Task ${taskId}`;
+    const scheduleInfo = taskRecord ? (taskRecord.one_time ? 'One-time' : taskRecord.cron_expression) : 'Unknown';
+
     if (!config.callTo && (!config.notifyPlatform || !config.notifyTo)) {
       const notifyTarget = this._getDefaultNotifyTarget(userId);
       if (notifyTarget.platform && notifyTarget.to) {
@@ -273,7 +277,7 @@ class Scheduler {
     this.io.to(`user:${userId}`).emit('scheduler:task_running', { taskId, timestamp: new Date().toISOString() });
 
     try {
-      if (this.agentEngine && config.prompt) {
+      if (this.agentEngine && config.prompt !== undefined) {
         let notifyHint = '';
 
         if (config.callTo) {
@@ -283,6 +287,10 @@ class Scheduler {
             ? `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${config.notifyPlatform}" to="${config.notifyTo}".`
             : '';
         }
+
+        const taskContext = `[SYSTEM: Executing Scheduled Task]\nTask Name: ${taskName}\nSchedule: ${scheduleInfo}\n\n`;
+        const userPrompt = config.prompt || `You have been triggered by the scheduler to run the background task "${taskName}". Please execute any necessary checks or actions associated with this task.`;
+        const finalPrompt = taskContext + userPrompt + notifyHint;
 
         const convId = this._getMessagingConversation(userId);
 
@@ -294,8 +302,8 @@ class Scheduler {
           taskId,
         };
         const result = typeof this.agentEngine.runWithModel === 'function'
-          ? await this.agentEngine.runWithModel(userId, config.prompt + notifyHint, runOptions, config.model || null)
-          : await this.agentEngine.run(userId, config.prompt + notifyHint, runOptions);
+          ? await this.agentEngine.runWithModel(userId, finalPrompt, runOptions, config.model || null)
+          : await this.agentEngine.run(userId, finalPrompt, runOptions);
         this.io.to(`user:${userId}`).emit('scheduler:task_complete', { taskId, result });
       }
     } catch (err) {
