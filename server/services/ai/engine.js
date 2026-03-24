@@ -235,7 +235,8 @@ class AgentEngine {
     providerName,
     options,
     stepIndex,
-    failedStepCount
+    failedStepCount,
+    tools = []
   }) {
     const attempts = 2;
     let recoveredContent = '';
@@ -253,7 +254,7 @@ class AgentEngine {
             content: buildBlankMessagingReplyPrompt(attempt)
           }
         ]),
-        [],
+        tools,
         {
           model,
           reasoningEffort: this.getReasoningEffort(providerName, options)
@@ -899,7 +900,7 @@ class AgentEngine {
             role: 'system',
             content: buildForcedFinalReplyPrompt(triggerSource)
           }
-        ]), [], {
+        ]), tools, {
           model,
           reasoningEffort: this.getReasoningEffort(providerName, options)
         });
@@ -930,7 +931,8 @@ class AgentEngine {
           providerName,
           options,
           stepIndex,
-          failedStepCount
+          failedStepCount,
+          tools
         });
         lastContent = recovered.content;
         totalTokens += recovered.tokens || 0;
