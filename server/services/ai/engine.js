@@ -154,6 +154,24 @@ function buildForcedFinalReplyPrompt(triggerSource) {
   return 'Tool work is finished. Write the final user-facing reply now. Do not call tools.';
 }
 
+function buildBlankMessagingReplyPrompt(attempt) {
+  if (attempt <= 1) {
+    return 'You must produce one non-empty plain-text reply for the external messaging user right now. Do not call tools. Do not use markdown. Briefly summarize what you did or what blocked you.';
+  }
+
+  return 'Your previous reply was empty. Return one non-empty plain-text message now. Do not call tools. Do not use markdown. If needed, apologize briefly and explain the blocker in one or two sentences.';
+}
+
+function buildDeterministicMessagingFallback({ failedStepCount, stepIndex }) {
+  if (failedStepCount > 0) {
+    return 'I ran into an issue while working on that, so I do not have a clean final result yet. Ask me for a summary and I will explain what I found.';
+  }
+  if (stepIndex > 0) {
+    return 'I worked on that, but I could not produce a clean summary before finishing. Ask me for a summary and I will condense what I found into one message.';
+  }
+  return 'I could not generate a proper reply just now, but I am still here. Please send the request again and I will try once more.';
+}
+
 function clampRunContext(text, maxChars) {
   const value = normalizeOutgoingMessage(text);
   if (!value) return '';
@@ -206,6 +224,56 @@ class AgentEngine {
     const { MemoryManager } = require('../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
     return buildSystemPrompt(userId, context, memoryManager);
+  }
+
+  async recoverBlankMessagingReply({
+    userId,
+    runId,
+    messages,
+    provider,
+    model,
+    providerName,
+    options,
+    stepIndex,
+    failedStepCount
+  }) {
+    const attempts = 2;
+    let recoveredContent = '';
+    let totalTokens = 0;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      console.warn(
+        `[Run ${shortenRunId(runId)}] blank_reply_recovery attempt=${attempt} model=${model}`
+      );
+      const response = await provider.chat(
+        sanitizeConversationMessages([
+          ...messages,
+          {
+            role: 'system',
+            content: buildBlankMessagingReplyPrompt(attempt)
+          }
+        ]),
+        [],
+        {
+          model,
+          reasoningEffort: this.getReasoningEffort(providerName, options)
+        }
+      );
+      totalTokens += response.usage?.totalTokens || 0;
+      recoveredContent = sanitizeModelOutput(response.content || '', { model });
+      if (normalizeOutgoingMessage(recoveredContent)) {
+        console.info(
+          `[Run ${shortenRunId(runId)}] blank_reply_recovery succeeded attempt=${attempt}`
+        );
+        return { content: recoveredContent, tokens: totalTokens, recovered: true };
+      }
+    }
+
+    const fallback = buildDeterministicMessagingFallback({ failedStepCount, stepIndex });
+    console.warn(
+      `[Run ${shortenRunId(runId)}] blank_reply_recovery fallback=deterministic`
+    );
+    return { content: fallback, tokens: totalTokens, recovered: true };
   }
 
   getAvailableTools(app, options = {}) {
@@ -551,6 +619,7 @@ class AgentEngine {
     let totalTokens = 0;
     let lastContent = '';
     let stepIndex = 0;
+    let failedStepCount = 0;
     let promptMetrics = {};
 
     try {
@@ -767,6 +836,7 @@ class AgentEngine {
             );
           } catch (err) {
             toolResult = { error: err.message };
+            failedStepCount++;
             this.detachProcessFromRun(runId, toolResult?.pid);
             db.prepare('UPDATE agent_steps SET status = ?, error = ?, completed_at = datetime(\'now\') WHERE id = ?')
               .run('failed', err.message, stepId);
@@ -849,6 +919,30 @@ class AgentEngine {
 
       const runMeta = this.activeRuns.get(runId);
       const messagingSent = runMeta?.messagingSent || false;
+
+      if (triggerSource === 'messaging' && !normalizeOutgoingMessage(lastContent) && !messagingSent) {
+        const recovered = await this.recoverBlankMessagingReply({
+          userId,
+          runId,
+          messages,
+          provider,
+          model,
+          providerName,
+          options,
+          stepIndex,
+          failedStepCount
+        });
+        lastContent = recovered.content;
+        totalTokens += recovered.tokens || 0;
+        if (normalizeOutgoingMessage(lastContent)) {
+          messages.push({ role: 'assistant', content: lastContent });
+          if (conversationId) {
+            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+              .run(conversationId, 'assistant', lastContent, recovered.tokens || 0);
+          }
+        }
+      }
+
       const sentMessageText = joinSentMessages(runMeta?.sentMessages);
       const finalResponseText = lastContent.trim() ? lastContent : sentMessageText;
       const lastSentMessage = normalizeOutgoingMessage(
