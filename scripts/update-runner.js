@@ -16,6 +16,12 @@ const {
   migrateLegacyRuntime,
   ensureRuntimeDirs
 } = require('../runtime/paths');
+const {
+  getReleaseChannelBranch,
+  getReleaseChannelDistTag,
+  getReleaseChannelLabel,
+  readConfiguredReleaseChannel,
+} = require('../runtime/release_channel');
 
 const MAX_LOG_LINES = 220;
 const FLUTTER_APP_DIR = path.join(APP_DIR, 'flutter_app');
@@ -43,6 +49,10 @@ function writeStatus(patch) {
     completedAt: null,
     versionBefore: null,
     versionAfter: null,
+    releaseChannel: readConfiguredReleaseChannel(),
+    releaseChannelLabel: getReleaseChannelLabel(readConfiguredReleaseChannel()),
+    targetBranch: getReleaseChannelBranch(readConfiguredReleaseChannel()),
+    npmDistTag: getReleaseChannelDistTag(readConfiguredReleaseChannel()),
     changelog: [],
     logs: [],
     ...readStatus(),
@@ -92,6 +102,52 @@ function commandExists(cmd) {
   return sharedCommandExists((command, args) => run(command, args), cmd);
 }
 
+function gitWorkingTreeDirty() {
+  const res = run('git', ['status', '--porcelain']);
+  return res.status === 0 && Boolean((res.stdout || '').trim());
+}
+
+function gitLocalBranchExists(branch) {
+  return run('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]).status === 0;
+}
+
+function gitRemoteBranchExists(branch) {
+  return run('git', ['ls-remote', '--exit-code', '--heads', 'origin', branch]).status === 0;
+}
+
+function ensureGitBranchForReleaseChannel(targetBranch) {
+  const branchRes = run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
+  const currentBranch = (branchRes.stdout || '').trim();
+  if (currentBranch === targetBranch) {
+    return currentBranch;
+  }
+
+  if (!gitRemoteBranchExists(targetBranch)) {
+    fail(`Release channel branch "${targetBranch}" was not found on origin.`);
+  }
+
+  if (gitWorkingTreeDirty()) {
+    fail(
+      `Cannot switch to ${targetBranch} while the git worktree has local changes. Commit or stash them first, then retry the update.`,
+    );
+  }
+
+  const checkout = gitLocalBranchExists(targetBranch)
+    ? run('git', ['checkout', targetBranch])
+    : run('git', ['checkout', '-b', targetBranch, '--track', `origin/${targetBranch}`]);
+
+  if (checkout.status !== 0) {
+    fail(`git checkout ${targetBranch} failed`);
+  }
+
+  appendLog(
+    currentBranch
+      ? `Switched git branch ${currentBranch} -> ${targetBranch}`
+      : `Checked out git branch ${targetBranch}`,
+  );
+  return targetBranch;
+}
+
 function buildBundledWebClientIfPossible({ required = false } = {}) {
   return buildWebClient({
     flutterAppDir: FLUTTER_APP_DIR,
@@ -135,6 +191,9 @@ function main() {
   migrateLegacyRuntime();
   ensureRuntimeDirs();
   const startedAt = nowIso();
+  const releaseChannel = readConfiguredReleaseChannel();
+  const targetBranch = getReleaseChannelBranch(releaseChannel);
+  const npmTag = getReleaseChannelDistTag(releaseChannel);
   writeStatus({
     state: 'running',
     progress: 2,
@@ -142,6 +201,10 @@ function main() {
     message: 'Preparing update job',
     startedAt,
     completedAt: null,
+    releaseChannel,
+    releaseChannelLabel: getReleaseChannelLabel(releaseChannel),
+    targetBranch,
+    npmDistTag: npmTag,
     versionBefore: null,
     versionAfter: null,
     changelog: [],
@@ -157,15 +220,15 @@ function main() {
       fail('Update unavailable: no git repository detected and npm is not installed.');
     }
 
-    info(45, 'updating', 'Installing latest NeoAgent package');
-    const npmUpdate = run('npm', ['install', '-g', 'neoagent@latest'], {
+    info(45, 'updating', `Installing NeoAgent from the ${npmTag} channel`);
+    const npmUpdate = run('npm', ['install', '-g', `neoagent@${npmTag}`], {
       env: withInstallEnv()
     });
     if (npmUpdate.status !== 0) {
       fail('npm global update failed');
     }
 
-    if (!hasBundledWebClient()) {
+    if (!hasBundledWebClient(WEB_CLIENT_DIR)) {
       fail('No bundled Flutter web client found after package update.');
     }
 
@@ -183,19 +246,19 @@ function main() {
     return;
   }
 
-  info(8, 'checking', 'Detecting branch and current version');
-  const branchRes = run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
+  info(8, 'checking', `Preparing ${releaseChannel} channel update`);
   const currentRes = run('git', ['rev-parse', '--short', 'HEAD']);
-  const branch = (branchRes.stdout || '').trim() || 'main';
   const current = (currentRes.stdout || '').trim() || null;
   writeStatus({ versionBefore: current });
 
-  info(20, 'fetching', `Fetching latest commits from origin/${branch}`);
-  const fetch = run('git', ['fetch', 'origin']);
+  info(20, 'fetching', `Fetching latest commits from origin/${targetBranch}`);
+  const fetch = run('git', ['fetch', 'origin', targetBranch]);
   if (fetch.status !== 0) fail('git fetch failed');
 
-  info(35, 'pulling', `Rebasing with origin/${branch}`);
-  const pull = run('git', ['pull', '--rebase', '--autostash', 'origin', branch]);
+  ensureGitBranchForReleaseChannel(targetBranch);
+
+  info(35, 'pulling', `Rebasing with origin/${targetBranch}`);
+  const pull = run('git', ['pull', '--rebase', '--autostash', 'origin', targetBranch]);
   if (pull.status !== 0) fail('git pull --rebase failed');
 
   const nextRes = run('git', ['rev-parse', '--short', 'HEAD']);

@@ -343,6 +343,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isSendingMessage = false;
   bool isSavingSettings = false;
   bool isTriggeringUpdate = false;
+  bool isSavingReleaseChannel = false;
   bool isSyncingHealth = false;
   bool isRunningDeviceAction = false;
   bool socketConnected = false;
@@ -1734,6 +1735,53 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
       isTriggeringUpdate = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> setReleaseChannel(String channel) async {
+    if (isSavingReleaseChannel) {
+      return;
+    }
+
+    isSavingReleaseChannel = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _backendClient.setReleaseChannel(
+        backendUrl,
+        channel,
+      );
+      final nextChannel = response['releaseChannel']?.toString() ?? channel;
+      updateStatus = UpdateStatusSnapshot.fromJson(<String, dynamic>{
+        ...?versionInfo,
+        'state': updateStatus.state,
+        'progress': updateStatus.progress,
+        'message': updateStatus.message,
+        'releaseChannel': nextChannel,
+        'targetBranch': response['targetBranch'],
+        'npmDistTag': response['npmDistTag'],
+        'versionBefore': updateStatus.versionBefore,
+        'versionAfter': updateStatus.versionAfter,
+        'backendVersion': updateStatus.backendVersion,
+        'installedVersion': updateStatus.installedVersion,
+        'changelog': updateStatus.changelog,
+        'logs': updateStatus.logs,
+      });
+      if (versionInfo != null) {
+        versionInfo = <String, dynamic>{
+          ...versionInfo!,
+          'releaseChannel': nextChannel,
+          'targetBranch': response['targetBranch'],
+          'npmDistTag': response['npmDistTag'],
+        };
+      }
+      await refreshUpdateStatus();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingReleaseChannel = false;
       notifyListeners();
     }
   }
@@ -7411,12 +7459,75 @@ class _SettingsPanelState extends State<SettingsPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 780;
+                    final channelPicker = DropdownButtonFormField<String>(
+                      value: controller.updateStatus.releaseChannel,
+                      decoration: const InputDecoration(
+                        labelText: 'Release Channel',
+                      ),
+                      items: const <DropdownMenuItem<String>>[
+                        DropdownMenuItem<String>(
+                          value: 'stable',
+                          child: Text('Stable'),
+                        ),
+                        DropdownMenuItem<String>(
+                          value: 'beta',
+                          child: Text('Beta'),
+                        ),
+                      ],
+                      onChanged:
+                          controller.isSavingReleaseChannel ||
+                              controller.isTriggeringUpdate ||
+                              controller.updateStatus.state == 'running'
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                unawaited(controller.setReleaseChannel(value));
+                              }
+                            },
+                    );
+
+                    final channelHelper = Text(
+                      controller.updateStatus.releaseChannel == 'beta'
+                          ? 'Beta tracks the `beta` branch and npm `beta` releases.'
+                          : 'Stable tracks the `main` branch and npm `latest` releases.',
+                      style: const TextStyle(color: _textSecondary),
+                    );
+
+                    if (compact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          channelPicker,
+                          const SizedBox(height: 8),
+                          channelHelper,
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(child: channelPicker),
+                          const SizedBox(width: 12),
+                          Expanded(child: channelHelper),
+                        ],
+                      ),
+                    );
+                  },
+                ),
                 Row(
                   children: <Widget>[
                     const Expanded(child: _SectionTitle('App Update')),
                     FilledButton.icon(
                       onPressed:
-                          controller.isTriggeringUpdate ||
+                          controller.isSavingReleaseChannel ||
+                              controller.isTriggeringUpdate ||
                               controller.updateStatus.state == 'running'
                           ? null
                           : controller.triggerUpdate,
@@ -7440,6 +7551,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     _StatusPill(
                       label: controller.updateStatus.badgeLabel,
                       color: controller.updateStatus.badgeColor,
+                    ),
+                    const SizedBox(width: 10),
+                    _StatusPill(
+                      label: controller.updateStatus.releaseChannelLabel,
+                      color: controller.updateStatus.releaseChannel == 'beta'
+                          ? _warning
+                          : _accent,
                     ),
                     const SizedBox(width: 10),
                     Expanded(

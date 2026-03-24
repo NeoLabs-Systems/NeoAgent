@@ -106,6 +106,15 @@ class BackendClient {
     return postMap(baseUrl, '/api/settings/update', const <String, dynamic>{});
   }
 
+  Future<Map<String, dynamic>> setReleaseChannel(
+    String baseUrl,
+    String channel,
+  ) async {
+    return putMap(baseUrl, '/api/settings/update/channel', <String, dynamic>{
+      'channel': channel,
+    });
+  }
+
   Future<Map<String, dynamic>> fetchRuns(String baseUrl) async {
     return getMap(baseUrl, '/api/agents?limit=20');
   }

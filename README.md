@@ -21,13 +21,13 @@ neoagent install
 Manage the service:
 ```bash
 neoagent status
+neoagent channel beta
 neoagent update
 neoagent fix
 neoagent logs
 ```
 
 Use `neoagent fix` if a self-edit or broken local install leaves NeoAgent in a bad state. On git installs it backs up runtime data, saves local tracked changes, resets tracked source files, reinstalls dependencies, and restarts the service.
-
 ---
 
 [⚙️ Configuration](docs/configuration.md) · [🧰 Skills](docs/skills.md) · [🐛 Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
