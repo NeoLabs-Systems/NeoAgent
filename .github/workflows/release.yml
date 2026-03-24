@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   release:
+    name: Promote beta and publish release
     if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -20,7 +21,7 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Setup Git identity
+      - name: Configure Git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -32,13 +33,13 @@ jobs:
           git merge --no-ff origin/beta -m "chore(release): promote beta to main [skip ci]"
           git push origin HEAD:main
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
