@@ -131,6 +131,13 @@ function estimateTokenValue(value) {
   return Math.ceil(JSON.stringify(value).length / 4);
 }
 
+function normalizeOutgoingMessage(content) {
+  return String(content || '')
+    .replace(/\[NO RESPONSE\]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
@@ -405,6 +412,7 @@ class AgentEngine {
       status: 'running',
       aborted: false,
       messagingSent: false,
+      lastSentMessage: '',
       triggerType,
       triggerSource,
       startedAt: Date.now(),
@@ -750,18 +758,21 @@ class AgentEngine {
 
       const runMeta = this.activeRuns.get(runId);
       const messagingSent = runMeta?.messagingSent || false;
+      const lastSentMessage = normalizeOutgoingMessage(runMeta?.lastSentMessage || '');
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:complete', { runId, content: lastContent, totalTokens, iterations: iteration, triggerSource });
 
       // Fallback: if this was a messaging-triggered run and the AI never called
       // send_message itself, auto-send its final text as a reply.
-      // We check messagingSent (not just the last tool) so a send_message followed
-      // by any other tool (memory_save, think, etc.) does NOT fire a duplicate.
-      if (triggerSource === 'messaging' && options.source && options.chatId && !messagingSent) {
+      // If a message was already sent earlier in the run, still send the fallback
+      // when the final text is materially different so long jobs don't end silently
+      // after an interim update.
+      if (triggerSource === 'messaging' && options.source && options.chatId) {
         // Strip [NO RESPONSE] markers the AI may have embedded anywhere in the text,
         // then only send if real content remains.
-        const cleanedContent = (lastContent || '').replace(/\[NO RESPONSE\]/gi, '').trim();
-        if (cleanedContent && cleanedContent !== '[NO RESPONSE]') {
+        const cleanedContent = normalizeOutgoingMessage(lastContent || '');
+        const shouldSendFallback = cleanedContent && (!messagingSent || cleanedContent !== lastSentMessage);
+        if (shouldSendFallback) {
           const manager = this.messagingManager;
           if (manager) {
             const chunks = cleanedContent.split(/\n\s*\n/).filter((c) => c.trim().length > 0);

@@ -1116,7 +1116,10 @@ async function executeTool(toolName, args, context, engine) {
             const sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, args.media_path);
             // Track that the agent explicitly sent a message during this run
             const runState = runId ? engine.activeRuns.get(runId) : null;
-            if (runState && args.content !== '[NO RESPONSE]') runState.messagingSent = true;
+            if (runState && args.content !== '[NO RESPONSE]') {
+                runState.messagingSent = true;
+                runState.lastSentMessage = args.content || '';
+            }
             return sendResult;
         }
 
@@ -1375,7 +1378,10 @@ async function executeTool(toolName, args, context, engine) {
                         }
 
                         const runState = runId ? engine.activeRuns.get(runId) : null;
-                        if (runState) runState.messagingSent = true;
+                        if (runState) {
+                            runState.messagingSent = true;
+                            runState.lastSentMessage = message;
+                        }
                         return {
                             sent: true,
                             via: 'messaging',
