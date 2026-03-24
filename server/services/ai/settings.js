@@ -82,7 +82,7 @@ function createDefaultAiSettings() {
     chat_history_window: 8,
     tool_replay_budget_chars: 1200,
     subagent_max_iterations: 6,
-    auto_skill_learning: true,
+    auto_skill_learning: false,
     fallback_model_id: 'gpt-5-nano',
     smarter_model_selector: true,
     ai_provider_configs: createDefaultProviderConfigs()

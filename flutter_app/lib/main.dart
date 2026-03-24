@@ -1689,7 +1689,6 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> saveSettings({
     required bool heartbeatEnabled,
     required bool headlessBrowser,
-    required bool autoSkillLearning,
     required bool smarterSelector,
     required List<String> enabledModels,
     required String defaultChatModel,
@@ -1704,7 +1703,6 @@ class NeoAgentController extends ChangeNotifier {
     final payload = <String, dynamic>{
       'heartbeat_enabled': heartbeatEnabled,
       'headless_browser': headlessBrowser,
-      'auto_skill_learning': autoSkillLearning,
       'smarter_model_selector': smarterSelector,
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
@@ -2227,10 +2225,6 @@ class NeoAgentController extends ChangeNotifier {
       settings['headless_browser'] != false &&
       settings['headless_browser'] != 'false';
 
-  bool get autoSkillLearning =>
-      settings['auto_skill_learning'] != false &&
-      settings['auto_skill_learning'] != 'false';
-
   bool get smarterSelector => settings['smarter_model_selector'] != false;
 
   Map<String, AiProviderConfig> get aiProviderConfigs {
@@ -2719,9 +2713,6 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage =
           'I could not complete that request right now. Please try again in a moment.';
       notifyListeners();
-    });
-    socket.on('skill:draft_created', (dynamic _) {
-      unawaited(refreshSkills());
     });
     socket.on('recordings:updated', (dynamic _) {
       unawaited(refreshRecordings());
@@ -6992,7 +6983,6 @@ class SettingsPanel extends StatefulWidget {
 class _SettingsPanelState extends State<SettingsPanel> {
   late bool _heartbeatEnabled;
   late bool _headlessBrowser;
-  late bool _autoSkillLearning;
   late bool _smarterSelector;
   late Set<String> _enabledModels;
   late String _defaultChatModel;
@@ -7045,7 +7035,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .toSet();
     _heartbeatEnabled = controller.heartbeatEnabled;
     _headlessBrowser = controller.headlessBrowser;
-    _autoSkillLearning = controller.autoSkillLearning;
     _smarterSelector = controller.smarterSelector;
     _enabledModels = controller.enabledModelIds
         .where((id) => knownModels.contains(id))
@@ -7120,7 +7109,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 : () => controller.saveSettings(
                     heartbeatEnabled: _heartbeatEnabled,
                     headlessBrowser: _headlessBrowser,
-                    autoSkillLearning: _autoSkillLearning,
                     smarterSelector: _smarterSelector,
                     enabledModels: _enabledModels.toList(),
                     defaultChatModel: _defaultChatModel,
@@ -7390,14 +7378,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   value: _headlessBrowser,
                   onChanged: (value) =>
                       setState(() => _headlessBrowser = value),
-                ),
-                _SettingToggle(
-                  title: 'Skill Learning',
-                  subtitle:
-                      'Create disabled draft skills from successful multi-step runs',
-                  value: _autoSkillLearning,
-                  onChanged: (value) =>
-                      setState(() => _autoSkillLearning = value),
                 ),
                 _SettingToggle(
                   title: 'Smart Selection',
