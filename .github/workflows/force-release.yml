@@ -1,4 +1,4 @@
-name: Force Release & Publish to NPM
+name: Force Release
 
 on:
   workflow_dispatch:
@@ -21,6 +21,7 @@ permissions:
 
 jobs:
   force-release:
+    name: Bump version and publish release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,23 +29,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
 
-      - name: Git Config
+      - name: Configure Git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Fetch Latest Tag & Bump Version
+      - name: Resolve latest tag and bump version
         id: bump
         run: |
           # Fetch all tags so we know the latest release version
@@ -76,7 +77,7 @@ jobs:
           echo "NEW_VERSION=v${NEW_VERSION}" >> $GITHUB_ENV
           echo "version=v${NEW_VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Push Version Bump
+      - name: Push version bump
         run: |
           git push origin HEAD
           git push origin ${{ env.NEW_VERSION }}
@@ -94,12 +95,12 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to NPM
+      - name: Publish package to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish
 
-      - name: Create GitHub Release
+      - name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

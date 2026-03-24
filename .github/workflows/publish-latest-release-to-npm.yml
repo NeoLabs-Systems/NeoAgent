@@ -1,4 +1,4 @@
-name: Publish Latest Release to npm
+name: Publish Latest Release to NPM
 
 on:
   workflow_dispatch:
@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   publish:
+    name: Publish latest GitHub release to NPM
     runs-on: ubuntu-latest
     steps:
       - name: Checkout default branch
@@ -49,13 +50,13 @@ jobs:
           git fetch --force --tags
           git checkout "${{ steps.latest_release.outputs.tag }}"
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
