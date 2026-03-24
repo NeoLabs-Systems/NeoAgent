@@ -161,6 +161,31 @@ function clampRunContext(text, maxChars) {
   return `${value.slice(0, maxChars)}...`;
 }
 
+function shortenRunId(runId) {
+  const value = String(runId || '').trim();
+  if (!value) return 'unknown';
+  return value.length <= 8 ? value : value.slice(0, 8);
+}
+
+function summarizeForLog(value, maxChars = 220) {
+  if (value == null) return '';
+
+  let text = '';
+  if (typeof value === 'string') {
+    text = value;
+  } else {
+    try {
+      text = JSON.stringify(value);
+    } catch {
+      text = String(value);
+    }
+  }
+
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxChars) return normalized;
+  return `${normalized.slice(0, maxChars)}...`;
+}
+
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
@@ -484,6 +509,9 @@ class AgentEngine {
       toolPids: new Set()
     });
     this.emit(userId, 'run:start', { runId, title: runTitle, model, triggerType, triggerSource });
+    console.info(
+      `[Run ${shortenRunId(runId)}] started trigger=${triggerSource} type=${triggerType} model=${model} title=${summarizeForLog(runTitle, 120)}`
+    );
 
     const systemPrompt = await this.buildSystemPrompt(userId, { ...(options.context || {}), userMessage });
     // Pass short descriptions so the model always knows every available tool.
@@ -700,6 +728,7 @@ class AgentEngine {
           stepIndex++;
           const stepId = uuidv4();
           const toolName = toolCall.function.name;
+          const stepStartedAt = Date.now();
           let toolArgs;
           try {
             toolArgs = JSON.parse(toolCall.function.arguments || '{}');
@@ -714,6 +743,9 @@ class AgentEngine {
             runId, stepId, stepIndex, toolName, toolArgs,
             type: this.getStepType(toolName)
           });
+          console.info(
+            `[Run ${shortenRunId(runId)}] step=${stepIndex} start tool=${toolName} args=${summarizeForLog(toolArgs)}`
+          );
 
           let toolResult;
           try {
@@ -730,12 +762,18 @@ class AgentEngine {
             db.prepare('UPDATE agent_steps SET status = ?, result = ?, screenshot_path = ?, completed_at = datetime(\'now\') WHERE id = ?')
               .run(stepStatus, JSON.stringify(toolResult).slice(0, 20000), screenshotPath, stepId);
             this.emit(userId, 'run:tool_end', { runId, stepId, toolName, result: toolResult, screenshotPath, status: stepStatus });
+            console.info(
+              `[Run ${shortenRunId(runId)}] step=${stepIndex} done tool=${toolName} status=${stepStatus} durationMs=${Date.now() - stepStartedAt} result=${summarizeForLog(toolResult)}`
+            );
           } catch (err) {
             toolResult = { error: err.message };
             this.detachProcessFromRun(runId, toolResult?.pid);
             db.prepare('UPDATE agent_steps SET status = ?, error = ?, completed_at = datetime(\'now\') WHERE id = ?')
               .run('failed', err.message, stepId);
             this.emit(userId, 'run:tool_end', { runId, stepId, toolName, error: err.message, status: 'failed' });
+            console.warn(
+              `[Run ${shortenRunId(runId)}] step=${stepIndex} failed tool=${toolName} durationMs=${Date.now() - stepStartedAt} error=${summarizeForLog(err.message, 160)}`
+            );
           }
 
           const toolMessage = {
@@ -775,6 +813,9 @@ class AgentEngine {
       if (this.isRunStopped(runId)) {
         db.prepare('UPDATE agent_runs SET status = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
           .run('stopped', runId);
+        console.warn(
+          `[Run ${shortenRunId(runId)}] stopped trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
+        );
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:stopped', { runId, triggerSource });
         return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
@@ -840,9 +881,6 @@ class AgentEngine {
         stepIndex
       });
 
-      this.activeRuns.delete(runId);
-      this.emit(userId, 'run:complete', { runId, content: lastContent, totalTokens, iterations: iteration, triggerSource });
-
       // Fallback: if this was a messaging-triggered run and the AI never called
       // send_message itself, auto-send its final text as a reply.
       // If a message was already sent earlier in the run, still send the fallback
@@ -857,27 +895,37 @@ class AgentEngine {
           const manager = this.messagingManager;
           if (manager) {
             const chunks = cleanedContent.split(/\n\s*\n/).filter((c) => c.trim().length > 0);
-            (async () => {
-              for (let i = 0; i < chunks.length; i++) {
-                if (i > 0) {
-                  const delay = Math.max(1000, Math.min(chunks[i].length * 30, 4000));
-                  await manager.sendTyping(userId, options.source, options.chatId, true).catch(() => { });
-                  await new Promise((resolve) => setTimeout(resolve, delay));
-                }
-                await manager.sendMessage(userId, options.source, options.chatId, chunks[i], { runId }).catch((err) =>
-                  console.error('[Engine] Auto-reply fallback failed:', err.message)
-                );
+            console.info(
+              `[Run ${shortenRunId(runId)}] messaging_fallback chunks=${chunks.length} to=${summarizeForLog(options.chatId, 80)}`
+            );
+            for (let i = 0; i < chunks.length; i++) {
+              if (i > 0) {
+                const delay = Math.max(1000, Math.min(chunks[i].length * 30, 4000));
+                await manager.sendTyping(userId, options.source, options.chatId, true).catch(() => { });
+                await new Promise((resolve) => setTimeout(resolve, delay));
               }
-            })();
+              await manager.sendMessage(userId, options.source, options.chatId, chunks[i], { runId }).catch((err) =>
+                console.error('[Engine] Auto-reply fallback failed:', err.message)
+              );
+            }
           }
         }
       }
+
+      console.info(
+        `[Run ${shortenRunId(runId)}] completed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} durationMs=${runMeta?.startedAt ? Date.now() - runMeta.startedAt : 0} finalResponse=${finalResponseText ? 'yes' : 'no'} sentMessages=${runMeta?.sentMessages?.length || 0}`
+      );
+      this.activeRuns.delete(runId);
+      this.emit(userId, 'run:complete', { runId, content: lastContent, totalTokens, iterations: iteration, triggerSource });
 
       return { runId, content: lastContent, totalTokens, iterations: iteration, status: 'completed' };
     } catch (err) {
       if (this.isRunStopped(runId)) {
         db.prepare('UPDATE agent_runs SET status = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
           .run('stopped', runId);
+        console.warn(
+          `[Run ${shortenRunId(runId)}] stopped trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
+        );
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:stopped', { runId, triggerSource });
         return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
@@ -885,6 +933,9 @@ class AgentEngine {
 
       db.prepare('UPDATE agent_runs SET status = ?, error = ?, updated_at = datetime(\'now\') WHERE id = ?')
         .run('failed', err.message, runId);
+      console.error(
+        `[Run ${shortenRunId(runId)}] failed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} error=${summarizeForLog(err.message, 180)}`
+      );
 
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:error', { runId, error: err.message });
