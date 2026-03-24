@@ -1,17 +1,19 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { getVersionInfo } = require('../utils/version');
-const { UPDATE_STATUS_FILE, APP_DIR } = require('../../runtime/paths');
+const { APP_DIR } = require('../../runtime/paths');
+const {
+  readUpdateStatus,
+  writeUpdateStatusFile: writeUpdateStatus,
+} = require('../utils/update_status');
 const {
   parseReleaseChannel,
-  getReleaseChannelBranch,
-  getReleaseChannelDistTag,
   writeReleaseChannelToEnvFile,
+  getReleaseChannelBranchPolicy,
+  getReleaseChannelNpmPolicy,
 } = require('../../runtime/release_channel');
 const {
   createDefaultAiSettings,
@@ -20,36 +22,6 @@ const {
 } = require('../services/ai/settings');
 
 router.use(requireAuth);
-
-function readUpdateStatus() {
-  try {
-    return JSON.parse(fs.readFileSync(UPDATE_STATUS_FILE, 'utf8'));
-  } catch {
-    return {
-      state: 'idle',
-      progress: 0,
-      phase: 'idle',
-      message: 'No update running',
-      startedAt: null,
-      completedAt: null,
-      versionBefore: null,
-      versionAfter: null,
-      changelog: [],
-      logs: []
-    };
-  }
-}
-
-function writeUpdateStatus(patch) {
-  const next = {
-    ...readUpdateStatus(),
-    ...patch,
-    updatedAt: new Date().toISOString()
-  };
-  fs.mkdirSync(path.dirname(UPDATE_STATUS_FILE), { recursive: true });
-  fs.writeFileSync(UPDATE_STATUS_FILE, JSON.stringify(next, null, 2));
-  return next;
-}
 
 function canApplyGlobalBrowserSetting(userId) {
   const users = db.prepare('SELECT id FROM users ORDER BY id ASC').all();
@@ -288,6 +260,12 @@ router.post('/update', (req, res) => {
     return res.status(409).json({ success: false, error: 'An update is already running' });
   }
   console.log('[Settings] Triggering update-runner...');
+  const child = spawn(process.execPath, ['scripts/update-runner.js'], {
+    detached: true,
+    stdio: 'ignore',
+    cwd: APP_DIR
+  });
+
   writeUpdateStatus({
     state: 'running',
     progress: 1,
@@ -297,15 +275,9 @@ router.post('/update', (req, res) => {
     completedAt: null,
     versionBefore: null,
     versionAfter: null,
+    runnerPid: child.pid,
     changelog: [],
     logs: []
-  });
-
-  // Spawn detached runner so status survives server restarts.
-  const child = spawn(process.execPath, ['scripts/update-runner.js'], {
-    detached: true,
-    stdio: 'ignore',
-    cwd: APP_DIR
   });
 
   child.once('error', (error) => {
@@ -314,7 +286,8 @@ router.post('/update', (req, res) => {
       progress: 100,
       phase: 'failed',
       message: `Failed to launch update job: ${error.message}`,
-      completedAt: new Date().toISOString()
+      completedAt: new Date().toISOString(),
+      runnerPid: null,
     });
   });
 
@@ -338,8 +311,8 @@ router.put('/update/channel', (req, res) => {
   res.json({
     success: true,
     releaseChannel,
-    targetBranch: getReleaseChannelBranch(releaseChannel),
-    npmDistTag: getReleaseChannelDistTag(releaseChannel),
+    targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
+    npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
   });
 });
 
@@ -354,9 +327,9 @@ router.get('/update/status', (req, res) => {
     gitVersion: version.gitVersion,
     gitSha: version.gitSha,
     gitBranch: version.gitBranch,
-    releaseChannel: version.releaseChannel,
-    targetBranch: version.targetBranch,
-    npmDistTag: version.npmDistTag,
+    releaseChannel: status.releaseChannel || version.releaseChannel,
+    targetBranch: status.targetBranch || version.targetBranch,
+    npmDistTag: status.npmDistTag || version.npmDistTag,
   });
 });
 

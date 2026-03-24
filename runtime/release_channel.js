@@ -14,6 +14,14 @@ const RELEASE_CHANNEL_DIST_TAGS = Object.freeze({
   stable: 'latest',
   beta: 'beta',
 });
+const RELEASE_CHANNEL_BRANCH_POLICIES = Object.freeze({
+  stable: 'main only',
+  beta: 'newest of beta or main',
+});
+const RELEASE_CHANNEL_NPM_POLICIES = Object.freeze({
+  stable: 'latest only',
+  beta: 'newest of beta or latest',
+});
 
 function parseEnv(raw) {
   const map = new Map();
@@ -60,6 +68,116 @@ function getReleaseChannelDistTag(channel) {
 
 function getReleaseChannelLabel(channel) {
   return normalizeReleaseChannel(channel) === 'beta' ? 'Beta' : 'Stable';
+}
+
+function parseSemver(version) {
+  const match = String(version || '')
+    .trim()
+    .replace(/^v/, '')
+    .match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] ? match[4].split('.') : [],
+    raw: match[0],
+  };
+}
+
+function comparePrereleasePart(left, right) {
+  const leftNumeric = /^\d+$/.test(left);
+  const rightNumeric = /^\d+$/.test(right);
+
+  if (leftNumeric && rightNumeric) {
+    return Number(left) - Number(right);
+  }
+  if (leftNumeric) return -1;
+  if (rightNumeric) return 1;
+  return left.localeCompare(right);
+}
+
+function compareVersions(leftVersion, rightVersion) {
+  const left = parseSemver(leftVersion);
+  const right = parseSemver(rightVersion);
+
+  if (!left && !right) return 0;
+  if (!left) return -1;
+  if (!right) return 1;
+
+  for (const key of ['major', 'minor', 'patch']) {
+    if (left[key] !== right[key]) {
+      return left[key] - right[key];
+    }
+  }
+
+  const leftPre = left.prerelease;
+  const rightPre = right.prerelease;
+  if (leftPre.length === 0 && rightPre.length === 0) return 0;
+  if (leftPre.length === 0) return 1;
+  if (rightPre.length === 0) return -1;
+
+  const length = Math.max(leftPre.length, rightPre.length);
+  for (let i = 0; i < length; i++) {
+    const leftPart = leftPre[i];
+    const rightPart = rightPre[i];
+    if (leftPart == null) return -1;
+    if (rightPart == null) return 1;
+    const diff = comparePrereleasePart(leftPart, rightPart);
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+
+  return 0;
+}
+
+function maxVersion(leftVersion, rightVersion) {
+  return compareVersions(leftVersion, rightVersion) >= 0 ? leftVersion : rightVersion;
+}
+
+function describeReleaseChannelPolicy(channel) {
+  const normalized = normalizeReleaseChannel(channel);
+  return `${getReleaseChannelLabel(normalized)} (git ${RELEASE_CHANNEL_BRANCH_POLICIES[normalized]}, npm ${RELEASE_CHANNEL_NPM_POLICIES[normalized]})`;
+}
+
+function getReleaseChannelBranchPolicy(channel) {
+  return RELEASE_CHANNEL_BRANCH_POLICIES[normalizeReleaseChannel(channel)];
+}
+
+function getReleaseChannelNpmPolicy(channel) {
+  return RELEASE_CHANNEL_NPM_POLICIES[normalizeReleaseChannel(channel)];
+}
+
+function choosePreferredBranchForChannel(channel, versions = {}) {
+  const normalized = normalizeReleaseChannel(channel);
+  if (normalized === 'stable') {
+    return 'main';
+  }
+
+  const stableVersion = versions.stable;
+  const betaVersion = versions.beta;
+  if (compareVersions(betaVersion, stableVersion) > 0) {
+    return 'beta';
+  }
+  return 'main';
+}
+
+function choosePreferredNpmTagForChannel(channel, versions = {}) {
+  const normalized = normalizeReleaseChannel(channel);
+  if (normalized === 'stable') {
+    return 'latest';
+  }
+
+  const stableVersion = versions.latest;
+  const betaVersion = versions.beta;
+  if (compareVersions(betaVersion, stableVersion) > 0) {
+    return 'beta';
+  }
+  return 'latest';
 }
 
 function readReleaseChannelFromRaw(raw) {
@@ -116,6 +234,14 @@ module.exports = {
   getReleaseChannelBranch,
   getReleaseChannelDistTag,
   getReleaseChannelLabel,
+  parseSemver,
+  compareVersions,
+  maxVersion,
+  describeReleaseChannelPolicy,
+  getReleaseChannelBranchPolicy,
+  getReleaseChannelNpmPolicy,
+  choosePreferredBranchForChannel,
+  choosePreferredNpmTagForChannel,
   readReleaseChannelFromRaw,
   readReleaseChannelFromEnvFile,
   readConfiguredReleaseChannel,
