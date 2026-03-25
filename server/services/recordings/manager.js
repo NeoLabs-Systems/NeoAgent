@@ -13,6 +13,8 @@ const {
   isDeepgramConfigured,
   transcribeChunkWithDeepgram,
 } = require('./deepgram');
+const { extractRecordingInsights } = require('../ai/recordingInsights');
+const { getAiSettings } = require('../ai/settings');
 
 const RECORDINGS_DIR = path.join(DATA_DIR, 'recordings');
 const SESSION_STATUS = {
@@ -154,11 +156,14 @@ class RecordingManager {
     if (!sourceKey) {
       throw new Error('sourceKey is required.');
     }
+
+    // Check case - the stored source_key is lowercase from normalizeSources
     const source = db.prepare(`
       SELECT *
       FROM recording_sources
-      WHERE session_id = ? AND source_key = ?
+      WHERE session_id = ? AND LOWER(source_key) = LOWER(?)
     `).get(sessionId, sourceKey);
+
     if (!source) {
       throw new Error(`Unknown recording source: ${sourceKey}`);
     }
@@ -460,6 +465,17 @@ class RecordingManager {
       })();
 
       const transcriptText = this.#composeTranscriptText(ordered);
+
+      let structuredInsights = null;
+      const aiSettings = getAiSettings(userId);
+      if (transcriptText && aiSettings.auto_recording_insights) {
+        try {
+          structuredInsights = await extractRecordingInsights(sessionId, userId, transcriptText);
+        } catch (err) {
+          console.error(`[Recordings] Failed to extract insights for session ${sessionId}:`, err);
+        }
+      }
+
       db.prepare(`
         UPDATE recording_sessions
         SET
@@ -467,6 +483,7 @@ class RecordingManager {
           transcript_text = ?,
           transcript_language = ?,
           transcript_model = ?,
+          structured_content_json = ?,
           duration_ms = ?,
           last_error = NULL,
           updated_at = ?,
@@ -477,6 +494,7 @@ class RecordingManager {
         transcriptText,
         DEFAULT_LANGUAGE,
         DEFAULT_MODEL,
+        structuredInsights ? JSON.stringify(structuredInsights) : null,
         maxDuration,
         new Date().toISOString(),
         new Date().toISOString(),
@@ -842,30 +860,30 @@ class RecordingManager {
   #normalizeSources(rawSources, platform) {
     const fallback = platform === 'android'
       ? [
-          {
-            sourceKey: 'microphone',
-            sourceKind: 'microphone',
-            mediaKind: 'audio',
-            mimeType: 'audio/wav',
-            metadata: { backgroundCapable: true },
-          },
-        ]
+        {
+          sourceKey: 'microphone',
+          sourceKind: 'microphone',
+          mediaKind: 'audio',
+          mimeType: 'audio/wav',
+          metadata: { backgroundCapable: true },
+        },
+      ]
       : [
-          {
-            sourceKey: 'screen',
-            sourceKind: 'screen-share',
-            mediaKind: 'video',
-            mimeType: 'video/webm',
-            metadata: { analysisReady: true, transcribe: false },
-          },
-          {
-            sourceKey: 'microphone',
-            sourceKind: 'microphone',
-            mediaKind: 'audio',
-            mimeType: 'audio/webm',
-            metadata: {},
-          },
-        ];
+        {
+          sourceKey: 'screen',
+          sourceKind: 'screen-share',
+          mediaKind: 'video',
+          mimeType: 'video/webm',
+          metadata: { analysisReady: true, transcribe: false },
+        },
+        {
+          sourceKey: 'microphone',
+          sourceKind: 'microphone',
+          mediaKind: 'audio',
+          mimeType: 'audio/webm',
+          metadata: {},
+        },
+      ];
 
     const inputs = Array.isArray(rawSources) && rawSources.length > 0 ? rawSources : fallback;
     const seen = new Set();
@@ -905,6 +923,7 @@ class RecordingManager {
       endedAt: row.ended_at,
       durationMs: Number(row.duration_ms) || 0,
       lastError: row.last_error,
+      structuredContent: this.#parseJson(row.structured_content_json, null),
       metadata,
       sourceCount: Number(
         db.prepare('SELECT COUNT(*) AS count FROM recording_sources WHERE session_id = ?').get(row.id).count,

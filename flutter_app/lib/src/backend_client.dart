@@ -746,6 +746,46 @@ class BackendClient {
     return deleteMap(baseUrl, '/api/recordings/$sessionId/segments/$segmentId');
   }
 
+  Future<Map<String, dynamic>> streamWearableData(
+    String baseUrl,
+    String macAddress,
+    String characteristicUuid,
+    Uint8List data,
+  ) async {
+    final response = await _httpClient.post(
+      _resolveUri(baseUrl, '/api/wearables/$macAddress/stream'),
+      headers: <String, String>{
+        'x-characteristic-uuid': characteristicUuid,
+        'Content-Type': 'application/octet-stream',
+      },
+      body: data,
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
+  /// Register a wearable device with the backend
+  Future<Map<String, dynamic>> registerWearable(
+    String baseUrl,
+    String macAddress,
+    String protocol,
+    String name,
+  ) async {
+    final response = await _httpClient.post(
+      _resolveUri(baseUrl, '/api/wearables'),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(<String, dynamic>{
+        'macAddress': macAddress,
+        'protocol': protocol,
+        'name': name,
+      }),
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
   Future<Map<String, dynamic>> saveMcpServer(
     String baseUrl, {
     int? id,

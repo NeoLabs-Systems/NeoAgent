@@ -584,6 +584,10 @@ class _SectionBody extends StatelessWidget {
         return controller.showHealthSection
             ? HealthPanel(controller: controller)
             : ChatPanel(controller: controller);
+      case AppSection.wearables:
+        return controller.showWearablesSection
+            ? WearablesPanel(controller: controller)
+            : ChatPanel(controller: controller);
     }
   }
 }

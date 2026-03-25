@@ -267,6 +267,7 @@ db.exec(`
     transcript_text TEXT,
     transcript_language TEXT,
     transcript_model TEXT,
+    structured_content_json TEXT,
     started_at TEXT DEFAULT (datetime('now')),
     ended_at TEXT,
     duration_ms INTEGER DEFAULT 0,
@@ -275,6 +276,21 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS wearable_devices (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    mac_address TEXT,
+    protocol TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT DEFAULT 'disconnected',
+    battery_level INTEGER,
+    last_seen_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, mac_address)
   );
 
   CREATE TABLE IF NOT EXISTS recording_sources (
@@ -397,6 +413,7 @@ for (const col of [
   "ALTER TABLE recording_sessions ADD COLUMN transcript_language TEXT",
   "ALTER TABLE recording_sessions ADD COLUMN transcript_model TEXT",
   "ALTER TABLE recording_sessions ADD COLUMN duration_ms INTEGER DEFAULT 0",
+  "ALTER TABLE recording_sessions ADD COLUMN structured_content_json TEXT",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }

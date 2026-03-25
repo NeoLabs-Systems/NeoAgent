@@ -322,6 +322,7 @@ class RecordingSessionItem {
     required this.lastError,
     required this.sources,
     required this.transcriptSegments,
+    this.structuredContent = const <String, dynamic>{},
   });
 
   factory RecordingSessionItem.fromJson(Map<dynamic, dynamic> json) {
@@ -344,6 +345,7 @@ class RecordingSessionItem {
               .whereType<Map<dynamic, dynamic>>()
               .map(RecordingTranscriptSegment.fromJson)
               .toList(),
+      structuredContent: _jsonMap(json['structuredContent']),
     );
   }
 
@@ -358,6 +360,7 @@ class RecordingSessionItem {
   final String? lastError;
   final List<RecordingSourceItem> sources;
   final List<RecordingTranscriptSegment> transcriptSegments;
+  final Map<String, dynamic> structuredContent;
 
   String get startedAtLabel => _formatTimestamp(startedAt);
 
