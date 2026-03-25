@@ -892,8 +892,12 @@ class AgentEngine {
         return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
       }
 
+      const runMeta = this.activeRuns.get(runId);
+      const messagingSent = runMeta?.messagingSent || false;
+      const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
+
       if ((iteration >= maxIterations && messages[messages.length - 1]?.role === 'tool')
-        || (iteration < maxIterations && stepIndex > 0 && !lastContent.trim() && messages[messages.length - 1]?.role !== 'tool')) {
+        || (iteration < maxIterations && stepIndex > 0 && !lastContent.trim() && messages[messages.length - 1]?.role !== 'tool' && !lastToolWasMessaging)) {
         const finalResponse = await provider.chat(sanitizeConversationMessages([
           ...messages,
           {
@@ -918,8 +922,7 @@ class AgentEngine {
         totalTokens += finalResponse.usage?.totalTokens || 0;
       }
 
-      const runMeta = this.activeRuns.get(runId);
-      const messagingSent = runMeta?.messagingSent || false;
+      // runMeta and messagingSent are now defined above the forced reply block.
 
       if (triggerSource === 'messaging' && !normalizeOutgoingMessage(lastContent) && !messagingSent) {
         const recovered = await this.recoverBlankMessagingReply({
