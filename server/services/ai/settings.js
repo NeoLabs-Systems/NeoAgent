@@ -83,6 +83,7 @@ function createDefaultAiSettings() {
     tool_replay_budget_chars: 1200,
     subagent_max_iterations: 6,
     auto_skill_learning: false,
+    auto_recording_insights: true,
     fallback_model_id: 'gpt-5-nano',
     smarter_model_selector: true,
     ai_provider_configs: createDefaultProviderConfigs()
@@ -140,7 +141,7 @@ function ensureDefaultAiSettings(userId) {
   if (!userId) return createDefaultAiSettings();
 
   const existing = db.prepare(
-    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?)'
+    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).all(
     userId,
     'cost_mode',
@@ -148,6 +149,7 @@ function ensureDefaultAiSettings(userId) {
     'tool_replay_budget_chars',
     'subagent_max_iterations',
     'auto_skill_learning',
+    'auto_recording_insights',
     'fallback_model_id',
     'smarter_model_selector',
     'ai_provider_configs'
@@ -171,7 +173,7 @@ function getAiSettings(userId) {
   if (!userId) return createDefaultAiSettings();
 
   const rows = db.prepare(
-    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?)'
+    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).all(
     userId,
     'cost_mode',
@@ -179,6 +181,7 @@ function getAiSettings(userId) {
     'tool_replay_budget_chars',
     'subagent_max_iterations',
     'auto_skill_learning',
+    'auto_recording_insights',
     'fallback_model_id',
     'smarter_model_selector',
     'ai_provider_configs'
@@ -194,6 +197,7 @@ function getAiSettings(userId) {
   settings.subagent_max_iterations = Math.max(2, Math.min(Number(settings.subagent_max_iterations) || DEFAULT_AI_SETTINGS.subagent_max_iterations, 12));
   settings.cost_mode = typeof settings.cost_mode === 'string' ? settings.cost_mode : DEFAULT_AI_SETTINGS.cost_mode;
   settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
+  settings.auto_recording_insights = settings.auto_recording_insights !== false && settings.auto_recording_insights !== 'false';
   settings.smarter_model_selector = settings.smarter_model_selector !== false && settings.smarter_model_selector !== 'false';
   settings.fallback_model_id = typeof settings.fallback_model_id === 'string' ? settings.fallback_model_id : DEFAULT_AI_SETTINGS.fallback_model_id;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);

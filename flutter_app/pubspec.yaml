@@ -15,6 +15,8 @@ dependencies:
   http: ^1.5.0
   shared_preferences: ^2.5.3
   socket_io_client: ^3.1.2
+  universal_ble: ^1.1.0
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

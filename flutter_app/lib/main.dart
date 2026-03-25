@@ -14,6 +14,7 @@ import 'src/android_apk_drop_zone.dart';
 import 'src/backend_client.dart';
 import 'src/health_bridge.dart';
 import 'src/recording_bridge.dart';
+import 'wearables/wearable_service.dart';
 
 part 'main_app_shell.dart';
 part 'main_models.dart';
@@ -54,6 +55,7 @@ enum AppSection {
   scheduler,
   mcp,
   health,
+  wearables,
 }
 
 enum SidebarGroup { chat, recordings, activity, automation, settings }
@@ -117,6 +119,8 @@ extension AppSectionX on AppSection {
         return 'MCP';
       case AppSection.health:
         return 'Health';
+      case AppSection.wearables:
+        return 'Wearables';
     }
   }
 
@@ -146,6 +150,8 @@ extension AppSectionX on AppSection {
         return Icons.hub_outlined;
       case AppSection.health:
         return Icons.favorite_border;
+      case AppSection.wearables:
+        return Icons.watch_outlined;
     }
   }
 
@@ -154,6 +160,7 @@ extension AppSectionX on AppSection {
       case AppSection.chat:
         return SidebarGroup.chat;
       case AppSection.recordings:
+      case AppSection.wearables:
         return SidebarGroup.recordings;
       case AppSection.runs:
       case AppSection.logs:
@@ -173,6 +180,9 @@ extension AppSectionX on AppSection {
 
   String get navigationTitle {
     final groupLabel = group.label;
+    if (this == AppSection.wearables) {
+      return label;
+    }
     if (group == SidebarGroup.chat || group == SidebarGroup.recordings) {
       return groupLabel;
     }
@@ -196,10 +206,15 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
   @override
   void initState() {
     super.initState();
+    final backendClient = BackendClient();
     _controller = NeoAgentController(
-      backendClient: BackendClient(),
+      backendClient: backendClient,
       healthBridge: HealthBridge(),
       recordingBridge: createRecordingBridge(),
+      wearableService: WearableService(
+        backendClient: backendClient,
+        getBackendUrl: () => _controller.backendUrl,
+      ),
     )..bootstrap();
   }
 
@@ -315,9 +330,11 @@ class NeoAgentController extends ChangeNotifier {
     required BackendClient backendClient,
     required HealthBridge healthBridge,
     required RecordingBridge recordingBridge,
+    required WearableService wearableService,
   }) : _backendClient = backendClient,
        _healthBridge = healthBridge,
-       _recordingBridge = recordingBridge {
+       _recordingBridge = recordingBridge,
+       _wearableService = wearableService {
     _recordingBridge.onRecordingStopped = _handleRecordingStopped;
     _recordingBridge.addListener(_handleRecordingBridgeChanged);
   }
@@ -325,6 +342,7 @@ class NeoAgentController extends ChangeNotifier {
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
   final RecordingBridge _recordingBridge;
+  final WearableService _wearableService;
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
@@ -399,6 +417,8 @@ class NeoAgentController extends ChangeNotifier {
   String streamingAssistant = '';
   bool isStartingRecording = false;
   bool isStoppingRecording = false;
+
+  WearableService get wearableService => _wearableService;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
 
@@ -2293,6 +2313,11 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get showHealthSection =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  /// Whether to show the wearables section - currently always enabled but can be
+  /// restricted to native platforms if needed (like health section)
+  bool get showWearablesSection =>
+      true; // Could restrict to !kIsWeb if we want to disable on web like health
 
   Future<void> _syncBackgroundHealthConfig() async {
     final cookie = _backendClient.sessionCookie ?? '';
@@ -4732,6 +4757,125 @@ class _ResultBlock extends StatelessWidget {
   }
 }
 
+class WearablesPanel extends StatelessWidget {
+  const WearablesPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final service = controller.wearableService;
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) {
+        return ListView(
+          padding: _pagePadding(context),
+          children: <Widget>[
+            const _PageTitle(
+              title: 'Wearables (Beta)',
+              subtitle: 'Connect and manage your recording hardware devices.',
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          service.connectedDevice != null
+                              ? Icons.watch_outlined
+                              : Icons.watch_off_outlined,
+                          color: service.connectedDevice != null
+                              ? _success
+                              : _textSecondary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                service.connectedDevice != null
+                                    ? 'Connected: ${service.connectedDevice!.name ?? 'Wearable'}'
+                                    : 'No device connected',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              if (service.connectedDevice == null)
+                                const Text(
+                                  'Scan for nearby Bluetooth recording devices.',
+                                  style: TextStyle(color: _textSecondary),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (service.connectedDevice != null)
+                          OutlinedButton(
+                            onPressed: service.disconnect,
+                            child: const Text('Disconnect'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                const Text(
+                  'Nearby Devices',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                if (service.isScanning)
+                  const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  TextButton.icon(
+                    onPressed: service.startScan,
+                    icon: const Icon(Icons.search),
+                    label: const Text('Scan'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (service.scanResults.isEmpty)
+              const _EmptyCard(
+                title: 'No devices found',
+                subtitle: 'Ensure your wearable is in pairing mode and Bluetooth is enabled.',
+              )
+            else
+              ...service.scanResults.map((device) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.bluetooth),
+                      title: Text(device.name ?? 'Unknown Device'),
+                      subtitle: Text(device.deviceId),
+                      trailing: FilledButton(
+                        onPressed: () => service.connect(device),
+                        child: const Text('Connect'),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class RecordingsPanel extends StatelessWidget {
   const RecordingsPanel({super.key, required this.controller});
 
@@ -4957,6 +5101,65 @@ class _RecordingSessionCard extends StatelessWidget {
                   style: const TextStyle(color: _danger),
                 ),
               ),
+            if (session.structuredContent.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _accent.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Icon(Icons.auto_awesome, size: 16, color: _accent),
+                        const SizedBox(width: 8),
+                        Text('Smart Segments', style: TextStyle(color: _accent, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    if (session.structuredContent['summary'] != null) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Text('Summary', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _textSecondary)),
+                      const SizedBox(height: 4),
+                      Text(session.structuredContent['summary'].toString(), style: const TextStyle(height: 1.45)),
+                    ],
+                    if (session.structuredContent['action_items'] != null && _getStructuredList(session, 'action_items').isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Text('Action Items', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _textSecondary)),
+                      const SizedBox(height: 4),
+                      ..._getStructuredList(session, 'action_items').map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('• ', style: TextStyle(fontWeight: FontWeight.w700, color: _accent)),
+                            Expanded(child: Text(item.toString(), style: const TextStyle(height: 1.35))),
+                          ],
+                        ),
+                      )),
+                    ],
+                    if (session.structuredContent['events'] != null && _getStructuredList(session, 'events').isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Text('Events Mentioned', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _textSecondary)),
+                      const SizedBox(height: 4),
+                      ..._getStructuredList(session, 'events').map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('• ', style: TextStyle(fontWeight: FontWeight.w700, color: _accent)),
+                            Expanded(child: Text(item.toString(), style: const TextStyle(height: 1.35))),
+                          ],
+                        ),
+                      )),
+                    ],
+                  ],
+                ),
+              ),
+            ],
             if (session.transcriptSegments.isNotEmpty) ...<Widget>[
               const SizedBox(height: 16),
               ...session.transcriptSegments.map(
@@ -5021,6 +5224,14 @@ class _RecordingSessionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  List<dynamic> _getStructuredList(RecordingSessionItem session, String key) {
+    final value = session.structuredContent[key];
+    if (value is List) {
+      return value;
+    }
+    return const [];
   }
 }
 
@@ -5815,7 +6026,7 @@ class _RunsPanelState extends State<RunsPanel> {
     }
     final selectedRunId = _selectedRunId;
     if (selectedRunId != null &&
-        widget.controller.recentRuns.any((run) => run.id == selectedRunId)) {
+        _filteredRuns.any((run) => run.id == selectedRunId)) {
       await _selectRun(selectedRunId, force: true);
     } else {
       _syncSelection();

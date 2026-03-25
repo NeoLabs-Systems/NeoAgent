@@ -5,7 +5,7 @@ const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
 const { getWebChatContext, refreshWebChatSummary, clearWebChatSummary } = require('./ai/history');
 
 function setupWebSocket(io, services) {
-  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager } = services;
+  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager } = services;
   io.on('connection', (socket) => {
     const session = socket.request.session;
     if (!session?.userId) {
@@ -260,6 +260,30 @@ function setupWebSocket(io, services) {
         socket.emit('memory:search_results', results);
       } catch (err) {
         console.error(`[WS] memory:search failed for user ${userId}:`, err);
+        socket.emit('error', { message: sanitizeError(err) });
+      }
+    });
+
+    // ── Wearables ──
+
+    socket.on('wearables:list', async () => {
+      try {
+        console.log(`[WS] wearables:list requested by user ${userId}`);
+        const devices = await wearableManager.listDevices(userId);
+        socket.emit('wearables:list', devices);
+      } catch (err) {
+        console.error(`[WS] wearables:list failed for user ${userId}:`, err);
+        socket.emit('error', { message: sanitizeError(err) });
+      }
+    });
+
+    socket.on('wearables:protocols', () => {
+      try {
+        console.log(`[WS] wearables:protocols requested by user ${userId}`);
+        const protocols = wearableManager.getProtocols();
+        socket.emit('wearables:protocols', protocols);
+      } catch (err) {
+        console.error(`[WS] wearables:protocols failed for user ${userId}:`, err);
         socket.emit('error', { message: sanitizeError(err) });
       }
     });

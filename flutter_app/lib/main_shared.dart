@@ -15,6 +15,7 @@ List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
     AppSection.recordings,
+    AppSection.wearables,
     AppSection.runs,
     AppSection.logs,
     AppSection.devices,
