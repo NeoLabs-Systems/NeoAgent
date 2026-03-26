@@ -764,6 +764,22 @@ class BackendClient {
     return _asMap(_decodeJson(response.body));
   }
 
+  Future<Map<String, dynamic>> syncWearableData(
+    String baseUrl,
+    String macAddress,
+    Uint8List data,
+  ) async {
+    final response = await _httpClient.post(
+      _resolveUri(baseUrl, '/api/wearables/$macAddress/sync'),
+      headers: <String, String>{
+        'Content-Type': 'application/octet-stream',
+      },
+      body: data,
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
   /// Register a wearable device with the backend
   Future<Map<String, dynamic>> registerWearable(
     String baseUrl,

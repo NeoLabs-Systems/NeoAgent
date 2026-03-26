@@ -4815,9 +4815,32 @@ class WearablesPanel extends StatelessWidget {
                           ),
                         ),
                         if (service.connectedDevice != null)
-                          OutlinedButton(
-                            onPressed: service.disconnect,
-                            child: const Text('Disconnect'),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: <Widget>[
+                              if (service.canRequestOfflineSync)
+                                FilledButton.tonalIcon(
+                                  onPressed: service.isOfflineSyncRequestInFlight
+                                      ? null
+                                      : service.requestPacketOfflineSync,
+                                  icon: service.isOfflineSyncRequestInFlight
+                                      ? const SizedBox.square(
+                                          dimension: 14,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.cloud_sync_outlined),
+                                  label: Text(
+                                    service.isOfflineSyncRequestInFlight
+                                        ? 'Requesting sync...'
+                                        : 'Sync from device',
+                                  ),
+                                ),
+                              OutlinedButton(
+                                onPressed: service.disconnect,
+                                child: const Text('Disconnect'),
+                              ),
+                            ],
                           ),
                       ],
                     ),

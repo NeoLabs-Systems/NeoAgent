@@ -276,14 +276,7 @@ class PacketProtocol extends WearableProtocolBase {
     if (rawPayload.isEmpty) return null;
 
     final normalizedCharacteristic = _normalizeUuid(characteristicUuid);
-    final controlTx = _normalizeUuid(WearableServiceUuids.packetControlTx);
-    final controlRx = _normalizeUuid(WearableServiceUuids.packetControlRx);
     final audioTx = _normalizeUuid(WearableServiceUuids.packetAudioTx);
-
-    if (normalizedCharacteristic != null &&
-        (normalizedCharacteristic == controlTx || normalizedCharacteristic == controlRx)) {
-      return null;
-    }
 
     if (normalizedCharacteristic != null && normalizedCharacteristic == audioTx) {
       return rawPayload;

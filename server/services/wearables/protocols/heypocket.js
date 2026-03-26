@@ -24,9 +24,9 @@ class PacketProtocol extends WearableProtocol {
    */
   get characteristics() {
     return {
-      controlRx: '001120a0-2233-4455-6677-88991234567a', // ...a2... (Control RX)
-      controlTx: '001120a0-2233-4455-6677-88991234567b', // ...a3... (Control TX)
-      audioTx: '001120a0-2233-4455-6677-889912345679' // ...a1... (Data TX)
+      controlRx: '001120a2-2233-4455-6677-889912345678', // write characteristic
+      controlTx: '001120a1-2233-4455-6677-889912345678', // notify/control characteristic
+      audioTx: '001120a3-2233-4455-6677-889912345678' // notify/audio characteristic
     };
   }
 
@@ -36,13 +36,7 @@ class PacketProtocol extends WearableProtocol {
     }
 
     const characteristicUuid = this.#normalizeUuid(context?.characteristicUuid);
-    const controlTx = this.#normalizeUuid(this.characteristics.controlTx);
-    const controlRx = this.#normalizeUuid(this.characteristics.controlRx);
     const audioTx = this.#normalizeUuid(this.characteristics.audioTx);
-
-    if (characteristicUuid && (characteristicUuid === controlTx || characteristicUuid === controlRx)) {
-      return null;
-    }
 
     if (characteristicUuid && characteristicUuid === audioTx) {
       return rawPayload;
