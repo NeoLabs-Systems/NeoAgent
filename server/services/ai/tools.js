@@ -12,6 +12,33 @@ function compactText(text, maxChars = 120) {
     return `${trimmed.trim()}...`;
 }
 
+function compactTranscript(text, maxChars = 1200) {
+    const str = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!str) return '';
+    if (str.length <= maxChars) return str;
+    return `${str.slice(0, maxChars).trim()}...`;
+}
+
+function compactRecordingSession(session, options = {}) {
+    const includeTranscript = options.includeTranscript === true;
+    return {
+        id: session.id,
+        title: session.title,
+        platform: session.platform,
+        status: session.status,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        durationMs: Number(session.durationMs) || 0,
+        sourceCount: Number(session.sourceCount) || 0,
+        transcriptLanguage: session.transcriptLanguage || null,
+        transcriptModel: session.transcriptModel || null,
+        hasTranscript: !!String(session.transcriptText || '').trim(),
+        transcriptPreview: includeTranscript ? compactTranscript(session.transcriptText || '', 1200) : undefined,
+        structuredContent: session.structuredContent || null,
+        lastError: session.lastError || null,
+    };
+}
+
 function compactToolDefinition(tool, options = {}) {
     const compact = {
         name: tool.name,
@@ -793,6 +820,46 @@ function getAvailableTools(app, options = {}) {
                     limit: { type: 'number', description: 'Max recent records to return (default 10, max 200). Use a small number unless the user explicitly asks for a full history.' }
                 }
             }
+        },
+        {
+            name: 'recordings_list',
+            description: 'List the user\'s recording sessions with status, timing, and transcript availability.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    limit: { type: 'number', description: 'Maximum number of sessions to return (default 12, max 50).' },
+                    status: { type: 'string', description: 'Optional status filter: recording, processing, completed, failed, cancelled.' },
+                    platform: { type: 'string', description: 'Optional platform filter: wearable, web, android, unknown.' },
+                    include_transcript_previews: { type: 'boolean', description: 'Include short transcript previews (default false).' }
+                }
+            }
+        },
+        {
+            name: 'recordings_get',
+            description: 'Get one recording session in detail, including transcript text, sources, and optional transcript segments.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    session_id: { type: 'string', description: 'Recording session ID.' },
+                    include_segments: { type: 'boolean', description: 'Include transcript segments (default true).' },
+                    segment_limit: { type: 'number', description: 'Maximum number of transcript segments to return (default 80, max 300).' },
+                    include_full_transcript: { type: 'boolean', description: 'Include full transcript text (default true). If false, returns only preview.' }
+                },
+                required: ['session_id']
+            }
+        },
+        {
+            name: 'recordings_search',
+            description: 'Search recording transcripts by keyword and return matching snippets with session references.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'Search query for transcript text.' },
+                    limit: { type: 'number', description: 'Maximum number of matches to return (default 20, max 100).' },
+                    status: { type: 'string', description: 'Optional status filter for sessions.' }
+                },
+                required: ['query']
+            }
         }
     ];
 
@@ -820,6 +887,7 @@ async function executeTool(toolName, args, context, engine) {
     const mcp = () => app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
     const sk = () => app?.locals?.skillRunner || engine.skillRunner;
     const sched = () => app?.locals?.scheduler || engine.scheduler;
+    const rec = () => app?.locals?.recordingManager || null;
 
     switch (toolName) {
         case 'execute_command': {
@@ -1090,6 +1158,167 @@ async function executeTool(toolName, args, context, engine) {
             const { readHealthData } = require('../health/ingestion');
             const result = readHealthData(userId, args.metric_type, args.limit);
             return result;
+        }
+
+        case 'recordings_list': {
+            const manager = rec();
+            if (!manager) return { error: 'Recording manager not available' };
+
+            const limit = Math.max(1, Math.min(Number(args.limit) || 12, 50));
+            const includeTranscript = args.include_transcript_previews === true;
+            const statusFilter = typeof args.status === 'string' ? args.status.trim().toLowerCase() : null;
+            const platformFilter = typeof args.platform === 'string' ? args.platform.trim().toLowerCase() : null;
+
+            let sessions = manager.listSessions(userId, { limit: Math.max(limit * 3, limit) });
+
+            if (statusFilter) {
+                sessions = sessions.filter((session) => String(session.status || '').toLowerCase() === statusFilter);
+            }
+            if (platformFilter) {
+                sessions = sessions.filter((session) => String(session.platform || '').toLowerCase() === platformFilter);
+            }
+
+            const filtered = sessions.slice(0, limit).map((session) => compactRecordingSession(session, {
+                includeTranscript,
+            }));
+
+            return {
+                count: filtered.length,
+                filters: {
+                    status: statusFilter || null,
+                    platform: platformFilter || null,
+                },
+                sessions: filtered,
+            };
+        }
+
+        case 'recordings_get': {
+            const manager = rec();
+            if (!manager) return { error: 'Recording manager not available' };
+
+            const sessionId = `${args.session_id || ''}`.trim();
+            if (!sessionId) return { error: 'session_id is required' };
+
+            try {
+                const session = manager.getSession(userId, sessionId);
+                const includeSegments = args.include_segments !== false;
+                const includeFullTranscript = args.include_full_transcript !== false;
+                const segmentLimit = Math.max(1, Math.min(Number(args.segment_limit) || 80, 300));
+
+                const result = {
+                    session: compactRecordingSession(session, {
+                        includeTranscript: !includeFullTranscript,
+                    }),
+                    transcriptText: includeFullTranscript
+                        ? String(session.transcriptText || '')
+                        : compactTranscript(session.transcriptText || '', 1600),
+                    sources: (Array.isArray(session.sources) ? session.sources : []).map((source) => ({
+                        id: source.id,
+                        sourceKey: source.sourceKey,
+                        sourceKind: source.sourceKind,
+                        mediaKind: source.mediaKind,
+                        mimeType: source.mimeType,
+                        status: source.status,
+                        chunkCount: source.chunkCount,
+                        durationMs: source.durationMs,
+                    })),
+                    segmentCount: Array.isArray(session.transcriptSegments) ? session.transcriptSegments.length : 0,
+                };
+
+                if (includeSegments) {
+                    const segments = Array.isArray(session.transcriptSegments) ? session.transcriptSegments : [];
+                    result.segments = segments.slice(0, segmentLimit).map((segment) => ({
+                        id: segment.id,
+                        speaker: segment.speaker,
+                        sourceKey: segment.sourceKey,
+                        startMs: segment.startMs,
+                        endMs: segment.endMs,
+                        confidence: segment.confidence,
+                        text: segment.text,
+                    }));
+                    result.segmentsTruncated = segments.length > segmentLimit;
+                }
+
+                return result;
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
+        case 'recordings_search': {
+            const query = `${args.query || ''}`.trim();
+            if (!query) return { error: 'query is required' };
+
+            const limit = Math.max(1, Math.min(Number(args.limit) || 20, 100));
+            const statusFilter = typeof args.status === 'string' ? args.status.trim().toLowerCase() : null;
+            const like = `%${query.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+
+            const statusClause = statusFilter ? 'AND s.status = ?' : '';
+            const params = statusFilter
+                ? [userId, like, like, statusFilter, limit]
+                : [userId, like, like, limit];
+
+            const rows = db.prepare(`
+              SELECT
+                s.id AS session_id,
+                s.title,
+                s.platform,
+                s.status,
+                s.started_at,
+                s.ended_at,
+                s.duration_ms,
+                seg.id AS segment_id,
+                seg.start_ms,
+                seg.end_ms,
+                seg.speaker,
+                seg.text AS segment_text,
+                s.transcript_text
+              FROM recording_sessions s
+              LEFT JOIN recording_transcript_segments seg
+                ON seg.session_id = s.id
+              WHERE s.user_id = ?
+                AND (
+                  LOWER(COALESCE(seg.text, '')) LIKE LOWER(?) ESCAPE '\\'
+                  OR LOWER(COALESCE(s.transcript_text, '')) LIKE LOWER(?) ESCAPE '\\'
+                )
+                ${statusClause}
+              ORDER BY datetime(s.created_at) DESC, seg.start_ms ASC, seg.id ASC
+              LIMIT ?
+            `).all(...params);
+
+            const matches = rows.map((row) => {
+                const baseText = row.segment_text || row.transcript_text || '';
+                const idx = baseText.toLowerCase().indexOf(query.toLowerCase());
+                let snippet = baseText;
+                if (idx >= 0) {
+                    const left = Math.max(0, idx - 120);
+                    const right = Math.min(baseText.length, idx + query.length + 120);
+                    snippet = baseText.slice(left, right);
+                    if (left > 0) snippet = `...${snippet}`;
+                    if (right < baseText.length) snippet = `${snippet}...`;
+                }
+
+                return {
+                    sessionId: row.session_id,
+                    title: row.title,
+                    platform: row.platform,
+                    status: row.status,
+                    startedAt: row.started_at,
+                    endedAt: row.ended_at,
+                    durationMs: Number(row.duration_ms) || 0,
+                    segmentId: row.segment_id == null ? null : Number(row.segment_id),
+                    startMs: row.start_ms == null ? null : Number(row.start_ms),
+                    endMs: row.end_ms == null ? null : Number(row.end_ms),
+                    speaker: row.speaker || null,
+                    snippet: compactTranscript(snippet, 400),
+                };
+            });
+
+            return {
+                query,
+                count: matches.length,
+                matches,
+            };
         }
 
         case 'memory_write': {
