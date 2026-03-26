@@ -3,7 +3,7 @@
 const WearableProtocol = require('./base');
 
 /**
- * Protocol implementation for the Packet Wearable (PKT01_BLUE_26120842).
+ * Protocol implementation for the HeyPocket Device (PKT01_BLUE_26120842).
  * This device streams 16kHz Mono MP3 frames (32kbps) over BLE.
  */
 class PacketProtocol extends WearableProtocol {
@@ -12,7 +12,7 @@ class PacketProtocol extends WearableProtocol {
   }
 
   get name() {
-    return 'Packet Wearable';
+    return 'HeyPocket Device';
   }
 
   get mimeType() {

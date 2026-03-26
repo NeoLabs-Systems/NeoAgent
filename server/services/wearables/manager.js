@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 
 // Load built-in protocols
 const builtInProtocols = [
-  require('./protocols/packet'),
+  require('./protocols/heypocket'),
   require('./protocols/omi'),
   require('./protocols/plaud'),
   require('./protocols/friend'),

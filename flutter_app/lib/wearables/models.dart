@@ -132,7 +132,7 @@ class WearableServiceUuids {
   // Fieldy
   static const String fieldyServiceUuid = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 
-  // Packet Wearable (PKT01)
+  // HeyPocket Device (PKT01)
   static const String packetServiceUuid = '00112000-2233-4455-6677-889900001111';
   static const String packetControlRx = '001120a0-2233-4455-6677-88991234567a';
   static const String packetControlTx = '001120a0-2233-4455-6677-88991234567b';
