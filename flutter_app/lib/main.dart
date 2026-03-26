@@ -4916,6 +4916,60 @@ class WearablesPanel extends StatelessWidget {
                             ),
                           ),
                         ],
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFD1E3F7)),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              const Icon(Icons.tune_rounded, size: 16, color: _textSecondary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    const Text(
+                                      'Mode',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _textSecondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      service.packetModeLabel,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Switch(
+                                value: service.packetCallModeEnabled,
+                                onChanged: service.packetModeSwitchInFlight
+                                    ? null
+                                    : service.setPacketCallMode,
+                              ),
+                              Text(
+                                service.packetCallModeEnabled ? 'Call' : 'Normal',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: _textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
