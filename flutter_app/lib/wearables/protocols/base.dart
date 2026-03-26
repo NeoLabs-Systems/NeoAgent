@@ -247,14 +247,14 @@ class FieldyProtocol extends WearableProtocolBase {
   String? get serviceUuid => WearableServiceUuids.fieldyServiceUuid;
 }
 
-/// Packet Wearable (PKT01) Protocol
+/// HeyPocket Device (PKT01) Protocol
 /// Streams 16kHz Mono MP3 frames (32kbps) over BLE
 class PacketProtocol extends WearableProtocolBase {
   @override
   String get id => WearableProtocols.packet;
 
   @override
-  String get name => 'Packet Wearable';
+  String get name => 'HeyPocket Device';
 
   @override
   String get mimeType => 'audio/mpeg';

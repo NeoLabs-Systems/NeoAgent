@@ -152,7 +152,7 @@ class WearableService extends ChangeNotifier {
     if (lowerName.contains('friend')) {
       return WearableDeviceType.friend;
     }
-    if (lowerName.contains('pocket') || lowerName.contains('packet') || lowerName.contains('pkt01')) {
+    if (lowerName.contains('heypocket') || lowerName.contains('pocket') || lowerName.contains('packet') || lowerName.contains('pkt01')) {
       return WearableDeviceType.packet;
     }
     // Only show known devices, not unknown ones
