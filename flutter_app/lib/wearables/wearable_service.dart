@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 import '../src/backend_client.dart';
@@ -74,6 +73,10 @@ class WearableService extends ChangeNotifier {
       _connectedDevice != null && _deviceType == WearableDeviceType.packet;
 
   bool get isOfflineSyncRequestInFlight => _packetSyncCoordinator.isSyncRequestInFlight;
+  String get packetSyncStatus => _packetSyncCoordinator.lastSyncStatus;
+  String get packetSyncLastControlMessage => _packetSyncCoordinator.lastControlMessage;
+  int get packetSyncListedFilesCount => _packetSyncCoordinator.listedFilesCount;
+  int get packetSyncUploadCommandsSent => _packetSyncCoordinator.uploadCommandsSent;
 
   void _init() {
     // Register built-in protocols
@@ -81,9 +84,6 @@ class WearableService extends ChangeNotifier {
 
     UniversalBle.onScanResult = (device) {
       debugPrint("Scan result: ${device.name} (${device.deviceId})");
-      
-      // Determine device type from name
-      final deviceType = _identifyDeviceType(device.name ?? '');
       
       _discoveredDevices[device.deviceId] = device;
       
@@ -116,6 +116,7 @@ class WearableService extends ChangeNotifier {
         if (_deviceType == WearableDeviceType.packet) {
           final packetProtocol = _getProtocolForDevice(WearableDeviceType.packet);
           if (packetProtocol != null) {
+            _packetSyncCoordinator.observeControlPayload(value);
             _packetSyncCoordinator.captureSyncChunk(
               characteristicUuid,
               value,
@@ -222,7 +223,7 @@ class WearableService extends ChangeNotifier {
       
       await UniversalBle.startScan(
         scanFilter: ScanFilter(
-          services: serviceUuids,
+          withServices: serviceUuids,
         ),
         platformConfig: PlatformConfig(
           web: WebOptions(
@@ -329,7 +330,7 @@ class WearableService extends ChangeNotifier {
         
         for (final service in discoveredServices) {
           debugPrint("  Service: ${service.uuid}");
-          for (final char in service.characteristics ?? []) {
+          for (final char in service.characteristics) {
             debugPrint("    Characteristic: ${char.uuid}");
           }
         }
@@ -407,7 +408,7 @@ class WearableService extends ChangeNotifier {
         debugPrint("Failed to subscribe to audio characteristic: $e");
         
         // Try to subscribe to all characteristics in the service
-        for (final char in service.characteristics ?? []) {
+        for (final char in service.characteristics) {
           try {
             await UniversalBle.subscribeNotifications(deviceId, service.uuid, char.uuid);
             debugPrint("Subscribed to: ${char.uuid}");
