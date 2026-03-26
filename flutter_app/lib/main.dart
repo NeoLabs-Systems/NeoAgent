@@ -4848,6 +4848,80 @@ class WearablesPanel extends StatelessWidget {
                 ),
               ),
             ),
+            if (service.connectedDevice != null && service.canRequestOfflineSync) ...<Widget>[
+              const SizedBox(height: 12),
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: <Color>[
+                        Color(0xFFF4FAF8),
+                        Color(0xFFEAF3FF),
+                      ],
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Row(
+                          children: <Widget>[
+                            Icon(Icons.sync_alt_rounded, color: Color(0xFF14532D)),
+                            SizedBox(width: 8),
+                            Text(
+                              'Packet Offline Sync',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            _SyncStatPill(
+                              label: 'Status',
+                              value: service.packetSyncStatus,
+                              icon: Icons.info_outline,
+                            ),
+                            _SyncStatPill(
+                              label: 'Listed files',
+                              value: '${service.packetSyncListedFilesCount}',
+                              icon: Icons.queue_music_outlined,
+                            ),
+                            _SyncStatPill(
+                              label: 'Upload requests',
+                              value: '${service.packetSyncUploadCommandsSent}',
+                              icon: Icons.cloud_upload_outlined,
+                            ),
+                          ],
+                        ),
+                        if (service.packetSyncLastControlMessage.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFD1E3F7)),
+                            ),
+                            child: Text(
+                              'Last response: ${service.packetSyncLastControlMessage}',
+                              style: const TextStyle(fontSize: 12, color: _textSecondary),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -4895,6 +4969,53 @@ class WearablesPanel extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _SyncStatPill extends StatelessWidget {
+  const _SyncStatPill({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD9E6FA)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: _textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontSize: 12,
+              color: _textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF0F172A),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
