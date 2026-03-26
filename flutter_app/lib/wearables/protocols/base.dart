@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'models.dart';
+import '../models.dart';
 
 /// Base protocol for all wearable devices
 abstract class WearableProtocolBase {
@@ -15,14 +15,11 @@ abstract class WearableProtocolBase {
   /// Audio codec used
   BleAudioCodec get codec;
 
-  /// Service UUID for discovery
-  String? get serviceUuid;
+  String? get serviceUuid => null;
 
-  /// Audio characteristic UUID
-  String? get audioCharUuid;
+  String? get audioCharUuid => null;
 
-  /// Control characteristic UUID (if applicable)
-  String? get controlCharUuid;
+  String? get controlCharUuid => null;
 
   /// Parse raw audio payload from BLE notification
   Uint8List? parseAudioPayload(Uint8List rawPayload, {String? characteristicUuid}) {

@@ -6,26 +6,10 @@ import 'models.dart';
 import 'packet/sync_coordinator.dart';
 import 'protocols/base.dart';
 
-/// Connection health monitoring interval
 const _connectionHealthCheckInterval = Duration(seconds: 30);
+const _baseReconnectDelayMs = 1000;
+const _maxConnectRetries = 5;
 
-/// Device discovery callback
-typedef OnDeviceDiscovered = void Function(BleDevice device, WearableDeviceType? type);
-
-/// Scan filter for different device types
-class DeviceScanFilter {
-  final String? serviceUuid;
-  final String? namePrefix;
-  final WearableDeviceType? deviceType;
-
-  const DeviceScanFilter({
-    this.serviceUuid,
-    this.namePrefix,
-    this.deviceType,
-  });
-}
-
-/// Wearable service supporting multiple device types
 class WearableService extends ChangeNotifier {
   WearableService({
     required BackendClient backendClient,
@@ -47,8 +31,7 @@ class WearableService extends ChangeNotifier {
   bool get isScanning => _isScanning;
 
   final Map<String, BleDevice> _discoveredDevices = {};
-  
-  /// Filter to only show known devices (exclude unknown BLE devices)
+
   List<BleDevice> get scanResults => _discoveredDevices.values
       .where((device) => _identifyDeviceType(device.name ?? '') != WearableDeviceType.unknown)
       .toList();
@@ -62,10 +45,8 @@ class WearableService extends ChangeNotifier {
   Timer? _connectionHealthTimer;
   DateTime? _lastSuccessfulCommunication;
 
-  /// Registered protocols by ID
   final Map<String, WearableProtocolBase> _protocols = {};
 
-  /// Device type for current connection
   WearableDeviceType? _deviceType;
   late final PacketSyncCoordinator _packetSyncCoordinator;
 
@@ -82,29 +63,23 @@ class WearableService extends ChangeNotifier {
   bool get packetModeSwitchInFlight => _packetSyncCoordinator.isModeSwitchInFlight;
 
   void _init() {
-    // Register built-in protocols
     _registerDefaultProtocols();
 
     UniversalBle.onScanResult = (device) {
       debugPrint("Scan result: ${device.name} (${device.deviceId})");
       
       _discoveredDevices[device.deviceId] = device;
-      
-      // Notify listeners with device type info
       notifyListeners();
     };
 
     UniversalBle.onConnectionChange = (deviceId, isConnected, error) {
       debugPrint("Connection change: $deviceId connected=$isConnected error=$error");
       if (_connectedDevice?.deviceId == deviceId) {
-        _connectionState = isConnected ? BleConnectionState.connected : BleConnectionState.disconnected;
         if (!isConnected) {
           debugPrint("Device disconnected: $deviceId");
-          _packetSyncCoordinator.dispose();
-          _connectedDevice = null;
-          _deviceType = null;
-          _stopConnectionHealthMonitoring();
+          _clearConnectionState();
         } else {
+          _connectionState = BleConnectionState.connected;
           _lastSuccessfulCommunication = DateTime.now();
           _startConnectionHealthMonitoring();
         }
@@ -136,9 +111,7 @@ class WearableService extends ChangeNotifier {
                 characteristicUuid,
                 value,
               )
-              .then((_) {
-                // Success - data streamed
-              })
+              .then((_) {})
               .catchError((e) {
                 debugPrint("Error streaming wearable data: $e");
               }, test: (e) => true);
@@ -150,7 +123,6 @@ class WearableService extends ChangeNotifier {
   }
 
   void _registerDefaultProtocols() {
-    // Register built-in protocols once to avoid duplicate object creation.
     final builtInProtocols = <WearableProtocolBase>[
       OmiProtocol(),
       PlaudProtocol(),
@@ -167,11 +139,13 @@ class WearableService extends ChangeNotifier {
     }
   }
 
-  /// Identify device type from device name
   WearableDeviceType _identifyDeviceType(String name) {
     final lowerName = name.toLowerCase();
-    
-    if (lowerName.contains('omi') || lowerName.contains('omiglass') || lowerName.contains('openglass')) {
+
+    if (lowerName.contains('openglass')) {
+      return WearableDeviceType.openglass;
+    }
+    if (lowerName.contains('omi') || lowerName.contains('omiglass')) {
       return WearableDeviceType.omi;
     }
     if (lowerName.contains('plaud')) {
@@ -180,49 +154,55 @@ class WearableService extends ChangeNotifier {
     if (lowerName.contains('friend')) {
       return WearableDeviceType.friend;
     }
+    if (lowerName.contains('bee')) {
+      return WearableDeviceType.bee;
+    }
+    if (lowerName.contains('limitless') || lowerName.contains('pendant')) {
+      return WearableDeviceType.limitless;
+    }
+    if (lowerName.contains('frame')) {
+      return WearableDeviceType.frame;
+    }
+    if (lowerName.contains('fieldy')) {
+      return WearableDeviceType.fieldy;
+    }
     if (lowerName.contains('heypocket') || lowerName.contains('pocket') || lowerName.contains('packet') || lowerName.contains('pkt01')) {
       return WearableDeviceType.packet;
     }
-    // Only show known devices, not unknown ones
+
     return WearableDeviceType.unknown;
   }
 
-  /// Get protocol for device type
   WearableProtocolBase? _getProtocolForDevice(WearableDeviceType? type) {
     if (type == null) return null;
-    return WearableProtocolBase.fromDeviceType(type);
+    final protocolId = _protocolIdForDeviceType(type);
+    if (protocolId == null) {
+      return null;
+    }
+    return _protocols[protocolId];
   }
 
-  /// Get scan filters for all supported device types
-  List<DeviceScanFilter> get _scanFilters => [
-    const DeviceScanFilter(serviceUuid: '19b10000-e8f2-537e-4f6c-d104768a1214', deviceType: WearableDeviceType.omi),
-    const DeviceScanFilter(serviceUuid: '00001910-0000-1000-8000-00805f9b34fb', deviceType: WearableDeviceType.plaud),
-    const DeviceScanFilter(serviceUuid: '1a3fd0e7-b1f3-ac9e-2e49-b647b2c4f8da', deviceType: WearableDeviceType.friend),
-    const DeviceScanFilter(serviceUuid: '03d5d5c4-a86c-11ee-9d89-8f2089a49e7e', deviceType: WearableDeviceType.bee),
-    const DeviceScanFilter(serviceUuid: '632de001-604c-446b-a80f-7963e950f3fb', deviceType: WearableDeviceType.limitless),
-    const DeviceScanFilter(serviceUuid: '7A230001-5475-A6A4-654C-8431F6AD49C4', deviceType: WearableDeviceType.frame),
-    const DeviceScanFilter(serviceUuid: '4fafc201-1fb5-459e-8fcc-c5c9c331914b', deviceType: WearableDeviceType.fieldy),
-    const DeviceScanFilter(serviceUuid: '001120a0-2233-4455-6677-889912345678', deviceType: WearableDeviceType.packet),
-  ];
+  List<String> _buildScanServiceUuids() {
+    final services = <String>{};
+    for (final protocol in _protocols.values) {
+      final serviceUuid = protocol.serviceUuid;
+      if (serviceUuid != null && serviceUuid.isNotEmpty) {
+        services.add(serviceUuid);
+      }
+    }
 
-  /// Start scanning for all supported devices
+    services.add(WearableServiceUuids.batteryServiceUuid);
+    services.add(WearableServiceUuids.deviceInfoServiceUuid);
+    return services.toList(growable: false);
+  }
+
   Future<void> startScan() async {
     try {
       _discoveredDevices.clear();
       notifyListeners();
       debugPrint("Starting scan for all wearable devices...");
-      
-      // Collect all service UUIDs to scan for
-      final serviceUuids = _scanFilters
-          .where((f) => f.serviceUuid != null)
-          .map((f) => f.serviceUuid!)
-          .toList();
-      
-      // Add standard battery and device info services
-      serviceUuids.addAll([
-        '0000180f-0000-1000-8000-00805f9b34fb', // Battery
-        '0000180a-0000-1000-8000-00805f9b34fb', // Device Info
-      ]);
+
+      final serviceUuids = _buildScanServiceUuids();
       
       await UniversalBle.startScan(
         scanFilter: ScanFilter(
@@ -252,16 +232,13 @@ class WearableService extends ChangeNotifier {
     }
   }
 
-  /// Connect to a device
   Future<void> connect(BleDevice device) async {
     try {
       debugPrint("Connecting to ${device.name} (${device.deviceId})...");
-      
-      // Determine device type
+
       _deviceType = _identifyDeviceType(device.name ?? '');
       debugPrint("Identified device type: $_deviceType");
-      
-      // Unconditionally stop scan before connecting
+
       await UniversalBle.stopScan();
       _isScanning = false;
       notifyListeners();
@@ -269,7 +246,6 @@ class WearableService extends ChangeNotifier {
       _connectionState = BleConnectionState.connecting;
       notifyListeners();
 
-      // Check if device is already connected (stuck state)
       if (_connectedDevice?.deviceId == device.deviceId) {
         debugPrint("Device already in connected state - forcing disconnect first...");
         try {
@@ -280,7 +256,6 @@ class WearableService extends ChangeNotifier {
         }
       }
 
-      // Platform-specific delay
       if (kIsWeb) {
         debugPrint("Web platform detected - adding extra stabilization delay...");
         await Future.delayed(const Duration(milliseconds: 1500));
@@ -288,14 +263,12 @@ class WearableService extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 500));
       }
 
-      // Implement retry logic
       int retryCount = 0;
-      const maxRetries = 5;
       bool success = false;
       
-      while (retryCount < maxRetries && !success) {
+      while (retryCount < _maxConnectRetries && !success) {
         try {
-          debugPrint("Connection attempt ${retryCount + 1}/$maxRetries...");
+          debugPrint("Connection attempt ${retryCount + 1}/$_maxConnectRetries...");
           
           final timeoutSeconds = kIsWeb ? 15 : 10;
           await UniversalBle.connect(device.deviceId).timeout(
@@ -311,12 +284,12 @@ class WearableService extends ChangeNotifier {
           retryCount++;
           debugPrint("Connect attempt $retryCount failed: $e");
           
-          if (retryCount < maxRetries) {
-            final delayMs = 1000 * (1 << (retryCount - 1));
+          if (retryCount < _maxConnectRetries) {
+            final delayMs = _baseReconnectDelayMs * (1 << (retryCount - 1));
             debugPrint("Retrying in ${delayMs}ms...");
             await Future.delayed(Duration(milliseconds: delayMs));
           } else {
-            debugPrint("All $maxRetries connection attempts failed");
+            debugPrint("All $_maxConnectRetries connection attempts failed");
             rethrow;
           }
         }
@@ -344,7 +317,6 @@ class WearableService extends ChangeNotifier {
       _connectedDevice = device;
       _connectionState = BleConnectionState.connected;
 
-      // Subscribe to audio characteristic based on device type
       await _subscribeToAudioCharacteristic(device.deviceId, discoveredServices);
 
       if (_deviceType == WearableDeviceType.packet) {
@@ -354,15 +326,12 @@ class WearableService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint("Error connecting to device: $e");
-      _connectionState = BleConnectionState.disconnected;
-      _connectedDevice = null;
-      _deviceType = null;
+      _clearConnectionState();
       notifyListeners();
       rethrow;
     }
   }
 
-  /// Subscribe to the appropriate audio characteristic based on device type
   Future<void> _subscribeToAudioCharacteristic(String deviceId, List<BleService> services) async {
     if (services.isEmpty) {
       debugPrint('No services discovered; skipping notification subscription');
@@ -375,7 +344,6 @@ class WearableService extends ChangeNotifier {
       return;
     }
 
-    // Find the service
     final serviceUuid = protocol.serviceUuid;
     if (serviceUuid == null) {
       debugPrint("No service UUID for protocol: ${protocol.id}");
@@ -388,7 +356,6 @@ class WearableService extends ChangeNotifier {
       orElse: () => services.first,
     );
 
-    // Find audio characteristic
     final audioCharUuid = protocol.audioCharUuid;
     if (audioCharUuid != null) {
       try {
@@ -410,7 +377,6 @@ class WearableService extends ChangeNotifier {
       } catch (e) {
         debugPrint("Failed to subscribe to audio characteristic: $e");
         
-        // Try to subscribe to all characteristics in the service
         for (final char in service.characteristics) {
           try {
             await UniversalBle.subscribeNotifications(deviceId, service.uuid, char.uuid);
@@ -464,8 +430,7 @@ class WearableService extends ChangeNotifier {
     
     try {
       debugPrint("Registering device with backend: $deviceId");
-      
-      // Determine protocol ID from device type
+
       final protocolId = _deviceType != null 
           ? WearableProtocols.fromDeviceType(_deviceType!)
           : 'custom';
@@ -485,6 +450,46 @@ class WearableService extends ChangeNotifier {
   }
   
   final Set<String> _registeredDevices = {};
+
+  String? _protocolIdForDeviceType(WearableDeviceType type) {
+    switch (type) {
+      case WearableDeviceType.omi:
+      case WearableDeviceType.openglass:
+        return WearableProtocols.omi;
+      case WearableDeviceType.plaud:
+        return WearableProtocols.plaud;
+      case WearableDeviceType.friend:
+        return WearableProtocols.friend;
+      case WearableDeviceType.bee:
+        return WearableProtocols.bee;
+      case WearableDeviceType.frame:
+        return WearableProtocols.frame;
+      case WearableDeviceType.fieldy:
+        return WearableProtocols.fieldy;
+      case WearableDeviceType.limitless:
+        return WearableProtocols.limitless;
+      case WearableDeviceType.packet:
+        return WearableProtocols.packet;
+      case WearableDeviceType.appleWatch:
+        return WearableProtocols.appleWatch;
+      case WearableDeviceType.custom:
+      case WearableDeviceType.unknown:
+        return null;
+    }
+  }
+
+  void _clearConnectionState({bool clearDiscoveredDevices = false}) {
+    _connectedDevice = null;
+    _deviceType = null;
+    _connectionState = BleConnectionState.disconnected;
+    _lastSuccessfulCommunication = null;
+    _registeredDevices.clear();
+    _packetSyncCoordinator.dispose();
+    _stopConnectionHealthMonitoring();
+    if (clearDiscoveredDevices) {
+      _discoveredDevices.clear();
+    }
+  }
   
   void _startConnectionHealthMonitoring() {
     _stopConnectionHealthMonitoring();
@@ -512,28 +517,20 @@ class WearableService extends ChangeNotifier {
     }
   }
 
-  /// Disconnect from current device
   Future<void> disconnect() async {
     final deviceId = _connectedDevice?.deviceId;
     if (deviceId != null) {
       try {
         debugPrint("Disconnecting from $deviceId...");
-        _stopConnectionHealthMonitoring();
         await UniversalBle.disconnect(deviceId);
       } catch (e) {
         debugPrint("Error disconnecting: $e");
       }
-      _connectedDevice = null;
-      _deviceType = null;
-      _connectionState = BleConnectionState.disconnected;
-      _lastSuccessfulCommunication = null;
-      _registeredDevices.clear();
-      _packetSyncCoordinator.dispose();
+      _clearConnectionState();
       notifyListeners();
     }
   }
 
-  /// Reset BLE state
   Future<void> resetBleState() async {
     debugPrint("Resetting BLE state...");
     
@@ -553,15 +550,8 @@ class WearableService extends ChangeNotifier {
         debugPrint("Error disconnecting during reset: $e");
       }
     }
-    
-    _connectedDevice = null;
-    _deviceType = null;
-    _connectionState = BleConnectionState.disconnected;
-    _lastSuccessfulCommunication = null;
-    _stopConnectionHealthMonitoring();
-    _discoveredDevices.clear();
-    _registeredDevices.clear();
-    _packetSyncCoordinator.dispose();
+
+    _clearConnectionState(clearDiscoveredDevices: true);
     
     notifyListeners();
     debugPrint("BLE state reset complete");

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 /// Device types supported by the wearable system
 enum WearableDeviceType {
   omi,
@@ -229,6 +227,7 @@ class WearableProtocols {
       case WearableDeviceType.limitless:
         return limitless;
       case WearableDeviceType.custom:
+      case WearableDeviceType.unknown:
         return custom;
     }
   }

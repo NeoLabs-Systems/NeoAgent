@@ -236,14 +236,7 @@ class PacketSyncCoordinator {
     onSyncStateChanged();
 
     try {
-      var resolvedServices = services ?? <BleService>[];
-      if (resolvedServices.isEmpty) {
-        try {
-          resolvedServices = await UniversalBle.discoverServices(deviceId);
-        } catch (e) {
-          debugPrint('Service discovery failed during offline sync request: $e');
-        }
-      }
+      final resolvedServices = await _resolveServices(deviceId, services);
 
       if (resolvedServices.isEmpty) {
         debugPrint('Offline sync request skipped: no services available');
