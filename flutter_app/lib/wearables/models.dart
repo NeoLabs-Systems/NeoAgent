@@ -133,10 +133,10 @@ class WearableServiceUuids {
   static const String fieldyServiceUuid = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 
   // HeyPocket Device (PKT01)
-  static const String packetServiceUuid = '00112000-2233-4455-6677-889900001111';
-  static const String packetControlRx = '001120a0-2233-4455-6677-88991234567a';
-  static const String packetControlTx = '001120a0-2233-4455-6677-88991234567b';
-  static const String packetAudioTx = '001120a0-2233-4455-6677-889912345679';
+  static const String packetServiceUuid = '001120a0-2233-4455-6677-889912345678';
+  static const String packetControlRx = '001120a2-2233-4455-6677-889912345678';
+  static const String packetControlTx = '001120a1-2233-4455-6677-889912345678';
+  static const String packetAudioTx = '001120a3-2233-4455-6677-889912345678';
 
   // Standard Battery Service
   static const String batteryServiceUuid = '0000180f-0000-1000-8000-00805f9b34fb';

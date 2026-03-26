@@ -143,3 +143,4 @@ agent-data/
 server/public/.last_build_id
 server/public/assets/fonts/MaterialIcons-Regular.otf
 server/public/main.dart.js
+/tmp

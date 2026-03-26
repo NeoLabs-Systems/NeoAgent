@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 import '../src/backend_client.dart';
 import 'models.dart';
+import 'packet/sync_coordinator.dart';
 import 'protocols/base.dart';
 
 /// Connection health monitoring interval
@@ -32,6 +33,11 @@ class WearableService extends ChangeNotifier {
     required ValueGetter<String> getBackendUrl,
   }) : _backendClient = backendClient,
        _getBackendUrl = getBackendUrl {
+    _packetSyncCoordinator = PacketSyncCoordinator(
+      ensureDeviceRegistered: _ensureDeviceRegistered,
+      uploadSyncPayload: _uploadPacketSyncPayload,
+      onSyncStateChanged: notifyListeners,
+    );
     _init();
   }
 
@@ -62,6 +68,12 @@ class WearableService extends ChangeNotifier {
 
   /// Device type for current connection
   WearableDeviceType? _deviceType;
+  late final PacketSyncCoordinator _packetSyncCoordinator;
+
+  bool get canRequestOfflineSync =>
+      _connectedDevice != null && _deviceType == WearableDeviceType.packet;
+
+  bool get isOfflineSyncRequestInFlight => _packetSyncCoordinator.isSyncRequestInFlight;
 
   void _init() {
     // Register built-in protocols
@@ -85,6 +97,7 @@ class WearableService extends ChangeNotifier {
         _connectionState = isConnected ? BleConnectionState.connected : BleConnectionState.disconnected;
         if (!isConnected) {
           debugPrint("Device disconnected: $deviceId");
+          _packetSyncCoordinator.dispose();
           _connectedDevice = null;
           _deviceType = null;
           _stopConnectionHealthMonitoring();
@@ -99,6 +112,17 @@ class WearableService extends ChangeNotifier {
     UniversalBle.onValueChange = (deviceId, characteristicUuid, value, _) {
       if (_connectedDevice?.deviceId == deviceId) {
         _lastSuccessfulCommunication = DateTime.now();
+
+        if (_deviceType == WearableDeviceType.packet) {
+          final packetProtocol = _getProtocolForDevice(WearableDeviceType.packet);
+          if (packetProtocol != null) {
+            _packetSyncCoordinator.captureSyncChunk(
+              characteristicUuid,
+              value,
+              packetProtocol.parseAudioPayload,
+            );
+          }
+        }
         
         _ensureDeviceRegistered(deviceId).then((_) {
           _backendClient
@@ -174,7 +198,7 @@ class WearableService extends ChangeNotifier {
     const DeviceScanFilter(serviceUuid: '632de001-604c-446b-a80f-7963e950f3fb', deviceType: WearableDeviceType.limitless),
     const DeviceScanFilter(serviceUuid: '7A230001-5475-A6A4-654C-8431F6AD49C4', deviceType: WearableDeviceType.frame),
     const DeviceScanFilter(serviceUuid: '4fafc201-1fb5-459e-8fcc-c5c9c331914b', deviceType: WearableDeviceType.fieldy),
-    const DeviceScanFilter(serviceUuid: '00112000-2233-4455-6677-889900001111', deviceType: WearableDeviceType.packet),
+    const DeviceScanFilter(serviceUuid: '001120a0-2233-4455-6677-889912345678', deviceType: WearableDeviceType.packet),
   ];
 
   /// Start scanning for all supported devices
@@ -319,6 +343,10 @@ class WearableService extends ChangeNotifier {
       // Subscribe to audio characteristic based on device type
       await _subscribeToAudioCharacteristic(device.deviceId, discoveredServices);
 
+      if (_deviceType == WearableDeviceType.packet) {
+        await _packetSyncCoordinator.onConnected(device.deviceId, discoveredServices);
+      }
+
       notifyListeners();
     } catch (e) {
       debugPrint("Error connecting to device: $e");
@@ -332,6 +360,11 @@ class WearableService extends ChangeNotifier {
 
   /// Subscribe to the appropriate audio characteristic based on device type
   Future<void> _subscribeToAudioCharacteristic(String deviceId, List<BleService> services) async {
+    if (services.isEmpty) {
+      debugPrint('No services discovered; skipping notification subscription');
+      return;
+    }
+
     final protocol = _getProtocolForDevice(_deviceType);
     if (protocol == null) {
       debugPrint("No protocol found for device type: $_deviceType");
@@ -355,12 +388,21 @@ class WearableService extends ChangeNotifier {
     final audioCharUuid = protocol.audioCharUuid;
     if (audioCharUuid != null) {
       try {
-        await UniversalBle.subscribeNotifications(
-          deviceId,
-          service.uuid,
-          audioCharUuid,
-        );
-        debugPrint("Subscribed to audio characteristic: $audioCharUuid");
+        if (_deviceType == WearableDeviceType.packet) {
+          await _packetSyncCoordinator.subscribeNotifications(
+            deviceId: deviceId,
+            service: service,
+            audioCharUuid: audioCharUuid,
+            controlCharUuid: protocol.controlCharUuid,
+          );
+        } else {
+          await UniversalBle.subscribeNotifications(
+            deviceId,
+            service.uuid,
+            audioCharUuid,
+          );
+          debugPrint("Subscribed to audio characteristic: $audioCharUuid");
+        }
       } catch (e) {
         debugPrint("Failed to subscribe to audio characteristic: $e");
         
@@ -375,6 +417,27 @@ class WearableService extends ChangeNotifier {
         }
       }
     }
+  }
+
+  Future<void> requestPacketOfflineSync() async {
+    if (!canRequestOfflineSync) {
+      debugPrint('Offline sync request ignored: Packet device not connected');
+      return;
+    }
+
+    final deviceId = _connectedDevice!.deviceId;
+    await _packetSyncCoordinator.requestOfflineSync(
+      deviceId,
+      reason: 'manual',
+    );
+  }
+
+  Future<void> _uploadPacketSyncPayload(String deviceId, Uint8List payload) {
+    return _backendClient.syncWearableData(
+      _getBackendUrl(),
+      deviceId,
+      payload,
+    );
   }
 
   /// Ensure device is registered with the backend
@@ -450,6 +513,7 @@ class WearableService extends ChangeNotifier {
       _connectionState = BleConnectionState.disconnected;
       _lastSuccessfulCommunication = null;
       _registeredDevices.clear();
+      _packetSyncCoordinator.dispose();
       notifyListeners();
     }
   }
@@ -482,6 +546,7 @@ class WearableService extends ChangeNotifier {
     _stopConnectionHealthMonitoring();
     _discoveredDevices.clear();
     _registeredDevices.clear();
+    _packetSyncCoordinator.dispose();
     
     notifyListeners();
     debugPrint("BLE state reset complete");
@@ -490,6 +555,7 @@ class WearableService extends ChangeNotifier {
   @override
   void dispose() {
     _stopConnectionHealthMonitoring();
+    _packetSyncCoordinator.dispose();
     UniversalBle.onScanResult = null;
     UniversalBle.onConnectionChange = null;
     UniversalBle.onValueChange = null;
