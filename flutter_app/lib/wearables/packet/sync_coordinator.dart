@@ -59,20 +59,27 @@ class PacketSyncCoordinator {
   String _lastSyncStatus = 'Idle';
   String _lastControlMessage = '';
   int _uploadCommandsSent = 0;
+  int _packetModeCode = 0;
+  bool _modeSwitchInFlight = false;
 
   static final RegExp _controlPrefix = RegExp(r'^(MCU|APP|BLE|SYS)&');
   static final RegExp _mcuFilePattern = RegExp(r'^MCU&F&([^&]+)&([^&]+)&(\d+)$');
   static final RegExp _mcuUploadSizePattern = RegExp(r'^MCU&U&(\d+)$');
   static final RegExp _mcuOffPattern = RegExp(r'^MCU&OFF$');
+  static final RegExp _mcuModePattern = RegExp(r'^MCU&STE&(\d+)$');
 
   bool get isSyncRequestInFlight => _syncRequestInFlight;
   String get lastSyncStatus => _lastSyncStatus;
   String get lastControlMessage => _lastControlMessage;
   int get listedFilesCount => _listedFiles.length;
   int get uploadCommandsSent => _uploadCommandsSent;
+  bool get isCallMode => _packetModeCode == 1;
+  String get packetModeLabel => _packetModeCode == 1 ? 'Call' : 'Normal';
+  bool get isModeSwitchInFlight => _modeSwitchInFlight;
 
   Future<void> onConnected(String deviceId, List<BleService> services) async {
     await _sendPacketInitSequence(deviceId, services);
+    await _queryPacketMode(deviceId, services);
   }
 
   Future<void> subscribeNotifications({
@@ -162,8 +169,55 @@ class PacketSyncCoordinator {
       return;
     }
 
+    final modeMatch = _mcuModePattern.firstMatch(text);
+    if (modeMatch != null) {
+      _packetModeCode = int.tryParse(modeMatch.group(1) ?? '') ?? 0;
+      _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+      onSyncStateChanged();
+      return;
+    }
+
     if (_mcuOffPattern.hasMatch(text)) {
       _lastSyncStatus = 'Device upload completed';
+      onSyncStateChanged();
+    }
+  }
+
+  Future<void> setCallMode(
+    String deviceId,
+    bool enableCallMode, {
+    List<BleService>? services,
+  }) async {
+    if (_modeSwitchInFlight) {
+      return;
+    }
+
+    _modeSwitchInFlight = true;
+    _lastSyncStatus = 'Switching mode...';
+    onSyncStateChanged();
+
+    try {
+      final resolvedServices = await _resolveServices(deviceId, services);
+      if (resolvedServices.isEmpty) {
+        _lastSyncStatus = 'Mode switch failed: no services';
+        return;
+      }
+
+      final service = resolvedServices.firstWhere(
+        (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+        orElse: () => resolvedServices.first,
+      );
+
+      final modeValue = enableCallMode ? 1 : 0;
+      await _writeAscii(deviceId, service.uuid, 'APP&STE&$modeValue');
+      await _writeAscii(deviceId, service.uuid, 'APP&STE');
+      _packetModeCode = modeValue;
+      _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+    } catch (e) {
+      _lastSyncStatus = 'Mode switch failed';
+      debugPrint('Packet mode switch failed: $e');
+    } finally {
+      _modeSwitchInFlight = false;
       onSyncStateChanged();
     }
   }
@@ -234,6 +288,36 @@ class PacketSyncCoordinator {
       _syncRequestInFlight = false;
       onSyncStateChanged();
     }
+  }
+
+  Future<void> _queryPacketMode(String deviceId, List<BleService> services) async {
+    if (services.isEmpty) {
+      return;
+    }
+
+    final service = services.firstWhere(
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      orElse: () => services.first,
+    );
+
+    await _writeAscii(deviceId, service.uuid, 'APP&STE');
+  }
+
+  Future<List<BleService>> _resolveServices(
+    String deviceId,
+    List<BleService>? services,
+  ) async {
+    var resolvedServices = services ?? <BleService>[];
+    if (resolvedServices.isNotEmpty) {
+      return resolvedServices;
+    }
+
+    try {
+      resolvedServices = await UniversalBle.discoverServices(deviceId);
+    } catch (e) {
+      debugPrint('Packet service discovery failed: $e');
+    }
+    return resolvedServices;
   }
 
   void dispose() {

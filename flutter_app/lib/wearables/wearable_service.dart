@@ -77,6 +77,9 @@ class WearableService extends ChangeNotifier {
   String get packetSyncLastControlMessage => _packetSyncCoordinator.lastControlMessage;
   int get packetSyncListedFilesCount => _packetSyncCoordinator.listedFilesCount;
   int get packetSyncUploadCommandsSent => _packetSyncCoordinator.uploadCommandsSent;
+  bool get packetCallModeEnabled => _packetSyncCoordinator.isCallMode;
+  String get packetModeLabel => _packetSyncCoordinator.packetModeLabel;
+  bool get packetModeSwitchInFlight => _packetSyncCoordinator.isModeSwitchInFlight;
 
   void _init() {
     // Register built-in protocols
@@ -430,6 +433,17 @@ class WearableService extends ChangeNotifier {
     await _packetSyncCoordinator.requestOfflineSync(
       deviceId,
       reason: 'manual',
+    );
+  }
+
+  Future<void> setPacketCallMode(bool enabled) async {
+    if (!canRequestOfflineSync || _connectedDevice == null) {
+      return;
+    }
+
+    await _packetSyncCoordinator.setCallMode(
+      _connectedDevice!.deviceId,
+      enabled,
     );
   }
 
