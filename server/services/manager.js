@@ -13,7 +13,7 @@ const { Scheduler } = require('./scheduler/cron');
 const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
-const { WearableManager } = require('./wearables/manager');
+const WearableManager = require('./wearables/manager');
 const { CLIExecutor } = require('./cli/executor');
 const {
   getErrorMessage,

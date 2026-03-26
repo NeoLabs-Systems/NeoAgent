@@ -88,7 +88,7 @@ class OmiProtocol extends WearableProtocolBase {
 }
 
 /// Plaud Protocol
-/// Uses custom notification format with 9-byte header
+/// Uses custom notification format with 10-byte header
 class PlaudProtocol extends WearableProtocolBase {
   @override
   String get id => WearableProtocols.plaud;
@@ -111,18 +111,19 @@ class PlaudProtocol extends WearableProtocolBase {
   @override
   Uint8List? parseAudioPayload(Uint8List rawPayload, {String? characteristicUuid}) {
     // Plaud format: [command(1)][sessionId(4)][position(4)][length(1)][data...]
-    if (rawPayload.length < 9) return null;
+    const headerLength = 10;
+    if (rawPayload.length < headerLength) return null;
     
     // Check if it's an audio data packet (command = 2)
     if (rawPayload[0] != 2) return null;
     
-    final position = _bytesToInt32(rawPayload.sublist(4, 8));
+    final position = _bytesToInt32(rawPayload.sublist(5, 9));
     if (position == 0xFFFFFFFF) return null; // End marker
     
-    final length = rawPayload[8];
-    if (rawPayload.length < 9 + length) return null;
+    final length = rawPayload[9];
+    if (rawPayload.length < headerLength + length) return null;
     
-    return rawPayload.sublist(9, 9 + length);
+    return rawPayload.sublist(headerLength, headerLength + length);
   }
 
   int _bytesToInt32(List<int> bytes) {
@@ -132,7 +133,7 @@ class PlaudProtocol extends WearableProtocolBase {
   @override
   int? extractBatteryLevel(Uint8List rawPayload, {String? characteristicUuid}) {
     // Battery response format: [isCharging(1)][level(1)]
-    if (rawPayload.length >= 2) {
+    if (rawPayload.length == 2) {
       final level = rawPayload[1];
       if (level >= 0 && level <= 100) return level;
     }
@@ -272,17 +273,33 @@ class PacketProtocol extends WearableProtocolBase {
 
   @override
   Uint8List? parseAudioPayload(Uint8List rawPayload, {String? characteristicUuid}) {
-    // If we know this is the Control TX characteristic, it's not audio
-    if (characteristicUuid == WearableServiceUuids.packetControlTx) {
+    if (rawPayload.isEmpty) return null;
+
+    final normalizedCharacteristic = _normalizeUuid(characteristicUuid);
+    final controlTx = _normalizeUuid(WearableServiceUuids.packetControlTx);
+    final controlRx = _normalizeUuid(WearableServiceUuids.packetControlRx);
+    final audioTx = _normalizeUuid(WearableServiceUuids.packetAudioTx);
+
+    if (normalizedCharacteristic != null &&
+        (normalizedCharacteristic == controlTx || normalizedCharacteristic == controlRx)) {
       return null;
     }
-    // Otherwise, raw MP3 frames - just return as-is
-    if (rawPayload.isEmpty) return null;
+
+    if (normalizedCharacteristic != null && normalizedCharacteristic == audioTx) {
+      return rawPayload;
+    }
+
+    if (_isAsciiControlMessage(rawPayload)) {
+      return null;
+    }
+
     return rawPayload;
   }
 
   @override
   int? extractBatteryLevel(Uint8List rawPayload, {String? characteristicUuid}) {
+    if (rawPayload.isEmpty) return null;
+
     // Packet sends battery as text: "MCU&BAT&98"
     try {
       final text = String.fromCharCodes(rawPayload);
@@ -295,5 +312,27 @@ class PacketProtocol extends WearableProtocolBase {
       }
     } catch (_) {}
     return null;
+  }
+
+  String? _normalizeUuid(String? value) {
+    if (value == null) return null;
+    return value.trim().toLowerCase().replaceAll('-', '');
+  }
+
+  bool _isAsciiControlMessage(Uint8List rawPayload) {
+    if (rawPayload.length < 5) {
+      return false;
+    }
+
+    try {
+      final text = String.fromCharCodes(rawPayload);
+      final asciiOnly = RegExp(r'^[\x20-\x7E\r\n\t]+$').hasMatch(text);
+      if (!asciiOnly) {
+        return false;
+      }
+      return RegExp(r'^(MCU|APP|BLE|SYS)&').hasMatch(text.trim());
+    } catch (_) {
+      return false;
+    }
   }
 }
