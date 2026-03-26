@@ -122,11 +122,21 @@ class WearableService extends ChangeNotifier {
   }
 
   void _registerDefaultProtocols() {
-    // Register built-in protocols
-    _protocols[OmiProtocol().id] = OmiProtocol();
-    _protocols[PlaudProtocol().id] = PlaudProtocol();
-    _protocols[FriendProtocol().id] = FriendProtocol();
-    _protocols[LimitlessProtocol().id] = LimitlessProtocol();
+    // Register built-in protocols once to avoid duplicate object creation.
+    final builtInProtocols = <WearableProtocolBase>[
+      OmiProtocol(),
+      PlaudProtocol(),
+      FriendProtocol(),
+      BeeProtocol(),
+      LimitlessProtocol(),
+      FrameProtocol(),
+      FieldyProtocol(),
+      PacketProtocol(),
+    ];
+
+    for (final protocol in builtInProtocols) {
+      _protocols[protocol.id] = protocol;
+    }
   }
 
   /// Identify device type from device name

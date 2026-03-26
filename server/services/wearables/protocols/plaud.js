@@ -4,7 +4,7 @@ const WearableProtocol = require('./base');
 
 /**
  * Plaud Note Protocol
- * Uses custom notification format with 9-byte header
+ * Uses custom notification format with 10-byte header
  * Audio format: OPUS in MP4 container
  */
 class PlaudProtocol extends WearableProtocol {
@@ -31,7 +31,8 @@ class PlaudProtocol extends WearableProtocol {
     parseAudioPayload(rawPayload, context = {}) {
         // Plaud format: [command(1)][sessionId(4)][position(4)][length(1)][data...]
         // Audio data packets have command = 2
-        if (!Buffer.isBuffer(rawPayload) || rawPayload.length < 9) {
+        const headerLength = 10;
+        if (!Buffer.isBuffer(rawPayload) || rawPayload.length < headerLength) {
             return null;
         }
 
@@ -40,22 +41,22 @@ class PlaudProtocol extends WearableProtocol {
             return null;
         }
 
-        const position = this._bytesToInt32(rawPayload.subarray(4, 8));
+        const position = this._bytesToInt32(rawPayload.subarray(5, 9));
         if (position === 0xFFFFFFFF) {
             return null; // End marker
         }
 
-        const length = rawPayload[8];
-        if (rawPayload.length < 9 + length) {
+        const length = rawPayload[9];
+        if (rawPayload.length < headerLength + length) {
             return null;
         }
 
-        return rawPayload.subarray(9, 9 + length);
+        return rawPayload.subarray(headerLength, headerLength + length);
     }
 
     extractBatteryLevel(rawPayload, context = {}) {
         // Battery response format: [isCharging(1)][level(1)]
-        if (Buffer.isBuffer(rawPayload) && rawPayload.length >= 2) {
+        if (Buffer.isBuffer(rawPayload) && rawPayload.length === 2) {
             const level = rawPayload[1];
             if (level >= 0 && level <= 100) {
                 return level;

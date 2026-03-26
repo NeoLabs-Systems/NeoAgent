@@ -31,13 +31,24 @@ class PacketProtocol extends WearableProtocol {
   }
 
   parseAudioPayload(rawPayload, context = {}) {
-    // If we know this is the Audio TX characteristic, it's always audio.
-    // If not specified, we attempt to check if it's NOT an ASCII command.
-    if (context.characteristicUuid === this.characteristics.controlTx) {
-      return null; // Control messages aren't audio
+    if (!Buffer.isBuffer(rawPayload) || rawPayload.length === 0) {
+      return null;
     }
 
-    if (!Buffer.isBuffer(rawPayload) || rawPayload.length === 0) {
+    const characteristicUuid = this.#normalizeUuid(context?.characteristicUuid);
+    const controlTx = this.#normalizeUuid(this.characteristics.controlTx);
+    const controlRx = this.#normalizeUuid(this.characteristics.controlRx);
+    const audioTx = this.#normalizeUuid(this.characteristics.audioTx);
+
+    if (characteristicUuid && (characteristicUuid === controlTx || characteristicUuid === controlRx)) {
+      return null;
+    }
+
+    if (characteristicUuid && characteristicUuid === audioTx) {
+      return rawPayload;
+    }
+
+    if (this.#isAsciiControlMessage(rawPayload)) {
       return null;
     }
 
@@ -47,6 +58,10 @@ class PacketProtocol extends WearableProtocol {
   }
 
   extractBatteryLevel(rawPayload, context = {}) {
+    if (!Buffer.isBuffer(rawPayload) || rawPayload.length === 0) {
+      return null;
+    }
+
     // Spec: "MCU&BAT&98"
     const text = rawPayload.toString('ascii');
     const match = text.match(/MCU&BAT&(\d+)/);
@@ -63,6 +78,26 @@ class PacketProtocol extends WearableProtocol {
     // Spec: "To reconstruct the audio file... just sequentially concatenate 
     // the raw payloads... Any compliant decoder will latch onto the FF F3 sync words."
     return fileBuffer;
+  }
+
+  #normalizeUuid(value) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    return value.trim().toLowerCase().replace(/-/g, '');
+  }
+
+  #isAsciiControlMessage(rawPayload) {
+    if (rawPayload.length < 5) {
+      return false;
+    }
+
+    const text = rawPayload.toString('ascii');
+    if (!/^[\x20-\x7e\r\n\t]+$/.test(text)) {
+      return false;
+    }
+
+    return /^(MCU|APP|BLE|SYS)&/.test(text.trim());
   }
 }
 
