@@ -949,7 +949,10 @@ class AgentEngine {
       }
 
       const sentMessageText = joinSentMessages(runMeta?.sentMessages);
-      const finalResponseText = lastContent.trim() ? lastContent : sentMessageText;
+      const normalizedLastContent = normalizeOutgoingMessage(lastContent);
+      const finalResponseText = messagingSent
+        ? (sentMessageText || (normalizedLastContent ? lastContent.trim() : ''))
+        : (normalizedLastContent ? lastContent.trim() : sentMessageText);
       const lastSentMessage = normalizeOutgoingMessage(
         runMeta?.lastSentMessage
         || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
@@ -982,14 +985,17 @@ class AgentEngine {
 
       // Fallback: if this was a messaging-triggered run and the AI never called
       // send_message itself, auto-send its final text as a reply.
-      // If a message was already sent earlier in the run, still send the fallback
-      // when the final text is materially different so long jobs don't end silently
-      // after an interim update.
+      // If a message was already sent earlier in this run, treat those send_message
+      // calls as authoritative and do not auto-send additional model text.
       if (triggerSource === 'messaging' && options.source && options.chatId) {
         // Strip [NO RESPONSE] markers the AI may have embedded anywhere in the text,
         // then only send if real content remains.
         const cleanedContent = normalizeOutgoingMessage(lastContent || '');
-        const shouldSendFallback = cleanedContent && (!messagingSent || cleanedContent !== lastSentMessage);
+        const shouldSendFallback = (
+          cleanedContent
+          && !messagingSent
+          && cleanedContent !== lastSentMessage
+        );
         if (shouldSendFallback) {
           const manager = this.messagingManager;
           if (manager) {
