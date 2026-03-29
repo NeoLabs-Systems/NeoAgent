@@ -8607,18 +8607,22 @@ class SkillsPanel extends StatefulWidget {
   State<SkillsPanel> createState() => _SkillsPanelState();
 }
 
-class _SkillsPanelState extends State<SkillsPanel> {
+class _SkillsPanelState extends State<SkillsPanel>
+    with SingleTickerProviderStateMixin {
   late final TextEditingController _searchController;
+  late final TabController _tabController;
   String _selectedCategory = 'all';
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -8640,329 +8644,525 @@ class _SkillsPanelState extends State<SkillsPanel> {
       final matchesCategory =
           _selectedCategory == 'all' || item.category == _selectedCategory;
       return matchesQuery && matchesCategory;
-    }).toList();
-    return ListView(
+    }).toList()
+      ..sort((a, b) {
+        if (a.installed != b.installed) {
+          return a.installed ? -1 : 1;
+        }
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+
+    return Padding(
       padding: _pagePadding(context),
-      children: <Widget>[
-        _PageTitle(
-          title: 'Skills',
-          subtitle:
-              'Installed skills, draft skills, local skill files, and the skill store.',
-          trailing: FilledButton.icon(
-            onPressed: () => _openCreateSkill(context),
-            icon: const Icon(Icons.add),
-            label: const Text('New Skill'),
+      child: Column(
+        children: <Widget>[
+          _PageTitle(
+            title: 'Skills',
+            subtitle:
+                'Browse current skills and the store in a split App Store-style view.',
+            trailing: FilledButton.icon(
+              onPressed: () => _openCreateSkill(context),
+              icon: const Icon(Icons.add),
+              label: const Text('New Skill'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: _bgSecondary,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              dividerColor: Colors.transparent,
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+              tabs: <Widget>[
+                Tab(text: 'Current Skills (${controller.skills.length})'),
+                Tab(text: 'Store (${filteredStore.length})'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: <Widget>[
+                _buildInstalledTab(controller),
+                _buildStoreTab(controller, categories, filteredStore),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstalledTab(NeoAgentController controller) {
+    if (controller.skills.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const <Widget>[
+              Icon(Icons.extension_off_outlined, size: 34, color: _textSecondary),
+              SizedBox(height: 12),
+              Text(
+                'No current skills yet. Install from Store or create a new one.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _textSecondary),
+              ),
+            ],
           ),
         ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
+      );
+    }
+
+    return Card(
+      child: ListView.separated(
+        padding: const EdgeInsets.all(14),
+        itemCount: controller.skills.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final skill = controller.skills[index];
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 760;
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
+                ),
+                child: compact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  skill.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              Switch(
+                                value: skill.enabled,
+                                onChanged: (value) => controller.setSkillEnabled(
+                                  skill.name,
+                                  value,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            skill.description.ifEmpty('No description'),
+                            style: const TextStyle(color: _textSecondary),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: <Widget>[
+                              _MetaPill(
+                                label: skill.category,
+                                icon: Icons.folder_outlined,
+                              ),
+                              _MetaPill(
+                                label: skill.source,
+                                icon: Icons.source_outlined,
+                              ),
+                              if (skill.draft)
+                                const _MetaPill(
+                                  label: 'Draft',
+                                  icon: Icons.edit_note_outlined,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: OutlinedButton(
+                              onPressed: () =>
+                                  _openSkillEditor(context, skill.name),
+                              child: const Text('Open'),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  skill.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  skill.description.ifEmpty('No description'),
+                                  style: const TextStyle(color: _textSecondary),
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: <Widget>[
+                                    _MetaPill(
+                                      label: skill.category,
+                                      icon: Icons.folder_outlined,
+                                    ),
+                                    _MetaPill(
+                                      label: skill.source,
+                                      icon: Icons.source_outlined,
+                                    ),
+                                    if (skill.draft)
+                                      const _MetaPill(
+                                        label: 'Draft',
+                                        icon: Icons.edit_note_outlined,
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            children: <Widget>[
+                              Switch(
+                                value: skill.enabled,
+                                onChanged: (value) => controller.setSkillEnabled(
+                                  skill.name,
+                                  value,
+                                ),
+                              ),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _openSkillEditor(context, skill.name),
+                                child: const Text('Open'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStoreTab(
+    NeoAgentController controller,
+    List<String> categories,
+    List<StoreSkillItem> filteredStore,
+  ) {
+    final featured = filteredStore.take(6).toList();
+    return Card(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: <Color>[Color(0xFF152238), Color(0xFF112A23)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _borderLight),
+            ),
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _SectionTitle('Installed'),
-                const SizedBox(height: 12),
-                if (controller.skills.isEmpty)
-                  const Text(
-                    'No skills installed yet. Drafts from successful runs will appear here too.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  ...controller.skills.map(
-                    (skill) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: _bgSecondary,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: _border),
-                        ),
-                        child: Row(
+                Text(
+                  'Skill Store',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Discover, install, and manage skills in a compact catalog.',
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Search skills',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                final selected = category == _selectedCategory;
+                return FilterChip(
+                  selected: selected,
+                  label: Text(category == 'all' ? 'All' : category),
+                  selectedColor: _accentMuted,
+                  checkmarkColor: _accent,
+                  backgroundColor: _bgSecondary,
+                  side: const BorderSide(color: _border),
+                  onSelected: (_) => setState(() => _selectedCategory = category),
+                );
+              },
+            ),
+          ),
+          if (featured.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 14),
+            const _SectionTitle('Featured'),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 170,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: featured.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final item = featured[index];
+                  return Container(
+                    width: 280,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: _bgSecondary,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: item.installed ? _accentMuted : _border,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
                           children: <Widget>[
+                            Text(item.icon, style: const TextStyle(fontSize: 24)),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    skill.name,
+                              child: Text(
+                                item.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            item.installed
+                                ? const _StatusPill(
+                                    label: 'Installed',
+                                    color: _success,
+                                  )
+                                : const _StatusPill(
+                                    label: 'Get',
+                                    color: _info,
+                                  ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          item.description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _textSecondary,
+                            height: 1.35,
+                          ),
+                        ),
+                        const Spacer(),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: item.installed
+                              ? OutlinedButton(
+                                  onPressed: () =>
+                                      controller.uninstallStoreSkill(item.id),
+                                  child: const Text('Uninstall'),
+                                )
+                              : FilledButton(
+                                  onPressed: () =>
+                                      controller.installStoreSkill(item.id),
+                                  child: const Text('Install'),
+                                ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: <Widget>[
+              const _SectionTitle('All Skills'),
+              const Spacer(),
+              Text(
+                '${filteredStore.length} results',
+                style: const TextStyle(color: _textSecondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (filteredStore.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'No store skills match the current filter.',
+                style: TextStyle(color: _textSecondary),
+              ),
+            )
+          else
+            ...filteredStore.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _bgSecondary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 740;
+                      if (compact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                Text(
+                                  item.icon,
+                                  style: const TextStyle(fontSize: 22),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    item.name,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    skill.description.ifEmpty('No description'),
-                                    style: const TextStyle(
-                                      color: _textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: <Widget>[
-                                      _MetaPill(
-                                        label: skill.category,
-                                        icon: Icons.folder_outlined,
-                                      ),
-                                      _MetaPill(
-                                        label: skill.source,
-                                        icon: Icons.source_outlined,
-                                      ),
-                                      if (skill.draft)
-                                        const _MetaPill(
-                                          label: 'Draft',
-                                          icon: Icons.edit_note_outlined,
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                ),
+                                _StatusPill(
+                                  label: item.installed ? 'Installed' : 'Get',
+                                  color: item.installed ? _success : _info,
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Column(
+                            const SizedBox(height: 8),
+                            Text(
+                              item.description,
+                              style: const TextStyle(color: _textSecondary),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
                               children: <Widget>[
-                                Switch(
-                                  value: skill.enabled,
-                                  onChanged: (value) => controller
-                                      .setSkillEnabled(skill.name, value),
+                                _MetaPill(
+                                  label: item.category,
+                                  icon: Icons.grid_view_rounded,
                                 ),
-                                OutlinedButton(
-                                  onPressed: () =>
-                                      _openSkillEditor(context, skill.name),
-                                  child: const Text('Open'),
-                                ),
+                                const Spacer(),
+                                item.installed
+                                    ? OutlinedButton(
+                                        onPressed: () => controller
+                                            .uninstallStoreSkill(item.id),
+                                        child: const Text('Uninstall'),
+                                      )
+                                    : FilledButton(
+                                        onPressed: () =>
+                                            controller.installStoreSkill(item.id),
+                                        child: const Text('Install'),
+                                      ),
                               ],
                             ),
                           ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Store'),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: <Color>[Color(0xFF17142A), Color(0xFF111827)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: _borderLight),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Skill Store',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Browse installable skills in an app-style catalog with categories, search, and one-click installs.',
-                        style: TextStyle(color: _textSecondary, height: 1.5),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _searchController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Search skills',
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: categories.map((category) {
-                    final selected = category == _selectedCategory;
-                    return FilterChip(
-                      selected: selected,
-                      label: Text(category == 'all' ? 'All' : category),
-                      selectedColor: _accentMuted,
-                      checkmarkColor: _accent,
-                      backgroundColor: _bgSecondary,
-                      side: const BorderSide(color: _border),
-                      onSelected: (_) {
-                        setState(() => _selectedCategory = category);
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                if (filteredStore.isEmpty)
-                  const Text(
-                    'No store skills match the current filter.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      final columns = width >= 1200
-                          ? 3
-                          : width >= 760
-                          ? 2
-                          : 1;
-                      return GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: filteredStore.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 14,
-                          mainAxisSpacing: 14,
-                          childAspectRatio: 0.96,
-                        ),
-                        itemBuilder: (context, index) {
-                          final item = filteredStore[index];
-                          return Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: <Color>[
-                                  item.installed
-                                      ? const Color(0xFF12202A)
-                                      : const Color(0xFF17142A),
-                                  item.installed
-                                      ? const Color(0xFF101A24)
-                                      : const Color(0xFF0E1320),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: item.installed ? _accentMuted : _border,
-                              ),
-                            ),
+                        );
+                      }
+                      return Row(
+                        children: <Widget>[
+                          Text(item.icon, style: const TextStyle(fontSize: 24)),
+                          const SizedBox(width: 12),
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                                Row(
-                                  children: <Widget>[
-                                    Container(
-                                      width: 52,
-                                      height: 52,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.18,
-                                        ),
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(color: _border),
-                                      ),
-                                      child: Text(
-                                        item.icon,
-                                        style: const TextStyle(fontSize: 22),
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    _StatusPill(
-                                      label: item.installed
-                                          ? 'Installed'
-                                          : 'Available',
-                                      color: item.installed ? _success : _info,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
                                 Text(
                                   item.name,
                                   style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.description,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: _textSecondary,
+                                    height: 1.35,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  item.category.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: _textMuted,
-                                    fontSize: 11,
-                                    letterSpacing: 1.2,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Expanded(
-                                  child: Text(
-                                    item.description,
-                                    style: const TextStyle(
-                                      color: _textSecondary,
-                                      height: 1.45,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: <Widget>[
-                                    Icon(
-                                      Icons.storefront_outlined,
-                                      size: 15,
-                                      color: item.installed ? _success : _info,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      item.installed
-                                          ? 'Ready in workspace'
-                                          : 'Available to install',
-                                      style: const TextStyle(
-                                        color: _textSecondary,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 14),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: item.installed
-                                      ? OutlinedButton(
-                                          onPressed: () => controller
-                                              .uninstallStoreSkill(item.id),
-                                          child: const Text('Uninstall'),
-                                        )
-                                      : FilledButton(
-                                          onPressed: () => controller
-                                              .installStoreSkill(item.id),
-                                          child: const Text('Install'),
-                                        ),
+                                _MetaPill(
+                                  label: item.category,
+                                  icon: Icons.grid_view_rounded,
                                 ),
                               ],
                             ),
-                          );
-                        },
+                          ),
+                          const SizedBox(width: 10),
+                          item.installed
+                              ? OutlinedButton(
+                                  onPressed: () =>
+                                      controller.uninstallStoreSkill(item.id),
+                                  child: const Text('Uninstall'),
+                                )
+                              : FilledButton(
+                                  onPressed: () =>
+                                      controller.installStoreSkill(item.id),
+                                  child: const Text('Install'),
+                                ),
+                        ],
                       );
                     },
                   ),
-              ],
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
