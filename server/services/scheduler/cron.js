@@ -53,7 +53,7 @@ class Scheduler {
       ).all();
 
       for (const task of due) {
-        const config = JSON.parse(task.task_config || '{}');
+        const config = this._normalizeTaskConfig(task.task_config);
         // Remove from memory before executing so a slow run can't double-fire
         this.jobs.delete(task.id);
         try {
@@ -165,7 +165,7 @@ class Scheduler {
     const enabled = updates.enabled !== undefined ? updates.enabled : task.enabled;
 
     // Merge config — start from existing, apply any changes
-    let config = JSON.parse(task.task_config || '{}');
+    let config = this._normalizeTaskConfig(task.task_config);
     if (updates.prompt !== undefined) config.prompt = updates.prompt;
     if (updates.callTo !== undefined) config.callTo = updates.callTo || null;
     if (updates.callGreeting !== undefined) config.callGreeting = updates.callGreeting || null;
@@ -224,7 +224,7 @@ class Scheduler {
   listTasks(userId) {
     const tasks = db.prepare('SELECT * FROM scheduled_tasks WHERE user_id = ? ORDER BY created_at DESC').all(userId);
     return tasks.map(t => {
-      const config = JSON.parse(t.task_config || '{}');
+      const config = this._normalizeTaskConfig(t.task_config);
       return {
         id: t.id,
         name: t.name,
@@ -235,6 +235,7 @@ class Scheduler {
         lastRun: t.last_run,
         nextRun: t.one_time ? t.run_at : this._getNextRun(t.cron_expression),
         config,
+        prompt: config.prompt || '',
         model: config.model || null
       };
     });
@@ -244,7 +245,7 @@ class Scheduler {
     const task = db.prepare('SELECT * FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
     if (!task) throw new Error('Task not found');
 
-    const config = JSON.parse(task.task_config || '{}');
+    const config = this._normalizeTaskConfig(task.task_config);
     this._executeTask(taskId, userId, config);
     return { running: true };
   }
@@ -317,7 +318,7 @@ class Scheduler {
     let loaded = 0;
     for (const task of tasks) {
       try {
-        const config = JSON.parse(task.task_config || '{}');
+        const config = this._normalizeTaskConfig(task.task_config);
         if (task.one_time) {
           // One-time tasks are handled by the poller; nothing to register here
           // But if it's already past due when we restart, the poller will catch it in <1 min
@@ -330,6 +331,32 @@ class Scheduler {
       }
     }
     console.log(`[Scheduler] Loaded ${loaded} recurring tasks from DB`);
+  }
+
+  _normalizeTaskConfig(rawConfig) {
+    let parsed = rawConfig;
+    if (typeof parsed === 'string') {
+      try {
+        parsed = JSON.parse(parsed || '{}');
+      } catch {
+        const fallbackPrompt = parsed.trim();
+        return fallbackPrompt ? { prompt: fallbackPrompt } : {};
+      }
+    }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+
+    const config = { ...parsed };
+    if (config.prompt !== undefined && config.prompt !== null && typeof config.prompt !== 'string') {
+      config.prompt = String(config.prompt);
+    }
+    if (config.model !== undefined && config.model !== null && typeof config.model !== 'string') {
+      config.model = String(config.model);
+    }
+
+    return config;
   }
 
   _getNextRun(cronExpression) {
