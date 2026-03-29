@@ -156,21 +156,40 @@ function buildForcedFinalReplyPrompt(triggerSource) {
 
 function buildBlankMessagingReplyPrompt(attempt) {
   if (attempt <= 1) {
-    return 'You must produce one non-empty plain-text reply for the external messaging user right now. Do not call tools. Do not use markdown. Briefly summarize what you did or what blocked you.';
+    return 'You must send one non-empty plain-text reply for the external messaging user right now. Do not call tools. Do not use markdown. Give either: (a) the concrete outcome, or (b) a clear blocker and the next action.';
   }
 
-  return 'Your previous reply was empty. Return one non-empty plain-text message now. Do not call tools. Do not use markdown. If needed, apologize briefly and explain the blocker in one or two sentences.';
+  return 'Your previous reply was empty. Return one non-empty plain-text message now. Do not call tools. Do not use markdown. If needed, apologize briefly, explain the blocker in one sentence, and tell the user what to do next.';
 }
 
 function buildDeterministicMessagingFallback({ failedStepCount, stepIndex }) {
   if (failedStepCount > 0) {
-    return 'I ran into an issue while working on that, so I do not have a clean final result yet. Ask me for a summary and I will explain what I found.';
+    return 'I ran into an internal tool issue while working on your request, so I could not verify a reliable final result yet. Please try again in a moment.';
   }
   if (stepIndex > 0) {
-    return 'I worked on that, but I could not produce a clean summary before finishing. Ask me for a summary and I will condense what I found into one message.';
+    return 'I completed part of the work, but the final reply did not render correctly. Please send the request again and I will continue from there.';
   }
-  return 'I could not generate a proper reply just now, but I am still here. Please send the request again and I will try once more.';
+  return 'I could not generate a clean final reply just now. Please send the request again and I will retry immediately.';
 }
+
+function buildMessagingErrorReply(err) {
+  const message = String(err?.message || '').trim();
+  if (!message) {
+    return 'I ran into an internal error while processing your request. Please try again in a moment.';
+  }
+
+  if (/no ai providers? are currently available/i.test(message)) {
+    return 'I cannot answer right now because no AI provider is available for this account. Please check provider settings and try again.';
+  }
+
+  if (/(timeout|timed out)/i.test(message)) {
+    return 'I hit a timeout while processing your request. Please try again in a moment.';
+  }
+
+  return 'I ran into an internal error while processing your request. Please try again in a moment.';
+}
+
+const MAX_MESSAGING_AUTONOMOUS_RETRIES = 1;
 
 function clampRunContext(text, maxChars) {
   const value = normalizeOutgoingMessage(text);
@@ -238,7 +257,7 @@ class AgentEngine {
     failedStepCount,
     tools = []
   }) {
-    const attempts = 2;
+    const attempts = 3;
     let recoveredContent = '';
     let totalTokens = 0;
 
@@ -254,7 +273,7 @@ class AgentEngine {
             content: buildBlankMessagingReplyPrompt(attempt)
           }
         ]),
-        tools,
+        [],
         {
           model,
           reasoningEffort: this.getReasoningEffort(providerName, options)
@@ -272,7 +291,7 @@ class AgentEngine {
 
     const fallback = buildDeterministicMessagingFallback({ failedStepCount, stepIndex });
     console.warn(
-      `[Run ${shortenRunId(runId)}] blank_reply_recovery fallback=deterministic`
+      `[Run ${shortenRunId(runId)}] blank_reply_recovery fallback=natural_language`
     );
     return { content: fallback, tokens: totalTokens, recovered: true };
   }
@@ -818,6 +837,7 @@ class AgentEngine {
           );
 
           let toolResult;
+          let toolErrorMessage = '';
           try {
             toolResult = await this.executeTool(toolName, toolArgs, {
               userId,
@@ -837,6 +857,7 @@ class AgentEngine {
             );
           } catch (err) {
             toolResult = { error: err.message };
+            toolErrorMessage = String(err.message || 'Tool execution failed');
             failedStepCount++;
             this.detachProcessFromRun(runId, toolResult?.pid);
             db.prepare('UPDATE agent_steps SET status = ?, error = ?, completed_at = datetime(\'now\') WHERE id = ?')
@@ -857,6 +878,13 @@ class AgentEngine {
             })
           };
           messages.push(toolMessage);
+
+          if (toolErrorMessage) {
+            messages.push({
+              role: 'system',
+              content: `Tool "${toolName}" failed with error: ${summarizeForLog(toolErrorMessage, 240)}. Continue autonomously: retry with corrected arguments, try an alternative tool/path, or verify the outcome using other available tools. Contact the user only if no safe path remains.`
+            });
+          }
 
           if (toolName === 'execute_command' && (toolResult?.timedOut || toolResult?.killed)) {
             messages.push({
@@ -1036,14 +1064,100 @@ class AgentEngine {
         return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
       }
 
-      db.prepare('UPDATE agent_runs SET status = ?, error = ?, updated_at = datetime(\'now\') WHERE id = ?')
-        .run('failed', err.message, runId);
+      const runMeta = this.activeRuns.get(runId);
+      const retryCount = Number(options.messagingAutonomousRetryCount || 0);
+      const canRetryMessagingRun = (
+        triggerSource === 'messaging'
+        && options.source
+        && options.chatId
+        && !runMeta?.messagingSent
+        && retryCount < MAX_MESSAGING_AUTONOMOUS_RETRIES
+      );
+
+      if (canRetryMessagingRun) {
+        db.prepare('UPDATE agent_runs SET status = ?, error = ?, updated_at = datetime(\'now\') WHERE id = ?')
+          .run('retrying', err.message, runId);
+        console.warn(
+          `[Run ${shortenRunId(runId)}] retrying_messaging_attempt=${retryCount + 1} reason=${summarizeForLog(err.message, 140)}`
+        );
+        this.activeRuns.delete(runId);
+        this.emit(userId, 'run:interim', {
+          runId,
+          message: 'Retrying internally after a transient failure.',
+          phase: 'retrying'
+        });
+
+        const retryOptions = {
+          ...options,
+          messagingAutonomousRetryCount: retryCount + 1
+        };
+        delete retryOptions.runId;
+
+        return this.runWithModel(userId, userMessage, retryOptions, _modelOverride);
+      }
+
+      let messagingFailureContent = '';
+      if (triggerSource === 'messaging' && options.source && options.chatId) {
+        if (!runMeta?.messagingSent) {
+          const manager = this.messagingManager;
+          if (manager) {
+            try {
+              const failedMessage = sanitizeConversationMessages([
+                ...messages,
+                {
+                  role: 'system',
+                  content: `The run encountered a runtime error and cannot continue reliably: ${summarizeForLog(err.message, 260)}. Do not call tools. Write exactly one short plain-text user message that explains the issue naturally and includes what the user should do next.`
+                }
+              ]);
+              const modelReply = await provider.chat(failedMessage, [], {
+                model,
+                reasoningEffort: this.getReasoningEffort(providerName, options)
+              });
+              const drafted = sanitizeModelOutput(modelReply.content || '', { model });
+              if (normalizeOutgoingMessage(drafted)) {
+                messagingFailureContent = drafted.trim();
+              }
+            } catch {
+              // Fall back to deterministic text below.
+            }
+
+            if (!messagingFailureContent) {
+              messagingFailureContent = buildMessagingErrorReply(err);
+            }
+
+            try {
+              await manager.sendMessage(userId, options.source, options.chatId, messagingFailureContent, { runId });
+              if (runMeta) {
+                runMeta.lastSentMessage = messagingFailureContent;
+                if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
+                runMeta.sentMessages.push(messagingFailureContent);
+              }
+            } catch (sendErr) {
+              console.error('[Engine] Messaging error fallback failed:', sendErr.message);
+            }
+          }
+        }
+      }
+
+      db.prepare('UPDATE agent_runs SET status = ?, error = ?, final_response = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .run('failed', err.message, messagingFailureContent || null, runId);
       console.error(
         `[Run ${shortenRunId(runId)}] failed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} error=${summarizeForLog(err.message, 180)}`
       );
 
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:error', { runId, error: err.message });
+
+      if (messagingFailureContent) {
+        return {
+          runId,
+          content: messagingFailureContent,
+          totalTokens,
+          iterations: iteration,
+          status: 'failed'
+        };
+      }
+
       throw err;
     }
   }
