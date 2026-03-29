@@ -230,16 +230,28 @@ class RecordingForegroundService : Service() {
         pendingDir.mkdirs()
         val audioFile = File(pendingDir, "${sequence.toString().padStart(6, '0')}.wav")
         val metaFile = File(pendingDir, "${sequence.toString().padStart(6, '0')}.json")
-        audioFile.writeBytes(wrapPcmAsWav(bytes, sampleRate))
+
+        val audioTemp = File(audioFile.absolutePath + ".tmp")
+        val metaTemp = File(metaFile.absolutePath + ".tmp")
+
+        audioTemp.writeBytes(wrapPcmAsWav(bytes, sampleRate))
         val meta = JSONObject()
             .put("sequence", sequence)
             .put("startMs", startMs)
             .put("endMs", endMs)
             .put("mimeType", "audio/wav")
             .put("sampleRate", sampleRate)
-        OutputStreamWriter(metaFile.outputStream(), Charsets.UTF_8).use { writer ->
+        OutputStreamWriter(metaTemp.outputStream(), Charsets.UTF_8).use { writer ->
             writer.write(meta.toString())
         }
+
+        if (!audioTemp.renameTo(audioFile)) {
+            throw IllegalStateException("Failed to persist recording chunk audio file.")
+        }
+        if (!metaTemp.renameTo(metaFile)) {
+            throw IllegalStateException("Failed to persist recording chunk metadata file.")
+        }
+
         config = current.copy(nextSequence = sequence + 1)
         stateStore.saveConfig(config!!)
         serviceScope.launch {
@@ -261,7 +273,13 @@ class RecordingForegroundService : Service() {
             for (metaFile in metaFiles) {
                 val audioFile = File(pendingDir, "${metaFile.nameWithoutExtension}.wav")
                 if (!audioFile.exists()) {
-                    metaFile.delete()
+                    val currentConfig = config
+                    if (currentConfig != null) {
+                        config = currentConfig.copy(
+                            errorMessage = "Missing audio file for pending chunk ${metaFile.nameWithoutExtension}",
+                        )
+                        stateStore.saveConfig(config!!)
+                    }
                     continue
                 }
                 val metaJson = JSONObject(metaFile.readText())
@@ -293,7 +311,8 @@ class RecordingForegroundService : Service() {
                 return
             } catch (error: Exception) {
                 lastError = error
-                config = current.copy(errorMessage = error.message)
+                val latest = config ?: current
+                config = latest.copy(errorMessage = error.message)
                 stateStore.saveConfig(config!!)
                 delay((attempt + 1) * 600L)
             }

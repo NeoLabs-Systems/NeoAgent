@@ -49,6 +49,38 @@ function createMcpClient(app) {
 }
 
 function createBrowserController(app) {
+  const browserControllers = registerLocal(app, 'browserControllers', new Map());
+
+  function getUserHeadlessPreference(userId) {
+    try {
+      const row = db
+        .prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, 'headless_browser');
+      if (!row) return true;
+      return row.value !== 'false' && row.value !== false && row.value !== '0';
+    } catch {
+      return true;
+    }
+  }
+
+  function getBrowserControllerForUser(userId) {
+    const key = String(userId || '').trim();
+    if (!key) {
+      return app.locals.browserController;
+    }
+
+    if (browserControllers.has(key)) {
+      return browserControllers.get(key);
+    }
+
+    const controller = new BrowserController();
+    controller.headless = getUserHeadlessPreference(userId);
+    browserControllers.set(key, controller);
+    return controller;
+  }
+
+  registerLocal(app, 'getBrowserControllerForUser', getBrowserControllerForUser);
+
   const browserController = registerLocal(
     app,
     'browserController',
@@ -68,6 +100,25 @@ function createBrowserController(app) {
 }
 
 function createAndroidController(app) {
+  const androidControllers = registerLocal(app, 'androidControllers', new Map());
+
+  function getAndroidControllerForUser(userId) {
+    const key = String(userId || '').trim();
+    if (!key) {
+      return app.locals.androidController;
+    }
+
+    if (androidControllers.has(key)) {
+      return androidControllers.get(key);
+    }
+
+    const controller = new AndroidController({ userId: key });
+    androidControllers.set(key, controller);
+    return controller;
+  }
+
+  registerLocal(app, 'getAndroidControllerForUser', getAndroidControllerForUser);
+
   const androidController = registerLocal(
     app,
     'androidController',
@@ -290,12 +341,32 @@ async function stopServices(app) {
     );
   }
 
+  if (app.locals.browserControllers instanceof Map) {
+    for (const controller of app.locals.browserControllers.values()) {
+      tasks.push(
+        controller.closeBrowser().catch((err) => {
+          console.error('[Browser] User-scoped shutdown error:', getErrorMessage(err));
+        }),
+      );
+    }
+  }
+
   if (app.locals.androidController) {
     tasks.push(
       app.locals.androidController.close().catch((err) => {
         console.error('[Android] Shutdown error:', getErrorMessage(err));
       }),
     );
+  }
+
+  if (app.locals.androidControllers instanceof Map) {
+    for (const controller of app.locals.androidControllers.values()) {
+      tasks.push(
+        controller.close().catch((err) => {
+          console.error('[Android] User-scoped shutdown error:', getErrorMessage(err));
+        }),
+      );
+    }
   }
 
   if (app.locals.messagingManager) {

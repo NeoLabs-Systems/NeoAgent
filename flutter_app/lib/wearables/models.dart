@@ -1,14 +1,5 @@
 /// Device types supported by the wearable system
 enum WearableDeviceType {
-  omi,
-  openglass,
-  plaud,
-  friend,
-  bee,
-  frame,
-  appleWatch,
-  fieldy,
-  limitless,
   packet,
   custom,
   unknown, // For filtering unknown BLE devices
@@ -99,37 +90,6 @@ class WearableDevice {
 
 /// Service UUIDs for various wearable devices
 class WearableServiceUuids {
-  // Omi / OpenGlass
-  static const String omiServiceUuid = '19b10000-e8f2-537e-4f6c-d104768a1214';
-  static const String omiAudioData = '19b10001-e8f2-537e-4f6c-d104768a1214';
-  static const String omiAudioCodec = '19b10002-e8f2-537e-4f6c-d104768a1214';
-  static const String omiImageData = '19b10005-e8f2-537e-4f6c-d104768a1214';
-  static const String omiTimeSync = '19b10030-e8f2-537e-4f6c-d104768a1214';
-  static const String omiAccelData = '32403790-0000-1000-7450-bf445e5829a2';
-
-  // Plaud
-  static const String plaudServiceUuid = '00001910-0000-1000-8000-00805f9b34fb';
-  static const String plaudNotify = '00002bb0-0000-1000-8000-00805f9b34fb';
-  static const String plaudWrite = '00002bb1-0000-1000-8000-00805f9b34fb';
-
-  // Friend Pendant
-  static const String friendServiceUuid = '1a3fd0e7-b1f3-ac9e-2e49-b647b2c4f8da';
-  static const String friendAudioChar = '01000000-1111-1111-1111-111111111111';
-
-  // Bee
-  static const String beeServiceUuid = '03d5d5c4-a86c-11ee-9d89-8f2089a49e7e';
-
-  // Limitless
-  static const String limitlessServiceUuid = '632de001-604c-446b-a80f-7963e950f3fb';
-  static const String limitlessTx = '632de002-604c-446b-a80f-7963e950f3fb';
-  static const String limitlessRx = '632de003-604c-446b-a80f-7963e950f3fb';
-
-  // Frame
-  static const String frameServiceUuid = '7A230001-5475-A6A4-654C-8431F6AD49C4';
-
-  // Fieldy
-  static const String fieldyServiceUuid = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
-
   // HeyPocket Device (PKT01)
   static const String packetServiceUuid = '001120a0-2233-4455-6677-889912345678';
   static const String packetControlRx = '001120a2-2233-4455-6677-889912345678';
@@ -149,21 +109,6 @@ class WearableServiceUuids {
   /// Get service UUID for a device type
   static String? getServiceUuid(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.omi:
-      case WearableDeviceType.openglass:
-        return omiServiceUuid;
-      case WearableDeviceType.plaud:
-        return plaudServiceUuid;
-      case WearableDeviceType.friend:
-        return friendServiceUuid;
-      case WearableDeviceType.bee:
-        return beeServiceUuid;
-      case WearableDeviceType.limitless:
-        return limitlessServiceUuid;
-      case WearableDeviceType.frame:
-        return frameServiceUuid;
-      case WearableDeviceType.fieldy:
-        return fieldyServiceUuid;
       case WearableDeviceType.packet:
         return packetServiceUuid;
       default:
@@ -174,15 +119,6 @@ class WearableServiceUuids {
   /// Get audio characteristic UUID for a device type
   static String? getAudioCharUuid(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.omi:
-      case WearableDeviceType.openglass:
-        return omiAudioData;
-      case WearableDeviceType.plaud:
-        return plaudNotify;
-      case WearableDeviceType.friend:
-        return friendAudioChar;
-      case WearableDeviceType.limitless:
-        return limitlessTx;
       case WearableDeviceType.packet:
         return packetAudioTx;
       default:
@@ -193,39 +129,15 @@ class WearableServiceUuids {
 
 /// Protocol identifier for wearable devices
 class WearableProtocols {
-  static const String omi = 'omi';
-  static const String plaud = 'plaud';
-  static const String friend = 'friend';
-  static const String packet = 'packet';
-  static const String limitless = 'limitless';
-  static const String bee = 'bee';
-  static const String frame = 'frame';
-  static const String fieldy = 'fieldy';
-  static const String appleWatch = 'apple_watch';
+  static const String heypocket = 'heypocket';
+  static const String packet = 'packet'; // Legacy alias
   static const String custom = 'custom';
 
   /// Map device type to protocol identifier
   static String fromDeviceType(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.omi:
-      case WearableDeviceType.openglass:
-        return omi;
-      case WearableDeviceType.plaud:
-        return plaud;
-      case WearableDeviceType.friend:
-        return friend;
-      case WearableDeviceType.bee:
-        return bee;
-      case WearableDeviceType.frame:
-        return frame;
-      case WearableDeviceType.fieldy:
-        return fieldy;
-      case WearableDeviceType.appleWatch:
-        return appleWatch;
       case WearableDeviceType.packet:
-        return packet;
-      case WearableDeviceType.limitless:
-        return limitless;
+        return heypocket;
       case WearableDeviceType.custom:
       case WearableDeviceType.unknown:
         return custom;
@@ -235,22 +147,7 @@ class WearableProtocols {
   /// Get device type from protocol identifier
   static WearableDeviceType? toDeviceType(String protocol) {
     switch (protocol) {
-      case omi:
-        return WearableDeviceType.omi;
-      case plaud:
-        return WearableDeviceType.plaud;
-      case friend:
-        return WearableDeviceType.friend;
-      case bee:
-        return WearableDeviceType.bee;
-      case frame:
-        return WearableDeviceType.frame;
-      case fieldy:
-        return WearableDeviceType.fieldy;
-      case appleWatch:
-        return WearableDeviceType.appleWatch;
-      case limitless:
-        return WearableDeviceType.limitless;
+      case heypocket:
       case packet:
         return WearableDeviceType.packet;
       default:

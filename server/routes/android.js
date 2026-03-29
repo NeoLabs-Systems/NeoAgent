@@ -43,6 +43,10 @@ const androidApkUpload = multer({
 });
 
 function getAndroidController(req) {
+  const resolver = req.app?.locals?.getAndroidControllerForUser;
+  if (typeof resolver === 'function') {
+    return resolver(req.session?.userId);
+  }
   return req.app.locals.androidController;
 }
 
@@ -124,7 +128,7 @@ router.post('/install-apk', (req, res) => {
     }
 
     try {
-      const controller = req.app.locals.androidController;
+      const controller = getAndroidController(req);
       const result = await controller.installApk({ apkPath: uploadedApkPath });
       res.json({
         ...result,

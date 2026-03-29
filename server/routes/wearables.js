@@ -110,8 +110,26 @@ router.post('/:macAddress/stream', async (req, res) => {
     if (rawBuffer.length === 0) return res.status(400).json({ error: 'Empty payload' });
 
     const characteristicUuid = req.headers['x-characteristic-uuid'] || req.body.characteristicUuid;
-    manager.handleLiveStreamChunk(req.session.userId, req.params.macAddress, rawBuffer, { characteristicUuid });
-    res.status(200).json({ success: true });
+    const ingestResult = manager.handleLiveStreamChunk(
+      req.session.userId,
+      req.params.macAddress,
+      rawBuffer,
+      { characteristicUuid },
+    );
+
+    if (!ingestResult) {
+      return res.status(202).json({
+        success: true,
+        accepted: false,
+        ignored: true,
+      });
+    }
+
+    const status = ingestResult.duplicate ? 202 : 201;
+    return res.status(status).json({
+      success: true,
+      ...ingestResult,
+    });
   } catch (err) {
     const is404 = /not found/i.test(err.message);
     res.status(is404 ? 404 : 500).json({ error: sanitizeError(err) });

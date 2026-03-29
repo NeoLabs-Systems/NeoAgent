@@ -17,7 +17,9 @@ const UI_DUMPS_DIR = path.join(ARTIFACTS_DIR, 'ui-dumps');
 const LOGS_DIR = path.join(ARTIFACTS_DIR, 'logs');
 const TMP_DIR = path.join(ARTIFACTS_DIR, 'tmp');
 const AVD_HOME = path.join(ANDROID_ROOT, 'avd');
+const STATE_DIR = path.join(ARTIFACTS_DIR, 'state');
 const STATE_FILE = path.join(ARTIFACTS_DIR, 'state.json');
+const OWNERSHIP_FILE = path.join(ARTIFACTS_DIR, 'device-ownership.json');
 const DEFAULT_AVD_NAME = 'neoagent-default';
 const DEFAULT_DATA_PARTITION = '1024M';
 const DEFAULT_SDCARD_SIZE = '128M';
@@ -39,8 +41,67 @@ const DEFAULT_KEYEVENTS = Object.freeze({
   tab: 61,
 });
 
-for (const dir of [ANDROID_ROOT, SDK_ROOT, ARTIFACTS_DIR, SCREENSHOTS_DIR, UI_DUMPS_DIR, LOGS_DIR, TMP_DIR, AVD_HOME]) {
+for (const dir of [ANDROID_ROOT, SDK_ROOT, ARTIFACTS_DIR, SCREENSHOTS_DIR, UI_DUMPS_DIR, LOGS_DIR, TMP_DIR, AVD_HOME, STATE_DIR]) {
   fs.mkdirSync(dir, { recursive: true });
+}
+
+function sanitizeScopeKey(value) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-');
+  return normalized.replace(/^-+|-+$/g, '').slice(0, 48) || 'default';
+}
+
+function resolveStateFile(scopeKey) {
+  const key = sanitizeScopeKey(scopeKey);
+  if (key === 'default') {
+    return STATE_FILE;
+  }
+  return path.join(STATE_DIR, `${key}.json`);
+}
+
+function readOwnership() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(OWNERSHIP_FILE, 'utf8'));
+    if (!parsed || typeof parsed !== 'object') {
+      return {};
+    }
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function writeOwnership(nextOwners) {
+  fs.writeFileSync(OWNERSHIP_FILE, JSON.stringify(nextOwners, null, 2));
+}
+
+function normalizeOwnerKey(userId) {
+  if (userId == null || String(userId).trim() === '') {
+    return 'system';
+  }
+  return `user-${sanitizeScopeKey(userId)}`;
+}
+
+function pruneOwnershipByDevices(owners, devices = []) {
+  const presentSerials = new Set(
+    devices
+      .map((device) => String(device?.serial || '').trim())
+      .filter(Boolean)
+  );
+  const next = {};
+  let changed = false;
+
+  for (const [serial, owner] of Object.entries(owners || {})) {
+    if (!presentSerials.has(serial)) {
+      changed = true;
+      continue;
+    }
+    next[serial] = owner;
+  }
+
+  return { next, changed };
 }
 
 function sleep(ms) {
@@ -83,20 +144,20 @@ function parseResolvedLaunchComponent(output, packageName) {
   return lines.find((line) => componentPattern.test(line) || relativePattern.test(line)) || null;
 }
 
-function appendState(patch) {
-  const current = readState();
+function appendState(patch, stateFile = STATE_FILE) {
+  const current = readState(stateFile);
   const next = {
     ...current,
     ...patch,
     updatedAt: new Date().toISOString(),
   };
-  fs.writeFileSync(STATE_FILE, JSON.stringify(next, null, 2));
+  fs.writeFileSync(stateFile, JSON.stringify(next, null, 2));
   return next;
 }
 
-function readState() {
+function readState(stateFile = STATE_FILE) {
   try {
-    return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    return JSON.parse(fs.readFileSync(stateFile, 'utf8'));
   } catch {
     return {
       avdName: DEFAULT_AVD_NAME,
@@ -576,27 +637,125 @@ function sanitizeUiXml(raw) {
 }
 
 class AndroidController {
-  constructor(io) {
-    this.io = io;
+  constructor(options = {}) {
+    this.io = options?.io;
+    this.userId = options?.userId != null ? String(options.userId) : null;
+    this.scopeKey = sanitizeScopeKey(this.userId ? `user-${this.userId}` : 'default');
+    this.ownerKey = normalizeOwnerKey(this.userId);
+    this.stateFile = resolveStateFile(this.scopeKey);
     this.cli = new CLIExecutor();
-    this.avdName = readState().avdName || DEFAULT_AVD_NAME;
+    this.avdName = this.#readState().avdName || (this.userId ? `neoagent-${this.scopeKey}` : DEFAULT_AVD_NAME);
     this.bootstrapPromise = null;
     this.startPromise = null;
     this.#registerProcessCleanup();
   }
 
   static cleanupRegistered = false;
+  static cleanupControllers = new Set();
+
+  #readState() {
+    return readState(this.stateFile);
+  }
+
+  #appendState(patch) {
+    return appendState(patch, this.stateFile);
+  }
+
+  #readOwnership() {
+    return readOwnership();
+  }
+
+  #writeOwnership(nextOwners) {
+    writeOwnership(nextOwners);
+  }
+
+  #releaseSerialOwnership(serial) {
+    const normalizedSerial = String(serial || '').trim();
+    if (!normalizedSerial) return;
+
+    const owners = this.#readOwnership();
+    const current = owners[normalizedSerial];
+    if (!current || current.ownerKey !== this.ownerKey) {
+      return;
+    }
+
+    delete owners[normalizedSerial];
+    this.#writeOwnership(owners);
+  }
+
+  #claimSerial(serial) {
+    const normalizedSerial = String(serial || '').trim();
+    if (!normalizedSerial) {
+      throw new Error('Cannot claim an empty Android serial.');
+    }
+
+    const owners = this.#readOwnership();
+    const existing = owners[normalizedSerial];
+    if (existing && existing.ownerKey && existing.ownerKey !== this.ownerKey) {
+      throw new Error(`Android device ${normalizedSerial} is currently reserved by another user.`);
+    }
+
+    owners[normalizedSerial] = {
+      ownerKey: this.ownerKey,
+      ownerUserId: this.userId,
+      updatedAt: new Date().toISOString(),
+    };
+    this.#writeOwnership(owners);
+  }
+
+  #isSerialOwnedByAnother(serial, owners = null) {
+    const normalizedSerial = String(serial || '').trim();
+    if (!normalizedSerial) return false;
+    const effectiveOwners = owners || this.#readOwnership();
+    const existing = effectiveOwners[normalizedSerial];
+    return Boolean(existing?.ownerKey && existing.ownerKey !== this.ownerKey);
+  }
+
+  #assertSerialAccess(serial, options = {}) {
+    const normalizedSerial = String(serial || '').trim();
+    if (!normalizedSerial) {
+      throw new Error('Android serial is required.');
+    }
+
+    const claimIfUnowned = options.claimIfUnowned !== false;
+    const owners = this.#readOwnership();
+    const existing = owners[normalizedSerial];
+
+    if (existing?.ownerKey && existing.ownerKey !== this.ownerKey) {
+      throw new Error(`Android device ${normalizedSerial} is currently reserved by another user.`);
+    }
+
+    if (claimIfUnowned) {
+      owners[normalizedSerial] = {
+        ownerKey: this.ownerKey,
+        ownerUserId: this.userId,
+        updatedAt: new Date().toISOString(),
+      };
+      this.#writeOwnership(owners);
+    }
+  }
+
+  #pruneOwnership(devices = []) {
+    const owners = this.#readOwnership();
+    const { next, changed } = pruneOwnershipByDevices(owners, devices);
+    if (changed) {
+      this.#writeOwnership(next);
+    }
+  }
 
   #registerProcessCleanup() {
+    AndroidController.cleanupControllers.add(this);
     if (AndroidController.cleanupRegistered) {
       return;
     }
     AndroidController.cleanupRegistered = true;
 
     const cleanup = () => {
-      try {
-        this.#stopTrackedEmulatorSync();
-      } catch {}
+      for (const controller of AndroidController.cleanupControllers) {
+        try {
+          controller.#stopTrackedEmulatorSync();
+        } catch {}
+      }
     };
 
     process.once('exit', cleanup);
@@ -605,7 +764,7 @@ class AndroidController {
   }
 
   #stopTrackedEmulatorSync() {
-    const state = readState();
+    const state = this.#readState();
     const serial = state.serial;
 
     if (serial && isExecutable(adbBinary())) {
@@ -624,7 +783,8 @@ class AndroidController {
       } catch {}
     }
 
-    appendState({ serial: null, emulatorPid: null });
+    this.#releaseSerialOwnership(serial);
+    this.#appendState({ serial: null, emulatorPid: null });
   }
 
   async #run(command, options = {}) {
@@ -666,7 +826,7 @@ class AndroidController {
       }
     }
 
-    const state = readState();
+    const state = this.#readState();
     if (!shouldForceSdkRefresh()) {
       const installedImages = parseInstalledSystemImages();
       if (installedImages.length > 0) {
@@ -698,7 +858,7 @@ class AndroidController {
           if (changeSummary) {
             console.log(`[Android] Auto-fixed preferred system image (${changeSummary})`);
           }
-          appendState({
+          this.#appendState({
             bootstrapped: true,
             systemImage: preferredInstalled.packageName,
             apiLevel: preferredInstalled.apiLevel,
@@ -711,13 +871,13 @@ class AndroidController {
       }
     }
 
-    appendState({ bootstrapped: true });
+    this.#appendState({ bootstrapped: true });
     const sdkmanager = sdkManagerBinary();
     const available = await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} --list`, { timeout: 300000 });
     const latestSystemImage = chooseConfiguredSystemImage(available) || chooseLatestSystemImage(available);
     if (!latestSystemImage) throw new Error(formatSystemImageError(available));
 
-    const refreshedState = readState();
+    const refreshedState = this.#readState();
     const currentApiLevel = parseApiLevelFromSystemImage(refreshedState.systemImage);
     const shouldUpgrade =
       refreshedState.systemImage !== latestSystemImage.packageName ||
@@ -727,7 +887,7 @@ class AndroidController {
       await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} "${latestSystemImage.packageName}"`, {
         timeout: 300000,
       });
-      appendState({
+      this.#appendState({
         bootstrapped: true,
         systemImage: latestSystemImage.packageName,
         apiLevel: latestSystemImage.apiLevel,
@@ -769,7 +929,7 @@ class AndroidController {
     if (!systemImage) throw new Error(formatSystemImageError(available));
 
     await this.#run(`${quoteShell(sdkmanager)} --sdk_root=${quoteShell(SDK_ROOT)} "${systemImage.packageName}"`, { timeout: 300000 });
-    appendState({
+    this.#appendState({
       bootstrapped: true,
       systemImage: systemImage.packageName,
       apiLevel: systemImage.apiLevel,
@@ -780,7 +940,7 @@ class AndroidController {
   async ensureAvd() {
     await this.ensureBootstrapped();
 
-    const state = readState();
+    const state = this.#readState();
     const list = await this.#run(`${quoteShell(avdManagerBinary())} list avd`, { timeout: 120000 }).catch(() => '');
     const pkg = state.systemImage;
     if (!pkg) throw new Error('Android system image not installed');
@@ -833,7 +993,7 @@ class AndroidController {
       timeout: 120000,
     });
     this.#normalizeAvdConfig();
-    appendState({ avdSystemImage: pkg });
+    this.#appendState({ avdSystemImage: pkg });
   }
 
   #normalizeAvdConfig() {
@@ -856,7 +1016,7 @@ class AndroidController {
     }
     const out = await this.#run(`${quoteShell(adbBinary())} devices -l`);
     const lines = out.split('\n').map((line) => line.trim()).filter(Boolean);
-    return lines
+    const devices = lines
       .filter((line) => !line.toLowerCase().startsWith('list of devices'))
       .map((line) => {
         const parts = line.split(/\s+/);
@@ -867,33 +1027,49 @@ class AndroidController {
           emulator: (parts[0] || '').startsWith('emulator-'),
         };
       });
+    this.#pruneOwnership(devices);
+    return devices;
   }
 
   async getPrimarySerial(options = {}) {
-    const state = readState();
+    const state = this.#readState();
     const devices = await this.listDevices(options);
-    const preferred = state.serial ? devices.find((device) => device.serial === state.serial && device.status === 'device') : null;
-    if (preferred) return preferred.serial;
-    const emulator = devices.find((device) => device.emulator && device.status === 'device');
+    const owners = this.#readOwnership();
+    const canUse = (device) => device.status === 'device' && !this.#isSerialOwnedByAnother(device.serial, owners);
+
+    const preferred = state.serial ? devices.find((device) => device.serial === state.serial && canUse(device)) : null;
+    if (preferred) {
+      this.#claimSerial(preferred.serial);
+      return preferred.serial;
+    }
+
+    const emulator = devices.find((device) => device.emulator && canUse(device));
     if (emulator) {
-      appendState({ serial: emulator.serial });
+      this.#claimSerial(emulator.serial);
+      this.#appendState({ serial: emulator.serial });
       return emulator.serial;
     }
-    const online = devices.find((device) => device.status === 'device');
-    if (online) return online.serial;
+
+    const online = devices.find((device) => canUse(device));
+    if (online) {
+      this.#claimSerial(online.serial);
+      this.#appendState({ serial: online.serial });
+      return online.serial;
+    }
+
     return null;
   }
 
   async #startEmulatorBlocking(options = {}) {
-    appendState({
+    this.#appendState({
       starting: true,
       startupPhase: 'Preparing Android runtime',
       lastStartError: null,
-      startRequestedAt: readState().startRequestedAt || new Date().toISOString(),
+      startRequestedAt: this.#readState().startRequestedAt || new Date().toISOString(),
     });
     console.log('[Android] Preparing emulator start');
     await this.ensureAvd();
-    appendState({
+    this.#appendState({
       starting: true,
       startupPhase: 'Checking for an existing Android device',
       lastStartError: null,
@@ -901,7 +1077,7 @@ class AndroidController {
     this.#normalizeAvdConfig();
     const serial = await this.getPrimarySerial();
     if (serial) {
-      appendState({
+      this.#appendState({
         starting: false,
         startupPhase: null,
         serial,
@@ -912,7 +1088,7 @@ class AndroidController {
         success: true,
         serial,
         reused: true,
-        bootstrapped: readState().bootstrapped === true,
+        bootstrapped: this.#readState().bootstrapped === true,
       };
     }
 
@@ -940,7 +1116,7 @@ class AndroidController {
     });
 
     console.log(`[Android] Emulator process started (pid ${child.pid})`);
-    appendState({
+    this.#appendState({
       emulatorPid: child.pid,
       avdName: this.avdName,
       logPath,
@@ -982,7 +1158,7 @@ class AndroidController {
     }
 
     const onlineSerial = bootResult.serial;
-    appendState({
+    this.#appendState({
       serial: onlineSerial,
       emulatorPid: child.pid,
       starting: false,
@@ -1005,13 +1181,13 @@ class AndroidController {
       await this.startPromise;
       const serial = await this.getPrimarySerial();
       if (!serial) {
-        throw new Error(readState().lastStartError || 'Android emulator did not finish starting.');
+        throw new Error(this.#readState().lastStartError || 'Android emulator did not finish starting.');
       }
       return {
         success: true,
         serial,
         reused: false,
-        bootstrapped: readState().bootstrapped === true,
+        bootstrapped: this.#readState().bootstrapped === true,
       };
     }
 
@@ -1021,7 +1197,7 @@ class AndroidController {
   async requestStartEmulator(options = {}) {
     const serial = await this.getPrimarySerial({ ensureBootstrapped: false }).catch(() => null);
     if (serial) {
-      appendState({
+      this.#appendState({
         starting: false,
         startupPhase: null,
         serial,
@@ -1033,13 +1209,13 @@ class AndroidController {
         pending: false,
         serial,
         reused: true,
-        bootstrapped: readState().bootstrapped === true,
+        bootstrapped: this.#readState().bootstrapped === true,
       };
     }
 
     if (!this.startPromise) {
       const requestedAt = new Date().toISOString();
-      appendState({
+      this.#appendState({
         starting: true,
         startupPhase: 'Preparing Android runtime',
         lastStartError: null,
@@ -1047,10 +1223,10 @@ class AndroidController {
         lastLogLine: 'Android start requested.',
       });
       const startPromise = this.#startEmulatorBlocking(options).catch((err) => {
-        const state = readState();
+        const state = this.#readState();
         const recentLogLines = state.logPath ? tailFile(state.logPath, 12) : [];
         const detailedMessage = recentLogLines[recentLogLines.length - 1] || err.message;
-        appendState({
+        this.#appendState({
           starting: false,
           startupPhase: 'Start failed',
           lastStartError: detailedMessage,
@@ -1067,7 +1243,7 @@ class AndroidController {
       startPromise.catch(() => {});
     }
 
-    const state = readState();
+    const state = this.#readState();
     return {
       success: true,
       pending: true,
@@ -1086,6 +1262,7 @@ class AndroidController {
     while (Date.now() < deadline) {
       const serial = await this.getPrimarySerial();
       if (serial) {
+        this.#assertSerialAccess(serial, { claimIfUnowned: true });
         const boot = await this.#runAllowFailure(`${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell getprop sys.boot_completed`, { timeout: 10000 });
         if ((boot.stdout || '').trim() === '1') {
           return serial;
@@ -1099,21 +1276,28 @@ class AndroidController {
 
   async ensureDevice() {
     const serial = await this.getPrimarySerial();
-    if (serial) return serial;
+    if (serial) {
+      this.#assertSerialAccess(serial, { claimIfUnowned: true });
+      return serial;
+    }
     const started = await this.startEmulator();
+    this.#assertSerialAccess(started.serial, { claimIfUnowned: true });
     return started.serial;
   }
 
   async stopEmulator() {
-    const state = readState();
+    const state = this.#readState();
     const serial = await this.getPrimarySerial();
     if (serial) {
+      this.#assertSerialAccess(serial, { claimIfUnowned: true });
       await this.#runAllowFailure(`${quoteShell(adbBinary())} -s ${quoteShell(serial)} emu kill`, { timeout: 15000 });
     }
     if (state.emulatorPid) {
       try { process.kill(state.emulatorPid, 'SIGTERM'); } catch {}
     }
-    appendState({
+    this.#releaseSerialOwnership(serial);
+    this.#releaseSerialOwnership(state.serial);
+    this.#appendState({
       serial: null,
       emulatorPid: null,
       starting: false,
@@ -1143,6 +1327,7 @@ class AndroidController {
   }
 
   async #adb(serial, command, options = {}) {
+    this.#assertSerialAccess(serial, { claimIfUnowned: true });
     return this.#run(`${quoteShell(adbBinary())} -s ${quoteShell(serial)} ${command}`, options);
   }
 
@@ -1150,7 +1335,7 @@ class AndroidController {
     const serial = options.serial || await this.ensureDevice();
     const filename = `android_${Date.now()}.png`;
     const fullPath = path.join(SCREENSHOTS_DIR, filename);
-    await this.#run(`${quoteShell(adbBinary())} -s ${quoteShell(serial)} exec-out screencap -p > ${quoteShell(fullPath)}`, { timeout: 30000 });
+    await this.#adb(serial, `exec-out screencap -p > ${quoteShell(fullPath)}`, { timeout: 30000 });
     return {
       success: true,
       serial,
@@ -1432,6 +1617,7 @@ class AndroidController {
     if (args.activity) {
       await this.#adb(serial, `shell am start -n ${quoteShell(`${args.packageName}/${args.activity}`)}`, { timeout: 20000 });
     } else if (args.packageName) {
+      this.#assertSerialAccess(serial, { claimIfUnowned: true });
       const resolved = await this.#runAllowFailure(
         `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER ${quoteShell(args.packageName)}`,
         { timeout: 15000 },
@@ -1567,7 +1753,11 @@ class AndroidController {
     const devices = isExecutable(adbBinary())
       ? await this.listDevices({ ensureBootstrapped: false }).catch(() => [])
       : [];
-    const state = readState();
+    const state = this.#readState();
+    const serialInState = String(state.serial || '').trim();
+    const serialOwnedByCurrentUser = serialInState
+      ? !this.#isSerialOwnedByAnother(serialInState)
+      : null;
     let lastLogLine =
       state.lastStartError ||
       state.lastLogLine ||
@@ -1603,6 +1793,7 @@ class AndroidController {
       adbPath: adbBinary(),
       emulatorPath: emulatorBinary(),
       serial: state.serial,
+      serialOwnedByCurrentUser,
       emulatorPid: state.emulatorPid,
       systemImage: state.systemImage || null,
       systemImageArch: state.systemImageArch || null,

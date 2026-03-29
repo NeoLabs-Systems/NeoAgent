@@ -4874,7 +4874,7 @@ class WearablesPanel extends StatelessWidget {
                             Icon(Icons.sync_alt_rounded, color: Color(0xFF14532D)),
                             SizedBox(width: 8),
                             Text(
-                              'Packet Offline Sync',
+                              'HeyPocket Offline Sync',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ],

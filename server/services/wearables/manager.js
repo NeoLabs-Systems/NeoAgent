@@ -8,13 +8,18 @@ const { v4: uuidv4 } = require('uuid');
 // Load built-in protocols
 const builtInProtocols = [
   require('./protocols/heypocket'),
-  require('./protocols/omi'),
-  require('./protocols/plaud'),
-  require('./protocols/friend'),
-  require('./protocols/limitless'),
-  require('./protocols/bee'),
-  require('./protocols/frame'),
 ];
+const SUPPORTED_PROTOCOL_ID = 'heypocket';
+const STREAM_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const STREAM_REAPER_INTERVAL_MS = 30 * 1000;
+
+function normalizeProtocolId(protocolId) {
+  const normalized = String(protocolId || '').trim().toLowerCase();
+  if (normalized === 'heypocket' || normalized === 'packet') {
+    return SUPPORTED_PROTOCOL_ID;
+  }
+  return normalized;
+}
 
 class WearableManager {
   constructor(io, services) {
@@ -26,6 +31,15 @@ class WearableManager {
     for (const protocol of builtInProtocols) {
       this.protocols.set(protocol.id, protocol);
     }
+
+    this._reaperHandle = setInterval(() => {
+      this.reapStaleLiveStreams();
+    }, STREAM_REAPER_INTERVAL_MS);
+    this._reaperHandle.unref?.();
+
+    // Keep runtime deterministic while only HeyPocket is supported.
+    db.prepare(`UPDATE wearable_devices SET protocol = ? WHERE LOWER(protocol) <> ?`)
+      .run(SUPPORTED_PROTOCOL_ID, SUPPORTED_PROTOCOL_ID);
   }
 
   getProtocol(id) {
@@ -45,7 +59,8 @@ class WearableManager {
   }
 
   registerDevice(userId, macAddress, protocolId, name) {
-    if (!this.protocols.has(protocolId)) {
+    const normalizedProtocolId = normalizeProtocolId(protocolId);
+    if (!this.protocols.has(normalizedProtocolId)) {
       throw new Error(`Unsupported wearable protocol: ${protocolId}`);
     }
 
@@ -57,7 +72,7 @@ class WearableManager {
         UPDATE wearable_devices 
         SET protocol = ?, name = ?, status = 'connected', last_seen_at = ?, updated_at = ?
         WHERE id = ?
-      `).run(protocolId, name || device.name, now, now, device.id);
+      `).run(normalizedProtocolId, name || device.name, now, now, device.id);
 
       this.#emitUpdate(userId, device.id);
       return this.getDevice(userId, macAddress);
@@ -67,7 +82,7 @@ class WearableManager {
     db.prepare(`
       INSERT INTO wearable_devices (id, user_id, mac_address, protocol, name, status, last_seen_at, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, 'connected', ?, ?, ?)
-    `).run(id, userId, macAddress, protocolId, name || 'Unknown Device', now, now, now);
+    `).run(id, userId, macAddress, normalizedProtocolId, name || 'Unknown Device', now, now, now);
 
     this.#emitUpdate(userId, id);
     return this.getDevice(userId, macAddress);
@@ -122,7 +137,8 @@ class WearableManager {
     this.activeLiveStreams.set(streamKey, {
       sessionId: session.id,
       sequenceIndex: 0,
-      startTime: Date.now()
+      startTime: Date.now(),
+      lastChunkAt: Date.now(),
     });
 
     return session;
@@ -174,21 +190,47 @@ class WearableManager {
       audioBuffer
     );
 
+    streamState.lastChunkAt = Date.now();
+
     db.prepare(`UPDATE wearable_devices SET last_seen_at = ?, status = 'connected' WHERE id = ?`).run(new Date().toISOString(), device.id);
 
     return result;
   }
 
-  endLiveStream(userId, macAddress) {
+  endLiveStream(userId, macAddress, stopReason = 'wearable_disconnected') {
     const streamKey = `${userId}:${macAddress}`;
     const streamState = this.activeLiveStreams.get(streamKey);
     if (streamState) {
       try {
-        this.recordingManager.finalizeSession(userId, streamState.sessionId, { stopReason: 'wearable_disconnected' });
+        this.recordingManager.finalizeSession(userId, streamState.sessionId, { stopReason });
       } catch (err) {
         console.error('[Wearables] Error finalizing session on disconnect', err);
       }
       this.activeLiveStreams.delete(streamKey);
+    }
+  }
+
+  reapStaleLiveStreams() {
+    const now = Date.now();
+    for (const [streamKey, streamState] of this.activeLiveStreams.entries()) {
+      if (!streamState || typeof streamState.lastChunkAt !== 'number') {
+        continue;
+      }
+      if (now - streamState.lastChunkAt < STREAM_IDLE_TIMEOUT_MS) {
+        continue;
+      }
+
+      const separatorIndex = streamKey.indexOf(':');
+      if (separatorIndex <= 0 || separatorIndex >= streamKey.length - 1) {
+        continue;
+      }
+      const userId = streamKey.slice(0, separatorIndex);
+      const macAddress = streamKey.slice(separatorIndex + 1);
+      try {
+        this.endLiveStream(userId, macAddress, 'wearable_idle_timeout');
+      } catch (err) {
+        console.error('[Wearables] Error finalizing stale live stream', err);
+      }
     }
   }
 

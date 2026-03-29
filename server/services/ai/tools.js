@@ -881,8 +881,20 @@ function getAvailableTools(app, options = {}) {
  */
 async function executeTool(toolName, args, context, engine) {
     const { userId, runId, app, triggerSource, taskId } = context;
-    const bc = () => app?.locals?.browserController || engine.browserController;
-    const ac = () => app?.locals?.androidController || engine.androidController;
+    const bc = () => {
+        const scoped = app?.locals?.getBrowserControllerForUser;
+        if (typeof scoped === 'function') {
+            return scoped(userId);
+        }
+        return app?.locals?.browserController || engine.browserController;
+    };
+    const ac = () => {
+        const scoped = app?.locals?.getAndroidControllerForUser;
+        if (typeof scoped === 'function') {
+            return scoped(userId);
+        }
+        return app?.locals?.androidController || engine.androidController;
+    };
     const msg = () => app?.locals?.messagingManager || engine.messagingManager;
     const mcp = () => app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
     const sk = () => app?.locals?.skillRunner || engine.skillRunner;

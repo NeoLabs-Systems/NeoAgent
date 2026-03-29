@@ -761,7 +761,11 @@ class BackendClient {
       body: data,
     );
     _throwIfError(response);
-    return _asMap(_decodeJson(response.body));
+    final decoded = _asMap(_decodeJson(response.body));
+    if (decoded['success'] != true) {
+      throw StateError('Wearable stream call was not acknowledged by server.');
+    }
+    return decoded;
   }
 
   Future<Map<String, dynamic>> syncWearableData(

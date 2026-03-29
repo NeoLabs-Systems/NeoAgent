@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 import '../src/backend_client.dart';
 import 'models.dart';
 import 'packet/sync_coordinator.dart';
+import 'pending_chunk_store.dart';
 import 'protocols/base.dart';
 
 const _connectionHealthCheckInterval = Duration(seconds: 30);
@@ -44,6 +46,13 @@ class WearableService extends ChangeNotifier {
   
   Timer? _connectionHealthTimer;
   DateTime? _lastSuccessfulCommunication;
+  final List<_PendingWearableChunk> _pendingWearableChunks = <_PendingWearableChunk>[];
+  bool _uploadDrainInFlight = false;
+  bool _queuePersistInFlight = false;
+  bool _queuePersistRequested = false;
+  bool _queueRestoreInFlight = false;
+  static const int _maxPendingWearableChunks = 720;
+  final PendingChunkStore _chunkStore = createPendingChunkStore();
 
   final Map<String, WearableProtocolBase> _protocols = {};
 
@@ -64,6 +73,7 @@ class WearableService extends ChangeNotifier {
 
   void _init() {
     _registerDefaultProtocols();
+    unawaited(_restorePendingWearableQueue());
 
     UniversalBle.onScanResult = (device) {
       debugPrint("Scan result: ${device.name} (${device.deviceId})");
@@ -102,35 +112,167 @@ class WearableService extends ChangeNotifier {
             );
           }
         }
-        
-        _ensureDeviceRegistered(deviceId).then((_) {
-          _backendClient
-              .streamWearableData(
-                _getBackendUrl(),
-                deviceId,
-                characteristicUuid,
-                value,
-              )
-              .then((_) {})
-              .catchError((e) {
-                debugPrint("Error streaming wearable data: $e");
-              }, test: (e) => true);
-        }).catchError((e) {
-          debugPrint("Error registering device: $e");
-        });
+
+        _enqueueWearableChunk(
+          deviceId: deviceId,
+          characteristicUuid: characteristicUuid,
+          payload: value,
+        );
       }
     };
   }
 
+  void _enqueueWearableChunk({
+    required String deviceId,
+    required String characteristicUuid,
+    required Uint8List payload,
+  }) {
+    if (_pendingWearableChunks.length >= _maxPendingWearableChunks) {
+      _pendingWearableChunks.removeAt(0);
+      debugPrint('Wearable upload queue full; dropped oldest pending chunk.');
+    }
+
+    _pendingWearableChunks.add(
+      _PendingWearableChunk(
+        deviceId: deviceId,
+        characteristicUuid: characteristicUuid,
+        payload: Uint8List.fromList(payload),
+      ),
+    );
+
+    _scheduleQueuePersist();
+    _drainWearableQueue();
+  }
+
+  Future<void> _drainWearableQueue() async {
+    if (_uploadDrainInFlight) {
+      return;
+    }
+    _uploadDrainInFlight = true;
+    try {
+      while (_pendingWearableChunks.isNotEmpty) {
+        final activeDeviceId = _connectedDevice?.deviceId;
+        if (activeDeviceId == null) {
+          return;
+        }
+
+        final next = _pendingWearableChunks.first;
+        if (next.deviceId != activeDeviceId) {
+          // Drop stale chunks from a previous connection.
+          _pendingWearableChunks.removeAt(0);
+          _scheduleQueuePersist();
+          continue;
+        }
+
+        try {
+          await _ensureDeviceRegistered(activeDeviceId);
+        } catch (e) {
+          debugPrint('Error registering wearable before upload: $e');
+          await Future<void>.delayed(const Duration(milliseconds: 600));
+          continue;
+        }
+
+        try {
+          final response = await _backendClient.streamWearableData(
+            _getBackendUrl(),
+            next.deviceId,
+            next.characteristicUuid,
+            next.payload,
+          );
+          final accepted = response['accepted'] == true;
+          final ignored = response['ignored'] == true;
+          final duplicate = response['duplicate'] == true;
+          if (!accepted && !ignored && !duplicate) {
+            throw StateError('Wearable chunk not acknowledged: $response');
+          }
+
+          _pendingWearableChunks.removeAt(0);
+          _scheduleQueuePersist();
+        } catch (e) {
+          next.attempts += 1;
+          if (next.attempts > 6) {
+            debugPrint('Dropping wearable chunk after repeated failures: $e');
+            _pendingWearableChunks.removeAt(0);
+            _scheduleQueuePersist();
+            continue;
+          }
+
+          final delayMs = (350 * (1 << (next.attempts - 1))).clamp(350, 6000);
+          await Future<void>.delayed(Duration(milliseconds: delayMs));
+        }
+      }
+    } finally {
+      _uploadDrainInFlight = false;
+    }
+  }
+
+  Future<void> _restorePendingWearableQueue() async {
+    if (_queueRestoreInFlight) {
+      return;
+    }
+    _queueRestoreInFlight = true;
+    try {
+      final rows = await _chunkStore.readRows();
+      if (rows.isEmpty) {
+        return;
+      }
+
+      for (final row in rows) {
+        try {
+          final decoded = jsonDecode(row);
+          if (decoded is! Map<String, dynamic>) {
+            continue;
+          }
+          _pendingWearableChunks.add(_PendingWearableChunk.fromJson(decoded));
+        } catch (_) {
+          // Ignore malformed queue entries and continue restore.
+        }
+      }
+
+      if (_pendingWearableChunks.length > _maxPendingWearableChunks) {
+        final overflow = _pendingWearableChunks.length - _maxPendingWearableChunks;
+        _pendingWearableChunks.removeRange(0, overflow);
+      }
+
+      if (_pendingWearableChunks.isNotEmpty) {
+        debugPrint('Restored ${_pendingWearableChunks.length} pending wearable chunks.');
+        _drainWearableQueue();
+      }
+    } catch (e) {
+      debugPrint('Failed to restore wearable upload queue: $e');
+    } finally {
+      _queueRestoreInFlight = false;
+    }
+  }
+
+  void _scheduleQueuePersist() {
+    if (_queuePersistInFlight) {
+      _queuePersistRequested = true;
+      return;
+    }
+
+    _queuePersistInFlight = true;
+    unawaited(_persistPendingWearableQueue());
+  }
+
+  Future<void> _persistPendingWearableQueue() async {
+    do {
+      _queuePersistRequested = false;
+      try {
+        final serialized = _pendingWearableChunks
+            .map((chunk) => jsonEncode(chunk.toJson()))
+            .toList(growable: false);
+        await _chunkStore.writeRows(serialized);
+      } catch (e) {
+        debugPrint('Failed to persist wearable upload queue: $e');
+      }
+    } while (_queuePersistRequested);
+
+    _queuePersistInFlight = false;
+  }
+
   void _registerDefaultProtocols() {
     final builtInProtocols = <WearableProtocolBase>[
-      OmiProtocol(),
-      PlaudProtocol(),
-      FriendProtocol(),
-      BeeProtocol(),
-      LimitlessProtocol(),
-      FrameProtocol(),
-      FieldyProtocol(),
       PacketProtocol(),
     ];
 
@@ -142,30 +284,6 @@ class WearableService extends ChangeNotifier {
   WearableDeviceType _identifyDeviceType(String name) {
     final lowerName = name.toLowerCase();
 
-    if (lowerName.contains('openglass')) {
-      return WearableDeviceType.openglass;
-    }
-    if (lowerName.contains('omi') || lowerName.contains('omiglass')) {
-      return WearableDeviceType.omi;
-    }
-    if (lowerName.contains('plaud')) {
-      return WearableDeviceType.plaud;
-    }
-    if (lowerName.contains('friend')) {
-      return WearableDeviceType.friend;
-    }
-    if (lowerName.contains('bee')) {
-      return WearableDeviceType.bee;
-    }
-    if (lowerName.contains('limitless') || lowerName.contains('pendant')) {
-      return WearableDeviceType.limitless;
-    }
-    if (lowerName.contains('frame')) {
-      return WearableDeviceType.frame;
-    }
-    if (lowerName.contains('fieldy')) {
-      return WearableDeviceType.fieldy;
-    }
     if (lowerName.contains('heypocket') || lowerName.contains('pocket') || lowerName.contains('packet') || lowerName.contains('pkt01')) {
       return WearableDeviceType.packet;
     }
@@ -200,7 +318,7 @@ class WearableService extends ChangeNotifier {
     try {
       _discoveredDevices.clear();
       notifyListeners();
-      debugPrint("Starting scan for all wearable devices...");
+      debugPrint("Starting scan for HeyPocket devices...");
 
       final serviceUuids = _buildScanServiceUuids();
       
@@ -391,7 +509,7 @@ class WearableService extends ChangeNotifier {
 
   Future<void> requestPacketOfflineSync() async {
     if (!canRequestOfflineSync) {
-      debugPrint('Offline sync request ignored: Packet device not connected');
+      debugPrint('Offline sync request ignored: HeyPocket device not connected');
       return;
     }
 
@@ -446,6 +564,7 @@ class WearableService extends ChangeNotifier {
       debugPrint("Device registered successfully: $deviceId");
     } catch (e) {
       debugPrint("Failed to register device: $e");
+      rethrow;
     }
   }
   
@@ -453,25 +572,8 @@ class WearableService extends ChangeNotifier {
 
   String? _protocolIdForDeviceType(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.omi:
-      case WearableDeviceType.openglass:
-        return WearableProtocols.omi;
-      case WearableDeviceType.plaud:
-        return WearableProtocols.plaud;
-      case WearableDeviceType.friend:
-        return WearableProtocols.friend;
-      case WearableDeviceType.bee:
-        return WearableProtocols.bee;
-      case WearableDeviceType.frame:
-        return WearableProtocols.frame;
-      case WearableDeviceType.fieldy:
-        return WearableProtocols.fieldy;
-      case WearableDeviceType.limitless:
-        return WearableProtocols.limitless;
       case WearableDeviceType.packet:
-        return WearableProtocols.packet;
-      case WearableDeviceType.appleWatch:
-        return WearableProtocols.appleWatch;
+        return WearableProtocols.heypocket;
       case WearableDeviceType.custom:
       case WearableDeviceType.unknown:
         return null;
@@ -565,5 +667,44 @@ class WearableService extends ChangeNotifier {
     UniversalBle.onConnectionChange = null;
     UniversalBle.onValueChange = null;
     super.dispose();
+  }
+}
+
+class _PendingWearableChunk {
+  _PendingWearableChunk({
+    required this.deviceId,
+    required this.characteristicUuid,
+    required this.payload,
+    this.attempts = 0,
+  });
+
+  factory _PendingWearableChunk.fromJson(Map<String, dynamic> json) {
+    final payloadBase64 = json['payloadBase64'];
+    final payloadString = payloadBase64 is String ? payloadBase64 : '';
+    final attemptsValue = json['attempts'];
+    final attempts = attemptsValue is int
+        ? attemptsValue
+        : int.tryParse('$attemptsValue') ?? 0;
+
+    return _PendingWearableChunk(
+      deviceId: '${json['deviceId'] ?? ''}',
+      characteristicUuid: '${json['characteristicUuid'] ?? ''}',
+      payload: base64Decode(payloadString),
+      attempts: attempts,
+    );
+  }
+
+  final String deviceId;
+  final String characteristicUuid;
+  final Uint8List payload;
+  int attempts;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'deviceId': deviceId,
+      'characteristicUuid': characteristicUuid,
+      'payloadBase64': base64Encode(payload),
+      'attempts': attempts,
+    };
   }
 }
