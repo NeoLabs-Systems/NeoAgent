@@ -81,7 +81,7 @@ router.post('/:sessionId/chunks', async (req, res) => {
     const message = sanitizeError(err);
     const status = /not found/i.test(message)
       ? 404
-      : /empty|required|unknown|non-negative|accepting/i.test(message)
+      : /empty|required|unknown|non-negative|accepting|sequence|contiguous/i.test(message)
         ? 400
         : 500;
     res.status(status).json({ error: message });

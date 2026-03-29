@@ -173,6 +173,18 @@ class RecordingManager {
       throw new Error('sequenceIndex must be a non-negative integer.');
     }
 
+    const maxSequence = db.prepare(`
+      SELECT MAX(sequence_index) AS maxSequence
+      FROM recording_chunks
+      WHERE source_id = ?
+    `).get(source.id)?.maxSequence;
+    const expectedNextSequence = maxSequence == null ? 0 : Number(maxSequence) + 1;
+    if (sequenceIndex > expectedNextSequence) {
+      throw new Error(
+        `Invalid chunk sequence for source "${source.source_key}": got ${sequenceIndex}, expected ${expectedNextSequence}. Sequence must be contiguous per source.`
+      );
+    }
+
     const existing = db.prepare(`
       SELECT id
       FROM recording_chunks

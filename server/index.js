@@ -29,6 +29,19 @@ const { startServices, stopServices } = require('./services/manager');
 const PORT = Number(process.env.PORT) || 3333;
 const SECURE_COOKIES = process.env.SECURE_COOKIES === 'true';
 
+function logStartupConfig() {
+  const flags = {
+    SESSION_SECRET: Boolean(process.env.SESSION_SECRET),
+    OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY),
+    DEEPGRAM_API_KEY: Boolean(process.env.DEEPGRAM_API_KEY),
+  };
+
+  console.log(`[Startup] Using env file: ${ENV_FILE}`);
+  console.log('[Startup] Key availability:', flags);
+}
+
+logStartupConfig();
+
 if (!process.env.SESSION_SECRET) {
   console.warn(
     'WARNING: SESSION_SECRET not set — using insecure default. Set it in .env before exposing this server.'

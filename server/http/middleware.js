@@ -10,6 +10,52 @@ const { logRequestSummary } = require('../utils/logger');
 
 const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
 
+function ensureSessionStoreSchema(db) {
+  const table = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'").get();
+  if (!table) {
+    db.exec('CREATE TABLE sessions (sid PRIMARY KEY, sess, expire)');
+    return;
+  }
+
+  const columns = db.prepare('PRAGMA table_info(sessions)').all().map((row) => row.name);
+  const expected = ['sid', 'sess', 'expire'];
+  if (columns.length === expected.length && columns.every((name, index) => name === expected[index])) {
+    return;
+  }
+
+  const hasSid = columns.includes('sid');
+  const hasSess = columns.includes('sess');
+  const expireColumn = columns.includes('expire') ? 'expire' : (columns.includes('expired') ? 'expired' : null);
+
+  const legacyTableName = `sessions_legacy_${Date.now()}`;
+  db.exec('BEGIN');
+  try {
+    db.exec(`ALTER TABLE sessions RENAME TO ${legacyTableName}`);
+    db.exec('CREATE TABLE sessions (sid PRIMARY KEY, sess, expire)');
+
+    if (hasSid && hasSess) {
+      const expireExpr = expireColumn ? expireColumn : 'NULL';
+      db.exec(`
+        INSERT OR REPLACE INTO sessions (sid, sess, expire)
+        SELECT sid, sess, ${expireExpr}
+        FROM ${legacyTableName}
+        WHERE sid IS NOT NULL
+      `);
+    }
+
+    db.exec(`DROP TABLE ${legacyTableName}`);
+    db.exec('COMMIT');
+    console.warn('[Session] Normalized sessions table schema to (sid, sess, expire).');
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {}
+    throw error;
+  }
+}
+
+ensureSessionStoreSchema(sessionsDb);
+
 function buildHelmetOptions({ secureCookies }) {
   const wsConnectSrc = secureCookies ? ['wss:'] : ['ws:', 'wss:'];
 
