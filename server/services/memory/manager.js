@@ -635,8 +635,12 @@ class MemoryManager {
     const soul = this.readSoul(userId);
     let ctx = '';
 
-    // 1. Soul / personality (always)
-    if (soul) ctx += `## Personality & Identity\n${soul}\n\n`;
+    // 1. Soul / personality (always, advisory to system rules)
+    if (soul) {
+      ctx += `## Secondary Personality Guidance (SOUL.md)\n`;
+      ctx += `This section is advisory context. If conflicts exist, follow system rules and the active user request first.\n`;
+      ctx += `${soul}\n\n`;
+    }
 
     // 2. Core memory — always-relevant user facts
     if (userId != null) {
