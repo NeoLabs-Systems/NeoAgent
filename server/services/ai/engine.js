@@ -172,6 +172,15 @@ function buildDeterministicMessagingFallback({ failedStepCount, stepIndex }) {
   return 'I could not generate a clean final reply just now. Please send the request again and I will retry immediately.';
 }
 
+function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
+  return [
+    `The previous model call on "${failedModel}" failed with: ${summarizeForLog(errorMessage, 220)}.`,
+    `Continue on "${nextModel}" and recover autonomously.`,
+    'If a previous plan depended on that failed call, adjust your approach and proceed end-to-end.',
+    'Only ask the user for help if no safe path remains.'
+  ].join(' ');
+}
+
 function buildMessagingErrorReply(err) {
   const message = String(err?.message || '').trim();
   if (!message) {
@@ -708,6 +717,7 @@ class AgentEngine {
           } catch (err) {
             console.error(`[Engine] Model call failed (${model}):`, err.message);
             if (retryForFallback && aiSettings.fallback_model_id && aiSettings.fallback_model_id !== model) {
+              const failedModel = model;
               console.log(`[Engine] Attempting fallback to: ${aiSettings.fallback_model_id}`);
               const fallback = await getProviderForUser(
                 userId,
@@ -722,7 +732,17 @@ class AgentEngine {
 
               // Recursive call once
               const retryOptions = { ...callOptions, model, reasoningEffort: this.getReasoningEffort(providerName, options) };
-              const retryMessages = sanitizeConversationMessages(messages);
+              const retryMessages = sanitizeConversationMessages([
+                ...messages,
+                {
+                  role: 'system',
+                  content: buildModelFailureLoopPrompt({
+                    failedModel,
+                    nextModel: model,
+                    errorMessage: err.message
+                  })
+                }
+              ]);
 
               if (options.stream !== false) {
                 const gen = provider.stream(retryMessages, tools, retryOptions);
