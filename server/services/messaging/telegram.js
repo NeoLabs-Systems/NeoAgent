@@ -1,7 +1,7 @@
 'use strict';
 
 const { BasePlatform } = require('./base');
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf } = require('telegraf');
 
 class TelegramPlatform extends BasePlatform {
   constructor(config = {}) {
@@ -23,15 +23,33 @@ class TelegramPlatform extends BasePlatform {
   async connect() {
     if (!this.botToken) throw new Error('Telegram bot token is required');
 
-    if (this._bot) { try { await this._bot.stopPolling(); } catch { } this._bot = null; }
+    if (this._bot) {
+      try { this._bot.stop('reconnect'); } catch {}
+      this._bot = null;
+    }
 
-    this._bot = new TelegramBot(this.botToken, { polling: true });
+    this._bot = new Telegraf(this.botToken);
+    this._bot.on('message', (ctx) => {
+      this._handleMessage(ctx).catch((err) => {
+        console.error('[Telegram] Message handler error:', err.message);
+      });
+    });
+    this._bot.catch((err) => {
+      console.error('[Telegram] Polling error:', err.message);
+      if (err.message && err.message.includes('401')) {
+        this.status = 'error';
+        this.emit('error', { message: 'Invalid bot token' });
+      }
+    });
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Telegram login timed out after 20 s')), 20000);
 
-      this._bot.getMe()
-        .then((me) => {
+      Promise.all([
+        this._bot.telegram.getMe(),
+        this._bot.launch({ dropPendingUpdates: false }),
+      ])
+        .then(([me]) => {
           clearTimeout(timeout);
           this._botUser = me;
           this.status = 'connected';
@@ -39,21 +57,18 @@ class TelegramPlatform extends BasePlatform {
           this.emit('connected');
           resolve({ status: 'connected' });
         })
-        .catch((err) => { clearTimeout(timeout); reject(err); });
-
-      this._bot.on('message', (msg) => this._handleMessage(msg));
-      this._bot.on('polling_error', (err) => {
-        console.error('[Telegram] Polling error:', err.message);
-        if (err.message && err.message.includes('401')) {
-          this.status = 'error';
-          this.emit('error', { message: 'Invalid bot token' });
-        }
-      });
+        .catch((err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
     });
   }
 
   async disconnect() {
-    if (this._bot) { try { await this._bot.stopPolling(); } catch { } this._bot = null; }
+    if (this._bot) {
+      try { this._bot.stop('manual'); } catch {}
+      this._bot = null;
+    }
     this.status = 'disconnected';
     this._botUser = null;
     this.emit('disconnected', { manual: true });
@@ -109,7 +124,9 @@ class TelegramPlatform extends BasePlatform {
     return [...(this._contextBuffers.get(rawChatId) || [])];
   }
 
-  async _handleMessage(msg) {
+  async _handleMessage(ctx) {
+    const msg = ctx?.message;
+    if (!msg) return;
     if (!msg.from || msg.from.is_bot) return;
 
     const isPrivate = msg.chat.type === 'private';
@@ -181,7 +198,7 @@ class TelegramPlatform extends BasePlatform {
     if (!this._bot || this.status !== 'connected') throw new Error('Telegram not connected');
 
     const telegramChatId = to.startsWith('dm_') ? to.slice(3) : to;
-    await this._bot.sendMessage(telegramChatId, content);
+    await this._bot.telegram.sendMessage(telegramChatId, content);
 
     if (this._botUser) {
       this._addToContext(telegramChatId, {
@@ -198,7 +215,7 @@ class TelegramPlatform extends BasePlatform {
     if (!this._bot || this.status !== 'connected') return;
     try {
       const id = chatId.startsWith('dm_') ? chatId.slice(3) : chatId;
-      await this._bot.sendChatAction(id, 'typing');
+      await this._bot.telegram.sendChatAction(id, 'typing');
     } catch {}
   }
 }

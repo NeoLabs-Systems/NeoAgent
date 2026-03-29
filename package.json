@@ -46,9 +46,9 @@
     "@google/generative-ai": "^0.24.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "baileys": "^6.7.1",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "better-sqlite3": "^11.8.1",
-    "connect-sqlite3": "^0.9.15",
+    "better-sqlite3-session-store": "^0.1.0",
     "cors": "^2.8.5",
     "discord.js": "^14.25.1",
     "dotenv": "^16.4.7",
@@ -59,13 +59,16 @@
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "node-pty": "^1.0.0",
-    "node-telegram-bot-api": "^0.67.0",
     "openai": "^4.85.4",
     "puppeteer-core": "^24.40.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "socket.io": "^4.8.1",
+    "telegraf": "^4.16.3",
     "telnyx": "^5.51.0",
     "uuid": "^11.1.0"
+  },
+  "overrides": {
+    "undici": "^6.24.0"
   }
 }

@@ -1,11 +1,14 @@
 'use strict';
 
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const Sqlite = require('better-sqlite3');
+const SQLiteStore = require('better-sqlite3-session-store')(session);
 const helmet = require('helmet');
 const cors = require('cors');
 const { DATA_DIR } = require('../../runtime/paths');
 const { logRequestSummary } = require('../utils/logger');
+
+const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
 
 function buildHelmetOptions({ secureCookies }) {
   const wsConnectSrc = secureCookies ? ['wss:'] : ['ws:', 'wss:'];
@@ -48,7 +51,13 @@ function buildHelmetOptions({ secureCookies }) {
 
 function createSessionMiddleware({ secureCookies }) {
   return session({
-    store: new SQLiteStore({ db: 'sessions.db', dir: DATA_DIR }),
+    store: new SQLiteStore({
+      client: sessionsDb,
+      expired: {
+        clear: true,
+        intervalMs: 15 * 60 * 1000,
+      },
+    }),
     secret: process.env.SESSION_SECRET || 'neoagent-dev-secret-change-me',
     name: 'neoagent.sid',
     resave: false,
