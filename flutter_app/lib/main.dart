@@ -671,7 +671,11 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void setSelectedSection(AppSection section) {
-    selectedSection = section;
+    if (section == AppSection.wearables && !showWearablesSection) {
+      selectedSection = AppSection.chat;
+    } else {
+      selectedSection = section;
+    }
     if (section == AppSection.devices) {
       unawaited(refreshDevices());
     }
@@ -2314,10 +2318,7 @@ class NeoAgentController extends ChangeNotifier {
   bool get showHealthSection =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  /// Whether to show the wearables section - currently always enabled but can be
-  /// restricted to native platforms if needed (like health section)
-  bool get showWearablesSection =>
-      true; // Could restrict to !kIsWeb if we want to disable on web like health
+  bool get showWearablesSection => !kIsWeb;
 
   Future<void> _syncBackgroundHealthConfig() async {
     final cookie = _backendClient.sessionCookie ?? '';
