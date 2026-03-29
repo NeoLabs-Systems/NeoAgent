@@ -36,7 +36,7 @@ class LimitlessProtocol extends WearableProtocol {
     }
 
     extractBatteryLevel(rawPayload, context = {}) {
-        // TODO: Determine battery format from Limitless protocol
+        // Battery format has not been observed in packet captures yet.
         return null;
     }
 

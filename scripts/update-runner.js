@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const {
@@ -90,6 +91,19 @@ function commandExists(cmd) {
   return sharedCommandExists((command, args) => run(command, args), cmd);
 }
 
+function parseJsonObject(value) {
+  if (!value || typeof value !== 'string') {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function latestGitTagVersion(pattern) {
   const res = run('git', ['tag', '--list', pattern, '--sort=-v:refname']);
   if (res.status !== 0) return null;
@@ -137,14 +151,7 @@ function resolvePreferredNpmTag(channel) {
   const tagsRes = run('npm', ['view', 'neoagent', 'dist-tags', '--json'], {
     env: withInstallEnv(),
   });
-  let distTags = {};
-  if (tagsRes.status === 0) {
-    try {
-      distTags = JSON.parse(tagsRes.stdout || '{}') || {};
-    } catch {
-      distTags = {};
-    }
-  }
+  const distTags = tagsRes.status === 0 ? parseJsonObject(tagsRes.stdout) : {};
 
   return choosePreferredNpmTagForChannel(channel, {
     latest: distTags.latest,

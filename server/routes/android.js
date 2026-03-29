@@ -42,151 +42,68 @@ const androidApkUpload = multer({
   },
 });
 
-router.get('/status', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.getStatus());
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+function getAndroidController(req) {
+  return req.app.locals.androidController;
+}
 
-router.post('/start', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.requestStartEmulator(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+function handleAndroidAction(action) {
+  return async (req, res) => {
+    try {
+      const controller = getAndroidController(req);
+      const result = await action(controller, req);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: sanitizeError(err) });
+    }
+  };
+}
 
-router.post('/stop', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.stopEmulator());
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.get('/status', handleAndroidAction((controller) => controller.getStatus()));
 
-router.get('/devices', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json({ devices: await controller.listDevices() });
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/start', handleAndroidAction((controller, req) =>
+  controller.requestStartEmulator(req.body || {})));
 
-router.post('/screenshot', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.screenshot(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/stop', handleAndroidAction((controller) => controller.stopEmulator()));
 
-router.post('/observe', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.observe(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.get('/devices', handleAndroidAction(async (controller) => ({
+  devices: await controller.listDevices(),
+})));
 
-router.post('/ui-dump', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.dumpUi(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/screenshot', handleAndroidAction((controller, req) =>
+  controller.screenshot(req.body || {})));
 
-router.get('/apps', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.listApps({
-      includeSystem: req.query.includeSystem === 'true',
-    }));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/observe', handleAndroidAction((controller, req) =>
+  controller.observe(req.body || {})));
 
-router.post('/open-app', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.openApp(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/ui-dump', handleAndroidAction((controller, req) =>
+  controller.dumpUi(req.body || {})));
 
-router.post('/open-intent', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.openIntent(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.get('/apps', handleAndroidAction((controller, req) =>
+  controller.listApps({ includeSystem: req.query.includeSystem === 'true' })));
 
-router.post('/tap', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.tap(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/open-app', handleAndroidAction((controller, req) =>
+  controller.openApp(req.body || {})));
 
-router.post('/long-press', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.longPress(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/open-intent', handleAndroidAction((controller, req) =>
+  controller.openIntent(req.body || {})));
 
-router.post('/type', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.type(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/tap', handleAndroidAction((controller, req) =>
+  controller.tap(req.body || {})));
 
-router.post('/swipe', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.swipe(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/long-press', handleAndroidAction((controller, req) =>
+  controller.longPress(req.body || {})));
 
-router.post('/press-key', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.pressKey(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/type', handleAndroidAction((controller, req) =>
+  controller.type(req.body || {})));
 
-router.post('/wait-for', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.waitFor(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/swipe', handleAndroidAction((controller, req) =>
+  controller.swipe(req.body || {})));
+
+router.post('/press-key', handleAndroidAction((controller, req) =>
+  controller.pressKey(req.body || {})));
+
+router.post('/wait-for', handleAndroidAction((controller, req) =>
+  controller.waitFor(req.body || {})));
 
 router.post('/install-apk', (req, res) => {
   androidApkUpload.single('apk')(req, res, async (uploadError) => {
@@ -222,13 +139,6 @@ router.post('/install-apk', (req, res) => {
   });
 });
 
-router.post('/shell', async (req, res) => {
-  try {
-    const controller = req.app.locals.androidController;
-    res.json(await controller.shell(req.body || {}));
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
+router.post('/shell', handleAndroidAction((controller, req) => controller.shell(req.body || {})));
 
 module.exports = router;
