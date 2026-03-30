@@ -67,11 +67,24 @@ class PacketSyncCoordinator {
   static final RegExp _mcuUploadSizePattern = RegExp(r'^MCU&U&(\d+)$');
   static final RegExp _mcuOffPattern = RegExp(r'^MCU&OFF$');
   static final RegExp _mcuModePattern = RegExp(r'^MCU&STE&(\d+)$');
+  static final RegExp _mcuRecModePattern = RegExp(r'^MCU&REC&([^&]+)$');
+  static final RegExp _mcuDeleteAckPattern = RegExp(r'^MCU&D$');
+  static final RegExp _mcuRecordingStartedPattern = RegExp(r'^MCU&STA&([^&]+)$');
+  static final RegExp _mcuRecordingStoppedPattern = RegExp(r'^MCU&STO$');
 
   bool get isSyncRequestInFlight => _syncRequestInFlight;
   String get lastSyncStatus => _lastSyncStatus;
   String get lastControlMessage => _lastControlMessage;
   int get listedFilesCount => _listedFiles.length;
+  List<PacketSyncFile> get listedFiles => List<PacketSyncFile>.unmodifiable(
+    _listedFiles.map(
+      (entry) => PacketSyncFile(
+        date: entry.date,
+        fileId: entry.fileId,
+        size: entry.size,
+      ),
+    ),
+  );
   int get uploadCommandsSent => _uploadCommandsSent;
   bool get isCallMode => _packetModeCode == 1;
   String get packetModeLabel => _packetModeCode == 1 ? 'Call' : 'Normal';
@@ -173,6 +186,50 @@ class PacketSyncCoordinator {
     if (modeMatch != null) {
       _packetModeCode = int.tryParse(modeMatch.group(1) ?? '') ?? 0;
       _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+      onSyncStateChanged();
+      return;
+    }
+
+    final recModeMatch = _mcuRecModePattern.firstMatch(text);
+    if (recModeMatch != null) {
+      final rawMode = (recModeMatch.group(1) ?? '').trim().toUpperCase();
+      if (rawMode == 'CALL') {
+        _packetModeCode = 1;
+        _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+        onSyncStateChanged();
+        return;
+      }
+      if (rawMode == 'NORMAL' || rawMode == 'NOR') {
+        _packetModeCode = 0;
+        _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+        onSyncStateChanged();
+        return;
+      }
+
+      // Other MCU&REC states (e.g. CON) are not mode toggles.
+      _lastSyncStatus = 'Recorder state: ${rawMode.toLowerCase()}';
+      onSyncStateChanged();
+      return;
+    }
+
+    final recordingStartedMatch = _mcuRecordingStartedPattern.firstMatch(text);
+    if (recordingStartedMatch != null) {
+      final recordingId = recordingStartedMatch.group(1) ?? '';
+      _lastSyncStatus = recordingId.isNotEmpty
+          ? 'Recording started ($recordingId)'
+          : 'Recording started';
+      onSyncStateChanged();
+      return;
+    }
+
+    if (_mcuRecordingStoppedPattern.hasMatch(text)) {
+      _lastSyncStatus = 'Recording stopped';
+      onSyncStateChanged();
+      return;
+    }
+
+    if (_mcuDeleteAckPattern.hasMatch(text)) {
+      _lastSyncStatus = 'Device confirmed file deletion';
       onSyncStateChanged();
       return;
     }
@@ -281,6 +338,73 @@ class PacketSyncCoordinator {
       _syncRequestInFlight = false;
       onSyncStateChanged();
     }
+  }
+
+  Future<void> cancelOfflineSync(
+    String deviceId, {
+    List<BleService>? services,
+  }) async {
+    final resolvedServices = await _resolveServices(deviceId, services);
+    if (resolvedServices.isEmpty) {
+      _lastSyncStatus = 'Cancel failed: no services';
+      onSyncStateChanged();
+      return;
+    }
+
+    final service = resolvedServices.firstWhere(
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      orElse: () => resolvedServices.first,
+    );
+
+    await _writeAscii(deviceId, service.uuid, 'APP&SHUT');
+    _lastSyncStatus = 'Requested sync cancellation';
+    onSyncStateChanged();
+  }
+
+  Future<void> deleteOfflineSyncFile(
+    String deviceId,
+    PacketSyncFile file, {
+    List<BleService>? services,
+  }) async {
+    final resolvedServices = await _resolveServices(deviceId, services);
+    if (resolvedServices.isEmpty) {
+      _lastSyncStatus = 'Delete failed: no services';
+      onSyncStateChanged();
+      return;
+    }
+
+    final service = resolvedServices.firstWhere(
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      orElse: () => resolvedServices.first,
+    );
+
+    await _writeAscii(deviceId, service.uuid, 'APP&D&${file.date}&${file.fileId}');
+    final key = '${file.date}|${file.fileId}';
+    _listedFileKeys.remove(key);
+    _listedFiles.removeWhere((entry) => entry.date == file.date && entry.fileId == file.fileId);
+    _lastSyncStatus = 'Requested delete: ${file.fileId}';
+    onSyncStateChanged();
+  }
+
+  Future<void> startRecordingFromApp(
+    String deviceId, {
+    List<BleService>? services,
+  }) async {
+    final resolvedServices = await _resolveServices(deviceId, services);
+    if (resolvedServices.isEmpty) {
+      _lastSyncStatus = 'Start recording failed: no services';
+      onSyncStateChanged();
+      return;
+    }
+
+    final service = resolvedServices.firstWhere(
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      orElse: () => resolvedServices.first,
+    );
+
+    await _writeAscii(deviceId, service.uuid, 'APP&STA');
+    _lastSyncStatus = 'Requested recording start';
+    onSyncStateChanged();
   }
 
   Future<void> _queryPacketMode(String deviceId, List<BleService> services) async {
@@ -514,6 +638,18 @@ class PacketSyncCoordinator {
 
 class _PacketListEntry {
   const _PacketListEntry({
+    required this.date,
+    required this.fileId,
+    required this.size,
+  });
+
+  final String date;
+  final String fileId;
+  final int size;
+}
+
+class PacketSyncFile {
+  const PacketSyncFile({
     required this.date,
     required this.fileId,
     required this.size,

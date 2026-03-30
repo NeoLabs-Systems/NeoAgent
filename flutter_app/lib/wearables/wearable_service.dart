@@ -72,10 +72,13 @@ class WearableService extends ChangeNotifier {
   String get packetSyncStatus => _packetSyncCoordinator.lastSyncStatus;
   String get packetSyncLastControlMessage => _packetSyncCoordinator.lastControlMessage;
   int get packetSyncListedFilesCount => _packetSyncCoordinator.listedFilesCount;
+  List<PacketSyncFile> get packetSyncListedFiles => _packetSyncCoordinator.listedFiles;
   int get packetSyncUploadCommandsSent => _packetSyncCoordinator.uploadCommandsSent;
   bool get packetCallModeEnabled => _packetSyncCoordinator.isCallMode;
   String get packetModeLabel => _packetSyncCoordinator.packetModeLabel;
   bool get packetModeSwitchInFlight => _packetSyncCoordinator.isModeSwitchInFlight;
+  bool get canStartPacketRecording =>
+      _connectedDevice != null && _deviceType == WearableDeviceType.packet;
 
   void _init() {
     _registerDefaultProtocols();
@@ -596,6 +599,33 @@ class WearableService extends ChangeNotifier {
       deviceId,
       reason: 'manual',
     );
+  }
+
+  Future<void> cancelPacketOfflineSync() async {
+    if (!canRequestOfflineSync || _connectedDevice == null) {
+      return;
+    }
+
+    await _packetSyncCoordinator.cancelOfflineSync(_connectedDevice!.deviceId);
+  }
+
+  Future<void> deletePacketOfflineFile(PacketSyncFile file) async {
+    if (!canRequestOfflineSync || _connectedDevice == null) {
+      return;
+    }
+
+    await _packetSyncCoordinator.deleteOfflineSyncFile(
+      _connectedDevice!.deviceId,
+      file,
+    );
+  }
+
+  Future<void> startPacketRecordingFromApp() async {
+    if (!canStartPacketRecording || _connectedDevice == null) {
+      return;
+    }
+
+    await _packetSyncCoordinator.startRecordingFromApp(_connectedDevice!.deviceId);
   }
 
   Future<void> setPacketCallMode(bool enabled) async {

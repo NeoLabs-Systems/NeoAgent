@@ -989,6 +989,40 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _refreshRecordingSessionById(String sessionId) async {
+    final trimmed = sessionId.trim();
+    if (trimmed.isEmpty || !isAuthenticated) {
+      return;
+    }
+
+    try {
+      final response = await _backendClient.fetchRecordingSession(
+        backendUrl,
+        trimmed,
+      );
+      final session = RecordingSessionItem.fromJson(_jsonMap(response['session']));
+      final existingIndex = recordingSessions.indexWhere((item) => item.id == session.id);
+      if (existingIndex >= 0) {
+        recordingSessions = <RecordingSessionItem>[
+          ...recordingSessions.sublist(0, existingIndex),
+          session,
+          ...recordingSessions.sublist(existingIndex + 1),
+        ];
+      } else {
+        recordingSessions = <RecordingSessionItem>[
+          session,
+          ...recordingSessions,
+        ];
+      }
+
+      await _recordingBridge.refreshStatus();
+      notifyListeners();
+    } catch (_) {
+      // Session may have been pruned or unavailable; fall back to full refresh.
+      await refreshRecordings();
+    }
+  }
+
   Future<void> refreshDevices() async {
     if (!isAuthenticated || isRefreshingDevices) {
       return;
@@ -2472,6 +2506,15 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage =
           payload['error']?.toString() ?? 'Messaging error. Please try again.';
       notifyListeners();
+    });
+    socket.on('recordings:updated', (dynamic data) {
+      final payload = _jsonMap(data);
+      final sessionId = payload['sessionId']?.toString() ?? '';
+      if (sessionId.isEmpty) {
+        unawaited(refreshRecordings());
+        return;
+      }
+      unawaited(_refreshRecordingSessionById(sessionId));
     });
     socket.on('run:start', (dynamic data) {
       final payload = _jsonMap(data);
@@ -4766,6 +4809,19 @@ class WearablesPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = controller.wearableService;
+
+    String formatPacketFileSize(int bytes) {
+      if (bytes < 1024) {
+        return '$bytes B';
+      }
+      final kb = bytes / 1024;
+      if (kb < 1024) {
+        return '${kb.toStringAsFixed(kb >= 100 ? 0 : 1)} KB';
+      }
+      final mb = kb / 1024;
+      return '${mb.toStringAsFixed(mb >= 100 ? 0 : 1)} MB';
+    }
+
     return ListenableBuilder(
       listenable: service,
       builder: (context, _) {
@@ -4912,6 +4968,15 @@ class WearablesPanel extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton.icon(
+                            onPressed: service.cancelPacketOfflineSync,
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('Cancel sync'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -4933,6 +4998,68 @@ class WearablesPanel extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (service.packetSyncListedFiles.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 12),
+                          const Text(
+                            'On-device sync files',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...service.packetSyncListedFiles.map((file) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _bgCard,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: _borderLight),
+                                ),
+                                child: Row(
+                                  children: <Widget>[
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Text(
+                                            file.fileId,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${file.date} • ${formatPacketFileSize(file.size)}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: _textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () => service.deletePacketOfflineFile(file),
+                                      icon: const Icon(Icons.delete_outline, size: 18),
+                                      tooltip: 'Delete from device',
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                         if (service.packetSyncLastControlMessage.isNotEmpty) ...<Widget>[
                           const SizedBox(height: 12),
                           Container(
@@ -5143,6 +5270,8 @@ class RecordingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final runtime = controller.recordingRuntime;
+    final wearableService = controller.wearableService;
+    final packetConnected = wearableService.canStartPacketRecording;
 
     return ListView(
       padding: _pagePadding(context),
@@ -5195,9 +5324,19 @@ class RecordingsPanel extends StatelessWidget {
                         onPressed:
                             controller.isStartingRecording || runtime.active
                             ? null
-                            : controller.startBackgroundRecording,
-                        icon: const Icon(Icons.mic_none_outlined),
-                        label: const Text('Start background mic'),
+                            : (packetConnected
+                                  ? wearableService.startPacketRecordingFromApp
+                                  : controller.startBackgroundRecording),
+                        icon: Icon(
+                          packetConnected
+                              ? Icons.watch_outlined
+                              : Icons.mic_none_outlined,
+                        ),
+                        label: Text(
+                          packetConnected
+                              ? 'Start recording on wearable'
+                              : 'Start background mic',
+                        ),
                       ),
                     if (runtime.supportsBackgroundMic && runtime.active)
                       OutlinedButton.icon(
