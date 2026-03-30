@@ -60,6 +60,7 @@
     "node-cron": "^3.0.3",
     "node-pty": "^1.0.0",
     "openai": "^4.85.4",
+    "proper-lockfile": "^4.1.2",
     "puppeteer-core": "^24.40.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",

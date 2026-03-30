@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:universal_ble/universal_ble.dart';
 import '../src/backend_client.dart';
+import '../src/wearable_background_bridge.dart';
 import 'models.dart';
 import 'packet/sync_coordinator.dart';
 import 'pending_chunk_store.dart';
@@ -13,6 +14,8 @@ import 'protocols/base.dart';
 const _connectionHealthCheckInterval = Duration(seconds: 30);
 const _baseReconnectDelayMs = 1000;
 const _maxConnectRetries = 5;
+const _autoReconnectScanInterval = Duration(seconds: 12);
+final RegExp _packetRecordingStopControlPattern = RegExp(r'^MCU&STO\b');
 
 class WearableService extends ChangeNotifier {
   WearableService({
@@ -24,12 +27,14 @@ class WearableService extends ChangeNotifier {
       ensureDeviceRegistered: _ensureDeviceRegistered,
       uploadSyncPayload: _uploadPacketSyncPayload,
       onSyncStateChanged: notifyListeners,
+      appSk: const String.fromEnvironment('NEOAGENT_PACKET_APP_SK'),
     );
     _init();
   }
 
   final BackendClient _backendClient;
   final ValueGetter<String> _getBackendUrl;
+  final WearableBackgroundBridge _wearableBackgroundBridge = WearableBackgroundBridge();
 
   bool _isScanning = false;
   bool get isScanning => _isScanning;
@@ -42,6 +47,15 @@ class WearableService extends ChangeNotifier {
 
   BleDevice? _connectedDevice;
   BleDevice? get connectedDevice => _connectedDevice;
+  String? _connectingDeviceId;
+  String? get connectingDeviceId => _connectingDeviceId;
+  bool _backgroundBridgeActive = false;
+  bool get backgroundBridgeActive => _backgroundBridgeActive;
+  String? _backgroundBridgeDeviceId;
+  String? get backgroundBridgeDeviceId => _backgroundBridgeDeviceId;
+  String? _preferredReconnectDeviceId;
+  Timer? _autoReconnectTimer;
+  bool _autoReconnectEnabled = false;
 
   BleConnectionState _connectionState = BleConnectionState.disconnected;
   BleConnectionState get connectionState => _connectionState;
@@ -77,17 +91,26 @@ class WearableService extends ChangeNotifier {
   bool get packetCallModeEnabled => _packetSyncCoordinator.isCallMode;
   String get packetModeLabel => _packetSyncCoordinator.packetModeLabel;
   bool get packetModeSwitchInFlight => _packetSyncCoordinator.isModeSwitchInFlight;
+  bool get packetRecordingActive => _packetSyncCoordinator.isRecordingActive;
+  String get packetActiveRecordingId => _packetSyncCoordinator.activeRecordingId;
   bool get canStartPacketRecording =>
       _connectedDevice != null && _deviceType == WearableDeviceType.packet;
 
   void _init() {
     _registerDefaultProtocols();
     unawaited(_restorePendingWearableQueue());
+    unawaited(_restoreBackgroundBridgeState());
 
     UniversalBle.onScanResult = (device) {
       debugPrint("Scan result: ${device.name} (${device.deviceId})");
       
       _discoveredDevices[device.deviceId] = device;
+
+      if (_shouldAutoReconnectTo(device)) {
+        debugPrint('Auto-reconnect candidate found: ${device.deviceId}');
+        unawaited(_attemptAutoReconnect(device));
+      }
+
       notifyListeners();
     };
 
@@ -97,9 +120,12 @@ class WearableService extends ChangeNotifier {
         if (!isConnected) {
           debugPrint("Device disconnected: $deviceId");
           _clearConnectionState();
+          _maybeStartAutoReconnect();
         } else {
           _connectionState = BleConnectionState.connected;
           _lastSuccessfulCommunication = DateTime.now();
+          _connectingDeviceId = null;
+          _stopAutoReconnectLoop();
           _startConnectionHealthMonitoring();
         }
         notifyListeners();
@@ -116,6 +142,10 @@ class WearableService extends ChangeNotifier {
           final packetProtocol = _getProtocolForDevice(WearableDeviceType.packet);
           if (packetProtocol != null) {
             _packetSyncCoordinator.observeControlPayload(value);
+
+            if (_isPacketRecordingStopControl(value)) {
+              unawaited(_finalizeActiveWearableRecording(deviceId));
+            }
 
             final capturedForReconnectSync = _packetSyncCoordinator.captureSyncChunk(
               characteristicUuid,
@@ -432,11 +462,29 @@ class WearableService extends ChangeNotifier {
   }
 
   Future<void> connect(BleDevice device) async {
+    return _connectInternal(device, fromAutoReconnect: false);
+  }
+
+  Future<void> _connectInternal(BleDevice device, {required bool fromAutoReconnect}) async {
     try {
+      if (_connectionState == BleConnectionState.connecting) {
+        if (_connectingDeviceId == device.deviceId) {
+          return;
+        }
+        debugPrint('Ignoring connect for ${device.deviceId}; another connect is in flight.');
+        return;
+      }
+
       debugPrint("Connecting to ${device.name} (${device.deviceId})...");
 
       _deviceType = _identifyDeviceType(device.name ?? '');
       debugPrint("Identified device type: $_deviceType");
+
+      _connectingDeviceId = device.deviceId;
+      if (!fromAutoReconnect) {
+        _preferredReconnectDeviceId = device.deviceId;
+        _autoReconnectEnabled = true;
+      }
 
       await UniversalBle.stopScan();
       _isScanning = false;
@@ -515,8 +563,13 @@ class WearableService extends ChangeNotifier {
 
       _connectedDevice = device;
       _connectionState = BleConnectionState.connected;
+      _connectingDeviceId = null;
+      _preferredReconnectDeviceId = device.deviceId;
+      _autoReconnectEnabled = true;
+      _stopAutoReconnectLoop();
 
       await _subscribeToAudioCharacteristic(device.deviceId, discoveredServices);
+  unawaited(_ensureNativeBackgroundBridge(autoStartRecording: false));
 
       if (_deviceType == WearableDeviceType.packet) {
         await _packetSyncCoordinator.onConnected(device.deviceId, discoveredServices);
@@ -525,10 +578,63 @@ class WearableService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint("Error connecting to device: $e");
+      _connectingDeviceId = null;
       _clearConnectionState();
+      _maybeStartAutoReconnect();
       notifyListeners();
       rethrow;
     }
+  }
+
+  bool _shouldAutoReconnectTo(BleDevice device) {
+    if (!_autoReconnectEnabled) {
+      return false;
+    }
+    if (_connectionState == BleConnectionState.connecting ||
+        _connectionState == BleConnectionState.connected) {
+      return false;
+    }
+    final preferred = _preferredReconnectDeviceId;
+    if (preferred == null || preferred.isEmpty) {
+      return false;
+    }
+    return device.deviceId == preferred;
+  }
+
+  Future<void> _attemptAutoReconnect(BleDevice device) async {
+    try {
+      await _connectInternal(device, fromAutoReconnect: true);
+    } catch (e) {
+      debugPrint('Auto-reconnect attempt failed for ${device.deviceId}: $e');
+    }
+  }
+
+  void _maybeStartAutoReconnect() {
+    if (!_autoReconnectEnabled ||
+        _preferredReconnectDeviceId == null ||
+        _preferredReconnectDeviceId!.isEmpty) {
+      return;
+    }
+
+    _autoReconnectTimer ??= Timer.periodic(_autoReconnectScanInterval, (_) {
+      if (_connectionState == BleConnectionState.connected ||
+          _connectionState == BleConnectionState.connecting) {
+        return;
+      }
+      if (_isScanning) {
+        return;
+      }
+      unawaited(startScan());
+    });
+
+    if (!_isScanning) {
+      unawaited(startScan());
+    }
+  }
+
+  void _stopAutoReconnectLoop() {
+    _autoReconnectTimer?.cancel();
+    _autoReconnectTimer = null;
   }
 
   Future<void> _subscribeToAudioCharacteristic(String deviceId, List<BleService> services) async {
@@ -550,10 +656,14 @@ class WearableService extends ChangeNotifier {
     }
 
     final normalizedServiceUuid = serviceUuid.toLowerCase().replaceAll('-', '');
-    final service = services.firstWhere(
+    final serviceMatches = services.where(
       (s) => s.uuid.toLowerCase().replaceAll('-', '') == normalizedServiceUuid,
-      orElse: () => services.first,
     );
+    if (serviceMatches.isEmpty) {
+      debugPrint('Service UUID not found on device: $serviceUuid');
+      return;
+    }
+    final service = serviceMatches.first;
 
     final audioCharUuid = protocol.audioCharUuid;
     if (audioCharUuid != null) {
@@ -625,7 +735,119 @@ class WearableService extends ChangeNotifier {
       return;
     }
 
+    if (!kIsWeb && Platform.isAndroid) {
+      final started = await _ensureNativeBackgroundBridge(autoStartRecording: true);
+      if (started) {
+        return;
+      }
+    }
+
     await _packetSyncCoordinator.startRecordingFromApp(_connectedDevice!.deviceId);
+  }
+
+  Future<void> stopPacketRecordingFromApp() async {
+    if (!canStartPacketRecording || _connectedDevice == null) {
+      return;
+    }
+
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        await _wearableBackgroundBridge.stopBackgroundBridge(sendStop: true);
+      } catch (e) {
+        debugPrint('Failed to stop native wearable bridge: $e');
+      }
+    }
+
+    await _packetSyncCoordinator.stopRecordingFromApp(_connectedDevice!.deviceId);
+    await _finalizeActiveWearableRecording(_connectedDevice!.deviceId);
+  }
+
+  bool _isPacketRecordingStopControl(Uint8List payload) {
+    try {
+      final text = String.fromCharCodes(payload).replaceAll('\u0000', '').trim();
+      if (text.isEmpty) {
+        return false;
+      }
+      return _packetRecordingStopControlPattern.hasMatch(text);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _finalizeActiveWearableRecording(String deviceId) async {
+    try {
+      final response = await _backendClient.stopWearableLiveStream(
+        _getBackendUrl(),
+        deviceId,
+      );
+      debugPrint('Requested wearable live stream finalize: $response');
+    } catch (e) {
+      debugPrint('Failed to finalize wearable live stream: $e');
+    }
+  }
+
+  Future<bool> _ensureNativeBackgroundBridge({
+    required bool autoStartRecording,
+  }) async {
+    if (kIsWeb || !Platform.isAndroid) {
+      return false;
+    }
+    if (_connectedDevice == null || _deviceType != WearableDeviceType.packet) {
+      return false;
+    }
+
+    final sessionCookie = _backendClient.sessionCookie ?? '';
+    if (sessionCookie.isEmpty) {
+      return false;
+    }
+
+    try {
+      await _wearableBackgroundBridge.startBackgroundBridge(
+        backendUrl: _getBackendUrl(),
+        sessionCookie: sessionCookie,
+        macAddress: _connectedDevice!.deviceId,
+        deviceName: _connectedDevice!.name ?? 'Wearable Device',
+        protocolId: WearableProtocols.heypocket,
+        serviceUuid: WearableServiceUuids.packetServiceUuid,
+        audioNotifyUuid: WearableServiceUuids.packetAudioTx,
+        controlNotifyUuid: WearableServiceUuids.packetControlTx,
+        controlWriteUuid: WearableServiceUuids.packetControlRx,
+        autoStartRecording: autoStartRecording,
+      );
+      _backgroundBridgeActive = true;
+      _backgroundBridgeDeviceId = _connectedDevice?.deviceId;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Failed to start native wearable bridge: $e');
+      return false;
+    }
+  }
+
+  Future<void> _restoreBackgroundBridgeState() async {
+    if (kIsWeb || !Platform.isAndroid) {
+      return;
+    }
+
+    try {
+      final status = await _wearableBackgroundBridge.backgroundBridgeStatus();
+      final active = status['active'] == true;
+      final deviceId = status['macAddress']?.toString();
+
+      _backgroundBridgeActive = active;
+      _backgroundBridgeDeviceId =
+          deviceId != null && deviceId.trim().isNotEmpty ? deviceId.trim() : null;
+
+      if (active && _backgroundBridgeDeviceId != null) {
+        _preferredReconnectDeviceId = _backgroundBridgeDeviceId;
+        _autoReconnectEnabled = true;
+        _maybeStartAutoReconnect();
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to restore wearable background bridge status: $e');
+    }
   }
 
   Future<void> setPacketCallMode(bool enabled) async {
@@ -694,7 +916,6 @@ class WearableService extends ChangeNotifier {
     _connectionState = BleConnectionState.disconnected;
     _lastSuccessfulCommunication = null;
     _registeredDevices.clear();
-    _packetSyncCoordinator.dispose();
     _stopConnectionHealthMonitoring();
     if (clearDiscoveredDevices) {
       _discoveredDevices.clear();
@@ -736,6 +957,19 @@ class WearableService extends ChangeNotifier {
       } catch (e) {
         debugPrint("Error disconnecting: $e");
       }
+      if (!kIsWeb && Platform.isAndroid) {
+        try {
+          await _wearableBackgroundBridge.stopBackgroundBridge(sendStop: false);
+          _backgroundBridgeActive = false;
+          _backgroundBridgeDeviceId = null;
+        } catch (e) {
+          debugPrint('Error stopping native wearable bridge: $e');
+        }
+      }
+      _autoReconnectEnabled = false;
+      _preferredReconnectDeviceId = null;
+      _connectingDeviceId = null;
+      _stopAutoReconnectLoop();
       _clearConnectionState();
       notifyListeners();
     }
@@ -770,6 +1004,7 @@ class WearableService extends ChangeNotifier {
   @override
   void dispose() {
     _stopConnectionHealthMonitoring();
+    _stopAutoReconnectLoop();
     _packetSyncCoordinator.dispose();
     UniversalBle.onScanResult = null;
     UniversalBle.onConnectionChange = null;

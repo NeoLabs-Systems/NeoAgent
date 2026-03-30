@@ -73,8 +73,21 @@
             android:name=".recording.RecordingForegroundService"
             android:exported="false"
             android:foregroundServiceType="microphone|connectedDevice" />
+        <service
+            android:name=".wearablebg.WearableBleForegroundService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="connectedDevice|dataSync" />
         <receiver
             android:name=".recording.RecordingBootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".wearablebg.WearableBridgeBootReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>

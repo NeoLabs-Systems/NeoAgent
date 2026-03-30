@@ -11,7 +11,8 @@ class PacketSyncCoordinator {
     required this.ensureDeviceRegistered,
     required this.uploadSyncPayload,
     required this.onSyncStateChanged,
-  });
+    String? appSk,
+  }) : _appSk = (appSk ?? '').trim();
 
   static const Duration _reconnectSyncWindow = Duration(seconds: 35);
   static const int _reconnectSyncMinBytes = 2048;
@@ -21,7 +22,6 @@ class PacketSyncCoordinator {
   static const Duration _syncListCollectDelay = Duration(seconds: 2);
   static const int _syncListDays = 12;
   static const int _syncUploadMaxFiles = 5;
-  static const String _defaultAppSk = '3TMd6HawHvRl2nhg';
 
   static const List<String> _packetInitHexSequence = [
     '010183014f000200030a313737343434383234360400100e0500',
@@ -49,8 +49,9 @@ class PacketSyncCoordinator {
   final Future<void> Function(String deviceId) ensureDeviceRegistered;
   final Future<void> Function(String deviceId, Uint8List payload) uploadSyncPayload;
   final VoidCallback onSyncStateChanged;
+  final String _appSk;
 
-  final BytesBuilder _reconnectSyncBuffer = BytesBuilder(copy: false);
+  final BytesBuilder _reconnectSyncBuffer = BytesBuilder(copy: true);
   Timer? _reconnectSyncTimer;
   bool _reconnectSyncActive = false;
   bool _syncRequestInFlight = false;
@@ -61,6 +62,9 @@ class PacketSyncCoordinator {
   int _uploadCommandsSent = 0;
   int _packetModeCode = 0;
   bool _modeSwitchInFlight = false;
+  bool _recordingActive = false;
+  String _activeRecordingId = '';
+  String? _pendingDeleteKey;
 
   static final RegExp _controlPrefix = RegExp(r'^(MCU|APP|BLE|SYS)&');
   static final RegExp _mcuFilePattern = RegExp(r'^MCU&F&([^&]+)&([^&]+)&(\d+)$');
@@ -90,6 +94,8 @@ class PacketSyncCoordinator {
   bool get isCallMode => _packetModeCode == 1;
   String get packetModeLabel => _packetModeCode == 1 ? 'Call' : 'Normal';
   bool get isModeSwitchInFlight => _modeSwitchInFlight;
+  bool get isRecordingActive => _recordingActive;
+  String get activeRecordingId => _activeRecordingId;
 
   Future<void> onConnected(String deviceId, List<BleService> services) async {
     await _sendPacketInitSequence(deviceId, services);
@@ -205,7 +211,7 @@ class PacketSyncCoordinator {
         return;
       }
 
-      // Other MCU&REC states (e.g. CON) are not mode toggles.
+      // Other MCU&REC states that are not NORMAL/NOR/CON/CALL are not mode toggles.
       _lastSyncStatus = 'Recorder state: ${rawMode.toLowerCase()}';
       onSyncStateChanged();
     }
@@ -227,6 +233,8 @@ class PacketSyncCoordinator {
     final recordingStartedMatch = _mcuRecordingStartedPattern.firstMatch(text);
     if (recordingStartedMatch != null) {
       final recordingId = recordingStartedMatch.group(1) ?? '';
+      _recordingActive = true;
+      _activeRecordingId = recordingId;
       _lastSyncStatus = recordingId.isNotEmpty
           ? 'Recording started ($recordingId)'
           : 'Recording started';
@@ -235,12 +243,20 @@ class PacketSyncCoordinator {
     }
 
     if (_mcuRecordingStoppedPattern.hasMatch(text)) {
+      _recordingActive = false;
+      _activeRecordingId = '';
       _lastSyncStatus = 'Recording stopped';
       onSyncStateChanged();
       return;
     }
 
     if (_mcuDeleteAckPattern.hasMatch(text)) {
+      final pendingDeleteKey = _pendingDeleteKey;
+      if (pendingDeleteKey != null) {
+        _listedFileKeys.remove(pendingDeleteKey);
+        _listedFiles.removeWhere((entry) => '${entry.date}|${entry.fileId}' == pendingDeleteKey);
+        _pendingDeleteKey = null;
+      }
       _lastSyncStatus = 'Device confirmed file deletion';
       onSyncStateChanged();
       return;
@@ -264,6 +280,7 @@ class PacketSyncCoordinator {
     _modeSwitchInFlight = true;
     _lastSyncStatus = 'Switching mode...';
     onSyncStateChanged();
+    final previousModeCode = _packetModeCode;
 
     try {
       final resolvedServices = await _resolveServices(deviceId, services);
@@ -278,11 +295,12 @@ class PacketSyncCoordinator {
       );
 
       final modeValue = enableCallMode ? 1 : 0;
-      await _writeAscii(deviceId, service.uuid, 'APP&STE&$modeValue');
-      await _writeAscii(deviceId, service.uuid, 'APP&STE');
+      await _writeAsciiChecked(deviceId, service.uuid, 'APP&STE&$modeValue');
+      await _writeAsciiChecked(deviceId, service.uuid, 'APP&STE');
       _packetModeCode = modeValue;
       _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
     } catch (e) {
+      _packetModeCode = previousModeCode;
       _lastSyncStatus = 'Mode switch failed';
       debugPrint('Packet mode switch failed: $e');
     } finally {
@@ -391,9 +409,7 @@ class PacketSyncCoordinator {
     );
 
     await _writeAscii(deviceId, service.uuid, 'APP&D&${file.date}&${file.fileId}');
-    final key = '${file.date}|${file.fileId}';
-    _listedFileKeys.remove(key);
-    _listedFiles.removeWhere((entry) => entry.date == file.date && entry.fileId == file.fileId);
+    _pendingDeleteKey = '${file.date}|${file.fileId}';
     _lastSyncStatus = 'Requested delete: ${file.fileId}';
     onSyncStateChanged();
   }
@@ -416,6 +432,27 @@ class PacketSyncCoordinator {
 
     await _writeAscii(deviceId, service.uuid, 'APP&STA');
     _lastSyncStatus = 'Requested recording start';
+    onSyncStateChanged();
+  }
+
+  Future<void> stopRecordingFromApp(
+    String deviceId, {
+    List<BleService>? services,
+  }) async {
+    final resolvedServices = await _resolveServices(deviceId, services);
+    if (resolvedServices.isEmpty) {
+      _lastSyncStatus = 'Stop recording failed: no services';
+      onSyncStateChanged();
+      return;
+    }
+
+    final service = resolvedServices.firstWhere(
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      orElse: () => resolvedServices.first,
+    );
+
+    await _writeAscii(deviceId, service.uuid, 'APP&STO');
+    _lastSyncStatus = 'Requested recording stop';
     onSyncStateChanged();
   }
 
@@ -461,11 +498,25 @@ class PacketSyncCoordinator {
   ) async {
     final time = _formatPacketTime(DateTime.now());
     for (final template in _officialSyncPreambleCommands) {
+      if (template.contains('{sk}') && _appSk.isEmpty) {
+        continue;
+      }
       final cmd = template
-          .replaceAll('{sk}', _defaultAppSk)
+          .replaceAll('{sk}', _appSk)
           .replaceAll('{time}', time);
       await _writeAscii(deviceId, service.uuid, cmd);
     }
+  }
+
+  Future<void> _writeAsciiChecked(String deviceId, String serviceUuid, String cmd) async {
+    await UniversalBle.write(
+      deviceId,
+      serviceUuid,
+      WearableServiceUuids.packetControlRx,
+      Uint8List.fromList(cmd.codeUnits),
+      withoutResponse: false,
+    );
+    await Future.delayed(_syncCommandGap);
   }
 
   Future<void> _requestRecentLists(

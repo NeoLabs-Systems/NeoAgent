@@ -248,8 +248,18 @@ class RecordingForegroundService : Service() {
         if (!audioTemp.renameTo(audioFile)) {
             throw IllegalStateException("Failed to persist recording chunk audio file.")
         }
-        if (!metaTemp.renameTo(metaFile)) {
-            throw IllegalStateException("Failed to persist recording chunk metadata file.")
+        try {
+            if (!metaTemp.renameTo(metaFile)) {
+                if (audioFile.exists() && !audioFile.delete()) {
+                    android.util.Log.w(TAG, "Failed to roll back persisted audio file after metadata rename failure: ${audioFile.absolutePath}")
+                }
+                throw IllegalStateException("Failed to persist recording chunk metadata file.")
+            }
+        } catch (err: Exception) {
+            if (audioFile.exists() && !audioFile.delete()) {
+                android.util.Log.w(TAG, "Failed to roll back persisted audio file after metadata persistence error: ${audioFile.absolutePath}")
+            }
+            throw err
         }
 
         config = current.copy(nextSequence = sequence + 1)
@@ -279,6 +289,9 @@ class RecordingForegroundService : Service() {
                             errorMessage = "Missing audio file for pending chunk ${metaFile.nameWithoutExtension}",
                         )
                         stateStore.saveConfig(config!!)
+                    }
+                    if (!metaFile.delete()) {
+                        android.util.Log.w(TAG, "Failed to remove orphan metadata file: ${metaFile.absolutePath}")
                     }
                     continue
                 }
@@ -503,6 +516,7 @@ class RecordingForegroundService : Service() {
     }
 
     companion object {
+        private const val TAG = "RecordingForeground"
         private const val ACTION_START = "neoagent.recordings.START"
         private const val ACTION_RESTORE = "neoagent.recordings.RESTORE"
         private const val ACTION_PAUSE = "neoagent.recordings.PAUSE"

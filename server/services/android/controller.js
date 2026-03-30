@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 const https = require('https');
 const { spawn, spawnSync } = require('child_process');
+const lockfile = require('proper-lockfile');
 const { CLIExecutor } = require('../cli/executor');
 const { DATA_DIR, RUNTIME_HOME } = require('../../../runtime/paths');
 const { findBestNode, parseUiDump, summarizeNode } = require('./uia');
@@ -62,6 +63,18 @@ function resolveStateFile(scopeKey) {
 }
 
 function readOwnership() {
+  return withOwnershipLock(() => {
+    return readOwnershipUnlocked();
+  });
+}
+
+function writeOwnership(nextOwners) {
+  withOwnershipLock(() => {
+    writeOwnershipUnlocked(nextOwners);
+  });
+}
+
+function readOwnershipUnlocked() {
   try {
     const parsed = JSON.parse(fs.readFileSync(OWNERSHIP_FILE, 'utf8'));
     if (!parsed || typeof parsed !== 'object') {
@@ -73,8 +86,30 @@ function readOwnership() {
   }
 }
 
-function writeOwnership(nextOwners) {
-  fs.writeFileSync(OWNERSHIP_FILE, JSON.stringify(nextOwners, null, 2));
+function writeOwnershipUnlocked(nextOwners) {
+  const tempPath = `${OWNERSHIP_FILE}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(nextOwners, null, 2));
+  fs.renameSync(tempPath, OWNERSHIP_FILE);
+}
+
+function withOwnershipLock(work) {
+  fs.mkdirSync(path.dirname(OWNERSHIP_FILE), { recursive: true });
+  if (!fs.existsSync(OWNERSHIP_FILE)) {
+    fs.writeFileSync(OWNERSHIP_FILE, '{}');
+  }
+  const release = lockfile.lockSync(OWNERSHIP_FILE, {
+    realpath: false,
+    retries: {
+      retries: 3,
+      minTimeout: 20,
+      maxTimeout: 120,
+    },
+  });
+  try {
+    return work();
+  } finally {
+    release();
+  }
 }
 
 function normalizeOwnerKey(userId) {
@@ -672,15 +707,16 @@ class AndroidController {
   #releaseSerialOwnership(serial) {
     const normalizedSerial = String(serial || '').trim();
     if (!normalizedSerial) return;
+    withOwnershipLock(() => {
+      const owners = readOwnershipUnlocked();
+      const current = owners[normalizedSerial];
+      if (!current || current.ownerKey !== this.ownerKey) {
+        return;
+      }
 
-    const owners = this.#readOwnership();
-    const current = owners[normalizedSerial];
-    if (!current || current.ownerKey !== this.ownerKey) {
-      return;
-    }
-
-    delete owners[normalizedSerial];
-    this.#writeOwnership(owners);
+      delete owners[normalizedSerial];
+      writeOwnershipUnlocked(owners);
+    });
   }
 
   #claimSerial(serial) {
@@ -689,18 +725,20 @@ class AndroidController {
       throw new Error('Cannot claim an empty Android serial.');
     }
 
-    const owners = this.#readOwnership();
-    const existing = owners[normalizedSerial];
-    if (existing && existing.ownerKey && existing.ownerKey !== this.ownerKey) {
-      throw new Error(`Android device ${normalizedSerial} is currently reserved by another user.`);
-    }
+    withOwnershipLock(() => {
+      const owners = readOwnershipUnlocked();
+      const existing = owners[normalizedSerial];
+      if (existing && existing.ownerKey && existing.ownerKey !== this.ownerKey) {
+        throw new Error(`Android device ${normalizedSerial} is currently reserved by another user.`);
+      }
 
-    owners[normalizedSerial] = {
-      ownerKey: this.ownerKey,
-      ownerUserId: this.userId,
-      updatedAt: new Date().toISOString(),
-    };
-    this.#writeOwnership(owners);
+      owners[normalizedSerial] = {
+        ownerKey: this.ownerKey,
+        ownerUserId: this.userId,
+        updatedAt: new Date().toISOString(),
+      };
+      writeOwnershipUnlocked(owners);
+    });
   }
 
   #isSerialOwnedByAnother(serial, owners = null) {
@@ -718,29 +756,33 @@ class AndroidController {
     }
 
     const claimIfUnowned = options.claimIfUnowned !== false;
-    const owners = this.#readOwnership();
-    const existing = owners[normalizedSerial];
+    withOwnershipLock(() => {
+      const owners = readOwnershipUnlocked();
+      const existing = owners[normalizedSerial];
 
-    if (existing?.ownerKey && existing.ownerKey !== this.ownerKey) {
-      throw new Error(`Android device ${normalizedSerial} is currently reserved by another user.`);
-    }
+      if (existing?.ownerKey && existing.ownerKey !== this.ownerKey) {
+        throw new Error(`Android device ${normalizedSerial} is currently reserved by another user.`);
+      }
 
-    if (claimIfUnowned) {
-      owners[normalizedSerial] = {
-        ownerKey: this.ownerKey,
-        ownerUserId: this.userId,
-        updatedAt: new Date().toISOString(),
-      };
-      this.#writeOwnership(owners);
-    }
+      if (claimIfUnowned) {
+        owners[normalizedSerial] = {
+          ownerKey: this.ownerKey,
+          ownerUserId: this.userId,
+          updatedAt: new Date().toISOString(),
+        };
+        writeOwnershipUnlocked(owners);
+      }
+    });
   }
 
   #pruneOwnership(devices = []) {
-    const owners = this.#readOwnership();
-    const { next, changed } = pruneOwnershipByDevices(owners, devices);
-    if (changed) {
-      this.#writeOwnership(next);
-    }
+    withOwnershipLock(() => {
+      const owners = readOwnershipUnlocked();
+      const { next, changed } = pruneOwnershipByDevices(owners, devices);
+      if (changed) {
+        writeOwnershipUnlocked(next);
+      }
+    });
   }
 
   #registerProcessCleanup() {

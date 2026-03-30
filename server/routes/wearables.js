@@ -103,18 +103,32 @@ router.post('/:macAddress/status', (req, res) => {
   }
 });
 
+router.post('/:macAddress/stop-live', (req, res) => {
+  try {
+    const manager = req.app.locals.wearableManager;
+    const ended = manager.stopLiveStream(req.session.userId, req.params.macAddress, 'wearable_stopped');
+    res.json({ success: true, ended });
+  } catch (err) {
+    const is404 = /not found/i.test(err.message);
+    res.status(is404 ? 404 : 500).json({ error: sanitizeError(err) });
+  }
+});
+
 router.post('/:macAddress/stream', async (req, res) => {
   try {
     const manager = req.app.locals.wearableManager;
     const rawBuffer = await readChunkBody(req);
     if (rawBuffer.length === 0) return res.status(400).json({ error: 'Empty payload' });
 
-    const characteristicUuid = req.headers['x-characteristic-uuid'] || req.body.characteristicUuid;
+    const characteristicUuid = req.headers['x-characteristic-uuid'] || req.query.characteristicUuid;
+    if (!characteristicUuid || String(characteristicUuid).trim().length === 0) {
+      return res.status(400).json({ error: 'Missing characteristicUuid (x-characteristic-uuid header or query.characteristicUuid)' });
+    }
     const ingestResult = manager.handleLiveStreamChunk(
       req.session.userId,
       req.params.macAddress,
       rawBuffer,
-      { characteristicUuid },
+      { characteristicUuid: String(characteristicUuid) },
     );
 
     if (!ingestResult) {

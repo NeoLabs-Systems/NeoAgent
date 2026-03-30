@@ -24,7 +24,9 @@ class TelegramPlatform extends BasePlatform {
     if (!this.botToken) throw new Error('Telegram bot token is required');
 
     if (this._bot) {
-      try { this._bot.stop('reconnect'); } catch {}
+      try {
+        await Promise.resolve(this._bot.stop('reconnect'));
+      } catch {}
       this._bot = null;
     }
 
@@ -66,7 +68,9 @@ class TelegramPlatform extends BasePlatform {
 
   async disconnect() {
     if (this._bot) {
-      try { this._bot.stop('manual'); } catch {}
+      try {
+        await Promise.resolve(this._bot.stop('manual'));
+      } catch {}
       this._bot = null;
     }
     this.status = 'disconnected';

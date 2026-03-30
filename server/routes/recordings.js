@@ -17,12 +17,25 @@ function parsePositiveInt(value, fallback) {
 }
 
 function getChunkMetadata(req) {
+  const parseNonNegativeNumber = (value, fieldName) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new Error(`${fieldName} must be a non-negative number`);
+    }
+    return parsed;
+  };
+
+  const sequenceIndexRaw = req.get('x-recording-sequence') || req.query.sequenceIndex;
+  const startMsRaw = req.get('x-recording-start-ms') || req.query.startMs;
+  const endMsRaw = req.get('x-recording-end-ms') || req.query.endMs;
+  const mimeRaw = req.get('content-type') || req.query.mimeType || '';
+
   return {
     sourceKey: req.get('x-recording-source-key') || req.query.sourceKey,
-    sequenceIndex: req.get('x-recording-sequence') || req.query.sequenceIndex,
-    startMs: req.get('x-recording-start-ms') || req.query.startMs,
-    endMs: req.get('x-recording-end-ms') || req.query.endMs,
-    mimeType: req.get('content-type') || req.query.mimeType,
+    sequenceIndex: parseNonNegativeNumber(sequenceIndexRaw, 'sequenceIndex'),
+    startMs: parseNonNegativeNumber(startMsRaw, 'startMs'),
+    endMs: parseNonNegativeNumber(endMsRaw, 'endMs'),
+    mimeType: String(mimeRaw).split(';')[0].trim(),
   };
 }
 

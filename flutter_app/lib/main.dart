@@ -2794,9 +2794,6 @@ class NeoAgentController extends ChangeNotifier {
           'I could not complete that request right now. Please try again in a moment.';
       notifyListeners();
     });
-    socket.on('recordings:updated', (dynamic _) {
-      unawaited(refreshRecordings());
-    });
     socket.connect();
     _socket = socket;
   }
@@ -4810,21 +4807,22 @@ class WearablesPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final service = controller.wearableService;
 
-    String formatPacketFileSize(int bytes) {
-      if (bytes < 1024) {
-        return '$bytes B';
+    String formatPacketFileMetric(int value) {
+      if (value <= 0) {
+        return 'unknown length';
       }
-      final kb = bytes / 1024;
-      if (kb < 1024) {
-        return '${kb.toStringAsFixed(kb >= 100 ? 0 : 1)} KB';
+      if (value < 36000) {
+        return '${value}s';
       }
-      final mb = kb / 1024;
-      return '${mb.toStringAsFixed(mb >= 100 ? 0 : 1)} MB';
+      return 'len $value';
     }
 
     return ListenableBuilder(
       listenable: service,
       builder: (context, _) {
+        final hasBleConnected = service.connectedDevice != null;
+        final hasBackgroundOnly =
+            service.backgroundBridgeActive && !hasBleConnected;
         return ListView(
           padding: _pagePadding(context),
           children: <Widget>[
@@ -4874,8 +4872,10 @@ class WearablesPanel extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              service.connectedDevice != null
+                              hasBleConnected
                                   ? 'Connected: ${service.connectedDevice!.name ?? 'Wearable'}'
+                                : hasBackgroundOnly
+                                ? 'Connected via background bridge: ${service.backgroundBridgeDeviceId ?? 'Wearable'}'
                                   : 'No device connected',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -4884,7 +4884,7 @@ class WearablesPanel extends StatelessWidget {
                                 fontSize: 16,
                               ),
                             ),
-                            if (service.connectedDevice == null)
+                            if (!hasBleConnected && !hasBackgroundOnly)
                               const Text(
                                 'Scan for nearby Bluetooth recording devices.',
                                 style: TextStyle(color: _textSecondary),
@@ -4892,7 +4892,7 @@ class WearablesPanel extends StatelessWidget {
                           ],
                         );
 
-                        if (service.connectedDevice == null) {
+                        if (!hasBleConnected && !hasBackgroundOnly) {
                           return Row(
                             children: <Widget>[
                               const Icon(Icons.watch_off_outlined, color: _textSecondary),
@@ -5039,7 +5039,7 @@ class WearablesPanel extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            '${file.date} • ${formatPacketFileSize(file.size)}',
+                                            '${file.date} • ${formatPacketFileMetric(file.size)}',
                                             style: const TextStyle(
                                               fontSize: 11,
                                               color: _textSecondary,
@@ -5171,6 +5171,8 @@ class WearablesPanel extends StatelessWidget {
               )
             else
               ...service.scanResults.map((device) {
+                final isConnectingThisDevice =
+                    service.connectingDeviceId == device.deviceId;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Card(
@@ -5179,8 +5181,16 @@ class WearablesPanel extends StatelessWidget {
                       title: Text(device.name ?? 'Unknown Device'),
                       subtitle: Text(device.deviceId),
                       trailing: FilledButton(
-                        onPressed: () => service.connect(device),
-                        child: const Text('Connect'),
+                        onPressed: isConnectingThisDevice
+                            ? null
+                            : () => service.connect(device),
+                        child: isConnectingThisDevice
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Connect'),
                       ),
                     ),
                   ),
@@ -5247,10 +5257,42 @@ class _SyncStatPill extends StatelessWidget {
   }
 }
 
-class RecordingsPanel extends StatelessWidget {
+class RecordingsPanel extends StatefulWidget {
   const RecordingsPanel({super.key, required this.controller});
 
   final NeoAgentController controller;
+
+  @override
+  State<RecordingsPanel> createState() => _RecordingsPanelState();
+}
+
+class _RecordingsPanelState extends State<RecordingsPanel> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.wearableService.addListener(_onWearableServiceChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant RecordingsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller.wearableService, widget.controller.wearableService)) {
+      oldWidget.controller.wearableService.removeListener(_onWearableServiceChanged);
+      widget.controller.wearableService.addListener(_onWearableServiceChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.wearableService.removeListener(_onWearableServiceChanged);
+    super.dispose();
+  }
+
+  void _onWearableServiceChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   Future<void> _deleteSegment(
     BuildContext context,
@@ -5263,15 +5305,17 @@ class RecordingsPanel extends StatelessWidget {
       message:
           'Remove the transcript segment at ${segment.timestampLabel} from "${session.title}"?',
       onConfirm: () =>
-          controller.deleteRecordingSegment(session.id, segment.id),
+          widget.controller.deleteRecordingSegment(session.id, segment.id),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final runtime = controller.recordingRuntime;
-    final wearableService = controller.wearableService;
+    final runtime = widget.controller.recordingRuntime;
+    final wearableService = widget.controller.wearableService;
     final packetConnected = wearableService.canStartPacketRecording;
+    final packetRecordingActive = wearableService.packetRecordingActive;
+    final anyRecordingActive = runtime.active || packetRecordingActive;
 
     return ListView(
       padding: _pagePadding(context),
@@ -5290,13 +5334,20 @@ class RecordingsPanel extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
                     _DotStatus(
-                      label: runtime.active
+                      label: anyRecordingActive
                           ? (runtime.paused ? 'Paused' : 'Recording')
                           : 'Idle',
-                      color: runtime.active
+                      color: anyRecordingActive
                           ? (runtime.paused ? _warning : _danger)
                           : _success,
                     ),
+                    if (packetRecordingActive)
+                      Text(
+                        wearableService.packetActiveRecordingId.isNotEmpty
+                            ? 'Wearable live: ${wearableService.packetActiveRecordingId}'
+                            : 'Wearable live recording',
+                        style: const TextStyle(color: _textSecondary),
+                      ),
                     if (runtime.platformLabel != null &&
                         runtime.platformLabel!.isNotEmpty)
                       Text(
@@ -5313,36 +5364,42 @@ class RecordingsPanel extends StatelessWidget {
                     if (runtime.supportsScreenAndMic)
                       FilledButton.icon(
                         onPressed:
-                            controller.isStartingRecording || runtime.active
+                          widget.controller.isStartingRecording || runtime.active
                             ? null
-                            : controller.startWebRecording,
+                          : widget.controller.startWebRecording,
                         icon: const Icon(Icons.desktop_windows_outlined),
                         label: const Text('Start screen + mic'),
                       ),
                     if (runtime.supportsBackgroundMic)
                       FilledButton.icon(
                         onPressed:
-                            controller.isStartingRecording || runtime.active
+                          widget.controller.isStartingRecording || runtime.active
                             ? null
                             : (packetConnected
-                                  ? wearableService.startPacketRecordingFromApp
-                                  : controller.startBackgroundRecording),
+                            ? (packetRecordingActive
+                              ? wearableService.stopPacketRecordingFromApp
+                              : wearableService.startPacketRecordingFromApp)
+                                  : widget.controller.startBackgroundRecording),
                         icon: Icon(
                           packetConnected
-                              ? Icons.watch_outlined
+                        ? (packetRecordingActive
+                          ? Icons.stop_circle_outlined
+                          : Icons.watch_outlined)
                               : Icons.mic_none_outlined,
                         ),
                         label: Text(
                           packetConnected
-                              ? 'Start recording on wearable'
+                        ? (packetRecordingActive
+                          ? 'Stop wearable recording'
+                          : 'Start recording on wearable')
                               : 'Start background mic',
                         ),
                       ),
                     if (runtime.supportsBackgroundMic && runtime.active)
                       OutlinedButton.icon(
                         onPressed: runtime.paused
-                            ? controller.resumeBackgroundRecording
-                            : controller.pauseBackgroundRecording,
+                          ? widget.controller.resumeBackgroundRecording
+                          : widget.controller.pauseBackgroundRecording,
                         icon: Icon(
                           runtime.paused ? Icons.play_arrow : Icons.pause,
                         ),
@@ -5350,14 +5407,14 @@ class RecordingsPanel extends StatelessWidget {
                       ),
                     if (runtime.active)
                       OutlinedButton.icon(
-                        onPressed: controller.isStoppingRecording
+                        onPressed: widget.controller.isStoppingRecording
                             ? null
-                            : controller.stopRecording,
+                          : widget.controller.stopRecording,
                         icon: const Icon(Icons.stop_circle_outlined),
                         label: const Text('Stop'),
                       ),
                     OutlinedButton.icon(
-                      onPressed: controller.refreshRecordings,
+                      onPressed: widget.controller.refreshRecordings,
                       icon: const Icon(Icons.refresh),
                       label: const Text('Refresh'),
                     ),
@@ -5378,14 +5435,14 @@ class RecordingsPanel extends StatelessWidget {
         const SizedBox(height: 20),
         const _SectionTitle('Transcription history'),
         const SizedBox(height: 12),
-        if (controller.recordingSessions.isEmpty)
+        if (widget.controller.recordingSessions.isEmpty)
           const _EmptyCard(
             title: 'No recordings yet',
             subtitle:
                 'Start a recording and your persisted transcripts will appear here with timestamps.',
           )
         else
-          ...controller.recordingSessions.map(
+          ...widget.controller.recordingSessions.map(
             (session) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _RecordingSessionCard(
@@ -5393,8 +5450,9 @@ class RecordingsPanel extends StatelessWidget {
                 onRetry: (session.status == 'failed' ||
                     (session.status == 'completed' &&
                       session.transcriptText.trim().isEmpty &&
-                      session.transcriptSegments.isEmpty))
-                    ? () => controller.retryRecording(session.id)
+                      session.transcriptSegments.isEmpty &&
+                      session.structuredContent.isEmpty))
+                    ? () => widget.controller.retryRecording(session.id)
                     : null,
                 onDeleteSegment: (segment) =>
                     _deleteSegment(context, session, segment),

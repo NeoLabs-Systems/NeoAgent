@@ -30,10 +30,12 @@ class _IoPendingChunkStore implements PendingChunkStore {
     final payload = rows.isEmpty ? '' : '${rows.join('\n')}\n';
     await temp.writeAsString(payload, flush: true);
 
-    if (await file.exists()) {
-      await file.delete();
+    try {
+      await temp.rename(file.path);
+    } catch (_) {
+      // Keep the original file untouched and leave the temp file for inspection/retry.
+      rethrow;
     }
-    await temp.rename(file.path);
   }
 
   Future<File> _queueFile() async {

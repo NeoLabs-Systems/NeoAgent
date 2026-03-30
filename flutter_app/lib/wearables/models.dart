@@ -150,6 +150,8 @@ class WearableProtocols {
       case heypocket:
       case packet:
         return WearableDeviceType.packet;
+      case custom:
+        return WearableDeviceType.custom;
       default:
         return null;
     }

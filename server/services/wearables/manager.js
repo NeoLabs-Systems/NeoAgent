@@ -125,7 +125,7 @@ class WearableManager {
       platform: 'wearable',
       sources: [
         {
-          sourceKey: macAddress,
+          sourceKey: macAddress.toLowerCase(),
           sourceKind: 'wearable-mic',
           mediaKind: 'audio',
           mimeType: protocol.mimeType,
@@ -200,14 +200,21 @@ class WearableManager {
   endLiveStream(userId, macAddress, stopReason = 'wearable_disconnected') {
     const streamKey = `${userId}:${macAddress}`;
     const streamState = this.activeLiveStreams.get(streamKey);
-    if (streamState) {
-      try {
-        this.recordingManager.finalizeSession(userId, streamState.sessionId, { stopReason });
-      } catch (err) {
-        console.error('[Wearables] Error finalizing session on disconnect', err);
-      }
-      this.activeLiveStreams.delete(streamKey);
+    if (!streamState) {
+      return false;
     }
+
+    try {
+      this.recordingManager.finalizeSession(userId, streamState.sessionId, { stopReason });
+    } catch (err) {
+      console.error('[Wearables] Error finalizing session on disconnect', err);
+    }
+    this.activeLiveStreams.delete(streamKey);
+    return true;
+  }
+
+  stopLiveStream(userId, macAddress, stopReason = 'wearable_stopped') {
+    return this.endLiveStream(userId, macAddress, stopReason);
   }
 
   reapStaleLiveStreams() {
@@ -248,7 +255,7 @@ class WearableManager {
       platform: 'wearable',
       sources: [
         {
-          sourceKey: macAddress,
+          sourceKey: macAddress.toLowerCase(),
           sourceKind: 'wearable-mic',
           mediaKind: 'audio',
           mimeType: protocol.mimeType,
@@ -257,11 +264,13 @@ class WearableManager {
       ]
     });
 
+    const durationMs = this.#estimateOfflineDurationMs(protocol, processedBuffer);
+
     this.recordingManager.appendChunk(userId, session.id, {
       sourceKey: macAddress.toLowerCase(),
       sequenceIndex: 0,
       startMs: 0,
-      endMs: processedBuffer.length,
+      endMs: durationMs,
       mimeType: protocol.mimeType
     }, processedBuffer);
 
@@ -284,6 +293,29 @@ class WearableManager {
     if (this.io) {
       this.io.to(`user:${userId}`).emit('wearable:battery', { macAddress, level });
     }
+  }
+
+  #estimateOfflineDurationMs(protocol, processedBuffer) {
+    const byteLength = Buffer.isBuffer(processedBuffer) ? processedBuffer.length : 0;
+    if (byteLength <= 0) {
+      return 0;
+    }
+
+    const sampleRate = Number(protocol?.sampleRate);
+    const channels = Number(protocol?.channels || 1);
+    const bytesPerSample = Number(protocol?.bytesPerSample || 2);
+    if (sampleRate > 0 && channels > 0 && bytesPerSample > 0) {
+      const bytesPerSecond = sampleRate * channels * bytesPerSample;
+      return Math.max(1, Math.round((byteLength / bytesPerSecond) * 1000));
+    }
+
+    if (protocol?.mimeType === 'audio/mpeg') {
+      const bitrateKbps = Number(protocol?.bitrateKbps || 32);
+      const bytesPerSecond = (bitrateKbps * 1000) / 8;
+      return Math.max(1, Math.round((byteLength / bytesPerSecond) * 1000));
+    }
+
+    return 0;
   }
 }
 

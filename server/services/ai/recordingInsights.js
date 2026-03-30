@@ -22,7 +22,7 @@ If no action items or events are found, return empty arrays for those fields.
 Do NOT wrap the output in markdown \`\`\`json blocks. ONLY return the raw JSON object.
 `;
 
-async function extractRecordingInsights(app, userId, transcriptText, options = {}) {
+async function extractRecordingInsights(userId, transcriptText, options = {}) {
   if (!transcriptText || !transcriptText.trim()) {
     return null;
   }

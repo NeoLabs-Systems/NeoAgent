@@ -784,6 +784,21 @@ class BackendClient {
     return _asMap(_decodeJson(response.body));
   }
 
+  Future<Map<String, dynamic>> stopWearableLiveStream(
+    String baseUrl,
+    String macAddress,
+  ) async {
+    final response = await _httpClient.post(
+      _resolveUri(baseUrl, '/api/wearables/$macAddress/stop-live'),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(const <String, dynamic>{}),
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
   /// Register a wearable device with the backend
   Future<Map<String, dynamic>> registerWearable(
     String baseUrl,

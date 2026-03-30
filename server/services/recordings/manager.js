@@ -482,9 +482,9 @@ class RecordingManager {
       const aiSettings = getAiSettings(userId);
       if (transcriptText && aiSettings.auto_recording_insights) {
         try {
-          structuredInsights = await extractRecordingInsights(sessionId, userId, transcriptText);
+          structuredInsights = await extractRecordingInsights(userId, transcriptText);
         } catch (err) {
-          console.error(`[Recordings] Failed to extract insights for session ${sessionId}:`, err);
+          console.error(`[Recordings] Failed to extract insights for session ${sessionId}:`, sanitizeError(err));
         }
       }
 

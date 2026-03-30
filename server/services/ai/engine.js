@@ -274,27 +274,33 @@ class AgentEngine {
       console.warn(
         `[Run ${shortenRunId(runId)}] blank_reply_recovery attempt=${attempt} model=${model}`
       );
-      const response = await provider.chat(
-        sanitizeConversationMessages([
-          ...messages,
+      try {
+        const response = await provider.chat(
+          sanitizeConversationMessages([
+            ...messages,
+            {
+              role: 'system',
+              content: buildBlankMessagingReplyPrompt(attempt)
+            }
+          ]),
+          [],
           {
-            role: 'system',
-            content: buildBlankMessagingReplyPrompt(attempt)
+            model,
+            reasoningEffort: this.getReasoningEffort(providerName, options)
           }
-        ]),
-        [],
-        {
-          model,
-          reasoningEffort: this.getReasoningEffort(providerName, options)
-        }
-      );
-      totalTokens += response.usage?.totalTokens || 0;
-      recoveredContent = sanitizeModelOutput(response.content || '', { model });
-      if (normalizeOutgoingMessage(recoveredContent)) {
-        console.info(
-          `[Run ${shortenRunId(runId)}] blank_reply_recovery succeeded attempt=${attempt}`
         );
-        return { content: recoveredContent, tokens: totalTokens, recovered: true };
+        totalTokens += response.usage?.totalTokens || 0;
+        recoveredContent = sanitizeModelOutput(response.content || '', { model });
+        if (normalizeOutgoingMessage(recoveredContent)) {
+          console.info(
+            `[Run ${shortenRunId(runId)}] blank_reply_recovery succeeded attempt=${attempt}`
+          );
+          return { content: recoveredContent, tokens: totalTokens, recovered: true };
+        }
+      } catch (recoverErr) {
+        console.warn(
+          `[Run ${shortenRunId(runId)}] blank_reply_recovery attempt=${attempt} failed: ${summarizeForLog(recoverErr?.message || recoverErr, 180)}`
+        );
       }
     }
 
@@ -1145,6 +1151,7 @@ class AgentEngine {
       }
 
       let messagingFailureContent = '';
+      let sendSucceeded = false;
       if (triggerSource === 'messaging' && options.source && options.chatId) {
         if (!runMeta?.messagingSent) {
           const manager = this.messagingManager;
@@ -1175,6 +1182,7 @@ class AgentEngine {
 
             try {
               await manager.sendMessage(userId, options.source, options.chatId, messagingFailureContent, { runId });
+              sendSucceeded = true;
               if (runMeta) {
                 runMeta.lastSentMessage = messagingFailureContent;
                 if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
@@ -1182,13 +1190,14 @@ class AgentEngine {
               }
             } catch (sendErr) {
               console.error('[Engine] Messaging error fallback failed:', sendErr.message);
+              messagingFailureContent = '';
             }
           }
         }
       }
 
       db.prepare('UPDATE agent_runs SET status = ?, error = ?, final_response = ?, updated_at = datetime(\'now\') WHERE id = ?')
-        .run('failed', err.message, messagingFailureContent || null, runId);
+        .run('failed', err.message, sendSucceeded ? (messagingFailureContent || null) : null, runId);
       console.error(
         `[Run ${shortenRunId(runId)}] failed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} error=${summarizeForLog(err.message, 180)}`
       );

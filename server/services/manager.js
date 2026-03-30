@@ -50,6 +50,9 @@ function createMcpClient(app) {
 
 function createBrowserController(app) {
   const browserControllers = registerLocal(app, 'browserControllers', new Map());
+  const browserCreationPromises = registerLocal(app, 'browserControllerCreationPromises', new Map());
+  const browserLastAccess = registerLocal(app, 'browserControllerLastAccess', new Map());
+  const maxBrowserControllers = 24;
 
   function getUserHeadlessPreference(userId) {
     try {
@@ -58,25 +61,58 @@ function createBrowserController(app) {
         .get(userId, 'headless_browser');
       if (!row) return true;
       return row.value !== 'false' && row.value !== false && row.value !== '0';
-    } catch {
+    } catch (err) {
+      console.warn('[Services] Failed to read user headless_browser setting, defaulting to true:', getErrorMessage(err));
       return true;
     }
   }
 
-  function getBrowserControllerForUser(userId) {
+  function touchBrowserControllerKey(key) {
+    browserLastAccess.set(key, Date.now());
+  }
+
+  function evictStaleBrowserControllers() {
+    if (browserControllers.size <= maxBrowserControllers) {
+      return;
+    }
+    const entries = Array.from(browserLastAccess.entries())
+      .sort((a, b) => a[1] - b[1]);
+    while (browserControllers.size > maxBrowserControllers && entries.length > 0) {
+      const [staleKey] = entries.shift();
+      browserControllers.delete(staleKey);
+      browserLastAccess.delete(staleKey);
+      browserCreationPromises.delete(staleKey);
+    }
+  }
+
+  async function getBrowserControllerForUser(userId) {
     const key = String(userId || '').trim();
     if (!key) {
       return app.locals.browserController;
     }
 
     if (browserControllers.has(key)) {
+      touchBrowserControllerKey(key);
       return browserControllers.get(key);
     }
 
-    const controller = new BrowserController();
-    controller.headless = getUserHeadlessPreference(userId);
-    browserControllers.set(key, controller);
-    return controller;
+    if (browserCreationPromises.has(key)) {
+      return browserCreationPromises.get(key);
+    }
+
+    const creationPromise = Promise.resolve().then(() => {
+      const controller = new BrowserController();
+      controller.headless = getUserHeadlessPreference(userId);
+      browserControllers.set(key, controller);
+      touchBrowserControllerKey(key);
+      evictStaleBrowserControllers();
+      return controller;
+    }).finally(() => {
+      browserCreationPromises.delete(key);
+    });
+
+    browserCreationPromises.set(key, creationPromise);
+    return creationPromise;
   }
 
   registerLocal(app, 'getBrowserControllerForUser', getBrowserControllerForUser);
@@ -101,20 +137,55 @@ function createBrowserController(app) {
 
 function createAndroidController(app) {
   const androidControllers = registerLocal(app, 'androidControllers', new Map());
+  const androidCreationPromises = registerLocal(app, 'androidControllerCreationPromises', new Map());
+  const androidLastAccess = registerLocal(app, 'androidControllerLastAccess', new Map());
+  const maxAndroidControllers = 24;
 
-  function getAndroidControllerForUser(userId) {
+  function touchAndroidControllerKey(key) {
+    androidLastAccess.set(key, Date.now());
+  }
+
+  function evictStaleAndroidControllers() {
+    if (androidControllers.size <= maxAndroidControllers) {
+      return;
+    }
+    const entries = Array.from(androidLastAccess.entries())
+      .sort((a, b) => a[1] - b[1]);
+    while (androidControllers.size > maxAndroidControllers && entries.length > 0) {
+      const [staleKey] = entries.shift();
+      androidControllers.delete(staleKey);
+      androidLastAccess.delete(staleKey);
+      androidCreationPromises.delete(staleKey);
+    }
+  }
+
+  async function getAndroidControllerForUser(userId) {
     const key = String(userId || '').trim();
     if (!key) {
       return app.locals.androidController;
     }
 
     if (androidControllers.has(key)) {
+      touchAndroidControllerKey(key);
       return androidControllers.get(key);
     }
 
-    const controller = new AndroidController({ userId: key });
-    androidControllers.set(key, controller);
-    return controller;
+    if (androidCreationPromises.has(key)) {
+      return androidCreationPromises.get(key);
+    }
+
+    const creationPromise = Promise.resolve().then(() => {
+      const controller = new AndroidController({ userId: key });
+      androidControllers.set(key, controller);
+      touchAndroidControllerKey(key);
+      evictStaleAndroidControllers();
+      return controller;
+    }).finally(() => {
+      androidCreationPromises.delete(key);
+    });
+
+    androidCreationPromises.set(key, creationPromise);
+    return creationPromise;
   }
 
   registerLocal(app, 'getAndroidControllerForUser', getAndroidControllerForUser);

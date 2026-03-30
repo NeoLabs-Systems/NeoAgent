@@ -42,7 +42,7 @@ const androidApkUpload = multer({
   },
 });
 
-function getAndroidController(req) {
+async function getAndroidController(req) {
   const resolver = req.app?.locals?.getAndroidControllerForUser;
   if (typeof resolver === 'function') {
     return resolver(req.session?.userId);
@@ -53,7 +53,7 @@ function getAndroidController(req) {
 function handleAndroidAction(action) {
   return async (req, res) => {
     try {
-      const controller = getAndroidController(req);
+      const controller = await getAndroidController(req);
       const result = await action(controller, req);
       res.json(result);
     } catch (err) {
