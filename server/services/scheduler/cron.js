@@ -2,6 +2,8 @@ const cron = require('node-cron');
 const crypto = require('crypto');
 const db = require('../../db/database');
 
+const MAX_SCHEDULER_AUTONOMOUS_RETRIES = 1;
+
 class Scheduler {
   constructor(io, agentEngine, app = null) {
     this.io = io;
@@ -291,21 +293,48 @@ class Scheduler {
 
         const taskContext = `[SYSTEM: Executing Scheduled Task]\nTask Name: ${taskName}\nSchedule: ${scheduleInfo}\n\n`;
         const userPrompt = config.prompt || `You have been triggered by the scheduler to run the background task "${taskName}". Please execute any necessary checks or actions associated with this task.`;
-        const finalPrompt = taskContext + userPrompt + notifyHint;
+        const basePrompt = taskContext + userPrompt + notifyHint;
 
         const convId = this._getMessagingConversation(userId);
 
-        const runOptions = {
-          triggerType: 'scheduler',
-          triggerSource: 'scheduler',
-          app: this.app,
-          ...(convId ? { conversationId: convId } : {}),
-          taskId,
-        };
-        const result = typeof this.agentEngine.runWithModel === 'function'
-          ? await this.agentEngine.runWithModel(userId, finalPrompt, runOptions, config.model || null)
-          : await this.agentEngine.run(userId, finalPrompt, runOptions);
-        this.io.to(`user:${userId}`).emit('scheduler:task_complete', { taskId, result });
+        let attempt = 0;
+        let recoveryNote = '';
+        while (attempt <= MAX_SCHEDULER_AUTONOMOUS_RETRIES) {
+          const finalPrompt = basePrompt + recoveryNote;
+          const runOptions = {
+            triggerType: 'scheduler',
+            triggerSource: 'scheduler',
+            app: this.app,
+            ...(convId ? { conversationId: convId } : {}),
+            taskId,
+          };
+
+          try {
+            const result = typeof this.agentEngine.runWithModel === 'function'
+              ? await this.agentEngine.runWithModel(userId, finalPrompt, runOptions, config.model || null)
+              : await this.agentEngine.run(userId, finalPrompt, runOptions);
+            this.io.to(`user:${userId}`).emit('scheduler:task_complete', { taskId, result });
+            return;
+          } catch (err) {
+            if (attempt >= MAX_SCHEDULER_AUTONOMOUS_RETRIES) {
+              throw err;
+            }
+
+            attempt += 1;
+            const errMsg = String(err?.message || 'Unknown runtime error');
+            recoveryNote = [
+              '\n\n[SYSTEM: Previous scheduler attempt failed]',
+              `Error: ${errMsg}`,
+              'Continue autonomously end-to-end: retry failed steps, choose alternative tools/paths when needed, and only contact the user if no safe path remains.'
+            ].join('\n');
+            console.warn(`[Scheduler] Task ${taskId} autonomous retry ${attempt}/${MAX_SCHEDULER_AUTONOMOUS_RETRIES}: ${errMsg}`);
+            this.io.to(`user:${userId}`).emit('scheduler:task_running', {
+              taskId,
+              timestamp: new Date().toISOString(),
+              retry: attempt,
+            });
+          }
+        }
       }
     } catch (err) {
       console.error(`[Scheduler] Task ${taskId} error:`, err.message);

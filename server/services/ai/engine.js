@@ -649,6 +649,7 @@ class AgentEngine {
     let lastContent = '';
     let stepIndex = 0;
     let failedStepCount = 0;
+    let modelFailureRecoveries = 0;
     let promptMetrics = {};
 
     try {
@@ -780,7 +781,34 @@ class AgentEngine {
           }
         };
 
-        await tryModelCall();
+        try {
+          await tryModelCall();
+        } catch (err) {
+          const modelError = String(err?.message || 'Model call failed');
+          const isFatalModelError = /no ai providers? are currently available|missing an api key|disabled in settings|unauthorized|forbidden|authentication failed/i
+            .test(modelError);
+
+          if (!isFatalModelError && modelFailureRecoveries < 2) {
+            modelFailureRecoveries += 1;
+            failedStepCount += 1;
+            messages.push({
+              role: 'system',
+              content: buildModelFailureLoopPrompt({
+                failedModel: model,
+                nextModel: model,
+                errorMessage: modelError
+              })
+            });
+            this.emit(userId, 'run:interim', {
+              runId,
+              message: 'Model call failed; adapting and retrying autonomously.',
+              phase: 'recovering'
+            });
+            continue;
+          }
+
+          throw err;
+        }
 
         if (!response) {
           response = { content: streamContent, toolCalls: [], finishReason: 'stop', usage: null };
