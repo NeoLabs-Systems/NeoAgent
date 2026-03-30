@@ -32,6 +32,8 @@ List<AppSection> _mainSections(NeoAgentController controller) {
 List<Widget> _buildSidebarItems(
   NeoAgentController controller, {
   required ValueChanged<AppSection> onSelect,
+  required SidebarGroup expandedGroup,
+  required ValueChanged<SidebarGroup> onToggleGroup,
 }) {
   final widgets = <Widget>[];
   for (final group in SidebarGroup.values) {
@@ -45,6 +47,7 @@ List<Widget> _buildSidebarItems(
     final active = controller.selectedSection.group == group;
     final defaultSection = sections.first;
     final hasChildren = sections.length > 1;
+    final expanded = expandedGroup == group;
 
     widgets.add(
       _SidebarButton(
@@ -53,16 +56,18 @@ List<Widget> _buildSidebarItems(
         active: active,
         trailing: hasChildren
             ? Icon(
-                active ? Icons.expand_less : Icons.expand_more,
+                expanded ? Icons.expand_less : Icons.expand_more,
                 size: 16,
                 color: active ? _accent : _textMuted,
               )
             : null,
-        onTap: () => onSelect(defaultSection),
+        onTap: hasChildren
+            ? () => onToggleGroup(group)
+            : () => onSelect(defaultSection),
       ),
     );
 
-    if (!hasChildren || !active) {
+    if (!hasChildren || !expanded) {
       continue;
     }
 

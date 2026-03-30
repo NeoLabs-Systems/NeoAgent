@@ -4783,67 +4783,102 @@ class WearablesPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Icon(
-                          service.connectedDevice != null
-                              ? Icons.watch_outlined
-                              : Icons.watch_off_outlined,
-                          color: service.connectedDevice != null
-                              ? _success
-                              : _textSecondary,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 760;
+                        final actions = Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            if (service.canRequestOfflineSync)
+                              FilledButton.tonalIcon(
+                                onPressed: service.isOfflineSyncRequestInFlight
+                                    ? null
+                                    : service.requestPacketOfflineSync,
+                                icon: service.isOfflineSyncRequestInFlight
+                                    ? const SizedBox.square(
+                                        dimension: 14,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.cloud_sync_outlined),
+                                label: Text(
+                                  service.isOfflineSyncRequestInFlight
+                                      ? 'Requesting sync...'
+                                      : 'Sync from device',
+                                ),
+                              ),
+                            OutlinedButton(
+                              onPressed: service.disconnect,
+                              child: const Text('Disconnect'),
+                            ),
+                          ],
+                        );
+
+                        final headline = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              service.connectedDevice != null
+                                  ? 'Connected: ${service.connectedDevice!.name ?? 'Wearable'}'
+                                  : 'No device connected',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                            if (service.connectedDevice == null)
+                              const Text(
+                                'Scan for nearby Bluetooth recording devices.',
+                                style: TextStyle(color: _textSecondary),
+                              ),
+                          ],
+                        );
+
+                        if (service.connectedDevice == null) {
+                          return Row(
+                            children: <Widget>[
+                              const Icon(Icons.watch_off_outlined, color: _textSecondary),
+                              const SizedBox(width: 12),
+                              Expanded(child: headline),
+                            ],
+                          );
+                        }
+
+                        if (compact) {
+                          return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Text(
-                                service.connectedDevice != null
-                                    ? 'Connected: ${service.connectedDevice!.name ?? 'Wearable'}'
-                                    : 'No device connected',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                ),
+                              Row(
+                                children: <Widget>[
+                                  const Icon(Icons.watch_outlined, color: _success),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: headline),
+                                ],
                               ),
-                              if (service.connectedDevice == null)
-                                const Text(
-                                  'Scan for nearby Bluetooth recording devices.',
-                                  style: TextStyle(color: _textSecondary),
-                                ),
+                              const SizedBox(height: 12),
+                              actions,
                             ],
-                          ),
-                        ),
-                        if (service.connectedDevice != null)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: <Widget>[
-                              if (service.canRequestOfflineSync)
-                                FilledButton.tonalIcon(
-                                  onPressed: service.isOfflineSyncRequestInFlight
-                                      ? null
-                                      : service.requestPacketOfflineSync,
-                                  icon: service.isOfflineSyncRequestInFlight
-                                      ? const SizedBox.square(
-                                          dimension: 14,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.cloud_sync_outlined),
-                                  label: Text(
-                                    service.isOfflineSyncRequestInFlight
-                                        ? 'Requesting sync...'
-                                        : 'Sync from device',
-                                  ),
-                                ),
-                              OutlinedButton(
-                                onPressed: service.disconnect,
-                                child: const Text('Disconnect'),
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Icon(Icons.watch_outlined, color: _success),
+                            const SizedBox(width: 12),
+                            Expanded(child: headline),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: actions,
                               ),
-                            ],
-                          ),
-                      ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -4854,15 +4889,9 @@ class WearablesPanel extends StatelessWidget {
               Card(
                 clipBehavior: Clip.antiAlias,
                 child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: <Color>[
-                        Color(0xFFF4FAF8),
-                        Color(0xFFEAF3FF),
-                      ],
-                    ),
+                  decoration: BoxDecoration(
+                    color: _bgSecondary,
+                    border: Border.all(color: _borderLight),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -4871,11 +4900,14 @@ class WearablesPanel extends StatelessWidget {
                       children: <Widget>[
                         const Row(
                           children: <Widget>[
-                            Icon(Icons.sync_alt_rounded, color: Color(0xFF14532D)),
+                            Icon(Icons.sync_alt_rounded, color: _info),
                             SizedBox(width: 8),
                             Text(
                               'HeyPocket Offline Sync',
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: _textPrimary,
+                              ),
                             ),
                           ],
                         ),
@@ -4907,13 +4939,19 @@ class WearablesPanel extends StatelessWidget {
                             width: double.infinity,
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.85),
+                              color: _bgPrimary,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFD1E3F7)),
+                              border: Border.all(color: _borderLight),
                             ),
                             child: Text(
                               'Last response: ${service.packetSyncLastControlMessage}',
-                              style: const TextStyle(fontSize: 12, color: _textSecondary),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _textSecondary,
+                                fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                              ),
                             ),
                           ),
                         ],
@@ -4922,9 +4960,9 @@ class WearablesPanel extends StatelessWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.88),
+                            color: _bgCard,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFD1E3F7)),
+                            border: Border.all(color: _borderLight),
                           ),
                           child: Row(
                             children: <Widget>[
@@ -4947,7 +4985,7 @@ class WearablesPanel extends StatelessWidget {
                                       style: const TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
-                                        color: Color(0xFF0F172A),
+                                        color: _textPrimary,
                                       ),
                                     ),
                                   ],
@@ -5041,35 +5079,42 @@ class _SyncStatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD9E6FA)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 14, color: _textSecondary),
-          const SizedBox(width: 6),
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              fontSize: 12,
-              color: _textSecondary,
-              fontWeight: FontWeight.w600,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 340),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: _bgCard,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _borderLight),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 14, color: _textSecondary),
+            const SizedBox(width: 6),
+            Text(
+              '$label: ',
+              style: const TextStyle(
+                fontSize: 12,
+                color: _textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF0F172A),
-              fontWeight: FontWeight.w700,
+            Expanded(
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -5206,7 +5251,10 @@ class RecordingsPanel extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: _RecordingSessionCard(
                 session: session,
-                onRetry: session.status == 'failed'
+                onRetry: (session.status == 'failed' ||
+                    (session.status == 'completed' &&
+                      session.transcriptText.trim().isEmpty &&
+                      session.transcriptSegments.isEmpty))
                     ? () => controller.retryRecording(session.id)
                     : null,
                 onDeleteSegment: (segment) =>
@@ -5407,6 +5455,10 @@ class _RecordingSessionCard extends StatelessWidget {
               Text(
                 session.status == 'processing'
                     ? 'Transcription is being processed.'
+                    : session.status == 'failed'
+                    ? 'Transcription failed. Check the error above and retry.'
+                    : session.status == 'completed'
+                    ? 'Transcription completed but no speech text was returned. You can retry transcription.'
                     : 'Transcript is not available yet.',
                 style: const TextStyle(color: _textSecondary),
               ),

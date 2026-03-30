@@ -238,6 +238,28 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   bool _blockedDialogOpen = false;
+  late SidebarGroup _expandedSidebarGroup;
+
+  @override
+  void initState() {
+    super.initState();
+    _expandedSidebarGroup = widget.controller.selectedSection.group;
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller.selectedSection.group !=
+        widget.controller.selectedSection.group) {
+      _expandedSidebarGroup = widget.controller.selectedSection.group;
+    }
+  }
+
+  void _toggleSidebarGroup(SidebarGroup group) {
+    setState(() {
+      _expandedSidebarGroup = group;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +283,11 @@ class _HomeViewState extends State<HomeView> {
         body: SafeArea(
           child: Row(
             children: <Widget>[
-              _Sidebar(controller: controller),
+              _Sidebar(
+                controller: controller,
+                expandedGroup: _expandedSidebarGroup,
+                onToggleGroup: _toggleSidebarGroup,
+              ),
               Expanded(child: _SectionBody(controller: controller)),
             ],
           ),
@@ -271,7 +297,11 @@ class _HomeViewState extends State<HomeView> {
 
     return Scaffold(
       backgroundColor: _bgPrimary,
-      drawer: _MobileDrawer(controller: controller),
+      drawer: _MobileDrawer(
+        controller: controller,
+        expandedGroup: _expandedSidebarGroup,
+        onToggleGroup: _toggleSidebarGroup,
+      ),
       appBar: AppBar(
         title: Text(controller.selectedSection.navigationTitle),
         actions: <Widget>[
@@ -375,9 +405,15 @@ class _HomeViewState extends State<HomeView> {
 }
 
 class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.controller});
+  const _Sidebar({
+    required this.controller,
+    required this.expandedGroup,
+    required this.onToggleGroup,
+  });
 
   final NeoAgentController controller;
+  final SidebarGroup expandedGroup;
+  final ValueChanged<SidebarGroup> onToggleGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -430,6 +466,8 @@ class _Sidebar extends StatelessWidget {
               children: _buildSidebarItems(
                 controller,
                 onSelect: controller.setSelectedSection,
+                expandedGroup: expandedGroup,
+                onToggleGroup: onToggleGroup,
               ),
             ),
           ),
@@ -481,9 +519,15 @@ class _Sidebar extends StatelessWidget {
 }
 
 class _MobileDrawer extends StatelessWidget {
-  const _MobileDrawer({required this.controller});
+  const _MobileDrawer({
+    required this.controller,
+    required this.expandedGroup,
+    required this.onToggleGroup,
+  });
 
   final NeoAgentController controller;
+  final SidebarGroup expandedGroup;
+  final ValueChanged<SidebarGroup> onToggleGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -517,6 +561,8 @@ class _MobileDrawer extends StatelessWidget {
                     controller.setSelectedSection(section);
                     Navigator.of(context).pop();
                   },
+                  expandedGroup: expandedGroup,
+                  onToggleGroup: onToggleGroup,
                 ),
               ),
             ),

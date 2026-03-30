@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:universal_ble/universal_ble.dart';
 import '../src/backend_client.dart';
 import 'models.dart';
@@ -52,7 +54,11 @@ class WearableService extends ChangeNotifier {
   bool _queuePersistRequested = false;
   bool _queueRestoreInFlight = false;
   static const int _maxPendingWearableChunks = 720;
+  static const Duration _queueDropLogInterval = Duration(seconds: 20);
+  static const int _queueDropLogMinCount = 64;
   final PendingChunkStore _chunkStore = createPendingChunkStore();
+  DateTime? _lastQueueDropLogAt;
+  int _droppedQueueChunkCount = 0;
 
   final Map<String, WearableProtocolBase> _protocols = {};
 
@@ -101,23 +107,38 @@ class WearableService extends ChangeNotifier {
       if (_connectedDevice?.deviceId == deviceId) {
         _lastSuccessfulCommunication = DateTime.now();
 
+        bool shouldEnqueue = true;
+
         if (_deviceType == WearableDeviceType.packet) {
           final packetProtocol = _getProtocolForDevice(WearableDeviceType.packet);
           if (packetProtocol != null) {
             _packetSyncCoordinator.observeControlPayload(value);
-            _packetSyncCoordinator.captureSyncChunk(
+
+            final capturedForReconnectSync = _packetSyncCoordinator.captureSyncChunk(
               characteristicUuid,
               value,
               packetProtocol.parseAudioPayload,
             );
+
+            final parsedAudio = packetProtocol.parseAudioPayload(
+              value,
+              characteristicUuid: characteristicUuid,
+            );
+            final hasAudioPayload = parsedAudio != null && parsedAudio.isNotEmpty;
+
+            // For packet devices, only forward actual audio payloads to live-stream ingestion.
+            // Sync-captured audio is uploaded separately via reconnect sync payload.
+            shouldEnqueue = hasAudioPayload && !capturedForReconnectSync;
           }
         }
 
-        _enqueueWearableChunk(
-          deviceId: deviceId,
-          characteristicUuid: characteristicUuid,
-          payload: value,
-        );
+        if (shouldEnqueue) {
+          _enqueueWearableChunk(
+            deviceId: deviceId,
+            characteristicUuid: characteristicUuid,
+            payload: value,
+          );
+        }
       }
     };
   }
@@ -129,7 +150,8 @@ class WearableService extends ChangeNotifier {
   }) {
     if (_pendingWearableChunks.length >= _maxPendingWearableChunks) {
       _pendingWearableChunks.removeAt(0);
-      debugPrint('Wearable upload queue full; dropped oldest pending chunk.');
+      _droppedQueueChunkCount += 1;
+      _logQueueDropIfNeeded();
     }
 
     _pendingWearableChunks.add(
@@ -142,6 +164,20 @@ class WearableService extends ChangeNotifier {
 
     _scheduleQueuePersist();
     _drainWearableQueue();
+  }
+
+  void _logQueueDropIfNeeded() {
+    final now = DateTime.now();
+    final last = _lastQueueDropLogAt;
+    final intervalElapsed = last == null || now.difference(last) >= _queueDropLogInterval;
+    final highDropBurst = _droppedQueueChunkCount >= _queueDropLogMinCount;
+    if (intervalElapsed && highDropBurst) {
+      debugPrint(
+        'Wearable upload queue full; dropped $_droppedQueueChunkCount oldest pending chunks in the last ${_queueDropLogInterval.inSeconds}s.',
+      );
+      _droppedQueueChunkCount = 0;
+      _lastQueueDropLogAt = now;
+    }
   }
 
   Future<void> _drainWearableQueue() async {
@@ -314,24 +350,66 @@ class WearableService extends ChangeNotifier {
     return services.toList(growable: false);
   }
 
+  Future<bool> _ensureScanPermissions() async {
+    if (kIsWeb || !Platform.isAndroid) {
+      return true;
+    }
+
+    final statuses = await <Permission>[
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.locationWhenInUse,
+    ].request();
+
+    final scanGranted = statuses[Permission.bluetoothScan]?.isGranted ?? false;
+    final connectGranted = statuses[Permission.bluetoothConnect]?.isGranted ?? false;
+    final locationGranted = statuses[Permission.locationWhenInUse]?.isGranted ?? false;
+
+    if (!scanGranted || !connectGranted) {
+      debugPrint(
+        'BLE scan permissions missing: '
+        'scan=$scanGranted connect=$connectGranted location=$locationGranted',
+      );
+      return false;
+    }
+
+    if (!locationGranted) {
+      debugPrint('Location permission not granted; BLE scan may be limited on older Android versions.');
+    }
+
+    return true;
+  }
+
   Future<void> startScan() async {
     try {
       _discoveredDevices.clear();
       notifyListeners();
       debugPrint("Starting scan for HeyPocket devices...");
 
+      final canScan = await _ensureScanPermissions();
+      if (!canScan) {
+        debugPrint('Scan aborted: required Android BLE permissions are not granted.');
+        return;
+      }
+
       final serviceUuids = _buildScanServiceUuids();
-      
-      await UniversalBle.startScan(
-        scanFilter: ScanFilter(
-          withServices: serviceUuids,
-        ),
-        platformConfig: PlatformConfig(
-          web: WebOptions(
-            optionalServices: serviceUuids,
+
+      if (kIsWeb) {
+        await UniversalBle.startScan(
+          scanFilter: ScanFilter(
+            withServices: serviceUuids,
           ),
-        ),
-      );
+          platformConfig: PlatformConfig(
+            web: WebOptions(
+              optionalServices: serviceUuids,
+            ),
+          ),
+        );
+      } else {
+        // Native discovery is more reliable without strict advertised-service filters.
+        await UniversalBle.startScan();
+      }
+
       _isScanning = true;
       notifyListeners();
     } catch (e) {
