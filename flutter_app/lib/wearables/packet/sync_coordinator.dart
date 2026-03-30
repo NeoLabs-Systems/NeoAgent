@@ -68,6 +68,7 @@ class PacketSyncCoordinator {
   static final RegExp _mcuOffPattern = RegExp(r'^MCU&OFF$');
   static final RegExp _mcuModePattern = RegExp(r'^MCU&STE&(\d+)$');
   static final RegExp _mcuRecModePattern = RegExp(r'^MCU&REC&([^&]+)$');
+  static final RegExp _mcuRegModePattern = RegExp(r'^MCU&REG&([^&]+)$');
   static final RegExp _mcuDeleteAckPattern = RegExp(r'^MCU&D$');
   static final RegExp _mcuRecordingStartedPattern = RegExp(r'^MCU&STA&([^&]+)$');
   static final RegExp _mcuRecordingStoppedPattern = RegExp(r'^MCU&STO$');
@@ -190,16 +191,14 @@ class PacketSyncCoordinator {
       return;
     }
 
-    final recModeMatch = _mcuRecModePattern.firstMatch(text);
-    if (recModeMatch != null) {
-      final rawMode = (recModeMatch.group(1) ?? '').trim().toUpperCase();
+    void handleRecorderMode(String rawMode) {
       if (rawMode == 'CALL') {
         _packetModeCode = 1;
         _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
         onSyncStateChanged();
         return;
       }
-      if (rawMode == 'NORMAL' || rawMode == 'NOR') {
+      if (rawMode == 'NORMAL' || rawMode == 'NOR' || rawMode == 'CON') {
         _packetModeCode = 0;
         _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
         onSyncStateChanged();
@@ -209,6 +208,19 @@ class PacketSyncCoordinator {
       // Other MCU&REC states (e.g. CON) are not mode toggles.
       _lastSyncStatus = 'Recorder state: ${rawMode.toLowerCase()}';
       onSyncStateChanged();
+    }
+
+    final recModeMatch = _mcuRecModePattern.firstMatch(text);
+    if (recModeMatch != null) {
+      final rawMode = (recModeMatch.group(1) ?? '').trim().toUpperCase();
+      handleRecorderMode(rawMode);
+      return;
+    }
+
+    final regModeMatch = _mcuRegModePattern.firstMatch(text);
+    if (regModeMatch != null) {
+      final rawMode = (regModeMatch.group(1) ?? '').trim().toUpperCase();
+      handleRecorderMode(rawMode);
       return;
     }
 
