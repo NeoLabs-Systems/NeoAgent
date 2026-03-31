@@ -6,8 +6,8 @@ import 'package:universal_ble/universal_ble.dart';
 
 import '../models.dart';
 
-class PacketSyncCoordinator {
-  PacketSyncCoordinator({
+class HeyPocketSyncCoordinator {
+  HeyPocketSyncCoordinator({
     required this.ensureDeviceRegistered,
     required this.uploadSyncPayload,
     required this.onSyncStateChanged,
@@ -23,13 +23,13 @@ class PacketSyncCoordinator {
   static const int _syncListDays = 12;
   static const int _syncUploadMaxFiles = 5;
 
-  static const List<String> _packetInitHexSequence = [
+  static const List<String> _heypocketInitHexSequence = [
     '010183014f000200030a313737343434383234360400100e0500',
     '0101010402050010',
     '0101020100',
   ];
 
-  static const List<String> _packetOfflineSyncRequestHexSequence = [
+  static const List<String> _heypocketOfflineSyncRequestHexSequence = [
     '0101020100',
   ];
 
@@ -55,12 +55,12 @@ class PacketSyncCoordinator {
   Timer? _reconnectSyncTimer;
   bool _reconnectSyncActive = false;
   bool _syncRequestInFlight = false;
-  final List<_PacketListEntry> _listedFiles = <_PacketListEntry>[];
+  final List<_HeyPocketListEntry> _listedFiles = <_HeyPocketListEntry>[];
   final Set<String> _listedFileKeys = <String>{};
   String _lastSyncStatus = 'Idle';
   String _lastControlMessage = '';
   int _uploadCommandsSent = 0;
-  int _packetModeCode = 0;
+  int _heypocketModeCode = 0;
   bool _modeSwitchInFlight = false;
   bool _recordingActive = false;
   String _activeRecordingId = '';
@@ -81,9 +81,9 @@ class PacketSyncCoordinator {
   String get lastSyncStatus => _lastSyncStatus;
   String get lastControlMessage => _lastControlMessage;
   int get listedFilesCount => _listedFiles.length;
-  List<PacketSyncFile> get listedFiles => List<PacketSyncFile>.unmodifiable(
+  List<HeyPocketSyncFile> get listedFiles => List<HeyPocketSyncFile>.unmodifiable(
     _listedFiles.map(
-      (entry) => PacketSyncFile(
+      (entry) => HeyPocketSyncFile(
         date: entry.date,
         fileId: entry.fileId,
         size: entry.size,
@@ -91,15 +91,15 @@ class PacketSyncCoordinator {
     ),
   );
   int get uploadCommandsSent => _uploadCommandsSent;
-  bool get isCallMode => _packetModeCode == 1;
-  String get packetModeLabel => _packetModeCode == 1 ? 'Call' : 'Normal';
+  bool get isCallMode => _heypocketModeCode == 1;
+  String get heypocketModeLabel => _heypocketModeCode == 1 ? 'Call' : 'Normal';
   bool get isModeSwitchInFlight => _modeSwitchInFlight;
   bool get isRecordingActive => _recordingActive;
   String get activeRecordingId => _activeRecordingId;
 
   Future<void> onConnected(String deviceId, List<BleService> services) async {
-    await _sendPacketInitSequence(deviceId, services);
-    await _queryPacketMode(deviceId, services);
+    await _sendHeyPocketInitSequence(deviceId, services);
+    await _queryHeyPocketMode(deviceId, services);
   }
 
   Future<void> subscribeNotifications({
@@ -120,7 +120,7 @@ class PacketSyncCoordinator {
       debugPrint('Subscribed to control characteristic: $controlCharUuid');
     }
 
-    // Packet firmware can move sync payloads to different notify characteristics.
+    // HeyPocket firmware can move sync payloads to different notify characteristics.
     for (final char in service.characteristics) {
       final normalized = _normalizeUuid(char.uuid);
       if (subscribedUuids.contains(normalized)) {
@@ -130,7 +130,7 @@ class PacketSyncCoordinator {
       try {
         await UniversalBle.subscribeNotifications(deviceId, service.uuid, char.uuid);
         subscribedUuids.add(normalized);
-        debugPrint('Subscribed to packet extra characteristic: ${char.uuid}');
+        debugPrint('Subscribed to heypocket extra characteristic: ${char.uuid}');
       } catch (subError) {
         debugPrint('Could not subscribe to ${char.uuid}: $subError');
       }
@@ -174,7 +174,7 @@ class PacketSyncCoordinator {
       final size = int.tryParse(fileMatch.group(3) ?? '') ?? 0;
       final key = '$date|$fileId';
       if (_listedFileKeys.add(key)) {
-        _listedFiles.add(_PacketListEntry(date: date, fileId: fileId, size: size));
+        _listedFiles.add(_HeyPocketListEntry(date: date, fileId: fileId, size: size));
         _lastSyncStatus = 'Discovered ${_listedFiles.length} offline file(s)';
         onSyncStateChanged();
       }
@@ -191,22 +191,22 @@ class PacketSyncCoordinator {
 
     final modeMatch = _mcuModePattern.firstMatch(text);
     if (modeMatch != null) {
-      _packetModeCode = int.tryParse(modeMatch.group(1) ?? '') ?? 0;
-      _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+      _heypocketModeCode = int.tryParse(modeMatch.group(1) ?? '') ?? 0;
+      _lastSyncStatus = 'HeyPocket mode: ${heypocketModeLabel.toLowerCase()}';
       onSyncStateChanged();
       return;
     }
 
     void handleRecorderMode(String rawMode) {
       if (rawMode == 'CALL') {
-        _packetModeCode = 1;
-        _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+        _heypocketModeCode = 1;
+        _lastSyncStatus = 'HeyPocket mode: ${heypocketModeLabel.toLowerCase()}';
         onSyncStateChanged();
         return;
       }
       if (rawMode == 'NORMAL' || rawMode == 'NOR' || rawMode == 'CON') {
-        _packetModeCode = 0;
-        _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+        _heypocketModeCode = 0;
+        _lastSyncStatus = 'HeyPocket mode: ${heypocketModeLabel.toLowerCase()}';
         onSyncStateChanged();
         return;
       }
@@ -280,7 +280,7 @@ class PacketSyncCoordinator {
     _modeSwitchInFlight = true;
     _lastSyncStatus = 'Switching mode...';
     onSyncStateChanged();
-    final previousModeCode = _packetModeCode;
+    final previousModeCode = _heypocketModeCode;
 
     try {
       final resolvedServices = await _resolveServices(deviceId, services);
@@ -290,19 +290,19 @@ class PacketSyncCoordinator {
       }
 
       final service = resolvedServices.firstWhere(
-        (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+        (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
         orElse: () => resolvedServices.first,
       );
 
       final modeValue = enableCallMode ? 1 : 0;
       await _writeAsciiChecked(deviceId, service.uuid, 'APP&STE&$modeValue');
       await _writeAsciiChecked(deviceId, service.uuid, 'APP&STE');
-      _packetModeCode = modeValue;
-      _lastSyncStatus = 'Packet mode: ${packetModeLabel.toLowerCase()}';
+      _heypocketModeCode = modeValue;
+      _lastSyncStatus = 'HeyPocket mode: ${heypocketModeLabel.toLowerCase()}';
     } catch (e) {
-      _packetModeCode = previousModeCode;
+      _heypocketModeCode = previousModeCode;
       _lastSyncStatus = 'Mode switch failed';
-      debugPrint('Packet mode switch failed: $e');
+      debugPrint('HeyPocket mode switch failed: $e');
     } finally {
       _modeSwitchInFlight = false;
       onSyncStateChanged();
@@ -331,7 +331,7 @@ class PacketSyncCoordinator {
       }
 
       final service = resolvedServices.firstWhere(
-        (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+        (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
         orElse: () => resolvedServices.first,
       );
 
@@ -363,7 +363,7 @@ class PacketSyncCoordinator {
       }
       onSyncStateChanged();
 
-      debugPrint('Packet offline sync request sent ($reason)');
+      debugPrint('HeyPocket offline sync request sent ($reason)');
     } finally {
       _syncRequestInFlight = false;
       onSyncStateChanged();
@@ -382,7 +382,7 @@ class PacketSyncCoordinator {
     }
 
     final service = resolvedServices.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => resolvedServices.first,
     );
 
@@ -393,7 +393,7 @@ class PacketSyncCoordinator {
 
   Future<void> deleteOfflineSyncFile(
     String deviceId,
-    PacketSyncFile file, {
+    HeyPocketSyncFile file, {
     List<BleService>? services,
   }) async {
     final resolvedServices = await _resolveServices(deviceId, services);
@@ -404,7 +404,7 @@ class PacketSyncCoordinator {
     }
 
     final service = resolvedServices.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => resolvedServices.first,
     );
 
@@ -426,7 +426,7 @@ class PacketSyncCoordinator {
     }
 
     final service = resolvedServices.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => resolvedServices.first,
     );
 
@@ -447,7 +447,7 @@ class PacketSyncCoordinator {
     }
 
     final service = resolvedServices.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => resolvedServices.first,
     );
 
@@ -456,13 +456,13 @@ class PacketSyncCoordinator {
     onSyncStateChanged();
   }
 
-  Future<void> _queryPacketMode(String deviceId, List<BleService> services) async {
+  Future<void> _queryHeyPocketMode(String deviceId, List<BleService> services) async {
     if (services.isEmpty) {
       return;
     }
 
     final service = services.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => services.first,
     );
 
@@ -481,7 +481,7 @@ class PacketSyncCoordinator {
     try {
       resolvedServices = await UniversalBle.discoverServices(deviceId);
     } catch (e) {
-      debugPrint('Packet service discovery failed: $e');
+      debugPrint('HeyPocket service discovery failed: $e');
     }
     return resolvedServices;
   }
@@ -496,7 +496,7 @@ class PacketSyncCoordinator {
     String deviceId,
     BleService service,
   ) async {
-    final time = _formatPacketTime(DateTime.now());
+    final time = _formatHeyPocketTime(DateTime.now());
     for (final template in _officialSyncPreambleCommands) {
       if (template.contains('{sk}') && _appSk.isEmpty) {
         continue;
@@ -512,7 +512,7 @@ class PacketSyncCoordinator {
     await UniversalBle.write(
       deviceId,
       serviceUuid,
-      WearableServiceUuids.packetControlRx,
+      WearableServiceUuids.heypocketControlRx,
       Uint8List.fromList(cmd.codeUnits),
       withoutResponse: false,
     );
@@ -540,7 +540,7 @@ class PacketSyncCoordinator {
       return 0;
     }
 
-    final candidates = List<_PacketListEntry>.from(_listedFiles)
+    final candidates = List<_HeyPocketListEntry>.from(_listedFiles)
       ..sort((a, b) => b.size.compareTo(a.size));
 
     final count = candidates.length < _syncUploadMaxFiles
@@ -559,7 +559,7 @@ class PacketSyncCoordinator {
 
   Future<void> _sendLegacySyncPulse(String deviceId, BleService service) async {
     for (var attempt = 0; attempt < _syncRequestRepeats; attempt++) {
-      for (final hexPayload in _packetOfflineSyncRequestHexSequence) {
+      for (final hexPayload in _heypocketOfflineSyncRequestHexSequence) {
         await _writeHex(deviceId, service.uuid, hexPayload);
         await Future.delayed(_syncRequestRetryDelay);
       }
@@ -570,18 +570,18 @@ class PacketSyncCoordinator {
     }
   }
 
-  Future<void> _sendPacketInitSequence(String deviceId, List<BleService> services) async {
+  Future<void> _sendHeyPocketInitSequence(String deviceId, List<BleService> services) async {
     if (services.isEmpty) {
-      debugPrint('No services discovered; skipping packet init sequence');
+      debugPrint('No services discovered; skipping heypocket init sequence');
       return;
     }
 
     final service = services.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.packetServiceUuid),
+      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => services.first,
     );
 
-    for (final hexPayload in _packetInitHexSequence) {
+    for (final hexPayload in _heypocketInitHexSequence) {
       await _writeHex(deviceId, service.uuid, hexPayload);
       await Future.delayed(const Duration(milliseconds: 120));
     }
@@ -592,12 +592,12 @@ class PacketSyncCoordinator {
       await UniversalBle.write(
         deviceId,
         serviceUuid,
-        WearableServiceUuids.packetControlRx,
+        WearableServiceUuids.heypocketControlRx,
         Uint8List.fromList(cmd.codeUnits),
         withoutResponse: false,
       );
     } catch (e) {
-      debugPrint('Packet command write failed [$cmd]: $e');
+      debugPrint('HeyPocket command write failed [$cmd]: $e');
     }
     await Future.delayed(_syncCommandGap);
   }
@@ -607,12 +607,12 @@ class PacketSyncCoordinator {
       await UniversalBle.write(
         deviceId,
         serviceUuid,
-        WearableServiceUuids.packetControlRx,
+        WearableServiceUuids.heypocketControlRx,
         _bytesFromHex(hexPayload),
         withoutResponse: true,
       );
     } catch (e) {
-      debugPrint('Packet hex write failed [$hexPayload]: $e');
+      debugPrint('HeyPocket hex write failed [$hexPayload]: $e');
     }
   }
 
@@ -639,9 +639,9 @@ class PacketSyncCoordinator {
     try {
       await ensureDeviceRegistered(deviceId);
       await uploadSyncPayload(deviceId, payload);
-      debugPrint('Packet reconnect sync uploaded: ${payload.length} bytes');
+      debugPrint('HeyPocket reconnect sync uploaded: ${payload.length} bytes');
     } catch (e) {
-      debugPrint('Packet reconnect sync failed: $e');
+      debugPrint('HeyPocket reconnect sync failed: $e');
     }
   }
 
@@ -681,7 +681,7 @@ class PacketSyncCoordinator {
     }
   }
 
-  String _formatPacketTime(DateTime dt) {
+  String _formatHeyPocketTime(DateTime dt) {
     final y = dt.year.toString().padLeft(4, '0');
     final mo = dt.month.toString().padLeft(2, '0');
     final d = dt.day.toString().padLeft(2, '0');
@@ -699,8 +699,8 @@ class PacketSyncCoordinator {
   }
 }
 
-class _PacketListEntry {
-  const _PacketListEntry({
+class _HeyPocketListEntry {
+  const _HeyPocketListEntry({
     required this.date,
     required this.fileId,
     required this.size,
@@ -711,8 +711,8 @@ class _PacketListEntry {
   final int size;
 }
 
-class PacketSyncFile {
-  const PacketSyncFile({
+class HeyPocketSyncFile {
+  const HeyPocketSyncFile({
     required this.date,
     required this.fileId,
     required this.size,

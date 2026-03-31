@@ -4807,7 +4807,7 @@ class WearablesPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final service = controller.wearableService;
 
-    String formatPacketFileMetric(int value) {
+    String formatHeyPocketFileMetric(int value) {
       if (value <= 0) {
         return 'unknown length';
       }
@@ -4848,7 +4848,7 @@ class WearablesPanel extends StatelessWidget {
                               FilledButton.tonalIcon(
                                 onPressed: service.isOfflineSyncRequestInFlight
                                     ? null
-                                    : service.requestPacketOfflineSync,
+                                    : service.requestHeyPocketOfflineSync,
                                 icon: service.isOfflineSyncRequestInFlight
                                     ? const SizedBox.square(
                                         dimension: 14,
@@ -4971,7 +4971,7 @@ class WearablesPanel extends StatelessWidget {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: OutlinedButton.icon(
-                            onPressed: service.cancelPacketOfflineSync,
+                            onPressed: service.cancelHeyPocketOfflineSync,
                             icon: const Icon(Icons.cancel_outlined),
                             label: const Text('Cancel sync'),
                           ),
@@ -4983,22 +4983,22 @@ class WearablesPanel extends StatelessWidget {
                           children: <Widget>[
                             _SyncStatPill(
                               label: 'Status',
-                              value: service.packetSyncStatus,
+                              value: service.heypocketSyncStatus,
                               icon: Icons.info_outline,
                             ),
                             _SyncStatPill(
                               label: 'Listed files',
-                              value: '${service.packetSyncListedFilesCount}',
+                              value: '${service.heypocketSyncListedFilesCount}',
                               icon: Icons.queue_music_outlined,
                             ),
                             _SyncStatPill(
                               label: 'Upload requests',
-                              value: '${service.packetSyncUploadCommandsSent}',
+                              value: '${service.heypocketSyncUploadCommandsSent}',
                               icon: Icons.cloud_upload_outlined,
                             ),
                           ],
                         ),
-                        if (service.packetSyncListedFiles.isNotEmpty) ...<Widget>[
+                        if (service.heypocketSyncListedFiles.isNotEmpty) ...<Widget>[
                           const SizedBox(height: 12),
                           const Text(
                             'On-device sync files',
@@ -5009,7 +5009,7 @@ class WearablesPanel extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          ...service.packetSyncListedFiles.map((file) {
+                          ...service.heypocketSyncListedFiles.map((file) {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Container(
@@ -5039,7 +5039,7 @@ class WearablesPanel extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            '${file.date} • ${formatPacketFileMetric(file.size)}',
+                                            '${file.date} • ${formatHeyPocketFileMetric(file.size)}',
                                             style: const TextStyle(
                                               fontSize: 11,
                                               color: _textSecondary,
@@ -5049,7 +5049,7 @@ class WearablesPanel extends StatelessWidget {
                                       ),
                                     ),
                                     IconButton(
-                                      onPressed: () => service.deletePacketOfflineFile(file),
+                                      onPressed: () => service.deleteHeyPocketOfflineFile(file),
                                       icon: const Icon(Icons.delete_outline, size: 18),
                                       tooltip: 'Delete from device',
                                       visualDensity: VisualDensity.compact,
@@ -5060,7 +5060,7 @@ class WearablesPanel extends StatelessWidget {
                             );
                           }),
                         ],
-                        if (service.packetSyncLastControlMessage.isNotEmpty) ...<Widget>[
+                        if (service.heypocketSyncLastControlMessage.isNotEmpty) ...<Widget>[
                           const SizedBox(height: 12),
                           Container(
                             width: double.infinity,
@@ -5071,7 +5071,7 @@ class WearablesPanel extends StatelessWidget {
                               border: Border.all(color: _borderLight),
                             ),
                             child: Text(
-                              'Last response: ${service.packetSyncLastControlMessage}',
+                              'Last response: ${service.heypocketSyncLastControlMessage}',
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -5108,7 +5108,7 @@ class WearablesPanel extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      service.packetModeLabel,
+                                      service.heypocketModeLabel,
                                       style: const TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
@@ -5120,13 +5120,13 @@ class WearablesPanel extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Switch(
-                                value: service.packetCallModeEnabled,
-                                onChanged: service.packetModeSwitchInFlight
+                                value: service.heypocketCallModeEnabled,
+                                onChanged: service.heypocketModeSwitchInFlight
                                     ? null
-                                    : service.setPacketCallMode,
+                                    : service.setHeyPocketCallMode,
                               ),
                               Text(
-                                service.packetCallModeEnabled ? 'Call' : 'Normal',
+                                service.heypocketCallModeEnabled ? 'Call' : 'Normal',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: _textSecondary,
@@ -5313,9 +5313,9 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
   Widget build(BuildContext context) {
     final runtime = widget.controller.recordingRuntime;
     final wearableService = widget.controller.wearableService;
-    final packetConnected = wearableService.canStartPacketRecording;
-    final packetRecordingActive = wearableService.packetRecordingActive;
-    final anyRecordingActive = runtime.active || packetRecordingActive;
+    final heypocketConnected = wearableService.canStartHeyPocketRecording;
+    final heypocketRecordingActive = wearableService.heypocketRecordingActive;
+    final anyRecordingActive = runtime.active || heypocketRecordingActive;
 
     return ListView(
       padding: _pagePadding(context),
@@ -5341,10 +5341,10 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                           ? (runtime.paused ? _warning : _danger)
                           : _success,
                     ),
-                    if (packetRecordingActive)
+                    if (heypocketRecordingActive)
                       Text(
-                        wearableService.packetActiveRecordingId.isNotEmpty
-                            ? 'Wearable live: ${wearableService.packetActiveRecordingId}'
+                        wearableService.heypocketActiveRecordingId.isNotEmpty
+                            ? 'Wearable live: ${wearableService.heypocketActiveRecordingId}'
                             : 'Wearable live recording',
                         style: const TextStyle(color: _textSecondary),
                       ),
@@ -5375,21 +5375,21 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                         onPressed:
                           widget.controller.isStartingRecording || runtime.active
                             ? null
-                            : (packetConnected
-                            ? (packetRecordingActive
-                              ? wearableService.stopPacketRecordingFromApp
-                              : wearableService.startPacketRecordingFromApp)
+                            : (heypocketConnected
+                            ? (heypocketRecordingActive
+                              ? wearableService.stopHeyPocketRecordingFromApp
+                              : wearableService.startHeyPocketRecordingFromApp)
                                   : widget.controller.startBackgroundRecording),
                         icon: Icon(
-                          packetConnected
-                        ? (packetRecordingActive
+                          heypocketConnected
+                        ? (heypocketRecordingActive
                           ? Icons.stop_circle_outlined
                           : Icons.watch_outlined)
                               : Icons.mic_none_outlined,
                         ),
                         label: Text(
-                          packetConnected
-                        ? (packetRecordingActive
+                          heypocketConnected
+                        ? (heypocketRecordingActive
                           ? 'Stop wearable recording'
                           : 'Start recording on wearable')
                               : 'Start background mic',

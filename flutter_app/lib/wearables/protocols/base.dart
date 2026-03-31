@@ -39,8 +39,8 @@ abstract class WearableProtocolBase {
   /// Get protocol from device type
   static WearableProtocolBase? fromDeviceType(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.packet:
-        return PacketProtocol();
+      case WearableDeviceType.heypocket:
+        return HeyPocketProtocol();
       default:
         return null;
     }
@@ -49,7 +49,7 @@ abstract class WearableProtocolBase {
 
 /// HeyPocket Device (PKT01) Protocol
 /// Streams 16kHz Mono MP3 frames (32kbps) over BLE
-class PacketProtocol extends WearableProtocolBase {
+class HeyPocketProtocol extends WearableProtocolBase {
   @override
   String get id => WearableProtocols.heypocket;
 
@@ -63,20 +63,20 @@ class PacketProtocol extends WearableProtocolBase {
   BleAudioCodec get codec => BleAudioCodec.mp3;
 
   @override
-  String? get serviceUuid => WearableServiceUuids.packetServiceUuid;
+  String? get serviceUuid => WearableServiceUuids.heypocketServiceUuid;
 
   @override
-  String? get audioCharUuid => WearableServiceUuids.packetAudioTx;
+  String? get audioCharUuid => WearableServiceUuids.heypocketAudioTx;
 
   @override
-  String? get controlCharUuid => WearableServiceUuids.packetControlTx;
+  String? get controlCharUuid => WearableServiceUuids.heypocketControlTx;
 
   @override
   Uint8List? parseAudioPayload(Uint8List rawPayload, {String? characteristicUuid}) {
     if (rawPayload.isEmpty) return null;
 
     final normalizedCharacteristic = _normalizeUuid(characteristicUuid);
-    final audioTx = _normalizeUuid(WearableServiceUuids.packetAudioTx);
+    final audioTx = _normalizeUuid(WearableServiceUuids.heypocketAudioTx);
 
     if (normalizedCharacteristic != null && normalizedCharacteristic != audioTx) {
       return null;
@@ -93,7 +93,7 @@ class PacketProtocol extends WearableProtocolBase {
   int? extractBatteryLevel(Uint8List rawPayload, {String? characteristicUuid}) {
     if (rawPayload.isEmpty) return null;
 
-    // Packet sends battery as text: "MCU&BAT&98"
+    // HeyPocket sends battery as text: "MCU&BAT&98"
     try {
       final text = String.fromCharCodes(rawPayload);
       final match = RegExp(r'MCU&BAT&(\d+)').firstMatch(text);

@@ -1,6 +1,6 @@
 /// Device types supported by the wearable system
 enum WearableDeviceType {
-  packet,
+  heypocket,
   custom,
   unknown, // For filtering unknown BLE devices
 }
@@ -91,10 +91,10 @@ class WearableDevice {
 /// Service UUIDs for various wearable devices
 class WearableServiceUuids {
   // HeyPocket Device (PKT01)
-  static const String packetServiceUuid = '001120a0-2233-4455-6677-889912345678';
-  static const String packetControlRx = '001120a2-2233-4455-6677-889912345678';
-  static const String packetControlTx = '001120a1-2233-4455-6677-889912345678';
-  static const String packetAudioTx = '001120a3-2233-4455-6677-889912345678';
+  static const String heypocketServiceUuid = '001120a0-2233-4455-6677-889912345678';
+  static const String heypocketControlRx = '001120a2-2233-4455-6677-889912345678';
+  static const String heypocketControlTx = '001120a1-2233-4455-6677-889912345678';
+  static const String heypocketAudioTx = '001120a3-2233-4455-6677-889912345678';
 
   // Standard Battery Service
   static const String batteryServiceUuid = '0000180f-0000-1000-8000-00805f9b34fb';
@@ -109,8 +109,8 @@ class WearableServiceUuids {
   /// Get service UUID for a device type
   static String? getServiceUuid(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.packet:
-        return packetServiceUuid;
+      case WearableDeviceType.heypocket:
+        return heypocketServiceUuid;
       default:
         return null;
     }
@@ -119,8 +119,8 @@ class WearableServiceUuids {
   /// Get audio characteristic UUID for a device type
   static String? getAudioCharUuid(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.packet:
-        return packetAudioTx;
+      case WearableDeviceType.heypocket:
+        return heypocketAudioTx;
       default:
         return null;
     }
@@ -130,13 +130,12 @@ class WearableServiceUuids {
 /// Protocol identifier for wearable devices
 class WearableProtocols {
   static const String heypocket = 'heypocket';
-  static const String packet = 'packet'; // Legacy alias
   static const String custom = 'custom';
 
   /// Map device type to protocol identifier
   static String fromDeviceType(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.packet:
+      case WearableDeviceType.heypocket:
         return heypocket;
       case WearableDeviceType.custom:
       case WearableDeviceType.unknown:
@@ -148,8 +147,7 @@ class WearableProtocols {
   static WearableDeviceType? toDeviceType(String protocol) {
     switch (protocol) {
       case heypocket:
-      case packet:
-        return WearableDeviceType.packet;
+        return WearableDeviceType.heypocket;
       case custom:
         return WearableDeviceType.custom;
       default:

@@ -7,7 +7,7 @@ import 'package:universal_ble/universal_ble.dart';
 import '../src/backend_client.dart';
 import '../src/wearable_background_bridge.dart';
 import 'models.dart';
-import 'packet/sync_coordinator.dart';
+import 'heypocket/sync_coordinator.dart';
 import 'pending_chunk_store.dart';
 import 'protocols/base.dart';
 
@@ -15,7 +15,7 @@ const _connectionHealthCheckInterval = Duration(seconds: 30);
 const _baseReconnectDelayMs = 1000;
 const _maxConnectRetries = 5;
 const _autoReconnectScanInterval = Duration(seconds: 12);
-final RegExp _packetRecordingStopControlPattern = RegExp(r'^MCU&STO\b');
+final RegExp _heypocketRecordingStopControlPattern = RegExp(r'^MCU&STO\b');
 
 class WearableService extends ChangeNotifier {
   WearableService({
@@ -23,11 +23,12 @@ class WearableService extends ChangeNotifier {
     required ValueGetter<String> getBackendUrl,
   }) : _backendClient = backendClient,
        _getBackendUrl = getBackendUrl {
-    _packetSyncCoordinator = PacketSyncCoordinator(
+    const heypocketAppSk = String.fromEnvironment('NEOAGENT_HEYPOCKET_APP_SK');
+    _heypocketSyncCoordinator = HeyPocketSyncCoordinator(
       ensureDeviceRegistered: _ensureDeviceRegistered,
-      uploadSyncPayload: _uploadPacketSyncPayload,
+      uploadSyncPayload: _uploadHeyPocketSyncPayload,
       onSyncStateChanged: notifyListeners,
-      appSk: const String.fromEnvironment('NEOAGENT_PACKET_APP_SK'),
+      appSk: heypocketAppSk,
     );
     _init();
   }
@@ -77,24 +78,24 @@ class WearableService extends ChangeNotifier {
   final Map<String, WearableProtocolBase> _protocols = {};
 
   WearableDeviceType? _deviceType;
-  late final PacketSyncCoordinator _packetSyncCoordinator;
+  late final HeyPocketSyncCoordinator _heypocketSyncCoordinator;
 
   bool get canRequestOfflineSync =>
-      _connectedDevice != null && _deviceType == WearableDeviceType.packet;
+      _connectedDevice != null && _deviceType == WearableDeviceType.heypocket;
 
-  bool get isOfflineSyncRequestInFlight => _packetSyncCoordinator.isSyncRequestInFlight;
-  String get packetSyncStatus => _packetSyncCoordinator.lastSyncStatus;
-  String get packetSyncLastControlMessage => _packetSyncCoordinator.lastControlMessage;
-  int get packetSyncListedFilesCount => _packetSyncCoordinator.listedFilesCount;
-  List<PacketSyncFile> get packetSyncListedFiles => _packetSyncCoordinator.listedFiles;
-  int get packetSyncUploadCommandsSent => _packetSyncCoordinator.uploadCommandsSent;
-  bool get packetCallModeEnabled => _packetSyncCoordinator.isCallMode;
-  String get packetModeLabel => _packetSyncCoordinator.packetModeLabel;
-  bool get packetModeSwitchInFlight => _packetSyncCoordinator.isModeSwitchInFlight;
-  bool get packetRecordingActive => _packetSyncCoordinator.isRecordingActive;
-  String get packetActiveRecordingId => _packetSyncCoordinator.activeRecordingId;
-  bool get canStartPacketRecording =>
-      _connectedDevice != null && _deviceType == WearableDeviceType.packet;
+  bool get isOfflineSyncRequestInFlight => _heypocketSyncCoordinator.isSyncRequestInFlight;
+  String get heypocketSyncStatus => _heypocketSyncCoordinator.lastSyncStatus;
+  String get heypocketSyncLastControlMessage => _heypocketSyncCoordinator.lastControlMessage;
+  int get heypocketSyncListedFilesCount => _heypocketSyncCoordinator.listedFilesCount;
+  List<HeyPocketSyncFile> get heypocketSyncListedFiles => _heypocketSyncCoordinator.listedFiles;
+  int get heypocketSyncUploadCommandsSent => _heypocketSyncCoordinator.uploadCommandsSent;
+  bool get heypocketCallModeEnabled => _heypocketSyncCoordinator.isCallMode;
+  String get heypocketModeLabel => _heypocketSyncCoordinator.heypocketModeLabel;
+  bool get heypocketModeSwitchInFlight => _heypocketSyncCoordinator.isModeSwitchInFlight;
+  bool get heypocketRecordingActive => _heypocketSyncCoordinator.isRecordingActive;
+  String get heypocketActiveRecordingId => _heypocketSyncCoordinator.activeRecordingId;
+  bool get canStartHeyPocketRecording =>
+      _connectedDevice != null && _deviceType == WearableDeviceType.heypocket;
 
   void _init() {
     _registerDefaultProtocols();
@@ -138,28 +139,28 @@ class WearableService extends ChangeNotifier {
 
         bool shouldEnqueue = true;
 
-        if (_deviceType == WearableDeviceType.packet) {
-          final packetProtocol = _getProtocolForDevice(WearableDeviceType.packet);
-          if (packetProtocol != null) {
-            _packetSyncCoordinator.observeControlPayload(value);
+        if (_deviceType == WearableDeviceType.heypocket) {
+          final heypocketProtocol = _getProtocolForDevice(WearableDeviceType.heypocket);
+          if (heypocketProtocol != null) {
+            _heypocketSyncCoordinator.observeControlPayload(value);
 
-            if (_isPacketRecordingStopControl(value)) {
+            if (_isHeyPocketRecordingStopControl(value)) {
               unawaited(_finalizeActiveWearableRecording(deviceId));
             }
 
-            final capturedForReconnectSync = _packetSyncCoordinator.captureSyncChunk(
+            final capturedForReconnectSync = _heypocketSyncCoordinator.captureSyncChunk(
               characteristicUuid,
               value,
-              packetProtocol.parseAudioPayload,
+              heypocketProtocol.parseAudioPayload,
             );
 
-            final parsedAudio = packetProtocol.parseAudioPayload(
+            final parsedAudio = heypocketProtocol.parseAudioPayload(
               value,
               characteristicUuid: characteristicUuid,
             );
             final hasAudioPayload = parsedAudio != null && parsedAudio.isNotEmpty;
 
-            // For packet devices, only forward actual audio payloads to live-stream ingestion.
+            // For heypocket devices, only forward actual audio payloads to live-stream ingestion.
             // Sync-captured audio is uploaded separately via reconnect sync payload.
             shouldEnqueue = hasAudioPayload && !capturedForReconnectSync;
           }
@@ -342,7 +343,7 @@ class WearableService extends ChangeNotifier {
 
   void _registerDefaultProtocols() {
     final builtInProtocols = <WearableProtocolBase>[
-      PacketProtocol(),
+      HeyPocketProtocol(),
     ];
 
     for (final protocol in builtInProtocols) {
@@ -353,8 +354,8 @@ class WearableService extends ChangeNotifier {
   WearableDeviceType _identifyDeviceType(String name) {
     final lowerName = name.toLowerCase();
 
-    if (lowerName.contains('heypocket') || lowerName.contains('pocket') || lowerName.contains('packet') || lowerName.contains('pkt01')) {
-      return WearableDeviceType.packet;
+    if (lowerName.contains('heypocket') || lowerName.contains('pocket') || lowerName.contains('pkt01')) {
+      return WearableDeviceType.heypocket;
     }
 
     return WearableDeviceType.unknown;
@@ -571,8 +572,8 @@ class WearableService extends ChangeNotifier {
       await _subscribeToAudioCharacteristic(device.deviceId, discoveredServices);
   unawaited(_ensureNativeBackgroundBridge(autoStartRecording: false));
 
-      if (_deviceType == WearableDeviceType.packet) {
-        await _packetSyncCoordinator.onConnected(device.deviceId, discoveredServices);
+      if (_deviceType == WearableDeviceType.heypocket) {
+        await _heypocketSyncCoordinator.onConnected(device.deviceId, discoveredServices);
       }
 
       notifyListeners();
@@ -668,8 +669,8 @@ class WearableService extends ChangeNotifier {
     final audioCharUuid = protocol.audioCharUuid;
     if (audioCharUuid != null) {
       try {
-        if (_deviceType == WearableDeviceType.packet) {
-          await _packetSyncCoordinator.subscribeNotifications(
+        if (_deviceType == WearableDeviceType.heypocket) {
+          await _heypocketSyncCoordinator.subscribeNotifications(
             deviceId: deviceId,
             service: service,
             audioCharUuid: audioCharUuid,
@@ -698,40 +699,40 @@ class WearableService extends ChangeNotifier {
     }
   }
 
-  Future<void> requestPacketOfflineSync() async {
+  Future<void> requestHeyPocketOfflineSync() async {
     if (!canRequestOfflineSync) {
       debugPrint('Offline sync request ignored: HeyPocket device not connected');
       return;
     }
 
     final deviceId = _connectedDevice!.deviceId;
-    await _packetSyncCoordinator.requestOfflineSync(
+    await _heypocketSyncCoordinator.requestOfflineSync(
       deviceId,
       reason: 'manual',
     );
   }
 
-  Future<void> cancelPacketOfflineSync() async {
+  Future<void> cancelHeyPocketOfflineSync() async {
     if (!canRequestOfflineSync || _connectedDevice == null) {
       return;
     }
 
-    await _packetSyncCoordinator.cancelOfflineSync(_connectedDevice!.deviceId);
+    await _heypocketSyncCoordinator.cancelOfflineSync(_connectedDevice!.deviceId);
   }
 
-  Future<void> deletePacketOfflineFile(PacketSyncFile file) async {
+  Future<void> deleteHeyPocketOfflineFile(HeyPocketSyncFile file) async {
     if (!canRequestOfflineSync || _connectedDevice == null) {
       return;
     }
 
-    await _packetSyncCoordinator.deleteOfflineSyncFile(
+    await _heypocketSyncCoordinator.deleteOfflineSyncFile(
       _connectedDevice!.deviceId,
       file,
     );
   }
 
-  Future<void> startPacketRecordingFromApp() async {
-    if (!canStartPacketRecording || _connectedDevice == null) {
+  Future<void> startHeyPocketRecordingFromApp() async {
+    if (!canStartHeyPocketRecording || _connectedDevice == null) {
       return;
     }
 
@@ -742,11 +743,11 @@ class WearableService extends ChangeNotifier {
       }
     }
 
-    await _packetSyncCoordinator.startRecordingFromApp(_connectedDevice!.deviceId);
+    await _heypocketSyncCoordinator.startRecordingFromApp(_connectedDevice!.deviceId);
   }
 
-  Future<void> stopPacketRecordingFromApp() async {
-    if (!canStartPacketRecording || _connectedDevice == null) {
+  Future<void> stopHeyPocketRecordingFromApp() async {
+    if (!canStartHeyPocketRecording || _connectedDevice == null) {
       return;
     }
 
@@ -758,17 +759,17 @@ class WearableService extends ChangeNotifier {
       }
     }
 
-    await _packetSyncCoordinator.stopRecordingFromApp(_connectedDevice!.deviceId);
+    await _heypocketSyncCoordinator.stopRecordingFromApp(_connectedDevice!.deviceId);
     await _finalizeActiveWearableRecording(_connectedDevice!.deviceId);
   }
 
-  bool _isPacketRecordingStopControl(Uint8List payload) {
+  bool _isHeyPocketRecordingStopControl(Uint8List payload) {
     try {
       final text = String.fromCharCodes(payload).replaceAll('\u0000', '').trim();
       if (text.isEmpty) {
         return false;
       }
-      return _packetRecordingStopControlPattern.hasMatch(text);
+      return _heypocketRecordingStopControlPattern.hasMatch(text);
     } catch (_) {
       return false;
     }
@@ -792,7 +793,7 @@ class WearableService extends ChangeNotifier {
     if (kIsWeb || !Platform.isAndroid) {
       return false;
     }
-    if (_connectedDevice == null || _deviceType != WearableDeviceType.packet) {
+    if (_connectedDevice == null || _deviceType != WearableDeviceType.heypocket) {
       return false;
     }
 
@@ -808,10 +809,10 @@ class WearableService extends ChangeNotifier {
         macAddress: _connectedDevice!.deviceId,
         deviceName: _connectedDevice!.name ?? 'Wearable Device',
         protocolId: WearableProtocols.heypocket,
-        serviceUuid: WearableServiceUuids.packetServiceUuid,
-        audioNotifyUuid: WearableServiceUuids.packetAudioTx,
-        controlNotifyUuid: WearableServiceUuids.packetControlTx,
-        controlWriteUuid: WearableServiceUuids.packetControlRx,
+        serviceUuid: WearableServiceUuids.heypocketServiceUuid,
+        audioNotifyUuid: WearableServiceUuids.heypocketAudioTx,
+        controlNotifyUuid: WearableServiceUuids.heypocketControlTx,
+        controlWriteUuid: WearableServiceUuids.heypocketControlRx,
         autoStartRecording: autoStartRecording,
       );
       _backgroundBridgeActive = true;
@@ -850,18 +851,18 @@ class WearableService extends ChangeNotifier {
     }
   }
 
-  Future<void> setPacketCallMode(bool enabled) async {
+  Future<void> setHeyPocketCallMode(bool enabled) async {
     if (!canRequestOfflineSync || _connectedDevice == null) {
       return;
     }
 
-    await _packetSyncCoordinator.setCallMode(
+    await _heypocketSyncCoordinator.setCallMode(
       _connectedDevice!.deviceId,
       enabled,
     );
   }
 
-  Future<void> _uploadPacketSyncPayload(String deviceId, Uint8List payload) {
+  Future<void> _uploadHeyPocketSyncPayload(String deviceId, Uint8List payload) {
     return _backendClient.syncWearableData(
       _getBackendUrl(),
       deviceId,
@@ -902,7 +903,7 @@ class WearableService extends ChangeNotifier {
 
   String? _protocolIdForDeviceType(WearableDeviceType type) {
     switch (type) {
-      case WearableDeviceType.packet:
+      case WearableDeviceType.heypocket:
         return WearableProtocols.heypocket;
       case WearableDeviceType.custom:
       case WearableDeviceType.unknown:
@@ -1005,7 +1006,7 @@ class WearableService extends ChangeNotifier {
   void dispose() {
     _stopConnectionHealthMonitoring();
     _stopAutoReconnectLoop();
-    _packetSyncCoordinator.dispose();
+    _heypocketSyncCoordinator.dispose();
     UniversalBle.onScanResult = null;
     UniversalBle.onConnectionChange = null;
     UniversalBle.onValueChange = null;

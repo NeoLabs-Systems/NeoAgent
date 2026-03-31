@@ -15,7 +15,7 @@ const STREAM_REAPER_INTERVAL_MS = 30 * 1000;
 
 function normalizeProtocolId(protocolId) {
   const normalized = String(protocolId || '').trim().toLowerCase();
-  if (normalized === 'heypocket' || normalized === 'packet') {
+  if (normalized === 'heypocket') {
     return SUPPORTED_PROTOCOL_ID;
   }
   return normalized;
