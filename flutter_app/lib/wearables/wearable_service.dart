@@ -52,9 +52,15 @@ class WearableService extends ChangeNotifier {
   String? get connectingDeviceId => _connectingDeviceId;
   bool _backgroundBridgeActive = false;
   bool get backgroundBridgeActive => _backgroundBridgeActive;
+  bool _backgroundBridgeConnected = false;
+  bool get backgroundBridgeConnected => _backgroundBridgeConnected;
   String? _backgroundBridgeDeviceId;
   String? get backgroundBridgeDeviceId => _backgroundBridgeDeviceId;
   String? _preferredReconnectDeviceId;
+  bool get hasReconnectTarget =>
+      (_preferredReconnectDeviceId != null && _preferredReconnectDeviceId!.isNotEmpty) ||
+      (_backgroundBridgeDeviceId != null && _backgroundBridgeDeviceId!.isNotEmpty);
+  bool get isConnecting => _connectionState == BleConnectionState.connecting;
   Timer? _autoReconnectTimer;
   bool _autoReconnectEnabled = false;
 
@@ -466,6 +472,33 @@ class WearableService extends ChangeNotifier {
     return _connectInternal(device, fromAutoReconnect: false);
   }
 
+  Future<void> reconnectToPreferredDevice() async {
+    final reconnectDeviceId = _preferredReconnectDeviceId?.trim().isNotEmpty == true
+        ? _preferredReconnectDeviceId!.trim()
+        : _backgroundBridgeDeviceId?.trim();
+
+    if (reconnectDeviceId == null || reconnectDeviceId.isEmpty) {
+      debugPrint('Reconnect ignored: no preferred wearable device id available');
+      return;
+    }
+
+    if (_connectionState == BleConnectionState.connecting ||
+        _connectionState == BleConnectionState.connected) {
+      return;
+    }
+
+    _preferredReconnectDeviceId = reconnectDeviceId;
+    _autoReconnectEnabled = true;
+
+    final cachedDevice = _discoveredDevices[reconnectDeviceId];
+    if (cachedDevice != null) {
+      await _attemptAutoReconnect(cachedDevice);
+      return;
+    }
+
+    _maybeStartAutoReconnect();
+  }
+
   Future<void> _connectInternal(BleDevice device, {required bool fromAutoReconnect}) async {
     try {
       if (_connectionState == BleConnectionState.connecting) {
@@ -739,6 +772,7 @@ class WearableService extends ChangeNotifier {
     if (!kIsWeb && Platform.isAndroid) {
       final started = await _ensureNativeBackgroundBridge(autoStartRecording: true);
       if (started) {
+        _heypocketSyncCoordinator.setRecordingStateFromBridge(active: true);
         return;
       }
     }
@@ -753,7 +787,11 @@ class WearableService extends ChangeNotifier {
 
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        await _wearableBackgroundBridge.stopBackgroundBridge(sendStop: true);
+        final status = await _wearableBackgroundBridge.stopBackgroundBridge(sendStop: true);
+        _backgroundBridgeActive = status['active'] == true;
+        _backgroundBridgeConnected = status['connected'] == true;
+        _heypocketSyncCoordinator.setRecordingStateFromBridge(active: false);
+        notifyListeners();
       } catch (e) {
         debugPrint('Failed to stop native wearable bridge: $e');
       }
@@ -803,7 +841,7 @@ class WearableService extends ChangeNotifier {
     }
 
     try {
-      await _wearableBackgroundBridge.startBackgroundBridge(
+      final status = await _wearableBackgroundBridge.startBackgroundBridge(
         backendUrl: _getBackendUrl(),
         sessionCookie: sessionCookie,
         macAddress: _connectedDevice!.deviceId,
@@ -815,10 +853,19 @@ class WearableService extends ChangeNotifier {
         controlWriteUuid: WearableServiceUuids.heypocketControlRx,
         autoStartRecording: autoStartRecording,
       );
-      _backgroundBridgeActive = true;
-      _backgroundBridgeDeviceId = _connectedDevice?.deviceId;
+
+      final active = status['active'] == true;
+      final connected = status['connected'] == true;
+      final statusDeviceId = status['macAddress']?.toString();
+
+      _backgroundBridgeActive = active;
+      _backgroundBridgeConnected = connected;
+      _backgroundBridgeDeviceId =
+          statusDeviceId != null && statusDeviceId.trim().isNotEmpty
+              ? statusDeviceId.trim()
+              : _connectedDevice?.deviceId;
       notifyListeners();
-      return true;
+      return active;
     } catch (e) {
       debugPrint('Failed to start native wearable bridge: $e');
       return false;
@@ -833,9 +880,11 @@ class WearableService extends ChangeNotifier {
     try {
       final status = await _wearableBackgroundBridge.backgroundBridgeStatus();
       final active = status['active'] == true;
+        final connected = status['connected'] == true;
       final deviceId = status['macAddress']?.toString();
 
       _backgroundBridgeActive = active;
+        _backgroundBridgeConnected = connected;
       _backgroundBridgeDeviceId =
           deviceId != null && deviceId.trim().isNotEmpty ? deviceId.trim() : null;
 
@@ -962,6 +1011,7 @@ class WearableService extends ChangeNotifier {
         try {
           await _wearableBackgroundBridge.stopBackgroundBridge(sendStop: false);
           _backgroundBridgeActive = false;
+          _backgroundBridgeConnected = false;
           _backgroundBridgeDeviceId = null;
         } catch (e) {
           debugPrint('Error stopping native wearable bridge: $e');

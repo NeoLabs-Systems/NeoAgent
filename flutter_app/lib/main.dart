@@ -4822,7 +4822,9 @@ class WearablesPanel extends StatelessWidget {
       builder: (context, _) {
         final hasBleConnected = service.connectedDevice != null;
         final hasBackgroundOnly =
-            service.backgroundBridgeActive && !hasBleConnected;
+          service.backgroundBridgeConnected && !hasBleConnected;
+        final bridgeWaitingForDevice =
+          service.backgroundBridgeActive && !service.backgroundBridgeConnected;
         return ListView(
           padding: _pagePadding(context),
           children: <Widget>[
@@ -4844,6 +4846,19 @@ class WearablesPanel extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: <Widget>[
+                            if (!hasBleConnected && service.hasReconnectTarget)
+                              OutlinedButton.icon(
+                                onPressed: service.isConnecting
+                                    ? null
+                                    : service.reconnectToPreferredDevice,
+                                icon: service.isConnecting
+                                    ? const SizedBox.square(
+                                        dimension: 14,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.refresh_rounded),
+                                label: const Text('Reconnect'),
+                              ),
                             if (service.canRequestOfflineSync)
                               FilledButton.tonalIcon(
                                 onPressed: service.isOfflineSyncRequestInFlight
@@ -4876,6 +4891,8 @@ class WearablesPanel extends StatelessWidget {
                                   ? 'Connected: ${service.connectedDevice!.name ?? 'Wearable'}'
                                 : hasBackgroundOnly
                                 ? 'Connected via background bridge: ${service.backgroundBridgeDeviceId ?? 'Wearable'}'
+                                : bridgeWaitingForDevice
+                                ? 'Background bridge enabled (waiting for device)'
                                   : 'No device connected',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -4884,7 +4901,7 @@ class WearablesPanel extends StatelessWidget {
                                 fontSize: 16,
                               ),
                             ),
-                            if (!hasBleConnected && !hasBackgroundOnly)
+                            if (!hasBleConnected && !hasBackgroundOnly && !bridgeWaitingForDevice)
                               const Text(
                                 'Scan for nearby Bluetooth recording devices.',
                                 style: TextStyle(color: _textSecondary),

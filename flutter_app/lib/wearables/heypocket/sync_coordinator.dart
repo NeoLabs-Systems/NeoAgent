@@ -97,6 +97,16 @@ class HeyPocketSyncCoordinator {
   bool get isRecordingActive => _recordingActive;
   String get activeRecordingId => _activeRecordingId;
 
+  void setRecordingStateFromBridge({
+    required bool active,
+    String recordingId = '',
+  }) {
+    _recordingActive = active;
+    _activeRecordingId = active ? recordingId : '';
+    _lastSyncStatus = active ? 'Recording started' : 'Recording stopped';
+    onSyncStateChanged();
+  }
+
   Future<void> onConnected(String deviceId, List<BleService> services) async {
     await _sendHeyPocketInitSequence(deviceId, services);
     await _queryHeyPocketMode(deviceId, services);

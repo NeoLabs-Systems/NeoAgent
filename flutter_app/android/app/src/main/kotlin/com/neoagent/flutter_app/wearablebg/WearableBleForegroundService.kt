@@ -82,6 +82,7 @@ class WearableBleForegroundService : Service() {
                         controlWriteUuid = next.controlWriteUuid,
                     )
                     stateStore.save(next)
+                    stateStore.setConnected(false)
                     registerDone.set(false)
                     startForegroundUi("Connecting to ${next.deviceName.ifBlank { next.macAddress }}")
                     connectOrRetry()
@@ -110,6 +111,7 @@ class WearableBleForegroundService : Service() {
                         controlWriteUuid = restored.controlWriteUuid,
                     )
                     registerDone.set(false)
+                    stateStore.setConnected(false)
                     startForegroundUi("Restoring wearable bridge")
                     connectOrRetry()
                 } else {
@@ -226,6 +228,7 @@ class WearableBleForegroundService : Service() {
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+                stateStore.setConnected(true)
                 updateNotification("Connected. Discovering services")
                 serviceScope.launch {
                     try {
@@ -242,6 +245,7 @@ class WearableBleForegroundService : Service() {
             }
 
             if (newState == android.bluetooth.BluetoothProfile.STATE_DISCONNECTED) {
+                stateStore.setConnected(false)
                 updateNotification("Disconnected. Reconnecting")
                 closeGatt()
             }
@@ -454,6 +458,7 @@ class WearableBleForegroundService : Service() {
         reconnectJob?.cancel()
         reconnectJob = null
         closeGatt()
+        stateStore.setConnected(false)
         if (clearState) {
             stateStore.clear()
         }

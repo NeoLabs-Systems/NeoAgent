@@ -22,18 +22,28 @@ class WearableBridgeStateStore(context: Context) {
     fun save(config: WearableBridgeConfig) {
         prefs.edit()
             .putBoolean(KEY_ACTIVE, true)
+            .putBoolean(KEY_CONNECTED, false)
             .putString(KEY_CONFIG_JSON, serialize(config).toString())
+            .apply()
+    }
+
+    fun setConnected(connected: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_CONNECTED, connected)
             .apply()
     }
 
     fun clear() {
         prefs.edit()
             .putBoolean(KEY_ACTIVE, false)
+            .putBoolean(KEY_CONNECTED, false)
             .remove(KEY_CONFIG_JSON)
             .apply()
     }
 
     fun isActive(): Boolean = prefs.getBoolean(KEY_ACTIVE, false)
+
+    fun isConnected(): Boolean = prefs.getBoolean(KEY_CONNECTED, false)
 
     fun load(): WearableBridgeConfig? {
         val raw = prefs.getString(KEY_CONFIG_JSON, null) ?: return null
@@ -80,6 +90,7 @@ class WearableBridgeStateStore(context: Context) {
         val config = load()
         return mapOf(
             "active" to isActive(),
+            "connected" to isConnected(),
             "macAddress" to config?.macAddress,
             "protocol" to config?.protocolId,
             "backendUrl" to config?.backendUrl,
@@ -103,6 +114,7 @@ class WearableBridgeStateStore(context: Context) {
     companion object {
         private const val PREFS_NAME = "wearable_bridge_state"
         private const val KEY_ACTIVE = "active"
+        private const val KEY_CONNECTED = "connected"
         private const val KEY_CONFIG_JSON = "config_json"
     }
 }
