@@ -9034,13 +9034,25 @@ class _SkillsPanelState extends State<SkillsPanel>
                             ],
                           ),
                           const SizedBox(height: 10),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: OutlinedButton(
-                              onPressed: () =>
-                                  _openSkillEditor(context, skill.name),
-                              child: const Text('Open'),
-                            ),
+                          Row(
+                            children: <Widget>[
+                              const Spacer(),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _openSkillEditor(context, skill.name),
+                                child: const Text('Open'),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: () =>
+                                    _confirmDeleteSkill(context, skill.name),
+                                icon: const Icon(Icons.delete_outline),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: _danger,
+                                ),
+                                label: const Text('Delete'),
+                              ),
+                            ],
                           ),
                         ],
                       )
@@ -9099,6 +9111,16 @@ class _SkillsPanelState extends State<SkillsPanel>
                                 onPressed: () =>
                                     _openSkillEditor(context, skill.name),
                                 child: const Text('Open'),
+                              ),
+                              const SizedBox(height: 6),
+                              TextButton.icon(
+                                onPressed: () =>
+                                    _confirmDeleteSkill(context, skill.name),
+                                icon: const Icon(Icons.delete_outline),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: _danger,
+                                ),
+                                label: const Text('Delete'),
                               ),
                             ],
                           ),
@@ -9518,6 +9540,51 @@ Write the instructions for this skill here.
         );
       },
     );
+  }
+
+  Future<void> _confirmDeleteSkill(BuildContext context, String name) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: const Text('Delete skill?'),
+          content: Text('"$name" will be removed permanently.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: _danger),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    try {
+      await widget.controller.deleteSkill(name);
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted "$name".')),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete "$name": $error')),
+      );
+    }
   }
 }
 
