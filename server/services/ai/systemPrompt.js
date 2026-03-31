@@ -114,6 +114,34 @@ function buildRuntimeDetails() {
   ].join('\n');
 }
 
+function formatCurrentLocalDateTime(now = new Date()) {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const localDateTime = new Intl.DateTimeFormat('sv-SE', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(now).replace(' ', 'T');
+
+  const tzName = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    timeZoneName: 'long'
+  }).formatToParts(now).find((part) => part.type === 'timeZoneName')?.value || timeZone;
+
+  const offsetMinutes = -now.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offsetMinutes);
+  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+  const offsetMins = String(absOffset % 60).padStart(2, '0');
+  const utcOffset = `${sign}${offsetHours}:${offsetMins}`;
+
+  return `${localDateTime} (${timeZone}, ${tzName}, UTC${utcOffset})`;
+}
+
 async function buildSystemPrompt(userId, context = {}, memoryManager) {
   const cacheKey = String(userId || 'global');
   const now = Date.now();
@@ -125,7 +153,7 @@ async function buildSystemPrompt(userId, context = {}, memoryManager) {
 
   const base = [
     buildBasePrompt(),
-    `Current date/time: ${new Date().toISOString()}`,
+    `Current local date/time: ${formatCurrentLocalDateTime()}`,
     'SYSTEM PRECEDENCE: system rules > current user intent > SOUL and memory context.'
   ];
   if (context.includeRuntimeDetails || context.additionalContext) {
