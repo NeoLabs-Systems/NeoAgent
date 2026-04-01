@@ -1529,6 +1529,15 @@ class NeoAgentController extends ChangeNotifier {
     return resolveRuntimeAsset('/api/recordings/$encodedSessionId/audio/$encodedSourceKey');
   }
 
+  Future<Uint8List> fetchRecordingSourceAudioBytes(
+    String sessionId,
+    String sourceKey,
+  ) {
+    final encodedSessionId = Uri.encodeComponent(sessionId);
+    final encodedSourceKey = Uri.encodeComponent(sourceKey);
+    return fetchRuntimeAssetBytes('/api/recordings/$encodedSessionId/audio/$encodedSourceKey');
+  }
+
   Future<Uint8List> fetchRuntimeAssetBytes(String path) {
     final separator = path.contains('?') ? '&' : '?';
     return _backendClient.fetchBinary(
@@ -5960,13 +5969,17 @@ class _RecordingSourceAudioControlsState
       return;
     }
 
-    final uri = widget.controller.resolveRecordingSourceAudioUri(
-      widget.session.id,
-      source.sourceKey,
-    );
     try {
       await _player.stop();
-      await _player.play(UrlSource(uri.toString()));
+      final bytes = await widget.controller.fetchRecordingSourceAudioBytes(
+        widget.session.id,
+        source.sourceKey,
+      );
+      if (bytes.isEmpty) {
+        throw StateError('Audio source is empty.');
+      }
+      final mime = source.mimeType.trim().isNotEmpty ? source.mimeType.trim() : null;
+      await _player.play(BytesSource(bytes, mimeType: mime));
       if (!mounted) {
         return;
       }
@@ -5974,7 +5987,17 @@ class _RecordingSourceAudioControlsState
         _isPlaying = true;
         _activeSourceKey = source.sourceKey;
       });
-    } catch (_) {
+    } catch (e) {
+      AppDiagnostics.log(
+        'recording.playback',
+        'source.play.failed',
+        data: <String, Object?>{
+          'sessionId': widget.session.id,
+          'sourceKey': source.sourceKey,
+          'mimeType': source.mimeType,
+        },
+        error: e,
+      );
       if (!mounted) {
         return;
       }

@@ -417,6 +417,7 @@ class RecordingSourceItem {
     required this.sourceKey,
     required this.sourceKind,
     required this.mediaKind,
+    required this.mimeType,
     required this.durationMs,
     required this.chunkCount,
   });
@@ -426,6 +427,7 @@ class RecordingSourceItem {
       sourceKey: json['sourceKey']?.toString() ?? '',
       sourceKind: json['sourceKind']?.toString() ?? '',
       mediaKind: json['mediaKind']?.toString() ?? '',
+      mimeType: json['mimeType']?.toString() ?? '',
       durationMs: _asInt(json['durationMs']),
       chunkCount: _asInt(json['chunkCount']),
     );
@@ -434,6 +436,7 @@ class RecordingSourceItem {
   final String sourceKey;
   final String sourceKind;
   final String mediaKind;
+  final String mimeType;
   final int durationMs;
   final int chunkCount;
 
