@@ -231,4 +231,16 @@ router.delete('/:sessionId/segments/:segmentId', (req, res) => {
   }
 });
 
+router.delete('/:sessionId', (req, res) => {
+  try {
+    const manager = getRecordingManager(req);
+    manager.deleteSession(req.session.userId, req.params.sessionId);
+    res.status(204).send();
+  } catch (err) {
+    respondWithMappedError(res, err, [
+      { pattern: /not found/i, status: 404 },
+    ]);
+  }
+});
+
 module.exports = router;

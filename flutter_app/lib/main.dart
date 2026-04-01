@@ -1808,6 +1808,20 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteRecordingSession(String sessionId) async {
+    try {
+      errorMessage = null;
+      await _backendClient.deleteRecordingSession(backendUrl, sessionId);
+      recordingSessions = recordingSessions
+          .where((item) => item.id != sessionId)
+          .toList();
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
   Future<void> refreshUpdateStatus() async {
     try {
       updateStatus = UpdateStatusSnapshot.fromJson(
@@ -5527,6 +5541,19 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
     );
   }
 
+  Future<void> _deleteRecording(
+    BuildContext context,
+    RecordingSessionItem session,
+  ) async {
+    await _confirmDelete(
+      context,
+      title: 'Delete recording?',
+      message:
+          'Remove the full recording "${session.title}", including audio chunks and transcript data?',
+      onConfirm: () => widget.controller.deleteRecordingSession(session.id),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final runtime = widget.controller.recordingRuntime;
@@ -5687,6 +5714,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                     : null,
                 onDeleteSegment: (segment) =>
                     _deleteSegment(context, session, segment),
+                onDeleteRecording: () => _deleteRecording(context, session),
               ),
             ),
           ),
@@ -5701,6 +5729,7 @@ class _RecordingSessionCard extends StatelessWidget {
     required this.session,
     this.onRetry,
     this.onDeleteSegment,
+    this.onDeleteRecording,
   });
 
   final NeoAgentController controller;
@@ -5708,6 +5737,7 @@ class _RecordingSessionCard extends StatelessWidget {
   final VoidCallback? onRetry;
   final Future<void> Function(RecordingTranscriptSegment segment)?
   onDeleteSegment;
+  final Future<void> Function()? onDeleteRecording;
 
   @override
   Widget build(BuildContext context) {
@@ -5900,12 +5930,30 @@ class _RecordingSessionCard extends StatelessWidget {
                 style: const TextStyle(color: _textSecondary),
               ),
             ],
-            if (onRetry != null) ...<Widget>[
+            if (onRetry != null || onDeleteRecording != null) ...<Widget>[
               const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.replay),
-                label: const Text('Retry transcription'),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  if (onRetry != null)
+                    OutlinedButton.icon(
+                      onPressed: onRetry,
+                      icon: const Icon(Icons.replay),
+                      label: const Text('Retry transcription'),
+                    ),
+                  if (onDeleteRecording != null)
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        await onDeleteRecording!();
+                      },
+                      icon: const Icon(Icons.delete_forever_outlined),
+                      label: const Text('Delete recording'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _danger,
+                      ),
+                    ),
+                ],
               ),
             ],
           ],

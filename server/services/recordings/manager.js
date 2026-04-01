@@ -631,6 +631,53 @@ class RecordingManager {
     return this.getSession(userId, sessionId);
   }
 
+  deleteSession(userId, sessionId) {
+    const session = db.prepare(`
+      SELECT id
+      FROM recording_sessions
+      WHERE id = ? AND user_id = ?
+    `).get(sessionId, userId);
+    if (!session) {
+      throw new Error('Recording session not found.');
+    }
+
+    const chunkRows = db.prepare(`
+      SELECT c.file_path AS filePath
+      FROM recording_chunks c
+      INNER JOIN recording_sources s ON s.id = c.source_id
+      WHERE s.session_id = ?
+    `).all(sessionId);
+    db.prepare(`
+      DELETE FROM recording_sessions
+      WHERE id = ?
+    `).run(sessionId);
+
+    for (const row of chunkRows) {
+      const filePath = `${row?.filePath || ''}`.trim();
+      if (!filePath) {
+        continue;
+      }
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (error) {
+        console.warn(`[Recordings] Failed to delete recording chunk file: ${sanitizeError(error)}`);
+      }
+    }
+
+    const sessionDir = path.join(RECORDINGS_DIR, `user-${userId}`, sessionId);
+    try {
+      if (fs.existsSync(sessionDir)) {
+        fs.rmSync(sessionDir, { recursive: true, force: true });
+      }
+    } catch (error) {
+      console.warn(`[Recordings] Failed to delete recording session directory: ${sanitizeError(error)}`);
+    }
+
+    this.#emitUpdate(userId, sessionId);
+  }
+
   async #transcribeSourceChunks(source, chunks) {
     if (this.#canTranscribeAsSingleWav(source, chunks)) {
       return this.#transcribeMergedWavSource(source, chunks);

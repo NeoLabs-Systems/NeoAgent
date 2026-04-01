@@ -776,6 +776,13 @@ class BackendClient {
     return deleteMap(baseUrl, '/api/recordings/$sessionId/segments/$segmentId');
   }
 
+  Future<void> deleteRecordingSession(
+    String baseUrl,
+    String sessionId,
+  ) async {
+    await deleteMap(baseUrl, '/api/recordings/$sessionId');
+  }
+
   Future<Map<String, dynamic>> streamWearableData(
     String baseUrl,
     String macAddress,
