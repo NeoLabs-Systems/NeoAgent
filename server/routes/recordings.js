@@ -1,7 +1,9 @@
 const express = require('express');
+const fs = require('fs');
 
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const db = require('../db/database');
 
 const router = express.Router();
 
@@ -92,6 +94,71 @@ router.get('/:sessionId', (req, res) => {
     respondWithMappedError(res, err, [
       { pattern: /not found/i, status: 404 },
     ]);
+  }
+});
+
+router.get('/:sessionId/audio/:sourceKey', (req, res) => {
+  try {
+    const sessionId = req.params.sessionId;
+    const sourceKey = String(req.params.sourceKey || '').trim();
+    if (!sourceKey) {
+      return res.status(400).json({ error: 'sourceKey is required.' });
+    }
+
+    const session = db.prepare(`
+      SELECT id
+      FROM recording_sessions
+      WHERE id = ? AND user_id = ?
+    `).get(sessionId, req.session.userId);
+    if (!session) {
+      return res.status(404).json({ error: 'Recording session not found.' });
+    }
+
+    const source = db.prepare(`
+      SELECT id, source_key, mime_type
+      FROM recording_sources
+      WHERE session_id = ? AND LOWER(source_key) = LOWER(?)
+      LIMIT 1
+    `).get(sessionId, sourceKey);
+    if (!source) {
+      return res.status(404).json({ error: 'Recording source not found.' });
+    }
+
+    const chunks = db.prepare(`
+      SELECT file_path, mime_type
+      FROM recording_chunks
+      WHERE source_id = ?
+      ORDER BY sequence_index ASC
+    `).all(source.id);
+    if (!Array.isArray(chunks) || chunks.length == 0) {
+      return res.status(404).json({ error: 'No audio chunks available.' });
+    }
+
+    const mimeType = String(source.mime_type || chunks[0]?.mime_type || 'application/octet-stream');
+    if (!mimeType.startsWith('audio/')) {
+      return res.status(415).json({
+        error: `Playback unsupported for mime type: ${mimeType}`,
+      });
+    }
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Disposition', `inline; filename="${source.source_key}.audio"`);
+
+    for (const chunk of chunks) {
+      const filePath = chunk.file_path;
+      if (!filePath || !fs.existsSync(filePath)) {
+        continue;
+      }
+      const bytes = fs.readFileSync(filePath);
+      if (bytes.length > 0) {
+        res.write(bytes);
+      }
+    }
+
+    res.end();
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
   }
 });
 

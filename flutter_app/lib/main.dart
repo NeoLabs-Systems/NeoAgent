@@ -9,9 +9,11 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:audioplayers/audioplayers.dart';
 
 import 'src/android_apk_drop_zone.dart';
 import 'src/backend_client.dart';
+import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
 import 'src/recording_bridge.dart';
 import 'wearables/wearable_service.dart';
@@ -490,22 +492,111 @@ class NeoAgentController extends ChangeNotifier {
 
   RecordingRuntimeStatus get recordingRuntime => _recordingBridge.status;
 
+  Map<String, Object?> _recordingRuntimeSnapshot() {
+    final runtime = recordingRuntime;
+    return <String, Object?>{
+      'runtimeActive': runtime.active,
+      'runtimePaused': runtime.paused,
+      'runtimeSessionId': runtime.sessionId,
+      'runtimeStartedAt': runtime.startedAt?.toIso8601String(),
+      'runtimeError': runtime.errorMessage,
+      'sessionsLoaded': recordingSessions.length,
+    };
+  }
+
+  void _logRecording(
+    String event, {
+    Map<String, Object?> data = const <String, Object?>{},
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    AppDiagnostics.log(
+      'recording.controller',
+      event,
+      data: <String, Object?>{
+        ..._recordingRuntimeSnapshot(),
+        ...data,
+      },
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
+  void _logRecordingConsistency(String reason) {
+    final activeSessionId = recordingRuntime.sessionId;
+    RecordingSessionItem? activeSession;
+    if (activeSessionId != null) {
+      for (final session in recordingSessions) {
+        if (session.id == activeSessionId) {
+          activeSession = session;
+          break;
+        }
+      }
+    }
+
+    final serverRecordingCount = recordingSessions
+        .where((session) => session.status == 'recording')
+        .length;
+
+    _logRecording('consistency.snapshot', data: <String, Object?>{
+      'reason': reason,
+      'activeSessionId': activeSessionId,
+      'activeSessionStatus': activeSession?.status,
+      'serverRecordingCount': serverRecordingCount,
+    });
+
+    if (!recordingRuntime.active &&
+        activeSession != null &&
+        activeSession.status == 'recording') {
+      _logRecording('consistency.mismatch_runtime_inactive_server_recording',
+          data: <String, Object?>{
+            'reason': reason,
+            'sessionId': activeSession.id,
+          });
+    }
+
+    if (recordingRuntime.active &&
+        activeSession != null &&
+        activeSession.status != 'recording') {
+      _logRecording('consistency.mismatch_runtime_active_server_not_recording',
+          data: <String, Object?>{
+            'reason': reason,
+            'sessionId': activeSession.id,
+            'serverStatus': activeSession.status,
+          });
+    }
+  }
+
   BlockedSenderNotice? get pendingBlockedSenderNotice =>
       _blockedSenderQueue.isEmpty ? null : _blockedSenderQueue.first;
 
   void _handleRecordingBridgeChanged() {
+    _logRecording('bridge.changed');
     notifyListeners();
   }
 
   Future<void> _handleRecordingStopped(String sessionId) async {
+    _logRecording('bridge.on_recording_stopped', data: <String, Object?>{
+      'sessionId': sessionId,
+    });
     try {
       await _backendClient.finalizeRecordingSession(
         backendUrl,
         sessionId,
         stopReason: 'ended',
       );
+      _logRecording('finalize.ok', data: <String, Object?>{
+        'sessionId': sessionId,
+        'stopReason': 'ended',
+      });
       await refreshRecordings();
     } catch (error) {
+      _logRecording('finalize.failed',
+          data: <String, Object?>{
+            'sessionId': sessionId,
+            'stopReason': 'ended',
+          },
+          error: error);
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
@@ -982,10 +1073,18 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> refreshRecordings() async {
+    _logRecording('refresh.request');
     recordingSessions = (await _backendClient.fetchRecordingSessions(
       backendUrl,
     )).map(RecordingSessionItem.fromJson).toList();
     await _recordingBridge.refreshStatus();
+    _logRecording('refresh.done', data: <String, Object?>{
+      'sessionStatuses': recordingSessions
+          .take(5)
+          .map((item) => '${item.id}:${item.status}')
+          .join(','),
+    });
+    _logRecordingConsistency('refreshRecordings');
     notifyListeners();
   }
 
@@ -996,6 +1095,9 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     try {
+      _logRecording('refresh_by_id.request', data: <String, Object?>{
+        'sessionId': trimmed,
+      });
       final response = await _backendClient.fetchRecordingSession(
         backendUrl,
         trimmed,
@@ -1016,8 +1118,19 @@ class NeoAgentController extends ChangeNotifier {
       }
 
       await _recordingBridge.refreshStatus();
+      _logRecording('refresh_by_id.done', data: <String, Object?>{
+        'sessionId': trimmed,
+        'status': session.status,
+        'endedAt': session.endedAt?.toIso8601String(),
+      });
+      _logRecordingConsistency('refreshRecordingSessionById');
       notifyListeners();
-    } catch (_) {
+    } catch (error) {
+      _logRecording('refresh_by_id.fallback_full_refresh',
+          data: <String, Object?>{
+            'sessionId': trimmed,
+          },
+          error: error);
       // Session may have been pruned or unavailable; fall back to full refresh.
       await refreshRecordings();
     }
@@ -1410,6 +1523,12 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
+  Uri resolveRecordingSourceAudioUri(String sessionId, String sourceKey) {
+    final encodedSessionId = Uri.encodeComponent(sessionId);
+    final encodedSourceKey = Uri.encodeComponent(sourceKey);
+    return resolveRuntimeAsset('/api/recordings/$encodedSessionId/audio/$encodedSourceKey');
+  }
+
   Future<Uint8List> fetchRuntimeAssetBytes(String path) {
     final separator = path.contains('?') ? '&' : '?';
     return _backendClient.fetchBinary(
@@ -1436,6 +1555,7 @@ class NeoAgentController extends ChangeNotifier {
 
     String? sessionId;
     try {
+      _logRecording('start_web.request');
       final response = await _backendClient.createRecordingSession(
         backendUrl,
         <String, dynamic>{
@@ -1473,8 +1593,16 @@ class NeoAgentController extends ChangeNotifier {
         baseUrl: backendUrl,
         sessionId: session.id,
       );
+      _logRecording('start_web.done', data: <String, Object?>{
+        'sessionId': session.id,
+      });
       notifyListeners();
     } catch (error) {
+      _logRecording('start_web.failed',
+          data: <String, Object?>{
+            'sessionId': sessionId,
+          },
+          error: error);
       if (sessionId != null) {
         try {
           await _backendClient.finalizeRecordingSession(
@@ -1502,6 +1630,7 @@ class NeoAgentController extends ChangeNotifier {
 
     String? sessionId;
     try {
+      _logRecording('start_background.request');
       final response = await _backendClient.createRecordingSession(
         backendUrl,
         <String, dynamic>{
@@ -1531,8 +1660,16 @@ class NeoAgentController extends ChangeNotifier {
         sessionCookie: _backendClient.sessionCookie ?? '',
         sessionId: session.id,
       );
+      _logRecording('start_background.done', data: <String, Object?>{
+        'sessionId': session.id,
+      });
       notifyListeners();
     } catch (error) {
+      _logRecording('start_background.failed',
+          data: <String, Object?>{
+            'sessionId': sessionId,
+          },
+          error: error);
       if (sessionId != null) {
         try {
           await _backendClient.finalizeRecordingSession(
@@ -1552,8 +1689,11 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> pauseBackgroundRecording() async {
     try {
+      _logRecording('pause_background.request');
       await _recordingBridge.pauseBackgroundRecording();
+      _logRecording('pause_background.done');
     } catch (error) {
+      _logRecording('pause_background.failed', error: error);
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
@@ -1561,8 +1701,11 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> resumeBackgroundRecording() async {
     try {
+      _logRecording('resume_background.request');
       await _recordingBridge.resumeBackgroundRecording();
+      _logRecording('resume_background.done');
     } catch (error) {
+      _logRecording('resume_background.failed', error: error);
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
@@ -1578,6 +1721,10 @@ class NeoAgentController extends ChangeNotifier {
         !recordingRuntime.supportsScreenAndMic;
     isStoppingRecording = true;
     errorMessage = null;
+    _logRecording('stop.request', data: <String, Object?>{
+      'sessionId': sessionId,
+      'isAndroidBackgroundStop': isAndroidBackgroundStop,
+    });
     notifyListeners();
     try {
       await _recordingBridge.stopActiveRecording();
@@ -1591,7 +1738,16 @@ class NeoAgentController extends ChangeNotifier {
         );
       }
       await refreshRecordings();
+      _logRecording('stop.done', data: <String, Object?>{
+        'sessionId': sessionId,
+      });
     } catch (error) {
+      _logRecording('stop.failed',
+          data: <String, Object?>{
+            'sessionId': sessionId,
+            'isAndroidBackgroundStop': isAndroidBackgroundStop,
+          },
+          error: error);
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     } finally {
@@ -4957,6 +5113,40 @@ class WearablesPanel extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    _SyncStatPill(
+                      label: 'BLE state',
+                      value: service.connectionState.name,
+                      icon: Icons.bluetooth_searching,
+                    ),
+                    _SyncStatPill(
+                      label: 'Bridge active',
+                      value: service.backgroundBridgeActive ? 'yes' : 'no',
+                      icon: Icons.settings_ethernet,
+                    ),
+                    _SyncStatPill(
+                      label: 'Bridge connected',
+                      value: service.backgroundBridgeConnected ? 'yes' : 'no',
+                      icon: Icons.link,
+                    ),
+                    _SyncStatPill(
+                      label: 'Device id',
+                      value: service.connectedDevice?.deviceId ??
+                          service.backgroundBridgeDeviceId ??
+                          '-',
+                      icon: Icons.badge_outlined,
+                    ),
+                  ],
+                ),
+              ),
+            ),
             if (service.connectedDevice != null && service.canRequestOfflineSync) ...<Widget>[
               const SizedBox(height: 12),
               Card(
@@ -5331,7 +5521,9 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
     final runtime = widget.controller.recordingRuntime;
     final wearableService = widget.controller.wearableService;
     final heypocketConnected = wearableService.canStartHeyPocketRecording;
-    final heypocketRecordingActive = wearableService.heypocketRecordingActive;
+    final heypocketRecordingActive =
+      heypocketConnected && wearableService.heypocketRecordingActive;
+    final heypocketStartInFlight = wearableService.heypocketStartInFlight;
     final anyRecordingActive = runtime.active || heypocketRecordingActive;
 
     return ListView(
@@ -5390,7 +5582,9 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                     if (runtime.supportsBackgroundMic)
                       FilledButton.icon(
                         onPressed:
-                          widget.controller.isStartingRecording || runtime.active
+                          widget.controller.isStartingRecording ||
+                          runtime.active ||
+                          heypocketStartInFlight
                             ? null
                             : (heypocketConnected
                             ? (heypocketRecordingActive
@@ -5406,9 +5600,11 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                         ),
                         label: Text(
                           heypocketConnected
-                        ? (heypocketRecordingActive
+                        ? (heypocketStartInFlight
+                          ? 'Starting wearable recording...'
+                          : (heypocketRecordingActive
                           ? 'Stop wearable recording'
-                          : 'Start recording on wearable')
+                          : 'Start recording on wearable'))
                               : 'Start background mic',
                         ),
                       ),
@@ -5463,6 +5659,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
             (session) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _RecordingSessionCard(
+                controller: widget.controller,
                 session: session,
                 onRetry: (session.status == 'failed' ||
                     (session.status == 'completed' &&
@@ -5483,11 +5680,13 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
 
 class _RecordingSessionCard extends StatelessWidget {
   const _RecordingSessionCard({
+    required this.controller,
     required this.session,
     this.onRetry,
     this.onDeleteSegment,
   });
 
+  final NeoAgentController controller;
   final RecordingSessionItem session;
   final VoidCallback? onRetry;
   final Future<void> Function(RecordingTranscriptSegment segment)?
@@ -5553,6 +5752,13 @@ class _RecordingSessionCard extends StatelessWidget {
                   )
                   .toList(),
             ),
+            if (session.sources.any((source) => source.mediaKind == 'audio')) ...<Widget>[
+              const SizedBox(height: 12),
+              _RecordingSourceAudioControls(
+                controller: controller,
+                session: session,
+              ),
+            ],
             if (session.lastError != null &&
                 session.lastError!.trim().isNotEmpty)
               Padding(
@@ -5697,6 +5903,111 @@ class _RecordingSessionCard extends StatelessWidget {
       return value;
     }
     return const [];
+  }
+}
+
+class _RecordingSourceAudioControls extends StatefulWidget {
+  const _RecordingSourceAudioControls({
+    required this.controller,
+    required this.session,
+  });
+
+  final NeoAgentController controller;
+  final RecordingSessionItem session;
+
+  @override
+  State<_RecordingSourceAudioControls> createState() =>
+      _RecordingSourceAudioControlsState();
+}
+
+class _RecordingSourceAudioControlsState
+    extends State<_RecordingSourceAudioControls> {
+  late final AudioPlayer _player;
+  String? _activeSourceKey;
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer();
+    _player.onPlayerComplete.listen((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isPlaying = false;
+        _activeSourceKey = null;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_player.dispose());
+    super.dispose();
+  }
+
+  Future<void> _toggleSource(RecordingSourceItem source) async {
+    if (_isPlaying && _activeSourceKey == source.sourceKey) {
+      await _player.stop();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isPlaying = false;
+        _activeSourceKey = null;
+      });
+      return;
+    }
+
+    final uri = widget.controller.resolveRecordingSourceAudioUri(
+      widget.session.id,
+      source.sourceKey,
+    );
+    final headers = widget.controller.authenticatedImageHeaders;
+
+    try {
+      await _player.stop();
+      await _player.play(UrlSource(uri.toString(), headers: headers));
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isPlaying = true;
+        _activeSourceKey = source.sourceKey;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isPlaying = false;
+        _activeSourceKey = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final audioSources = widget.session.sources
+        .where((source) => source.mediaKind == 'audio')
+        .toList();
+    if (audioSources.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: audioSources.map((source) {
+        final isActive = _isPlaying && _activeSourceKey == source.sourceKey;
+        return OutlinedButton.icon(
+          onPressed: () => _toggleSource(source),
+          icon: Icon(isActive ? Icons.stop_circle_outlined : Icons.play_arrow),
+          label: Text(isActive ? 'Stop ${source.label}' : 'Play ${source.label}'),
+        );
+      }).toList(),
+    );
   }
 }
 

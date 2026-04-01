@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'diagnostics_logger.dart';
 import 'recording_bridge.dart';
 
 RecordingBridge createPlatformRecordingBridge() => IoRecordingBridge();
@@ -23,11 +24,27 @@ class IoRecordingBridge extends RecordingBridge {
   bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  void _log(
+    String event, {
+    Map<String, Object?> data = const <String, Object?>{},
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    AppDiagnostics.log(
+      'recording.bridge.io',
+      event,
+      data: data,
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
   @override
   Future<void> refreshStatus() async {
     if (!_isAndroid) {
       return;
     }
+    _log('refresh_status.request');
     final result = await _channel.invokeMapMethod<String, dynamic>('status');
     _status = _status.copyWith(
       active: result?['active'] == true,
@@ -36,6 +53,13 @@ class IoRecordingBridge extends RecordingBridge {
       errorMessage: result?['errorMessage']?.toString(),
       startedAt: _parseDate(result?['startedAt']),
     );
+    _log('refresh_status.response', data: <String, Object?>{
+      'active': _status.active,
+      'paused': _status.paused,
+      'sessionId': _status.sessionId,
+      'startedAt': _status.startedAt?.toIso8601String(),
+      'errorMessage': _status.errorMessage,
+    });
     notifyListeners();
   }
 
@@ -50,12 +74,21 @@ class IoRecordingBridge extends RecordingBridge {
         'Background microphone recording is available on Android only.',
       );
     }
+    _log('start_background.request', data: <String, Object?>{
+      'sessionId': sessionId,
+      'baseUrl': baseUrl,
+      'hasSessionCookie': sessionCookie.isNotEmpty,
+    });
     await _channel.invokeMethod('startBackgroundRecording', <String, dynamic>{
       'backendUrl': baseUrl,
       'sessionCookie': sessionCookie,
       'sessionId': sessionId,
     });
     await refreshStatus();
+    _log('start_background.done', data: <String, Object?>{
+      'active': _status.active,
+      'sessionId': _status.sessionId,
+    });
   }
 
   @override
@@ -65,8 +98,17 @@ class IoRecordingBridge extends RecordingBridge {
         'Background microphone recording is available on Android only.',
       );
     }
+    _log('pause_background.request', data: <String, Object?>{
+      'sessionId': _status.sessionId,
+      'active': _status.active,
+      'paused': _status.paused,
+    });
     await _channel.invokeMethod('pauseBackgroundRecording');
     await refreshStatus();
+    _log('pause_background.done', data: <String, Object?>{
+      'active': _status.active,
+      'paused': _status.paused,
+    });
   }
 
   @override
@@ -76,8 +118,17 @@ class IoRecordingBridge extends RecordingBridge {
         'Background microphone recording is available on Android only.',
       );
     }
+    _log('resume_background.request', data: <String, Object?>{
+      'sessionId': _status.sessionId,
+      'active': _status.active,
+      'paused': _status.paused,
+    });
     await _channel.invokeMethod('resumeBackgroundRecording');
     await refreshStatus();
+    _log('resume_background.done', data: <String, Object?>{
+      'active': _status.active,
+      'paused': _status.paused,
+    });
   }
 
   @override
@@ -86,9 +137,25 @@ class IoRecordingBridge extends RecordingBridge {
       return;
     }
     final sessionId = _status.sessionId;
+    _log('stop_active.request', data: <String, Object?>{
+      'sessionId': sessionId,
+      'notifyEnded': notifyEnded,
+      'active': _status.active,
+      'paused': _status.paused,
+    });
     await _channel.invokeMethod('stopBackgroundRecording');
     await refreshStatus();
+    _log('stop_active.done', data: <String, Object?>{
+      'sessionId': sessionId,
+      'active': _status.active,
+      'paused': _status.paused,
+      'notifyEnded': notifyEnded,
+      'hasOnRecordingStopped': onRecordingStopped != null,
+    });
     if (notifyEnded && sessionId != null && onRecordingStopped != null) {
+      _log('stop_active.notify_ended', data: <String, Object?>{
+        'sessionId': sessionId,
+      });
       await onRecordingStopped!(sessionId);
     }
   }

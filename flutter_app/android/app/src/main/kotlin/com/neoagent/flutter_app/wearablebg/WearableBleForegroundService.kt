@@ -85,6 +85,15 @@ class WearableBleForegroundService : Service() {
                     stateStore.setConnected(false)
                     registerDone.set(false)
                     startForegroundUi("Connecting to ${next.deviceName.ifBlank { next.macAddress }}")
+
+                    // If the bridge is already connected, service discovery will not rerun,
+                    // so honor autoStartRecording immediately instead of waiting for callbacks.
+                    if (next.autoStartRecording && currentGatt() != null) {
+                        serviceScope.launch {
+                            sendStartCommand()
+                        }
+                    }
+
                     connectOrRetry()
                 }
             }

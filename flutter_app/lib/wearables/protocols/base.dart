@@ -77,8 +77,11 @@ class HeyPocketProtocol extends WearableProtocolBase {
 
     final normalizedCharacteristic = _normalizeUuid(characteristicUuid);
     final audioTx = _normalizeUuid(WearableServiceUuids.heypocketAudioTx);
+    final controlTx = _normalizeUuid(WearableServiceUuids.heypocketControlTx);
 
-    if (normalizedCharacteristic != null && normalizedCharacteristic != audioTx) {
+    if (normalizedCharacteristic != null &&
+        normalizedCharacteristic != audioTx &&
+        normalizedCharacteristic != controlTx) {
       return null;
     }
 

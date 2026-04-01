@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:universal_ble/universal_ble.dart';
 import '../src/backend_client.dart';
+import '../src/diagnostics_logger.dart';
 import '../src/wearable_background_bridge.dart';
 import 'models.dart';
 import 'heypocket/sync_coordinator.dart';
@@ -15,7 +16,9 @@ const _connectionHealthCheckInterval = Duration(seconds: 30);
 const _baseReconnectDelayMs = 1000;
 const _maxConnectRetries = 5;
 const _autoReconnectScanInterval = Duration(seconds: 12);
+const _scanRepeatLogInterval = Duration(seconds: 5);
 final RegExp _heypocketRecordingStopControlPattern = RegExp(r'^MCU&STO\b');
+const _wearableFinalizeCooldown = Duration(seconds: 2);
 
 class WearableService extends ChangeNotifier {
   WearableService({
@@ -41,6 +44,8 @@ class WearableService extends ChangeNotifier {
   bool get isScanning => _isScanning;
 
   final Map<String, BleDevice> _discoveredDevices = {};
+  final Map<String, DateTime> _scanLastLoggedAt = <String, DateTime>{};
+  final Map<String, int> _scanSeenCount = <String, int>{};
 
   List<BleDevice> get scanResults => _discoveredDevices.values
       .where((device) => _identifyDeviceType(device.name ?? '') != WearableDeviceType.unknown)
@@ -63,6 +68,8 @@ class WearableService extends ChangeNotifier {
   bool get isConnecting => _connectionState == BleConnectionState.connecting;
   Timer? _autoReconnectTimer;
   bool _autoReconnectEnabled = false;
+  DateTime? _lastFinalizeAt;
+  bool _finalizeInFlight = false;
 
   BleConnectionState _connectionState = BleConnectionState.disconnected;
   BleConnectionState get connectionState => _connectionState;
@@ -98,10 +105,51 @@ class WearableService extends ChangeNotifier {
   bool get heypocketCallModeEnabled => _heypocketSyncCoordinator.isCallMode;
   String get heypocketModeLabel => _heypocketSyncCoordinator.heypocketModeLabel;
   bool get heypocketModeSwitchInFlight => _heypocketSyncCoordinator.isModeSwitchInFlight;
+  bool _heypocketStartInFlight = false;
+  bool get heypocketStartInFlight => _heypocketStartInFlight;
   bool get heypocketRecordingActive => _heypocketSyncCoordinator.isRecordingActive;
   String get heypocketActiveRecordingId => _heypocketSyncCoordinator.activeRecordingId;
+  bool get _hasBackgroundHeyPocketTarget =>
+      _backgroundBridgeConnected &&
+      _backgroundBridgeDeviceId != null &&
+      _backgroundBridgeDeviceId!.trim().isNotEmpty;
+  String? get _activeHeyPocketDeviceId {
+    final connectedId = _connectedDevice?.deviceId;
+    if (connectedId != null && connectedId.trim().isNotEmpty) {
+      return connectedId;
+    }
+    final bridgeId = _backgroundBridgeDeviceId;
+    if (bridgeId != null && bridgeId.trim().isNotEmpty) {
+      return bridgeId.trim();
+    }
+    return null;
+  }
   bool get canStartHeyPocketRecording =>
-      _connectedDevice != null && _deviceType == WearableDeviceType.heypocket;
+      (_connectedDevice != null && _deviceType == WearableDeviceType.heypocket) ||
+      _hasBackgroundHeyPocketTarget;
+
+  void _log(
+    String event, {
+    Map<String, Object?> data = const <String, Object?>{},
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    AppDiagnostics.log(
+      'wearable.service',
+      event,
+      data: <String, Object?>{
+        'connectedDeviceId': _connectedDevice?.deviceId,
+        'connectedDeviceName': _connectedDevice?.name,
+        'deviceType': _deviceType?.name,
+        'connectionState': _connectionState.name,
+        'queueLength': _pendingWearableChunks.length,
+        'isScanning': _isScanning,
+        ...data,
+      },
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
 
   void _init() {
     _registerDefaultProtocols();
@@ -109,7 +157,30 @@ class WearableService extends ChangeNotifier {
     unawaited(_restoreBackgroundBridgeState());
 
     UniversalBle.onScanResult = (device) {
-      debugPrint("Scan result: ${device.name} (${device.deviceId})");
+      final now = DateTime.now();
+      final isFirstSight = !_discoveredDevices.containsKey(device.deviceId);
+      final seenCount = (_scanSeenCount[device.deviceId] ?? 0) + 1;
+      _scanSeenCount[device.deviceId] = seenCount;
+
+      if (isFirstSight) {
+        debugPrint("Scan result: ${device.name} (${device.deviceId})");
+        _log('scan.result.new', data: <String, Object?>{
+          'deviceId': device.deviceId,
+          'name': device.name,
+          'seenCount': seenCount,
+        });
+        _scanLastLoggedAt[device.deviceId] = now;
+      } else {
+        final lastLogged = _scanLastLoggedAt[device.deviceId];
+        if (lastLogged == null || now.difference(lastLogged) >= _scanRepeatLogInterval) {
+          _log('scan.result.repeat', data: <String, Object?>{
+            'deviceId': device.deviceId,
+            'name': device.name,
+            'seenCount': seenCount,
+          });
+          _scanLastLoggedAt[device.deviceId] = now;
+        }
+      }
       
       _discoveredDevices[device.deviceId] = device;
 
@@ -123,6 +194,10 @@ class WearableService extends ChangeNotifier {
 
     UniversalBle.onConnectionChange = (deviceId, isConnected, error) {
       debugPrint("Connection change: $deviceId connected=$isConnected error=$error");
+      _log('connection.change', data: <String, Object?>{
+        'deviceId': deviceId,
+        'isConnected': isConnected,
+      }, error: error);
       if (_connectedDevice?.deviceId == deviceId) {
         if (!isConnected) {
           debugPrint("Device disconnected: $deviceId");
@@ -142,6 +217,11 @@ class WearableService extends ChangeNotifier {
     UniversalBle.onValueChange = (deviceId, characteristicUuid, value, _) {
       if (_connectedDevice?.deviceId == deviceId) {
         _lastSuccessfulCommunication = DateTime.now();
+        _log('value.change', data: <String, Object?>{
+          'deviceId': deviceId,
+          'characteristicUuid': characteristicUuid,
+          'size': value.length,
+        });
 
         bool shouldEnqueue = true;
 
@@ -150,7 +230,8 @@ class WearableService extends ChangeNotifier {
           if (heypocketProtocol != null) {
             _heypocketSyncCoordinator.observeControlPayload(value);
 
-            if (_isHeyPocketRecordingStopControl(value)) {
+            if (_isHeyPocketControlCharacteristic(characteristicUuid) &&
+                _isHeyPocketRecordingStopControl(value)) {
               unawaited(_finalizeActiveWearableRecording(deviceId));
             }
 
@@ -202,6 +283,13 @@ class WearableService extends ChangeNotifier {
       ),
     );
 
+    _log('queue.enqueued', data: <String, Object?>{
+      'deviceId': deviceId,
+      'characteristicUuid': characteristicUuid,
+      'payloadSize': payload.length,
+      'queueLength': _pendingWearableChunks.length,
+    });
+
     _scheduleQueuePersist();
     _drainWearableQueue();
   }
@@ -244,6 +332,8 @@ class WearableService extends ChangeNotifier {
           await _ensureDeviceRegistered(activeDeviceId);
         } catch (e) {
           debugPrint('Error registering wearable before upload: $e');
+          _log('queue.register_before_upload.failed',
+              data: <String, Object?>{'deviceId': activeDeviceId}, error: e);
           await Future<void>.delayed(const Duration(milliseconds: 600));
           continue;
         }
@@ -264,8 +354,23 @@ class WearableService extends ChangeNotifier {
 
           _pendingWearableChunks.removeAt(0);
           _scheduleQueuePersist();
+          _log('queue.upload_chunk.ok', data: <String, Object?>{
+            'deviceId': next.deviceId,
+            'characteristicUuid': next.characteristicUuid,
+            'queueLength': _pendingWearableChunks.length,
+            'attempts': next.attempts,
+            'responseAccepted': accepted,
+            'responseIgnored': ignored,
+            'responseDuplicate': duplicate,
+          });
         } catch (e) {
           next.attempts += 1;
+          _log('queue.upload_chunk.failed', data: <String, Object?>{
+            'deviceId': next.deviceId,
+            'characteristicUuid': next.characteristicUuid,
+            'attempts': next.attempts,
+            'queueLength': _pendingWearableChunks.length,
+          }, error: e);
           if (next.attempts > 6) {
             debugPrint('Dropping wearable chunk after repeated failures: $e');
             _pendingWearableChunks.removeAt(0);
@@ -423,8 +528,11 @@ class WearableService extends ChangeNotifier {
   Future<void> startScan() async {
     try {
       _discoveredDevices.clear();
+      _scanLastLoggedAt.clear();
+      _scanSeenCount.clear();
       notifyListeners();
       debugPrint("Starting scan for HeyPocket devices...");
+      _log('scan.start.request');
 
       final canScan = await _ensureScanPermissions();
       if (!canScan) {
@@ -451,9 +559,13 @@ class WearableService extends ChangeNotifier {
       }
 
       _isScanning = true;
+      _log('scan.start.ok', data: <String, Object?>{
+        'serviceFilterCount': serviceUuids.length,
+      });
       notifyListeners();
     } catch (e) {
       debugPrint("Error starting scan: $e");
+      _log('scan.start.failed', error: e);
     }
   }
 
@@ -462,9 +574,11 @@ class WearableService extends ChangeNotifier {
     try {
       await UniversalBle.stopScan();
       _isScanning = false;
+      _log('scan.stop.ok');
       notifyListeners();
     } catch (e) {
       debugPrint("Error stopping scan: $e");
+      _log('scan.stop.failed', error: e);
     }
   }
 
@@ -501,6 +615,11 @@ class WearableService extends ChangeNotifier {
 
   Future<void> _connectInternal(BleDevice device, {required bool fromAutoReconnect}) async {
     try {
+      _log('connect.request', data: <String, Object?>{
+        'deviceId': device.deviceId,
+        'deviceName': device.name,
+        'fromAutoReconnect': fromAutoReconnect,
+      });
       if (_connectionState == BleConnectionState.connecting) {
         if (_connectingDeviceId == device.deviceId) {
           return;
@@ -550,6 +669,11 @@ class WearableService extends ChangeNotifier {
       while (retryCount < _maxConnectRetries && !success) {
         try {
           debugPrint("Connection attempt ${retryCount + 1}/$_maxConnectRetries...");
+          _log('connect.attempt', data: <String, Object?>{
+            'deviceId': device.deviceId,
+            'attempt': retryCount + 1,
+            'maxAttempts': _maxConnectRetries,
+          });
           
           final timeoutSeconds = kIsWeb ? 15 : 10;
           await UniversalBle.connect(device.deviceId).timeout(
@@ -561,9 +685,17 @@ class WearableService extends ChangeNotifier {
           
           success = true;
           debugPrint("Connection attempt ${retryCount + 1} succeeded!");
+          _log('connect.attempt.ok', data: <String, Object?>{
+            'deviceId': device.deviceId,
+            'attempt': retryCount + 1,
+          });
         } catch (e) {
           retryCount++;
           debugPrint("Connect attempt $retryCount failed: $e");
+          _log('connect.attempt.failed', data: <String, Object?>{
+            'deviceId': device.deviceId,
+            'attempt': retryCount,
+          }, error: e);
           
           if (retryCount < _maxConnectRetries) {
             final delayMs = _baseReconnectDelayMs * (1 << (retryCount - 1));
@@ -609,9 +741,17 @@ class WearableService extends ChangeNotifier {
         await _heypocketSyncCoordinator.onConnected(device.deviceId, discoveredServices);
       }
 
+      _log('connect.ok', data: <String, Object?>{
+        'deviceId': device.deviceId,
+        'serviceCount': discoveredServices.length,
+      });
+
       notifyListeners();
     } catch (e) {
       debugPrint("Error connecting to device: $e");
+      _log('connect.failed', data: <String, Object?>{
+        'deviceId': device.deviceId,
+      }, error: e);
       _connectingDeviceId = null;
       _clearConnectionState();
       _maybeStartAutoReconnect();
@@ -765,25 +905,91 @@ class WearableService extends ChangeNotifier {
   }
 
   Future<void> startHeyPocketRecordingFromApp() async {
-    if (!canStartHeyPocketRecording || _connectedDevice == null) {
+    if (!canStartHeyPocketRecording) {
       return;
     }
+    if (_heypocketStartInFlight) {
+      _log('recording.start.ignored_in_flight');
+      return;
+    }
+    _heypocketStartInFlight = true;
+    notifyListeners();
 
-    if (!kIsWeb && Platform.isAndroid) {
-      final started = await _ensureNativeBackgroundBridge(autoStartRecording: true);
-      if (started) {
-        _heypocketSyncCoordinator.setRecordingStateFromBridge(active: true);
+    try {
+      final deviceId = _activeHeyPocketDeviceId;
+      if (deviceId == null) {
+        _log('recording.start.ignored_no_device');
         return;
       }
-    }
+      var nativeBridgeStarted = false;
+      var nativeBridgeConnected = false;
 
-    await _heypocketSyncCoordinator.startRecordingFromApp(_connectedDevice!.deviceId);
+      if (!kIsWeb && Platform.isAndroid) {
+        nativeBridgeStarted =
+            await _ensureNativeBackgroundBridge(autoStartRecording: true);
+        nativeBridgeConnected = _backgroundBridgeConnected;
+        _log('recording.start.bridge.ensure_result', data: <String, Object?>{
+          'deviceId': deviceId,
+          'nativeBridgeStarted': nativeBridgeStarted,
+          'nativeBridgeConnected': nativeBridgeConnected,
+        });
+      }
+
+      Object? startError;
+      try {
+        await _heypocketSyncCoordinator.startRecordingFromApp(deviceId);
+        _log('recording.start.command.dispatched', data: <String, Object?>{
+          'deviceId': deviceId,
+          'path': 'flutter.direct',
+          'nativeBridgeStarted': nativeBridgeStarted,
+          'nativeBridgeConnected': nativeBridgeConnected,
+        });
+      } catch (e, stackTrace) {
+        startError = e;
+        _log(
+          'recording.start.command.failed',
+          data: <String, Object?>{
+            'deviceId': deviceId,
+            'path': 'flutter.direct',
+            'nativeBridgeStarted': nativeBridgeStarted,
+            'nativeBridgeConnected': nativeBridgeConnected,
+          },
+          error: e,
+          stackTrace: stackTrace,
+        );
+      }
+
+      if (nativeBridgeStarted) {
+        _log('recording.start.bridge.fallback_ready', data: <String, Object?>{
+          'deviceId': deviceId,
+          'nativeBridgeConnected': nativeBridgeConnected,
+          'directCommandError': startError != null,
+        });
+        return;
+      }
+
+      if (startError != null) {
+        return;
+      }
+    } finally {
+      _heypocketStartInFlight = false;
+      notifyListeners();
+    }
   }
 
   Future<void> stopHeyPocketRecordingFromApp() async {
-    if (!canStartHeyPocketRecording || _connectedDevice == null) {
+    if (!canStartHeyPocketRecording) {
       return;
     }
+
+    final deviceId = _activeHeyPocketDeviceId;
+    if (deviceId == null) {
+      _log('recording.stop.ignored_no_device');
+      return;
+    }
+
+    _heypocketSyncCoordinator.setRecordingStateFromBridge(active: false);
+    notifyListeners();
 
     if (!kIsWeb && Platform.isAndroid) {
       try {
@@ -797,8 +1003,10 @@ class WearableService extends ChangeNotifier {
       }
     }
 
-    await _heypocketSyncCoordinator.stopRecordingFromApp(_connectedDevice!.deviceId);
-    await _finalizeActiveWearableRecording(_connectedDevice!.deviceId);
+    if (_connectedDevice != null) {
+      await _heypocketSyncCoordinator.stopRecordingFromApp(deviceId);
+    }
+    await _finalizeActiveWearableRecording(deviceId);
   }
 
   bool _isHeyPocketRecordingStopControl(Uint8List payload) {
@@ -813,15 +1021,53 @@ class WearableService extends ChangeNotifier {
     }
   }
 
+  bool _isHeyPocketControlCharacteristic(String characteristicUuid) {
+    final normalized = characteristicUuid.toLowerCase().replaceAll('-', '');
+    final control = WearableServiceUuids.heypocketControlTx
+        .toLowerCase()
+        .replaceAll('-', '');
+    return normalized == control;
+  }
+
   Future<void> _finalizeActiveWearableRecording(String deviceId) async {
+    final now = DateTime.now();
+    if (_finalizeInFlight) {
+      _log('stream.finalize.skipped_inflight', data: <String, Object?>{
+        'deviceId': deviceId,
+      });
+      return;
+    }
+    final previous = _lastFinalizeAt;
+    if (previous != null && now.difference(previous) < _wearableFinalizeCooldown) {
+      _log('stream.finalize.skipped_cooldown', data: <String, Object?>{
+        'deviceId': deviceId,
+        'elapsedMs': now.difference(previous).inMilliseconds,
+      });
+      return;
+    }
+
+    _finalizeInFlight = true;
+    _lastFinalizeAt = now;
     try {
+      _log('stream.finalize.request', data: <String, Object?>{
+        'deviceId': deviceId,
+      });
       final response = await _backendClient.stopWearableLiveStream(
         _getBackendUrl(),
         deviceId,
       );
       debugPrint('Requested wearable live stream finalize: $response');
+      _log('stream.finalize.ok', data: <String, Object?>{
+        'deviceId': deviceId,
+        'response': response,
+      });
     } catch (e) {
       debugPrint('Failed to finalize wearable live stream: $e');
+      _log('stream.finalize.failed', data: <String, Object?>{
+        'deviceId': deviceId,
+      }, error: e);
+    } finally {
+      _finalizeInFlight = false;
     }
   }
 
@@ -831,7 +1077,8 @@ class WearableService extends ChangeNotifier {
     if (kIsWeb || !Platform.isAndroid) {
       return false;
     }
-    if (_connectedDevice == null || _deviceType != WearableDeviceType.heypocket) {
+    final deviceId = _activeHeyPocketDeviceId;
+    if (deviceId == null) {
       return false;
     }
 
@@ -844,8 +1091,8 @@ class WearableService extends ChangeNotifier {
       final status = await _wearableBackgroundBridge.startBackgroundBridge(
         backendUrl: _getBackendUrl(),
         sessionCookie: sessionCookie,
-        macAddress: _connectedDevice!.deviceId,
-        deviceName: _connectedDevice!.name ?? 'Wearable Device',
+        macAddress: deviceId,
+        deviceName: _connectedDevice?.name ?? 'Wearable Device',
         protocolId: WearableProtocols.heypocket,
         serviceUuid: WearableServiceUuids.heypocketServiceUuid,
         audioNotifyUuid: WearableServiceUuids.heypocketAudioTx,
@@ -863,7 +1110,7 @@ class WearableService extends ChangeNotifier {
       _backgroundBridgeDeviceId =
           statusDeviceId != null && statusDeviceId.trim().isNotEmpty
               ? statusDeviceId.trim()
-              : _connectedDevice?.deviceId;
+            : deviceId;
       notifyListeners();
       return active;
     } catch (e) {
@@ -963,6 +1210,7 @@ class WearableService extends ChangeNotifier {
   void _clearConnectionState({bool clearDiscoveredDevices = false}) {
     _connectedDevice = null;
     _deviceType = null;
+    _heypocketSyncCoordinator.setRecordingStateFromBridge(active: false);
     _connectionState = BleConnectionState.disconnected;
     _lastSuccessfulCommunication = null;
     _registeredDevices.clear();
@@ -1000,10 +1248,12 @@ class WearableService extends ChangeNotifier {
 
   Future<void> disconnect() async {
     final deviceId = _connectedDevice?.deviceId;
-    if (deviceId != null) {
+    if (deviceId != null || _backgroundBridgeActive) {
       try {
-        debugPrint("Disconnecting from $deviceId...");
-        await UniversalBle.disconnect(deviceId);
+        if (deviceId != null) {
+          debugPrint("Disconnecting from $deviceId...");
+          await UniversalBle.disconnect(deviceId);
+        }
       } catch (e) {
         debugPrint("Error disconnecting: $e");
       }

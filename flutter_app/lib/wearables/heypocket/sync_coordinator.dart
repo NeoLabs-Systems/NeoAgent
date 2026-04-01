@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+import '../../src/diagnostics_logger.dart';
 import '../models.dart';
 
 class HeyPocketSyncCoordinator {
@@ -97,6 +98,29 @@ class HeyPocketSyncCoordinator {
   bool get isRecordingActive => _recordingActive;
   String get activeRecordingId => _activeRecordingId;
 
+  void _log(
+    String event, {
+    Map<String, Object?> data = const <String, Object?>{},
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    AppDiagnostics.log(
+      'wearable.heypocket.sync',
+      event,
+      data: <String, Object?>{
+        'syncInFlight': _syncRequestInFlight,
+        'listedFilesCount': _listedFiles.length,
+        'uploadCommandsSent': _uploadCommandsSent,
+        'modeCode': _heypocketModeCode,
+        'recordingActive': _recordingActive,
+        'activeRecordingId': _activeRecordingId,
+        ...data,
+      },
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
   void setRecordingStateFromBridge({
     required bool active,
     String recordingId = '',
@@ -108,6 +132,10 @@ class HeyPocketSyncCoordinator {
   }
 
   Future<void> onConnected(String deviceId, List<BleService> services) async {
+    _log('connected', data: <String, Object?>{
+      'deviceId': deviceId,
+      'serviceCount': services.length,
+    });
     await _sendHeyPocketInitSequence(deviceId, services);
     await _queryHeyPocketMode(deviceId, services);
   }
@@ -118,6 +146,12 @@ class HeyPocketSyncCoordinator {
     required String audioCharUuid,
     String? controlCharUuid,
   }) async {
+    _log('subscribe.request', data: <String, Object?>{
+      'deviceId': deviceId,
+      'serviceUuid': service.uuid,
+      'audioCharUuid': audioCharUuid,
+      'controlCharUuid': controlCharUuid,
+    });
     final subscribedUuids = <String>{};
 
     await UniversalBle.subscribeNotifications(deviceId, service.uuid, audioCharUuid);
@@ -141,8 +175,18 @@ class HeyPocketSyncCoordinator {
         await UniversalBle.subscribeNotifications(deviceId, service.uuid, char.uuid);
         subscribedUuids.add(normalized);
         debugPrint('Subscribed to heypocket extra characteristic: ${char.uuid}');
+        _log('subscribe.extra.ok', data: <String, Object?>{
+          'deviceId': deviceId,
+          'charUuid': char.uuid,
+        });
       } catch (subError) {
         debugPrint('Could not subscribe to ${char.uuid}: $subError');
+        _log('subscribe.extra.failed',
+            data: <String, Object?>{
+              'deviceId': deviceId,
+              'charUuid': char.uuid,
+            },
+            error: subError);
       }
     }
   }
@@ -216,6 +260,10 @@ class HeyPocketSyncCoordinator {
       }
       if (rawMode == 'NORMAL' || rawMode == 'NOR' || rawMode == 'CON') {
         _heypocketModeCode = 0;
+        if (_recordingActive) {
+          _recordingActive = false;
+          _activeRecordingId = '';
+        }
         _lastSyncStatus = 'HeyPocket mode: ${heypocketModeLabel.toLowerCase()}';
         onSyncStateChanged();
         return;
@@ -273,6 +321,10 @@ class HeyPocketSyncCoordinator {
     }
 
     if (_mcuOffPattern.hasMatch(text)) {
+      if (_recordingActive) {
+        _recordingActive = false;
+        _activeRecordingId = '';
+      }
       _lastSyncStatus = 'Device upload completed';
       onSyncStateChanged();
     }
@@ -440,8 +492,21 @@ class HeyPocketSyncCoordinator {
       orElse: () => resolvedServices.first,
     );
 
-    await _writeAscii(deviceId, service.uuid, 'APP&STA');
-    _lastSyncStatus = 'Requested recording start';
+    final ok = await _writeControlPayload(
+      deviceId,
+      service.uuid,
+      Uint8List.fromList('APP&STA'.codeUnits),
+      commandLabel: 'APP&STA',
+      // Start command is more reliable with response on some firmware variants.
+      initialWithoutResponse: false,
+      rethrowOnFailure: false,
+      isHexPayload: false,
+    );
+    if (!ok) {
+      _lastSyncStatus = 'Start command failed';
+    } else {
+      _lastSyncStatus = 'Requested recording start';
+    }
     onSyncStateChanged();
   }
 
@@ -519,12 +584,14 @@ class HeyPocketSyncCoordinator {
   }
 
   Future<void> _writeAsciiChecked(String deviceId, String serviceUuid, String cmd) async {
-    await UniversalBle.write(
+    await _writeControlPayload(
       deviceId,
       serviceUuid,
-      WearableServiceUuids.heypocketControlRx,
       Uint8List.fromList(cmd.codeUnits),
-      withoutResponse: false,
+      commandLabel: cmd,
+      initialWithoutResponse: true,
+      rethrowOnFailure: true,
+      isHexPayload: false,
     );
     await Future.delayed(_syncCommandGap);
   }
@@ -598,32 +665,101 @@ class HeyPocketSyncCoordinator {
   }
 
   Future<void> _writeAscii(String deviceId, String serviceUuid, String cmd) async {
-    try {
-      await UniversalBle.write(
-        deviceId,
-        serviceUuid,
-        WearableServiceUuids.heypocketControlRx,
-        Uint8List.fromList(cmd.codeUnits),
-        withoutResponse: false,
-      );
-    } catch (e) {
-      debugPrint('HeyPocket command write failed [$cmd]: $e');
+    final ok = await _writeControlPayload(
+      deviceId,
+      serviceUuid,
+      Uint8List.fromList(cmd.codeUnits),
+      commandLabel: cmd,
+      initialWithoutResponse: true,
+      rethrowOnFailure: false,
+      isHexPayload: false,
+    );
+    if (!ok) {
+      debugPrint('HeyPocket command write failed [$cmd]');
     }
     await Future.delayed(_syncCommandGap);
   }
 
   Future<void> _writeHex(String deviceId, String serviceUuid, String hexPayload) async {
-    try {
-      await UniversalBle.write(
-        deviceId,
-        serviceUuid,
-        WearableServiceUuids.heypocketControlRx,
-        _bytesFromHex(hexPayload),
-        withoutResponse: true,
-      );
-    } catch (e) {
-      debugPrint('HeyPocket hex write failed [$hexPayload]: $e');
+    final ok = await _writeControlPayload(
+      deviceId,
+      serviceUuid,
+      _bytesFromHex(hexPayload),
+      commandLabel: hexPayload,
+      initialWithoutResponse: true,
+      rethrowOnFailure: false,
+      isHexPayload: true,
+    );
+    if (!ok) {
+      debugPrint('HeyPocket hex write failed [$hexPayload]');
     }
+  }
+
+  Future<bool> _writeControlPayload(
+    String deviceId,
+    String serviceUuid,
+    Uint8List payload, {
+    required String commandLabel,
+    required bool initialWithoutResponse,
+    required bool rethrowOnFailure,
+    required bool isHexPayload,
+  }) async {
+    final modes = <bool>[initialWithoutResponse, !initialWithoutResponse];
+    Object? lastError;
+
+    for (var i = 0; i < modes.length; i++) {
+      final withoutResponse = modes[i];
+      try {
+        _log(isHexPayload ? 'write_hex.request' : 'write_ascii.request', data: <String, Object?>{
+          'deviceId': deviceId,
+          'serviceUuid': serviceUuid,
+          isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
+          'withoutResponse': withoutResponse,
+          'attempt': i + 1,
+        });
+        await UniversalBle.write(
+          deviceId,
+          serviceUuid,
+          WearableServiceUuids.heypocketControlRx,
+          payload,
+          withoutResponse: withoutResponse,
+        );
+        _log(isHexPayload ? 'write_hex.ok' : 'write_ascii.ok', data: <String, Object?>{
+          'deviceId': deviceId,
+          isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
+          'withoutResponse': withoutResponse,
+          'attempt': i + 1,
+        });
+        return true;
+      } catch (e) {
+        lastError = e;
+        _log(isHexPayload ? 'write_hex.failed' : 'write_ascii.failed', data: <String, Object?>{
+          'deviceId': deviceId,
+          'serviceUuid': serviceUuid,
+          isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
+          'withoutResponse': withoutResponse,
+          'attempt': i + 1,
+        }, error: e);
+
+        final shouldTryFallbackMode =
+            i == 0 && _shouldTryAlternateWriteMode(e.toString());
+        if (!shouldTryFallbackMode) {
+          break;
+        }
+      }
+    }
+
+    if (rethrowOnFailure && lastError != null) {
+      throw lastError;
+    }
+    return false;
+  }
+
+  bool _shouldTryAlternateWriteMode(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('details: 201') ||
+        lower.contains('failed to write') ||
+        lower.contains('timeoutexception');
   }
 
   void _startReconnectSyncWindow(String deviceId) {
@@ -647,11 +783,23 @@ class HeyPocketSyncCoordinator {
     }
 
     try {
+      _log('reconnect_sync.upload.request', data: <String, Object?>{
+        'deviceId': deviceId,
+        'payloadSize': payload.length,
+      });
       await ensureDeviceRegistered(deviceId);
       await uploadSyncPayload(deviceId, payload);
       debugPrint('HeyPocket reconnect sync uploaded: ${payload.length} bytes');
+      _log('reconnect_sync.upload.ok', data: <String, Object?>{
+        'deviceId': deviceId,
+        'payloadSize': payload.length,
+      });
     } catch (e) {
       debugPrint('HeyPocket reconnect sync failed: $e');
+      _log('reconnect_sync.upload.failed', data: <String, Object?>{
+        'deviceId': deviceId,
+        'payloadSize': payload.length,
+      }, error: e);
     }
   }
 
