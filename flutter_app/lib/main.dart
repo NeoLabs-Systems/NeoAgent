@@ -5964,11 +5964,9 @@ class _RecordingSourceAudioControlsState
       widget.session.id,
       source.sourceKey,
     );
-    final headers = widget.controller.authenticatedImageHeaders;
-
     try {
       await _player.stop();
-      await _player.play(UrlSource(uri.toString(), headers: headers));
+      await _player.play(UrlSource(uri.toString()));
       if (!mounted) {
         return;
       }
