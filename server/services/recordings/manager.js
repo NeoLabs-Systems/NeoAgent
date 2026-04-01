@@ -338,6 +338,8 @@ class RecordingManager {
   }
 
   async resumePendingSessions() {
+    this.reconcileStaleRecordingSessions();
+
     const rows = db.prepare(`
       SELECT id, user_id
       FROM recording_sessions
@@ -351,6 +353,48 @@ class RecordingManager {
       } catch (error) {
         console.error('[Recordings] Resume failed:', sanitizeError(error));
       }
+    }
+  }
+
+  reconcileStaleRecordingSessions() {
+    const staleRows = db.prepare(`
+      SELECT id, user_id
+      FROM recording_sessions
+      WHERE status = ?
+      ORDER BY created_at ASC
+    `).all(SESSION_STATUS.recording);
+
+    for (const row of staleRows) {
+      const chunkCount = Number(db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM recording_chunks c
+        INNER JOIN recording_sources s ON s.id = c.source_id
+        WHERE s.session_id = ?
+      `).get(row.id)?.count) || 0;
+
+      const nextStatus = chunkCount > 0 ? SESSION_STATUS.processing : SESSION_STATUS.cancelled;
+      const now = new Date().toISOString();
+
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE recording_sessions
+          SET
+            status = ?,
+            ended_at = COALESCE(ended_at, ?),
+            updated_at = ?
+          WHERE id = ?
+        `).run(nextStatus, now, now, row.id);
+
+        db.prepare(`
+          UPDATE recording_sources
+          SET
+            status = CASE WHEN chunk_count > 0 THEN ? ELSE ? END,
+            updated_at = ?
+          WHERE session_id = ?
+        `).run(nextStatus, nextStatus === SESSION_STATUS.processing ? SESSION_STATUS.cancelled : nextStatus, now, row.id);
+      })();
+
+      this.#emitUpdate(row.user_id, row.id);
     }
   }
 

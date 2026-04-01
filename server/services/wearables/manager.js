@@ -10,7 +10,7 @@ const builtInProtocols = [
   require('./protocols/heypocket'),
 ];
 const SUPPORTED_PROTOCOL_ID = 'heypocket';
-const STREAM_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const STREAM_IDLE_TIMEOUT_MS = 60 * 1000;
 const STREAM_REAPER_INTERVAL_MS = 30 * 1000;
 
 function normalizeProtocolId(protocolId) {

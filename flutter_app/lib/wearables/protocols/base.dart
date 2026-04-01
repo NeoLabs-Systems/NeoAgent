@@ -82,11 +82,15 @@ class HeyPocketProtocol extends WearableProtocolBase {
     if (normalizedCharacteristic != null &&
         normalizedCharacteristic != audioTx &&
         normalizedCharacteristic != controlTx) {
-      return null;
+      return _looksLikeAudioPayload(rawPayload) ? rawPayload : null;
     }
 
     if (_isAsciiControlMessage(rawPayload)) {
       return null;
+    }
+
+    if (normalizedCharacteristic == controlTx) {
+      return _looksLikeAudioPayload(rawPayload) ? rawPayload : null;
     }
 
     return rawPayload;
@@ -130,5 +134,24 @@ class HeyPocketProtocol extends WearableProtocolBase {
     } catch (_) {
       return false;
     }
+  }
+
+  bool _looksLikeAudioPayload(Uint8List rawPayload) {
+    if (rawPayload.isEmpty) {
+      return false;
+    }
+
+    if (rawPayload.length >= 96) {
+      return true;
+    }
+
+    final limit = rawPayload.length > 33 ? 32 : rawPayload.length - 1;
+    for (var i = 0; i < limit; i++) {
+      if (rawPayload[i] == 0xFF && (rawPayload[i + 1] & 0xE0) == 0xE0) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

@@ -16,7 +16,6 @@ const _connectionHealthCheckInterval = Duration(seconds: 30);
 const _baseReconnectDelayMs = 1000;
 const _maxConnectRetries = 5;
 const _autoReconnectScanInterval = Duration(seconds: 12);
-const _scanRepeatLogInterval = Duration(seconds: 5);
 final RegExp _heypocketRecordingStopControlPattern = RegExp(r'^MCU&STO\b');
 const _wearableFinalizeCooldown = Duration(seconds: 2);
 
@@ -44,8 +43,6 @@ class WearableService extends ChangeNotifier {
   bool get isScanning => _isScanning;
 
   final Map<String, BleDevice> _discoveredDevices = {};
-  final Map<String, DateTime> _scanLastLoggedAt = <String, DateTime>{};
-  final Map<String, int> _scanSeenCount = <String, int>{};
 
   List<BleDevice> get scanResults => _discoveredDevices.values
       .where((device) => _identifyDeviceType(device.name ?? '') != WearableDeviceType.unknown)
@@ -157,31 +154,6 @@ class WearableService extends ChangeNotifier {
     unawaited(_restoreBackgroundBridgeState());
 
     UniversalBle.onScanResult = (device) {
-      final now = DateTime.now();
-      final isFirstSight = !_discoveredDevices.containsKey(device.deviceId);
-      final seenCount = (_scanSeenCount[device.deviceId] ?? 0) + 1;
-      _scanSeenCount[device.deviceId] = seenCount;
-
-      if (isFirstSight) {
-        debugPrint("Scan result: ${device.name} (${device.deviceId})");
-        _log('scan.result.new', data: <String, Object?>{
-          'deviceId': device.deviceId,
-          'name': device.name,
-          'seenCount': seenCount,
-        });
-        _scanLastLoggedAt[device.deviceId] = now;
-      } else {
-        final lastLogged = _scanLastLoggedAt[device.deviceId];
-        if (lastLogged == null || now.difference(lastLogged) >= _scanRepeatLogInterval) {
-          _log('scan.result.repeat', data: <String, Object?>{
-            'deviceId': device.deviceId,
-            'name': device.name,
-            'seenCount': seenCount,
-          });
-          _scanLastLoggedAt[device.deviceId] = now;
-        }
-      }
-      
       _discoveredDevices[device.deviceId] = device;
 
       if (_shouldAutoReconnectTo(device)) {
@@ -371,13 +343,6 @@ class WearableService extends ChangeNotifier {
             'attempts': next.attempts,
             'queueLength': _pendingWearableChunks.length,
           }, error: e);
-          if (next.attempts > 6) {
-            debugPrint('Dropping wearable chunk after repeated failures: $e');
-            _pendingWearableChunks.removeAt(0);
-            _scheduleQueuePersist();
-            continue;
-          }
-
           final delayMs = (350 * (1 << (next.attempts - 1))).clamp(350, 6000);
           await Future<void>.delayed(Duration(milliseconds: delayMs));
         }
@@ -528,10 +493,7 @@ class WearableService extends ChangeNotifier {
   Future<void> startScan() async {
     try {
       _discoveredDevices.clear();
-      _scanLastLoggedAt.clear();
-      _scanSeenCount.clear();
       notifyListeners();
-      debugPrint("Starting scan for HeyPocket devices...");
       _log('scan.start.request');
 
       final canScan = await _ensureScanPermissions();
