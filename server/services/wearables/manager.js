@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../../db/database');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 // Load built-in protocols
 const builtInProtocols = [
@@ -139,6 +140,11 @@ class WearableManager {
       sequenceIndex: 0,
       startTime: Date.now(),
       lastChunkAt: Date.now(),
+      hasAudioSyncLock: false,
+      lastAcceptedAt: 0,
+      lastAcceptedCharacteristic: null,
+      lastAcceptedPayload: null,
+      recentAcceptedPayloads: new Map(),
     });
 
     return session;
@@ -163,6 +169,14 @@ class WearableManager {
       return null;
     }
 
+    if (this.#isAsciiControlMessage(audioBuffer)) {
+      return {
+        ignored: true,
+        duplicate: false,
+        accepted: false,
+      };
+    }
+
     const streamKey = `${userId}:${macAddress}`;
     let streamState = this.activeLiveStreams.get(streamKey);
     if (!streamState) {
@@ -172,6 +186,26 @@ class WearableManager {
 
     if (!streamState) {
       throw new Error('Failed to create or retrieve live stream');
+    }
+
+    const characteristicUuid = `${context?.characteristicUuid || ''}`.trim().toLowerCase();
+
+    if (!this.#canAcceptPayloadForCharacteristic(protocol, streamState, characteristicUuid, audioBuffer)) {
+      streamState.lastChunkAt = Date.now();
+      return {
+        ignored: true,
+        duplicate: false,
+        accepted: false,
+      };
+    }
+
+    if (this.#isLikelyRetransmit(streamState, characteristicUuid, audioBuffer)) {
+      streamState.lastChunkAt = Date.now();
+      return {
+        ignored: true,
+        duplicate: true,
+        accepted: false,
+      };
     }
 
     const startMs = Date.now() - streamState.startTime;
@@ -191,6 +225,10 @@ class WearableManager {
     );
 
     streamState.lastChunkAt = Date.now();
+    streamState.lastAcceptedAt = Date.now();
+    streamState.lastAcceptedCharacteristic = characteristicUuid;
+    streamState.lastAcceptedPayload = Buffer.from(audioBuffer);
+    this.#rememberAcceptedPayload(streamState, characteristicUuid, audioBuffer);
 
     db.prepare(`UPDATE wearable_devices SET last_seen_at = ?, status = 'connected' WHERE id = ?`).run(new Date().toISOString(), device.id);
 
@@ -346,6 +384,131 @@ class WearableManager {
     }
 
     return 0;
+  }
+
+  #isLikelyRetransmit(streamState, characteristicUuid, audioBuffer) {
+    const prevPayload = streamState?.lastAcceptedPayload;
+    if (!Buffer.isBuffer(prevPayload) || !Buffer.isBuffer(audioBuffer)) {
+      return false;
+    }
+
+    if ((streamState?.lastAcceptedCharacteristic || '') !== characteristicUuid) {
+      return false;
+    }
+
+    const elapsedMs = Date.now() - (Number(streamState?.lastAcceptedAt) || 0);
+    if (elapsedMs >= 0 && elapsedMs <= 150 && prevPayload.length === audioBuffer.length && prevPayload.equals(audioBuffer)) {
+      return true;
+    }
+
+    const payloadHash = this.#payloadHash(audioBuffer);
+    const recentAccepted = streamState?.recentAcceptedPayloads?.get?.(`${characteristicUuid}:${payloadHash}`);
+    if (typeof recentAccepted !== 'number') {
+      return false;
+    }
+    return Date.now() - recentAccepted <= 450;
+  }
+
+  #canAcceptPayloadForCharacteristic(protocol, streamState, characteristicUuid, audioBuffer) {
+    if (!Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
+      return false;
+    }
+
+    const controlUuid = this.#normalizeUuid(protocol?.characteristics?.controlTx);
+    const audioUuid = this.#normalizeUuid(protocol?.characteristics?.audioTx);
+
+    if (audioUuid && characteristicUuid === audioUuid) {
+      streamState.hasAudioSyncLock = true;
+      return true;
+    }
+
+    if (!controlUuid || characteristicUuid !== controlUuid) {
+      return true;
+    }
+
+    if (streamState.hasAudioSyncLock) {
+      return true;
+    }
+
+    const looksLikeMp3 = this.#looksLikeMp3Payload(audioBuffer);
+    if (looksLikeMp3) {
+      streamState.hasAudioSyncLock = true;
+      return true;
+    }
+
+    return false;
+  }
+
+  #looksLikeMp3Payload(rawPayload) {
+    if (!Buffer.isBuffer(rawPayload) || rawPayload.length === 0) {
+      return false;
+    }
+
+    if (
+      rawPayload.length >= 3
+      && rawPayload[0] === 0x49
+      && rawPayload[1] === 0x44
+      && rawPayload[2] === 0x33
+    ) {
+      return true;
+    }
+
+    for (let i = 0; i < rawPayload.length - 1; i += 1) {
+      if (rawPayload[i] === 0xff && (rawPayload[i + 1] & 0xe0) === 0xe0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  #payloadHash(payload) {
+    return crypto.createHash('sha1').update(payload).digest('hex');
+  }
+
+  #rememberAcceptedPayload(streamState, characteristicUuid, audioBuffer) {
+    const recent = streamState?.recentAcceptedPayloads;
+    if (!(recent instanceof Map)) {
+      return;
+    }
+
+    const now = Date.now();
+    const key = `${characteristicUuid}:${this.#payloadHash(audioBuffer)}`;
+    recent.set(key, now);
+
+    // Keep memory bounded and prune old entries from dedupe window.
+    for (const [entryKey, entryTs] of recent.entries()) {
+      if (now - entryTs > 1000) {
+        recent.delete(entryKey);
+      }
+    }
+    while (recent.size > 64) {
+      const firstKey = recent.keys().next().value;
+      if (!firstKey) {
+        break;
+      }
+      recent.delete(firstKey);
+    }
+  }
+
+  #normalizeUuid(value) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    return value.trim().toLowerCase().replace(/-/g, '');
+  }
+
+  #isAsciiControlMessage(rawPayload) {
+    if (!Buffer.isBuffer(rawPayload) || rawPayload.length < 5) {
+      return false;
+    }
+
+    const text = rawPayload.toString('ascii');
+    if (!/^[\x20-\x7e\r\n\t]+$/.test(text)) {
+      return false;
+    }
+
+    return /^(MCU|APP|BLE|SYS)&/.test(text.trim());
   }
 }
 

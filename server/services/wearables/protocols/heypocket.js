@@ -48,11 +48,11 @@ class HeyPocketProtocol extends WearableProtocol {
     }
 
     if (characteristicUuid && characteristicUuid === controlTx) {
-      return this.#looksLikeAudioPayload(rawPayload) ? rawPayload : null;
+      return rawPayload;
     }
 
     if (characteristicUuid) {
-      return this.#looksLikeAudioPayload(rawPayload) ? rawPayload : null;
+      return rawPayload;
     }
 
     // Spec: "Implementation Note: Just sequentially concatenate the raw payloads 
@@ -103,30 +103,6 @@ class HeyPocketProtocol extends WearableProtocol {
     return /^(MCU|APP|BLE|SYS)&/.test(text.trim());
   }
 
-  #looksLikeAudioPayload(rawPayload) {
-    if (!Buffer.isBuffer(rawPayload) || rawPayload.length === 0) {
-      return false;
-    }
-
-    // MP3 stream can begin with an ID3 tag.
-    if (
-      rawPayload.length >= 3
-      && rawPayload[0] === 0x49
-      && rawPayload[1] === 0x44
-      && rawPayload[2] === 0x33
-    ) {
-      return true;
-    }
-
-    const limit = Math.max(0, rawPayload.length - 1);
-    for (let i = 0; i < limit; i += 1) {
-      if (rawPayload[i] === 0xff && (rawPayload[i + 1] & 0xe0) === 0xe0) {
-        return true;
-      }
-    }
-
-    return false;
-  }
 }
 
 module.exports = new HeyPocketProtocol();

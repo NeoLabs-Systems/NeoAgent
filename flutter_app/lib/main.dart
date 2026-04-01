@@ -5042,7 +5042,9 @@ class WearablesPanel extends StatelessWidget {
                                 ),
                               ),
                             OutlinedButton(
-                              onPressed: service.disconnect,
+                              onPressed: (hasBleConnected || hasBackgroundOnly || bridgeWaitingForDevice)
+                                  ? service.disconnect
+                                  : null,
                               child: const Text('Disconnect'),
                             ),
                           ],
@@ -5074,7 +5076,7 @@ class WearablesPanel extends StatelessWidget {
                           ],
                         );
 
-                        if (!hasBleConnected && !hasBackgroundOnly) {
+                        if (!hasBleConnected && !hasBackgroundOnly && !bridgeWaitingForDevice) {
                           return Row(
                             children: <Widget>[
                               const Icon(Icons.watch_off_outlined, color: _textSecondary),

@@ -636,13 +636,23 @@ class RecordingManager {
       return this.#transcribeMergedWavSource(source, chunks);
     }
 
+    if (this.#canTranscribeAsMergedBinary(source, chunks)) {
+      try {
+        return await this.#transcribeMergedBinarySource(source, chunks);
+      } catch (error) {
+        console.warn(
+          `[Recordings] Merged transcription failed for source ${source.source_key}; falling back to per-chunk mode: ${sanitizeError(error)}`,
+        );
+      }
+    }
+
     const segments = [];
 
     for (const chunk of chunks) {
       const audioBytes = fs.readFileSync(chunk.file_path);
-      if (!audioBytes || audioBytes.length < 64) {
+      if (!audioBytes || audioBytes.length === 0) {
         console.warn(
-          `[Recordings] Skipping tiny chunk for source ${source.source_key} ` +
+          `[Recordings] Skipping empty chunk for source ${source.source_key} ` +
             `(seq=${chunk.sequence_index}, bytes=${audioBytes?.length || 0})`,
         );
         continue;
@@ -747,6 +757,54 @@ class RecordingManager {
       mapMs: (mergedMs) => this.#mapMergedTimelineMs(mergedMs, spans),
       defaultStartMs: spans[0]?.sessionStartMs || 0,
       defaultEndMs: lastSpan?.sessionEndMs || spans[0]?.sessionStartMs || 0,
+    });
+  }
+
+  #canTranscribeAsMergedBinary(source, chunks) {
+    if (!Array.isArray(chunks) || chunks.length === 0) {
+      return false;
+    }
+
+    const sourceMime = `${source.mime_type || ''}`.toLowerCase();
+    const sourceSeemsMpeg = sourceMime.includes('mpeg') || sourceMime.includes('mp3');
+    if (!sourceSeemsMpeg) {
+      return false;
+    }
+
+    return chunks.every((chunk) => {
+      const mime = `${chunk.mime_type || source.mime_type || ''}`.toLowerCase();
+      return mime.includes('mpeg') || mime.includes('mp3') || mime.includes('octet-stream');
+    });
+  }
+
+  async #transcribeMergedBinarySource(source, chunks) {
+    const nonEmptyParts = chunks
+      .map((chunk) => ({
+        chunk,
+        audioBytes: fs.readFileSync(chunk.file_path),
+      }))
+      .filter((part) => Buffer.isBuffer(part.audioBytes) && part.audioBytes.length > 0);
+
+    if (nonEmptyParts.length === 0) {
+      return [];
+    }
+
+    const mergedAudioBytes = Buffer.concat(nonEmptyParts.map((part) => part.audioBytes));
+    const firstChunk = nonEmptyParts[0].chunk;
+    const lastChunk = nonEmptyParts[nonEmptyParts.length - 1].chunk;
+    const baseStartMs = Math.max(0, Number(firstChunk.start_ms) || 0);
+    const fallbackEndMs = Math.max(baseStartMs, Number(lastChunk.end_ms) || baseStartMs);
+
+    const payload = await transcribeChunkWithDeepgram({
+      audioBytes: mergedAudioBytes,
+      mimeType: firstChunk.mime_type || source.mime_type || 'audio/mpeg',
+      detectLanguage: DEFAULT_LANGUAGE,
+    });
+
+    return this.#extractSegmentsFromPayload(source, payload, {
+      mapMs: (mergedMs) => baseStartMs + Math.max(0, Number(mergedMs) || 0),
+      defaultStartMs: baseStartMs,
+      defaultEndMs: fallbackEndMs,
     });
   }
 

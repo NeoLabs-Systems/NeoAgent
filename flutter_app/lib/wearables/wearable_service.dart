@@ -196,6 +196,7 @@ class WearableService extends ChangeNotifier {
         });
 
         bool shouldEnqueue = true;
+        Uint8List payloadToEnqueue = value;
 
         if (_deviceType == WearableDeviceType.heypocket) {
           final heypocketProtocol = _getProtocolForDevice(WearableDeviceType.heypocket);
@@ -218,6 +219,9 @@ class WearableService extends ChangeNotifier {
               characteristicUuid: characteristicUuid,
             );
             final hasAudioPayload = parsedAudio != null && parsedAudio.isNotEmpty;
+            if (hasAudioPayload) {
+              payloadToEnqueue = parsedAudio;
+            }
 
             // For heypocket devices, only forward actual audio payloads to live-stream ingestion.
             // Sync-captured audio is uploaded separately via reconnect sync payload.
@@ -229,7 +233,7 @@ class WearableService extends ChangeNotifier {
           _enqueueWearableChunk(
             deviceId: deviceId,
             characteristicUuid: characteristicUuid,
-            payload: value,
+            payload: payloadToEnqueue,
           );
         }
       }
