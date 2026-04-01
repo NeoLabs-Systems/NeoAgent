@@ -11,7 +11,7 @@ const builtInProtocols = [
 ];
 const SUPPORTED_PROTOCOL_ID = 'heypocket';
 const STREAM_IDLE_TIMEOUT_MS = 60 * 1000;
-const STREAM_REAPER_INTERVAL_MS = 30 * 1000;
+const STREAM_REAPER_INTERVAL_MS = 5 * 1000;
 
 function normalizeProtocolId(protocolId) {
   const normalized = String(protocolId || '').trim().toLowerCase();
@@ -201,7 +201,7 @@ class WearableManager {
     const streamKey = `${userId}:${macAddress}`;
     const streamState = this.activeLiveStreams.get(streamKey);
     if (!streamState) {
-      return false;
+      return this.#finalizeDanglingSession(userId, macAddress, stopReason);
     }
 
     try {
@@ -215,6 +215,36 @@ class WearableManager {
 
   stopLiveStream(userId, macAddress, stopReason = 'wearable_stopped') {
     return this.endLiveStream(userId, macAddress, stopReason);
+  }
+
+  #finalizeDanglingSession(userId, macAddress, stopReason) {
+    const sourceKey = `${macAddress || ''}`.trim().toLowerCase();
+    if (!sourceKey) {
+      return false;
+    }
+
+    const row = db.prepare(`
+      SELECT rs.id AS session_id
+      FROM recording_sessions rs
+      INNER JOIN recording_sources src ON src.session_id = rs.id
+      WHERE rs.user_id = ?
+        AND rs.status = 'recording'
+        AND LOWER(src.source_key) = LOWER(?)
+      ORDER BY datetime(rs.created_at) DESC
+      LIMIT 1
+    `).get(userId, sourceKey);
+
+    if (!row?.session_id) {
+      return false;
+    }
+
+    try {
+      this.recordingManager.finalizeSession(userId, row.session_id, { stopReason });
+      return true;
+    } catch (err) {
+      console.error('[Wearables] Error finalizing dangling session', err);
+      return false;
+    }
   }
 
   reapStaleLiveStreams() {

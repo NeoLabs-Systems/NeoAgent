@@ -141,11 +141,14 @@ class HeyPocketProtocol extends WearableProtocolBase {
       return false;
     }
 
-    if (rawPayload.length >= 96) {
+    if (rawPayload.length >= 3 &&
+        rawPayload[0] == 0x49 &&
+        rawPayload[1] == 0x44 &&
+        rawPayload[2] == 0x33) {
       return true;
     }
 
-    final limit = rawPayload.length > 33 ? 32 : rawPayload.length - 1;
+    final limit = rawPayload.length - 1;
     for (var i = 0; i < limit; i++) {
       if (rawPayload[i] == 0xFF && (rawPayload[i + 1] & 0xE0) == 0xE0) {
         return true;

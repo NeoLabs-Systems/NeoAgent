@@ -108,11 +108,17 @@ class HeyPocketProtocol extends WearableProtocol {
       return false;
     }
 
-    if (rawPayload.length >= 96) {
+    // MP3 stream can begin with an ID3 tag.
+    if (
+      rawPayload.length >= 3
+      && rawPayload[0] === 0x49
+      && rawPayload[1] === 0x44
+      && rawPayload[2] === 0x33
+    ) {
       return true;
     }
 
-    const limit = Math.max(0, Math.min(rawPayload.length - 1, 32));
+    const limit = Math.max(0, rawPayload.length - 1);
     for (let i = 0; i < limit; i += 1) {
       if (rawPayload[i] === 0xff && (rawPayload[i + 1] & 0xe0) === 0xe0) {
         return true;

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
@@ -5,6 +7,7 @@ import 'package:neoagent_flutter/src/backend_client.dart';
 import 'package:neoagent_flutter/src/health_bridge.dart';
 import 'package:neoagent_flutter/src/network/app_http_client.dart';
 import 'package:neoagent_flutter/src/recording_bridge.dart';
+import 'package:neoagent_flutter/wearables/wearable_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -77,10 +80,15 @@ void main() {
 }
 
 NeoAgentController _buildController() {
+  final backendClient = _FakeBackendClient();
   return NeoAgentController(
-    backendClient: _FakeBackendClient(),
+    backendClient: backendClient,
     healthBridge: HealthBridge(),
     recordingBridge: _FakeRecordingBridge(),
+    wearableService: WearableService(
+      backendClient: backendClient,
+      getBackendUrl: () => 'http://localhost:3333',
+    ),
   );
 }
 
@@ -129,6 +137,17 @@ class _FakeAppHttpClient implements AppHttpClient {
     Uri uri, {
     Map<String, String>? headers,
     Object? body,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<HttpResponseData> postMultipart(
+    Uri uri, {
+    Map<String, String>? headers,
+    required String fieldName,
+    required String filename,
+    required Uint8List bytes,
   }) async {
     throw UnimplementedError();
   }

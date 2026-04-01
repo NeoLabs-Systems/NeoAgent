@@ -5534,6 +5534,14 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
       heypocketConnected && wearableService.heypocketRecordingActive;
     final heypocketStartInFlight = wearableService.heypocketStartInFlight;
     final anyRecordingActive = runtime.active || heypocketRecordingActive;
+    Future<void> handleWearableRecordingToggle() async {
+      if (heypocketRecordingActive) {
+        await wearableService.stopHeyPocketRecordingFromApp();
+      } else {
+        await wearableService.startHeyPocketRecordingFromApp();
+      }
+      await widget.controller.refreshRecordings();
+    }
 
     return ListView(
       padding: _pagePadding(context),
@@ -5596,9 +5604,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                           heypocketStartInFlight
                             ? null
                             : (heypocketConnected
-                            ? (heypocketRecordingActive
-                              ? wearableService.stopHeyPocketRecordingFromApp
-                              : wearableService.startHeyPocketRecordingFromApp)
+                            ? handleWearableRecordingToggle
                                   : widget.controller.startBackgroundRecording),
                         icon: Icon(
                           heypocketConnected
@@ -5784,7 +5790,7 @@ class _RecordingSessionCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: _bgSecondary,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _accent.withOpacity(0.3)),
+                  border: Border.all(color: _accent.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -8471,7 +8477,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   builder: (context, constraints) {
                     final compact = constraints.maxWidth < 780;
                     final channelPicker = DropdownButtonFormField<String>(
-                      value: controller.updateStatus.releaseChannel,
+                      initialValue: controller.updateStatus.releaseChannel,
                       decoration: const InputDecoration(
                         labelText: 'Release Channel',
                       ),

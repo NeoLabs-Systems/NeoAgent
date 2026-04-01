@@ -78,7 +78,7 @@ class WearableService extends ChangeNotifier {
   bool _queuePersistInFlight = false;
   bool _queuePersistRequested = false;
   bool _queueRestoreInFlight = false;
-  static const int _maxPendingWearableChunks = 720;
+  static const int _maxPendingWearableChunks = 20000;
   static const Duration _queueDropLogInterval = Duration(seconds: 20);
   static const int _queueDropLogMinCount = 64;
   final PendingChunkStore _chunkStore = createPendingChunkStore();
