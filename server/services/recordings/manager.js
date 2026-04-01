@@ -596,15 +596,52 @@ class RecordingManager {
 
     for (const chunk of chunks) {
       const audioBytes = fs.readFileSync(chunk.file_path);
-      const payload = await transcribeChunkWithDeepgram({
-        audioBytes,
-        mimeType: chunk.mime_type || source.mime_type,
-        detectLanguage: DEFAULT_LANGUAGE,
-      });
-      segments.push(...this.#extractSegments(source, chunk, payload));
+      if (!audioBytes || audioBytes.length < 64) {
+        console.warn(
+          `[Recordings] Skipping tiny chunk for source ${source.source_key} ` +
+            `(seq=${chunk.sequence_index}, bytes=${audioBytes?.length || 0})`,
+        );
+        continue;
+      }
+
+      try {
+        const payload = await transcribeChunkWithDeepgram({
+          audioBytes,
+          mimeType: chunk.mime_type || source.mime_type,
+          detectLanguage: DEFAULT_LANGUAGE,
+        });
+        segments.push(...this.#extractSegments(source, chunk, payload));
+      } catch (error) {
+        if (this.#isSkippableTranscriptionError(error)) {
+          console.warn(
+            `[Recordings] Skipping unsupported/corrupt chunk for source ${source.source_key} ` +
+              `(seq=${chunk.sequence_index}): ${sanitizeError(error)}`,
+          );
+          continue;
+        }
+        throw error;
+      }
     }
 
     return segments;
+  }
+
+  #isSkippableTranscriptionError(error) {
+    const message = `${error?.message || error || ''}`.toLowerCase();
+    if (!message) {
+      return false;
+    }
+
+    const isDeepgramRequestError =
+      message.includes('deepgram request failed') || message.includes('bad request');
+    const likelyCorruptPayload =
+      message.includes('audio corrupt') ||
+      message.includes('unsupported') ||
+      message.includes('cannot decode') ||
+      message.includes('invalid audio') ||
+      message.includes('encoding');
+
+    return isDeepgramRequestError && likelyCorruptPayload;
   }
 
   async #transcribeMergedWavSource(source, chunks) {
