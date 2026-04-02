@@ -3,7 +3,7 @@ const db = require('../../db/database');
 const WEB_SUMMARY_KEY = 'web_chat_summary';
 const WEB_SUMMARY_COUNT_KEY = 'web_chat_summary_count';
 const SUMMARY_TRIGGER_COUNT = 6;
-const MAX_SUMMARY_CHARS = 1600;
+const MAX_SUMMARY_CHARS = 3200;
 
 function clampSummary(text) {
   const str = String(text || '').trim();
@@ -114,19 +114,19 @@ async function summarizeMessages(provider, model, existingSummary, messages, lab
   const prompt = [
     {
       role: 'system',
-      content: 'Compress conversation context. Preserve user goals, constraints, preferences, decisions, important facts, tool outcomes, and unresolved issues. Keep the same personality context. Output plain text only.'
+      content: 'Compress conversation context. Preserve user goals, constraints, preferences, decisions, promised follow-ups, recurring schedules, important facts, tool outcomes, and unresolved issues. Keep concrete details (names, dates, times, statuses) and avoid vague wording. Keep the same personality context. Output plain text only.'
     },
     {
       role: 'user',
       content: [
         existingSummary ? `Existing summary:\n${clampSummary(existingSummary)}` : 'Existing summary: none',
         `New ${label} messages:\n${serializeHistoryForSummary(messages)}`,
-        'Write an updated summary in under 220 words.'
+        'Write an updated summary in under 420 words. Include a short section for "Open commitments" when applicable.'
       ].join('\n\n')
     }
   ];
 
-  const response = await provider.chat(prompt, [], { model, maxTokens: 320 });
+  const response = await provider.chat(prompt, [], { model, maxTokens: 900 });
   return clampSummary(response.content || existingSummary || '');
 }
 

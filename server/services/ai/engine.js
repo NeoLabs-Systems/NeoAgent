@@ -672,7 +672,7 @@ class AgentEngine {
 
         let metrics = this.estimatePromptMetrics(messages, tools);
         const contextWindow = provider.getContextWindow(model);
-        if (metrics.totalEstimatedTokens > contextWindow * 0.7) {
+        if (metrics.totalEstimatedTokens > contextWindow * 0.85) {
           messages = await compact(messages, provider, model);
           messages = sanitizeConversationMessages(messages);
           this.emit(userId, 'run:compaction', { runId, iteration });
@@ -928,7 +928,7 @@ class AgentEngine {
             tool_call_id: toolCall.id,
             content: compactToolResult(toolName, toolArgs, toolResult, {
               softLimit: toolReplayBudget,
-              hardLimit: 2000
+              hardLimit: 3200
             })
           };
           messages.push(toolMessage);

@@ -37,8 +37,8 @@ function clampEnvelope(envelope, hardLimit) {
 }
 
 function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
-  const softLimit = Math.max(400, Math.min(Number(options.softLimit) || 1200, 2000));
-  const hardLimit = Math.max(softLimit, Math.min(Number(options.hardLimit) || 2000, 3000));
+  const softLimit = Math.max(500, Math.min(Number(options.softLimit) || 1800, 3000));
+  const hardLimit = Math.max(softLimit, Math.min(Number(options.hardLimit) || 3200, 4500));
 
   let envelope;
 

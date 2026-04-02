@@ -4,7 +4,7 @@ async function compact(messages, provider, model) {
 
   if (nonSystem.length < 12) return messages;
 
-  const keepRecent = 8;
+  const keepRecent = 10;
   const toCompact = nonSystem.slice(0, -keepRecent);
   const recent = nonSystem.slice(-keepRecent);
 
@@ -20,12 +20,12 @@ async function compact(messages, provider, model) {
   }).join('\n');
 
   const summaryPrompt = [
-    { role: 'system', content: 'Compress conversation context. Preserve goals, constraints, tool outcomes, errors, and unresolved work. Keep it compact.' },
+    { role: 'system', content: 'Compress conversation context. Preserve goals, constraints, decisions, promised follow-ups, recurring tasks, tool outcomes, errors, and unresolved work. Keep concrete facts (dates/times/names/status) and avoid vague wording.' },
     { role: 'user', content: `Summarize this conversation:\n\n${compactionText}` }
   ];
 
   try {
-    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 320 });
+    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 900 });
     const summary = response.content || 'Previous conversation context (summary unavailable).';
 
     const compactedMessages = [];
@@ -61,7 +61,7 @@ function estimateTokenCount(messages) {
 
 function shouldCompact(messages, contextWindow) {
   const used = estimateTokenCount(messages);
-  return used > contextWindow * 0.75;
+  return used > contextWindow * 0.85;
 }
 
 module.exports = { compact, estimateTokenCount, shouldCompact };
