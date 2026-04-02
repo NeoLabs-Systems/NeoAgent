@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 
@@ -69,6 +70,17 @@ function compactToolDefinition(tool, options = {}) {
     }
 
     return compact;
+}
+
+function normalizeNotifyMessage(content) {
+    return String(content || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function hashNotifyMessage(content) {
+    return crypto.createHash('sha256').update(String(content || '')).digest('hex');
 }
 
 /**
@@ -1564,6 +1576,15 @@ async function executeTool(toolName, args, context, engine) {
                     throw new Error('Messaging manager not available');
                 }
 
+                const runState = runId ? engine.activeRuns.get(runId) : null;
+                if (runState?.messagingSent) {
+                    return {
+                        sent: false,
+                        skipped: true,
+                        reason: 'A notification was already sent in this run; duplicate scheduler/heartbeat message was suppressed.'
+                    };
+                }
+
                 const loadDefaultTarget = () => ({
                     platform: db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
                         .get(userId, 'last_platform')?.value || null,
@@ -1584,6 +1605,22 @@ async function executeTool(toolName, args, context, engine) {
                                 to: taskConfig.notifyTo || null
                             };
                         } catch { }
+                    }
+                }
+
+                if (triggerSource === 'scheduler' && taskId && taskConfig) {
+                    const normalized = normalizeNotifyMessage(message);
+                    const newHash = hashNotifyMessage(normalized);
+                    const previousHash = typeof taskConfig.lastNotifyHash === 'string' ? taskConfig.lastNotifyHash : null;
+                    const previousAt = Number(taskConfig.lastNotifyAtMs || 0);
+                    const dedupeWindowMs = 2 * 60 * 60 * 1000;
+                    if (normalized && previousHash && previousHash === newHash && previousAt > 0 && (Date.now() - previousAt) < dedupeWindowMs) {
+                        return {
+                            sent: false,
+                            skipped: true,
+                            deduped: true,
+                            reason: 'Duplicate scheduler notification suppressed (same content within 2 hours).'
+                        };
                     }
                 }
 
@@ -1626,7 +1663,16 @@ async function executeTool(toolName, args, context, engine) {
                                 .run(JSON.stringify(taskConfig), taskId, userId);
                         }
 
-                        const runState = runId ? engine.activeRuns.get(runId) : null;
+                        if (taskId && taskConfig && triggerSource === 'scheduler') {
+                            const normalized = normalizeNotifyMessage(message);
+                            if (normalized) {
+                                taskConfig.lastNotifyHash = hashNotifyMessage(normalized);
+                                taskConfig.lastNotifyAtMs = Date.now();
+                                db.prepare('UPDATE scheduled_tasks SET task_config = ? WHERE id = ? AND user_id = ?')
+                                    .run(JSON.stringify(taskConfig), taskId, userId);
+                            }
+                        }
+
                         if (runState) {
                             runState.messagingSent = true;
                             runState.lastSentMessage = message;

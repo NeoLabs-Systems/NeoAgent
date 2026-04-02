@@ -291,6 +291,15 @@ class Scheduler {
             : '';
         }
 
+        notifyHint += [
+          '',
+          'Critical reliability rules for scheduled notifications:',
+          '- For time-sensitive external-world claims (for example: mission status, launch timeline, incidents, markets, weather, sports, or wording like "today/now/yesterday"), do not rely on memory alone.',
+          '- Verify with at least one fresh source tool in this run before notifying (for example browser_navigate, http_request, search_files where applicable).',
+          '- If you cannot verify current status, send a short uncertainty notice and ask whether to retry later. Do not invent timeline details.',
+          '- Send at most one proactive user notification per run unless the task explicitly requires multi-part output.'
+        ].join('\n');
+
         const taskContext = `[SYSTEM: Executing Scheduled Task]\nTask Name: ${taskName}\nSchedule: ${scheduleInfo}\n\n`;
         const userPrompt = config.prompt || `You have been triggered by the scheduler to run the background task "${taskName}". Please execute any necessary checks or actions associated with this task.`;
         const basePrompt = taskContext + userPrompt + notifyHint;
