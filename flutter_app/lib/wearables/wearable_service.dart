@@ -88,6 +88,7 @@ class WearableService extends ChangeNotifier {
   final Map<String, WearableProtocolBase> _protocols = {};
 
   WearableDeviceType? _deviceType;
+  List<BleService> _connectedServices = <BleService>[];
   late final HeyPocketSyncCoordinator _heypocketSyncCoordinator;
 
   bool get canRequestOfflineSync =>
@@ -693,6 +694,11 @@ class WearableService extends ChangeNotifier {
         debugPrint("Warning: Service discovery failed: $e");
       }
 
+      _connectedServices = List<BleService>.from(discoveredServices);
+      if (_deviceType == WearableDeviceType.heypocket && discoveredServices.isNotEmpty) {
+        _heypocketSyncCoordinator.cacheResolvedServices(device.deviceId, discoveredServices);
+      }
+
       _connectedDevice = device;
       _connectionState = BleConnectionState.connected;
       _connectingDeviceId = null;
@@ -701,7 +707,6 @@ class WearableService extends ChangeNotifier {
       _stopAutoReconnectLoop();
 
       await _subscribeToAudioCharacteristic(device.deviceId, discoveredServices);
-  unawaited(_ensureNativeBackgroundBridge(autoStartRecording: false));
 
       if (_deviceType == WearableDeviceType.heypocket) {
         await _heypocketSyncCoordinator.onConnected(device.deviceId, discoveredServices);
@@ -847,6 +852,7 @@ class WearableService extends ChangeNotifier {
     final deviceId = _connectedDevice!.deviceId;
     await _heypocketSyncCoordinator.requestOfflineSync(
       deviceId,
+      services: _connectedServices,
       reason: 'manual',
     );
   }
@@ -856,7 +862,10 @@ class WearableService extends ChangeNotifier {
       return;
     }
 
-    await _heypocketSyncCoordinator.cancelOfflineSync(_connectedDevice!.deviceId);
+    await _heypocketSyncCoordinator.cancelOfflineSync(
+      _connectedDevice!.deviceId,
+      services: _connectedServices,
+    );
   }
 
   Future<void> deleteHeyPocketOfflineFile(HeyPocketSyncFile file) async {
@@ -867,6 +876,7 @@ class WearableService extends ChangeNotifier {
     await _heypocketSyncCoordinator.deleteOfflineSyncFile(
       _connectedDevice!.deviceId,
       file,
+      services: _connectedServices,
     );
   }
 
@@ -889,8 +899,9 @@ class WearableService extends ChangeNotifier {
       }
       var nativeBridgeStarted = false;
       var nativeBridgeConnected = false;
+      final usingDirectBle = _connectedDevice != null;
 
-      if (!kIsWeb && Platform.isAndroid) {
+      if (!usingDirectBle && !kIsWeb && Platform.isAndroid) {
         nativeBridgeStarted =
             await _ensureNativeBackgroundBridge(autoStartRecording: true);
         nativeBridgeConnected = _backgroundBridgeConnected;
@@ -901,14 +912,29 @@ class WearableService extends ChangeNotifier {
         });
       }
 
+      if (!usingDirectBle && nativeBridgeStarted) {
+        _log('recording.start.bridge_only_path', data: <String, Object?>{
+          'deviceId': deviceId,
+          'nativeBridgeConnected': nativeBridgeConnected,
+        });
+        return;
+      }
+
       Object? startError;
       try {
-        await _heypocketSyncCoordinator.startRecordingFromApp(deviceId);
+        final startOk = await _heypocketSyncCoordinator.startRecordingFromApp(
+          deviceId,
+          services: _connectedServices,
+        );
+        if (!startOk) {
+          startError = StateError('Wearable start command was not acknowledged.');
+        }
         _log('recording.start.command.dispatched', data: <String, Object?>{
           'deviceId': deviceId,
           'path': 'flutter.direct',
           'nativeBridgeStarted': nativeBridgeStarted,
           'nativeBridgeConnected': nativeBridgeConnected,
+          'startOk': startOk,
         });
       } catch (e, stackTrace) {
         startError = e;
@@ -970,7 +996,10 @@ class WearableService extends ChangeNotifier {
     }
 
     if (_connectedDevice != null) {
-      await _heypocketSyncCoordinator.stopRecordingFromApp(deviceId);
+      await _heypocketSyncCoordinator.stopRecordingFromApp(
+        deviceId,
+        services: _connectedServices,
+      );
     }
     await _finalizeActiveWearableRecording(deviceId);
   }
@@ -1121,6 +1150,7 @@ class WearableService extends ChangeNotifier {
     await _heypocketSyncCoordinator.setCallMode(
       _connectedDevice!.deviceId,
       enabled,
+      services: _connectedServices,
     );
   }
 
@@ -1174,8 +1204,13 @@ class WearableService extends ChangeNotifier {
   }
 
   void _clearConnectionState({bool clearDiscoveredDevices = false}) {
+    final previousDeviceId = _connectedDevice?.deviceId;
     _connectedDevice = null;
+    _connectedServices = <BleService>[];
     _deviceType = null;
+    if (previousDeviceId != null) {
+      _heypocketSyncCoordinator.clearCachedServices(previousDeviceId);
+    }
     _heypocketSyncCoordinator.setRecordingStateFromBridge(active: false);
     _connectionState = BleConnectionState.disconnected;
     _lastSuccessfulCommunication = null;

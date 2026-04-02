@@ -5141,32 +5141,64 @@ class WearablesPanel extends StatelessWidget {
             const SizedBox(height: 12),
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    _SyncStatPill(
-                      label: 'BLE state',
-                      value: service.connectionState.name,
-                      icon: Icons.bluetooth_searching,
+                    Row(
+                      children: <Widget>[
+                        const Icon(Icons.favorite_outline, color: _textSecondary, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            hasBleConnected || hasBackgroundOnly
+                                ? 'Your wearable is connected and ready.'
+                                : bridgeWaitingForDevice
+                                ? 'Bridge is active. Waiting for your wearable to reconnect.'
+                                : 'Connect a wearable to start recording from it.',
+                            style: const TextStyle(color: _textSecondary),
+                          ),
+                        ),
+                      ],
                     ),
-                    _SyncStatPill(
-                      label: 'Bridge active',
-                      value: service.backgroundBridgeActive ? 'yes' : 'no',
-                      icon: Icons.settings_ethernet,
-                    ),
-                    _SyncStatPill(
-                      label: 'Bridge connected',
-                      value: service.backgroundBridgeConnected ? 'yes' : 'no',
-                      icon: Icons.link,
-                    ),
-                    _SyncStatPill(
-                      label: 'Device id',
-                      value: service.connectedDevice?.deviceId ??
-                          service.backgroundBridgeDeviceId ??
-                          '-',
-                      icon: Icons.badge_outlined,
+                    const SizedBox(height: 8),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: const EdgeInsets.only(bottom: 8),
+                      title: const Text(
+                        'Technical details',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      children: <Widget>[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            _SyncStatPill(
+                              label: 'BLE state',
+                              value: service.connectionState.name,
+                              icon: Icons.bluetooth_searching,
+                            ),
+                            _SyncStatPill(
+                              label: 'Bridge active',
+                              value: service.backgroundBridgeActive ? 'yes' : 'no',
+                              icon: Icons.settings_ethernet,
+                            ),
+                            _SyncStatPill(
+                              label: 'Bridge connected',
+                              value: service.backgroundBridgeConnected ? 'yes' : 'no',
+                              icon: Icons.link,
+                            ),
+                            _SyncStatPill(
+                              label: 'Device id',
+                              value: service.connectedDevice?.deviceId ??
+                                  service.backgroundBridgeDeviceId ??
+                                  '-',
+                              icon: Icons.badge_outlined,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -5200,15 +5232,17 @@ class WearablesPanel extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: OutlinedButton.icon(
-                            onPressed: service.cancelHeyPocketOfflineSync,
-                            icon: const Icon(Icons.cancel_outlined),
-                            label: const Text('Cancel sync'),
+                        if (service.isOfflineSyncRequestInFlight)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton.icon(
+                              onPressed: service.cancelHeyPocketOfflineSync,
+                              icon: const Icon(Icons.cancel_outlined),
+                              label: const Text('Cancel sync'),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
+                        if (service.isOfflineSyncRequestInFlight)
+                          const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -5218,102 +5252,120 @@ class WearablesPanel extends StatelessWidget {
                               value: service.heypocketSyncStatus,
                               icon: Icons.info_outline,
                             ),
-                            _SyncStatPill(
-                              label: 'Listed files',
-                              value: '${service.heypocketSyncListedFilesCount}',
-                              icon: Icons.queue_music_outlined,
-                            ),
-                            _SyncStatPill(
-                              label: 'Upload requests',
-                              value: '${service.heypocketSyncUploadCommandsSent}',
-                              icon: Icons.cloud_upload_outlined,
-                            ),
                           ],
                         ),
-                        if (service.heypocketSyncListedFiles.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 12),
-                          const Text(
-                            'On-device sync files',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _textSecondary,
-                            ),
+                        const SizedBox(height: 12),
+                        ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          childrenPadding: EdgeInsets.zero,
+                          title: const Text(
+                            'Sync details (advanced)',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                           ),
-                          const SizedBox(height: 8),
-                          ...service.heypocketSyncListedFiles.map((file) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
+                          children: <Widget>[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: <Widget>[
+                                _SyncStatPill(
+                                  label: 'Listed files',
+                                  value: '${service.heypocketSyncListedFilesCount}',
+                                  icon: Icons.queue_music_outlined,
                                 ),
+                                _SyncStatPill(
+                                  label: 'Upload requests',
+                                  value: '${service.heypocketSyncUploadCommandsSent}',
+                                  icon: Icons.cloud_upload_outlined,
+                                ),
+                              ],
+                            ),
+                            if (service.heypocketSyncListedFiles.isNotEmpty) ...<Widget>[
+                              const SizedBox(height: 12),
+                              const Text(
+                                'On-device sync files',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ...service.heypocketSyncListedFiles.map((file) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _bgCard,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: _borderLight),
+                                    ),
+                                    child: Row(
+                                      children: <Widget>[
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: <Widget>[
+                                              Text(
+                                                file.fileId,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '${file.date} • ${formatHeyPocketFileMetric(file.size)}',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: _textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          onPressed: () => service.deleteHeyPocketOfflineFile(file),
+                                          icon: const Icon(Icons.delete_outline, size: 18),
+                                          tooltip: 'Delete from device',
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                            if (service.heypocketSyncLastControlMessage.isNotEmpty) ...<Widget>[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: _bgCard,
+                                  color: _bgPrimary,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: _borderLight),
                                 ),
-                                child: Row(
-                                  children: <Widget>[
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          Text(
-                                            file.fileId,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '${file.date} • ${formatHeyPocketFileMetric(file.size)}',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: _textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      onPressed: () => service.deleteHeyPocketOfflineFile(file),
-                                      icon: const Icon(Icons.delete_outline, size: 18),
-                                      tooltip: 'Delete from device',
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                  ],
+                                child: Text(
+                                  'Last response: ${service.heypocketSyncLastControlMessage}',
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: _textSecondary,
+                                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                                  ),
                                 ),
                               ),
-                            );
-                          }),
-                        ],
-                        if (service.heypocketSyncLastControlMessage.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 12),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: _bgPrimary,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: _borderLight),
-                            ),
-                            child: Text(
-                              'Last response: ${service.heypocketSyncLastControlMessage}',
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _textSecondary,
-                                fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                              ),
-                            ),
-                          ),
-                        ],
+                            ],
+                            const SizedBox(height: 8),
+                          ],
+                        ),
                         const SizedBox(height: 12),
                         Container(
                           width: double.infinity,

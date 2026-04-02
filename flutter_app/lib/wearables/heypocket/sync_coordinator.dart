@@ -66,6 +66,7 @@ class HeyPocketSyncCoordinator {
   bool _recordingActive = false;
   String _activeRecordingId = '';
   String? _pendingDeleteKey;
+  final Map<String, List<BleService>> _serviceCacheByDeviceId = <String, List<BleService>>{};
 
   static final RegExp _controlPrefix = RegExp(r'^(MCU|APP|BLE|SYS)&');
   static final RegExp _mcuFilePattern = RegExp(r'^MCU&F&([^&]+)&([^&]+)&(\d+)$');
@@ -132,6 +133,7 @@ class HeyPocketSyncCoordinator {
   }
 
   Future<void> onConnected(String deviceId, List<BleService> services) async {
+    cacheResolvedServices(deviceId, services);
     _log('connected', data: <String, Object?>{
       'deviceId': deviceId,
       'serviceCount': services.length,
@@ -214,11 +216,17 @@ class HeyPocketSyncCoordinator {
   }
 
   void observeControlPayload(Uint8List rawPayload) {
-    final text = _parseControlText(rawPayload);
-    if (text == null) {
+    final controlMessages = _parseControlMessages(rawPayload);
+    if (controlMessages.isEmpty) {
       return;
     }
 
+    for (final text in controlMessages) {
+      _observeSingleControlMessage(text);
+    }
+  }
+
+  void _observeSingleControlMessage(String text) {
     _lastControlMessage = text;
 
     final fileMatch = _mcuFilePattern.firstMatch(text);
@@ -476,15 +484,21 @@ class HeyPocketSyncCoordinator {
     onSyncStateChanged();
   }
 
-  Future<void> startRecordingFromApp(
+  Future<bool> startRecordingFromApp(
     String deviceId, {
     List<BleService>? services,
   }) async {
+    if (_syncRequestInFlight) {
+      _lastSyncStatus = 'Start blocked: sync is active';
+      onSyncStateChanged();
+      return false;
+    }
+
     final resolvedServices = await _resolveServices(deviceId, services);
     if (resolvedServices.isEmpty) {
       _lastSyncStatus = 'Start recording failed: no services';
       onSyncStateChanged();
-      return;
+      return false;
     }
 
     final service = resolvedServices.firstWhere(
@@ -497,8 +511,8 @@ class HeyPocketSyncCoordinator {
       service.uuid,
       Uint8List.fromList('APP&STA'.codeUnits),
       commandLabel: 'APP&STA',
-      // Start command is more reliable with response on some firmware variants.
-      initialWithoutResponse: false,
+      // Keep start command aligned with other stable control writes.
+      initialWithoutResponse: true,
       rethrowOnFailure: false,
       isHexPayload: false,
     );
@@ -508,6 +522,7 @@ class HeyPocketSyncCoordinator {
       _lastSyncStatus = 'Requested recording start';
     }
     onSyncStateChanged();
+    return ok;
   }
 
   Future<void> stopRecordingFromApp(
@@ -536,6 +551,8 @@ class HeyPocketSyncCoordinator {
       return;
     }
 
+    cacheResolvedServices(deviceId, services);
+
     final service = services.firstWhere(
       (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => services.first,
@@ -548,23 +565,44 @@ class HeyPocketSyncCoordinator {
     String deviceId,
     List<BleService>? services,
   ) async {
-    var resolvedServices = services ?? <BleService>[];
-    if (resolvedServices.isNotEmpty) {
-      return resolvedServices;
+    final provided = services ?? <BleService>[];
+    if (provided.isNotEmpty) {
+      cacheResolvedServices(deviceId, provided);
+      return provided;
     }
 
+    final cached = _serviceCacheByDeviceId[deviceId];
+    if (cached != null && cached.isNotEmpty) {
+      return cached;
+    }
+
+    var resolvedServices = <BleService>[];
     try {
       resolvedServices = await UniversalBle.discoverServices(deviceId);
+      if (resolvedServices.isNotEmpty) {
+        cacheResolvedServices(deviceId, resolvedServices);
+      }
     } catch (e) {
       debugPrint('HeyPocket service discovery failed: $e');
     }
     return resolvedServices;
   }
 
+  void cacheResolvedServices(String deviceId, List<BleService> services) {
+    if (services.isNotEmpty) {
+      _serviceCacheByDeviceId[deviceId] = List<BleService>.from(services);
+    }
+  }
+
+  void clearCachedServices(String deviceId) {
+    _serviceCacheByDeviceId.remove(deviceId);
+  }
+
   void dispose() {
     _reconnectSyncTimer?.cancel();
     _reconnectSyncActive = false;
     _reconnectSyncBuffer.clear();
+    _serviceCacheByDeviceId.clear();
   }
 
   Future<void> _sendOfficialSyncPreamble(
@@ -820,22 +858,55 @@ class HeyPocketSyncCoordinator {
     return out;
   }
 
-  String? _parseControlText(Uint8List rawPayload) {
+  List<String> _parseControlMessages(Uint8List rawPayload) {
+    final messages = <String>[];
     if (rawPayload.isEmpty) {
-      return null;
+      return messages;
     }
 
     try {
-      final text = String.fromCharCodes(rawPayload).replaceAll('\u0000', '').trim();
-      if (text.isEmpty) {
-        return null;
+      final cleanText = String.fromCharCodes(rawPayload).replaceAll('\u0000', '').trim();
+      if (cleanText.isEmpty) {
+        return messages;
       }
-      if (!_controlPrefix.hasMatch(text)) {
-        return null;
+
+      final lines = cleanText
+          .split(RegExp(r'[\r\n]+'))
+          .expand(_splitLineByControlPrefix)
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty);
+
+      for (final line in lines) {
+        if (_controlPrefix.hasMatch(line)) {
+          messages.add(line);
+        }
       }
-      return text;
     } catch (_) {
-      return null;
+      return const <String>[];
+    }
+
+    return messages;
+  }
+
+  Iterable<String> _splitLineByControlPrefix(String line) sync* {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    final matches = RegExp(r'(?:MCU|APP|BLE|SYS)&').allMatches(trimmed).toList();
+    if (matches.length <= 1) {
+      yield trimmed;
+      return;
+    }
+
+    for (var i = 0; i < matches.length; i++) {
+      final start = matches[i].start;
+      final end = i + 1 < matches.length ? matches[i + 1].start : trimmed.length;
+      final part = trimmed.substring(start, end).trim();
+      if (part.isNotEmpty) {
+        yield part;
+      }
     }
   }
 
