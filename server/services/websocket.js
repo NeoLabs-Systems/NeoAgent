@@ -2,7 +2,7 @@ const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
 const { getProviderForUser } = require('./ai/engine');
 const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
-const { getWebChatContext, refreshWebChatSummary, clearWebChatSummary } = require('./ai/history');
+const { getWebChatContext, refreshWebChatSummary } = require('./ai/history');
 
 function setupWebSocket(io, services) {
   const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager } = services;
@@ -38,41 +38,21 @@ function setupWebSocket(io, services) {
           return socket.emit('error', { message: 'Message too long (max 50,000 characters)' });
         }
 
-        if (task.startsWith('/')) {
-          const [rawCmd] = task.trim().split(/\s+/);
-          const cmd = rawCmd.slice(1).toLowerCase();
-
-          switch (cmd) {
-            case 'new':
-            case 'clear':
-              db.prepare('DELETE FROM conversation_history WHERE user_id = ?').run(userId);
-              clearWebChatSummary(userId);
-              console.log(`[WS] Conversation cleared for user ${userId}`);
-              socket.emit('chat:cleared');
-              {
-                const resetResult = await agentEngine.run(userId, 'context was just cleared. say something very brief (1-2 sentences max) acknowledging the fresh start, in your own style. no tools needed.', {});
-                socket.emit('run:complete', { content: resetResult?.content || 'fresh start.' });
+        const commandRouter = services.app?.locals?.commandRouter;
+        if (commandRouter) {
+          const commandResult = await commandRouter.dispatch(task, {
+            userId,
+            source: 'web',
+            socketId: socket.id
+          });
+          if (commandResult?.handled) {
+            if (Array.isArray(commandResult.events)) {
+              for (const evt of commandResult.events) {
+                socket.emit(evt.name, evt.payload || {});
               }
-              return;
-
-            case 'stop': {
-              console.warn(`[WS] Stop requested by user ${userId}`);
-              agentEngine.abortAll(userId);
-              const q = services.app?.locals?.userQueues;
-              if (q && q[userId]) { q[userId].pending = []; q[userId].running = false; }
-              socket.emit('run:complete', { content: 'Stopped.' });
-              return;
             }
-
-            case 'help':
-              socket.emit('run:complete', {
-                content: '**Available commands**\n- `/new` or `/clear` — clear conversation context\n- `/stop` — abort all running tasks immediately\n- `/help` — show this message'
-              });
-              return;
-
-            default:
-              socket.emit('run:complete', { content: `Unknown command: \`/${cmd}\`. Type \`/help\` for available commands.` });
-              return;
+            socket.emit('run:complete', { content: commandResult.content || 'Done.' });
+            return;
           }
         }
 

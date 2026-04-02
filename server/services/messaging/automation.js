@@ -14,6 +14,40 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
       return;
     }
 
+    const commandRouter = app?.locals?.commandRouter;
+    if (commandRouter) {
+      const commandResult = await commandRouter.dispatch(msg.content, {
+        userId,
+        source: 'messaging',
+        platform: msg.platform,
+        chatId: msg.chatId,
+        sender: msg.sender
+      });
+
+      if (commandResult?.handled) {
+        if (Array.isArray(commandResult.events)) {
+          for (const evt of commandResult.events) {
+            io.to(`user:${userId}`).emit(evt.name, evt.payload || {});
+          }
+        }
+        try {
+          await messagingManager.sendMessage(
+            userId,
+            msg.platform,
+            msg.chatId,
+            commandResult.content || 'Done.',
+            { runId: null }
+          );
+        } catch (err) {
+          console.error(`[Messaging] Failed to send command response on ${msg.platform}:`, err.message);
+          io.to(`user:${userId}`).emit('messaging:error', {
+            error: `Command executed but response could not be sent on ${msg.platform}: ${err.message}`
+          });
+        }
+        return;
+      }
+    }
+
     const upsertSetting = db.prepare(
       'INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)'
     );

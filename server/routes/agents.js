@@ -54,6 +54,21 @@ router.post('/', async (req, res) => {
     if (!task || typeof task !== 'string') return res.status(400).json({ error: 'Task must be a non-empty string' });
     if (task.length > 50000) return res.status(400).json({ error: 'Task exceeds maximum length of 50,000 characters' });
 
+    const commandRouter = req.app?.locals?.commandRouter;
+    if (commandRouter) {
+      const commandResult = await commandRouter.dispatch(task, {
+        userId: req.session.userId,
+        source: 'http'
+      });
+      if (commandResult?.handled) {
+        return res.json({
+          command: true,
+          content: commandResult.content || 'Done.',
+          events: commandResult.events || []
+        });
+      }
+    }
+
     db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
       .run(req.session.userId, 'user', task, JSON.stringify({ platform: 'flutter' }));
 

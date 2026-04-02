@@ -8,6 +8,7 @@ const { AndroidController } = require('./android/controller');
 const { AgentEngine } = require('./ai/engine');
 const { MultiStepOrchestrator } = require('./ai/multiStep');
 const { SkillRunner } = require('./ai/toolRunner');
+const { CommandRouter } = require('./commands/router');
 const { MessagingManager } = require('./messaging/manager');
 const { Scheduler } = require('./scheduler/cron');
 const { setupWebSocket } = require('./websocket');
@@ -249,6 +250,16 @@ function createMultiStep(app, agentEngine, io) {
   return multiStep;
 }
 
+function createCommandRouter(app) {
+  const commandRouter = registerLocal(
+    app,
+    'commandRouter',
+    new CommandRouter(app),
+  );
+  logServiceReady('Command router ready');
+  return commandRouter;
+}
+
 function createMessagingManager(app, io, agentEngine) {
   const messagingManager = registerLocal(
     app,
@@ -346,6 +357,7 @@ async function startServices(app, io) {
     });
 
     createMultiStep(app, agentEngine, io);
+    createCommandRouter(app);
 
     const messagingManager = createMessagingManager(app, io, agentEngine);
     const recordingManager = createRecordingManager(app, io);
