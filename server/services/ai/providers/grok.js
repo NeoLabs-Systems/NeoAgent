@@ -54,14 +54,24 @@ class GrokProvider extends BaseProvider {
 
   async *stream(messages, tools = [], options = {}) {
     const model = options.model || 'grok-4-1-fast-reasoning';
-    const params = { ...this._buildParams(model, messages, tools, options), stream: true };
+    const params = {
+      ...this._buildParams(model, messages, tools, options),
+      stream: true,
+      stream_options: { include_usage: true }
+    };
 
     const stream = await this.client.chat.completions.create(params);
 
     let toolCalls = [];
     let content = '';
+    let finalUsage = null;
 
     for await (const chunk of stream) {
+      if (chunk.usage && (!chunk.choices || chunk.choices.length === 0)) {
+        finalUsage = this.#normalizeUsage(chunk.usage);
+        continue;
+      }
+
       const delta = chunk.choices[0]?.delta;
       if (!delta) continue;
 
@@ -83,19 +93,28 @@ class GrokProvider extends BaseProvider {
 
       const finishReason = chunk.choices[0]?.finish_reason;
       if (finishReason === 'tool_calls' || (finishReason === 'stop' && toolCalls.length > 0)) {
-        yield { type: 'tool_calls', toolCalls, content };
+        yield {
+          type: 'tool_calls',
+          toolCalls,
+          content,
+          usage: this.#normalizeUsage(chunk.usage) || finalUsage
+        };
         return;
       }
       if (finishReason === 'stop') {
-        yield { type: 'done', content };
+        yield {
+          type: 'done',
+          content,
+          usage: this.#normalizeUsage(chunk.usage) || finalUsage
+        };
         return;
       }
     }
 
     if (toolCalls.length > 0) {
-      yield { type: 'tool_calls', toolCalls, content };
+      yield { type: 'tool_calls', toolCalls, content, usage: finalUsage };
     } else {
-      yield { type: 'done', content };
+      yield { type: 'done', content, usage: finalUsage };
     }
   }
 
@@ -110,7 +129,18 @@ class GrokProvider extends BaseProvider {
         function: { name: tc.function.name, arguments: tc.function.arguments }
       })) || [],
       finishReason: choice.finish_reason,
-      usage: response.usage
+      usage: this.#normalizeUsage(response.usage)
+    };
+  }
+
+  #normalizeUsage(usage) {
+    if (!usage) {
+      return null;
+    }
+    return {
+      promptTokens: usage.prompt_tokens ?? usage.promptTokens ?? 0,
+      completionTokens: usage.completion_tokens ?? usage.completionTokens ?? 0,
+      totalTokens: usage.total_tokens ?? usage.totalTokens ?? 0,
     };
   }
 

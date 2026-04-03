@@ -97,19 +97,25 @@ function withOwnershipLock(work) {
   if (!fs.existsSync(OWNERSHIP_FILE)) {
     fs.writeFileSync(OWNERSHIP_FILE, '{}');
   }
-  const release = lockfile.lockSync(OWNERSHIP_FILE, {
-    realpath: false,
-    retries: {
-      retries: 3,
-      minTimeout: 20,
-      maxTimeout: 120,
-    },
-  });
-  try {
-    return work();
-  } finally {
-    release();
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const release = lockfile.lockSync(OWNERSHIP_FILE, {
+        realpath: false,
+      });
+      try {
+        return work();
+      } finally {
+        release();
+      }
+    } catch (err) {
+      lastError = err;
+      if (attempt === 2) {
+        break;
+      }
+    }
   }
+  throw lastError;
 }
 
 function normalizeOwnerKey(userId) {

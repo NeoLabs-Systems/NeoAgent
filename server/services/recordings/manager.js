@@ -399,10 +399,6 @@ class RecordingManager {
   }
 
   async processSession(userId, sessionId) {
-    if (!isDeepgramConfigured()) {
-      throw new Error('DEEPGRAM_API_KEY is not configured.');
-    }
-
     const session = db.prepare(`
       SELECT *
       FROM recording_sessions
@@ -438,6 +434,10 @@ class RecordingManager {
     let maxDuration = 0;
 
     try {
+      if (!isDeepgramConfigured()) {
+        throw new Error('DEEPGRAM_API_KEY is not configured.');
+      }
+
       for (const source of sources) {
         const sourceMetadata = this.#parseJson(source.metadata_json, {});
         const chunks = db.prepare(`

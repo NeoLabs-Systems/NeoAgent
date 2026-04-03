@@ -87,7 +87,9 @@ router.post('/', (req, res) => {
     const device = manager.registerDevice(req.session.userId, macAddress, protocol, name);
     res.status(201).json(device);
   } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
+    const message = sanitizeError(err);
+    const isClientError = /unsupported wearable protocol|required/i.test(message);
+    res.status(isClientError ? 400 : 500).json({ error: message });
   }
 });
 
