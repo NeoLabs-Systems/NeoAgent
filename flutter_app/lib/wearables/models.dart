@@ -6,13 +6,7 @@ enum WearableDeviceType {
 }
 
 /// Audio codec types
-enum BleAudioCodec {
-  pcm,
-  mp3,
-  opus,
-  lc3,
-  lc3FS1030,
-}
+enum BleAudioCodec { pcm, mp3, opus, lc3, lc3FS1030 }
 
 /// Connection state for devices
 enum DeviceConnectionState {
@@ -43,30 +37,43 @@ class WearableDevice {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'type': type.name,
-        'macAddress': macAddress,
-        'firmwareVersion': firmwareVersion,
-        'batteryLevel': batteryLevel,
-        'connectionState': connectionState.name,
-      };
+    'id': id,
+    'name': name,
+    'type': type.name,
+    'macAddress': macAddress,
+    'firmwareVersion': firmwareVersion,
+    'batteryLevel': batteryLevel,
+    'connectionState': connectionState.name,
+  };
 
-  factory WearableDevice.fromJson(Map<String, dynamic> json) => WearableDevice(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        type: WearableDeviceType.values.firstWhere(
-          (e) => e.name == json['type'],
-          orElse: () => WearableDeviceType.custom,
-        ),
-        macAddress: json['macAddress'] as String?,
-        firmwareVersion: json['firmwareVersion'] as String?,
-        batteryLevel: json['batteryLevel'] as int?,
-        connectionState: DeviceConnectionState.values.firstWhere(
-          (e) => e.name == json['connectionState'],
-          orElse: () => DeviceConnectionState.disconnected,
-        ),
+  factory WearableDevice.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final name = json['name'];
+    if (id == null || name == null) {
+      throw const FormatException(
+        'WearableDevice.fromJson requires non-null "id" and "name" fields.',
       );
+    }
+
+    final typeName = json['type']?.toString();
+    final connectionStateName = json['connectionState']?.toString();
+
+    return WearableDevice(
+      id: id.toString(),
+      name: name.toString(),
+      type: WearableDeviceType.values.firstWhere(
+        (e) => e.name == typeName,
+        orElse: () => WearableDeviceType.unknown,
+      ),
+      macAddress: json['macAddress']?.toString(),
+      firmwareVersion: json['firmwareVersion']?.toString(),
+      batteryLevel: json['batteryLevel'] as int?,
+      connectionState: DeviceConnectionState.values.firstWhere(
+        (e) => e.name == connectionStateName,
+        orElse: () => DeviceConnectionState.disconnected,
+      ),
+    );
+  }
 
   WearableDevice copyWith({
     String? id,
@@ -76,35 +83,41 @@ class WearableDevice {
     String? firmwareVersion,
     int? batteryLevel,
     DeviceConnectionState? connectionState,
-  }) =>
-      WearableDevice(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        type: type ?? this.type,
-        macAddress: macAddress ?? this.macAddress,
-        firmwareVersion: firmwareVersion ?? this.firmwareVersion,
-        batteryLevel: batteryLevel ?? this.batteryLevel,
-        connectionState: connectionState ?? this.connectionState,
-      );
+  }) => WearableDevice(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    type: type ?? this.type,
+    macAddress: macAddress ?? this.macAddress,
+    firmwareVersion: firmwareVersion ?? this.firmwareVersion,
+    batteryLevel: batteryLevel ?? this.batteryLevel,
+    connectionState: connectionState ?? this.connectionState,
+  );
 }
 
 /// Service UUIDs for various wearable devices
 class WearableServiceUuids {
   // HeyPocket Device (PKT01)
-  static const String heypocketServiceUuid = '001120a0-2233-4455-6677-889912345678';
-  static const String heypocketControlRx = '001120a2-2233-4455-6677-889912345678';
-  static const String heypocketControlTx = '001120a1-2233-4455-6677-889912345678';
+  static const String heypocketServiceUuid =
+      '001120a0-2233-4455-6677-889912345678';
+  static const String heypocketControlRx =
+      '001120a2-2233-4455-6677-889912345678';
+  static const String heypocketControlTx =
+      '001120a1-2233-4455-6677-889912345678';
   static const String heypocketAudioTx = '001120a3-2233-4455-6677-889912345678';
 
   // Standard Battery Service
-  static const String batteryServiceUuid = '0000180f-0000-1000-8000-00805f9b34fb';
+  static const String batteryServiceUuid =
+      '0000180f-0000-1000-8000-00805f9b34fb';
   static const String batteryLevelChar = '00002a19-0000-1000-8000-00805f9b34fb';
 
   // Standard Device Info
-  static const String deviceInfoServiceUuid = '0000180a-0000-1000-8000-00805f9b34fb';
+  static const String deviceInfoServiceUuid =
+      '0000180a-0000-1000-8000-00805f9b34fb';
   static const String modelNumberChar = '00002a24-0000-1000-8000-00805f9b34fb';
-  static const String firmwareRevisionChar = '00002a26-0000-1000-8000-00805f9b34fb';
-  static const String manufacturerNameChar = '00002a29-0000-1000-8000-00805f9b34fb';
+  static const String firmwareRevisionChar =
+      '00002a26-0000-1000-8000-00805f9b34fb';
+  static const String manufacturerNameChar =
+      '00002a29-0000-1000-8000-00805f9b34fb';
 
   /// Get service UUID for a device type
   static String? getServiceUuid(WearableDeviceType type) {

@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 
@@ -72,15 +71,38 @@ function compactToolDefinition(tool, options = {}) {
     return compact;
 }
 
-function normalizeNotifyMessage(content) {
-    return String(content || '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
+function isProactiveTrigger(triggerSource) {
+    return triggerSource === 'scheduler' || triggerSource === 'heartbeat';
 }
 
-function hashNotifyMessage(content) {
-    return crypto.createHash('sha256').update(String(content || '')).digest('hex');
+function getRunState(engine, runId) {
+    if (!engine || !runId) return null;
+    return engine.activeRuns.get(runId) || null;
+}
+
+function hasAlreadySentProactiveMessage({ triggerSource, runState, deliveryState, allowMultipleProactiveMessages }) {
+    if (!isProactiveTrigger(triggerSource) || allowMultipleProactiveMessages) return false;
+    return Boolean(runState?.messagingSent || deliveryState?.messagingSent);
+}
+
+function markProactiveMessageSent({ runState, deliveryState, content }) {
+    const message = String(content || '');
+    if (runState) {
+        runState.messagingSent = true;
+        runState.lastSentMessage = message;
+        if (Array.isArray(runState.sentMessages)) {
+            runState.sentMessages.push(message);
+        }
+    }
+
+    if (deliveryState) {
+        deliveryState.messagingSent = true;
+        deliveryState.lastSentMessage = message;
+        if (!Array.isArray(deliveryState.sentMessages)) {
+            deliveryState.sentMessages = [];
+        }
+        deliveryState.sentMessages.push(message);
+    }
 }
 
 /**
@@ -451,7 +473,7 @@ function getAvailableTools(app, options = {}) {
             parameters: {
                 type: 'object',
                 properties: {
-                    key: { type: 'string', enum: ['user_profile', 'preferences', 'ai_personality', 'active_context'], description: 'user_profile: who the user is, preferences: standing likes/dislikes, ai_personality: how the agent should behave for this user, active_context: current ongoing task/project' },
+                    key: { type: 'string', enum: ['user_profile', 'preferences', 'ai_personality'], description: 'user_profile: who the user is, preferences: standing likes/dislikes, ai_personality: concise durable notes for how the agent should behave for this user' },
                     value: { type: 'string', description: 'Value to set. Keep it concise — this is injected into every single prompt.' }
                 },
                 required: ['key', 'value']
@@ -459,12 +481,12 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'memory_write',
-            description: 'Write to daily log, soul file, or agent-managed API keys.',
+            description: 'Write to the daily log or agent-managed API keys.',
             parameters: {
                 type: 'object',
                 properties: {
                     content: { type: 'string', description: 'Content to write/append' },
-                    target: { type: 'string', enum: ['daily', 'soul', 'api_keys'], description: 'Where to write: daily (today log), soul (SOUL.md personality), api_keys (API_KEYS.json)' },
+                    target: { type: 'string', enum: ['daily', 'api_keys'], description: 'Where to write: daily (today log) or api_keys (API_KEYS.json)' },
                     mode: { type: 'string', enum: ['append', 'replace'], description: 'append or replace (default append)' }
                 },
                 required: ['content', 'target']
@@ -472,11 +494,11 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'memory_read',
-            description: 'Read daily logs, soul file, or api key names.',
+            description: 'Read daily logs or agent-managed API key names.',
             parameters: {
                 type: 'object',
                 properties: {
-                    target: { type: 'string', enum: ['daily', 'soul', 'api_keys', 'all_daily'], description: 'Which memory to read' },
+                    target: { type: 'string', enum: ['daily', 'api_keys', 'all_daily'], description: 'Which memory to read' },
                     date: { type: 'string', description: 'Date for daily log (YYYY-MM-DD)' }
                 },
                 required: ['target']
@@ -656,7 +678,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'spawn_subagent',
-            description: 'Spawn an independent sub-agent to run a task in parallel or as a delegate. The sub-agent gets its own isolated run with a full ReAct loop. Use for long parallel tasks, complex subtasks you want isolated, or when you want to test something without polluting the current context.',
+            description: 'Spawn an independent sub-agent asynchronously. Returns a handle immediately so the parent run can continue, list helpers, wait later, or cancel if plans change.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -665,6 +687,34 @@ function getAvailableTools(app, options = {}) {
                     context: { type: 'string', description: 'Additional context to pass to the sub-agent' }
                 },
                 required: ['task']
+            }
+        },
+        {
+            name: 'list_subagents',
+            description: 'List the async sub-agents that belong to the current parent run, including status and any finished results.',
+            parameters: { type: 'object', properties: {} }
+        },
+        {
+            name: 'wait_subagent',
+            description: 'Wait for a spawned sub-agent to finish and return its result.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    handle: { type: 'string', description: 'The handle returned by spawn_subagent.' },
+                    timeout_ms: { type: 'number', description: 'Optional timeout in milliseconds (default 30000).' }
+                },
+                required: ['handle']
+            }
+        },
+        {
+            name: 'cancel_subagent',
+            description: 'Cancel a spawned sub-agent by handle.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    handle: { type: 'string', description: 'The handle returned by spawn_subagent.' }
+                },
+                required: ['handle']
             }
         },
         {
@@ -892,7 +942,15 @@ function getAvailableTools(app, options = {}) {
  * @returns {Promise<any>} Execution result.
  */
 async function executeTool(toolName, args, context, engine) {
-    const { userId, runId, app, triggerSource, taskId } = context;
+    const {
+        userId,
+        runId,
+        app,
+        triggerSource,
+        taskId,
+        deliveryState = null,
+        allowMultipleProactiveMessages = false
+    } = context;
     const bc = () => {
         const scoped = app?.locals?.getBrowserControllerForUser;
         if (typeof scoped === 'function') {
@@ -1360,24 +1418,56 @@ async function executeTool(toolName, args, context, engine) {
         case 'make_call': {
             const manager = msg();
             if (!manager) return { error: 'Messaging not available' };
-            return await manager.makeCall(userId, args.to, args.greeting);
+            const runState = getRunState(engine, runId);
+            if (hasAlreadySentProactiveMessage({
+                triggerSource,
+                runState,
+                deliveryState,
+                allowMultipleProactiveMessages
+            })) {
+                return {
+                    called: false,
+                    skipped: true,
+                    reason: 'A proactive notification was already sent in this scheduler/heartbeat run; duplicate make_call was suppressed.'
+                };
+            }
+
+            const callResult = await manager.makeCall(userId, args.to, args.greeting);
+            if (callResult?.success !== false) {
+                markProactiveMessageSent({
+                    runState,
+                    deliveryState,
+                    content: args.greeting || `[call:${args.to || 'unknown'}]`
+                });
+            }
+            return callResult;
         }
 
         case 'send_message': {
             const manager = msg();
             if (!manager) return { error: 'Messaging not available' };
+            const runState = getRunState(engine, runId);
+            const message = typeof args.content === 'string' ? args.content : '';
+            if (message !== '[NO RESPONSE]' && hasAlreadySentProactiveMessage({
+                triggerSource,
+                runState,
+                deliveryState,
+                allowMultipleProactiveMessages
+            })) {
+                return {
+                    sent: false,
+                    skipped: true,
+                    reason: 'A proactive message was already sent in this scheduler/heartbeat run; duplicate send_message was suppressed.'
+                };
+            }
+
             const sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
                 mediaPath: args.media_path,
                 runId
             });
             // Track that the agent explicitly sent a message during this run
-            const runState = runId ? engine.activeRuns.get(runId) : null;
-            if (runState && args.content !== '[NO RESPONSE]') {
-                runState.messagingSent = true;
-                runState.lastSentMessage = args.content || '';
-                if (Array.isArray(runState.sentMessages)) {
-                    runState.sentMessages.push(args.content || '');
-                }
+            if (message !== '[NO RESPONSE]') {
+                markProactiveMessageSent({ runState, deliveryState, content: message });
             }
             return sendResult;
         }
@@ -1576,8 +1666,13 @@ async function executeTool(toolName, args, context, engine) {
                     throw new Error('Messaging manager not available');
                 }
 
-                const runState = runId ? engine.activeRuns.get(runId) : null;
-                if (runState?.messagingSent) {
+                const runState = getRunState(engine, runId);
+                if (hasAlreadySentProactiveMessage({
+                    triggerSource,
+                    runState,
+                    deliveryState,
+                    allowMultipleProactiveMessages
+                })) {
                     return {
                         sent: false,
                         skipped: true,
@@ -1605,22 +1700,6 @@ async function executeTool(toolName, args, context, engine) {
                                 to: taskConfig.notifyTo || null
                             };
                         } catch { }
-                    }
-                }
-
-                if (triggerSource === 'scheduler' && taskId && taskConfig) {
-                    const normalized = normalizeNotifyMessage(message);
-                    const newHash = hashNotifyMessage(normalized);
-                    const previousHash = typeof taskConfig.lastNotifyHash === 'string' ? taskConfig.lastNotifyHash : null;
-                    const previousAt = Number(taskConfig.lastNotifyAtMs || 0);
-                    const dedupeWindowMs = 2 * 60 * 60 * 1000;
-                    if (normalized && previousHash && previousHash === newHash && previousAt > 0 && (Date.now() - previousAt) < dedupeWindowMs) {
-                        return {
-                            sent: false,
-                            skipped: true,
-                            deduped: true,
-                            reason: 'Duplicate scheduler notification suppressed (same content within 2 hours).'
-                        };
                     }
                 }
 
@@ -1663,23 +1742,7 @@ async function executeTool(toolName, args, context, engine) {
                                 .run(JSON.stringify(taskConfig), taskId, userId);
                         }
 
-                        if (taskId && taskConfig && triggerSource === 'scheduler') {
-                            const normalized = normalizeNotifyMessage(message);
-                            if (normalized) {
-                                taskConfig.lastNotifyHash = hashNotifyMessage(normalized);
-                                taskConfig.lastNotifyAtMs = Date.now();
-                                db.prepare('UPDATE scheduled_tasks SET task_config = ? WHERE id = ? AND user_id = ?')
-                                    .run(JSON.stringify(taskConfig), taskId, userId);
-                            }
-                        }
-
-                        if (runState) {
-                            runState.messagingSent = true;
-                            runState.lastSentMessage = message;
-                            if (Array.isArray(runState.sentMessages)) {
-                                runState.sentMessages.push(message);
-                            }
-                        }
+                        markProactiveMessageSent({ runState, deliveryState, content: message });
                         return {
                             sent: true,
                             via: 'messaging',
@@ -1928,23 +1991,43 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'spawn_subagent': {
-            const { AgentEngine } = require('./engine');
-            const subEngine = new AgentEngine(engine.io, {
-                cliExecutor: engine.cliExecutor,
-                browserController: engine.browserController,
-                messagingManager: engine.messagingManager,
-                mcpManager: engine.mcpManager,
-                skillRunner: engine.skillRunner,
-                scheduler: engine.scheduler,
-            });
             try {
                 const task = args.context ? `${args.task}\n\nContext: ${args.context}` : args.task;
-                const result = await subEngine.runWithModel(userId, task, { app, triggerType: 'subagent', triggerSource: 'agent' }, args.model || null);
-                return { subagent_result: result.content, runId: result.runId, iterations: result.iterations, tokens: result.totalTokens };
+                return await engine.spawnSubagent(userId, runId, task, {
+                    app,
+                    model: args.model || null,
+                    context: args.context || null,
+                });
             } catch (err) {
                 return { error: `Sub-agent failed: ${err.message}` };
             }
         }
+
+        case 'list_subagents':
+            try {
+                return { subagents: engine.listSubagents(runId) };
+            } catch (err) {
+                return { error: `list_subagents failed for run ${runId}: ${err?.message || String(err)}` };
+            }
+
+        case 'wait_subagent':
+            try {
+                return await engine.waitForSubagent(args.handle, {
+                    parentRunId: runId,
+                    timeoutMs: args.timeout_ms,
+                });
+            } catch (err) {
+                return {
+                    error: `wait_subagent failed for run ${runId}, handle ${args.handle || 'unknown'}, timeout ${args.timeout_ms || 'default'}: ${err?.message || String(err)}`
+                };
+            }
+
+        case 'cancel_subagent':
+            try {
+                return await engine.cancelSubagent(args.handle, { parentRunId: runId });
+            } catch (err) {
+                return { error: `cancel_subagent failed for run ${runId}, handle ${args.handle || 'unknown'}: ${err?.message || String(err)}` };
+            }
 
         default: {
             const { detectPromptInjection } = require('../../utils/security');

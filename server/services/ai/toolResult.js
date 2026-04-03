@@ -156,10 +156,27 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'spawn_subagent':
       envelope = trimObject({
         tool: toolName,
-        iterations: toolResult?.iterations,
-        tokens: toolResult?.tokens,
-        runId: toolResult?.runId,
-        summary: clampText(toolResult?.subagent_result || toolResult?.error || '', Math.floor(softLimit * 0.55))
+        handle: toolResult?.handle,
+        childRunId: toolResult?.childRunId,
+        status: toolResult?.status,
+        summary: clampText(toolResult?.task || toolResult?.error || '', Math.floor(softLimit * 0.55))
+      });
+      break;
+
+    case 'list_subagents':
+    case 'wait_subagent':
+    case 'cancel_subagent':
+      envelope = trimObject({
+        tool: toolName,
+        status: toolResult?.status || (Array.isArray(toolResult?.subagents) ? 'ok' : ''),
+        summary: clampText(JSON.stringify(trimObject({
+          handle: toolResult?.handle,
+          childRunId: toolResult?.childRunId,
+          timedOut: toolResult?.timedOut,
+          count: Array.isArray(toolResult?.subagents) ? toolResult.subagents.length : undefined,
+          error: toolResult?.error,
+          result: toolResult?.result,
+        })), Math.floor(softLimit * 0.6))
       });
       break;
 

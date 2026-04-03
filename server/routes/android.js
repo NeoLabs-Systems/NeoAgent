@@ -128,7 +128,7 @@ router.post('/install-apk', (req, res) => {
     }
 
     try {
-      const controller = getAndroidController(req);
+      const controller = await getAndroidController(req);
       const result = await controller.installApk({ apkPath: uploadedApkPath });
       res.json({
         ...result,

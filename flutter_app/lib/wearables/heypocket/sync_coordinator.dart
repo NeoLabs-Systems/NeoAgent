@@ -48,7 +48,8 @@ class HeyPocketSyncCoordinator {
   ];
 
   final Future<void> Function(String deviceId) ensureDeviceRegistered;
-  final Future<void> Function(String deviceId, Uint8List payload) uploadSyncPayload;
+  final Future<void> Function(String deviceId, Uint8List payload)
+  uploadSyncPayload;
   final VoidCallback onSyncStateChanged;
   final String _appSk;
 
@@ -65,33 +66,42 @@ class HeyPocketSyncCoordinator {
   bool _modeSwitchInFlight = false;
   bool _recordingActive = false;
   String _activeRecordingId = '';
-  String? _pendingDeleteKey;
-  final Map<String, List<BleService>> _serviceCacheByDeviceId = <String, List<BleService>>{};
+  final Set<String> _pendingDeleteKeys = <String>{};
+  final Map<String, Timer> _pendingDeleteTimers = <String, Timer>{};
+  final Map<String, List<BleService>> _serviceCacheByDeviceId =
+      <String, List<BleService>>{};
+  bool _disposed = false;
+  Future<void>? _flushReconnectSyncFuture;
 
   static final RegExp _controlPrefix = RegExp(r'^(MCU|APP|BLE|SYS)&');
-  static final RegExp _mcuFilePattern = RegExp(r'^MCU&F&([^&]+)&([^&]+)&(\d+)$');
+  static final RegExp _mcuFilePattern = RegExp(
+    r'^MCU&F&([^&]+)&([^&]+)&(\d+)$',
+  );
   static final RegExp _mcuUploadSizePattern = RegExp(r'^MCU&U&(\d+)$');
   static final RegExp _mcuOffPattern = RegExp(r'^MCU&OFF$');
   static final RegExp _mcuModePattern = RegExp(r'^MCU&STE&(\d+)$');
   static final RegExp _mcuRecModePattern = RegExp(r'^MCU&REC&([^&]+)$');
   static final RegExp _mcuRegModePattern = RegExp(r'^MCU&REG&([^&]+)$');
   static final RegExp _mcuDeleteAckPattern = RegExp(r'^MCU&D$');
-  static final RegExp _mcuRecordingStartedPattern = RegExp(r'^MCU&STA&([^&]+)$');
+  static final RegExp _mcuRecordingStartedPattern = RegExp(
+    r'^MCU&STA&([^&]+)$',
+  );
   static final RegExp _mcuRecordingStoppedPattern = RegExp(r'^MCU&STO$');
 
   bool get isSyncRequestInFlight => _syncRequestInFlight;
   String get lastSyncStatus => _lastSyncStatus;
   String get lastControlMessage => _lastControlMessage;
   int get listedFilesCount => _listedFiles.length;
-  List<HeyPocketSyncFile> get listedFiles => List<HeyPocketSyncFile>.unmodifiable(
-    _listedFiles.map(
-      (entry) => HeyPocketSyncFile(
-        date: entry.date,
-        fileId: entry.fileId,
-        size: entry.size,
-      ),
-    ),
-  );
+  List<HeyPocketSyncFile> get listedFiles =>
+      List<HeyPocketSyncFile>.unmodifiable(
+        _listedFiles.map(
+          (entry) => HeyPocketSyncFile(
+            date: entry.date,
+            fileId: entry.fileId,
+            size: entry.size,
+          ),
+        ),
+      );
   int get uploadCommandsSent => _uploadCommandsSent;
   bool get isCallMode => _heypocketModeCode == 1;
   String get heypocketModeLabel => _heypocketModeCode == 1 ? 'Call' : 'Normal';
@@ -134,10 +144,13 @@ class HeyPocketSyncCoordinator {
 
   Future<void> onConnected(String deviceId, List<BleService> services) async {
     cacheResolvedServices(deviceId, services);
-    _log('connected', data: <String, Object?>{
-      'deviceId': deviceId,
-      'serviceCount': services.length,
-    });
+    _log(
+      'connected',
+      data: <String, Object?>{
+        'deviceId': deviceId,
+        'serviceCount': services.length,
+      },
+    );
     await _sendHeyPocketInitSequence(deviceId, services);
     await _queryHeyPocketMode(deviceId, services);
   }
@@ -148,20 +161,31 @@ class HeyPocketSyncCoordinator {
     required String audioCharUuid,
     String? controlCharUuid,
   }) async {
-    _log('subscribe.request', data: <String, Object?>{
-      'deviceId': deviceId,
-      'serviceUuid': service.uuid,
-      'audioCharUuid': audioCharUuid,
-      'controlCharUuid': controlCharUuid,
-    });
+    _log(
+      'subscribe.request',
+      data: <String, Object?>{
+        'deviceId': deviceId,
+        'serviceUuid': service.uuid,
+        'audioCharUuid': audioCharUuid,
+        'controlCharUuid': controlCharUuid,
+      },
+    );
     final subscribedUuids = <String>{};
 
-    await UniversalBle.subscribeNotifications(deviceId, service.uuid, audioCharUuid);
+    await UniversalBle.subscribeNotifications(
+      deviceId,
+      service.uuid,
+      audioCharUuid,
+    );
     subscribedUuids.add(_normalizeUuid(audioCharUuid));
     debugPrint('Subscribed to audio characteristic: $audioCharUuid');
 
     if (controlCharUuid != null) {
-      await UniversalBle.subscribeNotifications(deviceId, service.uuid, controlCharUuid);
+      await UniversalBle.subscribeNotifications(
+        deviceId,
+        service.uuid,
+        controlCharUuid,
+      );
       subscribedUuids.add(_normalizeUuid(controlCharUuid));
       debugPrint('Subscribed to control characteristic: $controlCharUuid');
     }
@@ -174,21 +198,26 @@ class HeyPocketSyncCoordinator {
       }
 
       try {
-        await UniversalBle.subscribeNotifications(deviceId, service.uuid, char.uuid);
+        await UniversalBle.subscribeNotifications(
+          deviceId,
+          service.uuid,
+          char.uuid,
+        );
         subscribedUuids.add(normalized);
-        debugPrint('Subscribed to heypocket extra characteristic: ${char.uuid}');
-        _log('subscribe.extra.ok', data: <String, Object?>{
-          'deviceId': deviceId,
-          'charUuid': char.uuid,
-        });
+        debugPrint(
+          'Subscribed to heypocket extra characteristic: ${char.uuid}',
+        );
+        _log(
+          'subscribe.extra.ok',
+          data: <String, Object?>{'deviceId': deviceId, 'charUuid': char.uuid},
+        );
       } catch (subError) {
         debugPrint('Could not subscribe to ${char.uuid}: $subError');
-        _log('subscribe.extra.failed',
-            data: <String, Object?>{
-              'deviceId': deviceId,
-              'charUuid': char.uuid,
-            },
-            error: subError);
+        _log(
+          'subscribe.extra.failed',
+          data: <String, Object?>{'deviceId': deviceId, 'charUuid': char.uuid},
+          error: subError,
+        );
       }
     }
   }
@@ -196,9 +225,10 @@ class HeyPocketSyncCoordinator {
   bool captureSyncChunk(
     String characteristicUuid,
     Uint8List rawPayload,
-    Uint8List? Function(Uint8List rawPayload, {String? characteristicUuid}) parseAudioPayload,
+    Uint8List? Function(Uint8List rawPayload, {String? characteristicUuid})
+    parseAudioPayload,
   ) {
-    if (!_reconnectSyncActive) {
+    if (_disposed || !_reconnectSyncActive) {
       return false;
     }
 
@@ -236,7 +266,9 @@ class HeyPocketSyncCoordinator {
       final size = int.tryParse(fileMatch.group(3) ?? '') ?? 0;
       final key = '$date|$fileId';
       if (_listedFileKeys.add(key)) {
-        _listedFiles.add(_HeyPocketListEntry(date: date, fileId: fileId, size: size));
+        _listedFiles.add(
+          _HeyPocketListEntry(date: date, fileId: fileId, size: size),
+        );
         _lastSyncStatus = 'Discovered ${_listedFiles.length} offline file(s)';
         onSyncStateChanged();
       }
@@ -317,11 +349,16 @@ class HeyPocketSyncCoordinator {
     }
 
     if (_mcuDeleteAckPattern.hasMatch(text)) {
-      final pendingDeleteKey = _pendingDeleteKey;
-      if (pendingDeleteKey != null) {
+      final pendingDeleteKey = _pendingDeleteKeys.isNotEmpty
+          ? _pendingDeleteKeys.first
+          : null;
+      if (pendingDeleteKey != null &&
+          _pendingDeleteKeys.remove(pendingDeleteKey)) {
+        _pendingDeleteTimers.remove(pendingDeleteKey)?.cancel();
         _listedFileKeys.remove(pendingDeleteKey);
-        _listedFiles.removeWhere((entry) => '${entry.date}|${entry.fileId}' == pendingDeleteKey);
-        _pendingDeleteKey = null;
+        _listedFiles.removeWhere(
+          (entry) => '${entry.date}|${entry.fileId}' == pendingDeleteKey,
+        );
       }
       _lastSyncStatus = 'Device confirmed file deletion';
       onSyncStateChanged();
@@ -347,7 +384,6 @@ class HeyPocketSyncCoordinator {
       return;
     }
 
-    _modeSwitchInFlight = true;
     _lastSyncStatus = 'Switching mode...';
     onSyncStateChanged();
     final previousModeCode = _heypocketModeCode;
@@ -358,9 +394,12 @@ class HeyPocketSyncCoordinator {
         _lastSyncStatus = 'Mode switch failed: no services';
         return;
       }
+      _modeSwitchInFlight = true;
 
       final service = resolvedServices.firstWhere(
-        (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
+        (s) =>
+            _normalizeUuid(s.uuid) ==
+            _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
         orElse: () => resolvedServices.first,
       );
 
@@ -401,7 +440,9 @@ class HeyPocketSyncCoordinator {
       }
 
       final service = resolvedServices.firstWhere(
-        (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
+        (s) =>
+            _normalizeUuid(s.uuid) ==
+            _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
         orElse: () => resolvedServices.first,
       );
 
@@ -452,7 +493,9 @@ class HeyPocketSyncCoordinator {
     }
 
     final service = resolvedServices.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
+      (s) =>
+          _normalizeUuid(s.uuid) ==
+          _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => resolvedServices.first,
     );
 
@@ -474,12 +517,30 @@ class HeyPocketSyncCoordinator {
     }
 
     final service = resolvedServices.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
+      (s) =>
+          _normalizeUuid(s.uuid) ==
+          _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => resolvedServices.first,
     );
 
-    await _writeAscii(deviceId, service.uuid, 'APP&D&${file.date}&${file.fileId}');
-    _pendingDeleteKey = '${file.date}|${file.fileId}';
+    final deleteKey = '${file.date}|${file.fileId}';
+    try {
+      await _writeAscii(
+        deviceId,
+        service.uuid,
+        'APP&D&${file.date}&${file.fileId}',
+      );
+    } catch (_) {
+      _pendingDeleteKeys.remove(deleteKey);
+      _pendingDeleteTimers.remove(deleteKey)?.cancel();
+      rethrow;
+    }
+    _pendingDeleteKeys.add(deleteKey);
+    _pendingDeleteTimers[deleteKey]?.cancel();
+    _pendingDeleteTimers[deleteKey] = Timer(const Duration(seconds: 15), () {
+      _pendingDeleteKeys.remove(deleteKey);
+      _pendingDeleteTimers.remove(deleteKey);
+    });
     _lastSyncStatus = 'Requested delete: ${file.fileId}';
     onSyncStateChanged();
   }
@@ -502,7 +563,9 @@ class HeyPocketSyncCoordinator {
     }
 
     final service = resolvedServices.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
+      (s) =>
+          _normalizeUuid(s.uuid) ==
+          _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => resolvedServices.first,
     );
 
@@ -537,7 +600,9 @@ class HeyPocketSyncCoordinator {
     }
 
     final service = resolvedServices.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
+      (s) =>
+          _normalizeUuid(s.uuid) ==
+          _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => resolvedServices.first,
     );
 
@@ -546,7 +611,10 @@ class HeyPocketSyncCoordinator {
     onSyncStateChanged();
   }
 
-  Future<void> _queryHeyPocketMode(String deviceId, List<BleService> services) async {
+  Future<void> _queryHeyPocketMode(
+    String deviceId,
+    List<BleService> services,
+  ) async {
     if (services.isEmpty) {
       return;
     }
@@ -554,7 +622,9 @@ class HeyPocketSyncCoordinator {
     cacheResolvedServices(deviceId, services);
 
     final service = services.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
+      (s) =>
+          _normalizeUuid(s.uuid) ==
+          _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => services.first,
     );
 
@@ -599,10 +669,29 @@ class HeyPocketSyncCoordinator {
   }
 
   void dispose() {
+    _disposed = true;
     _reconnectSyncTimer?.cancel();
+    _reconnectSyncTimer = null;
     _reconnectSyncActive = false;
-    _reconnectSyncBuffer.clear();
-    _serviceCacheByDeviceId.clear();
+    _syncRequestInFlight = false;
+    _modeSwitchInFlight = false;
+    for (final timer in _pendingDeleteTimers.values) {
+      timer.cancel();
+    }
+    _pendingDeleteTimers.clear();
+    _pendingDeleteKeys.clear();
+    final inFlight = _flushReconnectSyncFuture;
+    if (inFlight == null) {
+      _reconnectSyncBuffer.clear();
+      _serviceCacheByDeviceId.clear();
+      return;
+    }
+    unawaited(
+      inFlight.catchError((_) {}).whenComplete(() {
+        _reconnectSyncBuffer.clear();
+        _serviceCacheByDeviceId.clear();
+      }),
+    );
   }
 
   Future<void> _sendOfficialSyncPreamble(
@@ -621,7 +710,11 @@ class HeyPocketSyncCoordinator {
     }
   }
 
-  Future<void> _writeAsciiChecked(String deviceId, String serviceUuid, String cmd) async {
+  Future<void> _writeAsciiChecked(
+    String deviceId,
+    String serviceUuid,
+    String cmd,
+  ) async {
     await _writeControlPayload(
       deviceId,
       serviceUuid,
@@ -648,7 +741,10 @@ class HeyPocketSyncCoordinator {
     }
   }
 
-  Future<int> _sendUploadsForListedFiles(String deviceId, BleService service) async {
+  Future<int> _sendUploadsForListedFiles(
+    String deviceId,
+    BleService service,
+  ) async {
     if (_listedFiles.isEmpty) {
       _uploadCommandsSent = 0;
       onSyncStateChanged();
@@ -664,7 +760,11 @@ class HeyPocketSyncCoordinator {
 
     for (var i = 0; i < count; i++) {
       final file = candidates[i];
-      await _writeAscii(deviceId, service.uuid, 'APP&U&${file.date}&${file.fileId}');
+      await _writeAscii(
+        deviceId,
+        service.uuid,
+        'APP&U&${file.date}&${file.fileId}',
+      );
     }
 
     _uploadCommandsSent = count;
@@ -685,14 +785,19 @@ class HeyPocketSyncCoordinator {
     }
   }
 
-  Future<void> _sendHeyPocketInitSequence(String deviceId, List<BleService> services) async {
+  Future<void> _sendHeyPocketInitSequence(
+    String deviceId,
+    List<BleService> services,
+  ) async {
     if (services.isEmpty) {
       debugPrint('No services discovered; skipping heypocket init sequence');
       return;
     }
 
     final service = services.firstWhere(
-      (s) => _normalizeUuid(s.uuid) == _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
+      (s) =>
+          _normalizeUuid(s.uuid) ==
+          _normalizeUuid(WearableServiceUuids.heypocketServiceUuid),
       orElse: () => services.first,
     );
 
@@ -702,7 +807,11 @@ class HeyPocketSyncCoordinator {
     }
   }
 
-  Future<void> _writeAscii(String deviceId, String serviceUuid, String cmd) async {
+  Future<void> _writeAscii(
+    String deviceId,
+    String serviceUuid,
+    String cmd,
+  ) async {
     final ok = await _writeControlPayload(
       deviceId,
       serviceUuid,
@@ -718,7 +827,11 @@ class HeyPocketSyncCoordinator {
     await Future.delayed(_syncCommandGap);
   }
 
-  Future<void> _writeHex(String deviceId, String serviceUuid, String hexPayload) async {
+  Future<void> _writeHex(
+    String deviceId,
+    String serviceUuid,
+    String hexPayload,
+  ) async {
     final ok = await _writeControlPayload(
       deviceId,
       serviceUuid,
@@ -748,13 +861,16 @@ class HeyPocketSyncCoordinator {
     for (var i = 0; i < modes.length; i++) {
       final withoutResponse = modes[i];
       try {
-        _log(isHexPayload ? 'write_hex.request' : 'write_ascii.request', data: <String, Object?>{
-          'deviceId': deviceId,
-          'serviceUuid': serviceUuid,
-          isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
-          'withoutResponse': withoutResponse,
-          'attempt': i + 1,
-        });
+        _log(
+          isHexPayload ? 'write_hex.request' : 'write_ascii.request',
+          data: <String, Object?>{
+            'deviceId': deviceId,
+            'serviceUuid': serviceUuid,
+            isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
+            'withoutResponse': withoutResponse,
+            'attempt': i + 1,
+          },
+        );
         await UniversalBle.write(
           deviceId,
           serviceUuid,
@@ -762,22 +878,29 @@ class HeyPocketSyncCoordinator {
           payload,
           withoutResponse: withoutResponse,
         );
-        _log(isHexPayload ? 'write_hex.ok' : 'write_ascii.ok', data: <String, Object?>{
-          'deviceId': deviceId,
-          isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
-          'withoutResponse': withoutResponse,
-          'attempt': i + 1,
-        });
+        _log(
+          isHexPayload ? 'write_hex.ok' : 'write_ascii.ok',
+          data: <String, Object?>{
+            'deviceId': deviceId,
+            isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
+            'withoutResponse': withoutResponse,
+            'attempt': i + 1,
+          },
+        );
         return true;
       } catch (e) {
         lastError = e;
-        _log(isHexPayload ? 'write_hex.failed' : 'write_ascii.failed', data: <String, Object?>{
-          'deviceId': deviceId,
-          'serviceUuid': serviceUuid,
-          isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
-          'withoutResponse': withoutResponse,
-          'attempt': i + 1,
-        }, error: e);
+        _log(
+          isHexPayload ? 'write_hex.failed' : 'write_ascii.failed',
+          data: <String, Object?>{
+            'deviceId': deviceId,
+            'serviceUuid': serviceUuid,
+            isHexPayload ? 'hexPayload' : 'cmd': commandLabel,
+            'withoutResponse': withoutResponse,
+            'attempt': i + 1,
+          },
+          error: e,
+        );
 
         final shouldTryFallbackMode =
             i == 0 && _shouldTryAlternateWriteMode(e.toString());
@@ -811,33 +934,69 @@ class HeyPocketSyncCoordinator {
   }
 
   Future<void> _flushReconnectSync(String deviceId) async {
-    _reconnectSyncActive = false;
-    _reconnectSyncTimer?.cancel();
-    _reconnectSyncTimer = null;
+    final operation = (() async {
+      _reconnectSyncActive = false;
+      _reconnectSyncTimer?.cancel();
+      _reconnectSyncTimer = null;
 
-    final payload = _reconnectSyncBuffer.takeBytes();
-    if (payload.length < _reconnectSyncMinBytes) {
-      return;
-    }
+      if (_disposed) {
+        return;
+      }
 
+      final payload = _reconnectSyncBuffer.takeBytes();
+      if (_disposed || payload.length < _reconnectSyncMinBytes) {
+        return;
+      }
+
+      try {
+        _log(
+          'reconnect_sync.upload.request',
+          data: <String, Object?>{
+            'deviceId': deviceId,
+            'payloadSize': payload.length,
+          },
+        );
+        await ensureDeviceRegistered(deviceId);
+        if (_disposed) {
+          return;
+        }
+        await uploadSyncPayload(deviceId, payload);
+        if (_disposed) {
+          return;
+        }
+        debugPrint(
+          'HeyPocket reconnect sync uploaded: ${payload.length} bytes',
+        );
+        _log(
+          'reconnect_sync.upload.ok',
+          data: <String, Object?>{
+            'deviceId': deviceId,
+            'payloadSize': payload.length,
+          },
+        );
+      } catch (e) {
+        if (_disposed) {
+          return;
+        }
+        debugPrint('HeyPocket reconnect sync failed: $e');
+        _log(
+          'reconnect_sync.upload.failed',
+          data: <String, Object?>{
+            'deviceId': deviceId,
+            'payloadSize': payload.length,
+          },
+          error: e,
+        );
+      }
+    })();
+
+    _flushReconnectSyncFuture = operation;
     try {
-      _log('reconnect_sync.upload.request', data: <String, Object?>{
-        'deviceId': deviceId,
-        'payloadSize': payload.length,
-      });
-      await ensureDeviceRegistered(deviceId);
-      await uploadSyncPayload(deviceId, payload);
-      debugPrint('HeyPocket reconnect sync uploaded: ${payload.length} bytes');
-      _log('reconnect_sync.upload.ok', data: <String, Object?>{
-        'deviceId': deviceId,
-        'payloadSize': payload.length,
-      });
-    } catch (e) {
-      debugPrint('HeyPocket reconnect sync failed: $e');
-      _log('reconnect_sync.upload.failed', data: <String, Object?>{
-        'deviceId': deviceId,
-        'payloadSize': payload.length,
-      }, error: e);
+      await operation;
+    } finally {
+      if (identical(_flushReconnectSyncFuture, operation)) {
+        _flushReconnectSyncFuture = null;
+      }
     }
   }
 
@@ -865,7 +1024,9 @@ class HeyPocketSyncCoordinator {
     }
 
     try {
-      final cleanText = String.fromCharCodes(rawPayload).replaceAll('\u0000', '').trim();
+      final cleanText = String.fromCharCodes(
+        rawPayload,
+      ).replaceAll('\u0000', '').trim();
       if (cleanText.isEmpty) {
         return messages;
       }
@@ -894,7 +1055,9 @@ class HeyPocketSyncCoordinator {
       return;
     }
 
-    final matches = RegExp(r'(?:MCU|APP|BLE|SYS)&').allMatches(trimmed).toList();
+    final matches = RegExp(
+      r'(?:MCU|APP|BLE|SYS)&',
+    ).allMatches(trimmed).toList();
     if (matches.length <= 1) {
       yield trimmed;
       return;
@@ -902,7 +1065,9 @@ class HeyPocketSyncCoordinator {
 
     for (var i = 0; i < matches.length; i++) {
       final start = matches[i].start;
-      final end = i + 1 < matches.length ? matches[i + 1].start : trimmed.length;
+      final end = i + 1 < matches.length
+          ? matches[i + 1].start
+          : trimmed.length;
       final part = trimmed.substring(start, end).trim();
       if (part.isNotEmpty) {
         yield part;

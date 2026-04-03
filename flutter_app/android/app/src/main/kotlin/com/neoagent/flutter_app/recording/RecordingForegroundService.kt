@@ -231,36 +231,50 @@ class RecordingForegroundService : Service() {
         val audioFile = File(pendingDir, "${sequence.toString().padStart(6, '0')}.wav")
         val metaFile = File(pendingDir, "${sequence.toString().padStart(6, '0')}.json")
 
-        val audioTemp = File(audioFile.absolutePath + ".tmp")
-        val metaTemp = File(metaFile.absolutePath + ".tmp")
+	        val audioTemp = File(audioFile.absolutePath + ".tmp")
+	        val metaTemp = File(metaFile.absolutePath + ".tmp")
 
-        audioTemp.writeBytes(wrapPcmAsWav(bytes, sampleRate))
-        val meta = JSONObject()
-            .put("sequence", sequence)
-            .put("startMs", startMs)
-            .put("endMs", endMs)
-            .put("mimeType", "audio/wav")
-            .put("sampleRate", sampleRate)
-        OutputStreamWriter(metaTemp.outputStream(), Charsets.UTF_8).use { writer ->
-            writer.write(meta.toString())
-        }
+	        fun deleteTempFile(file: File, failureMessage: String) {
+	            if (file.exists() && !file.delete()) {
+	                android.util.Log.w(TAG, "$failureMessage: ${file.absolutePath}")
+	            }
+	        }
 
-        if (!audioTemp.renameTo(audioFile)) {
-            throw IllegalStateException("Failed to persist recording chunk audio file.")
-        }
-        try {
-            if (!metaTemp.renameTo(metaFile)) {
-                if (audioFile.exists() && !audioFile.delete()) {
-                    android.util.Log.w(TAG, "Failed to roll back persisted audio file after metadata rename failure: ${audioFile.absolutePath}")
-                }
-                throw IllegalStateException("Failed to persist recording chunk metadata file.")
-            }
-        } catch (err: Exception) {
-            if (audioFile.exists() && !audioFile.delete()) {
-                android.util.Log.w(TAG, "Failed to roll back persisted audio file after metadata persistence error: ${audioFile.absolutePath}")
-            }
-            throw err
-        }
+	        try {
+	            audioTemp.writeBytes(wrapPcmAsWav(bytes, sampleRate))
+	            val meta = JSONObject()
+	                .put("sequence", sequence)
+	                .put("startMs", startMs)
+	                .put("endMs", endMs)
+	                .put("mimeType", "audio/wav")
+	                .put("sampleRate", sampleRate)
+	            OutputStreamWriter(metaTemp.outputStream(), Charsets.UTF_8).use { writer ->
+	                writer.write(meta.toString())
+	            }
+
+	            if (!audioTemp.renameTo(audioFile)) {
+	                deleteTempFile(
+	                    audioTemp,
+	                    "Failed to remove orphan audio temp file after audio rename failure",
+	                )
+	                throw IllegalStateException("Failed to persist recording chunk audio file.")
+	            }
+
+	            if (!metaTemp.renameTo(metaFile)) {
+	                deleteTempFile(
+	                    metaTemp,
+	                    "Failed to remove orphan metadata temp file after metadata rename failure",
+	                )
+	                if (audioFile.exists() && !audioFile.delete()) {
+	                    android.util.Log.w(TAG, "Failed to roll back persisted audio file after metadata rename failure: ${audioFile.absolutePath}")
+	                }
+	                throw IllegalStateException("Failed to persist recording chunk metadata file.")
+	            }
+	        } catch (err: Exception) {
+	            deleteTempFile(audioTemp, "Failed to remove orphan audio temp file")
+	            deleteTempFile(metaTemp, "Failed to remove orphan metadata temp file")
+	            throw err
+	        }
 
         config = current.copy(nextSequence = sequence + 1)
         stateStore.saveConfig(config!!)

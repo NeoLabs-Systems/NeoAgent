@@ -22,7 +22,10 @@ abstract class WearableProtocolBase {
   String? get controlCharUuid => null;
 
   /// Parse raw audio payload from BLE notification
-  Uint8List? parseAudioPayload(Uint8List rawPayload, {String? characteristicUuid}) {
+  Uint8List? parseAudioPayload(
+    Uint8List rawPayload, {
+    String? characteristicUuid,
+  }) {
     return rawPayload;
   }
 
@@ -72,7 +75,10 @@ class HeyPocketProtocol extends WearableProtocolBase {
   String? get controlCharUuid => WearableServiceUuids.heypocketControlTx;
 
   @override
-  Uint8List? parseAudioPayload(Uint8List rawPayload, {String? characteristicUuid}) {
+  Uint8List? parseAudioPayload(
+    Uint8List rawPayload, {
+    String? characteristicUuid,
+  }) {
     if (rawPayload.isEmpty) return null;
 
     final normalizedCharacteristic = _normalizeUuid(characteristicUuid);
@@ -86,7 +92,7 @@ class HeyPocketProtocol extends WearableProtocolBase {
       return rawPayload;
     }
 
-    return rawPayload;
+    return null;
   }
 
   @override
@@ -128,5 +134,4 @@ class HeyPocketProtocol extends WearableProtocolBase {
       return false;
     }
   }
-
 }

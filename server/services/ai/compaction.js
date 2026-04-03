@@ -1,6 +1,7 @@
-async function compact(messages, provider, model) {
+async function compact(messages, provider, model, contextWindow = null) {
   const systemMsg = messages.find(m => m.role === 'system');
   const nonSystem = messages.filter(m => m.role !== 'system');
+  const beforeTokens = estimateTokenCount(messages);
 
   if (nonSystem.length < 12) return messages;
 
@@ -36,6 +37,11 @@ async function compact(messages, provider, model) {
     });
     compactedMessages.push(...recent);
 
+    const afterTokens = estimateTokenCount(compactedMessages);
+    console.info(`[AI] Compaction complete pre=${beforeTokens} post=${afterTokens} contextWindow=${contextWindow || 'unknown'}`);
+    if (contextWindow && afterTokens > contextWindow * 0.7) {
+      console.warn(`[AI] Compacted prompt still large post=${afterTokens} contextWindow=${contextWindow}`);
+    }
     return compactedMessages;
   } catch (err) {
     console.error('Compaction failed:', err.message);
@@ -46,6 +52,11 @@ async function compact(messages, provider, model) {
       content: '[Earlier conversation context was trimmed due to length]'
     });
     trimmed.push(...recent);
+    const afterTokens = estimateTokenCount(trimmed);
+    console.info(`[AI] Compaction fallback pre=${beforeTokens} post=${afterTokens} contextWindow=${contextWindow || 'unknown'}`);
+    if (contextWindow && afterTokens > contextWindow * 0.7) {
+      console.warn(`[AI] Trimmed prompt still large post=${afterTokens} contextWindow=${contextWindow}`);
+    }
     return trimmed;
   }
 }

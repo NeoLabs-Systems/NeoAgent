@@ -16,13 +16,36 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
 
     const commandRouter = app?.locals?.commandRouter;
     if (commandRouter) {
-      const commandResult = await commandRouter.dispatch(msg.content, {
-        userId,
-        source: 'messaging',
-        platform: msg.platform,
-        chatId: msg.chatId,
-        sender: msg.sender
-      });
+      let commandResult;
+      try {
+        commandResult = await commandRouter.dispatch(msg.content, {
+          userId,
+          source: 'messaging',
+          platform: msg.platform,
+          chatId: msg.chatId,
+          sender: msg.sender
+        });
+      } catch (err) {
+        console.error(`[Messaging] Command dispatch failed on ${msg.platform}:`, err.message);
+        io.to(`user:${userId}`).emit('messaging:error', {
+          error: `Command dispatch failed on ${msg.platform}: ${err.message}`
+        });
+        try {
+          await messagingManager.sendMessage(
+            userId,
+            msg.platform,
+            msg.chatId,
+            `Command handling failed: ${err.message}`,
+            { runId: null }
+          );
+        } catch (sendErr) {
+          console.error(`[Messaging] Failed to report command dispatch error on ${msg.platform}:`, sendErr.message);
+          io.to(`user:${userId}`).emit('messaging:error', {
+            error: `Command handling failed and the error report could not be sent on ${msg.platform}: ${sendErr.message}`
+          });
+        }
+        return;
+      }
 
       if (commandResult?.handled) {
         if (Array.isArray(commandResult.events)) {
@@ -72,9 +95,14 @@ async function processQueuedMessage({
   msg
 }) {
   if (!userQueues[userId]) {
-    userQueues[userId] = { running: false, pending: [] };
+    userQueues[userId] = { running: false, pending: [], cancelRequested: false };
   }
   const queue = userQueues[userId];
+
+  if (queue.cancelRequested && !queue.running) {
+    queue.pending = [];
+    queue.cancelRequested = false;
+  }
 
   if (queue.running) {
     const last = queue.pending[queue.pending.length - 1];
@@ -119,6 +147,12 @@ async function processQueuedMessage({
     await agentEngine.run(userId, prompt, runOptions);
   } finally {
     await stopTypingKeepalive();
+    if (queue.cancelRequested) {
+      queue.pending = [];
+      queue.running = false;
+      queue.cancelRequested = false;
+      return;
+    }
     queue.running = false;
     if (queue.pending.length > 0) {
       const next = queue.pending.shift();

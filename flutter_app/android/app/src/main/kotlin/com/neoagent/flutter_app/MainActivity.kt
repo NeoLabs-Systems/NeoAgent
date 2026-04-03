@@ -300,10 +300,18 @@ class MainActivity : FlutterFragmentActivity() {
                             return@setMethodCallHandler
                         }
 
-                        if (!hasWearableBridgePermissions()) {
-                            pendingWearableBridgeResult = result
-                            pendingWearableBridgeArgs = args
-                            bluetoothPermissionLauncher.launch(
+	                        if (!hasWearableBridgePermissions()) {
+	                            if (pendingWearableBridgeResult != null || pendingWearableBridgeArgs != null) {
+	                                result.error(
+	                                    "wearable_bridge_request_pending",
+	                                    "Another wearable background bridge request is already waiting for Bluetooth permissions.",
+	                                    null,
+	                                )
+	                                return@setMethodCallHandler
+	                            }
+	                            pendingWearableBridgeResult = result
+	                            pendingWearableBridgeArgs = args
+	                            bluetoothPermissionLauncher.launch(
                                 arrayOf(
                                     android.Manifest.permission.BLUETOOTH_CONNECT,
                                     android.Manifest.permission.BLUETOOTH_SCAN,

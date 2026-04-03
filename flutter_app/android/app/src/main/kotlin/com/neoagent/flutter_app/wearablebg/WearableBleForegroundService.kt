@@ -69,13 +69,14 @@ class WearableBleForegroundService : Service() {
             return START_STICKY
         }
 
-        when (intent?.action) {
-            ACTION_START -> {
-                val next = parseConfig(intent)
-                if (next != null) {
-                    config = next
-                    protocol = WearableProtocolRegistry.resolve(
-                        protocolId = next.protocolId,
+	        when (intent?.action) {
+	            ACTION_START -> {
+	                val next = parseConfig(intent)
+	                if (next != null) {
+	                    val wasConnected = stateStore.isConnected()
+	                    config = next
+	                    protocol = WearableProtocolRegistry.resolve(
+	                        protocolId = next.protocolId,
                         serviceUuid = next.serviceUuid,
                         audioNotifyUuid = next.audioNotifyUuid,
                         controlNotifyUuid = next.controlNotifyUuid,
@@ -85,28 +86,28 @@ class WearableBleForegroundService : Service() {
                     stateStore.setConnected(false)
                     registerDone.set(false)
                     startForegroundUi("Connecting to ${next.deviceName.ifBlank { next.macAddress }}")
-
-                    // If the bridge is already connected, service discovery will not rerun,
-                    // so honor autoStartRecording immediately instead of waiting for callbacks.
-                    if (next.autoStartRecording && currentGatt() != null) {
-                        serviceScope.launch {
-                            sendStartCommand()
-                        }
+	
+	                    // If the bridge is already connected, service discovery will not rerun,
+	                    // so honor autoStartRecording immediately instead of waiting for callbacks.
+	                    if (next.autoStartRecording && wasConnected) {
+	                        serviceScope.launch {
+	                            sendStartCommand()
+	                        }
                     }
 
                     connectOrRetry()
                 }
             }
 
-            ACTION_STOP -> {
-                val sendStop = intent.getBooleanExtra(EXTRA_SEND_STOP, false)
-                if (sendStop) {
-                    serviceScope.launch {
-                        sendStopCommand()
-                    }
-                }
-                stopSelfSafely(clearState = true)
-            }
+	            ACTION_STOP -> {
+	                val sendStop = intent.getBooleanExtra(EXTRA_SEND_STOP, false)
+	                serviceScope.launch {
+	                    if (sendStop) {
+	                        sendStopCommand()
+	                    }
+	                    stopSelfSafely(clearState = true)
+	                }
+	            }
 
             ACTION_RESTORE -> {
                 val restored = stateStore.load()
@@ -236,17 +237,16 @@ class WearableBleForegroundService : Service() {
     private val gattCallback = object : BluetoothGattCallback() {
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
-                stateStore.setConnected(true)
-                updateNotification("Connected. Discovering services")
-                serviceScope.launch {
-                    try {
-                        if (!registerDone.get()) {
-                            config?.let { backendClient.registerDevice(it) }
-                            registerDone.set(true)
-                        }
-                    } catch (_: Exception) {
-                        // Keep running even when backend register fails temporarily.
+	            if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+	                stateStore.setConnected(true)
+	                updateNotification("Connected. Discovering services")
+	                serviceScope.launch {
+	                    try {
+	                        if (registerDone.compareAndSet(false, true)) {
+	                            config?.let { backendClient.registerDevice(it) }
+	                        }
+	                    } catch (_: Exception) {
+	                        // Keep running even when backend register fails temporarily.
                     }
                 }
                 gatt.discoverServices()
@@ -351,16 +351,22 @@ class WearableBleForegroundService : Service() {
 
         val currentGatt = currentGatt() ?: return
         val handler = protocol ?: return
-        val service = findService(currentGatt, handler.serviceUuid) ?: return
-        val writeUuid = handler.controlWriteUuid ?: return
-        val characteristic = findCharacteristic(service, writeUuid) ?: return
-        val payload = cmd.toByteArray(Charsets.UTF_8)
-        currentGatt.writeCharacteristic(
-            characteristic,
-            payload,
-            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
-        )
-    }
+	        val service = findService(currentGatt, handler.serviceUuid) ?: return
+	        val writeUuid = handler.controlWriteUuid ?: return
+	        val characteristic = findCharacteristic(service, writeUuid) ?: return
+	        val payload = cmd.toByteArray(Charsets.UTF_8)
+	        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+	            currentGatt.writeCharacteristic(
+	                characteristic,
+	                payload,
+	                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
+	            )
+	        } else {
+	            characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+	            characteristic.value = payload
+	            currentGatt.writeCharacteristic(characteristic)
+	        }
+	    }
 
     private fun bluetoothAdapter(): BluetoothAdapter? {
         val manager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager

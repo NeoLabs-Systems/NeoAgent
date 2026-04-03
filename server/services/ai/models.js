@@ -62,6 +62,38 @@ const STATIC_MODELS = [
 const dynamicModelsByBaseUrl = new Map();
 const REFRESH_INTERVAL = 30000; // 30 seconds
 
+async function probeOllama(baseUrl, timeoutMs = 1500) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const res = await fetch(`${baseUrl}/api/tags`, {
+            method: 'GET',
+            signal: controller.signal
+        });
+        if (!res.ok) {
+            return {
+                healthy: false,
+                reason: `Ollama returned HTTP ${res.status}.`
+            };
+        }
+        const data = await res.json().catch(() => ({}));
+        const modelCount = Array.isArray(data?.models) ? data.models.length : 0;
+        return {
+            healthy: true,
+            reason: modelCount > 0
+                ? `Connected to Ollama with ${modelCount} local model(s).`
+                : 'Connected to Ollama, but no local models were reported.'
+        };
+    } catch (err) {
+        const reason = err?.name === 'AbortError'
+            ? `Ollama did not respond within ${timeoutMs}ms.`
+            : `Could not reach Ollama at ${baseUrl}.`;
+        return { healthy: false, reason };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 function getProviderRuntimeConfig(userId, providerId) {
     const definition = AI_PROVIDER_DEFINITIONS[providerId];
     if (!definition) {
@@ -139,8 +171,64 @@ function getProviderCatalog(userId) {
     });
 }
 
+async function getProviderHealthCatalog(userId) {
+    const providers = getProviderCatalog(userId);
+    const enriched = [];
+
+    for (const provider of providers) {
+        let connected = null;
+        let healthy = provider.available;
+        let degraded = false;
+        let status = provider.status;
+        let statusLabel = provider.statusLabel;
+        let availabilityReason = provider.availabilityReason;
+
+        if (provider.id === 'ollama' && provider.enabled) {
+            const probe = await probeOllama(provider.baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl);
+            connected = probe.healthy;
+            healthy = provider.enabled && probe.healthy;
+            degraded = provider.enabled && !probe.healthy;
+            if (!probe.healthy) {
+                status = 'offline';
+                statusLabel = 'Offline';
+                availabilityReason = probe.reason;
+            } else if (provider.available) {
+                status = 'healthy';
+                statusLabel = 'Healthy';
+                availabilityReason = probe.reason;
+            }
+        } else if (provider.available) {
+            connected = true;
+            healthy = true;
+            status = provider.status === 'stored_key' || provider.status === 'env_key'
+                ? 'healthy'
+                : provider.status;
+            statusLabel = provider.status === 'stored_key' || provider.status === 'env_key'
+                ? 'Healthy'
+                : provider.statusLabel;
+        } else {
+            connected = false;
+            healthy = false;
+        }
+
+        enriched.push({
+            ...provider,
+            available: healthy,
+            connected,
+            configured: provider.enabled && (!provider.supportsApiKey || provider.hasStoredApiKey || provider.hasEnvironmentApiKey || provider.id === 'ollama'),
+            healthy,
+            degraded,
+            status,
+            statusLabel,
+            availabilityReason,
+        });
+    }
+
+    return enriched;
+}
+
 async function getSupportedModels(userId) {
-    const providerCatalog = getProviderCatalog(userId);
+    const providerCatalog = await getProviderHealthCatalog(userId);
     const providerById = new Map(providerCatalog.map((provider) => [provider.id, provider]));
 
     const all = [...STATIC_MODELS];
@@ -229,6 +317,7 @@ module.exports = {
     SUPPORTED_MODELS: STATIC_MODELS, // Backward compatibility
     createProviderInstance,
     getProviderCatalog,
+    getProviderHealthCatalog,
     getProviderRuntimeConfig,
     getSupportedModels
 };

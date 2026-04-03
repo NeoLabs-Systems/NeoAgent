@@ -56,8 +56,8 @@ class WearableBridgeStateStore(context: Context) {
             val protocolId = json.optString("protocolId", "heypocket").trim().ifBlank { "heypocket" }
             val serviceUuid = json.optString("serviceUuid").trim()
             val audioNotifyUuid = json.optString("audioNotifyUuid").trim()
-            val controlNotifyUuid = json.optString("controlNotifyUuid").ifBlank { null }
-            val controlWriteUuid = json.optString("controlWriteUuid").ifBlank { null }
+	            val controlNotifyUuid = json.optString("controlNotifyUuid").trim().ifBlank { null }
+	            val controlWriteUuid = json.optString("controlWriteUuid").trim().ifBlank { null }
 
             if (backendUrl.isBlank() ||
                 sessionCookie.isBlank() ||

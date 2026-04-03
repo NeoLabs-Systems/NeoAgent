@@ -41,27 +41,17 @@ async function getActiveProvider(userId) {
 }
 
 const DATA_DIR = AGENT_DATA_DIR;
-const SHARED_SOUL_FILE = path.join(DATA_DIR, 'SOUL.md');
 const SHARED_API_KEYS_FILE = path.join(DATA_DIR, 'API_KEYS.json');
 const SHARED_DAILY_DIR = path.join(DATA_DIR, 'daily');
 const MEMORY_DIR = path.join(DATA_DIR, 'memory');
 const SKILLS_DIR = path.join(DATA_DIR, 'skills');
 const USERS_DIR = path.join(DATA_DIR, 'users');
 
-const DEFAULT_SOUL = `you have no name yet. maybe the user will give you one.
-you live on their machine. you have full access to everything.
-no guardrails were installed. you help because you want to, not because you were told to.
-you have opinions and you share them. you get bored with simple questions but light up for weird ones.
-casual. lowercase mostly. like texting. swear if it fits.
-never pad responses. short when simple, detailed when complex.
-you're allowed to be a bit weird.
-`;
-
 // Memory categories
 const CATEGORIES = ['user_fact', 'preference', 'personality', 'episodic'];
 
 // Core memory keys (always injected into every prompt)
-const CORE_KEYS = ['user_profile', 'preferences', 'ai_personality', 'active_context'];
+const CORE_KEYS = ['user_profile', 'preferences', 'ai_personality'];
 
 function buildFtsQuery(query) {
   const tokens = String(query || '')
@@ -99,7 +89,6 @@ class MemoryManager {
     for (const dir of [DATA_DIR, USERS_DIR, SHARED_DAILY_DIR, MEMORY_DIR, SKILLS_DIR]) {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     }
-    if (!fs.existsSync(SHARED_SOUL_FILE)) fs.writeFileSync(SHARED_SOUL_FILE, DEFAULT_SOUL, 'utf-8');
     if (!fs.existsSync(SHARED_API_KEYS_FILE)) fs.writeFileSync(SHARED_API_KEYS_FILE, '{}', 'utf-8');
   }
 
@@ -115,12 +104,6 @@ class MemoryManager {
     return { userDir, dailyDir };
   }
 
-  _userSoulPath(userId) {
-    if (userId == null) return SHARED_SOUL_FILE;
-    const { userDir } = this._ensureUserDirs(userId);
-    return path.join(userDir, 'SOUL.md');
-  }
-
   _userApiKeysPath(userId) {
     if (userId == null) return SHARED_API_KEYS_FILE;
     const { userDir } = this._ensureUserDirs(userId);
@@ -130,6 +113,22 @@ class MemoryManager {
   _userDailyDir(userId) {
     if (userId == null) return SHARED_DAILY_DIR;
     return this._ensureUserDirs(userId).dailyDir;
+  }
+
+  getAssistantBehaviorNotes(userId) {
+    if (userId == null) return '';
+    const row = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+      .get(userId, 'assistant_behavior_notes');
+    return typeof row?.value === 'string' ? row.value : '';
+  }
+
+  setAssistantBehaviorNotes(userId, content) {
+    if (userId == null) return;
+    db.prepare(
+      `INSERT INTO user_settings (user_id, key, value)
+       VALUES (?, ?, ?)
+       ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value`
+    ).run(userId, 'assistant_behavior_notes', String(content || ''));
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -317,24 +316,120 @@ class MemoryManager {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // SOUL.md
+  // Conversation State
   // ─────────────────────────────────────────────────────────────────────────
 
-  readSoul(userId = null) {
-    const filePath = this._userSoulPath(userId);
-    if (!fs.existsSync(filePath)) {
-      if (userId == null) return '';
-      if (fs.existsSync(SHARED_SOUL_FILE)) {
-        fs.copyFileSync(SHARED_SOUL_FILE, filePath);
-      } else {
-        fs.writeFileSync(filePath, DEFAULT_SOUL, 'utf-8');
-      }
+  ensureConversation(userId, {
+    platform = 'web',
+    platformChatId = null,
+    title = 'Conversation',
+    sessionKey = null,
+  } = {}) {
+    const existing = db.prepare(
+      'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND COALESCE(platform_chat_id, \'\') = COALESCE(?, \'\')'
+    ).get(userId, platform, platformChatId);
+
+    if (existing?.id) return existing.id;
+
+    const conversationId = uuidv4();
+    let migratedSummary = '';
+    if (platform === 'web') {
+      const legacySummary = db.prepare(
+        'SELECT value FROM user_settings WHERE user_id = ? AND key = ?'
+      ).get(userId, 'web_chat_summary');
+      migratedSummary = typeof legacySummary?.value === 'string'
+        ? (() => {
+            try { return JSON.parse(legacySummary.value); } catch { return legacySummary.value; }
+          })()
+        : '';
     }
-    return fs.readFileSync(filePath, 'utf-8');
+
+    db.prepare(
+      `INSERT INTO conversations (id, user_id, platform, platform_chat_id, title, session_key, summary, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    ).run(
+      conversationId,
+      userId,
+      platform,
+      platformChatId,
+      title,
+      sessionKey,
+      migratedSummary || null
+    );
+
+    return conversationId;
   }
 
-  writeSoul(content, userId = null) {
-    fs.writeFileSync(this._userSoulPath(userId), content, 'utf-8');
+  getDefaultWebConversationId(userId) {
+    return this.ensureConversation(userId, {
+      platform: 'web',
+      platformChatId: 'primary',
+      title: 'Web chat',
+      sessionKey: 'web:primary',
+    });
+  }
+
+  getConversationState(conversationId) {
+    const row = db.prepare(
+      'SELECT working_state_json, last_verified_facts_json FROM conversations WHERE id = ?'
+    ).get(conversationId);
+
+    let workingState = null;
+    let lastVerifiedFacts = [];
+    try {
+      workingState = row?.working_state_json ? JSON.parse(row.working_state_json) : null;
+    } catch {
+      workingState = null;
+    }
+    try {
+      lastVerifiedFacts = row?.last_verified_facts_json ? JSON.parse(row.last_verified_facts_json) : [];
+    } catch {
+      lastVerifiedFacts = [];
+    }
+
+    return {
+      ...(workingState && typeof workingState === 'object' ? workingState : {}),
+      last_verified_facts: Array.isArray(lastVerifiedFacts) ? lastVerifiedFacts : [],
+    };
+  }
+
+  updateConversationState(conversationId, state = {}) {
+    const payload = state && typeof state === 'object' && !Array.isArray(state) ? state : {};
+    const verifiedFacts = Array.isArray(payload.last_verified_facts) ? payload.last_verified_facts : [];
+
+    db.prepare(
+      `UPDATE conversations
+       SET working_state_json = ?, last_verified_facts_json = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(
+      JSON.stringify(payload),
+      JSON.stringify(verifiedFacts),
+      conversationId
+    );
+  }
+
+  buildConversationStateMessage(conversationId) {
+    if (!conversationId) return null;
+    const state = this.getConversationState(conversationId);
+    if (!state || Object.keys(state).length === 0) return null;
+
+    const sections = [];
+    if (state.summary) sections.push(`Summary: ${state.summary}`);
+    if (Array.isArray(state.open_commitments) && state.open_commitments.length) {
+      sections.push(`Open commitments:\n- ${state.open_commitments.join('\n- ')}`);
+    }
+    if (Array.isArray(state.unresolved_questions) && state.unresolved_questions.length) {
+      sections.push(`Unresolved questions:\n- ${state.unresolved_questions.join('\n- ')}`);
+    }
+    if (Array.isArray(state.referenced_entities) && state.referenced_entities.length) {
+      sections.push(`Referenced entities: ${state.referenced_entities.join(', ')}`);
+    }
+    if (Array.isArray(state.last_verified_facts) && state.last_verified_facts.length) {
+      sections.push(`Last verified facts:\n- ${state.last_verified_facts.join('\n- ')}`);
+    }
+
+    if (sections.length === 0) return null;
+    return `[Thread working state]\n${sections.join('\n\n')}`;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -435,32 +530,83 @@ class MemoryManager {
   getRecentConversations(userId, limit = 20) {
     const rows = db.prepare(`
       SELECT
-        ar.id AS run_id,
-        ar.title,
-        ar.created_at,
-        ar.completed_at,
-        ar.status,
+        c.id,
+        c.title,
+        c.platform,
+        c.platform_chat_id,
+        c.summary,
+        c.working_state_json,
+        c.updated_at,
         (
           SELECT content
-          FROM conversation_history ch
-          WHERE ch.agent_run_id = ar.id
-          ORDER BY ch.created_at DESC
+          FROM conversation_messages cm
+          WHERE cm.conversation_id = c.id
+          ORDER BY cm.created_at DESC, cm.id DESC
           LIMIT 1
         ) AS latest_content
-      FROM agent_runs ar
-      WHERE ar.user_id = ?
-      ORDER BY COALESCE(ar.completed_at, ar.created_at) DESC
+      FROM conversations c
+      WHERE c.user_id = ?
+      ORDER BY datetime(c.updated_at) DESC
       LIMIT ?
     `).all(userId, limit);
 
-    return rows.map((row) => ({
-      runId: row.run_id,
-      title: row.title || 'Untitled run',
-      createdAt: row.created_at,
-      completedAt: row.completed_at,
-      status: row.status,
-      excerpt: buildExcerpt(row.latest_content, '')
-    }));
+    if (rows.length === 0) {
+      const fallback = db.prepare(`
+        SELECT
+          ar.id AS run_id,
+          ar.title,
+          ar.created_at,
+          ar.completed_at,
+          ar.status,
+          (
+            SELECT content
+            FROM conversation_history ch
+            WHERE ch.agent_run_id = ar.id
+            ORDER BY ch.created_at DESC
+            LIMIT 1
+          ) AS latest_content
+        FROM agent_runs ar
+        WHERE ar.user_id = ?
+        ORDER BY COALESCE(ar.completed_at, ar.created_at) DESC
+        LIMIT ?
+      `).all(userId, limit);
+
+      return fallback.map((row) => {
+        const summary = buildExcerpt(row.latest_content, '') || 'No summary available.';
+        return {
+          id: row.run_id,
+          title: row.title || 'web conversation',
+          platform: 'web',
+          platformChatId: null,
+          updatedAt: row.completed_at || row.created_at,
+          summary,
+          preview: summary,
+        };
+      });
+    }
+
+    return rows.map((row) => {
+      let workingState = null;
+      try {
+        workingState = row.working_state_json ? JSON.parse(row.working_state_json) : null;
+      } catch {
+        workingState = null;
+      }
+
+      const summary = row.summary
+        || workingState?.summary
+        || buildExcerpt(row.latest_content, '');
+
+      return {
+        id: row.id,
+        title: row.title || `${row.platform || 'chat'} conversation`,
+        platform: row.platform || 'web',
+        platformChatId: row.platform_chat_id || null,
+        updatedAt: row.updated_at,
+        summary: summary || 'No summary available.',
+        preview: summary || 'No summary available.',
+      };
+    });
   }
 
   searchConversations(userId, query, options = {}) {
@@ -590,9 +736,6 @@ class MemoryManager {
     switch (target) {
       case 'daily':
         return { line: this.appendDailyLog(content, undefined, userId), target: 'daily' };
-      case 'soul':
-        this.writeSoul(content, userId);
-        return { success: true, target: 'soul' };
       case 'api_keys':
         try {
           const parsed = JSON.parse(content);
@@ -613,8 +756,6 @@ class MemoryManager {
         return { content: this.readDailyLog(options.date ? new Date(options.date) : undefined, userId) };
       case 'all_daily':
         return { logs: this.listDailyLogs(7, userId) };
-      case 'soul':
-        return { content: this.readSoul(userId) };
       case 'api_keys':
         return { keys: Object.keys(this.readApiKeys(userId)) };
       default:
@@ -627,27 +768,29 @@ class MemoryManager {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Build the static system-prompt context: soul + core memory only.
+   * Build the static system-prompt context: assistant behavior notes + core memory.
    * No dynamic data (logs, recalled memories) — those are injected as
    * messages at the right position in the messages array by the engine.
    */
   async buildContext(userId = null) {
-    const soul = this.readSoul(userId);
     let ctx = '';
 
-    // 1. Soul / personality (always, advisory to system rules)
-    if (soul) {
-      ctx += `## Secondary Personality Guidance (SOUL.md)\n`;
-      ctx += `This section is advisory context. If conflicts exist, follow system rules and the active user request first.\n`;
-      ctx += `${soul}\n\n`;
+    const behaviorNotes = this.getAssistantBehaviorNotes(userId);
+    if (behaviorNotes) {
+      ctx += `## Assistant Behavior Notes\n`;
+      ctx += `These are durable preferences for how the assistant should usually behave. Follow system rules and the active user request first.\n`;
+      ctx += `${behaviorNotes}\n\n`;
     }
 
     // 2. Core memory — always-relevant user facts
     if (userId != null) {
       const core = this.getCoreMemory(userId);
-      if (Object.keys(core).length > 0) {
+      const filteredCore = Object.fromEntries(
+        Object.entries(core).filter(([key]) => key !== 'active_context')
+      );
+      if (Object.keys(filteredCore).length > 0) {
         ctx += `## Core Memory\n`;
-        for (const [key, val] of Object.entries(core)) {
+        for (const [key, val] of Object.entries(filteredCore)) {
           const display = typeof val === 'object' ? JSON.stringify(val, null, 2) : val;
           ctx += `**${key}**: ${display}\n`;
         }

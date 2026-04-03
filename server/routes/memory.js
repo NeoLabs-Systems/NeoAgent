@@ -12,11 +12,13 @@ router.use(requireAuth);
 router.get('/', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
+  const coreMemory = { ...(mm.getCoreMemory(userId) || {}) };
+  delete coreMemory.active_context;
   res.json({
-    soul: mm.readSoul(userId),
+    assistantBehaviorNotes: mm.getAssistantBehaviorNotes(userId),
     dailyLogs: mm.listDailyLogs(7, userId),
     apiKeys: Object.keys(mm.readApiKeys(userId)),
-    coreMemory: mm.getCoreMemory(userId)
+    coreMemory
   });
 });
 
@@ -105,7 +107,9 @@ router.post('/memories/recall', async (req, res) => {
 router.get('/core', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
-  res.json(mm.getCoreMemory(userId));
+  const coreMemory = { ...(mm.getCoreMemory(userId) || {}) };
+  delete coreMemory.active_context;
+  res.json(coreMemory);
 });
 
 router.put('/core/:key', (req, res) => {
@@ -113,6 +117,9 @@ router.put('/core/:key', (req, res) => {
   const userId = req.session.userId;
   const { value } = req.body;
   if (value === undefined) return res.status(400).json({ error: 'value is required' });
+  if (req.params.key === 'active_context') {
+    return res.status(400).json({ error: 'active_context is no longer a supported core memory key' });
+  }
   mm.updateCore(userId, req.params.key, value);
   res.json({ success: true });
 });
@@ -120,20 +127,10 @@ router.put('/core/:key', (req, res) => {
 router.delete('/core/:key', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
+  if (req.params.key === 'active_context') {
+    return res.status(400).json({ error: 'active_context is no longer a supported core memory key' });
+  }
   mm.deleteCore(userId, req.params.key);
-  res.json({ success: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SOUL.md
-// ─────────────────────────────────────────────────────────────────────────────
-
-router.get('/soul', (req, res) => {
-  res.json({ content: req.app.locals.memoryManager.readSoul(req.session.userId) });
-});
-
-router.put('/soul', (req, res) => {
-  req.app.locals.memoryManager.writeSoul(req.body.content, req.session.userId);
   res.json({ success: true });
 });
 

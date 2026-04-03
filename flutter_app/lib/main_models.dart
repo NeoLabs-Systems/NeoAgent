@@ -832,10 +832,13 @@ class AiProviderMeta {
   Color get statusColor {
     switch (status) {
       case 'ready':
+      case 'healthy':
       case 'stored_key':
       case 'env_key':
       case 'local':
         return _success;
+      case 'offline':
+        return _danger;
       case 'disabled':
         return _textSecondary;
       case 'needs_key':
@@ -1173,7 +1176,7 @@ class SkillDocument {
 
 class MemoryOverview {
   const MemoryOverview({
-    this.soul = '',
+    this.assistantBehaviorNotes = '',
     this.dailyLogs = const <String>[],
     this.apiKeys = const <String, String>{},
     this.coreEntries = const <String, dynamic>{},
@@ -1183,7 +1186,7 @@ class MemoryOverview {
     final apiKeysRaw = json['apiKeys'];
     final coreRaw = json['coreMemory'];
     return MemoryOverview(
-      soul: json['soul']?.toString() ?? '',
+      assistantBehaviorNotes: json['assistantBehaviorNotes']?.toString() ?? '',
       dailyLogs: (json['dailyLogs'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
           .toList(),
@@ -1201,12 +1204,12 @@ class MemoryOverview {
     );
   }
 
-  final String soul;
+  final String assistantBehaviorNotes;
   final List<String> dailyLogs;
   final Map<String, String> apiKeys;
   final Map<String, dynamic> coreEntries;
 
-  int get soulLength => soul.length;
+  int get behaviorNotesLength => assistantBehaviorNotes.length;
   int get dailyLogCount => dailyLogs.length;
   int get apiKeyCount => apiKeys.length;
   int get coreCount => coreEntries.length;
@@ -1223,7 +1226,7 @@ class MemoryItem {
 
   factory MemoryItem.fromJson(Map<dynamic, dynamic> json) {
     return MemoryItem(
-      id: _asInt(json['id']),
+      id: json['id']?.toString() ?? '',
       content: json['content']?.toString() ?? '',
       category: json['category']?.toString().ifEmpty('memory') ?? 'memory',
       importance: _asInt(json['importance']),
@@ -1231,7 +1234,7 @@ class MemoryItem {
     );
   }
 
-  final int id;
+  final String id;
   final String content;
   final String category;
   final int importance;

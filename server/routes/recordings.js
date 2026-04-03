@@ -1,5 +1,6 @@
 const express = require('express');
 const fs = require('fs');
+const { finished } = require('stream/promises');
 
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
@@ -39,6 +40,17 @@ function getChunkMetadata(req) {
     endMs: parseNonNegativeNumber(endMsRaw, 'endMs'),
     mimeType: String(mimeRaw).split(';')[0].trim(),
   };
+}
+
+function buildInlineFilename(sourceKey) {
+  const original = `${String(sourceKey || 'recording').normalize('NFKC')}.audio`
+    .replace(/[\r\n]+/g, ' ')
+    .trim() || 'recording.audio';
+  const safeAscii = original
+    .replace(/["]/g, "'")
+    .replace(/[^\x20-\x7E]+/g, '_')
+    .trim() || 'recording.audio';
+  return `inline; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(original)}`;
 }
 
 function statusFromMessage(message, rules, fallbackStatus = 500) {
@@ -97,7 +109,7 @@ router.get('/:sessionId', (req, res) => {
   }
 });
 
-router.get('/:sessionId/audio/:sourceKey', (req, res) => {
+router.get('/:sessionId/audio/:sourceKey', async (req, res) => {
   try {
     const sessionId = req.params.sessionId;
     const sourceKey = String(req.params.sourceKey || '').trim();
@@ -143,17 +155,21 @@ router.get('/:sessionId/audio/:sourceKey', (req, res) => {
 
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Content-Disposition', `inline; filename="${source.source_key}.audio"`);
+    res.setHeader('Content-Disposition', buildInlineFilename(source.source_key));
 
     for (const chunk of chunks) {
       const filePath = chunk.file_path;
-      if (!filePath || !fs.existsSync(filePath)) {
+      if (!filePath) {
         continue;
       }
-      const bytes = fs.readFileSync(filePath);
-      if (bytes.length > 0) {
-        res.write(bytes);
+      try {
+        await fs.promises.access(filePath, fs.constants.R_OK);
+      } catch {
+        continue;
       }
+      const stream = fs.createReadStream(filePath);
+      stream.pipe(res, { end: false });
+      await finished(stream);
     }
 
     res.end();

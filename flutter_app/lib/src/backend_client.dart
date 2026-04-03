@@ -621,7 +621,7 @@ class BackendClient {
     });
   }
 
-  Future<void> deleteMemory(String baseUrl, int id) async {
+  Future<void> deleteMemory(String baseUrl, String id) async {
     await deleteMap(baseUrl, '/api/memory/memories/$id');
   }
 
@@ -641,19 +641,6 @@ class BackendClient {
 
   Future<void> deleteCoreMemory(String baseUrl, String key) async {
     await deleteMap(baseUrl, '/api/memory/core/$key');
-  }
-
-  Future<Map<String, dynamic>> fetchSoul(String baseUrl) async {
-    return getMap(baseUrl, '/api/memory/soul');
-  }
-
-  Future<Map<String, dynamic>> updateSoul(
-    String baseUrl,
-    String content,
-  ) async {
-    return putMap(baseUrl, '/api/memory/soul', <String, dynamic>{
-      'content': content,
-    });
   }
 
   Future<List<Map<String, dynamic>>> fetchConversations(String baseUrl) async {
@@ -714,9 +701,10 @@ class BackendClient {
     String baseUrl, {
     int limit = 24,
   }) async {
-    _log('recording.fetch_sessions.request', data: <String, Object?>{
-      'limit': limit,
-    });
+    _log(
+      'recording.fetch_sessions.request',
+      data: <String, Object?>{'limit': limit},
+    );
     return getList(baseUrl, '/api/recordings?limit=$limit');
   }
 
@@ -724,9 +712,10 @@ class BackendClient {
     String baseUrl,
     String sessionId,
   ) async {
-    _log('recording.fetch_session.request', data: <String, Object?>{
-      'sessionId': sessionId,
-    });
+    _log(
+      'recording.fetch_session.request',
+      data: <String, Object?>{'sessionId': sessionId},
+    );
     return getMap(baseUrl, '/api/recordings/$sessionId');
   }
 
@@ -734,10 +723,13 @@ class BackendClient {
     String baseUrl,
     Map<String, dynamic> payload,
   ) async {
-    _log('recording.create.request', data: <String, Object?>{
-      'platform': payload['platform']?.toString(),
-      'sourceCount': (payload['sources'] as List?)?.length ?? 0,
-    });
+    _log(
+      'recording.create.request',
+      data: <String, Object?>{
+        'platform': payload['platform']?.toString(),
+        'sourceCount': (payload['sources'] as List?)?.length ?? 0,
+      },
+    );
     return postMap(baseUrl, '/api/recordings', payload);
   }
 
@@ -746,10 +738,10 @@ class BackendClient {
     String sessionId, {
     String stopReason = 'stopped',
   }) async {
-    _log('recording.finalize.request', data: <String, Object?>{
-      'sessionId': sessionId,
-      'stopReason': stopReason,
-    });
+    _log(
+      'recording.finalize.request',
+      data: <String, Object?>{'sessionId': sessionId, 'stopReason': stopReason},
+    );
     return postMap(
       baseUrl,
       '/api/recordings/$sessionId/finalize',
@@ -776,10 +768,7 @@ class BackendClient {
     return deleteMap(baseUrl, '/api/recordings/$sessionId/segments/$segmentId');
   }
 
-  Future<void> deleteRecordingSession(
-    String baseUrl,
-    String sessionId,
-  ) async {
+  Future<void> deleteRecordingSession(String baseUrl, String sessionId) async {
     await deleteMap(baseUrl, '/api/recordings/$sessionId');
   }
 
@@ -789,11 +778,14 @@ class BackendClient {
     String characteristicUuid,
     Uint8List data,
   ) async {
-    _log('wearable.stream.request', data: <String, Object?>{
-      'macAddress': macAddress,
-      'characteristicUuid': characteristicUuid,
-      'size': data.length,
-    });
+    _log(
+      'wearable.stream.request',
+      data: <String, Object?>{
+        'macAddress': macAddress,
+        'characteristicUuid': characteristicUuid,
+        'size': data.length,
+      },
+    );
     final response = await _httpClient.post(
       _resolveUri(baseUrl, '/api/wearables/$macAddress/stream'),
       headers: <String, String>{
@@ -807,13 +799,16 @@ class BackendClient {
     if (decoded['success'] != true) {
       throw StateError('Wearable stream call was not acknowledged by server.');
     }
-    _log('wearable.stream.response', data: <String, Object?>{
-      'macAddress': macAddress,
-      'statusCode': response.statusCode,
-      'accepted': decoded['accepted'] == true,
-      'ignored': decoded['ignored'] == true,
-      'duplicate': decoded['duplicate'] == true,
-    });
+    _log(
+      'wearable.stream.response',
+      data: <String, Object?>{
+        'macAddress': macAddress,
+        'statusCode': response.statusCode,
+        'accepted': decoded['accepted'] == true,
+        'ignored': decoded['ignored'] == true,
+        'duplicate': decoded['duplicate'] == true,
+      },
+    );
     return decoded;
   }
 
@@ -822,22 +817,23 @@ class BackendClient {
     String macAddress,
     Uint8List data,
   ) async {
-    _log('wearable.sync.request', data: <String, Object?>{
-      'macAddress': macAddress,
-      'size': data.length,
-    });
+    _log(
+      'wearable.sync.request',
+      data: <String, Object?>{'macAddress': macAddress, 'size': data.length},
+    );
     final response = await _httpClient.post(
       _resolveUri(baseUrl, '/api/wearables/$macAddress/sync'),
-      headers: <String, String>{
-        'Content-Type': 'application/octet-stream',
-      },
+      headers: <String, String>{'Content-Type': 'application/octet-stream'},
       body: data,
     );
     _throwIfError(response);
-    _log('wearable.sync.response', data: <String, Object?>{
-      'macAddress': macAddress,
-      'statusCode': response.statusCode,
-    });
+    _log(
+      'wearable.sync.response',
+      data: <String, Object?>{
+        'macAddress': macAddress,
+        'statusCode': response.statusCode,
+      },
+    );
     return _asMap(_decodeJson(response.body));
   }
 
@@ -845,9 +841,10 @@ class BackendClient {
     String baseUrl,
     String macAddress,
   ) async {
-    _log('wearable.stop_live.request', data: <String, Object?>{
-      'macAddress': macAddress,
-    });
+    _log(
+      'wearable.stop_live.request',
+      data: <String, Object?>{'macAddress': macAddress},
+    );
     final candidates = <String>[
       '/api/wearables/$macAddress/stop-live',
       '/api/wearables/$macAddress/stop',
@@ -856,24 +853,26 @@ class BackendClient {
 
     BackendException? lastError;
     for (final path in candidates) {
-      final body = path.endsWith('/$macAddress/stop-live') ||
+      final body =
+          path.endsWith('/$macAddress/stop-live') ||
               path.endsWith('/$macAddress/stop')
           ? jsonEncode(const <String, dynamic>{})
           : jsonEncode(<String, dynamic>{'macAddress': macAddress});
       final response = await _httpClient.post(
         _resolveUri(baseUrl, path),
-        headers: <String, String>{
-          'Content-Type': 'application/json',
-        },
+        headers: <String, String>{'Content-Type': 'application/json'},
         body: body,
       );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        _log('wearable.stop_live.response', data: <String, Object?>{
-          'macAddress': macAddress,
-          'statusCode': response.statusCode,
-          'path': path,
-        });
+        _log(
+          'wearable.stop_live.response',
+          data: <String, Object?>{
+            'macAddress': macAddress,
+            'statusCode': response.statusCode,
+            'path': path,
+          },
+        );
         return _asMap(_decodeJson(response.body));
       }
 
@@ -887,13 +886,14 @@ class BackendClient {
         break;
       }
 
-      _log('wearable.stop_live.fallback_404', data: <String, Object?>{
-        'macAddress': macAddress,
-        'path': path,
-      });
+      _log(
+        'wearable.stop_live.fallback_404',
+        data: <String, Object?>{'macAddress': macAddress, 'path': path},
+      );
     }
 
-    throw lastError ?? const BackendException('Failed to stop wearable live stream');
+    throw lastError ??
+        const BackendException('Failed to stop wearable live stream');
   }
 
   /// Register a wearable device with the backend
@@ -903,16 +903,17 @@ class BackendClient {
     String protocol,
     String name,
   ) async {
-    _log('wearable.register.request', data: <String, Object?>{
-      'macAddress': macAddress,
-      'protocol': protocol,
-      'name': name,
-    });
+    _log(
+      'wearable.register.request',
+      data: <String, Object?>{
+        'macAddress': macAddress,
+        'protocol': protocol,
+        'name': name,
+      },
+    );
     final response = await _httpClient.post(
       _resolveUri(baseUrl, '/api/wearables'),
-      headers: <String, String>{
-        'Content-Type': 'application/json',
-      },
+      headers: <String, String>{'Content-Type': 'application/json'},
       body: jsonEncode(<String, dynamic>{
         'macAddress': macAddress,
         'protocol': protocol,
@@ -920,10 +921,13 @@ class BackendClient {
       }),
     );
     _throwIfError(response);
-    _log('wearable.register.response', data: <String, Object?>{
-      'macAddress': macAddress,
-      'statusCode': response.statusCode,
-    });
+    _log(
+      'wearable.register.response',
+      data: <String, Object?>{
+        'macAddress': macAddress,
+        'statusCode': response.statusCode,
+      },
+    );
     return _asMap(_decodeJson(response.body));
   }
 

@@ -72,8 +72,29 @@ router.post('/', async (req, res) => {
     db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
       .run(req.session.userId, 'user', task, JSON.stringify({ platform: 'flutter' }));
 
-    const engine = req.app.locals.agentEngine;
-    const result = await engine.run(req.session.userId, task, options || {});
+    const engine = req.app?.locals?.agentEngine;
+    const memoryManager = req.app?.locals?.memoryManager;
+    if (!engine || !memoryManager) {
+      return res.status(500).json({ error: 'Agent engine or memory manager is not initialized.' });
+    }
+    const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(req.session.userId);
+    const { ensureDefaultAiSettings, getAiSettings } = require('../services/ai/settings');
+    const { getWebChatContext } = require('../services/ai/history');
+    ensureDefaultAiSettings(req.session.userId);
+    const aiSettings = getAiSettings(req.session.userId);
+    const webContext = getWebChatContext(req.session.userId, aiSettings.chat_history_window);
+    const lastMatchIndex = webContext.recentMessages.findLastIndex(
+      (message) => message.role === 'user' && message.content === task
+    );
+    const priorMessages = webContext.recentMessages
+      .filter((_, index) => index !== lastMatchIndex)
+      .slice(-aiSettings.chat_history_window);
+    const result = await engine.run(req.session.userId, task, {
+      ...(options || {}),
+      conversationId,
+      priorMessages,
+      priorSummary: webContext.summary,
+    });
 
     if (result?.content) {
       db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
@@ -157,7 +178,14 @@ router.post('/multi-step', async (req, res) => {
     if (!task) return res.status(400).json({ error: 'Task is required' });
 
     const multiStep = req.app.locals.multiStep;
-    const result = await multiStep.create(req.session.userId, task, steps || [], options || {});
+    if (!multiStep || typeof multiStep.planAndExecute !== 'function') {
+      return res.status(500).json({ error: 'Multi-step orchestrator is not initialized.' });
+    }
+    const result = await multiStep.planAndExecute(req.session.userId, task, {
+      ...(options || {}),
+      requestedSteps: Array.isArray(steps) ? steps : [],
+      forceMode: 'plan_execute',
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });

@@ -22,6 +22,31 @@ function normalizeProtocolId(protocolId) {
   return normalized;
 }
 
+function buildStreamKey(userId, macAddress) {
+  return JSON.stringify({ userId, macAddress });
+}
+
+function parseStreamKey(streamKey) {
+  try {
+    const parsed = JSON.parse(streamKey);
+    if (
+      !parsed ||
+      parsed.userId === null ||
+      parsed.userId === undefined ||
+      parsed.macAddress === null ||
+      parsed.macAddress === undefined
+    ) {
+      return null;
+    }
+    return {
+      userId: parsed.userId,
+      macAddress: parsed.macAddress,
+    };
+  } catch {
+    return null;
+  }
+}
+
 class WearableManager {
   constructor(io, services) {
     this.io = io;
@@ -37,8 +62,9 @@ class WearableManager {
       this.reapStaleLiveStreams();
     }, STREAM_REAPER_INTERVAL_MS);
     this._reaperHandle.unref?.();
+  }
 
-    // Keep runtime deterministic while only HeyPocket is supported.
+  initDatabase() {
     db.prepare(`UPDATE wearable_devices SET protocol = ? WHERE LOWER(protocol) <> ?`)
       .run(SUPPORTED_PROTOCOL_ID, SUPPORTED_PROTOCOL_ID);
   }
@@ -116,7 +142,7 @@ class WearableManager {
     const protocol = this.getProtocol(device.protocol);
     if (!protocol) throw new Error('Protocol not found');
 
-    const streamKey = `${userId}:${macAddress}`;
+    const streamKey = buildStreamKey(userId, macAddress);
     if (this.activeLiveStreams.has(streamKey)) {
       return this.activeLiveStreams.get(streamKey);
     }
@@ -177,7 +203,7 @@ class WearableManager {
       };
     }
 
-    const streamKey = `${userId}:${macAddress}`;
+    const streamKey = buildStreamKey(userId, macAddress);
     let streamState = this.activeLiveStreams.get(streamKey);
     if (!streamState) {
       this.startLiveStream(userId, macAddress);
@@ -236,7 +262,7 @@ class WearableManager {
   }
 
   endLiveStream(userId, macAddress, stopReason = 'wearable_disconnected') {
-    const streamKey = `${userId}:${macAddress}`;
+    const streamKey = buildStreamKey(userId, macAddress);
     const streamState = this.activeLiveStreams.get(streamKey);
     if (!streamState) {
       return this.#finalizeDanglingSession(userId, macAddress, stopReason);
@@ -246,6 +272,7 @@ class WearableManager {
       this.recordingManager.finalizeSession(userId, streamState.sessionId, { stopReason });
     } catch (err) {
       console.error('[Wearables] Error finalizing session on disconnect', err);
+      return false;
     }
     this.activeLiveStreams.delete(streamKey);
     return true;
@@ -295,12 +322,11 @@ class WearableManager {
         continue;
       }
 
-      const separatorIndex = streamKey.indexOf(':');
-      if (separatorIndex <= 0 || separatorIndex >= streamKey.length - 1) {
+      const parsedStreamKey = parseStreamKey(streamKey);
+      if (!parsedStreamKey) {
         continue;
       }
-      const userId = streamKey.slice(0, separatorIndex);
-      const macAddress = streamKey.slice(separatorIndex + 1);
+      const { userId, macAddress } = parsedStreamKey;
       try {
         this.endLiveStream(userId, macAddress, 'wearable_idle_timeout');
       } catch (err) {

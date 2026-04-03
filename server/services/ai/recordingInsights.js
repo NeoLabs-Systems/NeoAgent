@@ -61,7 +61,9 @@ async function extractRecordingInsights(userId, transcriptText, options = {}) {
         _generated_at: new Date().toISOString()
       };
     } catch (parseErr) {
-      console.warn('[AI] Failed to parse recording insights JSON:', content.slice(0, 100) + '...');
+      console.warn(
+        `[AI] Failed to parse recording insights JSON: length=${content.length} error=${parseErr.message}`
+      );
       return null;
     }
   } catch (err) {

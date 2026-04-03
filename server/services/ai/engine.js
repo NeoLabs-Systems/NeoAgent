@@ -13,6 +13,18 @@ const { selectToolsForTask } = require('./toolSelector');
 const { compactToolResult } = require('./toolResult');
 const { salvageTextToolCalls } = require('./toolCallSalvage');
 const { sanitizeModelOutput } = require('./outputSanitizer');
+const {
+  buildAnalysisPrompt,
+  buildExecutionGuidance,
+  buildPlanPrompt,
+  buildVerifierPrompt,
+  normalizeExecutionPlan,
+  normalizeTaskAnalysis,
+  normalizeVerificationResult,
+  parseJsonObject,
+  shouldRunVerifier,
+} = require('./taskAnalysis');
+const { getCapabilityHealth, summarizeCapabilityHealth } = require('./capabilityHealth');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -232,11 +244,117 @@ function summarizeForLog(value, maxChars = 220) {
   return `${normalized.slice(0, maxChars)}...`;
 }
 
+function parseMaybeJson(value, fallback = null) {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function classifyToolExecution(toolName, result, errorMessage = '') {
+  const name = String(toolName || '');
+  const evidenceRelevantPrefixes = ['browser_', 'android_'];
+  const evidenceRelevantExact = new Set([
+    'web_search',
+    'http_request',
+    'read_file',
+    'search_files',
+    'list_directory',
+    'session_search',
+    'memory_recall',
+    'analyze_image',
+    'read_health_data',
+    'recordings_list',
+    'recordings_get',
+    'recordings_search',
+    'wait_subagent',
+  ]);
+  const stateChangingExact = new Set([
+    'execute_command',
+    'write_file',
+    'edit_file',
+    'send_message',
+    'make_call',
+    'create_skill',
+    'update_skill',
+    'delete_skill',
+    'create_scheduled_task',
+    'update_scheduled_task',
+    'delete_scheduled_task',
+    'schedule_run',
+    'mcp_add_server',
+    'mcp_remove_server',
+    'spawn_subagent',
+    'cancel_subagent',
+  ]);
+
+  const evidenceSource = name.startsWith('browser_')
+    ? 'browser'
+    : name.startsWith('android_')
+      ? 'android'
+      : name.startsWith('mcp_')
+        ? 'mcp'
+        : name.startsWith('memory_') || name === 'session_search'
+          ? 'memory'
+          : name === 'web_search'
+            ? 'search'
+            : name === 'http_request'
+              ? 'http'
+              : ['read_file', 'search_files', 'list_directory', 'write_file', 'edit_file'].includes(name)
+                ? 'files'
+                : name === 'execute_command'
+                  ? 'command'
+                  : name.includes('skill')
+                    ? 'skills'
+                    : name.includes('scheduled_task') || name === 'schedule_run'
+                      ? 'scheduler'
+                      : name === 'send_message' || name === 'make_call'
+                        ? 'messaging'
+                        : name.startsWith('recordings_') || name === 'read_health_data'
+                          ? 'data'
+                          : name === 'analyze_image'
+                            ? 'vision'
+                            : name.includes('subagent')
+                              ? 'subagent'
+                              : 'tool';
+
+  const evidenceRelevant = evidenceRelevantExact.has(name)
+    || evidenceRelevantPrefixes.some((prefix) => name.startsWith(prefix));
+  const stateChanged = stateChangingExact.has(name)
+    || name.startsWith('android_')
+    || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
+
+  return {
+    toolName: name,
+    ok: !errorMessage && !result?.error,
+    error: errorMessage || result?.error || '',
+    evidenceSource,
+    evidenceRelevant,
+    stateChanged,
+    dependsOnOutput: true,
+    summary: compactToolResult(name, {}, result || { error: errorMessage || 'Tool failed' }, {
+      softLimit: 500,
+      hardLimit: 900,
+    }),
+  };
+}
+
+function summarizeToolExecutions(toolExecutions = [], maxItems = 10) {
+  return toolExecutions.slice(-maxItems).map((item, index) => {
+    const status = item.ok ? 'ok' : `error=${item.error}`;
+    return `${index + 1}. ${item.toolName} [${item.evidenceSource}] ${status} :: ${clampRunContext(item.summary || '', 220)}`;
+  }).join('\n');
+}
+
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
     this.maxIterations = 12;
     this.activeRuns = new Map();
+    this.subagents = new Map();
     this.cliExecutor = services.cliExecutor || null;
     this.browserController = services.browserController || null;
     this.androidController = services.androidController || null;
@@ -252,6 +370,220 @@ class AgentEngine {
     const { MemoryManager } = require('../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
     return buildSystemPrompt(userId, context, memoryManager);
+  }
+
+  persistRunMetadata(runId, patch = {}) {
+    if (!runId || !patch || typeof patch !== 'object') return;
+    const existing = db.prepare('SELECT metadata_json FROM agent_runs WHERE id = ?').get(runId);
+    const current = parseMaybeJson(existing?.metadata_json, {}) || {};
+    const next = { ...current, ...patch };
+    db.prepare('UPDATE agent_runs SET metadata_json = ? WHERE id = ?')
+      .run(JSON.stringify(next), runId);
+  }
+
+  async requestStructuredJson({
+    provider,
+    providerName,
+    model,
+    messages,
+    prompt,
+    maxTokens = 1400,
+    normalize,
+    fallback = {},
+    reasoningEffort,
+  }) {
+    const response = await provider.chat(
+      sanitizeConversationMessages([
+        ...messages,
+        { role: 'system', content: prompt },
+      ]),
+      [],
+      {
+        model,
+        maxTokens,
+        reasoningEffort: reasoningEffort || this.getReasoningEffort(providerName, {}),
+      }
+    );
+
+    const parsed = parseJsonObject(response.content || '');
+    return {
+      value: normalize(parsed || {}, fallback),
+      raw: response.content || '',
+      usage: response.usage?.totalTokens || 0,
+    };
+  }
+
+  async analyzeTask({
+    provider,
+    providerName,
+    model,
+    messages,
+    tools,
+    capabilityHealth,
+    forceMode,
+    options,
+  }) {
+    const summary = summarizeCapabilityHealth(capabilityHealth);
+    const response = await this.requestStructuredJson({
+      provider,
+      providerName,
+      model,
+      messages,
+      prompt: buildAnalysisPrompt({
+        triggerSource: options.triggerSource || 'web',
+        capabilityHealth: summary,
+        tools,
+        forceMode,
+      }),
+      maxTokens: 1100,
+      normalize: normalizeTaskAnalysis,
+      fallback: {
+        mode: forceMode || 'execute',
+        verification_need: 'light',
+        planning_depth: forceMode === 'plan_execute' ? 'deep' : 'light',
+      },
+      reasoningEffort: this.getReasoningEffort(providerName, options),
+    });
+
+    return {
+      analysis: response.value,
+      raw: response.raw,
+      usage: response.usage,
+      capabilitySummary: summary,
+    };
+  }
+
+  async createExecutionPlan({
+    provider,
+    providerName,
+    model,
+    messages,
+    analysis,
+    capabilitySummary,
+    options,
+  }) {
+    const response = await this.requestStructuredJson({
+      provider,
+      providerName,
+      model,
+      messages,
+      prompt: buildPlanPrompt(analysis, capabilitySummary),
+      maxTokens: 1400,
+      normalize: normalizeExecutionPlan,
+      fallback: {
+        success_criteria: analysis.success_criteria,
+      },
+      reasoningEffort: this.getReasoningEffort(providerName, options),
+    });
+
+    return {
+      plan: response.value,
+      raw: response.raw,
+      usage: response.usage,
+    };
+  }
+
+  async verifyFinalResponse({
+    provider,
+    providerName,
+    model,
+    messages,
+    analysis,
+    toolExecutions,
+    finalReply,
+    options,
+  }) {
+    const evidenceSources = [...new Set(
+      toolExecutions
+        .map((item) => item.evidenceSource)
+        .filter(Boolean)
+    )];
+    const response = await this.requestStructuredJson({
+      provider,
+      providerName,
+      model,
+      messages,
+      prompt: buildVerifierPrompt({
+        analysis,
+        toolExecutionSummary: summarizeToolExecutions(toolExecutions),
+        evidenceSources,
+        finalReply,
+      }),
+      maxTokens: 1200,
+      normalize: (raw) => normalizeVerificationResult(raw, finalReply),
+      fallback: {
+        status: analysis.freshness_risk === 'none' ? 'verified' : 'insufficient_evidence',
+        final_reply: finalReply,
+      },
+      reasoningEffort: this.getReasoningEffort(providerName, options),
+    });
+
+    return {
+      verification: response.value,
+      raw: response.raw,
+      usage: response.usage,
+      evidenceSources,
+    };
+  }
+
+  async refreshConversationState({
+    conversationId,
+    provider,
+    providerName,
+    model,
+    finalReply,
+    analysis,
+    verification,
+    historyWindow,
+    options,
+  }) {
+    if (!conversationId) return null;
+    const { MemoryManager } = require('../memory/manager');
+    const memoryManager = this.memoryManager || new MemoryManager();
+    const context = getConversationContext(conversationId, Math.max(historyWindow, 8));
+    const existingState = memoryManager.getConversationState(conversationId);
+    const promptMessages = [
+      {
+        role: 'system',
+        content: 'Return JSON only. Distill the current thread working state. Keep it concise and concrete. Track summary, open_commitments, unresolved_questions, referenced_entities, and last_verified_facts. Do not invent facts.'
+      },
+      {
+        role: 'user',
+        content: [
+          existingState?.summary ? `Existing state:\n${JSON.stringify(existingState, null, 2)}` : 'Existing state: none',
+          context.summary ? `Conversation summary:\n${context.summary}` : 'Conversation summary: none',
+          `Recent thread messages:\n${JSON.stringify(context.recentMessages.slice(-8), null, 2)}`,
+          `Latest final reply:\n${finalReply || '(empty)'}`,
+          verification?.status ? `Verification status: ${verification.status}` : '',
+          verification?.final_reply && verification.final_reply !== finalReply ? `Verified reply:\n${verification.final_reply}` : '',
+          analysis?.goal ? `Thread goal: ${analysis.goal}` : '',
+        ].filter(Boolean).join('\n\n')
+      }
+    ];
+
+    const response = await provider.chat(promptMessages, [], {
+      model,
+      maxTokens: 800,
+      reasoningEffort: this.getReasoningEffort(providerName, options),
+    });
+    const parsed = parseJsonObject(response.content || '') || {};
+    const nextState = {
+      summary: String(parsed.summary || existingState?.summary || '').trim(),
+      open_commitments: Array.isArray(parsed.open_commitments) ? parsed.open_commitments.slice(0, 8).map((item) => String(item || '').trim()).filter(Boolean) : [],
+      unresolved_questions: Array.isArray(parsed.unresolved_questions) ? parsed.unresolved_questions.slice(0, 8).map((item) => String(item || '').trim()).filter(Boolean) : [],
+      referenced_entities: Array.isArray(parsed.referenced_entities) ? parsed.referenced_entities.slice(0, 12).map((item) => String(item || '').trim()).filter(Boolean) : [],
+      last_verified_facts: Array.isArray(parsed.last_verified_facts) ? parsed.last_verified_facts.slice(0, 10).map((item) => String(item || '').trim()).filter(Boolean) : [],
+    };
+
+    if (verification?.status === 'verified' && String(finalReply || '').trim()) {
+      nextState.last_verified_facts = [...new Set([
+        ...nextState.last_verified_facts,
+        clampRunContext(verification.final_reply || finalReply, 280),
+      ])].slice(-10);
+    }
+
+    memoryManager.updateConversationState(conversationId, nextState);
+    return nextState;
   }
 
   async recoverBlankMessagingReply({
@@ -347,7 +679,6 @@ class AgentEngine {
     try {
       const { MemoryManager } = require('../memory/manager');
       const memoryManager = this.memoryManager || new MemoryManager();
-      memoryManager.updateCore(userId, 'active_context', summary);
       await memoryManager.saveMemory(
         userId,
         summary,
@@ -623,6 +954,8 @@ class AgentEngine {
     const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.mcpManager;
     const mcpTools = mcpManager ? mcpManager.getAllTools(userId) : [];
     const tools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
+    const capabilityHealth = await getCapabilityHealth({ userId, app, engine: this });
+    const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
 
     const { MemoryManager } = require('../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
@@ -634,14 +967,23 @@ class AgentEngine {
 
     if (conversationId) {
       const conversationContext = getConversationContext(conversationId, historyWindow);
-      summaryMessage = buildSummaryCarrier(conversationContext.summary);
-      historyMessages = conversationContext.recentMessages;
+      summaryMessage = buildSummaryCarrier(conversationContext.summary || options.priorSummary || '');
+      historyMessages = conversationContext.recentMessages.length > 0
+        ? conversationContext.recentMessages
+        : (options.priorMessages || []).slice(-historyWindow).filter((pm) => pm.role && pm.content);
     } else {
       summaryMessage = buildSummaryCarrier(options.priorSummary || '');
       historyMessages = (options.priorMessages || []).slice(-historyWindow).filter((pm) => pm.role && pm.content);
     }
 
     let messages = this.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
+    if (capabilitySummary) {
+      messages.push({ role: 'system', content: `[Capability health]\n${capabilitySummary}` });
+    }
+    const threadStateMessage = conversationId ? memoryManager.buildConversationStateMessage(conversationId) : null;
+    if (threadStateMessage) {
+      messages.push({ role: 'system', content: threadStateMessage });
+    }
     messages.push(this.buildUserMessage(userMessage, options));
     messages = sanitizeConversationMessages(messages);
 
@@ -657,9 +999,121 @@ class AgentEngine {
     let failedStepCount = 0;
     let modelFailureRecoveries = 0;
     let promptMetrics = {};
+    let toolExecutions = [];
+    let analysis = null;
+    let plan = null;
+    let verification = null;
+    let directAnswerEligible = false;
 
     try {
-      while (iteration < maxIterations) {
+      const analysisResult = await this.analyzeTask({
+        provider,
+        providerName,
+        model,
+        messages,
+        tools,
+        capabilityHealth,
+        forceMode: options.forceMode || null,
+        options: { ...options, triggerSource },
+      });
+      totalTokens += analysisResult.usage || 0;
+      analysis = { ...analysisResult.analysis };
+      if (options.forceMode === 'plan_execute') {
+        analysis.mode = 'plan_execute';
+        analysis.planning_depth = 'deep';
+      }
+      if (analysis.mode === 'direct_answer' && (analysis.verification_need !== 'none' || analysis.freshness_risk !== 'none')) {
+        analysis.mode = analysis.planning_depth === 'deep' ? 'plan_execute' : 'execute';
+      }
+
+      stepIndex += 1;
+      const analysisStepId = uuidv4();
+      db.prepare(`INSERT INTO agent_steps
+        (id, run_id, step_index, type, description, status, result, started_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+        .run(
+          analysisStepId,
+          runId,
+          stepIndex,
+          'analysis',
+          'Task analysis contract',
+          'completed',
+          JSON.stringify(analysis).slice(0, 20000)
+        );
+      this.persistRunMetadata(runId, {
+        taskAnalysis: analysis,
+        capabilityHealth,
+      });
+      this.emit(userId, 'run:analysis', {
+        runId,
+        ...analysis,
+        capabilitySummary,
+      });
+
+      if (analysis.mode === 'plan_execute') {
+        const planResult = await this.createExecutionPlan({
+          provider,
+          providerName,
+          model,
+          messages,
+          analysis,
+          capabilitySummary,
+          options,
+        });
+        totalTokens += planResult.usage || 0;
+        plan = planResult.plan;
+        stepIndex += 1;
+        const planStepId = uuidv4();
+        db.prepare(`INSERT INTO agent_steps
+          (id, run_id, step_index, type, description, status, result, started_at, completed_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+          .run(
+            planStepId,
+            runId,
+            stepIndex,
+            'planning',
+            'Execution plan',
+            'completed',
+            JSON.stringify(plan).slice(0, 20000)
+          );
+        this.persistRunMetadata(runId, { executionPlan: plan });
+        this.emit(userId, 'run:plan', {
+          runId,
+          steps: plan.steps,
+          successCriteria: plan.success_criteria,
+          verificationFocus: plan.verification_focus,
+        });
+      }
+
+      messages.push({
+        role: 'system',
+        content: buildExecutionGuidance({
+          analysis,
+          plan,
+          capabilityHealth: capabilitySummary,
+        }),
+      });
+      messages = sanitizeConversationMessages(messages);
+
+      directAnswerEligible = (
+        analysis.mode === 'direct_answer'
+        && analysis.verification_need === 'none'
+        && analysis.freshness_risk === 'none'
+        && !analysis.needs_subagents
+        && normalizeOutgoingMessage(analysis.draft_reply)
+      );
+
+      if (directAnswerEligible) {
+        iteration = 1;
+        lastContent = analysis.draft_reply.trim();
+        messages.push({ role: 'assistant', content: lastContent });
+        if (conversationId) {
+          db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+            .run(conversationId, 'assistant', lastContent, analysisResult.usage || 0);
+        }
+      }
+
+      while (!directAnswerEligible && iteration < maxIterations) {
         if (this.isRunStopped(runId)) break;
         iteration++;
 
@@ -673,7 +1127,7 @@ class AgentEngine {
         let metrics = this.estimatePromptMetrics(messages, tools);
         const contextWindow = provider.getContextWindow(model);
         if (metrics.totalEstimatedTokens > contextWindow * 0.85) {
-          messages = await compact(messages, provider, model);
+          messages = await compact(messages, provider, model, contextWindow);
           messages = sanitizeConversationMessages(messages);
           this.emit(userId, 'run:compaction', { runId, iteration });
           metrics = this.estimatePromptMetrics(messages, tools);
@@ -898,7 +1352,9 @@ class AgentEngine {
               runId,
               app,
               triggerSource,
-              taskId: options.taskId || null
+              taskId: options.taskId || null,
+              deliveryState: options.deliveryState || null,
+              allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
             });
             this.detachProcessFromRun(runId, toolResult?.pid);
             const screenshotPath = toolResult?.screenshotPath || null;
@@ -921,6 +1377,12 @@ class AgentEngine {
               `[Run ${shortenRunId(runId)}] step=${stepIndex} failed tool=${toolName} durationMs=${Date.now() - stepStartedAt} error=${summarizeForLog(err.message, 160)}`
             );
           }
+
+          toolExecutions.push(classifyToolExecution(toolName, toolResult, toolErrorMessage));
+          this.persistRunMetadata(runId, {
+            evidenceSources: [...new Set(toolExecutions.map((item) => item.evidenceSource).filter(Boolean))],
+            subagentState: this.listSubagents(runId),
+          });
 
           const toolMessage = {
             role: 'tool',
@@ -1032,7 +1494,7 @@ class AgentEngine {
 
       const sentMessageText = joinSentMessages(runMeta?.sentMessages);
       const normalizedLastContent = normalizeOutgoingMessage(lastContent);
-      const finalResponseText = messagingSent
+      let finalResponseText = messagingSent
         ? (sentMessageText || (normalizedLastContent ? lastContent.trim() : ''))
         : (normalizedLastContent ? lastContent.trim() : sentMessageText);
       const lastSentMessage = normalizeOutgoingMessage(
@@ -1040,6 +1502,53 @@ class AgentEngine {
         || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
         || ''
       );
+
+      if (shouldRunVerifier({
+        analysis,
+        toolExecutions,
+        finalReply: finalResponseText,
+      })) {
+        const verificationResult = await this.verifyFinalResponse({
+          provider,
+          providerName,
+          model,
+          messages,
+          analysis,
+          toolExecutions,
+          finalReply: finalResponseText,
+          options,
+        });
+        totalTokens += verificationResult.usage || 0;
+        verification = verificationResult.verification;
+        if (verification.final_reply) {
+          finalResponseText = verification.final_reply;
+          lastContent = verification.final_reply;
+        }
+
+        stepIndex += 1;
+        const verificationStepId = uuidv4();
+        db.prepare(`INSERT INTO agent_steps
+          (id, run_id, step_index, type, description, status, result, started_at, completed_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+          .run(
+            verificationStepId,
+            runId,
+            stepIndex,
+            'verification',
+            'Evidence verification',
+            verification.status === 'verified' ? 'completed' : 'failed',
+            JSON.stringify(verification).slice(0, 20000)
+          );
+        this.persistRunMetadata(runId, {
+          verification,
+          evidenceSources: verificationResult.evidenceSources,
+        });
+        this.emit(userId, 'run:verification', {
+          runId,
+          ...verification,
+          evidenceSources: verificationResult.evidenceSources,
+        });
+      }
 
       db.prepare('UPDATE agent_runs SET status = ?, total_tokens = ?, final_response = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
         .run('completed', totalTokens, finalResponseText || null, runId);
@@ -1049,6 +1558,19 @@ class AgentEngine {
           .run(totalTokens, conversationId);
         refreshConversationSummary(conversationId, provider, model, historyWindow).catch((err) => {
           console.error('[AI] Conversation summary refresh failed:', err.message);
+        });
+        this.refreshConversationState({
+          conversationId,
+          provider,
+          providerName,
+          model,
+          finalReply: finalResponseText,
+          analysis,
+          verification,
+          historyWindow,
+          options,
+        }).catch((err) => {
+          console.error('[AI] Conversation working state refresh failed:', err.message);
         });
       }
 
@@ -1102,8 +1624,17 @@ class AgentEngine {
       console.info(
         `[Run ${shortenRunId(runId)}] completed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} durationMs=${runMeta?.startedAt ? Date.now() - runMeta.startedAt : 0} finalResponse=${finalResponseText ? 'yes' : 'no'} sentMessages=${runMeta?.sentMessages?.length || 0}`
       );
+      this.cleanupSubagentsForRun(runId, { cancelRunning: true });
       this.activeRuns.delete(runId);
-      this.emit(userId, 'run:complete', { runId, content: lastContent, totalTokens, iterations: iteration, triggerSource });
+      this.emit(userId, 'run:complete', {
+        runId,
+        content: lastContent,
+        totalTokens,
+        iterations: iteration,
+        triggerSource,
+        executionMode: analysis?.mode || 'execute',
+        verificationStatus: verification?.status || 'skipped',
+      });
 
       return { runId, content: lastContent, totalTokens, iterations: iteration, status: 'completed' };
     } catch (err) {
@@ -1113,6 +1644,7 @@ class AgentEngine {
         console.warn(
           `[Run ${shortenRunId(runId)}] stopped trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
         );
+        this.cleanupSubagentsForRun(runId, { cancelRunning: true });
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:stopped', { runId, triggerSource });
         return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
@@ -1134,6 +1666,7 @@ class AgentEngine {
         console.warn(
           `[Run ${shortenRunId(runId)}] retrying_messaging_attempt=${retryCount + 1} reason=${summarizeForLog(err.message, 140)}`
         );
+        this.cleanupSubagentsForRun(runId, { cancelRunning: true });
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:interim', {
           runId,
@@ -1202,6 +1735,7 @@ class AgentEngine {
         `[Run ${shortenRunId(runId)}] failed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} error=${summarizeForLog(err.message, 180)}`
       );
 
+      this.cleanupSubagentsForRun(runId, { cancelRunning: true });
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:error', { runId, error: err.message });
 
@@ -1217,6 +1751,195 @@ class AgentEngine {
 
       throw err;
     }
+  }
+
+  async spawnSubagent(userId, parentRunId, task, options = {}) {
+    const handle = uuidv4();
+    const childRunId = uuidv4();
+    const subEngine = new AgentEngine(this.io, {
+      cliExecutor: this.cliExecutor,
+      browserController: this.browserController,
+      androidController: this.androidController,
+      messagingManager: this.messagingManager,
+      mcpManager: this.mcpManager,
+      skillRunner: this.skillRunner,
+      scheduler: this.scheduler,
+      memoryManager: this.memoryManager,
+    });
+
+    const record = {
+      handle,
+      parentRunId,
+      childRunId,
+      userId,
+      task,
+      model: options.model || null,
+      status: 'running',
+      createdAt: new Date().toISOString(),
+      result: null,
+      error: null,
+      engine: subEngine,
+      promise: null,
+    };
+    this.subagents.set(handle, record);
+    this.emit(userId, 'run:subagent', {
+      runId: parentRunId,
+      handle,
+      childRunId,
+      status: 'running',
+      task: clampRunContext(task, 180),
+    });
+
+    record.promise = (async () => {
+      try {
+        const result = await subEngine.runWithModel(
+          userId,
+          task,
+          {
+            app: options.app,
+            triggerType: 'subagent',
+            triggerSource: 'agent',
+            runId: childRunId,
+          },
+          options.model || null
+        );
+        record.status = result.status || 'completed';
+        record.result = {
+          runId: result.runId,
+          content: result.content,
+          totalTokens: result.totalTokens,
+          iterations: result.iterations,
+        };
+        this.emit(userId, 'run:subagent', {
+          runId: parentRunId,
+          handle,
+          childRunId,
+          status: record.status,
+          result: record.result,
+        });
+        return record;
+      } catch (err) {
+        record.status = 'failed';
+        record.error = err.message;
+        this.emit(userId, 'run:subagent', {
+          runId: parentRunId,
+          handle,
+          childRunId,
+          status: 'failed',
+          error: err.message,
+        });
+        throw err;
+      }
+    })();
+
+    return {
+      handle,
+      status: 'running',
+      childRunId,
+      task: clampRunContext(task, 180),
+    };
+  }
+
+  listSubagents(parentRunId = null) {
+    return Array.from(this.subagents.values())
+      .filter((record) => !parentRunId || record.parentRunId === parentRunId)
+      .map((record) => ({
+        handle: record.handle,
+        parentRunId: record.parentRunId,
+        childRunId: record.childRunId,
+        status: record.status,
+        task: clampRunContext(record.task, 180),
+        result: record.result,
+        error: record.error,
+        createdAt: record.createdAt,
+      }));
+  }
+
+  cleanupSubagentsForRun(parentRunId, options = {}) {
+    if (!parentRunId) return;
+    const cancelRunning = options.cancelRunning !== false;
+    for (const [handle, record] of this.subagents.entries()) {
+      if (record.parentRunId !== parentRunId) continue;
+      if (cancelRunning && record.status === 'running') {
+        try {
+          record.engine?.abort(record.childRunId);
+          record.status = 'cancelled';
+        } catch {}
+      }
+      this.subagents.delete(handle);
+    }
+  }
+
+  async waitForSubagent(handle, options = {}) {
+    const record = this.subagents.get(handle);
+    if (!record) {
+      return { error: `Unknown sub-agent handle: ${handle}` };
+    }
+    if (options.parentRunId && record.parentRunId !== options.parentRunId) {
+      return { error: 'That sub-agent does not belong to the current parent run.' };
+    }
+
+    if (record.status !== 'running' || !record.promise) {
+      return {
+        handle,
+        status: record.status,
+        result: record.result,
+        error: record.error,
+      };
+    }
+
+    const timeoutMs = Math.max(1000, Number(options.timeoutMs) || 30000);
+    const timeout = new Promise((resolve) => {
+      setTimeout(() => resolve(null), timeoutMs);
+    });
+    const settled = await Promise.race([
+      record.promise.then(() => record).catch(() => record),
+      timeout,
+    ]);
+
+    if (!settled) {
+      return {
+        handle,
+        status: 'running',
+        timedOut: true,
+      };
+    }
+
+    return {
+      handle,
+      status: record.status,
+      result: record.result,
+      error: record.error,
+    };
+  }
+
+  async cancelSubagent(handle, options = {}) {
+    const record = this.subagents.get(handle);
+    if (!record) {
+      return { error: `Unknown sub-agent handle: ${handle}` };
+    }
+    if (options.parentRunId && record.parentRunId !== options.parentRunId) {
+      return { error: 'That sub-agent does not belong to the current parent run.' };
+    }
+    if (record.status !== 'running') {
+      return {
+        handle,
+        status: record.status,
+        result: record.result,
+        error: record.error,
+      };
+    }
+
+    record.engine?.abort(record.childRunId);
+    record.status = 'cancelled';
+    this.emit(record.userId, 'run:subagent', {
+      runId: record.parentRunId,
+      handle,
+      childRunId: record.childRunId,
+      status: 'cancelled',
+    });
+
+    return { handle, status: 'cancelled' };
   }
 
   stopRun(runId) {
@@ -1252,6 +1975,7 @@ class AgentEngine {
     if (toolName === 'make_call') return 'messaging';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
     if (toolName.includes('scheduled_task') || toolName === 'schedule_run') return 'scheduler';
+    if (toolName.includes('subagent')) return 'subagent';
     if (toolName === 'think') return 'thinking';
     return 'tool';
   }

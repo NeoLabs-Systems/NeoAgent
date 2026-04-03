@@ -530,4 +530,4 @@ class BrowserController {
   }
 }
 
-module.exports = { BrowserController };
+module.exports = { BrowserController, resolveBrowserExecutablePath };

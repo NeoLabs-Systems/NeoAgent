@@ -658,8 +658,17 @@ class RecordingManager {
         continue;
       }
       try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+        const recordingsRoot = path.resolve(RECORDINGS_DIR);
+        const recordingsPrefix = recordingsRoot.endsWith(path.sep)
+          ? recordingsRoot
+          : `${recordingsRoot}${path.sep}`;
+        const resolvedPath = path.resolve(path.normalize(filePath));
+        if (resolvedPath !== recordingsRoot && !resolvedPath.startsWith(recordingsPrefix)) {
+          console.warn(`[Recordings] Skipping deletion outside recordings dir: ${sanitizeError(resolvedPath)}`);
+          continue;
+        }
+        if (fs.existsSync(resolvedPath)) {
+          fs.unlinkSync(resolvedPath);
         }
       } catch (error) {
         console.warn(`[Recordings] Failed to delete recording chunk file: ${sanitizeError(error)}`);

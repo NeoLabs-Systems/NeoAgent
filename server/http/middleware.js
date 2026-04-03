@@ -34,10 +34,11 @@ function ensureSessionStoreSchema(db) {
     db.exec('CREATE TABLE sessions (sid PRIMARY KEY, sess, expire)');
 
     if (hasSid && hasSess) {
+      // TODO: Verify whether better-sqlite3-session-store treats expire=0 as already expired or non-expiring.
       const expireExpr = expireColumn ? expireColumn : 'NULL';
       db.exec(`
         INSERT OR REPLACE INTO sessions (sid, sess, expire)
-        SELECT sid, sess, ${expireExpr}
+        SELECT sid, sess, COALESCE(${expireExpr}, 0) AS expire
         FROM ${legacyTableName}
         WHERE sid IS NOT NULL
       `);

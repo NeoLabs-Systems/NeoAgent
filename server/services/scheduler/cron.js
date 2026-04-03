@@ -262,6 +262,11 @@ class Scheduler {
 
   async _executeTask(taskId, userId, config) {
     db.prepare('UPDATE scheduled_tasks SET last_run = datetime(\'now\') WHERE id = ?').run(taskId);
+    const deliveryState = {
+      messagingSent: false,
+      lastSentMessage: '',
+      sentMessages: [],
+    };
 
     const taskRecord = db.prepare('SELECT name, cron_expression, one_time FROM scheduled_tasks WHERE id = ?').get(taskId);
     const taskName = taskRecord ? taskRecord.name : `Task ${taskId}`;
@@ -316,6 +321,8 @@ class Scheduler {
             app: this.app,
             ...(convId ? { conversationId: convId } : {}),
             taskId,
+            deliveryState,
+            allowMultipleProactiveMessages: config.allowMultipleMessages === true || config.allow_multiple_messages === true,
           };
 
           try {

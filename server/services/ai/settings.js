@@ -82,6 +82,7 @@ function createDefaultAiSettings() {
     chat_history_window: 8,
     tool_replay_budget_chars: 1800,
     subagent_max_iterations: 6,
+    assistant_behavior_notes: '',
     auto_skill_learning: false,
     auto_recording_insights: true,
     fallback_model_id: 'gpt-5-nano',
@@ -141,13 +142,14 @@ function ensureDefaultAiSettings(userId) {
   if (!userId) return createDefaultAiSettings();
 
   const existing = db.prepare(
-    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).all(
     userId,
     'cost_mode',
     'chat_history_window',
     'tool_replay_budget_chars',
     'subagent_max_iterations',
+    'assistant_behavior_notes',
     'auto_skill_learning',
     'auto_recording_insights',
     'fallback_model_id',
@@ -173,13 +175,14 @@ function getAiSettings(userId) {
   if (!userId) return createDefaultAiSettings();
 
   const rows = db.prepare(
-    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).all(
     userId,
     'cost_mode',
     'chat_history_window',
     'tool_replay_budget_chars',
     'subagent_max_iterations',
+    'assistant_behavior_notes',
     'auto_skill_learning',
     'auto_recording_insights',
     'fallback_model_id',
@@ -196,6 +199,9 @@ function getAiSettings(userId) {
   settings.tool_replay_budget_chars = Math.max(600, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 3000));
   settings.subagent_max_iterations = Math.max(2, Math.min(Number(settings.subagent_max_iterations) || DEFAULT_AI_SETTINGS.subagent_max_iterations, 12));
   settings.cost_mode = typeof settings.cost_mode === 'string' ? settings.cost_mode : DEFAULT_AI_SETTINGS.cost_mode;
+  settings.assistant_behavior_notes = typeof settings.assistant_behavior_notes === 'string'
+    ? settings.assistant_behavior_notes
+    : DEFAULT_AI_SETTINGS.assistant_behavior_notes;
   settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
   settings.auto_recording_insights = settings.auto_recording_insights !== false && settings.auto_recording_insights !== 'false';
   settings.smarter_model_selector = settings.smarter_model_selector !== false && settings.smarter_model_selector !== 'false';

@@ -1,8 +1,5 @@
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
-const { getProviderForUser } = require('./ai/engine');
-const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
-const { getWebChatContext, refreshWebChatSummary } = require('./ai/history');
 
 function setupWebSocket(io, services) {
   const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager } = services;
@@ -78,13 +75,19 @@ function setupWebSocket(io, services) {
         db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
           .run(userId, 'user', task, JSON.stringify({ platform: 'web' }));
 
+        const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
+        const { getWebChatContext } = require('./ai/history');
         ensureDefaultAiSettings(userId);
         const aiSettings = getAiSettings(userId);
+        const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(userId);
         const webContext = getWebChatContext(userId, aiSettings.chat_history_window);
-        const prior = webContext.recentMessages.filter((m) => !(m.role === 'user' && m.content === task)).slice(-aiSettings.chat_history_window);
+        const prior = webContext.recentMessages
+          .filter((m) => !(m.role === 'user' && m.content === task))
+          .slice(-aiSettings.chat_history_window);
 
         const result = await agentEngine.run(userId, task, {
           ...options,
+          conversationId,
           priorMessages: prior,
           priorSummary: webContext.summary
         });
@@ -99,11 +102,6 @@ function setupWebSocket(io, services) {
           db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
             .run(userId, result.runId, 'assistant', result.content, JSON.stringify({ tokens: result.totalTokens }));
         }
-
-        const { provider, model } = await getProviderForUser(userId, task, false, options?.model || null);
-        refreshWebChatSummary(userId, provider, model, aiSettings.chat_history_window).catch((summaryErr) => {
-          console.error('[WS] Web summary refresh failed:', summaryErr.message);
-        });
       } catch (err) {
         console.error(`[WS] agent:run failed for user ${userId}:`, err);
         socket.emit('run:error', { error: sanitizeError(err) });
@@ -226,7 +224,7 @@ function setupWebSocket(io, services) {
       console.log(`[WS] memory:read requested by user ${userId}`);
       socket.emit('memory:data', {
         memory: memoryManager.readMemory(userId),
-        soul: memoryManager.readSoul(userId),
+        assistantBehaviorNotes: memoryManager.getAssistantBehaviorNotes(userId),
         dailyLogs: memoryManager.listDailyLogs(3, userId)
       });
     });

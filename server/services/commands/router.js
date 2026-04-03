@@ -180,8 +180,11 @@ class CommandRouter {
 
     const q = this.app?.locals?.userQueues;
     if (q && q[userId]) {
-      q[userId].pending = [];
-      q[userId].running = false;
+      q[userId].cancelRequested = true;
+      if (!q[userId].running) {
+        q[userId].pending = [];
+        q[userId].cancelRequested = false;
+      }
     }
 
     return {

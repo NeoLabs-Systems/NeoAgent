@@ -30,6 +30,12 @@ class WebRecordingBridge extends RecordingBridge {
   String? _sessionId;
   bool _stopping = false;
   StreamSubscription<html.Event>? _displayEndedSub;
+  static const Set<String> _safeUploadHeaderKeys = <String>{
+    'content-type',
+    'x-recording-sequence',
+    'x-recording-start-ms',
+    'x-recording-end-ms',
+  };
 
   @override
   RecordingRuntimeStatus get status => _status;
@@ -57,11 +63,14 @@ class WebRecordingBridge extends RecordingBridge {
     required String baseUrl,
     required String sessionId,
   }) async {
-    _log('start_web.request', data: <String, Object?>{
-      'sessionId': sessionId,
-      'baseUrl': baseUrl,
-      'alreadyActive': _status.active,
-    });
+    _log(
+      'start_web.request',
+      data: <String, Object?>{
+        'sessionId': sessionId,
+        'baseUrl': baseUrl,
+        'alreadyActive': _status.active,
+      },
+    );
     if (_status.active) {
       throw const RecordingBridgeException(
         'A recording is already in progress.',
@@ -175,11 +184,14 @@ class WebRecordingBridge extends RecordingBridge {
         startedAt: DateTime.now(),
         errorMessage: null,
       );
-      _log('start_web.done', data: <String, Object?>{
-        'sessionId': sessionId,
-        'screenMimeType': screenMimeType ?? 'video/webm',
-        'micMimeType': micMimeType ?? 'audio/webm',
-      });
+      _log(
+        'start_web.done',
+        data: <String, Object?>{
+          'sessionId': sessionId,
+          'screenMimeType': screenMimeType ?? 'video/webm',
+          'micMimeType': micMimeType ?? 'audio/webm',
+        },
+      );
       notifyListeners();
     } catch (error) {
       await _disposeStreams();
@@ -228,11 +240,14 @@ class WebRecordingBridge extends RecordingBridge {
     }
     _stopping = true;
     final sessionId = _sessionId;
-    _log('stop_active.request', data: <String, Object?>{
-      'sessionId': sessionId,
-      'notifyEnded': notifyEnded,
-      'active': _status.active,
-    });
+    _log(
+      'stop_active.request',
+      data: <String, Object?>{
+        'sessionId': sessionId,
+        'notifyEnded': notifyEnded,
+        'active': _status.active,
+      },
+    );
     try {
       await _stopRecorders();
       await Future.wait(_uploadQueueBySource.values);
@@ -243,15 +258,19 @@ class WebRecordingBridge extends RecordingBridge {
         startedAt: null,
         sessionId: sessionId,
       );
-      _log('stop_active.done', data: <String, Object?>{
-        'sessionId': sessionId,
-        'notifyEnded': notifyEnded,
-      });
+      _log(
+        'stop_active.done',
+        data: <String, Object?>{
+          'sessionId': sessionId,
+          'notifyEnded': notifyEnded,
+        },
+      );
       notifyListeners();
       if (notifyEnded && sessionId != null && onRecordingStopped != null) {
-        _log('stop_active.notify_ended', data: <String, Object?>{
-          'sessionId': sessionId,
-        });
+        _log(
+          'stop_active.notify_ended',
+          data: <String, Object?>{'sessionId': sessionId},
+        );
         await onRecordingStopped!(sessionId);
       }
     } finally {
@@ -285,14 +304,26 @@ class WebRecordingBridge extends RecordingBridge {
               mimeType: mimeType,
             ),
           );
-      _uploadQueueBySource[sourceKey] = upload.catchError((error) {
-        _status = _status.copyWith(errorMessage: error.toString());
-        _log('chunk.upload_queue.error', data: <String, Object?>{
-          'sourceKey': sourceKey,
-          'sequence': sequence,
-        }, error: error);
+      _uploadQueueBySource[sourceKey] = upload.catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        final stackText = stackTrace.toString();
+        _status = _status.copyWith(
+          errorMessage: stackText.isNotEmpty ? stackText : error.toString(),
+        );
+        _log(
+          'chunk.upload_queue.error',
+          data: <String, Object?>{
+            'sourceKey': sourceKey,
+            'sequence': sequence,
+            'stackTrace': stackText,
+          },
+          error: error,
+          stackTrace: stackTrace,
+        );
         notifyListeners();
-        throw error;
+        Error.throwWithStackTrace(error, stackTrace);
       });
     });
   }
@@ -314,15 +345,18 @@ class WebRecordingBridge extends RecordingBridge {
     }
     final bytes = await _blobToBytes(blob);
     final uri = _resolveUri(baseUrl, '/api/recordings/$sessionId/chunks');
-    _log('chunk.upload.request', data: <String, Object?>{
-      'sessionId': sessionId,
-      'sourceKey': sourceKey,
-      'sequence': sequence,
-      'startMs': startMs,
-      'endMs': endMs,
-      'size': bytes.length,
-      'mimeType': mimeType,
-    });
+    _log(
+      'chunk.upload.request',
+      data: <String, Object?>{
+        'sessionId': sessionId,
+        'sourceKey': sourceKey,
+        'sequence': sequence,
+        'startMs': startMs,
+        'endMs': endMs,
+        'size': bytes.length,
+        'mimeType': mimeType,
+      },
+    );
     await _requestWithRetry(
       uri.toString(),
       headers: <String, String>{
@@ -334,12 +368,15 @@ class WebRecordingBridge extends RecordingBridge {
       },
       body: bytes,
     );
-    _log('chunk.upload.done', data: <String, Object?>{
-      'sessionId': sessionId,
-      'sourceKey': sourceKey,
-      'sequence': sequence,
-      'size': bytes.length,
-    });
+    _log(
+      'chunk.upload.done',
+      data: <String, Object?>{
+        'sessionId': sessionId,
+        'sourceKey': sourceKey,
+        'sequence': sequence,
+        'size': bytes.length,
+      },
+    );
   }
 
   Future<void> _handleExternalStop() async {
@@ -347,7 +384,10 @@ class WebRecordingBridge extends RecordingBridge {
     if (sessionId == null) {
       return;
     }
-    _log('external_stop.detected', data: <String, Object?>{'sessionId': sessionId});
+    _log(
+      'external_stop.detected',
+      data: <String, Object?>{'sessionId': sessionId},
+    );
     await stopActiveRecording(notifyEnded: true);
   }
 
@@ -386,12 +426,15 @@ class WebRecordingBridge extends RecordingBridge {
     Object? lastError;
     for (var attempt = 0; attempt < 3; attempt += 1) {
       try {
-        _log('chunk.upload.attempt', data: <String, Object?>{
-          'url': url,
-          'attempt': attempt + 1,
-          'size': body.length,
-          'headers': headers,
-        });
+        _log(
+          'chunk.upload.attempt',
+          data: <String, Object?>{
+            'url': url,
+            'attempt': attempt + 1,
+            'size': body.length,
+            'headers': _filterHeadersForLog(headers),
+          },
+        );
         await html.HttpRequest.request(
           url,
           method: 'POST',
@@ -402,16 +445,27 @@ class WebRecordingBridge extends RecordingBridge {
         return;
       } catch (error) {
         lastError = error;
-        _log('chunk.upload.attempt_failed', data: <String, Object?>{
-          'url': url,
-          'attempt': attempt + 1,
-        }, error: error);
+        _log(
+          'chunk.upload.attempt_failed',
+          data: <String, Object?>{'url': url, 'attempt': attempt + 1},
+          error: error,
+        );
         await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
       }
     }
     throw RecordingBridgeException(
       'Could not upload a recording chunk: ${lastError ?? 'unknown error'}',
     );
+  }
+
+  Map<String, String> _filterHeadersForLog(Map<String, String> headers) {
+    final filtered = <String, String>{};
+    headers.forEach((key, value) {
+      if (_safeUploadHeaderKeys.contains(key.toLowerCase())) {
+        filtered[key] = value;
+      }
+    });
+    return filtered;
   }
 
   Future<Uint8List> _blobToBytes(html.Blob blob) {

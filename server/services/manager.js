@@ -72,7 +72,7 @@ function createBrowserController(app) {
     browserLastAccess.set(key, Date.now());
   }
 
-  function evictStaleBrowserControllers() {
+  async function evictStaleBrowserControllers() {
     if (browserControllers.size <= maxBrowserControllers) {
       return;
     }
@@ -80,6 +80,14 @@ function createBrowserController(app) {
       .sort((a, b) => a[1] - b[1]);
     while (browserControllers.size > maxBrowserControllers && entries.length > 0) {
       const [staleKey] = entries.shift();
+      const controller = browserControllers.get(staleKey);
+      if (controller && typeof controller.closeBrowser === 'function') {
+        try {
+          await controller.closeBrowser();
+        } catch (err) {
+          console.warn('[Browser] Failed to close stale browser controller:', getErrorMessage(err));
+        }
+      }
       browserControllers.delete(staleKey);
       browserLastAccess.delete(staleKey);
       browserCreationPromises.delete(staleKey);
@@ -87,7 +95,10 @@ function createBrowserController(app) {
   }
 
   async function getBrowserControllerForUser(userId) {
-    const key = String(userId || '').trim();
+    if (userId === null || userId === undefined) {
+      return app.locals.browserController;
+    }
+    const key = String(userId).trim();
     if (!key) {
       return app.locals.browserController;
     }
@@ -101,12 +112,12 @@ function createBrowserController(app) {
       return browserCreationPromises.get(key);
     }
 
-    const creationPromise = Promise.resolve().then(() => {
+    const creationPromise = Promise.resolve().then(async () => {
       const controller = new BrowserController();
       controller.headless = getUserHeadlessPreference(userId);
       browserControllers.set(key, controller);
       touchBrowserControllerKey(key);
-      evictStaleBrowserControllers();
+      await evictStaleBrowserControllers();
       return controller;
     }).finally(() => {
       browserCreationPromises.delete(key);
@@ -146,7 +157,7 @@ function createAndroidController(app) {
     androidLastAccess.set(key, Date.now());
   }
 
-  function evictStaleAndroidControllers() {
+  async function evictStaleAndroidControllers() {
     if (androidControllers.size <= maxAndroidControllers) {
       return;
     }
@@ -154,6 +165,14 @@ function createAndroidController(app) {
       .sort((a, b) => a[1] - b[1]);
     while (androidControllers.size > maxAndroidControllers && entries.length > 0) {
       const [staleKey] = entries.shift();
+      const controller = androidControllers.get(staleKey);
+      if (controller && typeof controller.close === 'function') {
+        try {
+          await controller.close();
+        } catch (err) {
+          console.warn('[Android] Failed to close stale Android controller:', getErrorMessage(err));
+        }
+      }
       androidControllers.delete(staleKey);
       androidLastAccess.delete(staleKey);
       androidCreationPromises.delete(staleKey);
@@ -175,11 +194,11 @@ function createAndroidController(app) {
       return androidCreationPromises.get(key);
     }
 
-    const creationPromise = Promise.resolve().then(() => {
+    const creationPromise = Promise.resolve().then(async () => {
       const controller = new AndroidController({ userId: key });
       androidControllers.set(key, controller);
       touchAndroidControllerKey(key);
-      evictStaleAndroidControllers();
+      await evictStaleAndroidControllers();
       return controller;
     }).finally(() => {
       androidCreationPromises.delete(key);
@@ -287,6 +306,7 @@ function createWearableManager(app, io, services) {
     'wearableManager',
     new WearableManager(io, services),
   );
+  wearableManager.initDatabase();
   logServiceReady('Wearable manager ready');
   return wearableManager;
 }

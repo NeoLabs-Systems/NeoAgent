@@ -513,10 +513,7 @@ class NeoAgentController extends ChangeNotifier {
     AppDiagnostics.log(
       'recording.controller',
       event,
-      data: <String, Object?>{
-        ..._recordingRuntimeSnapshot(),
-        ...data,
-      },
+      data: <String, Object?>{..._recordingRuntimeSnapshot(), ...data},
       error: error,
       stackTrace: stackTrace,
     );
@@ -538,32 +535,39 @@ class NeoAgentController extends ChangeNotifier {
         .where((session) => session.status == 'recording')
         .length;
 
-    _logRecording('consistency.snapshot', data: <String, Object?>{
-      'reason': reason,
-      'activeSessionId': activeSessionId,
-      'activeSessionStatus': activeSession?.status,
-      'serverRecordingCount': serverRecordingCount,
-    });
+    _logRecording(
+      'consistency.snapshot',
+      data: <String, Object?>{
+        'reason': reason,
+        'activeSessionId': activeSessionId,
+        'activeSessionStatus': activeSession?.status,
+        'serverRecordingCount': serverRecordingCount,
+      },
+    );
 
     if (!recordingRuntime.active &&
         activeSession != null &&
         activeSession.status == 'recording') {
-      _logRecording('consistency.mismatch_runtime_inactive_server_recording',
-          data: <String, Object?>{
-            'reason': reason,
-            'sessionId': activeSession.id,
-          });
+      _logRecording(
+        'consistency.mismatch_runtime_inactive_server_recording',
+        data: <String, Object?>{
+          'reason': reason,
+          'sessionId': activeSession.id,
+        },
+      );
     }
 
     if (recordingRuntime.active &&
         activeSession != null &&
         activeSession.status != 'recording') {
-      _logRecording('consistency.mismatch_runtime_active_server_not_recording',
-          data: <String, Object?>{
-            'reason': reason,
-            'sessionId': activeSession.id,
-            'serverStatus': activeSession.status,
-          });
+      _logRecording(
+        'consistency.mismatch_runtime_active_server_not_recording',
+        data: <String, Object?>{
+          'reason': reason,
+          'sessionId': activeSession.id,
+          'serverStatus': activeSession.status,
+        },
+      );
     }
   }
 
@@ -576,27 +580,27 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> _handleRecordingStopped(String sessionId) async {
-    _logRecording('bridge.on_recording_stopped', data: <String, Object?>{
-      'sessionId': sessionId,
-    });
+    _logRecording(
+      'bridge.on_recording_stopped',
+      data: <String, Object?>{'sessionId': sessionId},
+    );
     try {
       await _backendClient.finalizeRecordingSession(
         backendUrl,
         sessionId,
         stopReason: 'ended',
       );
-      _logRecording('finalize.ok', data: <String, Object?>{
-        'sessionId': sessionId,
-        'stopReason': 'ended',
-      });
+      _logRecording(
+        'finalize.ok',
+        data: <String, Object?>{'sessionId': sessionId, 'stopReason': 'ended'},
+      );
       await refreshRecordings();
     } catch (error) {
-      _logRecording('finalize.failed',
-          data: <String, Object?>{
-            'sessionId': sessionId,
-            'stopReason': 'ended',
-          },
-          error: error);
+      _logRecording(
+        'finalize.failed',
+        data: <String, Object?>{'sessionId': sessionId, 'stopReason': 'ended'},
+        error: error,
+      );
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
@@ -1078,12 +1082,15 @@ class NeoAgentController extends ChangeNotifier {
       backendUrl,
     )).map(RecordingSessionItem.fromJson).toList();
     await _recordingBridge.refreshStatus();
-    _logRecording('refresh.done', data: <String, Object?>{
-      'sessionStatuses': recordingSessions
-          .take(5)
-          .map((item) => '${item.id}:${item.status}')
-          .join(','),
-    });
+    _logRecording(
+      'refresh.done',
+      data: <String, Object?>{
+        'sessionStatuses': recordingSessions
+            .take(5)
+            .map((item) => '${item.id}:${item.status}')
+            .join(','),
+      },
+    );
     _logRecordingConsistency('refreshRecordings');
     notifyListeners();
   }
@@ -1095,15 +1102,20 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     try {
-      _logRecording('refresh_by_id.request', data: <String, Object?>{
-        'sessionId': trimmed,
-      });
+      _logRecording(
+        'refresh_by_id.request',
+        data: <String, Object?>{'sessionId': trimmed},
+      );
       final response = await _backendClient.fetchRecordingSession(
         backendUrl,
         trimmed,
       );
-      final session = RecordingSessionItem.fromJson(_jsonMap(response['session']));
-      final existingIndex = recordingSessions.indexWhere((item) => item.id == session.id);
+      final session = RecordingSessionItem.fromJson(
+        _jsonMap(response['session']),
+      );
+      final existingIndex = recordingSessions.indexWhere(
+        (item) => item.id == session.id,
+      );
       if (existingIndex >= 0) {
         recordingSessions = <RecordingSessionItem>[
           ...recordingSessions.sublist(0, existingIndex),
@@ -1118,19 +1130,22 @@ class NeoAgentController extends ChangeNotifier {
       }
 
       await _recordingBridge.refreshStatus();
-      _logRecording('refresh_by_id.done', data: <String, Object?>{
-        'sessionId': trimmed,
-        'status': session.status,
-        'endedAt': session.endedAt?.toIso8601String(),
-      });
+      _logRecording(
+        'refresh_by_id.done',
+        data: <String, Object?>{
+          'sessionId': trimmed,
+          'status': session.status,
+          'endedAt': session.endedAt?.toIso8601String(),
+        },
+      );
       _logRecordingConsistency('refreshRecordingSessionById');
       notifyListeners();
     } catch (error) {
-      _logRecording('refresh_by_id.fallback_full_refresh',
-          data: <String, Object?>{
-            'sessionId': trimmed,
-          },
-          error: error);
+      _logRecording(
+        'refresh_by_id.fallback_full_refresh',
+        data: <String, Object?>{'sessionId': trimmed},
+        error: error,
+      );
       // Session may have been pruned or unavailable; fall back to full refresh.
       await refreshRecordings();
     }
@@ -1526,7 +1541,9 @@ class NeoAgentController extends ChangeNotifier {
   Uri resolveRecordingSourceAudioUri(String sessionId, String sourceKey) {
     final encodedSessionId = Uri.encodeComponent(sessionId);
     final encodedSourceKey = Uri.encodeComponent(sourceKey);
-    return resolveRuntimeAsset('/api/recordings/$encodedSessionId/audio/$encodedSourceKey');
+    return resolveRuntimeAsset(
+      '/api/recordings/$encodedSessionId/audio/$encodedSourceKey',
+    );
   }
 
   Future<Uint8List> fetchRecordingSourceAudioBytes(
@@ -1535,7 +1552,9 @@ class NeoAgentController extends ChangeNotifier {
   ) {
     final encodedSessionId = Uri.encodeComponent(sessionId);
     final encodedSourceKey = Uri.encodeComponent(sourceKey);
-    return fetchRuntimeAssetBytes('/api/recordings/$encodedSessionId/audio/$encodedSourceKey');
+    return fetchRuntimeAssetBytes(
+      '/api/recordings/$encodedSessionId/audio/$encodedSourceKey',
+    );
   }
 
   Future<Uint8List> fetchRuntimeAssetBytes(String path) {
@@ -1602,16 +1621,17 @@ class NeoAgentController extends ChangeNotifier {
         baseUrl: backendUrl,
         sessionId: session.id,
       );
-      _logRecording('start_web.done', data: <String, Object?>{
-        'sessionId': session.id,
-      });
+      _logRecording(
+        'start_web.done',
+        data: <String, Object?>{'sessionId': session.id},
+      );
       notifyListeners();
     } catch (error) {
-      _logRecording('start_web.failed',
-          data: <String, Object?>{
-            'sessionId': sessionId,
-          },
-          error: error);
+      _logRecording(
+        'start_web.failed',
+        data: <String, Object?>{'sessionId': sessionId},
+        error: error,
+      );
       if (sessionId != null) {
         try {
           await _backendClient.finalizeRecordingSession(
@@ -1669,16 +1689,17 @@ class NeoAgentController extends ChangeNotifier {
         sessionCookie: _backendClient.sessionCookie ?? '',
         sessionId: session.id,
       );
-      _logRecording('start_background.done', data: <String, Object?>{
-        'sessionId': session.id,
-      });
+      _logRecording(
+        'start_background.done',
+        data: <String, Object?>{'sessionId': session.id},
+      );
       notifyListeners();
     } catch (error) {
-      _logRecording('start_background.failed',
-          data: <String, Object?>{
-            'sessionId': sessionId,
-          },
-          error: error);
+      _logRecording(
+        'start_background.failed',
+        data: <String, Object?>{'sessionId': sessionId},
+        error: error,
+      );
       if (sessionId != null) {
         try {
           await _backendClient.finalizeRecordingSession(
@@ -1730,10 +1751,13 @@ class NeoAgentController extends ChangeNotifier {
         !recordingRuntime.supportsScreenAndMic;
     isStoppingRecording = true;
     errorMessage = null;
-    _logRecording('stop.request', data: <String, Object?>{
-      'sessionId': sessionId,
-      'isAndroidBackgroundStop': isAndroidBackgroundStop,
-    });
+    _logRecording(
+      'stop.request',
+      data: <String, Object?>{
+        'sessionId': sessionId,
+        'isAndroidBackgroundStop': isAndroidBackgroundStop,
+      },
+    );
     notifyListeners();
     try {
       await _recordingBridge.stopActiveRecording();
@@ -1747,16 +1771,19 @@ class NeoAgentController extends ChangeNotifier {
         );
       }
       await refreshRecordings();
-      _logRecording('stop.done', data: <String, Object?>{
-        'sessionId': sessionId,
-      });
+      _logRecording(
+        'stop.done',
+        data: <String, Object?>{'sessionId': sessionId},
+      );
     } catch (error) {
-      _logRecording('stop.failed',
-          data: <String, Object?>{
-            'sessionId': sessionId,
-            'isAndroidBackgroundStop': isAndroidBackgroundStop,
-          },
-          error: error);
+      _logRecording(
+        'stop.failed',
+        data: <String, Object?>{
+          'sessionId': sessionId,
+          'isAndroidBackgroundStop': isAndroidBackgroundStop,
+        },
+        error: error,
+      );
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     } finally {
@@ -2178,7 +2205,7 @@ class NeoAgentController extends ChangeNotifier {
     await refreshMemory();
   }
 
-  Future<void> deleteMemory(int id) async {
+  Future<void> deleteMemory(String id) async {
     await _backendClient.deleteMemory(backendUrl, id);
     await refreshMemory();
   }
@@ -2196,8 +2223,10 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateSoul(String content) async {
-    await _backendClient.updateSoul(backendUrl, content);
+  Future<void> updateAssistantBehaviorNotes(String content) async {
+    await _backendClient.saveSettings(backendUrl, <String, dynamic>{
+      'assistant_behavior_notes': content,
+    });
     await refreshMemory();
   }
 
@@ -2734,6 +2763,63 @@ class NeoAgentController extends ChangeNotifier {
         notifyListeners();
       }
     });
+    socket.on('run:analysis', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      final summary = [
+        'mode: ${payload['mode']?.toString() ?? 'execute'}',
+        'verification: ${payload['verification_need']?.toString() ?? 'none'}',
+        'freshness: ${payload['freshness_risk']?.toString() ?? 'none'}',
+      ].join(' | ');
+      toolEvents = <ToolEventItem>[
+        ...toolEvents,
+        ToolEventItem(
+          id: 'analysis-${DateTime.now().microsecondsSinceEpoch}',
+          toolName: 'analysis',
+          type: 'analysis',
+          status: 'completed',
+          summary: summary,
+        ),
+      ];
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(phase: 'Analyzing');
+      }
+      notifyListeners();
+    });
+    socket.on('run:plan', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      final steps = (payload['steps'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) {
+            if (item is Map) {
+              return item['title']?.toString() ?? '';
+            }
+            return item.toString();
+          })
+          .where((item) => item.trim().isNotEmpty)
+          .take(4)
+          .join(' | ');
+      toolEvents = <ToolEventItem>[
+        ...toolEvents,
+        ToolEventItem(
+          id: 'plan-${DateTime.now().microsecondsSinceEpoch}',
+          toolName: 'plan',
+          type: 'planning',
+          status: 'completed',
+          summary: steps.ifEmpty('Execution plan created.'),
+        ),
+      ];
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(phase: 'Planning');
+      }
+      notifyListeners();
+    });
     socket.on('run:stopping', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
@@ -2769,6 +2855,67 @@ class NeoAgentController extends ChangeNotifier {
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Running tool');
       }
+      notifyListeners();
+    });
+    socket.on('run:verification', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      toolEvents = <ToolEventItem>[
+        ...toolEvents,
+        ToolEventItem(
+          id: 'verification-${DateTime.now().microsecondsSinceEpoch}',
+          toolName: 'verification',
+          type: 'verification',
+          status: payload['status']?.toString() == 'verified'
+              ? 'completed'
+              : 'failed',
+          summary:
+              payload['notes']?.toString().ifEmpty(
+                'Verification status: ${payload['status']?.toString() ?? 'unknown'}',
+              ) ??
+              'Verification completed.',
+        ),
+      ];
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(phase: 'Verifying');
+      }
+      notifyListeners();
+    });
+    socket.on('run:subagent', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      if (_backgroundRunIds.contains(runId)) {
+        return;
+      }
+      final newId =
+          'subagent-${payload['handle']?.toString() ?? DateTime.now().microsecondsSinceEpoch}';
+      final nextEvents = toolEvents
+          .where((event) => event.id != newId)
+          .toList(growable: true);
+      nextEvents.insert(
+        0,
+        ToolEventItem(
+          id: newId,
+          toolName: 'subagent',
+          type: 'subagent',
+          status: payload['status']?.toString() == 'failed'
+              ? 'failed'
+              : (payload['status']?.toString() == 'running'
+                    ? 'running'
+                    : 'completed'),
+          summary:
+              payload['task']?.toString().ifEmpty(
+                payload['error']?.toString() ??
+                    payload['result']?.toString() ??
+                    'Subagent update.',
+              ) ??
+              'Subagent update.',
+        ),
+      );
+      toolEvents = nextEvents;
       notifyListeners();
     });
     socket.on('run:tool_end', (dynamic data) {
@@ -5001,9 +5148,10 @@ class WearablesPanel extends StatelessWidget {
       builder: (context, _) {
         final hasBleConnected = service.connectedDevice != null;
         final hasBackgroundOnly =
-          service.backgroundBridgeConnected && !hasBleConnected;
+            service.backgroundBridgeConnected && !hasBleConnected;
         final bridgeWaitingForDevice =
-          service.backgroundBridgeActive && !service.backgroundBridgeConnected;
+            service.backgroundBridgeActive &&
+            !service.backgroundBridgeConnected;
         return ListView(
           padding: _pagePadding(context),
           children: <Widget>[
@@ -5033,7 +5181,9 @@ class WearablesPanel extends StatelessWidget {
                                 icon: service.isConnecting
                                     ? const SizedBox.square(
                                         dimension: 14,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
                                       )
                                     : const Icon(Icons.refresh_rounded),
                                 label: const Text('Reconnect'),
@@ -5046,7 +5196,9 @@ class WearablesPanel extends StatelessWidget {
                                 icon: service.isOfflineSyncRequestInFlight
                                     ? const SizedBox.square(
                                         dimension: 14,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
                                       )
                                     : const Icon(Icons.cloud_sync_outlined),
                                 label: Text(
@@ -5056,7 +5208,10 @@ class WearablesPanel extends StatelessWidget {
                                 ),
                               ),
                             OutlinedButton(
-                              onPressed: (hasBleConnected || hasBackgroundOnly || bridgeWaitingForDevice)
+                              onPressed:
+                                  (hasBleConnected ||
+                                      hasBackgroundOnly ||
+                                      bridgeWaitingForDevice)
                                   ? service.disconnect
                                   : null,
                               child: const Text('Disconnect'),
@@ -5070,10 +5225,10 @@ class WearablesPanel extends StatelessWidget {
                             Text(
                               hasBleConnected
                                   ? 'Connected: ${service.connectedDevice!.name ?? 'Wearable'}'
-                                : hasBackgroundOnly
-                                ? 'Connected via background bridge: ${service.backgroundBridgeDeviceId ?? 'Wearable'}'
-                                : bridgeWaitingForDevice
-                                ? 'Background bridge enabled (waiting for device)'
+                                  : hasBackgroundOnly
+                                  ? 'Connected via background bridge: ${service.backgroundBridgeDeviceId ?? 'Wearable'}'
+                                  : bridgeWaitingForDevice
+                                  ? 'Background bridge enabled (waiting for device)'
                                   : 'No device connected',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -5082,7 +5237,9 @@ class WearablesPanel extends StatelessWidget {
                                 fontSize: 16,
                               ),
                             ),
-                            if (!hasBleConnected && !hasBackgroundOnly && !bridgeWaitingForDevice)
+                            if (!hasBleConnected &&
+                                !hasBackgroundOnly &&
+                                !bridgeWaitingForDevice)
                               const Text(
                                 'Scan for nearby Bluetooth recording devices.',
                                 style: TextStyle(color: _textSecondary),
@@ -5090,12 +5247,24 @@ class WearablesPanel extends StatelessWidget {
                           ],
                         );
 
-                        if (!hasBleConnected && !hasBackgroundOnly && !bridgeWaitingForDevice) {
-                          return Row(
+                        if (!hasBleConnected &&
+                            !hasBackgroundOnly &&
+                            !bridgeWaitingForDevice) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              const Icon(Icons.watch_off_outlined, color: _textSecondary),
-                              const SizedBox(width: 12),
-                              Expanded(child: headline),
+                              Row(
+                                children: <Widget>[
+                                  const Icon(
+                                    Icons.watch_off_outlined,
+                                    color: _textSecondary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: headline),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              actions,
                             ],
                           );
                         }
@@ -5106,7 +5275,10 @@ class WearablesPanel extends StatelessWidget {
                             children: <Widget>[
                               Row(
                                 children: <Widget>[
-                                  const Icon(Icons.watch_outlined, color: _success),
+                                  const Icon(
+                                    Icons.watch_outlined,
+                                    color: _success,
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(child: headline),
                                 ],
@@ -5147,7 +5319,11 @@ class WearablesPanel extends StatelessWidget {
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        const Icon(Icons.favorite_outline, color: _textSecondary, size: 18),
+                        const Icon(
+                          Icons.favorite_outline,
+                          color: _textSecondary,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -5167,7 +5343,10 @@ class WearablesPanel extends StatelessWidget {
                       childrenPadding: const EdgeInsets.only(bottom: 8),
                       title: const Text(
                         'Technical details',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       children: <Widget>[
                         Wrap(
@@ -5181,17 +5360,22 @@ class WearablesPanel extends StatelessWidget {
                             ),
                             _SyncStatPill(
                               label: 'Bridge active',
-                              value: service.backgroundBridgeActive ? 'yes' : 'no',
+                              value: service.backgroundBridgeActive
+                                  ? 'yes'
+                                  : 'no',
                               icon: Icons.settings_ethernet,
                             ),
                             _SyncStatPill(
                               label: 'Bridge connected',
-                              value: service.backgroundBridgeConnected ? 'yes' : 'no',
+                              value: service.backgroundBridgeConnected
+                                  ? 'yes'
+                                  : 'no',
                               icon: Icons.link,
                             ),
                             _SyncStatPill(
                               label: 'Device id',
-                              value: service.connectedDevice?.deviceId ??
+                              value:
+                                  service.connectedDevice?.deviceId ??
                                   service.backgroundBridgeDeviceId ??
                                   '-',
                               icon: Icons.badge_outlined,
@@ -5204,7 +5388,8 @@ class WearablesPanel extends StatelessWidget {
                 ),
               ),
             ),
-            if (service.connectedDevice != null && service.canRequestOfflineSync) ...<Widget>[
+            if (service.connectedDevice != null &&
+                service.canRequestOfflineSync) ...<Widget>[
               const SizedBox(height: 12),
               Card(
                 clipBehavior: Clip.antiAlias,
@@ -5260,7 +5445,10 @@ class WearablesPanel extends StatelessWidget {
                           childrenPadding: EdgeInsets.zero,
                           title: const Text(
                             'Sync details (advanced)',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           children: <Widget>[
                             Wrap(
@@ -5269,17 +5457,21 @@ class WearablesPanel extends StatelessWidget {
                               children: <Widget>[
                                 _SyncStatPill(
                                   label: 'Listed files',
-                                  value: '${service.heypocketSyncListedFilesCount}',
+                                  value:
+                                      '${service.heypocketSyncListedFilesCount}',
                                   icon: Icons.queue_music_outlined,
                                 ),
                                 _SyncStatPill(
                                   label: 'Upload requests',
-                                  value: '${service.heypocketSyncUploadCommandsSent}',
+                                  value:
+                                      '${service.heypocketSyncUploadCommandsSent}',
                                   icon: Icons.cloud_upload_outlined,
                                 ),
                               ],
                             ),
-                            if (service.heypocketSyncListedFiles.isNotEmpty) ...<Widget>[
+                            if (service
+                                .heypocketSyncListedFiles
+                                .isNotEmpty) ...<Widget>[
                               const SizedBox(height: 12),
                               const Text(
                                 'On-device sync files',
@@ -5307,7 +5499,8 @@ class WearablesPanel extends StatelessWidget {
                                       children: <Widget>[
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: <Widget>[
                                               Text(
                                                 file.fileId,
@@ -5330,8 +5523,12 @@ class WearablesPanel extends StatelessWidget {
                                           ),
                                         ),
                                         IconButton(
-                                          onPressed: () => service.deleteHeyPocketOfflineFile(file),
-                                          icon: const Icon(Icons.delete_outline, size: 18),
+                                          onPressed: () => service
+                                              .deleteHeyPocketOfflineFile(file),
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            size: 18,
+                                          ),
                                           tooltip: 'Delete from device',
                                           visualDensity: VisualDensity.compact,
                                         ),
@@ -5341,7 +5538,9 @@ class WearablesPanel extends StatelessWidget {
                                 );
                               }),
                             ],
-                            if (service.heypocketSyncLastControlMessage.isNotEmpty) ...<Widget>[
+                            if (service
+                                .heypocketSyncLastControlMessage
+                                .isNotEmpty) ...<Widget>[
                               const SizedBox(height: 12),
                               Container(
                                 width: double.infinity,
@@ -5358,7 +5557,8 @@ class WearablesPanel extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: _textSecondary,
-                                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                                    fontFamily:
+                                        GoogleFonts.jetBrainsMono().fontFamily,
                                   ),
                                 ),
                               ),
@@ -5369,7 +5569,10 @@ class WearablesPanel extends StatelessWidget {
                         const SizedBox(height: 12),
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: _bgCard,
                             borderRadius: BorderRadius.circular(12),
@@ -5377,7 +5580,11 @@ class WearablesPanel extends StatelessWidget {
                           ),
                           child: Row(
                             children: <Widget>[
-                              const Icon(Icons.tune_rounded, size: 16, color: _textSecondary),
+                              const Icon(
+                                Icons.tune_rounded,
+                                size: 16,
+                                color: _textSecondary,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
@@ -5410,7 +5617,9 @@ class WearablesPanel extends StatelessWidget {
                                     : service.setHeyPocketCallMode,
                               ),
                               Text(
-                                service.heypocketCallModeEnabled ? 'Call' : 'Normal',
+                                service.heypocketCallModeEnabled
+                                    ? 'Call'
+                                    : 'Normal',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: _textSecondary,
@@ -5451,7 +5660,8 @@ class WearablesPanel extends StatelessWidget {
             if (service.scanResults.isEmpty)
               const _EmptyCard(
                 title: 'No devices found',
-                subtitle: 'Ensure your wearable is in pairing mode and Bluetooth is enabled.',
+                subtitle:
+                    'Ensure your wearable is in pairing mode and Bluetooth is enabled.',
               )
             else
               ...service.scanResults.map((device) {
@@ -5472,7 +5682,9 @@ class WearablesPanel extends StatelessWidget {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Connect'),
                       ),
@@ -5560,8 +5772,13 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
   @override
   void didUpdateWidget(covariant RecordingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.controller.wearableService, widget.controller.wearableService)) {
-      oldWidget.controller.wearableService.removeListener(_onWearableServiceChanged);
+    if (!identical(
+      oldWidget.controller.wearableService,
+      widget.controller.wearableService,
+    )) {
+      oldWidget.controller.wearableService.removeListener(
+        _onWearableServiceChanged,
+      );
       widget.controller.wearableService.addListener(_onWearableServiceChanged);
     }
   }
@@ -5612,7 +5829,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
     final wearableService = widget.controller.wearableService;
     final heypocketConnected = wearableService.canStartHeyPocketRecording;
     final heypocketRecordingActive =
-      heypocketConnected && wearableService.heypocketRecordingActive;
+        heypocketConnected && wearableService.heypocketRecordingActive;
     final heypocketStartInFlight = wearableService.heypocketStartInFlight;
     final anyRecordingActive = runtime.active || heypocketRecordingActive;
     Future<void> handleWearableRecordingToggle() async {
@@ -5671,44 +5888,45 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                     if (runtime.supportsScreenAndMic)
                       FilledButton.icon(
                         onPressed:
-                          widget.controller.isStartingRecording || runtime.active
+                            widget.controller.isStartingRecording ||
+                                runtime.active
                             ? null
-                          : widget.controller.startWebRecording,
+                            : widget.controller.startWebRecording,
                         icon: const Icon(Icons.desktop_windows_outlined),
                         label: const Text('Start screen + mic'),
                       ),
                     if (runtime.supportsBackgroundMic)
                       FilledButton.icon(
                         onPressed:
-                          widget.controller.isStartingRecording ||
-                          runtime.active ||
-                          heypocketStartInFlight
+                            widget.controller.isStartingRecording ||
+                                runtime.active ||
+                                heypocketStartInFlight
                             ? null
                             : (heypocketConnected
-                            ? handleWearableRecordingToggle
+                                  ? handleWearableRecordingToggle
                                   : widget.controller.startBackgroundRecording),
                         icon: Icon(
                           heypocketConnected
-                        ? (heypocketRecordingActive
-                          ? Icons.stop_circle_outlined
-                          : Icons.watch_outlined)
+                              ? (heypocketRecordingActive
+                                    ? Icons.stop_circle_outlined
+                                    : Icons.watch_outlined)
                               : Icons.mic_none_outlined,
                         ),
                         label: Text(
                           heypocketConnected
-                        ? (heypocketStartInFlight
-                          ? 'Starting wearable recording...'
-                          : (heypocketRecordingActive
-                          ? 'Stop wearable recording'
-                          : 'Start recording on wearable'))
+                              ? (heypocketStartInFlight
+                                    ? 'Starting wearable recording...'
+                                    : (heypocketRecordingActive
+                                          ? 'Stop wearable recording'
+                                          : 'Start recording on wearable'))
                               : 'Start background mic',
                         ),
                       ),
                     if (runtime.supportsBackgroundMic && runtime.active)
                       OutlinedButton.icon(
                         onPressed: runtime.paused
-                          ? widget.controller.resumeBackgroundRecording
-                          : widget.controller.pauseBackgroundRecording,
+                            ? widget.controller.resumeBackgroundRecording
+                            : widget.controller.pauseBackgroundRecording,
                         icon: Icon(
                           runtime.paused ? Icons.play_arrow : Icons.pause,
                         ),
@@ -5718,7 +5936,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                       OutlinedButton.icon(
                         onPressed: widget.controller.isStoppingRecording
                             ? null
-                          : widget.controller.stopRecording,
+                            : widget.controller.stopRecording,
                         icon: const Icon(Icons.stop_circle_outlined),
                         label: const Text('Stop'),
                       ),
@@ -5753,15 +5971,17 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
         else
           ...widget.controller.recordingSessions.map(
             (session) => Padding(
+              key: ValueKey<String>(session.id),
               padding: const EdgeInsets.only(bottom: 12),
               child: _RecordingSessionCard(
                 controller: widget.controller,
                 session: session,
-                onRetry: (session.status == 'failed' ||
-                    (session.status == 'completed' &&
-                      session.transcriptText.trim().isEmpty &&
-                      session.transcriptSegments.isEmpty &&
-                      session.structuredContent.isEmpty))
+                onRetry:
+                    (session.status == 'failed' ||
+                        (session.status == 'completed' &&
+                            session.transcriptText.trim().isEmpty &&
+                            session.transcriptSegments.isEmpty &&
+                            session.structuredContent.isEmpty))
                     ? () => widget.controller.retryRecording(session.id)
                     : null,
                 onDeleteSegment: (segment) =>
@@ -5793,6 +6013,9 @@ class _RecordingSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final runtime = controller.recordingRuntime;
+    final isLiveSession = runtime.active && runtime.sessionId == session.id;
+    final canDeleteRecording = onDeleteRecording != null && !isLiveSession;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -5851,7 +6074,9 @@ class _RecordingSessionCard extends StatelessWidget {
                   )
                   .toList(),
             ),
-            if (session.sources.any((source) => source.mediaKind == 'audio')) ...<Widget>[
+            if (session.sources.any(
+              (source) => source.mediaKind == 'audio',
+            )) ...<Widget>[
               const SizedBox(height: 12),
               _RecordingSourceAudioControls(
                 controller: controller,
@@ -5883,44 +6108,109 @@ class _RecordingSessionCard extends StatelessWidget {
                       children: <Widget>[
                         Icon(Icons.auto_awesome, size: 16, color: _accent),
                         const SizedBox(width: 8),
-                        Text('Smart Segments', style: TextStyle(color: _accent, fontWeight: FontWeight.w600)),
+                        Text(
+                          'Smart Segments',
+                          style: TextStyle(
+                            color: _accent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
-                    if (session.structuredContent['summary'] != null) ...<Widget>[
+                    if (session.structuredContent['summary'] !=
+                        null) ...<Widget>[
                       const SizedBox(height: 10),
-                      Text('Summary', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _textSecondary)),
-                      const SizedBox(height: 4),
-                      Text(session.structuredContent['summary'].toString(), style: const TextStyle(height: 1.45)),
-                    ],
-                    if (session.structuredContent['action_items'] != null && _getStructuredList(session, 'action_items').isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 10),
-                      Text('Action Items', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _textSecondary)),
-                      const SizedBox(height: 4),
-                      ..._getStructuredList(session, 'action_items').map((item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('• ', style: TextStyle(fontWeight: FontWeight.w700, color: _accent)),
-                            Expanded(child: Text(item.toString(), style: const TextStyle(height: 1.35))),
-                          ],
+                      Text(
+                        'Summary',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: _textSecondary,
                         ),
-                      )),
-                    ],
-                    if (session.structuredContent['events'] != null && _getStructuredList(session, 'events').isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 10),
-                      Text('Events Mentioned', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _textSecondary)),
+                      ),
                       const SizedBox(height: 4),
-                      ..._getStructuredList(session, 'events').map((item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('• ', style: TextStyle(fontWeight: FontWeight.w700, color: _accent)),
-                            Expanded(child: Text(item.toString(), style: const TextStyle(height: 1.35))),
-                          ],
+                      Text(
+                        session.structuredContent['summary'].toString(),
+                        style: const TextStyle(height: 1.45),
+                      ),
+                    ],
+                    if (session.structuredContent['action_items'] != null &&
+                        _getStructuredList(
+                          session,
+                          'action_items',
+                        ).isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Action Items',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: _textSecondary,
                         ),
-                      )),
+                      ),
+                      const SizedBox(height: 4),
+                      ..._getStructuredList(session, 'action_items').map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '• ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _accent,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  item.toString(),
+                                  style: const TextStyle(height: 1.35),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (session.structuredContent['events'] != null &&
+                        _getStructuredList(
+                          session,
+                          'events',
+                        ).isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Events Mentioned',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: _textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      ..._getStructuredList(session, 'events').map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '• ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _accent,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  item.toString(),
+                                  style: const TextStyle(height: 1.35),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -5982,7 +6272,7 @@ class _RecordingSessionCard extends StatelessWidget {
                 style: const TextStyle(color: _textSecondary),
               ),
             ],
-            if (onRetry != null || onDeleteRecording != null) ...<Widget>[
+            if (onRetry != null || canDeleteRecording) ...<Widget>[
               const SizedBox(height: 14),
               Wrap(
                 spacing: 10,
@@ -5994,16 +6284,14 @@ class _RecordingSessionCard extends StatelessWidget {
                       icon: const Icon(Icons.replay),
                       label: const Text('Retry transcription'),
                     ),
-                  if (onDeleteRecording != null)
+                  if (canDeleteRecording)
                     OutlinedButton.icon(
                       onPressed: () async {
                         await onDeleteRecording!();
                       },
                       icon: const Icon(Icons.delete_forever_outlined),
                       label: const Text('Delete recording'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _danger,
-                      ),
+                      style: OutlinedButton.styleFrom(foregroundColor: _danger),
                     ),
                 ],
               ),
@@ -6042,6 +6330,7 @@ class _RecordingSourceAudioControlsState
   late final AudioPlayer _player;
   String? _activeSourceKey;
   bool _isPlaying = false;
+  int _loadToken = 0;
 
   @override
   void initState() {
@@ -6065,9 +6354,11 @@ class _RecordingSourceAudioControlsState
   }
 
   Future<void> _toggleSource(RecordingSourceItem source) async {
+    final token = ++_loadToken;
+    bool isStale() => !mounted || token != _loadToken;
     if (_isPlaying && _activeSourceKey == source.sourceKey) {
       await _player.stop();
-      if (!mounted) {
+      if (isStale()) {
         return;
       }
       setState(() {
@@ -6079,15 +6370,27 @@ class _RecordingSourceAudioControlsState
 
     try {
       await _player.stop();
+      if (isStale()) {
+        return;
+      }
       final bytes = await widget.controller.fetchRecordingSourceAudioBytes(
         widget.session.id,
         source.sourceKey,
       );
+      if (isStale()) {
+        return;
+      }
       if (bytes.isEmpty) {
         throw StateError('Audio source is empty.');
       }
-      final mime = source.mimeType.trim().isNotEmpty ? source.mimeType.trim() : null;
+      final mime = source.mimeType.trim().isNotEmpty
+          ? source.mimeType.trim()
+          : null;
       await _player.play(BytesSource(bytes, mimeType: mime));
+      if (isStale()) {
+        await _player.stop();
+        return;
+      }
       if (!mounted) {
         return;
       }
@@ -6096,6 +6399,9 @@ class _RecordingSourceAudioControlsState
         _activeSourceKey = source.sourceKey;
       });
     } catch (e) {
+      if (isStale()) {
+        return;
+      }
       AppDiagnostics.log(
         'recording.playback',
         'source.play.failed',
@@ -6133,7 +6439,9 @@ class _RecordingSourceAudioControlsState
         return OutlinedButton.icon(
           onPressed: () => _toggleSource(source),
           icon: Icon(isActive ? Icons.stop_circle_outlined : Icons.play_arrow),
-          label: Text(isActive ? 'Stop ${source.label}' : 'Play ${source.label}'),
+          label: Text(
+            isActive ? 'Stop ${source.label}' : 'Play ${source.label}',
+          ),
         );
       }).toList(),
     );
@@ -9341,22 +9649,22 @@ class _SkillsPanelState extends State<SkillsPanel>
       'all',
       ...controller.storeSkills.map((item) => item.category),
     }.toList();
-    final filteredStore = controller.storeSkills.where((item) {
-      final matchesQuery =
-          query.isEmpty ||
-          item.name.toLowerCase().contains(query) ||
-          item.description.toLowerCase().contains(query) ||
-          item.category.toLowerCase().contains(query);
-      final matchesCategory =
-          _selectedCategory == 'all' || item.category == _selectedCategory;
-      return matchesQuery && matchesCategory;
-    }).toList()
-      ..sort((a, b) {
-        if (a.installed != b.installed) {
-          return a.installed ? -1 : 1;
-        }
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
+    final filteredStore =
+        controller.storeSkills.where((item) {
+          final matchesQuery =
+              query.isEmpty ||
+              item.name.toLowerCase().contains(query) ||
+              item.description.toLowerCase().contains(query) ||
+              item.category.toLowerCase().contains(query);
+          final matchesCategory =
+              _selectedCategory == 'all' || item.category == _selectedCategory;
+          return matchesQuery && matchesCategory;
+        }).toList()..sort((a, b) {
+          if (a.installed != b.installed) {
+            return a.installed ? -1 : 1;
+          }
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
 
     return Padding(
       padding: _pagePadding(context),
@@ -9413,7 +9721,11 @@ class _SkillsPanelState extends State<SkillsPanel>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const <Widget>[
-              Icon(Icons.extension_off_outlined, size: 34, color: _textSecondary),
+              Icon(
+                Icons.extension_off_outlined,
+                size: 34,
+                color: _textSecondary,
+              ),
               SizedBox(height: 12),
               Text(
                 'No current skills yet. Install from Store or create a new one.',
@@ -9459,10 +9771,8 @@ class _SkillsPanelState extends State<SkillsPanel>
                               ),
                               Switch(
                                 value: skill.enabled,
-                                onChanged: (value) => controller.setSkillEnabled(
-                                  skill.name,
-                                  value,
-                                ),
+                                onChanged: (value) => controller
+                                    .setSkillEnabled(skill.name, value),
                               ),
                             ],
                           ),
@@ -9559,10 +9869,8 @@ class _SkillsPanelState extends State<SkillsPanel>
                             children: <Widget>[
                               Switch(
                                 value: skill.enabled,
-                                onChanged: (value) => controller.setSkillEnabled(
-                                  skill.name,
-                                  value,
-                                ),
+                                onChanged: (value) => controller
+                                    .setSkillEnabled(skill.name, value),
                               ),
                               OutlinedButton(
                                 onPressed: () =>
@@ -9663,7 +9971,8 @@ class _SkillsPanelState extends State<SkillsPanel>
                   checkmarkColor: _accent,
                   backgroundColor: _bgSecondary,
                   side: const BorderSide(color: _border),
-                  onSelected: (_) => setState(() => _selectedCategory = category),
+                  onSelected: (_) =>
+                      setState(() => _selectedCategory = category),
                 );
               },
             ),
@@ -9695,7 +10004,10 @@ class _SkillsPanelState extends State<SkillsPanel>
                       children: <Widget>[
                         Row(
                           children: <Widget>[
-                            Text(item.icon, style: const TextStyle(fontSize: 24)),
+                            Text(
+                              item.icon,
+                              style: const TextStyle(fontSize: 24),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -9711,10 +10023,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                                     label: 'Installed',
                                     color: _success,
                                   )
-                                : const _StatusPill(
-                                    label: 'Get',
-                                    color: _info,
-                                  ),
+                                : const _StatusPill(label: 'Get', color: _info),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -9828,8 +10137,8 @@ class _SkillsPanelState extends State<SkillsPanel>
                                         child: const Text('Uninstall'),
                                       )
                                     : FilledButton(
-                                        onPressed: () =>
-                                            controller.installStoreSkill(item.id),
+                                        onPressed: () => controller
+                                            .installStoreSkill(item.id),
                                         child: const Text('Install'),
                                       ),
                               ],
@@ -10031,9 +10340,9 @@ Write the instructions for this skill here.
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Deleted "$name".')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Deleted "$name".')));
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -10081,15 +10390,16 @@ class _MemoryPanelState extends State<MemoryPanel> {
       children: <Widget>[
         _PageTitle(
           title: 'Memory',
-          subtitle: 'Core memory, semantic recall, daily logs, and SOUL.md.',
+          subtitle:
+              'Core memory, thread context, long-term recall, daily logs, and behavior notes.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
             children: <Widget>[
               OutlinedButton.icon(
-                onPressed: () => _openSoulEditor(context, controller),
+                onPressed: () => _openBehaviorNotesEditor(context, controller),
                 icon: const Icon(Icons.edit_outlined),
-                label: const Text('Edit SOUL'),
+                label: const Text('Behavior Notes'),
               ),
               FilledButton.icon(
                 onPressed: () => _openMemoryCreator(context, controller),
@@ -10103,9 +10413,9 @@ class _MemoryPanelState extends State<MemoryPanel> {
           children: <Widget>[
             Expanded(
               child: _OverviewCard(
-                title: 'SOUL.md',
-                value: '${controller.memoryOverview.soulLength} chars',
-                helper: 'Current self-document length',
+                title: 'Behavior Notes',
+                value: '${controller.memoryOverview.behaviorNotesLength} chars',
+                helper: 'Durable assistant style guidance',
               ),
             ),
             const SizedBox(width: 12),
@@ -10417,12 +10727,16 @@ class _MemoryPanelState extends State<MemoryPanel> {
                       child: Text('episodic'),
                     ),
                     DropdownMenuItem(
-                      value: 'semantic',
-                      child: Text('semantic'),
+                      value: 'user_fact',
+                      child: Text('user_fact'),
                     ),
                     DropdownMenuItem(
-                      value: 'procedural',
-                      child: Text('procedural'),
+                      value: 'preference',
+                      child: Text('preference'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'personality',
+                      child: Text('personality'),
                     ),
                   ],
                   decoration: const InputDecoration(labelText: 'Category'),
@@ -10472,26 +10786,28 @@ class _MemoryPanelState extends State<MemoryPanel> {
     );
   }
 
-  Future<void> _openSoulEditor(
+  Future<void> _openBehaviorNotesEditor(
     BuildContext context,
     NeoAgentController controller,
   ) async {
     final contentController = TextEditingController(
-      text: controller.memoryOverview.soul,
+      text: controller.memoryOverview.assistantBehaviorNotes,
     );
     await showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: _bgCard,
-          title: const Text('Edit SOUL.md'),
+          title: const Text('Edit Assistant Behavior Notes'),
           content: SizedBox(
             width: 720,
             child: TextField(
               controller: contentController,
               minLines: 16,
               maxLines: 24,
-              decoration: const InputDecoration(labelText: 'SOUL.md'),
+              decoration: const InputDecoration(
+                labelText: 'assistant_behavior_notes',
+              ),
             ),
           ),
           actions: <Widget>[
@@ -10501,7 +10817,9 @@ class _MemoryPanelState extends State<MemoryPanel> {
             ),
             FilledButton(
               onPressed: () async {
-                await controller.updateSoul(contentController.text);
+                await controller.updateAssistantBehaviorNotes(
+                  contentController.text,
+                );
                 if (context.mounted) {
                   Navigator.of(context).pop();
                 }

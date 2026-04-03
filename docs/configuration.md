@@ -44,7 +44,7 @@ Telegram, Discord, and WhatsApp tokens are stored in the database via the Flutte
 
 - Config: `~/.neoagent/.env`
 - Database/session/logs: `~/.neoagent/data/`
-- Skills/soul/daily memory files: `~/.neoagent/agent-data/`
+- Skills/memory/daily data files: `~/.neoagent/agent-data/`
 
 ---
 

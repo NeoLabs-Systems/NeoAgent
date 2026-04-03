@@ -1,0 +1,253 @@
+const db = require('../../db/database');
+const { getProviderHealthCatalog } = require('./models');
+const { resolveBrowserExecutablePath } = require('../browser/controller');
+
+function capabilityEntry(overrides = {}) {
+  return {
+    connected: false,
+    configured: false,
+    healthy: false,
+    degraded: false,
+    safe: true,
+    summary: '',
+    details: {},
+    ...overrides,
+  };
+}
+
+function summarizeCapabilityHealth(health) {
+  const lines = [];
+  for (const [name, entry] of Object.entries(health.capabilities || {})) {
+    const state = entry.healthy
+      ? (entry.degraded ? 'degraded' : 'healthy')
+      : (entry.configured ? 'unhealthy' : 'unconfigured');
+    const detail = entry.summary ? ` - ${entry.summary}` : '';
+    lines.push(`${name}: ${state}${detail}`);
+  }
+
+  if (Array.isArray(health.providers) && health.providers.length > 0) {
+    const providerLine = health.providers
+      .map((provider) => `${provider.id}:${provider.healthy ? 'healthy' : provider.configured ? 'unhealthy' : 'unconfigured'}`)
+      .join(', ');
+    lines.push(`providers: ${providerLine}`);
+  }
+
+  return lines.join('\n');
+}
+
+async function getBrowserHealth(userId, app, engine) {
+  const resolver = app?.locals?.getBrowserControllerForUser;
+  const controller = typeof resolver === 'function'
+    ? await resolver(userId)
+    : (app?.locals?.browserController || engine?.browserController || null);
+
+  const executablePath = resolveBrowserExecutablePath();
+  let pageInfo = null;
+  let launched = false;
+  let error = null;
+
+  try {
+    launched = typeof controller?.isLaunched === 'function' ? controller.isLaunched() : false;
+    pageInfo = typeof controller?.getPageInfo === 'function' ? await controller.getPageInfo() : null;
+  } catch (err) {
+    error = err.message;
+  }
+
+  return capabilityEntry({
+    connected: launched,
+    configured: Boolean(executablePath),
+    healthy: Boolean(executablePath) && !error,
+    degraded: Boolean(error),
+    summary: error
+      ? `Browser runtime error: ${error}`
+      : executablePath
+        ? (launched ? 'Browser runtime is ready.' : 'Browser executable is available but not launched.')
+        : 'No browser executable was found for Puppeteer.',
+    details: {
+      executablePath: executablePath || null,
+      launched,
+      pageInfo,
+    },
+  });
+}
+
+async function getAndroidHealth(userId, app, engine) {
+  const resolver = app?.locals?.getAndroidControllerForUser;
+  const controller = typeof resolver === 'function'
+    ? await resolver(userId)
+    : (app?.locals?.androidController || engine?.androidController || null);
+
+  if (!controller || typeof controller.getStatus !== 'function') {
+    return capabilityEntry({
+      summary: 'Android controller is not available.',
+    });
+  }
+
+  try {
+    const status = await controller.getStatus();
+    const bootstrapped = status.bootstrapped === true;
+    const canBootstrap = status.canBootstrap === true;
+    return capabilityEntry({
+      connected: Array.isArray(status.devices) && status.devices.some((device) => device.status === 'device'),
+      configured: canBootstrap || bootstrapped,
+      healthy: canBootstrap || bootstrapped,
+      degraded: Boolean(status.lastStartError),
+      summary: status.lastStartError
+        ? `Android tooling reported: ${status.lastStartError}`
+        : bootstrapped
+          ? 'Android environment is bootstrapped.'
+          : (canBootstrap ? 'Android environment can be bootstrapped on this host.' : 'Android tooling cannot bootstrap on this host.'),
+      details: status,
+    });
+  } catch (err) {
+    return capabilityEntry({
+      configured: true,
+      healthy: false,
+      degraded: true,
+      summary: `Android status check failed: ${err.message}`,
+      details: { error: err.message },
+    });
+  }
+}
+
+function getMessagingHealth(userId, app, engine) {
+  const manager = app?.locals?.messagingManager || engine?.messagingManager;
+  if (!manager || typeof manager.getAllStatuses !== 'function') {
+    return capabilityEntry({
+      summary: 'Messaging manager is not available.',
+    });
+  }
+
+  const statuses = manager.getAllStatuses(userId) || {};
+  const entries = Object.entries(statuses);
+  const connectedCount = entries.filter(([, value]) => value?.status === 'connected').length;
+
+  return capabilityEntry({
+    connected: connectedCount > 0,
+    configured: entries.length > 0,
+    healthy: entries.length > 0 ? connectedCount > 0 : false,
+    degraded: entries.some(([, value]) => ['error', 'disconnected'].includes(String(value?.status || '').toLowerCase())),
+    summary: entries.length === 0
+      ? 'No messaging platforms are configured.'
+      : `${connectedCount}/${entries.length} messaging platforms are connected.`,
+    details: statuses,
+  });
+}
+
+function getSearchHealth() {
+  const configured = Boolean(String(process.env.BRAVE_SEARCH_API_KEY || '').trim());
+  return capabilityEntry({
+    connected: configured,
+    configured,
+    healthy: configured,
+    summary: configured
+      ? 'Brave Search API is configured.'
+      : 'Brave Search API key is not configured.',
+  });
+}
+
+function getMcpHealth(userId, app, engine) {
+  const client = app?.locals?.mcpClient || app?.locals?.mcpManager || engine?.mcpManager;
+  if (!client || typeof client.getStatus !== 'function') {
+    return capabilityEntry({
+      summary: 'MCP manager is not available.',
+    });
+  }
+
+  const statuses = client.getStatus(userId) || {};
+  const entries = Object.values(statuses);
+  const runningCount = entries.filter((entry) => entry?.status === 'running').length;
+  return capabilityEntry({
+    connected: runningCount > 0,
+    configured: entries.length > 0,
+    healthy: entries.length > 0 ? runningCount > 0 : true,
+    degraded: entries.some((entry) => entry?.status && entry.status !== 'running'),
+    summary: entries.length === 0
+      ? 'No MCP servers are configured.'
+      : `${runningCount}/${entries.length} MCP servers are running.`,
+    details: statuses,
+  });
+}
+
+function getSkillHealth(app, engine) {
+  const runner = app?.locals?.skillRunner || engine?.skillRunner;
+  const skills = typeof runner?.getAll === 'function' ? runner.getAll() : [];
+  return capabilityEntry({
+    connected: skills.length > 0,
+    configured: Boolean(runner),
+    healthy: Boolean(runner),
+    summary: runner
+      ? `${skills.length} reusable skills are loaded.`
+      : 'Skill runner is not available.',
+    details: { count: skills.length },
+  });
+}
+
+function getFileHealth() {
+  return capabilityEntry({
+    connected: true,
+    configured: true,
+    healthy: true,
+    summary: 'Filesystem access is available.',
+  });
+}
+
+function getCommandHealth(engine) {
+  return capabilityEntry({
+    connected: Boolean(engine?.cliExecutor),
+    configured: true,
+    healthy: Boolean(engine?.cliExecutor),
+    summary: engine?.cliExecutor
+      ? 'Shell command execution is available.'
+      : 'Shell executor is not available.',
+  });
+}
+
+function getMemoryHealth(engine) {
+  return capabilityEntry({
+    connected: Boolean(engine?.memoryManager),
+    configured: Boolean(engine?.memoryManager),
+    healthy: Boolean(engine?.memoryManager),
+    summary: engine?.memoryManager
+      ? 'Conversation and long-term memory are available.'
+      : 'Memory manager is not available.',
+  });
+}
+
+function getSchedulerHealth(userId) {
+  const taskCount = db.prepare('SELECT COUNT(*) AS count FROM scheduled_tasks WHERE user_id = ?').get(userId)?.count || 0;
+  return capabilityEntry({
+    connected: taskCount > 0,
+    configured: true,
+    healthy: true,
+    summary: taskCount > 0
+      ? `${taskCount} scheduled task(s) exist for this user.`
+      : 'No scheduled tasks are configured.',
+    details: { taskCount },
+  });
+}
+
+async function getCapabilityHealth({ userId, app, engine }) {
+  const providers = await getProviderHealthCatalog(userId);
+
+  return {
+    providers,
+    capabilities: {
+      command: getCommandHealth(engine),
+      files: getFileHealth(),
+      memory: getMemoryHealth(engine),
+      search: getSearchHealth(),
+      browser: await getBrowserHealth(userId, app, engine),
+      android: await getAndroidHealth(userId, app, engine),
+      messaging: getMessagingHealth(userId, app, engine),
+      mcp: getMcpHealth(userId, app, engine),
+      skills: getSkillHealth(app, engine),
+      scheduler: getSchedulerHealth(userId),
+    },
+  };
+}
+
+module.exports = {
+  getCapabilityHealth,
+  summarizeCapabilityHealth,
+};

@@ -12,7 +12,7 @@ async function getBrowserController(req) {
   if (typeof resolver === "function") {
     controller = await resolver(userId);
   } else {
-    controller = req.app.locals.browserController;
+    controller = req.app?.locals?.browserController;
   }
 
   if (!controller) {

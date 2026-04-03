@@ -1,7 +1,4 @@
 const { v4: uuidv4 } = require('uuid');
-const db = require('../../db/database');
-const { AgentEngine } = require('./engine');
-
 class MultiStepOrchestrator {
   constructor(engine, io) {
     this.io = io;
@@ -12,16 +9,22 @@ class MultiStepOrchestrator {
   async planAndExecute(userId, task, options = {}) {
     const orchestrationId = uuidv4();
     const app = options.app;
+    const requestedSteps = Array.isArray(options.requestedSteps) ? options.requestedSteps : [];
 
     this.activeOrchestrations.set(orchestrationId, {
       userId,
       task,
       status: 'planning',
       steps: [],
-      currentStep: 0
+      currentStep: 0,
+      requestedSteps,
     });
 
-    this.emit(userId, 'orchestration:start', { orchestrationId, task });
+    this.emit(userId, 'orchestration:start', {
+      orchestrationId,
+      task,
+      requestedSteps,
+    });
 
     try {
       const result = await this.engine.run(userId, task, {
@@ -30,6 +33,8 @@ class MultiStepOrchestrator {
         app,
         triggerType: options.triggerType || 'user',
         triggerSource: options.triggerSource || 'web',
+        forceMode: options.forceMode || 'plan_execute',
+        requestedSteps,
         context: options.context,
         stream: options.stream
       });
@@ -98,7 +103,8 @@ class MultiStepOrchestrator {
       userId: orch.userId,
       task: orch.task,
       status: orch.status,
-      currentStep: orch.currentStep
+      currentStep: orch.currentStep,
+      requestedSteps: orch.requestedSteps || [],
     }));
   }
 

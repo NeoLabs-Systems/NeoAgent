@@ -22,12 +22,13 @@ class PacketWearableProtocol(
             return payload
         }
 
-        if (isAsciiControlMessage(payload)) {
-            return null
-        }
+	        if (isAsciiControlMessage(payload)) {
+	            return null
+	        }
 
-        return payload
-    }
+	        // Only audio-notify packets are forwarded as audio payloads.
+	        return null
+	    }
 
     override fun startRecordingCommand(): String = "APP&STA"
 

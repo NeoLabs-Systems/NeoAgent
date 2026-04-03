@@ -1852,6 +1852,7 @@ class AndroidController {
   }
 
   async close() {
+    AndroidController.cleanupControllers.delete(this);
     return this.stopEmulator().catch(() => {});
   }
 }

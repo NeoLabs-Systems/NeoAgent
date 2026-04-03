@@ -28,7 +28,7 @@ function getBrowserController(req) {
   if (typeof resolver === 'function') {
     return resolver(req.session?.userId);
   }
-  return req.app.locals.browserController;
+  return req.app?.locals?.browserController;
 }
 
 function applyHeadlessSetting(req, value) {
@@ -50,9 +50,9 @@ router.get('/meta/models', async (req, res) => {
 });
 
 router.get('/meta/ai-providers', async (req, res) => {
-  const { getProviderCatalog, getSupportedModels } = require('../services/ai/models');
+  const { getProviderHealthCatalog, getSupportedModels } = require('../services/ai/models');
   const [providers, models] = await Promise.all([
-    getProviderCatalog(req.session.userId),
+    getProviderHealthCatalog(req.session.userId),
     getSupportedModels(req.session.userId),
   ]);
 
