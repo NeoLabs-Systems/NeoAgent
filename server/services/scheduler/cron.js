@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('../../db/database');
 
 const MAX_SCHEDULER_AUTONOMOUS_RETRIES = 1;
+const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
 
 class Scheduler {
   constructor(io, agentEngine, app = null) {
@@ -10,12 +11,13 @@ class Scheduler {
     this.agentEngine = agentEngine;
     this.app = app;
     this.jobs = new Map();
-    this.heartbeatJob = null;
+    this.userExecutionChains = new Map();
+    this.pendingTaskExecutions = new Set();
+    this.runningTaskExecutions = new Set();
   }
 
   start() {
     this._loadFromDB();
-    this._startHeartbeat();
     this._startOneTimePoller();
     console.log('[Scheduler] Started');
   }
@@ -25,27 +27,11 @@ class Scheduler {
       job.task.stop();
     }
     this.jobs.clear();
-    if (this.heartbeatJob) {
-      this.heartbeatJob.stop();
-      this.heartbeatJob = null;
-    }
     if (this.oneTimePoller) {
       this.oneTimePoller.stop();
       this.oneTimePoller = null;
     }
     console.log('[Scheduler] Stopped');
-  }
-
-  _startHeartbeat() {
-    // Heartbeat runs every 5 minutes
-    this.heartbeatJob = cron.schedule('*/5 * * * *', async () => {
-      try {
-        await this._runHeartbeat();
-      } catch (err) {
-        console.error('[Heartbeat] Error:', err.message);
-      }
-    });
-    console.log('[Scheduler] Heartbeat active (every 5 min)');
   }
 
   _startOneTimePoller() {
@@ -55,11 +41,13 @@ class Scheduler {
       ).all();
 
       for (const task of due) {
-        const config = this._normalizeTaskConfig(task.task_config);
         // Remove from memory before executing so a slow run can't double-fire
         this.jobs.delete(task.id);
         try {
-          await this._executeTask(task.id, task.user_id, config);
+          await this._executeTask(task.id, task.user_id, {
+            scheduledAt: task.run_at || new Date().toISOString(),
+            oneTime: true,
+          });
         } catch (err) {
           console.error(`[Scheduler] One-time task ${task.id} error:`, err.message);
         }
@@ -69,45 +57,6 @@ class Scheduler {
       }
     });
     console.log('[Scheduler] One-time poller active (every 1 min)');
-  }
-
-  async _runHeartbeat() {
-    const users = db.prepare('SELECT id FROM users').all();
-
-    for (const user of users) {
-      const settings = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(user.id, 'heartbeat_enabled');
-
-      if (!settings || settings.value !== 'true') continue;
-
-      const prompt = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(user.id, 'heartbeat_prompt');
-
-      const defaultPrompt = 'You are running a silent background heartbeat check. Scan memory, pending tasks, and reminders. DEFAULT ACTION IS SILENCE — do NOT contact the user unless something is genuinely important (urgent deadline, critical failure, time-sensitive action required, or something the user would be upset to miss). If nothing important is found, do nothing and end the run quietly. Never send routine updates, summaries, or "all clear" messages.';
-
-      const lastPlatform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(user.id, 'last_platform')?.value;
-      const lastChatId = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(user.id, 'last_chat_id')?.value;
-      const platformHint = lastPlatform && lastChatId
-        ? `\n\nOnly if you found something that genuinely requires the user's attention, send_message to platform="${lastPlatform}" to="${lastChatId}". Otherwise stay silent.`
-        : '';
-
-      this.io.to(`user:${user.id}`).emit('heartbeat:running', { timestamp: new Date().toISOString() });
-
-      try {
-        if (this.agentEngine) {
-          const convId = this._getMessagingConversation(user.id);
-
-          await this.agentEngine.run(user.id, (prompt?.value || defaultPrompt) + platformHint, {
-            triggerType: 'heartbeat',
-            triggerSource: 'heartbeat',
-            app: this.app,
-            ...(convId ? { conversationId: convId } : {}),
-          });
-        }
-      } catch (err) {
-        console.error(`[Heartbeat] Error for user ${user.id}:`, err.message);
-      }
-    }
   }
 
   createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null, model = null, runAt = null, oneTime = false }) {
@@ -247,20 +196,75 @@ class Scheduler {
     const task = db.prepare('SELECT * FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
     if (!task) throw new Error('Task not found');
 
-    const config = this._normalizeTaskConfig(task.task_config);
-    this._executeTask(taskId, userId, config);
+    this._executeTask(taskId, userId, {
+      scheduledAt: new Date().toISOString(),
+      manual: true,
+      oneTime: !!task.one_time,
+    });
     return { running: true };
   }
 
-  _scheduleTask(taskId, userId, cronExpression, config) {
+  _scheduleTask(taskId, userId, cronExpression, _config) {
     const task = cron.schedule(cronExpression, async () => {
-      await this._executeTask(taskId, userId, config);
+      await this._executeTask(taskId, userId, {
+        scheduledAt: new Date().toISOString(),
+        cronExpression,
+        manual: false,
+        oneTime: false,
+      });
     });
 
-    this.jobs.set(taskId, { task, userId, config });
+    this.jobs.set(taskId, { task, userId });
   }
 
-  async _executeTask(taskId, userId, config) {
+  async _executeTask(taskId, userId, executionMeta = {}) {
+    const executionKey = `${userId}:${taskId}`;
+    if (this.pendingTaskExecutions.has(executionKey) || this.runningTaskExecutions.has(executionKey)) {
+      this.io.to(`user:${userId}`).emit('scheduler:task_skipped', {
+        taskId,
+        reason: 'already_running_or_queued',
+        timestamp: new Date().toISOString(),
+      });
+      return { skipped: true, reason: 'already_running_or_queued' };
+    }
+
+    this.pendingTaskExecutions.add(executionKey);
+    this.pendingTaskExecutions.delete(executionKey);
+    this.runningTaskExecutions.add(executionKey);
+    try {
+      return await this._executeTaskSerial(taskId, userId, executionMeta);
+    } finally {
+      this.runningTaskExecutions.delete(executionKey);
+    }
+  }
+
+  async _executeTaskSerial(taskId, userId, executionMeta = {}) {
+    const task = db.prepare('SELECT * FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
+    if (!task || !task.enabled) {
+      return { skipped: true, reason: 'missing_or_disabled' };
+    }
+
+    const config = this._normalizeTaskConfig(task.task_config);
+    const scheduledAtMs = executionMeta.scheduledAt ? new Date(executionMeta.scheduledAt).getTime() : NaN;
+    const isLateRecurringRun = (
+      executionMeta.manual !== true
+      && executionMeta.oneTime !== true
+      && Number.isFinite(scheduledAtMs)
+      && (Date.now() - scheduledAtMs) > MAX_RECURRING_TASK_START_DELAY_MS
+    );
+    if (isLateRecurringRun) {
+      this.io.to(`user:${userId}`).emit('scheduler:task_skipped', {
+        taskId,
+        reason: 'stale_start_delay',
+        scheduledAt: executionMeta.scheduledAt,
+        timestamp: new Date().toISOString(),
+      });
+      console.warn(
+        `[Scheduler] Skipping stale recurring task ${taskId}; start delay ${Date.now() - scheduledAtMs}ms exceeded ${MAX_RECURRING_TASK_START_DELAY_MS}ms`
+      );
+      return { skipped: true, reason: 'stale_start_delay' };
+    }
+
     db.prepare('UPDATE scheduled_tasks SET last_run = datetime(\'now\') WHERE id = ?').run(taskId);
     const deliveryState = {
       messagingSent: false,
@@ -268,9 +272,8 @@ class Scheduler {
       sentMessages: [],
     };
 
-    const taskRecord = db.prepare('SELECT name, cron_expression, one_time FROM scheduled_tasks WHERE id = ?').get(taskId);
-    const taskName = taskRecord ? taskRecord.name : `Task ${taskId}`;
-    const scheduleInfo = taskRecord ? (taskRecord.one_time ? 'One-time' : taskRecord.cron_expression) : 'Unknown';
+    const taskName = task.name || `Task ${taskId}`;
+    const scheduleInfo = task.one_time ? 'One-time' : task.cron_expression;
 
     if (!config.callTo && (!config.notifyPlatform || !config.notifyTo)) {
       const notifyTarget = this._getDefaultNotifyTarget(userId);
@@ -309,7 +312,7 @@ class Scheduler {
         const userPrompt = config.prompt || `You have been triggered by the scheduler to run the background task "${taskName}". Please execute any necessary checks or actions associated with this task.`;
         const basePrompt = taskContext + userPrompt + notifyHint;
 
-        const convId = this._getMessagingConversation(userId);
+        const convId = this._getTaskConversation(userId, taskId, taskName);
 
         let attempt = 0;
         let recoveryNote = '';
@@ -323,6 +326,13 @@ class Scheduler {
             taskId,
             deliveryState,
             allowMultipleProactiveMessages: config.allowMultipleMessages === true || config.allow_multiple_messages === true,
+            skipTaskAnalysis: true,
+            skipGlobalRecall: true,
+            skipConversationHistory: true,
+            skipConversationMaintenance: true,
+            skipRunContextPersistence: true,
+            skipVerifier: true,
+            stream: false,
           };
 
           try {
@@ -330,7 +340,7 @@ class Scheduler {
               ? await this.agentEngine.runWithModel(userId, finalPrompt, runOptions, config.model || null)
               : await this.agentEngine.run(userId, finalPrompt, runOptions);
             this.io.to(`user:${userId}`).emit('scheduler:task_complete', { taskId, result });
-            return;
+            return result;
           } catch (err) {
             if (attempt >= MAX_SCHEDULER_AUTONOMOUS_RETRIES) {
               throw err;
@@ -355,7 +365,22 @@ class Scheduler {
     } catch (err) {
       console.error(`[Scheduler] Task ${taskId} error:`, err.message);
       this.io.to(`user:${userId}`).emit('scheduler:task_error', { taskId, error: err.message });
+      return { skipped: false, error: err.message };
     }
+  }
+
+  _enqueueUserExecution(userId, fn) {
+    const previous = this.userExecutionChains.get(userId) || Promise.resolve();
+    const current = previous
+      .catch(() => { })
+      .then(() => fn());
+    const cleanup = current.finally(() => {
+      if (this.userExecutionChains.get(userId) === cleanup) {
+        this.userExecutionChains.delete(userId);
+      }
+    });
+    this.userExecutionChains.set(userId, cleanup);
+    return cleanup;
   }
 
   _loadFromDB() {
@@ -428,6 +453,25 @@ class Scheduler {
       db.prepare(
         'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
       ).run(convId, userId, lastPlatform, lastChatId, `${lastPlatform} — ${lastChatId}`);
+      convRow = { id: convId };
+    }
+
+    return convRow.id;
+  }
+
+  _getTaskConversation(userId, taskId, taskName) {
+    const platform = 'scheduler';
+    const platformChatId = `task:${taskId}`;
+
+    let convRow = db.prepare(
+      'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?'
+    ).get(userId, platform, platformChatId);
+
+    if (!convRow) {
+      const convId = crypto.randomUUID();
+      db.prepare(
+        'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
+      ).run(convId, userId, platform, platformChatId, `Scheduler — ${taskName || `Task ${taskId}`}`);
       convRow = { id: convId };
     }
 

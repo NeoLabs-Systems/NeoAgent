@@ -72,7 +72,7 @@ function compactToolDefinition(tool, options = {}) {
 }
 
 function isProactiveTrigger(triggerSource) {
-    return triggerSource === 'scheduler' || triggerSource === 'heartbeat';
+    return triggerSource === 'scheduler';
 }
 
 function getRunState(engine, runId) {
@@ -1428,7 +1428,7 @@ async function executeTool(toolName, args, context, engine) {
                 return {
                     called: false,
                     skipped: true,
-                    reason: 'A proactive notification was already sent in this scheduler/heartbeat run; duplicate make_call was suppressed.'
+                    reason: 'A proactive notification was already sent in this scheduler run; duplicate make_call was suppressed.'
                 };
             }
 
@@ -1457,7 +1457,7 @@ async function executeTool(toolName, args, context, engine) {
                 return {
                     sent: false,
                     skipped: true,
-                    reason: 'A proactive message was already sent in this scheduler/heartbeat run; duplicate send_message was suppressed.'
+                    reason: 'A proactive message was already sent in this scheduler run; duplicate send_message was suppressed.'
                 };
             }
 
@@ -1660,7 +1660,7 @@ async function executeTool(toolName, args, context, engine) {
             const message = typeof args.message === 'string' ? args.message.trim() : '';
             if (!message) return { error: 'message is required' };
 
-            if (triggerSource === 'scheduler' || triggerSource === 'heartbeat') {
+            if (triggerSource === 'scheduler') {
                 const manager = msg();
                 if (!manager) {
                     throw new Error('Messaging manager not available');
@@ -1676,7 +1676,7 @@ async function executeTool(toolName, args, context, engine) {
                     return {
                         sent: false,
                         skipped: true,
-                        reason: 'A notification was already sent in this run; duplicate scheduler/heartbeat message was suppressed.'
+                        reason: 'A notification was already sent in this run; duplicate scheduler message was suppressed.'
                     };
                 }
 

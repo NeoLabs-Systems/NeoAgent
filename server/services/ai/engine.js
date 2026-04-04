@@ -158,6 +158,10 @@ function joinSentMessages(messages = []) {
     .join('\n\n');
 }
 
+function isProactiveTrigger(triggerSource) {
+  return triggerSource === 'scheduler';
+}
+
 function buildForcedFinalReplyPrompt(triggerSource) {
   if (triggerSource === 'messaging') {
     return 'Tool work is finished. Write the user-visible reply that should be sent back now. Do not call tools. Do not use [NO RESPONSE] unless the user explicitly asked for silence or no confirmation.';
@@ -658,11 +662,15 @@ class AgentEngine {
     runTitle,
     userMessage,
     lastContent,
-    stepIndex
+    stepIndex,
+    skipPersistence = false
   }) {
+    if (skipPersistence) {
+      return;
+    }
     const cleanedOutput = clampRunContext(lastContent, 1200);
     const cleanedInput = clampRunContext(userMessage, 700);
-    const meaningfulTrigger = ['messaging', 'scheduler', 'heartbeat'].includes(triggerSource);
+    const meaningfulTrigger = ['messaging'].includes(triggerSource);
 
     if ((!meaningfulTrigger && stepIndex < 2) || !cleanedOutput) {
       return;
@@ -939,6 +947,7 @@ class AgentEngine {
       startedAt: Date.now(),
       lastToolName: null,
       lastToolTarget: null,
+      proactiveDeliveryCompleted: false,
       steeringQueue: [],
       toolPids: new Set()
     });
@@ -960,12 +969,14 @@ class AgentEngine {
     const { MemoryManager } = require('../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
     const recallQuery = options.context?.rawUserMessage || userMessage;
-    const recallMsg = await memoryManager.buildRecallMessage(userId, recallQuery);
+    const recallMsg = options.skipGlobalRecall === true
+      ? null
+      : await memoryManager.buildRecallMessage(userId, recallQuery);
 
     let summaryMessage = null;
     let historyMessages = [];
 
-    if (conversationId) {
+    if (conversationId && options.skipConversationHistory !== true) {
       const conversationContext = getConversationContext(conversationId, historyWindow);
       summaryMessage = buildSummaryCarrier(conversationContext.summary || options.priorSummary || '');
       historyMessages = conversationContext.recentMessages.length > 0
@@ -1006,49 +1017,65 @@ class AgentEngine {
     let directAnswerEligible = false;
 
     try {
-      const analysisResult = await this.analyzeTask({
-        provider,
-        providerName,
-        model,
-        messages,
-        tools,
-        capabilityHealth,
-        forceMode: options.forceMode || null,
-        options: { ...options, triggerSource },
-      });
-      totalTokens += analysisResult.usage || 0;
-      analysis = { ...analysisResult.analysis };
-      if (options.forceMode === 'plan_execute') {
-        analysis.mode = 'plan_execute';
-        analysis.planning_depth = 'deep';
-      }
-      if (analysis.mode === 'direct_answer' && (analysis.verification_need !== 'none' || analysis.freshness_risk !== 'none')) {
-        analysis.mode = analysis.planning_depth === 'deep' ? 'plan_execute' : 'execute';
-      }
+      if (options.skipTaskAnalysis === true) {
+        analysis = {
+          mode: options.forceMode === 'plan_execute' ? 'plan_execute' : 'execute',
+          reply_mode: 'task',
+          freshness_risk: 'none',
+          verification_need: 'none',
+          planning_depth: options.forceMode === 'plan_execute' ? 'deep' : 'light',
+          confidence: 0.5,
+          suggested_tools: [],
+          needs_subagents: false,
+          draft_reply: '',
+          goal: 'Complete the user request accurately.',
+          success_criteria: [],
+        };
+      } else {
+        const analysisResult = await this.analyzeTask({
+          provider,
+          providerName,
+          model,
+          messages,
+          tools,
+          capabilityHealth,
+          forceMode: options.forceMode || null,
+          options: { ...options, triggerSource },
+        });
+        totalTokens += analysisResult.usage || 0;
+        analysis = { ...analysisResult.analysis };
+        if (options.forceMode === 'plan_execute') {
+          analysis.mode = 'plan_execute';
+          analysis.planning_depth = 'deep';
+        }
+        if (analysis.mode === 'direct_answer' && (analysis.verification_need !== 'none' || analysis.freshness_risk !== 'none')) {
+          analysis.mode = analysis.planning_depth === 'deep' ? 'plan_execute' : 'execute';
+        }
 
-      stepIndex += 1;
-      const analysisStepId = uuidv4();
-      db.prepare(`INSERT INTO agent_steps
-        (id, run_id, step_index, type, description, status, result, started_at, completed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
-        .run(
-          analysisStepId,
+        stepIndex += 1;
+        const analysisStepId = uuidv4();
+        db.prepare(`INSERT INTO agent_steps
+          (id, run_id, step_index, type, description, status, result, started_at, completed_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+          .run(
+            analysisStepId,
+            runId,
+            stepIndex,
+            'analysis',
+            'Task analysis contract',
+            'completed',
+            JSON.stringify(analysis).slice(0, 20000)
+          );
+        this.persistRunMetadata(runId, {
+          taskAnalysis: analysis,
+          capabilityHealth,
+        });
+        this.emit(userId, 'run:analysis', {
           runId,
-          stepIndex,
-          'analysis',
-          'Task analysis contract',
-          'completed',
-          JSON.stringify(analysis).slice(0, 20000)
-        );
-      this.persistRunMetadata(runId, {
-        taskAnalysis: analysis,
-        capabilityHealth,
-      });
-      this.emit(userId, 'run:analysis', {
-        runId,
-        ...analysis,
-        capabilitySummary,
-      });
+          ...analysis,
+          capabilitySummary,
+        });
+      }
 
       if (analysis.mode === 'plan_execute') {
         const planResult = await this.createExecutionPlan({
@@ -1418,11 +1445,36 @@ class AgentEngine {
           if (runMeta) {
             runMeta.lastToolName = toolName;
             runMeta.lastToolTarget = toolName === 'send_message' ? toolArgs.to : null;
+            if (
+              isProactiveTrigger(triggerSource)
+              && options.allowMultipleProactiveMessages !== true
+              && runMeta.messagingSent
+              && (toolName === 'send_message' || toolName === 'notify_user' || toolName === 'make_call')
+            ) {
+              runMeta.proactiveDeliveryCompleted = true;
+            }
+            if (
+              runMeta.proactiveDeliveryCompleted
+              && isProactiveTrigger(triggerSource)
+              && options.allowMultipleProactiveMessages !== true
+            ) {
+              lastContent = joinSentMessages(runMeta.sentMessages);
+              break;
+            }
           }
         }
 
         if (this.isRunStopped(runId)) break;
         if (!this.activeRuns.has(runId)) break;
+        const runMeta = this.activeRuns.get(runId);
+        if (
+          runMeta?.proactiveDeliveryCompleted
+          && isProactiveTrigger(triggerSource)
+          && options.allowMultipleProactiveMessages !== true
+        ) {
+          lastContent = joinSentMessages(runMeta.sentMessages);
+          break;
+        }
       }
 
       if (this.isRunStopped(runId)) {
@@ -1439,9 +1491,18 @@ class AgentEngine {
       const runMeta = this.activeRuns.get(runId);
       const messagingSent = runMeta?.messagingSent || false;
       const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
+      const proactiveDeliveryCompleted = runMeta?.proactiveDeliveryCompleted === true;
 
-      if ((iteration >= maxIterations && messages[messages.length - 1]?.role === 'tool')
-        || (iteration < maxIterations && stepIndex > 0 && !lastContent.trim() && messages[messages.length - 1]?.role !== 'tool' && !lastToolWasMessaging)) {
+      const shouldForceFinalReply = !(
+        isProactiveTrigger(triggerSource)
+        && proactiveDeliveryCompleted
+        && options.allowMultipleProactiveMessages !== true
+      ) && (
+        (iteration >= maxIterations && messages[messages.length - 1]?.role === 'tool')
+        || (iteration < maxIterations && stepIndex > 0 && !lastContent.trim() && messages[messages.length - 1]?.role !== 'tool' && !lastToolWasMessaging)
+      );
+
+      if (shouldForceFinalReply) {
         const finalResponse = await provider.chat(sanitizeConversationMessages([
           ...messages,
           {
@@ -1503,7 +1564,16 @@ class AgentEngine {
         || ''
       );
 
-      if (shouldRunVerifier({
+      const shouldShortCircuitAfterProactiveDelivery = (
+        isProactiveTrigger(triggerSource)
+        && proactiveDeliveryCompleted
+        && options.allowMultipleProactiveMessages !== true
+      );
+
+      if (
+        !shouldShortCircuitAfterProactiveDelivery
+        && options.skipVerifier !== true
+        && shouldRunVerifier({
         analysis,
         toolExecutions,
         finalReply: finalResponseText,
@@ -1556,22 +1626,24 @@ class AgentEngine {
       if (conversationId) {
         db.prepare('UPDATE conversations SET total_tokens = total_tokens + ?, updated_at = datetime(\'now\') WHERE id = ?')
           .run(totalTokens, conversationId);
-        refreshConversationSummary(conversationId, provider, model, historyWindow).catch((err) => {
-          console.error('[AI] Conversation summary refresh failed:', err.message);
-        });
-        this.refreshConversationState({
-          conversationId,
-          provider,
-          providerName,
-          model,
-          finalReply: finalResponseText,
-          analysis,
-          verification,
-          historyWindow,
-          options,
-        }).catch((err) => {
-          console.error('[AI] Conversation working state refresh failed:', err.message);
-        });
+        if (options.skipConversationMaintenance !== true) {
+          refreshConversationSummary(conversationId, provider, model, historyWindow).catch((err) => {
+            console.error('[AI] Conversation summary refresh failed:', err.message);
+          });
+          this.refreshConversationState({
+            conversationId,
+            provider,
+            providerName,
+            model,
+            finalReply: finalResponseText,
+            analysis,
+            verification,
+            historyWindow,
+            options,
+          }).catch((err) => {
+            console.error('[AI] Conversation working state refresh failed:', err.message);
+          });
+        }
       }
 
       await this.persistPromptMetrics(runId, {
@@ -1584,7 +1656,8 @@ class AgentEngine {
         runTitle,
         userMessage,
         lastContent: finalResponseText,
-        stepIndex
+        stepIndex,
+        skipPersistence: options.skipRunContextPersistence === true
       });
 
       // Fallback: if this was a messaging-triggered run and the AI never called

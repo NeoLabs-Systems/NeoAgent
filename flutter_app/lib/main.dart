@@ -1954,7 +1954,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> saveSettings({
-    required bool heartbeatEnabled,
     required bool headlessBrowser,
     required bool smarterSelector,
     required List<String> enabledModels,
@@ -1968,7 +1967,6 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
 
     final payload = <String, dynamic>{
-      'heartbeat_enabled': heartbeatEnabled,
       'headless_browser': headlessBrowser,
       'smarter_model_selector': smarterSelector,
       'enabled_models': enabledModels,
@@ -2485,10 +2483,6 @@ class NeoAgentController extends ChangeNotifier {
         details != 'Something went wrong. Please try again.' &&
         details.length <= 800;
   }
-
-  bool get heartbeatEnabled =>
-      settings['heartbeat_enabled'] == true ||
-      settings['heartbeat_enabled'] == 'true';
 
   bool get headlessBrowser =>
       settings['headless_browser'] != false &&
@@ -3126,7 +3120,6 @@ class NeoAgentController extends ChangeNotifier {
 
   bool _isBackgroundRun(String triggerSource) {
     return triggerSource == 'scheduler' ||
-        triggerSource == 'heartbeat' ||
         triggerSource == 'messaging';
   }
 
@@ -8425,7 +8418,6 @@ class SettingsPanel extends StatefulWidget {
 }
 
 class _SettingsPanelState extends State<SettingsPanel> {
-  late bool _heartbeatEnabled;
   late bool _headlessBrowser;
   late bool _smarterSelector;
   late Set<String> _enabledModels;
@@ -8477,7 +8469,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .where((model) => model.available)
         .map((model) => model.id)
         .toSet();
-    _heartbeatEnabled = controller.heartbeatEnabled;
     _headlessBrowser = controller.headlessBrowser;
     _smarterSelector = controller.smarterSelector;
     _enabledModels = controller.enabledModelIds
@@ -8551,7 +8542,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
             onPressed: controller.isSavingSettings
                 ? null
                 : () => controller.saveSettings(
-                    heartbeatEnabled: _heartbeatEnabled,
                     headlessBrowser: _headlessBrowser,
                     smarterSelector: _smarterSelector,
                     enabledModels: _enabledModels.toList(),
@@ -8809,13 +8799,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
               children: <Widget>[
                 const _SectionTitle('Automation'),
                 const SizedBox(height: 12),
-                _SettingToggle(
-                  title: 'Heartbeat',
-                  subtitle: 'Enable scheduled heartbeat checks',
-                  value: _heartbeatEnabled,
-                  onChanged: (value) =>
-                      setState(() => _heartbeatEnabled = value),
-                ),
                 _SettingToggle(
                   title: 'Browser',
                   subtitle: 'Run browser headless (no visible window)',
@@ -9442,7 +9425,6 @@ class _LogsPanelState extends State<LogsPanel> {
             .toList(),
       },
       'runtime': <String, dynamic>{
-        'heartbeatEnabled': controller.heartbeatEnabled,
         'headlessBrowser': controller.headlessBrowser,
         'hasLiveRun': controller.hasLiveRun,
         'activeRun': controller.activeRun == null
