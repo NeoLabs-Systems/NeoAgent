@@ -1268,6 +1268,8 @@ class SchedulerTask {
     required this.id,
     required this.name,
     required this.cronExpression,
+    required this.runAt,
+    required this.oneTime,
     required this.prompt,
     required this.model,
     required this.enabled,
@@ -1282,6 +1284,8 @@ class SchedulerTask {
       id: _asInt(json['id']),
       name: json['name']?.toString() ?? 'Task',
       cronExpression: json['cronExpression']?.toString() ?? '',
+      runAt: _parseOptionalTimestamp(json['runAt']?.toString()),
+      oneTime: json['oneTime'] == true,
       prompt:
           json['prompt']?.toString().ifEmpty(
             config['prompt']?.toString() ?? '',
@@ -1300,11 +1304,15 @@ class SchedulerTask {
   final int id;
   final String name;
   final String cronExpression;
+  final DateTime? runAt;
+  final bool oneTime;
   final String prompt;
   final String model;
   final bool enabled;
   final DateTime? lastRun;
 
+  String get scheduleLabel =>
+      oneTime ? (runAt == null ? 'One-time run' : 'One-time at ${_formatTimestamp(runAt!)}') : cronExpression;
   String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
   bool get hasModelOverride => model.trim().isNotEmpty;
 }

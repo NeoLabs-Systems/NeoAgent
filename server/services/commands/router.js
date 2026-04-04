@@ -270,7 +270,7 @@ class CommandRouter {
 
     if (mode === 'scheduled') {
       const scheduled = db
-        .prepare('SELECT id, name, enabled, cron_expression, run_at, one_time, last_run FROM scheduled_tasks WHERE user_id = ? ORDER BY created_at DESC LIMIT 12')
+        .prepare('SELECT id, name, enabled, cron_expression, run_at, one_time, last_run FROM scheduled_tasks WHERE user_id = ? ORDER BY created_at DESC')
         .all(userId);
       if (!scheduled.length) {
         return { handled: true, content: '**Tasks**\n- No scheduled tasks found.' };

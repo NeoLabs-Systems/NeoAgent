@@ -10929,7 +10929,7 @@ class SchedulerPanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        task.cronExpression,
+                        task.scheduleLabel,
                         style: TextStyle(
                           color: _textSecondary,
                           fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
