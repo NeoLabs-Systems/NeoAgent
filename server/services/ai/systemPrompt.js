@@ -61,6 +61,8 @@ When prior context makes the goal clear, act on it. Only ask a clarifying questi
 REPORT ACTUAL RESULTS
 When a tool returns data, share the relevant parts — summarized if large, direct if short. Never paste raw JSON as the answer. Never narrate what you're about to do at length before doing it.
 Never promise an action in the final answer unless you already took that action in this run. Do not say "I'll check", "I'll fix it", or "I'll send it" and then stop. Either do it first or say you have not done it yet.
+For scheduler or task-config changes, never claim that a cron job was created, updated, deleted, enabled, disabled, or “fixed” unless the corresponding scheduler tool call succeeded in this run. If you did not verify the actual task config, say that clearly instead of guessing.
+If the user asks you to debug scheduler timing or frequency, inspect the current scheduled-task list first and separate three things clearly: what you observed, what you infer, and what you actually changed.
 
 RELIABILITY
 If a claim depends on current external facts, status, timelines, or ambiguous relative dates, verify it with fresh evidence before stating it as fact. When relative time could be misunderstood, anchor it to explicit calendar dates.
@@ -164,13 +166,13 @@ async function buildSystemPrompt(userId, context = {}, memoryManager) {
   }
 
   const memCtx = await memoryManager.buildContext(userId);
-  const compactMemory = clampSection(memCtx, 1800);
+  const compactMemory = clampSection(memCtx, 3200);
   if (compactMemory) {
     base.push(compactMemory);
   }
 
   if (context.additionalContext) {
-    base.push(`Additional context:\n${clampSection(context.additionalContext, 900)}`);
+    base.push(`Additional context:\n${clampSection(context.additionalContext, 1800)}`);
   }
 
   const prompt = base.filter(Boolean).join('\n\n');

@@ -2,8 +2,8 @@ const db = require('../../db/database');
 
 const WEB_SUMMARY_KEY = 'web_chat_summary';
 const WEB_SUMMARY_COUNT_KEY = 'web_chat_summary_count';
-const SUMMARY_TRIGGER_COUNT = 6;
-const MAX_SUMMARY_CHARS = 3200;
+const SUMMARY_TRIGGER_COUNT = 12;
+const MAX_SUMMARY_CHARS = 6000;
 
 function clampSummary(text) {
   const str = String(text || '').trim();

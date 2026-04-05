@@ -79,8 +79,8 @@ function createDefaultProviderConfigs() {
 function createDefaultAiSettings() {
   return {
     cost_mode: 'balanced_auto',
-    chat_history_window: 8,
-    tool_replay_budget_chars: 1800,
+    chat_history_window: 20,
+    tool_replay_budget_chars: 6000,
     subagent_max_iterations: 6,
     assistant_behavior_notes: '',
     auto_skill_learning: false,
@@ -195,8 +195,8 @@ function getAiSettings(userId) {
     settings[row.key] = parseSettingValue(row.value);
   }
 
-  settings.chat_history_window = Math.max(4, Math.min(Number(settings.chat_history_window) || DEFAULT_AI_SETTINGS.chat_history_window, 12));
-  settings.tool_replay_budget_chars = Math.max(600, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 3000));
+  settings.chat_history_window = Math.max(6, Math.min(Number(settings.chat_history_window) || DEFAULT_AI_SETTINGS.chat_history_window, 40));
+  settings.tool_replay_budget_chars = Math.max(1200, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 12000));
   settings.subagent_max_iterations = Math.max(2, Math.min(Number(settings.subagent_max_iterations) || DEFAULT_AI_SETTINGS.subagent_max_iterations, 12));
   settings.cost_mode = typeof settings.cost_mode === 'string' ? settings.cost_mode : DEFAULT_AI_SETTINGS.cost_mode;
   settings.assistant_behavior_notes = typeof settings.assistant_behavior_notes === 'string'

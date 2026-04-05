@@ -80,6 +80,21 @@ function buildExcerpt(text, query) {
   return `${prefix}${raw.slice(start, end)}${suffix}`;
 }
 
+function tokenizeRecallQuery(query) {
+  return (String(query || '').toLowerCase().match(/[\p{L}\p{N}_-]{3,}/gu) || [])
+    .slice(0, 12);
+}
+
+function scoreSchedulerRunMatch(queryTokens, title, finalResponse) {
+  if (!queryTokens.length) return 0;
+  const haystack = `${String(title || '')} ${String(finalResponse || '')}`.toLowerCase();
+  let score = 0;
+  for (const token of queryTokens) {
+    if (haystack.includes(token)) score += 1;
+  }
+  return score;
+}
+
 class MemoryManager {
   constructor() {
     this._ensureDirs();
@@ -809,13 +824,47 @@ class MemoryManager {
   async buildRecallMessage(userId, query) {
     if (!userId || !query || !query.trim()) return null;
     try {
+      const sections = [];
       const recalled = await this.recallMemory(userId, query, 5);
-      if (!recalled.length) return null;
-      const lines = recalled.map(m => {
-        const badge = m.category !== 'episodic' ? ` [${m.category}]` : '';
-        return `- ${m.content}${badge}`;
-      });
-      return `[Recalled memory — relevant background for the current message]\n${lines.join('\n')}`;
+      if (recalled.length) {
+        const memoryLines = recalled.map(m => {
+          const badge = m.category !== 'episodic' ? ` [${m.category}]` : '';
+          return `- ${m.content}${badge}`;
+        });
+        sections.push(`Relevant memory:\n${memoryLines.join('\n')}`);
+      }
+
+      const queryTokens = tokenizeRecallQuery(query);
+      if (queryTokens.length) {
+        const recentSchedulerRuns = db.prepare(
+          `SELECT title, final_response, completed_at
+           FROM agent_runs
+           WHERE user_id = ? AND trigger_source = 'scheduler' AND status = 'completed'
+           ORDER BY completed_at DESC, created_at DESC
+           LIMIT 12`
+        ).all(userId);
+
+        const schedulerMatches = recentSchedulerRuns
+          .map((run) => ({
+            ...run,
+            score: scoreSchedulerRunMatch(queryTokens, run.title, run.final_response),
+          }))
+          .filter((run) => run.score > 0)
+          .slice(0, 3);
+
+        if (schedulerMatches.length) {
+          const schedulerLines = schedulerMatches.map((run) => {
+            const when = run.completed_at ? String(run.completed_at) : 'unknown time';
+            const title = String(run.title || 'scheduler task').replace(/\s+/g, ' ').trim();
+            const outcome = buildExcerpt(String(run.final_response || ''), query) || String(run.final_response || '').slice(0, 180);
+            return `- ${when}: ${title} -> ${outcome || '(no final response stored)'}`;
+          });
+          sections.push(`Relevant recent scheduler runs:\n${schedulerLines.join('\n')}`);
+        }
+      }
+
+      if (!sections.length) return null;
+      return `[Recalled context — relevant background for the current message]\n${sections.join('\n\n')}`;
     } catch {
       return null;
     }

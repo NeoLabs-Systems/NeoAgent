@@ -3,9 +3,9 @@ async function compact(messages, provider, model, contextWindow = null) {
   const nonSystem = messages.filter(m => m.role !== 'system');
   const beforeTokens = estimateTokenCount(messages);
 
-  if (nonSystem.length < 12) return messages;
+  if (nonSystem.length < 24) return messages;
 
-  const keepRecent = 10;
+  const keepRecent = 24;
   const toCompact = nonSystem.slice(0, -keepRecent);
   const recent = nonSystem.slice(-keepRecent);
 
@@ -26,7 +26,7 @@ async function compact(messages, provider, model, contextWindow = null) {
   ];
 
   try {
-    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 900 });
+    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 1600 });
     const summary = response.content || 'Previous conversation context (summary unavailable).';
 
     const compactedMessages = [];
@@ -72,7 +72,7 @@ function estimateTokenCount(messages) {
 
 function shouldCompact(messages, contextWindow) {
   const used = estimateTokenCount(messages);
-  return used > contextWindow * 0.85;
+  return used > contextWindow * 0.92;
 }
 
 module.exports = { compact, estimateTokenCount, shouldCompact };
