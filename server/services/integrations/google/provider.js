@@ -229,6 +229,19 @@ async function executeGoogleWorkspaceTool(toolName, args, connection) {
   return { result, credentials: auth.credentials };
 }
 
+function buildConnectedAppSummary(appSnapshots) {
+  return appSnapshots
+    .filter((app) => app.connection.connected)
+    .map((app) => {
+      const emails = app.accounts
+        .filter((account) => account.connected)
+        .map((account) => account.accountEmail || `connection ${account.id}`)
+        .join(', ');
+      return `${app.label}: ${emails}`;
+    })
+    .join(' | ');
+}
+
 function createGoogleWorkspaceProvider() {
   return {
     key: 'google_workspace',
@@ -391,6 +404,17 @@ function createGoogleWorkspaceProvider() {
           return `${app.label}: ${accounts}`;
         })
         .join(' | ');
+    },
+    summarizeForModel(snapshot) {
+      if (!snapshot?.env?.configured) {
+        return `${this.label}: available but not configured on the server yet. If the user wants to use it, tell them to finish setup in Official Integrations first.`;
+      }
+
+      if (!snapshot.connection.connected) {
+        return `${this.label}: server setup is ready, but no accounts are connected. If the user wants to use it, tell them to connect an account in Official Integrations first.`;
+      }
+
+      return `${this.label}: native built-in access is connected in this run. Prefer \`google_workspace_*\` tools directly. Connected apps: ${buildConnectedAppSummary(snapshot.apps)}`;
     },
   };
 }

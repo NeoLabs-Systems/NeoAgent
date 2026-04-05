@@ -360,31 +360,30 @@ class IntegrationManager {
   }
 
   summarizeConnectedProviders(userId) {
-    const providers = this.registry
-      .list()
-      .map((provider) => ({
-        provider,
-        snapshot: provider.buildSnapshot(this.listConnections(userId, provider.key)),
-      }))
-      .filter(({ snapshot }) => snapshot.connection.connected);
+    const providers = this.registry.list().map((provider) => ({
+      provider,
+      snapshot: provider.buildSnapshot(this.listConnections(userId, provider.key)),
+    }));
 
     if (providers.length === 0) {
-      return 'No official integrations are connected.';
+      return 'No official integrations are available in this run.';
     }
 
     return providers
       .map(({ provider, snapshot }) => {
-        const appSummary = snapshot.apps
-          .filter((app) => app.connection.connected)
-          .map((app) => {
-            const emails = app.accounts
-              .filter((account) => account.connected)
-              .map((account) => account.accountEmail || `connection ${account.id}`)
-              .join(', ');
-            return `${app.label}: ${emails}`;
-          })
-          .join(' | ');
-        return `${provider.label}: ${appSummary}`;
+        if (typeof provider.summarizeForModel === 'function') {
+          return provider.summarizeForModel(snapshot);
+        }
+
+        if (!snapshot?.env?.configured) {
+          return `${provider.label}: available but not configured on the server yet. If the user wants to use it, tell them to finish setup in Official Integrations first.`;
+        }
+
+        if (!snapshot.connection?.connected) {
+          return `${provider.label}: server setup is ready, but no accounts are connected. If the user wants to use it, tell them to connect an account in Official Integrations first.`;
+        }
+
+        return `${provider.label}: native built-in access is connected in this run.`;
       })
       .join('\n');
   }
