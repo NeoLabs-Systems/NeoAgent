@@ -25,6 +25,9 @@ At least one API key is required. The active provider and model are configured i
 | `OPENAI_API_KEY` | GPT-4o / Whisper (OpenAI) |
 | `XAI_API_KEY` | Grok (xAI) |
 | `GOOGLE_AI_KEY` | Gemini (Google) |
+| `GOOGLE_OAUTH_CLIENT_ID` | Google Workspace official integrations OAuth client ID |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Workspace official integrations OAuth client secret |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Optional override for the Google Workspace OAuth callback URL |
 | `MINIMAX_API_KEY` | MiniMax Code (Coding Plan / Token Plan for `MiniMax-M2.7`) |
 | `BRAVE_SEARCH_API_KEY` | Brave Search API for the native `web_search` tool |
 | `DEEPGRAM_API_KEY` | Recordings transcription with Deepgram Nova-3 multilingual |

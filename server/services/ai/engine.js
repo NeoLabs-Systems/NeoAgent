@@ -959,12 +959,17 @@ class AgentEngine {
     const systemPrompt = await this.buildSystemPrompt(userId, { ...(options.context || {}), userMessage });
     // Pass short descriptions so the model always knows every available tool.
     // compactToolDefinition caps tool desc at 120 chars, param desc at 70 chars.
-    const builtInTools = this.getAvailableTools(app, { includeDescriptions: true });
+    const builtInTools = this.getAvailableTools(app, {
+      includeDescriptions: true,
+      userId,
+    });
     const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.mcpManager;
+    const integrationManager = app?.locals?.integrationManager || null;
     const mcpTools = mcpManager ? mcpManager.getAllTools(userId) : [];
     const tools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
     const capabilityHealth = await getCapabilityHealth({ userId, app, engine: this });
     const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
+    const integrationSummary = integrationManager?.summarizeConnectedProviders?.(userId) || '';
 
     const { MemoryManager } = require('../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
@@ -990,6 +995,9 @@ class AgentEngine {
     let messages = this.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
     if (capabilitySummary) {
       messages.push({ role: 'system', content: `[Capability health]\n${capabilitySummary}` });
+    }
+    if (integrationSummary) {
+      messages.push({ role: 'system', content: `[Official integrations]\n${integrationSummary}` });
     }
     const threadStateMessage = conversationId ? memoryManager.buildConversationStateMessage(conversationId) : null;
     if (threadStateMessage) {

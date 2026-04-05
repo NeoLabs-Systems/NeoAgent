@@ -108,6 +108,33 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS integration_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    provider_key TEXT NOT NULL,
+    status TEXT DEFAULT 'not_connected',
+    account_email TEXT,
+    scopes_json TEXT DEFAULT '[]',
+    credentials_json TEXT DEFAULT '{}',
+    metadata_json TEXT DEFAULT '{}',
+    last_connected_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, provider_key)
+  );
+
+  CREATE TABLE IF NOT EXISTS integration_oauth_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    provider_key TEXT NOT NULL,
+    state TEXT NOT NULL UNIQUE,
+    code_verifier TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS scheduled_tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -173,6 +200,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agent_runs_user ON agent_runs(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
   CREATE INDEX IF NOT EXISTS idx_agent_steps_run ON agent_steps(run_id, step_index);
+  CREATE INDEX IF NOT EXISTS idx_integration_connections_user ON integration_connections(user_id, provider_key);
+  CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_state ON integration_oauth_states(state);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
   CREATE INDEX IF NOT EXISTS idx_conv_messages ON conversation_messages(conversation_id, created_at);

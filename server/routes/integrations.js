@@ -1,0 +1,119 @@
+const express = require('express');
+const router = express.Router();
+const { requireAuth } = require('../middleware/auth');
+const { sanitizeError } = require('../utils/security');
+
+function getIntegrationManager(req) {
+  return req.app?.locals?.integrationManager;
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+router.get('/oauth/callback', async (req, res) => {
+  const state = String(req.query.state || '');
+  const code = String(req.query.code || '');
+  const error = String(req.query.error || '');
+
+  if (!state) return res.status(400).send('Missing state parameter');
+  if (error) {
+    const safeError = escapeHtml(error);
+    return res.status(400).send(`
+      <html><body>
+      <script>
+        if (window.opener) {
+          window.opener.postMessage({ type: 'integration_oauth_error', error: ${JSON.stringify(error)} }, '*');
+          window.close();
+        }
+      </script>
+      <p>Authentication failed: ${safeError}</p>
+      </body></html>
+    `);
+  }
+
+  try {
+    const manager = getIntegrationManager(req);
+    const result = await manager.finishOAuth(state, code);
+    const payload = JSON.stringify({
+      type: 'integration_oauth_success',
+      provider: result.provider,
+      accountEmail: result.accountEmail,
+    });
+    res.send(`
+      <html><body>
+      <script>
+        if (window.opener) {
+          window.opener.postMessage(${payload}, '*');
+          window.close();
+        } else {
+          window.location.href = '/?page=skills';
+        }
+      </script>
+      <p>Authentication successful. You can close this window.</p>
+      </body></html>
+    `);
+  } catch (err) {
+    const message = sanitizeError(err);
+    const safeMessage = escapeHtml(message);
+    res.status(500).send(`
+      <html><body>
+      <script>
+        if (window.opener) {
+          window.opener.postMessage({ type: 'integration_oauth_error', error: ${JSON.stringify(message)} }, '*');
+        }
+      </script>
+      <p>Authentication failed: ${safeMessage}</p>
+      </body></html>
+    `);
+  }
+});
+
+router.use(requireAuth);
+
+router.get('/', (req, res) => {
+  const manager = getIntegrationManager(req);
+  res.json(manager.listProviders(req.session.userId));
+});
+
+router.post('/:provider/connect', async (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    const result = await manager.beginOAuth(
+      req.session.userId,
+      req.params.provider,
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/:provider/disconnect', async (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    const result = await manager.disconnect(
+      req.session.userId,
+      req.params.provider,
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/:provider/tools/status', (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    res.json(manager.getToolStatus(req.session.userId, req.params.provider));
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
+module.exports = router;

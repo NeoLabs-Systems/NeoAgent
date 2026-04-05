@@ -15,10 +15,12 @@ import 'src/android_apk_drop_zone.dart';
 import 'src/backend_client.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
+import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
 import 'wearables/wearable_service.dart';
 
 part 'main_app_shell.dart';
+part 'main_integrations.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
 
@@ -333,10 +335,12 @@ class NeoAgentController extends ChangeNotifier {
     required HealthBridge healthBridge,
     required RecordingBridge recordingBridge,
     required WearableService wearableService,
+    OAuthLauncher? oauthLauncher,
   }) : _backendClient = backendClient,
        _healthBridge = healthBridge,
        _recordingBridge = recordingBridge,
-       _wearableService = wearableService {
+       _wearableService = wearableService,
+       _oauthLauncher = oauthLauncher ?? createOAuthLauncher() {
     _recordingBridge.onRecordingStopped = _handleRecordingStopped;
     _recordingBridge.addListener(_handleRecordingBridgeChanged);
   }
@@ -345,6 +349,7 @@ class NeoAgentController extends ChangeNotifier {
   final HealthBridge _healthBridge;
   final RecordingBridge _recordingBridge;
   final WearableService _wearableService;
+  final OAuthLauncher _oauthLauncher;
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
@@ -354,6 +359,7 @@ class NeoAgentController extends ChangeNotifier {
   io.Socket? _socket;
   Timer? _updatePollTimer;
   final Set<String> _backgroundRunIds = <String>{};
+  final Set<String> _busyOfficialIntegrations = <String>{};
 
   bool isBooting = true;
   bool isAuthenticated = false;
@@ -396,6 +402,8 @@ class NeoAgentController extends ChangeNotifier {
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
   List<SkillItem> skills = const <SkillItem>[];
   List<StoreSkillItem> storeSkills = const <StoreSkillItem>[];
+  List<OfficialIntegrationItem> officialIntegrations =
+      const <OfficialIntegrationItem>[];
   MemoryOverview memoryOverview = const MemoryOverview();
   List<MemoryItem> memories = const <MemoryItem>[];
   List<MemoryItem> memoryRecallResults = const <MemoryItem>[];
@@ -423,6 +431,9 @@ class NeoAgentController extends ChangeNotifier {
   WearableService get wearableService => _wearableService;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
+
+  bool isOfficialIntegrationBusy(String providerId) =>
+      _busyOfficialIntegrations.contains(providerId);
 
   String get chatComposerHint => hasLiveRun
       ? 'Send a steering update or next-up note for the current run...'
@@ -487,6 +498,7 @@ class NeoAgentController extends ChangeNotifier {
     _socket?.dispose();
     _recordingBridge.removeListener(_handleRecordingBridgeChanged);
     _recordingBridge.dispose();
+    _oauthLauncher.dispose();
     super.dispose();
   }
 
@@ -728,6 +740,7 @@ class NeoAgentController extends ChangeNotifier {
     pendingMessagingQr = null;
     skills = const <SkillItem>[];
     storeSkills = const <StoreSkillItem>[];
+    officialIntegrations = const <OfficialIntegrationItem>[];
     memoryOverview = const MemoryOverview();
     memories = const <MemoryItem>[];
     memoryRecallResults = const <MemoryItem>[];
@@ -898,6 +911,8 @@ class NeoAgentController extends ChangeNotifier {
       );
       final skillsFuture = _backendClient.fetchSkills(backendUrl);
       final storeSkillsFuture = _backendClient.fetchSkillStore(backendUrl);
+      final officialIntegrationsFuture = _backendClient
+          .fetchOfficialIntegrations(backendUrl);
       final memoryFuture = _backendClient.fetchMemoryOverview(backendUrl);
       final memoriesFuture = _backendClient.fetchMemories(backendUrl);
       final conversationsFuture = _backendClient.fetchConversations(backendUrl);
@@ -928,6 +943,7 @@ class NeoAgentController extends ChangeNotifier {
       final messagingMessagesResponse = await messagingMessagesFuture;
       final skillsResponse = await skillsFuture;
       final storeSkillsResponse = await storeSkillsFuture;
+      final officialIntegrationsResponse = await officialIntegrationsFuture;
       final memoryResponse = await memoryFuture;
       final memoriesResponse = await memoriesFuture;
       final conversationsResponse = await conversationsFuture;
@@ -980,6 +996,9 @@ class NeoAgentController extends ChangeNotifier {
           .toList();
       skills = skillsResponse.map(SkillItem.fromJson).toList();
       storeSkills = storeSkillsResponse.map(StoreSkillItem.fromJson).toList();
+      officialIntegrations = officialIntegrationsResponse
+          .map(OfficialIntegrationItem.fromJson)
+          .toList();
       memoryOverview = MemoryOverview.fromJson(memoryResponse);
       memories = memoriesResponse.map(MemoryItem.fromJson).toList();
       memoryConversations = conversationsResponse
@@ -1046,6 +1065,9 @@ class NeoAgentController extends ChangeNotifier {
     storeSkills = (await _backendClient.fetchSkillStore(
       backendUrl,
     )).map(StoreSkillItem.fromJson).toList();
+    officialIntegrations = (await _backendClient.fetchOfficialIntegrations(
+      backendUrl,
+    )).map(OfficialIntegrationItem.fromJson).toList();
     notifyListeners();
   }
 
@@ -2103,6 +2125,98 @@ class NeoAgentController extends ChangeNotifier {
     await refreshSkills();
   }
 
+  Future<void> connectOfficialIntegration(String providerId) async {
+    if (_busyOfficialIntegrations.contains(providerId)) {
+      return;
+    }
+
+    _busyOfficialIntegrations.add(providerId);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _backendClient.connectOfficialIntegration(
+        backendUrl,
+        providerId,
+      );
+      final url = response['url']?.toString();
+      if (response['status']?.toString() != 'oauth_redirect' || url == null) {
+        throw Exception('Official integration did not return an OAuth URL.');
+      }
+
+      final launchResult = await _oauthLauncher.launch(
+        url: url,
+        provider: providerId,
+      );
+      if (!launchResult.launched) {
+        throw Exception(launchResult.error ?? 'Failed to launch OAuth flow.');
+      }
+      if (launchResult.completed) {
+        await refreshSkills();
+        return;
+      }
+      if (launchResult.error != null) {
+        throw Exception(launchResult.error!);
+      }
+
+      await _pollForOfficialIntegrationConnection(providerId);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyOfficialIntegrations.remove(providerId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> disconnectOfficialIntegration(String providerId) async {
+    if (_busyOfficialIntegrations.contains(providerId)) {
+      return;
+    }
+
+    _busyOfficialIntegrations.add(providerId);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _backendClient.disconnectOfficialIntegration(
+        backendUrl,
+        providerId,
+      );
+      await refreshSkills();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyOfficialIntegrations.remove(providerId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> _pollForOfficialIntegrationConnection(String providerId) async {
+    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    while (DateTime.now().isBefore(deadline)) {
+      final items = await _backendClient.fetchOfficialIntegrations(backendUrl);
+      officialIntegrations = items
+          .map(OfficialIntegrationItem.fromJson)
+          .toList();
+      OfficialIntegrationItem? match;
+      for (final item in officialIntegrations) {
+        if (item.id == providerId) {
+          match = item;
+          break;
+        }
+      }
+      if (match != null && match.isConnected) {
+        notifyListeners();
+        return;
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+
+    throw Exception(
+      'Authentication is still pending. Finish the browser flow and refresh.',
+    );
+  }
+
   Future<void> connectMessagingPlatform({
     required String platform,
     Map<String, dynamic>? config,
@@ -3119,8 +3233,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   bool _isBackgroundRun(String triggerSource) {
-    return triggerSource == 'scheduler' ||
-        triggerSource == 'messaging';
+    return triggerSource == 'scheduler' || triggerSource == 'messaging';
   }
 
   String _socketOrigin() {
@@ -9613,7 +9726,7 @@ class _SkillsPanelState extends State<SkillsPanel>
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -9677,6 +9790,10 @@ class _SkillsPanelState extends State<SkillsPanel>
               tabs: <Widget>[
                 Tab(text: 'Current Skills (${controller.skills.length})'),
                 Tab(text: 'Store (${filteredStore.length})'),
+                Tab(
+                  text:
+                      'Official Integrations (${controller.officialIntegrations.length})',
+                ),
               ],
             ),
           ),
@@ -9687,6 +9804,7 @@ class _SkillsPanelState extends State<SkillsPanel>
               children: <Widget>[
                 _buildInstalledTab(controller),
                 _buildStoreTab(controller, categories, filteredStore),
+                OfficialIntegrationsTab(controller: controller),
               ],
             ),
           ),

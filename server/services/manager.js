@@ -16,6 +16,7 @@ const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
 const WearableManager = require('./wearables/manager');
 const { CLIExecutor } = require('./cli/executor');
+const { IntegrationManager } = require('./integrations/manager');
 const {
   getErrorMessage,
   restoreBrowserHeadlessPreference,
@@ -47,6 +48,16 @@ function createMcpClient(app) {
   const mcpClient = registerLocal(app, 'mcpClient', new MCPClient());
   logServiceReady('MCP client ready');
   return mcpClient;
+}
+
+function createIntegrationManager(app) {
+  const integrationManager = registerLocal(
+    app,
+    'integrationManager',
+    new IntegrationManager(),
+  );
+  logServiceReady('Integration manager ready');
+  return integrationManager;
 }
 
 function createBrowserController(app) {
@@ -364,6 +375,7 @@ async function startServices(app, io) {
     const cliExecutor = createCliExecutor(app);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
+    const integrationManager = createIntegrationManager(app);
     const browserController = createBrowserController(app);
     const androidController = createAndroidController(app);
     const skillRunner = await createSkillRunner(app, cliExecutor);
@@ -398,6 +410,7 @@ async function startServices(app, io) {
     configureRealtime(app, io, {
       agentEngine,
       messagingManager,
+      integrationManager,
       mcpClient,
       scheduler,
       recordingManager,

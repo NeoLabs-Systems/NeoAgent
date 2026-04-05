@@ -10,6 +10,7 @@ const routeRegistry = [
   { basePath: '/api/agents', modulePath: '../routes/agents' },
   { basePath: '/api/messaging', modulePath: '../routes/messaging' },
   { basePath: '/api/mcp', modulePath: '../routes/mcp' },
+  { basePath: '/api/integrations', modulePath: '../routes/integrations' },
   { basePath: '/api/skills', modulePath: '../routes/skills' },
   { basePath: '/api/store', modulePath: '../routes/store' },
   { basePath: '/api/memory', modulePath: '../routes/memory' },

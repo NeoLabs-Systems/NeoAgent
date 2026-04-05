@@ -93,7 +93,7 @@ class CommandRouter {
       case 'status':
         return this.handleStatus(userId);
       case 'tools':
-        return this.handleTools();
+        return this.handleTools(userId);
       case 'memory':
         return this.handleMemory(userId);
       case 'tasks':
@@ -228,8 +228,11 @@ class CommandRouter {
     };
   }
 
-  handleTools() {
-    const tools = getAvailableTools(this.app, { includeDescriptions: false }) || [];
+  handleTools(userId) {
+    const tools = getAvailableTools(this.app, {
+      includeDescriptions: false,
+      userId,
+    }) || [];
     const names = tools.map((tool) => tool.name).sort();
     const preview = names.slice(0, 30);
     const extra = names.length > preview.length ? `\n- ...and ${names.length - preview.length} more` : '';

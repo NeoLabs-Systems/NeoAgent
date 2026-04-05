@@ -169,6 +169,30 @@ function getMcpHealth(userId, app, engine) {
   });
 }
 
+function getIntegrationHealth(userId, app) {
+  const manager = app?.locals?.integrationManager;
+  if (!manager || typeof manager.listProviders !== 'function') {
+    return capabilityEntry({
+      summary: 'Official integration manager is not available.',
+    });
+  }
+
+  const providers = manager.listProviders(userId);
+  const connectedCount = providers.filter((provider) => provider.connection?.connected).length;
+  return capabilityEntry({
+    connected: connectedCount > 0,
+    configured: providers.some((provider) => provider.env?.configured),
+    healthy: true,
+    degraded: providers.some((provider) => provider.connection?.status === 'env_not_configured'),
+    summary: providers.length === 0
+      ? 'No official integrations are available.'
+      : connectedCount > 0
+        ? `${connectedCount}/${providers.length} official integrations are connected.`
+        : 'Official integrations are available but not connected.',
+    details: { providers },
+  });
+}
+
 function getSkillHealth(app, engine) {
   const runner = app?.locals?.skillRunner || engine?.skillRunner;
   const skills = typeof runner?.getAll === 'function' ? runner.getAll() : [];
@@ -240,6 +264,7 @@ async function getCapabilityHealth({ userId, app, engine }) {
       browser: await getBrowserHealth(userId, app, engine),
       android: await getAndroidHealth(userId, app, engine),
       messaging: getMessagingHealth(userId, app, engine),
+      integrations: getIntegrationHealth(userId, app),
       mcp: getMcpHealth(userId, app, engine),
       skills: getSkillHealth(app, engine),
       scheduler: getSchedulerHealth(userId),

@@ -2,7 +2,7 @@ const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
 
 function setupWebSocket(io, services) {
-  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager } = services;
+  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager, integrationManager } = services;
   io.on('connection', (socket) => {
     const session = socket.request.session;
     if (!session?.userId) {
@@ -215,6 +215,16 @@ function setupWebSocket(io, services) {
       } catch (err) {
         console.error(`[WS] mcp:tools failed for user ${userId}:`, err);
         socket.emit('mcp:error', { error: sanitizeError(err) });
+      }
+    });
+
+    socket.on('integrations:status', () => {
+      try {
+        console.log(`[WS] integrations:status requested by user ${userId}`);
+        socket.emit('integrations:status', integrationManager.listProviders(userId));
+      } catch (err) {
+        console.error(`[WS] integrations:status failed for user ${userId}:`, err);
+        socket.emit('error', { message: sanitizeError(err) });
       }
     });
 

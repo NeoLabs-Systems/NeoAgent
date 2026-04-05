@@ -1160,6 +1160,117 @@ class StoreSkillItem {
   final bool installed;
 }
 
+class OfficialIntegrationAppItem {
+  const OfficialIntegrationAppItem({required this.id, required this.label});
+
+  factory OfficialIntegrationAppItem.fromJson(Map<dynamic, dynamic> json) {
+    return OfficialIntegrationAppItem(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? 'App',
+    );
+  }
+
+  final String id;
+  final String label;
+}
+
+class OfficialIntegrationEnvStatus {
+  const OfficialIntegrationEnvStatus({
+    required this.configured,
+    required this.missing,
+    required this.summary,
+  });
+
+  factory OfficialIntegrationEnvStatus.fromJson(Map<dynamic, dynamic> json) {
+    final missingRaw = json['missing'];
+    return OfficialIntegrationEnvStatus(
+      configured: json['configured'] == true,
+      missing: missingRaw is List
+          ? missingRaw.map((item) => item.toString()).toList()
+          : const <String>[],
+      summary: json['summary']?.toString() ?? '',
+    );
+  }
+
+  final bool configured;
+  final List<String> missing;
+  final String summary;
+}
+
+class OfficialIntegrationConnectionStatus {
+  const OfficialIntegrationConnectionStatus({
+    required this.status,
+    required this.connected,
+    this.accountEmail,
+    this.lastConnectedAt,
+  });
+
+  factory OfficialIntegrationConnectionStatus.fromJson(
+    Map<dynamic, dynamic> json,
+  ) {
+    return OfficialIntegrationConnectionStatus(
+      status: json['status']?.toString() ?? 'not_connected',
+      connected: json['connected'] == true,
+      accountEmail: json['accountEmail']?.toString(),
+      lastConnectedAt: _parseOptionalTimestamp(
+        json['lastConnectedAt']?.toString(),
+      ),
+    );
+  }
+
+  final String status;
+  final bool connected;
+  final String? accountEmail;
+  final DateTime? lastConnectedAt;
+
+  String get statusLabel => status.replaceAll('_', ' ');
+}
+
+class OfficialIntegrationItem {
+  const OfficialIntegrationItem({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.apps,
+    required this.env,
+    required this.connection,
+    required this.availableToolCount,
+  });
+
+  factory OfficialIntegrationItem.fromJson(Map<dynamic, dynamic> json) {
+    final appsRaw = json['apps'];
+    return OfficialIntegrationItem(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? 'Integration',
+      description: json['description']?.toString() ?? '',
+      icon: json['icon']?.toString() ?? '',
+      apps: appsRaw is List
+          ? appsRaw
+                .whereType<Map<dynamic, dynamic>>()
+                .map(OfficialIntegrationAppItem.fromJson)
+                .toList()
+          : const <OfficialIntegrationAppItem>[],
+      env: OfficialIntegrationEnvStatus.fromJson(_jsonMap(json['env'])),
+      connection: OfficialIntegrationConnectionStatus.fromJson(
+        _jsonMap(json['connection']),
+      ),
+      availableToolCount: _asInt(json['availableToolCount']),
+    );
+  }
+
+  final String id;
+  final String label;
+  final String description;
+  final String icon;
+  final List<OfficialIntegrationAppItem> apps;
+  final OfficialIntegrationEnvStatus env;
+  final OfficialIntegrationConnectionStatus connection;
+  final int availableToolCount;
+
+  bool get isConnected => connection.connected;
+}
+
 class SkillDocument {
   const SkillDocument({required this.name, required this.content});
 
@@ -1311,8 +1422,11 @@ class SchedulerTask {
   final bool enabled;
   final DateTime? lastRun;
 
-  String get scheduleLabel =>
-      oneTime ? (runAt == null ? 'One-time run' : 'One-time at ${_formatTimestamp(runAt!)}') : cronExpression;
+  String get scheduleLabel => oneTime
+      ? (runAt == null
+            ? 'One-time run'
+            : 'One-time at ${_formatTimestamp(runAt!)}')
+      : cronExpression;
   String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
   bool get hasModelOverride => model.trim().isNotEmpty;
 }

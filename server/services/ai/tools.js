@@ -925,6 +925,12 @@ function getAvailableTools(app, options = {}) {
         }
     ];
 
+    const integrationManager = app?.locals?.integrationManager;
+    if (integrationManager && options.userId != null) {
+        const integrationTools = integrationManager.getToolDefinitions(options.userId) || [];
+        tools.push(...integrationTools);
+    }
+
     const compacted = tools.map((tool) => compactToolDefinition(tool, options));
     if (options.names && Array.isArray(options.names)) {
         const allow = new Set(options.names);
@@ -967,9 +973,18 @@ async function executeTool(toolName, args, context, engine) {
     };
     const msg = () => app?.locals?.messagingManager || engine.messagingManager;
     const mcp = () => app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
+    const integrations = () => app?.locals?.integrationManager || null;
     const sk = () => app?.locals?.skillRunner || engine.skillRunner;
     const sched = () => app?.locals?.scheduler || engine.scheduler;
     const rec = () => app?.locals?.recordingManager || null;
+
+    const integrationManager = integrations();
+    if (integrationManager) {
+        const integrationResult = await integrationManager.executeTool(userId, toolName, args);
+        if (integrationResult !== null) {
+            return integrationResult;
+        }
+    }
 
     switch (toolName) {
         case 'execute_command': {

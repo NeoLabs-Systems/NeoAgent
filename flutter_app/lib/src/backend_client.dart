@@ -439,6 +439,12 @@ class BackendClient {
     return getList(baseUrl, '/api/store');
   }
 
+  Future<List<Map<String, dynamic>>> fetchOfficialIntegrations(
+    String baseUrl,
+  ) async {
+    return getList(baseUrl, '/api/integrations');
+  }
+
   Future<Map<String, dynamic>> fetchSkillDocument(
     String baseUrl,
     String name,
@@ -494,6 +500,28 @@ class BackendClient {
 
   Future<void> uninstallStoreSkill(String baseUrl, String id) async {
     await deleteMap(baseUrl, '/api/store/$id/uninstall');
+  }
+
+  Future<Map<String, dynamic>> connectOfficialIntegration(
+    String baseUrl,
+    String providerId,
+  ) async {
+    return postMap(
+      baseUrl,
+      '/api/integrations/$providerId/connect',
+      const <String, dynamic>{},
+    );
+  }
+
+  Future<Map<String, dynamic>> disconnectOfficialIntegration(
+    String baseUrl,
+    String providerId,
+  ) async {
+    return postMap(
+      baseUrl,
+      '/api/integrations/$providerId/disconnect',
+      const <String, dynamic>{},
+    );
   }
 
   Future<Map<String, dynamic>> fetchMessagingStatus(String baseUrl) async {
