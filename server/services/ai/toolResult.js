@@ -145,10 +145,10 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
             id: task?.id,
             name: task?.name,
             cronExpression: task?.cronExpression,
-            runAt: task?.runAt,
+            ...(task?.oneTime ? { runAt: task?.runAt } : {}),
             oneTime: task?.oneTime,
             enabled: task?.enabled,
-            model: task?.model
+            ...(task?.model ? { model: task.model } : {})
           }))
           : undefined
       });
