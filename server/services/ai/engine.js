@@ -668,38 +668,15 @@ class AgentEngine {
     if (skipPersistence) {
       return;
     }
-    const cleanedOutput = clampRunContext(lastContent, 1200);
-    const cleanedInput = clampRunContext(userMessage, 700);
-    const meaningfulTrigger = ['messaging'].includes(triggerSource);
-
-    if ((!meaningfulTrigger && stepIndex < 2) || !cleanedOutput) {
-      return;
-    }
-
-    const parts = [
-      `Recent ${triggerSource || 'agent'} run`,
-      runTitle ? `Title: ${clampRunContext(runTitle, 140)}` : '',
-      cleanedInput ? `Request: ${cleanedInput}` : '',
-      `Outcome: ${cleanedOutput}`
-    ].filter(Boolean);
-    const summary = parts.join('\n');
-    const { getMemoryStorageDecision } = require('../memory/policy');
-    if (!getMemoryStorageDecision(summary).allow) {
-      return;
-    }
-
-    try {
-      const { MemoryManager } = require('../memory/manager');
-      const memoryManager = this.memoryManager || new MemoryManager();
-      await memoryManager.saveMemory(
-        userId,
-        summary,
-        'episodic',
-        meaningfulTrigger ? 7 : 5
-      );
-    } catch (err) {
-      console.error('[AI] Failed to persist run context:', err.message);
-    }
+    void userId;
+    void triggerSource;
+    void runTitle;
+    void userMessage;
+    void lastContent;
+    void stepIndex;
+    // Run receipts belong in agent_runs/session history, not long-term memory.
+    // Long-term memory should only contain durable facts or explicitly saved context.
+    return;
   }
 
   getRunMeta(runId) {
