@@ -132,6 +132,28 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
+    case 'list_scheduled_tasks':
+      envelope = trimObject({
+        tool: toolName,
+        status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',
+        message: clampText(toolResult?.message || toolResult?.error || '', Math.floor(softLimit * 0.3)),
+        count: typeof toolResult?.count === 'number'
+          ? toolResult.count
+          : (Array.isArray(toolResult?.tasks) ? toolResult.tasks.length : undefined),
+        tasks: Array.isArray(toolResult?.tasks)
+          ? toolResult.tasks.slice(0, 8).map((task) => trimObject({
+            id: task?.id,
+            name: task?.name,
+            cronExpression: task?.cronExpression,
+            ...(task?.oneTime ? { runAt: task?.runAt } : {}),
+            oneTime: task?.oneTime,
+            enabled: task?.enabled,
+            ...(task?.model ? { model: task.model } : {})
+          }))
+          : undefined
+      });
+      break;
+
     case 'send_message':
     case 'make_call':
     case 'memory_save':
@@ -141,7 +163,6 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'memory_write':
     case 'create_scheduled_task':
     case 'schedule_run':
-    case 'list_scheduled_tasks':
     case 'delete_scheduled_task':
     case 'update_scheduled_task':
       envelope = trimObject({
