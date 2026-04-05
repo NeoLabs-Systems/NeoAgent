@@ -655,6 +655,29 @@ class BackendClient {
     await deleteMap(baseUrl, '/api/memory/memories/$id');
   }
 
+  Future<Map<String, dynamic>> deleteMemories(
+    String baseUrl,
+    List<String> ids,
+  ) async {
+    return postMap(
+      baseUrl,
+      '/api/memory/memories/bulk-delete',
+      <String, dynamic>{'ids': ids},
+    );
+  }
+
+  Future<Map<String, dynamic>> archiveMemories(
+    String baseUrl,
+    List<String> ids, {
+    bool archived = true,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/memory/memories/bulk-archive',
+      <String, dynamic>{'ids': ids, 'archived': archived},
+    );
+  }
+
   Future<Map<String, dynamic>> fetchCoreMemory(String baseUrl) async {
     return getMap(baseUrl, '/api/memory/core');
   }

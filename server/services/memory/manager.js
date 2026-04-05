@@ -292,16 +292,40 @@ class MemoryManager {
    * Delete a memory permanently.
    */
   deleteMemory(id) {
-    db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
-    return true;
+    return this.deleteMemories([id]) > 0;
+  }
+
+  deleteMemories(ids) {
+    const uniqueIds = [...new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+    )];
+    if (!uniqueIds.length) return 0;
+    const placeholders = uniqueIds.map(() => '?').join(', ');
+    const result = db.prepare(`DELETE FROM memories WHERE id IN (${placeholders})`).run(...uniqueIds);
+    return result.changes || 0;
   }
 
   /**
    * Archive / un-archive a memory.
    */
   archiveMemory(id, archived = true) {
-    db.prepare(`UPDATE memories SET archived = ? WHERE id = ?`).run(archived ? 1 : 0, id);
-    return true;
+    return this.archiveMemories([id], archived) > 0;
+  }
+
+  archiveMemories(ids, archived = true) {
+    const uniqueIds = [...new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+    )];
+    if (!uniqueIds.length) return 0;
+    const placeholders = uniqueIds.map(() => '?').join(', ');
+    const result = db.prepare(
+      `UPDATE memories SET archived = ? WHERE id IN (${placeholders})`
+    ).run(archived ? 1 : 0, ...uniqueIds);
+    return result.changes || 0;
   }
 
   // ─────────────────────────────────────────────────────────────────────────

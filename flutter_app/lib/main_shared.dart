@@ -93,6 +93,7 @@ Future<void> _confirmDelete(
   required String title,
   required String message,
   required Future<void> Function() onConfirm,
+  String confirmLabel = 'Delete',
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
@@ -108,7 +109,7 @@ Future<void> _confirmDelete(
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
+            child: Text(confirmLabel),
           ),
         ],
       );

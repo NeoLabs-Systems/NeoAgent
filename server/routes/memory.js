@@ -5,6 +5,24 @@ const { sanitizeError } = require('../utils/security');
 
 router.use(requireAuth);
 
+function normalizeMemoryIds(value) {
+  return [...new Set(
+    (Array.isArray(value) ? value : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  )];
+}
+
+function findOwnedMemoryIds(db, userId, ids) {
+  if (!ids.length) {
+    return [];
+  }
+  const placeholders = ids.map(() => '?').join(', ');
+  return db.prepare(
+    `SELECT id FROM memories WHERE user_id = ? AND id IN (${placeholders})`
+  ).all(userId, ...ids).map((row) => row.id);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Overview (for initial page load)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,6 +102,45 @@ router.delete('/memories/:id', (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Memory not found' });
   mm.deleteMemory(req.params.id);
   res.json({ success: true });
+});
+
+router.post('/memories/bulk-delete', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const db = require('../db/database');
+  const ids = normalizeMemoryIds(req.body?.ids);
+  if (!ids.length) {
+    return res.status(400).json({ error: 'ids is required' });
+  }
+  try {
+    const ownedIds = findOwnedMemoryIds(db, req.session.userId, ids);
+    if (!ownedIds.length) {
+      return res.status(404).json({ error: 'Memory not found' });
+    }
+    const deletedCount = mm.deleteMemories(ownedIds);
+    res.json({ success: true, deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/memories/bulk-archive', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const db = require('../db/database');
+  const ids = normalizeMemoryIds(req.body?.ids);
+  const archived = req.body?.archived !== false;
+  if (!ids.length) {
+    return res.status(400).json({ error: 'ids is required' });
+  }
+  try {
+    const ownedIds = findOwnedMemoryIds(db, req.session.userId, ids);
+    if (!ownedIds.length) {
+      return res.status(404).json({ error: 'Memory not found' });
+    }
+    const archivedCount = mm.archiveMemories(ownedIds, archived);
+    res.json({ success: true, archivedCount });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
 });
 
 // Semantic recall (search)

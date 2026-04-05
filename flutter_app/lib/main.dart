@@ -2375,7 +2375,36 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> deleteMemory(String id) async {
-    await _backendClient.deleteMemory(backendUrl, id);
+    await deleteMemories(<String>[id]);
+  }
+
+  Future<void> deleteMemories(List<String> ids) async {
+    final uniqueIds = ids.toSet().where((id) => id.trim().isNotEmpty).toSet();
+    if (uniqueIds.isEmpty) {
+      return;
+    }
+    await _backendClient.deleteMemories(
+      backendUrl,
+      uniqueIds.toList(growable: false),
+    );
+    memoryRecallResults = memoryRecallResults
+        .where((memory) => !uniqueIds.contains(memory.id))
+        .toList();
+    await refreshMemory();
+  }
+
+  Future<void> archiveMemories(List<String> ids) async {
+    final uniqueIds = ids.toSet().where((id) => id.trim().isNotEmpty).toSet();
+    if (uniqueIds.isEmpty) {
+      return;
+    }
+    await _backendClient.archiveMemories(
+      backendUrl,
+      uniqueIds.toList(growable: false),
+    );
+    memoryRecallResults = memoryRecallResults
+        .where((memory) => !uniqueIds.contains(memory.id))
+        .toList();
     await refreshMemory();
   }
 
@@ -10522,6 +10551,8 @@ class MemoryPanel extends StatefulWidget {
 
 class _MemoryPanelState extends State<MemoryPanel> {
   late final TextEditingController _searchController;
+  final Set<String> _selectedMemoryIds = <String>{};
+  bool _bulkActionInFlight = false;
 
   @override
   void initState() {
@@ -10535,12 +10566,125 @@ class _MemoryPanelState extends State<MemoryPanel> {
     super.dispose();
   }
 
+  List<MemoryItem> get _visibleMemories {
+    final controller = widget.controller;
+    return controller.memoryRecallResults.isNotEmpty
+        ? controller.memoryRecallResults
+        : controller.memories;
+  }
+
+  List<String> get _selectedVisibleMemoryIds {
+    final visibleIds = _visibleMemories.map((memory) => memory.id).toSet();
+    return _selectedMemoryIds
+        .where(visibleIds.contains)
+        .toList(growable: false);
+  }
+
+  void _toggleMemorySelection(String id, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedMemoryIds.add(id);
+      } else {
+        _selectedMemoryIds.remove(id);
+      }
+    });
+  }
+
+  void _clearMemorySelection() {
+    if (_selectedMemoryIds.isEmpty) {
+      return;
+    }
+    setState(() {
+      _selectedMemoryIds.clear();
+    });
+  }
+
+  void _selectAllVisibleMemories(List<MemoryItem> memories) {
+    if (memories.isEmpty) {
+      return;
+    }
+    setState(() {
+      _selectedMemoryIds.addAll(memories.map((memory) => memory.id));
+    });
+  }
+
+  Future<void> _runMemorySearch(NeoAgentController controller) async {
+    _clearMemorySelection();
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      controller.clearMemorySearch();
+    } else {
+      await controller.searchMemories(query);
+    }
+  }
+
+  void _resetMemorySearch(NeoAgentController controller) {
+    _searchController.clear();
+    _clearMemorySelection();
+    controller.clearMemorySearch();
+  }
+
+  Future<void> _deleteSingleMemory(
+    NeoAgentController controller,
+    String id,
+  ) async {
+    await controller.deleteMemory(id);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedMemoryIds.remove(id);
+    });
+  }
+
+  Future<void> _runBulkMemoryAction({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required Future<void> Function(List<String> ids) onConfirm,
+  }) async {
+    final ids = _selectedVisibleMemoryIds;
+    if (ids.isEmpty || _bulkActionInFlight) {
+      return;
+    }
+    await _confirmDelete(
+      context,
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      onConfirm: () async {
+        setState(() {
+          _bulkActionInFlight = true;
+        });
+        try {
+          await onConfirm(ids);
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _selectedMemoryIds.removeAll(ids);
+          });
+        } finally {
+          if (mounted) {
+            setState(() {
+              _bulkActionInFlight = false;
+            });
+          }
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    final memoriesToShow = controller.memoryRecallResults.isNotEmpty
-        ? controller.memoryRecallResults
-        : controller.memories;
+    final memoriesToShow = _visibleMemories;
+    final selectedMemoryIds = _selectedVisibleMemoryIds.toSet();
+    final selectedCount = selectedMemoryIds.length;
+    final allVisibleSelected =
+        memoriesToShow.isNotEmpty &&
+        memoriesToShow.every((memory) => selectedMemoryIds.contains(memory.id));
+    final showingSearchResults = controller.memoryRecallResults.isNotEmpty;
 
     return ListView(
       padding: _pagePadding(context),
@@ -10618,33 +10762,17 @@ class _MemoryPanelState extends State<MemoryPanel> {
                         decoration: const InputDecoration(
                           labelText: 'Search memory',
                         ),
-                        onSubmitted: (value) async {
-                          if (value.trim().isEmpty) {
-                            controller.clearMemorySearch();
-                          } else {
-                            await controller.searchMemories(value.trim());
-                          }
-                        },
+                        onSubmitted: (_) => _runMemorySearch(controller),
                       ),
                     ),
                     const SizedBox(width: 10),
                     FilledButton(
-                      onPressed: () async {
-                        final query = _searchController.text.trim();
-                        if (query.isEmpty) {
-                          controller.clearMemorySearch();
-                        } else {
-                          await controller.searchMemories(query);
-                        }
-                      },
+                      onPressed: () => _runMemorySearch(controller),
                       child: const Text('Search'),
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton(
-                      onPressed: () {
-                        _searchController.clear();
-                        controller.clearMemorySearch();
-                      },
+                      onPressed: () => _resetMemorySearch(controller),
                       child: const Text('Reset'),
                     ),
                   ],
@@ -10741,7 +10869,77 @@ class _MemoryPanelState extends State<MemoryPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 const _SectionTitle('Memories'),
+                const SizedBox(height: 6),
+                Text(
+                  showingSearchResults
+                      ? 'Showing search results. Select memories to archive or delete them together.'
+                      : 'Select one or more memories to archive or delete them together.',
+                  style: const TextStyle(color: _textSecondary),
+                ),
                 const SizedBox(height: 10),
+                if (memoriesToShow.isNotEmpty)
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      OutlinedButton.icon(
+                        onPressed: allVisibleSelected || _bulkActionInFlight
+                            ? null
+                            : () => _selectAllVisibleMemories(memoriesToShow),
+                        icon: const Icon(Icons.done_all_outlined),
+                        label: Text(
+                          allVisibleSelected ? 'All Selected' : 'Select All',
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: selectedCount == 0 || _bulkActionInFlight
+                            ? null
+                            : _clearMemorySelection,
+                        icon: const Icon(Icons.deselect_outlined),
+                        label: const Text('Clear Selection'),
+                      ),
+                      if (selectedCount > 0)
+                        FilledButton.icon(
+                          onPressed: _bulkActionInFlight
+                              ? null
+                              : () => _runBulkMemoryAction(
+                                  title: 'Archive selected memories?',
+                                  message:
+                                      'Archive $selectedCount selected ${selectedCount == 1 ? 'memory' : 'memories'}? Archived memories are removed from the main list.',
+                                  confirmLabel: 'Archive',
+                                  onConfirm: controller.archiveMemories,
+                                ),
+                          icon: const Icon(Icons.archive_outlined),
+                          label: Text('Archive ($selectedCount)'),
+                        ),
+                      if (selectedCount > 0)
+                        OutlinedButton.icon(
+                          onPressed: _bulkActionInFlight
+                              ? null
+                              : () => _runBulkMemoryAction(
+                                  title: 'Delete selected memories?',
+                                  message:
+                                      'Delete $selectedCount selected ${selectedCount == 1 ? 'memory' : 'memories'} permanently?',
+                                  confirmLabel: 'Delete',
+                                  onConfirm: controller.deleteMemories,
+                                ),
+                          icon: const Icon(Icons.delete_sweep_outlined),
+                          label: Text('Delete ($selectedCount)'),
+                        ),
+                    ],
+                  ),
+                if (selectedCount > 0) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(
+                    '$selectedCount selected',
+                    style: const TextStyle(
+                      color: _textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (memoriesToShow.isNotEmpty) const SizedBox(height: 10),
                 if (memoriesToShow.isEmpty)
                   const Text(
                     'No memory entries found.',
@@ -10749,54 +10947,100 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   )
                 else
                   ...memoriesToShow.map((memory) {
+                    final isSelected = selectedMemoryIds.contains(memory.id);
                     return Container(
                       width: double.infinity,
                       margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _bgSecondary,
+                        color: isSelected ? _accentMuted : _bgSecondary,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _border),
+                        border: Border.all(
+                          color: isSelected ? _accent : _border,
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              _MetaPill(
-                                label: memory.category,
-                                icon: Icons.label_outline,
-                              ),
-                              const SizedBox(width: 10),
-                              _MetaPill(
-                                label: 'Importance ${memory.importance}',
-                                icon: Icons.priority_high_outlined,
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                onPressed: () => _confirmDelete(
-                                  context,
-                                  title: 'Delete memory?',
-                                  message:
-                                      'This memory entry will be removed permanently.',
-                                  onConfirm: () =>
-                                      controller.deleteMemory(memory.id),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              _toggleMemorySelection(memory.id, !isSelected),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Checkbox(
+                                  value: isSelected,
+                                  onChanged: (value) => _toggleMemorySelection(
+                                    memory.id,
+                                    value ?? false,
+                                  ),
                                 ),
-                                icon: const Icon(Icons.delete_outline),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(memory.content),
-                          const SizedBox(height: 8),
-                          Text(
-                            memory.createdAtLabel,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: _textSecondary,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Expanded(
+                                            child: Wrap(
+                                              spacing: 10,
+                                              runSpacing: 10,
+                                              children: <Widget>[
+                                                _MetaPill(
+                                                  label: memory.category,
+                                                  icon: Icons.label_outline,
+                                                ),
+                                                _MetaPill(
+                                                  label:
+                                                      'Importance ${memory.importance}',
+                                                  icon: Icons
+                                                      .priority_high_outlined,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            onPressed: _bulkActionInFlight
+                                                ? null
+                                                : () => _confirmDelete(
+                                                    context,
+                                                    title: 'Delete memory?',
+                                                    message:
+                                                        'This memory entry will be removed permanently.',
+                                                    onConfirm: () =>
+                                                        _deleteSingleMemory(
+                                                          controller,
+                                                          memory.id,
+                                                        ),
+                                                  ),
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(memory.content),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        memory.createdAtLabel,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: _textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     );
                   }),
