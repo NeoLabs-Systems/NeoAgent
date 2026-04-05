@@ -931,6 +931,14 @@ class NeoAgentController extends ChangeNotifier {
         healthResponse = null;
       }
 
+      try {
+        officialIntegrations = (await officialIntegrationsFuture)
+            .map(OfficialIntegrationItem.fromJson)
+            .toList();
+      } catch (_) {
+        officialIntegrations = const <OfficialIntegrationItem>[];
+      }
+
       final history = await historyFuture;
       final modelsResponse = await modelsFuture;
       final providersResponse = await providersFuture;
@@ -943,7 +951,6 @@ class NeoAgentController extends ChangeNotifier {
       final messagingMessagesResponse = await messagingMessagesFuture;
       final skillsResponse = await skillsFuture;
       final storeSkillsResponse = await storeSkillsFuture;
-      final officialIntegrationsResponse = await officialIntegrationsFuture;
       final memoryResponse = await memoryFuture;
       final memoriesResponse = await memoriesFuture;
       final conversationsResponse = await conversationsFuture;
@@ -996,9 +1003,6 @@ class NeoAgentController extends ChangeNotifier {
           .toList();
       skills = skillsResponse.map(SkillItem.fromJson).toList();
       storeSkills = storeSkillsResponse.map(StoreSkillItem.fromJson).toList();
-      officialIntegrations = officialIntegrationsResponse
-          .map(OfficialIntegrationItem.fromJson)
-          .toList();
       memoryOverview = MemoryOverview.fromJson(memoryResponse);
       memories = memoriesResponse.map(MemoryItem.fromJson).toList();
       memoryConversations = conversationsResponse
@@ -2835,6 +2839,7 @@ class NeoAgentController extends ChangeNotifier {
     socket.onConnect((_) {
       socketConnected = true;
       socket.emit('client:request_logs');
+      socket.emit('integrations:status');
       notifyListeners();
     });
     socket.onDisconnect((_) {
@@ -2879,6 +2884,20 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('messaging:logged_out', (dynamic _) {
       pendingMessagingQr = null;
       unawaited(refreshMessaging());
+    });
+    socket.on('integrations:status', (dynamic data) {
+      if (data is! List) {
+        return;
+      }
+      officialIntegrations = data
+          .whereType<Map<dynamic, dynamic>>()
+          .map(
+            (item) => OfficialIntegrationItem.fromJson(
+              item.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+          )
+          .toList();
+      notifyListeners();
     });
     socket.on('messaging:sent', (dynamic data) {
       messagingMessages = <MessagingMessage>[

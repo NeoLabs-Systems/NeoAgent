@@ -2,13 +2,17 @@
 
 const {
   ENV_FILE,
+  LEGACY_ENV_FILE,
   migrateLegacyRuntime,
   ensureRuntimeDirs
 } = require('../runtime/paths');
 
-require('dotenv').config({ path: ENV_FILE });
+const dotenv = require('dotenv');
+
 migrateLegacyRuntime();
 ensureRuntimeDirs();
+dotenv.config({ path: LEGACY_ENV_FILE });
+dotenv.config({ path: ENV_FILE, override: true });
 
 const express = require('express');
 const { createServer } = require('http');
@@ -34,9 +38,14 @@ function logStartupConfig() {
     SESSION_SECRET: Boolean(process.env.SESSION_SECRET),
     OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY),
     DEEPGRAM_API_KEY: Boolean(process.env.DEEPGRAM_API_KEY),
+    GOOGLE_OAUTH_CLIENT_ID: Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID),
+    GOOGLE_OAUTH_CLIENT_SECRET: Boolean(process.env.GOOGLE_OAUTH_CLIENT_SECRET),
   };
 
   console.log(`[Startup] Using env file: ${ENV_FILE}`);
+  if (LEGACY_ENV_FILE !== ENV_FILE) {
+    console.log(`[Startup] Legacy env fallback: ${LEGACY_ENV_FILE}`);
+  }
   console.log('[Startup] Key availability:', flags);
 }
 
