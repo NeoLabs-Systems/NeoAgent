@@ -352,6 +352,7 @@ function configureRealtime(app, io, services) {
     agentEngine: services.agentEngine,
     messagingManager: services.messagingManager,
     mcpClient: services.mcpClient,
+    integrationManager: services.integrationManager,
     scheduler: services.scheduler,
     recordingManager: services.recordingManager,
     memoryManager: services.memoryManager,

@@ -2,7 +2,9 @@ const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
 
 function setupWebSocket(io, services) {
-  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager, integrationManager } = services;
+  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager } = services;
+  const integrationManager =
+    services.integrationManager || services.app?.locals?.integrationManager || null;
   io.on('connection', (socket) => {
     const session = socket.request.session;
     if (!session?.userId) {
@@ -221,6 +223,9 @@ function setupWebSocket(io, services) {
     socket.on('integrations:status', () => {
       try {
         console.log(`[WS] integrations:status requested by user ${userId}`);
+        if (!integrationManager || typeof integrationManager.listProviders !== 'function') {
+          throw new Error('Official integration manager is not available.');
+        }
         socket.emit('integrations:status', integrationManager.listProviders(userId));
       } catch (err) {
         console.error(`[WS] integrations:status failed for user ${userId}:`, err);
