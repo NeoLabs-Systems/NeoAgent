@@ -20,6 +20,7 @@ const {
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
 } = require('../services/ai/settings');
+const { isManagedDeployment } = require('../utils/deployment');
 
 router.use(requireAuth);
 
@@ -262,6 +263,12 @@ router.delete('/:key', (req, res) => {
 
 // Trigger auto-update script
 router.post('/update', (req, res) => {
+  if (isManagedDeployment()) {
+    return res.status(403).json({
+      success: false,
+      error: 'Updates are managed by this deployment.',
+    });
+  }
   const { spawn } = require('child_process');
   const status = readUpdateStatus();
   if (status.state === 'running') {
@@ -304,6 +311,12 @@ router.post('/update', (req, res) => {
 });
 
 router.put('/update/channel', (req, res) => {
+  if (isManagedDeployment()) {
+    return res.status(403).json({
+      success: false,
+      error: 'Release channel changes are managed by this deployment.',
+    });
+  }
   const requested = req.body?.channel;
   const releaseChannel = parseReleaseChannel(requested);
   if (!releaseChannel) {
@@ -338,6 +351,9 @@ router.get('/update/status', (req, res) => {
     releaseChannel: status.releaseChannel || version.releaseChannel,
     targetBranch: status.targetBranch || version.targetBranch,
     npmDistTag: status.npmDistTag || version.npmDistTag,
+    deploymentMode: version.deploymentMode,
+    managedDeployment: version.managedDeployment,
+    allowSelfUpdate: version.allowSelfUpdate,
   });
 });
 

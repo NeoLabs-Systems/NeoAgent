@@ -9,6 +9,7 @@ const {
   deserializeEmbedding,
   keywordSimilarity
 } = require('./embeddings');
+const { getMemoryStorageDecision } = require('./policy');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 
 async function getActiveProvider(userId) {
@@ -155,7 +156,9 @@ class MemoryManager {
    * Returns the memory id (new or existing).
    */
   async saveMemory(userId, content, category = 'episodic', importance = 5) {
-    if (!content || !content.trim()) return null;
+    const decision = getMemoryStorageDecision(content);
+    if (!decision.allow) return null;
+    content = decision.normalized;
     category = CATEGORIES.includes(category) ? category : 'episodic';
     importance = Math.max(1, Math.min(10, Number(importance) || 5));
 

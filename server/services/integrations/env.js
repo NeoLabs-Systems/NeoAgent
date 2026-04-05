@@ -28,19 +28,20 @@ function resolveGoogleOAuthConfig() {
   };
 }
 
-function describeEnvStatus(config) {
+function describeEnvStatus(config, options = {}) {
+  const label = String(options.label || 'This integration').trim() || 'This integration';
   if (config.configured) {
     return {
       configured: true,
       missing: [],
-      summary: 'Server OAuth credentials are configured.',
+      summary: `${label} is ready for account connections.`,
     };
   }
 
   return {
     configured: false,
     missing: config.missing,
-    summary: `Server setup required: ${config.missing.join(', ')}`,
+    summary: `${label} still needs administrator setup before accounts can connect.`,
   };
 }
 

@@ -432,7 +432,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'memory_save',
-            description: 'Save ONE specific, self-contained fact to long-term semantic memory. RULES: (1) One discrete fact per call — if you have 10 facts, call this 10 times. (2) The ENTIRE value must be IN the content string itself — never write a pointer/reference like "user shared a profile" or "see chat history for details". That is useless. (3) Content must be a complete statement a stranger could read cold and understand. GOOD: "Neo lives in Braunschweig, Germany" / "Neo prefers dark mode" / "Neo\'s project WorldEndArchive crawls and compresses websites to offline JSON archives". BAD: "User pasted a profile dump" / "Neo shared lots of details — see chat history" / "Neo gave a big list of projects".',
+            description: 'Save ONE specific, self-contained fact to long-term semantic memory. RULES: (1) One discrete fact per call — if you have 10 facts, call this 10 times. (2) The ENTIRE value must be IN the content string itself — never write a pointer/reference like "user shared a profile" or "see chat history for details". That is useless. (3) Content must be a complete statement a stranger could read cold and understand. (4) Only save durable facts, preferences, or stable project context — never save recent scheduler runs, task statuses, execution receipts, or other transient operational logs. GOOD: "XYZ lives in" / "XYZ prefers dark mode". BAD: "User pasted a profile dump" / "XYZ shared lots of details — see chat history" / "XYZ gave a big list of projects" / "Recent scheduler run: backup completed".',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1223,6 +1223,13 @@ async function executeTool(toolName, args, context, engine) {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
             const id = await mm.saveMemory(userId, args.content, args.category || 'episodic', args.importance || 5);
+            if (!id) {
+                return {
+                    success: true,
+                    skipped: true,
+                    message: 'Skipped saving transient operational detail or empty content to memory'
+                };
+            }
             return { success: true, id, message: 'Saved to memory' };
         }
 

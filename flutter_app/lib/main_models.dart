@@ -710,7 +710,6 @@ class AiProviderConfig {
   const AiProviderConfig({
     required this.id,
     required this.enabled,
-    required this.apiKey,
     required this.baseUrl,
   });
 
@@ -718,7 +717,6 @@ class AiProviderConfig {
     return AiProviderConfig(
       id: id,
       enabled: true,
-      apiKey: '',
       baseUrl: id == 'ollama' ? 'http://localhost:11434' : '',
     );
   }
@@ -730,7 +728,6 @@ class AiProviderConfig {
     return AiProviderConfig(
       id: id,
       enabled: map['enabled'] != false,
-      apiKey: map['apiKey']?.toString() ?? '',
       baseUrl:
           map['baseUrl']?.toString() ??
           (id == 'ollama' ? 'http://localhost:11434' : ''),
@@ -739,15 +736,10 @@ class AiProviderConfig {
 
   final String id;
   final bool enabled;
-  final String apiKey;
   final String baseUrl;
 
   Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'enabled': enabled,
-      'apiKey': apiKey.trim(),
-      'baseUrl': baseUrl.trim(),
-    };
+    return <String, dynamic>{'enabled': enabled, 'baseUrl': baseUrl.trim()};
   }
 }
 
@@ -761,9 +753,7 @@ class AiProviderMeta {
     required this.supportsApiKey,
     required this.supportsBaseUrl,
     required this.defaultBaseUrl,
-    required this.hasStoredApiKey,
-    required this.hasEnvironmentApiKey,
-    required this.usesEnvironmentApiKey,
+    required this.credentialConfigured,
     required this.baseUrl,
     required this.status,
     required this.statusLabel,
@@ -782,9 +772,7 @@ class AiProviderMeta {
       supportsApiKey: json['supportsApiKey'] == true,
       supportsBaseUrl: json['supportsBaseUrl'] == true,
       defaultBaseUrl: json['defaultBaseUrl']?.toString() ?? '',
-      hasStoredApiKey: json['hasStoredApiKey'] == true,
-      hasEnvironmentApiKey: json['hasEnvironmentApiKey'] == true,
-      usesEnvironmentApiKey: json['usesEnvironmentApiKey'] == true,
+      credentialConfigured: json['credentialConfigured'] == true,
       baseUrl: json['baseUrl']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       statusLabel: json['statusLabel']?.toString() ?? '',
@@ -802,9 +790,7 @@ class AiProviderMeta {
   final bool supportsApiKey;
   final bool supportsBaseUrl;
   final String defaultBaseUrl;
-  final bool hasStoredApiKey;
-  final bool hasEnvironmentApiKey;
-  final bool usesEnvironmentApiKey;
+  final bool credentialConfigured;
   final String baseUrl;
   final String status;
   final String statusLabel;
@@ -833,8 +819,7 @@ class AiProviderMeta {
     switch (status) {
       case 'ready':
       case 'healthy':
-      case 'stored_key':
-      case 'env_key':
+      case 'configured':
       case 'local':
         return _success;
       case 'offline':
@@ -842,6 +827,7 @@ class AiProviderMeta {
       case 'disabled':
         return _textSecondary;
       case 'needs_key':
+      case 'needs_setup':
         return _warning;
       default:
         return _info;
@@ -969,6 +955,8 @@ class UpdateStatusSnapshot {
     this.progress = 0,
     this.message = 'No update running',
     this.releaseChannel = 'stable',
+    this.allowSelfUpdate = true,
+    this.deploymentMode = 'self_hosted',
     this.targetBranch,
     this.npmDistTag,
     this.versionBefore,
@@ -985,6 +973,8 @@ class UpdateStatusSnapshot {
       progress: _asInt(json['progress']).clamp(0, 100),
       message: json['message']?.toString() ?? 'No update running',
       releaseChannel: json['releaseChannel']?.toString() ?? 'stable',
+      allowSelfUpdate: json['allowSelfUpdate'] != false,
+      deploymentMode: json['deploymentMode']?.toString() ?? 'self_hosted',
       targetBranch: json['targetBranch']?.toString(),
       npmDistTag: json['npmDistTag']?.toString(),
       versionBefore: json['versionBefore']?.toString(),
@@ -1006,6 +996,8 @@ class UpdateStatusSnapshot {
   final int progress;
   final String message;
   final String releaseChannel;
+  final bool allowSelfUpdate;
+  final String deploymentMode;
   final String? targetBranch;
   final String? npmDistTag;
   final String? versionBefore;
@@ -1257,7 +1249,16 @@ class OfficialIntegrationConnectionStatus {
   final int accountCount;
   final int appCount;
 
-  String get statusLabel => status.replaceAll('_', ' ');
+  String get statusLabel {
+    switch (status) {
+      case 'env_not_configured':
+        return 'Setup Required';
+      case 'not_connected':
+        return 'Not Connected';
+      default:
+        return _titleCase(status.replaceAll('_', ' '));
+    }
+  }
 }
 
 class OfficialIntegrationAccountItem {
@@ -1287,7 +1288,7 @@ class OfficialIntegrationAccountItem {
   final String? accountEmail;
   final DateTime? lastConnectedAt;
 
-  String get statusLabel => status.replaceAll('_', ' ');
+  String get statusLabel => _titleCase(status.replaceAll('_', ' '));
 }
 
 class OfficialIntegrationItem {

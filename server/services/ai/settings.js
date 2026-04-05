@@ -69,7 +69,6 @@ function createDefaultProviderConfigs() {
       definition.id,
       {
         enabled: definition.defaultEnabled,
-        apiKey: '',
         baseUrl: definition.supportsBaseUrl ? definition.defaultBaseUrl : ''
       }
     ])
@@ -116,9 +115,6 @@ function normalizeProviderConfigs(rawConfigs) {
 
     normalized[definition.id] = {
       enabled: entry.enabled !== false && entry.enabled !== 'false' && entry.enabled !== 0,
-      apiKey: definition.supportsApiKey && typeof entry.apiKey === 'string'
-        ? entry.apiKey.trim()
-        : '',
       baseUrl: definition.supportsBaseUrl
         ? (baseUrl || defaults[definition.id].baseUrl)
         : ''

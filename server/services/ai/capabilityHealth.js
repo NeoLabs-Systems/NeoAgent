@@ -179,6 +179,21 @@ function getIntegrationHealth(userId, app) {
 
   const providers = manager.listProviders(userId);
   const connectedCount = providers.filter((provider) => provider.connection?.connected).length;
+  const providerSummary = providers
+    .map((provider) => {
+      const label = provider?.label || provider?.id || 'Integration';
+      if (!provider?.env?.configured) {
+        return `${label}: unconfigured on this server`;
+      }
+      if (Array.isArray(provider?.apps) && provider.apps.length > 0) {
+        const connectedApps = provider.apps.filter((appSnapshot) => appSnapshot?.connection?.connected).length;
+        return `${label}: ${connectedApps}/${provider.apps.length} apps connected on this server`;
+      }
+      return provider?.connection?.connected
+        ? `${label}: connected on this server`
+        : `${label}: not connected on this server`;
+    })
+    .join('; ');
   return capabilityEntry({
     connected: connectedCount > 0,
     configured: providers.some((provider) => provider.env?.configured),
@@ -186,9 +201,7 @@ function getIntegrationHealth(userId, app) {
     degraded: providers.some((provider) => provider.connection?.status === 'env_not_configured'),
     summary: providers.length === 0
       ? 'No official integrations are available.'
-      : connectedCount > 0
-        ? `${connectedCount}/${providers.length} official integrations are connected.`
-        : 'Official integrations are available but not connected.',
+      : providerSummary,
     details: { providers },
   });
 }

@@ -2586,10 +2586,10 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('network request failed') ||
         lower.contains('clientexception') ||
         lower.contains('socketexception')) {
-      return 'The app could not reach the NeoAgent server. Check that the backend is running and that this build points at the correct server.';
+      return 'The app could not reach this NeoAgent deployment. Check your network connection or confirm the service URL is correct.';
     }
     if (lower.contains('origin not allowed')) {
-      return 'This build is not allowed to talk to that NeoAgent server.';
+      return 'This build is not allowed to talk to this NeoAgent deployment.';
     }
     if (lower.contains('not authenticated')) {
       return 'Your session expired. Please sign in again.';
@@ -8624,11 +8624,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late String _defaultSubagentModel;
   late String _fallbackModel;
   final Map<String, bool> _providerEnabled = <String, bool>{};
-  final Map<String, TextEditingController> _providerApiKeyControllers =
-      <String, TextEditingController>{};
   final Map<String, TextEditingController> _providerBaseUrlControllers =
       <String, TextEditingController>{};
-  final Set<String> _revealedProviderIds = <String>{};
   final Set<String> _expandedProviderIds = <String>{};
 
   @override
@@ -8639,9 +8636,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   @override
   void dispose() {
-    for (final controller in _providerApiKeyControllers.values) {
-      controller.dispose();
-    }
     for (final controller in _providerBaseUrlControllers.values) {
       controller.dispose();
     }
@@ -8691,18 +8685,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
           providerConfigs[providerId] ?? AiProviderConfig.empty(providerId);
       _providerEnabled[providerId] = config.enabled;
       _syncTextController(
-        _providerApiKeyControllers,
-        providerId,
-        config.apiKey,
-      );
-      _syncTextController(
         _providerBaseUrlControllers,
         providerId,
         config.baseUrl,
       );
     }
 
-    _pruneControllers(_providerApiKeyControllers, providerIds);
     _pruneControllers(_providerBaseUrlControllers, providerIds);
     _providerEnabled.removeWhere((id, _) => !providerIds.contains(id));
   }
@@ -8736,7 +8724,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         _PageTitle(
           title: 'Settings',
           subtitle:
-              'Configure providers, routing, runtime behavior, and app updates from one place.',
+              'Configure model access, routing, runtime behavior, and deployment controls from one place.',
           trailing: FilledButton.icon(
             onPressed: controller.isSavingSettings
                 ? null
@@ -8805,27 +8793,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                     (model) => model.provider == provider.id,
                                   )
                                   .toList(),
-                              apiKeyController:
-                                  _providerApiKeyControllers[provider.id]!,
                               baseUrlController:
                                   _providerBaseUrlControllers[provider.id]!,
-                              revealSecret: _revealedProviderIds.contains(
-                                provider.id,
-                              ),
                               expanded: _expandedProviderIds.contains(
                                 provider.id,
                               ),
-                              onRevealToggle: () {
-                                setState(() {
-                                  if (_revealedProviderIds.contains(
-                                    provider.id,
-                                  )) {
-                                    _revealedProviderIds.remove(provider.id);
-                                  } else {
-                                    _revealedProviderIds.add(provider.id);
-                                  }
-                                });
-                              },
                               onEnabledChanged: (value) {
                                 setState(() {
                                   _providerEnabled[provider.id] = value;
@@ -8981,7 +8953,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 const SizedBox(height: 14),
                 Text(
                   availableModels.isEmpty
-                      ? 'Enable a provider above to unlock model routing.'
+                      ? 'Enable a ready provider above to unlock model routing.'
                       : '$enabledSmartModels models are currently eligible for smart routing.',
                   style: const TextStyle(color: _textSecondary),
                 ),
@@ -9065,92 +9037,103 @@ class _SettingsPanelState extends State<SettingsPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 780;
-                    final channelPicker = DropdownButtonFormField<String>(
-                      initialValue: controller.updateStatus.releaseChannel,
-                      decoration: const InputDecoration(
-                        labelText: 'Release Channel',
-                      ),
-                      items: const <DropdownMenuItem<String>>[
-                        DropdownMenuItem<String>(
-                          value: 'stable',
-                          child: Text('Stable'),
+                if (controller.updateStatus.allowSelfUpdate) ...<Widget>[
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 780;
+                      final channelPicker = DropdownButtonFormField<String>(
+                        initialValue: controller.updateStatus.releaseChannel,
+                        decoration: const InputDecoration(
+                          labelText: 'Release Channel',
                         ),
-                        DropdownMenuItem<String>(
-                          value: 'beta',
-                          child: Text('Beta'),
-                        ),
-                      ],
-                      onChanged:
-                          controller.isSavingReleaseChannel ||
-                              controller.isTriggeringUpdate ||
-                              controller.updateStatus.state == 'running'
-                          ? null
-                          : (value) {
-                              if (value != null) {
-                                unawaited(controller.setReleaseChannel(value));
-                              }
-                            },
-                    );
-
-                    final channelHelper = Text(
-                      controller.updateStatus.releaseChannel == 'beta'
-                          ? 'Beta tracks the `beta` branch and npm `beta` releases.'
-                          : 'Stable tracks the `main` branch and npm `latest` releases.',
-                      style: const TextStyle(color: _textSecondary),
-                    );
-
-                    if (compact) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          channelPicker,
-                          const SizedBox(height: 8),
-                          channelHelper,
-                          const SizedBox(height: 16),
+                        items: const <DropdownMenuItem<String>>[
+                          DropdownMenuItem<String>(
+                            value: 'stable',
+                            child: Text('Stable'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'beta',
+                            child: Text('Beta'),
+                          ),
                         ],
+                        onChanged:
+                            controller.isSavingReleaseChannel ||
+                                controller.isTriggeringUpdate ||
+                                controller.updateStatus.state == 'running'
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  unawaited(
+                                    controller.setReleaseChannel(value),
+                                  );
+                                }
+                              },
                       );
-                    }
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(child: channelPicker),
-                          const SizedBox(width: 12),
-                          Expanded(child: channelHelper),
-                        ],
+                      final channelHelper = Text(
+                        controller.updateStatus.releaseChannel == 'beta'
+                            ? 'Beta follows the preview release stream.'
+                            : 'Stable follows the production release stream.',
+                        style: const TextStyle(color: _textSecondary),
+                      );
+
+                      if (compact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            channelPicker,
+                            const SizedBox(height: 8),
+                            channelHelper,
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Expanded(child: channelPicker),
+                            const SizedBox(width: 12),
+                            Expanded(child: channelHelper),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  Row(
+                    children: <Widget>[
+                      const Expanded(child: _SectionTitle('Runtime Updates')),
+                      FilledButton.icon(
+                        onPressed:
+                            controller.isSavingReleaseChannel ||
+                                controller.isTriggeringUpdate ||
+                                controller.updateStatus.state == 'running'
+                            ? null
+                            : controller.triggerUpdate,
+                        style: FilledButton.styleFrom(backgroundColor: _accent),
+                        icon: controller.isTriggeringUpdate
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.system_update),
+                        label: const Text('Update'),
                       ),
-                    );
-                  },
-                ),
-                Row(
-                  children: <Widget>[
-                    const Expanded(child: _SectionTitle('App Update')),
-                    FilledButton.icon(
-                      onPressed:
-                          controller.isSavingReleaseChannel ||
-                              controller.isTriggeringUpdate ||
-                              controller.updateStatus.state == 'running'
-                          ? null
-                          : controller.triggerUpdate,
-                      style: FilledButton.styleFrom(backgroundColor: _accent),
-                      icon: controller.isTriggeringUpdate
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.system_update),
-                      label: const Text('Update'),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ] else ...<Widget>[
+                  const _SectionTitle('Runtime Updates'),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Updates and release tracks are managed for this deployment.',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Row(
                   children: <Widget>[
@@ -9208,7 +9191,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
               _providerEnabled[providerId] ??
               widget.controller.aiProviderConfigs[providerId]?.enabled ??
               true,
-          'apiKey': _providerApiKeyControllers[providerId]?.text.trim() ?? '',
           'baseUrl': _providerBaseUrlControllers[providerId]?.text.trim() ?? '',
         },
     };
@@ -9247,10 +9229,7 @@ class _AiProviderCard extends StatelessWidget {
     required this.enabled,
     required this.expanded,
     required this.models,
-    required this.apiKeyController,
     required this.baseUrlController,
-    required this.revealSecret,
-    required this.onRevealToggle,
     required this.onEnabledChanged,
     required this.onExpandToggle,
   });
@@ -9259,18 +9238,14 @@ class _AiProviderCard extends StatelessWidget {
   final bool enabled;
   final bool expanded;
   final List<ModelMeta> models;
-  final TextEditingController apiKeyController;
   final TextEditingController baseUrlController;
-  final bool revealSecret;
-  final VoidCallback onRevealToggle;
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onExpandToggle;
 
   @override
   Widget build(BuildContext context) {
     final availableCount = models.where((model) => model.available).length;
-    final hasAdvancedFields =
-        provider.supportsApiKey || provider.supportsBaseUrl;
+    final hasAdvancedFields = provider.supportsBaseUrl || models.isNotEmpty;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -9374,15 +9349,15 @@ class _AiProviderCard extends StatelessWidget {
                 label: '$availableCount of ${models.length} models ready',
                 icon: Icons.memory_outlined,
               ),
-              if (provider.usesEnvironmentApiKey)
+              if (provider.supportsApiKey && provider.credentialConfigured)
                 const _MetaPill(
-                  label: 'Env fallback active',
+                  label: 'Credentials ready',
                   icon: Icons.lock_outline,
                 ),
-              if (provider.hasStoredApiKey)
+              if (provider.supportsApiKey && !provider.credentialConfigured)
                 const _MetaPill(
-                  label: 'Key saved in UI',
-                  icon: Icons.key_outlined,
+                  label: 'Credentials needed',
+                  icon: Icons.admin_panel_settings_outlined,
                 ),
               if (provider.supportsBaseUrl &&
                   baseUrlController.text.trim().isNotEmpty)
@@ -9415,30 +9390,23 @@ class _AiProviderCard extends StatelessWidget {
           ),
           if (expanded) ...<Widget>[
             const SizedBox(height: 14),
-            if (provider.supportsApiKey) ...<Widget>[
-              TextField(
-                controller: apiKeyController,
-                obscureText: !revealSecret,
-                autocorrect: false,
-                enableSuggestions: false,
-                decoration: InputDecoration(
-                  labelText: 'API Key',
-                  hintText: provider.hasEnvironmentApiKey
-                      ? 'Leave blank to keep server env fallback'
-                      : 'Paste API key',
-                  helperText: provider.hasEnvironmentApiKey
-                      ? 'Blank keeps the current server environment fallback.'
-                      : 'Stored on this NeoAgent server for your account.',
-                  suffixIcon: IconButton(
-                    onPressed: onRevealToggle,
-                    icon: Icon(
-                      revealSecret ? Icons.visibility_off : Icons.visibility,
-                    ),
-                  ),
+            if (provider.supportsApiKey)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: _bgCard,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
+                ),
+                child: Text(
+                  provider.credentialConfigured
+                      ? 'Credentials for this provider are already available to the runtime.'
+                      : 'Credentials for this provider are managed outside this workspace UI. Finish the server or admin setup, then return here to enable routing.',
+                  style: const TextStyle(color: _textSecondary, height: 1.35),
                 ),
               ),
-              const SizedBox(height: 12),
-            ],
             if (provider.supportsBaseUrl) ...<Widget>[
               TextField(
                 controller: baseUrlController,
@@ -9588,6 +9556,12 @@ class _LogsPanelState extends State<LogsPanel> {
         'gitVersion': versionInfo?['gitVersion'],
         'gitBranch': versionInfo?['gitBranch'],
         'gitSha': versionInfo?['gitSha'],
+        'deploymentMode':
+            versionInfo?['deploymentMode'] ??
+            controller.updateStatus.deploymentMode,
+        'allowSelfUpdate':
+            versionInfo?['allowSelfUpdate'] ??
+            controller.updateStatus.allowSelfUpdate,
         'releaseChannel':
             versionInfo?['releaseChannel'] ??
             controller.updateStatus.releaseChannel,
@@ -9617,8 +9591,7 @@ class _LogsPanelState extends State<LogsPanel> {
                 'modelCount': provider.modelCount,
                 'availableModelCount': provider.availableModelCount,
                 'baseUrl': provider.supportsBaseUrl ? provider.baseUrl : null,
-                'hasStoredApiKey': provider.hasStoredApiKey,
-                'hasEnvironmentApiKey': provider.hasEnvironmentApiKey,
+                'credentialConfigured': provider.credentialConfigured,
               },
             )
             .toList(),

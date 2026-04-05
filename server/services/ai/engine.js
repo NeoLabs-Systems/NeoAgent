@@ -683,6 +683,10 @@ class AgentEngine {
       `Outcome: ${cleanedOutput}`
     ].filter(Boolean);
     const summary = parts.join('\n');
+    const { getMemoryStorageDecision } = require('../memory/policy');
+    if (!getMemoryStorageDecision(summary).allow) {
+      return;
+    }
 
     try {
       const { MemoryManager } = require('../memory/manager');

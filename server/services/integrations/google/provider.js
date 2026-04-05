@@ -242,6 +242,38 @@ function buildConnectedAppSummary(appSnapshots) {
     .join(' | ');
 }
 
+function getAppToolNames(appId) {
+  const app = getApp(appId);
+  return Array.isArray(app?.toolDefinitions)
+    ? app.toolDefinitions.map((tool) => tool.name)
+    : [];
+}
+
+function formatAccountSummary(appSnapshot) {
+  const emails = appSnapshot.accounts
+    .filter((account) => account.connected)
+    .map((account) => account.accountEmail || `connection ${account.id}`);
+
+  if (emails.length === 0) return 'no connected accounts';
+  if (emails.length === 1) return `connected as ${emails[0]}`;
+  return `connected with ${emails.length} accounts: ${emails.join(', ')}`;
+}
+
+function buildModelStatusLines(appSnapshots) {
+  return appSnapshots.map((appSnapshot) => {
+    if (appSnapshot.connection.connected) {
+      const toolNames = getAppToolNames(appSnapshot.id).join(', ');
+      return `- ${appSnapshot.label}: ${formatAccountSummary(appSnapshot)}. Use built-in tools: ${toolNames}`;
+    }
+
+    if (appSnapshot.connection.status === 'authorizing') {
+      return `- ${appSnapshot.label}: connection is still being authorized.`;
+    }
+
+    return `- ${appSnapshot.label}: not connected yet.`;
+  });
+}
+
 function createGoogleWorkspaceProvider() {
   return {
     key: 'google_workspace',
@@ -261,7 +293,9 @@ function createGoogleWorkspaceProvider() {
       return toolAppMap.get(String(toolName || '').trim()) || null;
     },
     getEnvStatus() {
-      return describeEnvStatus(resolveGoogleOAuthConfig());
+      return describeEnvStatus(resolveGoogleOAuthConfig(), {
+        label: 'Google Workspace',
+      });
     },
     getToolDefinitions(options = {}) {
       const connectedAppIds = new Set(options.connectedAppIds || []);
@@ -330,7 +364,7 @@ function createGoogleWorkspaceProvider() {
       const { config, client } = createOAuthClient();
       if (!config.configured) {
         throw new Error(
-          `Missing Google OAuth configuration: ${config.missing.join(', ')}`,
+          'Google Workspace still needs administrator setup before accounts can connect.',
         );
       }
       const codeChallenge = base64UrlSha256(codeVerifier);
@@ -389,7 +423,7 @@ function createGoogleWorkspaceProvider() {
       const snapshot = this.buildSnapshot(connectionRows);
       if (!snapshot.connection.connected) {
         if (snapshot.connection.status === 'env_not_configured') {
-          return 'Google Workspace OAuth is not configured on the server.';
+          return 'Google Workspace still needs administrator setup before accounts can connect.';
         }
         return 'Google Workspace is not connected.';
       }
@@ -407,14 +441,23 @@ function createGoogleWorkspaceProvider() {
     },
     summarizeForModel(snapshot) {
       if (!snapshot?.env?.configured) {
-        return `${this.label}: available but not configured on the server yet. If the user wants to use it, tell them to finish setup in Official Integrations first.`;
+        return `${this.label}: workspace setup is not complete yet. If the user wants to use it, tell them to open Official Integrations and ask an administrator to finish setup first.`;
       }
+
+      const statusLines = buildModelStatusLines(snapshot.apps);
 
       if (!snapshot.connection.connected) {
-        return `${this.label}: server setup is ready, but no accounts are connected. If the user wants to use it, tell them to connect an account in Official Integrations first.`;
+        return [
+          `${this.label}: workspace setup is ready, but no app accounts are connected yet. If the user wants to use it, tell them to connect an account in Official Integrations first.`,
+          ...statusLines,
+        ].join('\n');
       }
 
-      return `${this.label}: native built-in access is connected in this run. Prefer \`google_workspace_*\` tools directly. Connected apps: ${buildConnectedAppSummary(snapshot.apps)}`;
+      return [
+        `${this.label}: some app-specific native access is connected on this server in this run. Only the listed connected apps are available through built-in tools.`,
+        `Connected apps: ${buildConnectedAppSummary(snapshot.apps)}`,
+        ...statusLines,
+      ].join('\n');
     },
   };
 }

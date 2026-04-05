@@ -103,8 +103,6 @@ function getProviderRuntimeConfig(userId, providerId) {
     const configs = getProviderConfigs(userId);
     const config = configs[providerId] || {};
     const envApiKey = definition.envKey ? (process.env[definition.envKey] || '').trim() : '';
-    const storedApiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : '';
-    const resolvedApiKey = storedApiKey || envApiKey;
     const baseUrl = definition.supportsBaseUrl
         ? ((typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '') || definition.defaultBaseUrl || '')
         : '';
@@ -112,10 +110,8 @@ function getProviderRuntimeConfig(userId, providerId) {
     return {
         ...definition,
         enabled: config.enabled !== false,
-        apiKey: resolvedApiKey,
-        storedApiKey,
-        hasStoredApiKey: Boolean(storedApiKey),
-        hasEnvironmentApiKey: Boolean(envApiKey),
+        apiKey: envApiKey,
+        credentialConfigured: Boolean(envApiKey),
         baseUrl
     };
 }
@@ -134,21 +130,17 @@ function getProviderCatalog(userId) {
             statusLabel = 'Disabled';
             availabilityReason = 'Enable this provider to make its models selectable.';
         } else if (definition.supportsApiKey && !runtime.apiKey) {
-            status = 'needs_key';
-            statusLabel = 'Needs API key';
-            availabilityReason = `Add an API key here or expose ${definition.envKey} on the server.`;
+            status = 'needs_setup';
+            statusLabel = 'Setup Needed';
+            availabilityReason = 'Credentials for this provider are not available on this deployment yet.';
         } else if (definition.id === 'ollama') {
             status = 'local';
             statusLabel = 'Local';
             availabilityReason = 'This provider connects to your local Ollama server.';
-        } else if (runtime.hasStoredApiKey) {
-            status = 'stored_key';
-            statusLabel = 'Saved here';
-            availabilityReason = 'This provider uses credentials stored in your profile settings.';
-        } else if (runtime.hasEnvironmentApiKey) {
-            status = 'env_key';
-            statusLabel = 'Using env';
-            availabilityReason = `This provider is currently using ${definition.envKey} from the server environment.`;
+        } else if (runtime.credentialConfigured) {
+            status = 'configured';
+            statusLabel = 'Configured';
+            availabilityReason = 'Credentials for this provider are available to the runtime.';
         }
 
         return {
@@ -160,9 +152,7 @@ function getProviderCatalog(userId) {
             defaultBaseUrl: definition.defaultBaseUrl,
             enabled: runtime.enabled,
             available,
-            hasStoredApiKey: runtime.hasStoredApiKey,
-            hasEnvironmentApiKey: runtime.hasEnvironmentApiKey,
-            usesEnvironmentApiKey: !runtime.hasStoredApiKey && runtime.hasEnvironmentApiKey,
+            credentialConfigured: runtime.credentialConfigured,
             baseUrl: runtime.baseUrl,
             status,
             statusLabel,
@@ -200,10 +190,10 @@ async function getProviderHealthCatalog(userId) {
         } else if (provider.available) {
             connected = true;
             healthy = true;
-            status = provider.status === 'stored_key' || provider.status === 'env_key'
+            status = provider.status === 'configured'
                 ? 'healthy'
                 : provider.status;
-            statusLabel = provider.status === 'stored_key' || provider.status === 'env_key'
+            statusLabel = provider.status === 'configured'
                 ? 'Healthy'
                 : provider.statusLabel;
         } else {
@@ -215,7 +205,7 @@ async function getProviderHealthCatalog(userId) {
             ...provider,
             available: healthy,
             connected,
-            configured: provider.enabled && (!provider.supportsApiKey || provider.hasStoredApiKey || provider.hasEnvironmentApiKey || provider.id === 'ollama'),
+            configured: provider.enabled && (!provider.supportsApiKey || provider.credentialConfigured || provider.id === 'ollama'),
             healthy,
             degraded,
             status,
@@ -293,7 +283,7 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
         throw new Error(`Provider '${providerStr}' is disabled in settings.`);
     }
     if (runtime.supportsApiKey && !runtime.apiKey) {
-        throw new Error(`Provider '${providerStr}' is missing an API key.`);
+        throw new Error(`Provider '${providerStr}' is not configured on this deployment.`);
     }
 
     if (providerStr === 'grok') {

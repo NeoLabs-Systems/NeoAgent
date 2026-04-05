@@ -211,7 +211,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: null,
                   icon: const Icon(Icons.settings_suggest_outlined),
-                  label: const Text('Server Setup Required'),
+                  label: const Text('Admin Setup Required'),
                 )
               else
                 FilledButton.icon(
@@ -318,9 +318,9 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
+        color: color.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.36)),
+        border: Border.all(color: color.withValues(alpha: 0.36)),
       ),
       alignment: Alignment.center,
       child: Text(

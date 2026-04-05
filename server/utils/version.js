@@ -9,6 +9,7 @@ const {
   getReleaseChannelBranchPolicy,
   getReleaseChannelNpmPolicy,
 } = require('../../runtime/release_channel');
+const { getDeploymentInfo } = require('./deployment');
 
 const PACKAGE_JSON_PATH = path.join(APP_DIR, 'package.json');
 
@@ -24,6 +25,7 @@ function readPackageVersion() {
 function getVersionInfo() {
   const packageVersion = readPackageVersion() || '0.0.0';
   const releaseChannel = readConfiguredReleaseChannel();
+  const deployment = getDeploymentInfo();
   let version = packageVersion;
   let gitSha = null;
   let gitVersion = null;
@@ -69,6 +71,9 @@ function getVersionInfo() {
     releaseChannel,
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
     npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
+    deploymentMode: deployment.mode,
+    managedDeployment: deployment.managed,
+    allowSelfUpdate: deployment.allowSelfUpdate,
   };
 }
 
