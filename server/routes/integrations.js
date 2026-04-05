@@ -43,6 +43,8 @@ router.get('/oauth/callback', async (req, res) => {
     const payload = JSON.stringify({
       type: 'integration_oauth_success',
       provider: result.provider,
+      appId: result.appId,
+      connectionId: result.connectionId,
       accountEmail: result.accountEmail,
     });
     res.send(`
@@ -87,6 +89,9 @@ router.post('/:provider/connect', async (req, res) => {
     const result = await manager.beginOAuth(
       req.session.userId,
       req.params.provider,
+      {
+        appKey: req.body?.appId,
+      },
     );
     res.json(result);
   } catch (err) {
@@ -100,6 +105,9 @@ router.post('/:provider/disconnect', async (req, res) => {
     const result = await manager.disconnect(
       req.session.userId,
       req.params.provider,
+      {
+        connectionId: req.body?.connectionId,
+      },
     );
     res.json(result);
   } catch (err) {

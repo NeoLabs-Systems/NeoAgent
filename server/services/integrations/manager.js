@@ -19,36 +19,48 @@ class IntegrationManager {
     ).run();
   }
 
-  getConnection(userId, providerKey) {
-    return db
-      .prepare(
-        'SELECT * FROM integration_connections WHERE user_id = ? AND provider_key = ?',
-      )
-      .get(userId, providerKey);
+  listConnections(userId, providerKey = null) {
+    const query = providerKey
+      ? 'SELECT * FROM integration_connections WHERE user_id = ? AND provider_key = ? ORDER BY updated_at DESC, id DESC'
+      : 'SELECT * FROM integration_connections WHERE user_id = ? ORDER BY updated_at DESC, id DESC';
+    return providerKey
+      ? db.prepare(query).all(userId, providerKey)
+      : db.prepare(query).all(userId);
   }
 
-  listConnections(userId) {
-    const rows = db
-      .prepare('SELECT * FROM integration_connections WHERE user_id = ?')
-      .all(userId);
-    return new Map(rows.map((row) => [row.provider_key, row]));
+  getConnectionById(userId, connectionId) {
+    return db
+      .prepare(
+        'SELECT * FROM integration_connections WHERE user_id = ? AND id = ?',
+      )
+      .get(userId, connectionId);
   }
 
   listProviders(userId) {
     this.cleanupExpiredOauthStates();
-    const connections = this.listConnections(userId);
+    const rows = this.listConnections(userId);
+    const rowsByProvider = new Map();
+    for (const row of rows) {
+      const providerKey = String(row.provider_key || '').trim();
+      if (!rowsByProvider.has(providerKey)) rowsByProvider.set(providerKey, []);
+      rowsByProvider.get(providerKey).push(row);
+    }
+
     return this.registry
       .list()
-      .map((provider) =>
-        provider.buildSnapshot(connections.get(provider.key) || null),
-      );
+      .map((provider) => provider.buildSnapshot(rowsByProvider.get(provider.key) || []));
   }
 
-  async beginOAuth(userId, providerKey) {
+  async beginOAuth(userId, providerKey, options = {}) {
     this.cleanupExpiredOauthStates();
     const provider = this.getProvider(providerKey);
     if (!provider) {
       throw new Error(`Unknown integration provider: ${providerKey}`);
+    }
+
+    const appKey = String(options.appKey || '').trim();
+    if (!provider.getApp?.(appKey)) {
+      throw new Error(`Unknown ${provider.label} app: ${appKey || 'missing app key'}`);
     }
 
     const env = provider.getEnvStatus();
@@ -59,23 +71,27 @@ class IntegrationManager {
     const state = crypto.randomBytes(24).toString('hex');
     const codeVerifier = crypto.randomBytes(48).toString('base64url');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    const { url } = await provider.beginOAuth({ state, codeVerifier, userId });
+    const { url } = await provider.beginOAuth({
+      state,
+      codeVerifier,
+      userId,
+      appKey,
+    });
 
     db.prepare(
-      `INSERT INTO integration_oauth_states (user_id, provider_key, state, code_verifier, expires_at)
-       VALUES (?, ?, ?, ?, ?)`,
-    ).run(userId, provider.key, state, codeVerifier, expiresAt);
-
-    db.prepare(
-      `INSERT INTO integration_connections (user_id, provider_key, status, metadata_json, updated_at)
-       VALUES (?, ?, 'authorizing', '{}', datetime('now'))
-       ON CONFLICT(user_id, provider_key) DO UPDATE SET
-         status = 'authorizing',
-         updated_at = datetime('now')`,
-    ).run(userId, provider.key);
+      `INSERT INTO integration_oauth_states (
+         user_id,
+         provider_key,
+         app_key,
+         state,
+         code_verifier,
+         expires_at
+       ) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(userId, provider.key, appKey, state, codeVerifier, expiresAt);
 
     return {
       provider: provider.key,
+      appId: appKey,
       status: 'oauth_redirect',
       url,
     };
@@ -103,12 +119,14 @@ class IntegrationManager {
       state: stateRow.state,
       code,
       codeVerifier: stateRow.code_verifier,
+      appKey: stateRow.app_key,
     });
 
     db.prepare(
       `INSERT INTO integration_connections (
          user_id,
          provider_key,
+         app_key,
          status,
          account_email,
          scopes_json,
@@ -116,10 +134,9 @@ class IntegrationManager {
          metadata_json,
          last_connected_at,
          updated_at
-       ) VALUES (?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(user_id, provider_key) DO UPDATE SET
+       ) VALUES (?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(user_id, provider_key, app_key, account_email) DO UPDATE SET
          status = 'connected',
-         account_email = excluded.account_email,
          scopes_json = excluded.scopes_json,
          credentials_json = excluded.credentials_json,
          metadata_json = excluded.metadata_json,
@@ -128,11 +145,24 @@ class IntegrationManager {
     ).run(
       stateRow.user_id,
       provider.key,
+      stateRow.app_key,
       result.accountEmail,
       JSON.stringify(result.scopes || []),
       JSON.stringify(result.credentials || {}),
       JSON.stringify(result.metadata || {}),
     );
+
+    const connection = db
+      .prepare(
+        `SELECT * FROM integration_connections
+         WHERE user_id = ? AND provider_key = ? AND app_key = ? AND account_email = ?`,
+      )
+      .get(
+        stateRow.user_id,
+        provider.key,
+        stateRow.app_key,
+        result.accountEmail,
+      );
 
     db.prepare('DELETE FROM integration_oauth_states WHERE state = ?').run(
       stateRow.state,
@@ -140,39 +170,64 @@ class IntegrationManager {
 
     return {
       provider: provider.key,
+      appId: stateRow.app_key,
+      connectionId: connection?.id || null,
       accountEmail: result.accountEmail,
     };
   }
 
-  async disconnect(userId, providerKey) {
+  async disconnect(userId, providerKey, options = {}) {
     const provider = this.getProvider(providerKey);
     if (!provider) {
       throw new Error(`Unknown integration provider: ${providerKey}`);
     }
 
-    const connection = this.getConnection(userId, provider.key);
-    if (!connection) {
-      return { disconnected: true, provider: provider.key, existed: false };
+    const connectionId = Number(options.connectionId);
+    if (!Number.isInteger(connectionId) || connectionId <= 0) {
+      throw new Error('A valid connectionId is required to disconnect an account.');
+    }
+
+    const connection = this.getConnectionById(userId, connectionId);
+    if (!connection || connection.provider_key !== provider.key) {
+      return {
+        disconnected: true,
+        provider: provider.key,
+        connectionId,
+        existed: false,
+      };
     }
 
     await provider.disconnect(connection).catch(() => {});
-    db.prepare(
-      'DELETE FROM integration_connections WHERE user_id = ? AND provider_key = ?',
-    ).run(userId, provider.key);
-    db.prepare(
-      'DELETE FROM integration_oauth_states WHERE user_id = ? AND provider_key = ?',
-    ).run(userId, provider.key);
+    db.prepare('DELETE FROM integration_connections WHERE user_id = ? AND id = ?').run(
+      userId,
+      connection.id,
+    );
 
-    return { disconnected: true, provider: provider.key, existed: true };
+    return {
+      disconnected: true,
+      provider: provider.key,
+      appId: connection.app_key,
+      connectionId: connection.id,
+      existed: true,
+    };
   }
 
   getToolDefinitions(userId) {
     const definitions = [];
     for (const provider of this.registry.list()) {
       const env = provider.getEnvStatus();
-      const connection = this.getConnection(userId, provider.key);
-      if (!env.configured || connection?.status !== 'connected') continue;
-      definitions.push(...provider.getToolDefinitions());
+      if (!env.configured) continue;
+      const connections = this.listConnections(userId, provider.key);
+      const connectedAppIds = Array.from(
+        new Set(
+          connections
+            .filter((connection) => connection.status === 'connected')
+            .map((connection) => String(connection.app_key || '').trim())
+            .filter(Boolean),
+        ),
+      );
+      if (connectedAppIds.length === 0) continue;
+      definitions.push(...provider.getToolDefinitions({ connectedAppIds }));
     }
     return definitions;
   }
@@ -183,16 +238,86 @@ class IntegrationManager {
       throw new Error(`Unknown integration provider: ${providerKey}`);
     }
     const env = provider.getEnvStatus();
-    const connection = this.getConnection(userId, provider.key);
+    const connections = this.listConnections(userId, provider.key);
+    const snapshot = provider.buildSnapshot(connections);
+    const connectedAppIds = snapshot.apps
+      .filter((app) => app.connection.connected)
+      .map((app) => app.id);
     const tools =
-      env.configured && connection?.status === 'connected'
-        ? provider.getToolDefinitions()
+      env.configured && connectedAppIds.length > 0
+        ? provider.getToolDefinitions({ connectedAppIds })
         : [];
     return {
       provider: provider.key,
-      connection: provider.buildSnapshot(connection).connection,
+      connection: snapshot.connection,
+      apps: snapshot.apps.map((app) => ({
+        id: app.id,
+        label: app.label,
+        accountCount: app.connection.accountCount || 0,
+        toolCount: app.availableToolCount || 0,
+      })),
       toolCount: tools.length,
       tools: tools.map((tool) => tool.name),
+    };
+  }
+
+  selectToolConnection(provider, toolName, args, userId) {
+    const appKey = provider.getToolAppId?.(toolName);
+    if (!appKey) {
+      return {
+        error: `Unable to resolve an integration app for tool ${toolName}.`,
+      };
+    }
+
+    const app = provider.getApp?.(appKey);
+    const appLabel = app?.label || appKey;
+    const connections = this.listConnections(userId, provider.key).filter(
+      (connection) =>
+        connection.status === 'connected' &&
+        String(connection.app_key || '').trim() === appKey,
+    );
+
+    if (connections.length === 0) {
+      return {
+        error: `${provider.label} ${appLabel} is not connected for this user.`,
+      };
+    }
+
+    const requestedConnectionId = Number(args?.connection_id);
+    if (Number.isInteger(requestedConnectionId) && requestedConnectionId > 0) {
+      const byId = connections.find((connection) => connection.id === requestedConnectionId);
+      if (!byId) {
+        return {
+          error: `No connected ${provider.label} ${appLabel} account matches connection_id ${requestedConnectionId}.`,
+        };
+      }
+      return { connection: byId };
+    }
+
+    const requestedEmail = String(args?.account_email || '').trim().toLowerCase();
+    if (requestedEmail) {
+      const byEmail = connections.find(
+        (connection) =>
+          String(connection.account_email || '').trim().toLowerCase() ===
+          requestedEmail,
+      );
+      if (!byEmail) {
+        return {
+          error: `No connected ${provider.label} ${appLabel} account matches ${requestedEmail}.`,
+        };
+      }
+      return { connection: byEmail };
+    }
+
+    if (connections.length === 1) {
+      return { connection: connections[0] };
+    }
+
+    const accountEmails = connections
+      .map((connection) => connection.account_email || `connection ${connection.id}`)
+      .join(', ');
+    return {
+      error: `Multiple ${provider.label} ${appLabel} accounts are connected (${accountEmails}). Re-run the tool with connection_id or account_email.`,
     };
   }
 
@@ -204,20 +329,28 @@ class IntegrationManager {
         return { error: env.summary };
       }
 
-      const connection = this.getConnection(userId, provider.key);
-      if (!connection || connection.status !== 'connected') {
-        return { error: `${provider.label} is not connected for this user.` };
+      const selection = this.selectToolConnection(provider, toolName, args, userId);
+      if (selection.error) {
+        return { error: selection.error };
       }
 
-      const execution = await provider.executeTool(toolName, args, connection);
+      const execution = await provider.executeTool(
+        toolName,
+        args,
+        selection.connection,
+      );
       if (!execution) return null;
 
       if (execution.credentials) {
         db.prepare(
           `UPDATE integration_connections
            SET credentials_json = ?, updated_at = datetime('now')
-           WHERE user_id = ? AND provider_key = ?`,
-        ).run(JSON.stringify(execution.credentials), userId, provider.key);
+           WHERE id = ? AND user_id = ?`,
+        ).run(
+          JSON.stringify(execution.credentials),
+          selection.connection.id,
+          userId,
+        );
       }
 
       return execution.result;
@@ -229,13 +362,10 @@ class IntegrationManager {
   summarizeConnectedProviders(userId) {
     const providers = this.registry
       .list()
-      .map((provider) => {
-        const connection = this.getConnection(userId, provider.key);
-        return {
-          provider,
-          snapshot: provider.buildSnapshot(connection),
-        };
-      })
+      .map((provider) => ({
+        provider,
+        snapshot: provider.buildSnapshot(this.listConnections(userId, provider.key)),
+      }))
       .filter(({ snapshot }) => snapshot.connection.connected);
 
     if (providers.length === 0) {
@@ -244,8 +374,17 @@ class IntegrationManager {
 
     return providers
       .map(({ provider, snapshot }) => {
-        const appLabels = snapshot.apps.map((app) => app.label).join(', ');
-        return `${provider.label}: connected as ${snapshot.connection.accountEmail || 'unknown'} (${appLabels})`;
+        const appSummary = snapshot.apps
+          .filter((app) => app.connection.connected)
+          .map((app) => {
+            const emails = app.accounts
+              .filter((account) => account.connected)
+              .map((account) => account.accountEmail || `connection ${account.id}`)
+              .join(', ');
+            return `${app.label}: ${emails}`;
+          })
+          .join(' | ');
+        return `${provider.label}: ${appSummary}`;
       })
       .join('\n');
   }

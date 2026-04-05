@@ -112,6 +112,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     provider_key TEXT NOT NULL,
+    app_key TEXT NOT NULL DEFAULT 'default',
     status TEXT DEFAULT 'not_connected',
     account_email TEXT,
     scopes_json TEXT DEFAULT '[]',
@@ -121,13 +122,14 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, provider_key)
+    UNIQUE(user_id, provider_key, app_key, account_email)
   );
 
   CREATE TABLE IF NOT EXISTS integration_oauth_states (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     provider_key TEXT NOT NULL,
+    app_key TEXT NOT NULL DEFAULT 'default',
     state TEXT NOT NULL UNIQUE,
     code_verifier TEXT NOT NULL,
     expires_at TEXT NOT NULL,
@@ -200,7 +202,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agent_runs_user ON agent_runs(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
   CREATE INDEX IF NOT EXISTS idx_agent_steps_run ON agent_steps(run_id, step_index);
-  CREATE INDEX IF NOT EXISTS idx_integration_connections_user ON integration_connections(user_id, provider_key);
+  CREATE INDEX IF NOT EXISTS idx_integration_connections_user ON integration_connections(user_id, provider_key, app_key);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_state ON integration_oauth_states(state);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
@@ -452,6 +454,135 @@ for (const col of [
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }
+
+function tableHasColumn(tableName, columnName) {
+  try {
+    return db
+      .prepare(`PRAGMA table_info(${tableName})`)
+      .all()
+      .some((column) => column.name === columnName);
+  } catch {
+    return false;
+  }
+}
+
+function parseIntegrationMetadata(metadataJson) {
+  try {
+    const parsed = JSON.parse(metadataJson || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function migrateIntegrationConnectionsTable() {
+  if (tableHasColumn('integration_connections', 'app_key')) {
+    return;
+  }
+
+  const legacyRows = db
+    .prepare('SELECT * FROM integration_connections ORDER BY id ASC')
+    .all();
+
+  db.exec(`
+    ALTER TABLE integration_connections RENAME TO integration_connections_legacy;
+
+    CREATE TABLE integration_connections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      provider_key TEXT NOT NULL,
+      app_key TEXT NOT NULL DEFAULT 'default',
+      status TEXT DEFAULT 'not_connected',
+      account_email TEXT,
+      scopes_json TEXT DEFAULT '[]',
+      credentials_json TEXT DEFAULT '{}',
+      metadata_json TEXT DEFAULT '{}',
+      last_connected_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, provider_key, app_key, account_email)
+    );
+  `);
+
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO integration_connections (
+      user_id,
+      provider_key,
+      app_key,
+      status,
+      account_email,
+      scopes_json,
+      credentials_json,
+      metadata_json,
+      last_connected_at,
+      created_at,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const legacyGoogleApps = ['gmail', 'calendar', 'drive', 'docs', 'sheets'];
+  for (const row of legacyRows) {
+    const metadata = parseIntegrationMetadata(row.metadata_json);
+    const appIds = Array.isArray(metadata.apps)
+      ? metadata.apps
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+      : row.provider_key === 'google_workspace'
+      ? legacyGoogleApps
+      : ['default'];
+
+    for (const appId of appIds) {
+      insert.run(
+        row.user_id,
+        row.provider_key,
+        appId,
+        row.status || 'not_connected',
+        row.account_email || null,
+        row.scopes_json || '[]',
+        row.credentials_json || '{}',
+        row.metadata_json || '{}',
+        row.last_connected_at || null,
+        row.created_at || null,
+        row.updated_at || null,
+      );
+    }
+  }
+
+  db.exec(`
+    DROP TABLE integration_connections_legacy;
+    DROP INDEX IF EXISTS idx_integration_connections_user;
+    CREATE INDEX IF NOT EXISTS idx_integration_connections_user
+      ON integration_connections(user_id, provider_key, app_key);
+  `);
+}
+
+function migrateIntegrationOauthStatesTable() {
+  if (tableHasColumn('integration_oauth_states', 'app_key')) {
+    return;
+  }
+
+  db.exec(`
+    ALTER TABLE integration_oauth_states RENAME TO integration_oauth_states_legacy;
+
+    CREATE TABLE integration_oauth_states (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      provider_key TEXT NOT NULL,
+      app_key TEXT NOT NULL DEFAULT 'default',
+      state TEXT NOT NULL UNIQUE,
+      code_verifier TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    DROP TABLE integration_oauth_states_legacy;
+  `);
+}
+
+migrateIntegrationConnectionsTable();
+migrateIntegrationOauthStatesTable();
 
 try {
   db.exec(`

@@ -504,23 +504,25 @@ class BackendClient {
 
   Future<Map<String, dynamic>> connectOfficialIntegration(
     String baseUrl,
-    String providerId,
-  ) async {
+    String providerId, {
+    required String appId,
+  }) async {
     return postMap(
       baseUrl,
       '/api/integrations/$providerId/connect',
-      const <String, dynamic>{},
+      <String, dynamic>{'appId': appId},
     );
   }
 
   Future<Map<String, dynamic>> disconnectOfficialIntegration(
     String baseUrl,
-    String providerId,
-  ) async {
+    String providerId, {
+    required int connectionId,
+  }) async {
     return postMap(
       baseUrl,
       '/api/integrations/$providerId/disconnect',
-      const <String, dynamic>{},
+      <String, dynamic>{'connectionId': connectionId},
     );
   }
 

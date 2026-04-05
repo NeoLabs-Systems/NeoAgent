@@ -1161,17 +1161,45 @@ class StoreSkillItem {
 }
 
 class OfficialIntegrationAppItem {
-  const OfficialIntegrationAppItem({required this.id, required this.label});
+  const OfficialIntegrationAppItem({
+    required this.id,
+    required this.label,
+    this.description,
+    this.connection = const OfficialIntegrationConnectionStatus(
+      status: 'not_connected',
+      connected: false,
+    ),
+    this.accounts = const <OfficialIntegrationAccountItem>[],
+    this.availableToolCount = 0,
+  });
 
   factory OfficialIntegrationAppItem.fromJson(Map<dynamic, dynamic> json) {
+    final accountsRaw = json['accounts'];
     return OfficialIntegrationAppItem(
       id: json['id']?.toString() ?? '',
       label: json['label']?.toString() ?? 'App',
+      description: json['description']?.toString(),
+      connection: OfficialIntegrationConnectionStatus.fromJson(
+        _jsonMap(json['connection']),
+      ),
+      accounts: accountsRaw is List
+          ? accountsRaw
+                .whereType<Map<dynamic, dynamic>>()
+                .map(OfficialIntegrationAccountItem.fromJson)
+                .toList()
+          : const <OfficialIntegrationAccountItem>[],
+      availableToolCount: _asInt(json['availableToolCount']),
     );
   }
 
   final String id;
   final String label;
+  final String? description;
+  final OfficialIntegrationConnectionStatus connection;
+  final List<OfficialIntegrationAccountItem> accounts;
+  final int availableToolCount;
+
+  bool get isConnected => connection.connected;
 }
 
 class OfficialIntegrationEnvStatus {
@@ -1203,6 +1231,8 @@ class OfficialIntegrationConnectionStatus {
     required this.connected,
     this.accountEmail,
     this.lastConnectedAt,
+    this.accountCount = 0,
+    this.appCount = 0,
   });
 
   factory OfficialIntegrationConnectionStatus.fromJson(
@@ -1215,9 +1245,43 @@ class OfficialIntegrationConnectionStatus {
       lastConnectedAt: _parseOptionalTimestamp(
         json['lastConnectedAt']?.toString(),
       ),
+      accountCount: _asInt(json['accountCount']),
+      appCount: _asInt(json['appCount']),
     );
   }
 
+  final String status;
+  final bool connected;
+  final String? accountEmail;
+  final DateTime? lastConnectedAt;
+  final int accountCount;
+  final int appCount;
+
+  String get statusLabel => status.replaceAll('_', ' ');
+}
+
+class OfficialIntegrationAccountItem {
+  const OfficialIntegrationAccountItem({
+    required this.id,
+    required this.status,
+    required this.connected,
+    this.accountEmail,
+    this.lastConnectedAt,
+  });
+
+  factory OfficialIntegrationAccountItem.fromJson(Map<dynamic, dynamic> json) {
+    return OfficialIntegrationAccountItem(
+      id: _asInt(json['id']),
+      status: json['status']?.toString() ?? 'not_connected',
+      connected: json['connected'] == true,
+      accountEmail: json['accountEmail']?.toString(),
+      lastConnectedAt: _parseOptionalTimestamp(
+        json['lastConnectedAt']?.toString(),
+      ),
+    );
+  }
+
+  final int id;
   final String status;
   final bool connected;
   final String? accountEmail;

@@ -359,7 +359,7 @@ class NeoAgentController extends ChangeNotifier {
   io.Socket? _socket;
   Timer? _updatePollTimer;
   final Set<String> _backgroundRunIds = <String>{};
-  final Set<String> _busyOfficialIntegrations = <String>{};
+  final Set<String> _busyOfficialIntegrationKeys = <String>{};
 
   bool isBooting = true;
   bool isAuthenticated = false;
@@ -432,8 +432,8 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
 
-  bool isOfficialIntegrationBusy(String providerId) =>
-      _busyOfficialIntegrations.contains(providerId);
+  bool isOfficialIntegrationBusy(String key) =>
+      _busyOfficialIntegrationKeys.contains(key);
 
   String get chatComposerHint => hasLiveRun
       ? 'Send a steering update or next-up note for the current run...'
@@ -2125,12 +2125,28 @@ class NeoAgentController extends ChangeNotifier {
     await refreshSkills();
   }
 
-  Future<void> connectOfficialIntegration(String providerId) async {
-    if (_busyOfficialIntegrations.contains(providerId)) {
+  Future<void> connectOfficialIntegration(
+    String providerId, {
+    required String appId,
+  }) async {
+    final busyKey = '$providerId:$appId:connect';
+    if (_busyOfficialIntegrationKeys.contains(busyKey)) {
       return;
     }
 
-    _busyOfficialIntegrations.add(providerId);
+    final before = _findOfficialIntegrationApp(providerId, appId);
+    final beforeCount = before?.accounts.length ?? 0;
+    final beforeLatest = before?.accounts
+        .map((account) => account.lastConnectedAt)
+        .whereType<DateTime>()
+        .fold<DateTime?>(null, (latest, value) {
+          if (latest == null || value.isAfter(latest)) {
+            return value;
+          }
+          return latest;
+        });
+
+    _busyOfficialIntegrationKeys.add(busyKey);
     errorMessage = null;
     notifyListeners();
 
@@ -2138,6 +2154,7 @@ class NeoAgentController extends ChangeNotifier {
       final response = await _backendClient.connectOfficialIntegration(
         backendUrl,
         providerId,
+        appId: appId,
       );
       final url = response['url']?.toString();
       if (response['status']?.toString() != 'oauth_redirect' || url == null) {
@@ -2159,21 +2176,30 @@ class NeoAgentController extends ChangeNotifier {
         throw Exception(launchResult.error!);
       }
 
-      await _pollForOfficialIntegrationConnection(providerId);
+      await _pollForOfficialIntegrationConnection(
+        providerId,
+        appId: appId,
+        previousAccountCount: beforeCount,
+        previousLatestConnectedAt: beforeLatest,
+      );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
-      _busyOfficialIntegrations.remove(providerId);
+      _busyOfficialIntegrationKeys.remove(busyKey);
       notifyListeners();
     }
   }
 
-  Future<void> disconnectOfficialIntegration(String providerId) async {
-    if (_busyOfficialIntegrations.contains(providerId)) {
+  Future<void> disconnectOfficialIntegration(
+    String providerId, {
+    required int connectionId,
+  }) async {
+    final busyKey = '$providerId:$connectionId:disconnect';
+    if (_busyOfficialIntegrationKeys.contains(busyKey)) {
       return;
     }
 
-    _busyOfficialIntegrations.add(providerId);
+    _busyOfficialIntegrationKeys.add(busyKey);
     errorMessage = null;
     notifyListeners();
 
@@ -2181,31 +2207,62 @@ class NeoAgentController extends ChangeNotifier {
       await _backendClient.disconnectOfficialIntegration(
         backendUrl,
         providerId,
+        connectionId: connectionId,
       );
       await refreshSkills();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
-      _busyOfficialIntegrations.remove(providerId);
+      _busyOfficialIntegrationKeys.remove(busyKey);
       notifyListeners();
     }
   }
 
-  Future<void> _pollForOfficialIntegrationConnection(String providerId) async {
+  OfficialIntegrationAppItem? _findOfficialIntegrationApp(
+    String providerId,
+    String appId,
+  ) {
+    for (final item in officialIntegrations) {
+      if (item.id != providerId) continue;
+      for (final app in item.apps) {
+        if (app.id == appId) {
+          return app;
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<void> _pollForOfficialIntegrationConnection(
+    String providerId, {
+    required String appId,
+    required int previousAccountCount,
+    required DateTime? previousLatestConnectedAt,
+  }) async {
     final deadline = DateTime.now().add(const Duration(minutes: 2));
     while (DateTime.now().isBefore(deadline)) {
       final items = await _backendClient.fetchOfficialIntegrations(backendUrl);
       officialIntegrations = items
           .map(OfficialIntegrationItem.fromJson)
           .toList();
-      OfficialIntegrationItem? match;
-      for (final item in officialIntegrations) {
-        if (item.id == providerId) {
-          match = item;
-          break;
-        }
-      }
-      if (match != null && match.isConnected) {
+      final match = _findOfficialIntegrationApp(providerId, appId);
+      final latestConnectedAt = match?.accounts
+          .map((account) => account.lastConnectedAt)
+          .whereType<DateTime>()
+          .fold<DateTime?>(null, (latest, value) {
+            if (latest == null || value.isAfter(latest)) {
+              return value;
+            }
+            return latest;
+          });
+      if (match != null &&
+          match.isConnected &&
+          (match.accounts.length > previousAccountCount ||
+              (previousLatestConnectedAt == null &&
+                  latestConnectedAt != null) ||
+              (previousLatestConnectedAt != null &&
+                  latestConnectedAt != null &&
+                  latestConnectedAt.isAfter(previousLatestConnectedAt)))) {
         notifyListeners();
         return;
       }

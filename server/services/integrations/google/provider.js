@@ -9,29 +9,90 @@ const { driveToolDefinitions, executeDriveTool } = require('./drive');
 const { docsToolDefinitions, executeDocsTool } = require('./docs');
 const { sheetsToolDefinitions, executeSheetsTool } = require('./sheets');
 
-const GOOGLE_WORKSPACE_SCOPES = [
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/documents',
-  'https://www.googleapis.com/auth/spreadsheets',
+const GOOGLE_ACCOUNT_IDENTITY_SCOPES = [
+  'openid',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/userinfo.profile',
 ];
 
 const GOOGLE_WORKSPACE_APPS = [
-  { id: 'gmail', label: 'Gmail' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'drive', label: 'Drive' },
-  { id: 'docs', label: 'Docs' },
-  { id: 'sheets', label: 'Sheets' },
+  {
+    id: 'gmail',
+    label: 'Gmail',
+    description: 'Search threads, read messages, send mail, and manage labels.',
+    scopes: ['https://www.googleapis.com/auth/gmail.modify'],
+    toolDefinitions: gmailToolDefinitions,
+    executor: executeGmailTool,
+  },
+  {
+    id: 'calendar',
+    label: 'Calendar',
+    description: 'List events, create events, update events, and check free/busy.',
+    scopes: ['https://www.googleapis.com/auth/calendar'],
+    toolDefinitions: calendarToolDefinitions,
+    executor: executeCalendarTool,
+  },
+  {
+    id: 'drive',
+    label: 'Drive',
+    description: 'Search Drive, upload and download files, and create share links.',
+    scopes: ['https://www.googleapis.com/auth/drive'],
+    toolDefinitions: driveToolDefinitions,
+    executor: executeDriveTool,
+  },
+  {
+    id: 'docs',
+    label: 'Docs',
+    description: 'Read, create, append to, and replace text in Google Docs.',
+    scopes: ['https://www.googleapis.com/auth/documents'],
+    toolDefinitions: docsToolDefinitions,
+    executor: executeDocsTool,
+  },
+  {
+    id: 'sheets',
+    label: 'Sheets',
+    description: 'Read ranges, update values, append rows, and create spreadsheets.',
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    toolDefinitions: sheetsToolDefinitions,
+    executor: executeSheetsTool,
+  },
 ];
 
-const googleWorkspaceToolDefinitions = [
-  ...gmailToolDefinitions,
-  ...calendarToolDefinitions,
-  ...driveToolDefinitions,
-  ...docsToolDefinitions,
-  ...sheetsToolDefinitions,
-];
+const appById = new Map(GOOGLE_WORKSPACE_APPS.map((app) => [app.id, app]));
+
+function withAccountSelectors(app, definition) {
+  return {
+    ...definition,
+    description: `${definition.description} When multiple ${app.label} accounts are connected, set connection_id or account_email to choose which account to use.`,
+    parameters: {
+      ...(definition.parameters || { type: 'object', properties: {} }),
+      type: 'object',
+      properties: {
+        ...((definition.parameters && definition.parameters.properties) || {}),
+        connection_id: {
+          type: 'number',
+          description: `Optional connected ${app.label} account ID.`,
+        },
+        account_email: {
+          type: 'string',
+          description: `Optional connected ${app.label} account email.`,
+        },
+      },
+      required: Array.isArray(definition.parameters?.required)
+        ? definition.parameters.required.slice()
+        : [],
+    },
+    appId: app.id,
+  };
+}
+
+const googleWorkspaceToolDefinitions = GOOGLE_WORKSPACE_APPS.flatMap((app) =>
+  app.toolDefinitions.map((definition) => withAccountSelectors(app, definition)),
+);
+
+const toolAppMap = new Map(
+  googleWorkspaceToolDefinitions.map((tool) => [tool.name, tool.appId]),
+);
 
 function base64UrlSha256(value) {
   return crypto
@@ -67,9 +128,31 @@ async function buildAuthorizedClient(connection) {
   return client;
 }
 
-function summarizeConnection(row, envStatus) {
+function getApp(appId) {
+  return appById.get(String(appId || '').trim()) || null;
+}
+
+function getAppScopes(appId) {
+  const app = getApp(appId);
+  if (!app) {
+    throw new Error(`Unknown Google Workspace app: ${appId}`);
+  }
+  return Array.from(new Set([...GOOGLE_ACCOUNT_IDENTITY_SCOPES, ...app.scopes]));
+}
+
+function sortConnections(rows) {
+  return rows.slice().sort((left, right) => {
+    const leftEmail = String(left.account_email || '').toLowerCase();
+    const rightEmail = String(right.account_email || '').toLowerCase();
+    if (leftEmail !== rightEmail) return leftEmail.localeCompare(rightEmail);
+    return String(right.updated_at || '').localeCompare(String(left.updated_at || ''));
+  });
+}
+
+function summarizeAccountRow(row, envStatus) {
   if (!envStatus.configured) {
     return {
+      id: row?.id || null,
       status: 'env_not_configured',
       connected: false,
       accountEmail: row?.account_email || null,
@@ -79,6 +162,7 @@ function summarizeConnection(row, envStatus) {
 
   if (!row) {
     return {
+      id: null,
       status: 'not_connected',
       connected: false,
       accountEmail: null,
@@ -86,33 +170,63 @@ function summarizeConnection(row, envStatus) {
     };
   }
 
-  const connected = row.status === 'connected';
   return {
+    id: row.id || null,
     status: row.status || 'not_connected',
-    connected,
+    connected: row.status === 'connected',
     accountEmail: row.account_email || null,
     lastConnectedAt: row.last_connected_at || null,
   };
 }
 
+function summarizeAppConnection(app, connectionRows, envStatus) {
+  const accounts = sortConnections(connectionRows).map((row) =>
+    summarizeAccountRow(row, envStatus),
+  );
+  const connectedAccounts = accounts.filter((account) => account.connected);
+  const latestConnectedAt = connectedAccounts
+    .map((account) => account.lastConnectedAt)
+    .filter(Boolean)
+    .sort()
+    .reverse()[0] || null;
+  const status = !envStatus.configured
+    ? 'env_not_configured'
+    : connectedAccounts.length > 0
+    ? 'connected'
+    : accounts.some((account) => account.status === 'authorizing')
+    ? 'authorizing'
+    : 'not_connected';
+
+  return {
+    id: app.id,
+    label: app.label,
+    description: app.description,
+    accounts,
+    connection: {
+      status,
+      connected: connectedAccounts.length > 0,
+      accountCount: connectedAccounts.length,
+      accountEmail:
+        connectedAccounts.length === 1
+          ? connectedAccounts[0].accountEmail
+          : null,
+      lastConnectedAt: latestConnectedAt,
+    },
+    availableToolCount:
+      envStatus.configured && connectedAccounts.length > 0
+        ? app.toolDefinitions.length
+        : 0,
+  };
+}
+
 async function executeGoogleWorkspaceTool(toolName, args, connection) {
   const auth = await buildAuthorizedClient(connection);
-  let result = await executeGmailTool(toolName, args, auth);
-  if (result !== null) return { result, credentials: auth.credentials };
-
-  result = await executeCalendarTool(toolName, args, auth);
-  if (result !== null) return { result, credentials: auth.credentials };
-
-  result = await executeDriveTool(toolName, args, auth);
-  if (result !== null) return { result, credentials: auth.credentials };
-
-  result = await executeDocsTool(toolName, args, auth);
-  if (result !== null) return { result, credentials: auth.credentials };
-
-  result = await executeSheetsTool(toolName, args, auth);
-  if (result !== null) return { result, credentials: auth.credentials };
-
-  return null;
+  const appId = toolAppMap.get(toolName);
+  const app = getApp(appId);
+  if (!app) return null;
+  const result = await app.executor(toolName, args, auth);
+  if (result === null) return null;
+  return { result, credentials: auth.credentials };
 }
 
 function createGoogleWorkspaceProvider() {
@@ -120,36 +234,86 @@ function createGoogleWorkspaceProvider() {
     key: 'google_workspace',
     label: 'Google Workspace',
     description:
-      'Official Gmail, Calendar, Drive, Docs, and Sheets access through one OAuth connection.',
+      'Official Gmail, Calendar, Drive, Docs, and Sheets integrations with app-specific accounts.',
     icon: 'google',
-    apps: GOOGLE_WORKSPACE_APPS,
-    scopes: GOOGLE_WORKSPACE_SCOPES,
+    apps: GOOGLE_WORKSPACE_APPS.map(({ id, label, description }) => ({
+      id,
+      label,
+      description,
+    })),
+    getApp(appId) {
+      return getApp(appId);
+    },
+    getToolAppId(toolName) {
+      return toolAppMap.get(String(toolName || '').trim()) || null;
+    },
     getEnvStatus() {
       return describeEnvStatus(resolveGoogleOAuthConfig());
     },
-    getToolDefinitions() {
-      return googleWorkspaceToolDefinitions;
+    getToolDefinitions(options = {}) {
+      const connectedAppIds = new Set(options.connectedAppIds || []);
+      return googleWorkspaceToolDefinitions.filter((tool) =>
+        connectedAppIds.has(tool.appId),
+      );
     },
     supportsTool(toolName) {
-      return googleWorkspaceToolDefinitions.some((tool) => tool.name === toolName);
+      return toolAppMap.has(String(toolName || '').trim());
     },
-    buildSnapshot(connectionRow) {
+    buildSnapshot(connectionRows) {
       const env = this.getEnvStatus();
+      const byApp = new Map();
+      for (const row of Array.isArray(connectionRows) ? connectionRows : []) {
+        const appId = String(row.app_key || '').trim();
+        if (!byApp.has(appId)) byApp.set(appId, []);
+        byApp.get(appId).push(row);
+      }
+
+      const apps = GOOGLE_WORKSPACE_APPS.map((app) =>
+        summarizeAppConnection(app, byApp.get(app.id) || [], env),
+      );
+      const connectedApps = apps.filter((app) => app.connection.connected);
+      const connectedAccounts = connectedApps.flatMap((app) =>
+        app.accounts.filter((account) => account.connected),
+      );
+
       return {
         id: this.key,
         label: this.label,
         description: this.description,
         icon: this.icon,
-        apps: this.apps,
+        apps,
         env,
-        connection: summarizeConnection(connectionRow, env),
-        availableToolCount:
-          env.configured && connectionRow?.status === 'connected'
-            ? googleWorkspaceToolDefinitions.length
-            : 0,
+        connection: {
+          status: !env.configured
+            ? 'env_not_configured'
+            : connectedAccounts.length > 0
+            ? 'connected'
+            : 'not_connected',
+          connected: connectedAccounts.length > 0,
+          accountEmail:
+            connectedAccounts.length === 1
+              ? connectedAccounts[0].accountEmail
+              : null,
+          accountCount: connectedAccounts.length,
+          appCount: connectedApps.length,
+          lastConnectedAt:
+            connectedAccounts
+              .map((account) => account.lastConnectedAt)
+              .filter(Boolean)
+              .sort()
+              .reverse()[0] || null,
+        },
+        availableToolCount: apps.reduce(
+          (total, app) => total + app.availableToolCount,
+          0,
+        ),
       };
     },
-    async beginOAuth({ state, codeVerifier }) {
+    async beginOAuth({ state, codeVerifier, appKey }) {
+      const app = getApp(appKey);
+      if (!app) {
+        throw new Error(`Unknown Google Workspace app: ${appKey}`);
+      }
       const { config, client } = createOAuthClient();
       if (!config.configured) {
         throw new Error(
@@ -160,29 +324,38 @@ function createGoogleWorkspaceProvider() {
       const url = client.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
-        scope: GOOGLE_WORKSPACE_SCOPES,
+        scope: getAppScopes(app.id),
         include_granted_scopes: true,
         state,
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
       });
-      return { url };
+      return { url, appId: app.id };
     },
-    async finishOAuth({ code, codeVerifier }) {
+    async finishOAuth({ code, codeVerifier, appKey }) {
+      const app = getApp(appKey);
+      if (!app) {
+        throw new Error(`Unknown Google Workspace app: ${appKey}`);
+      }
       const { client } = createOAuthClient();
       const { tokens } = await client.getToken({
         code,
         codeVerifier,
       });
       client.setCredentials(tokens);
-      const gmail = google.gmail({ version: 'v1', auth: client });
-      const profile = await gmail.users.getProfile({ userId: 'me' });
+      const oauth2 = google.oauth2({ version: 'v2', auth: client });
+      const profile = await oauth2.userinfo.get();
+      const accountEmail = String(profile.data.email || '').trim();
+      if (!accountEmail) {
+        throw new Error('Google OAuth did not return an account email address.');
+      }
       return {
-        accountEmail: profile.data.emailAddress || null,
+        appId: app.id,
+        accountEmail,
         credentials: client.credentials,
-        scopes: GOOGLE_WORKSPACE_SCOPES,
+        scopes: getAppScopes(app.id),
         metadata: {
-          apps: GOOGLE_WORKSPACE_APPS.map((app) => app.id),
+          appId: app.id,
         },
       };
     },
@@ -199,21 +372,38 @@ function createGoogleWorkspaceProvider() {
     async executeTool(toolName, args, connectionRow) {
       return executeGoogleWorkspaceTool(toolName, args, connectionRow);
     },
-    summarizeConnection(connectionRow) {
-      const connection = this.buildSnapshot(connectionRow).connection;
-      if (!connection.connected) {
-        if (connection.status === 'env_not_configured') {
+    summarizeConnection(connectionRows) {
+      const snapshot = this.buildSnapshot(connectionRows);
+      if (!snapshot.connection.connected) {
+        if (snapshot.connection.status === 'env_not_configured') {
           return 'Google Workspace OAuth is not configured on the server.';
         }
         return 'Google Workspace is not connected.';
       }
-      return `Google Workspace is connected for ${connection.accountEmail || 'the current account'}.`;
+
+      return snapshot.apps
+        .filter((app) => app.connection.connected)
+        .map((app) => {
+          const accounts = app.accounts
+            .filter((account) => account.connected)
+            .map((account) => account.accountEmail || 'unknown account')
+            .join(', ');
+          return `${app.label}: ${accounts}`;
+        })
+        .join(' | ');
     },
   };
 }
 
 module.exports = {
   createGoogleWorkspaceProvider,
-  GOOGLE_WORKSPACE_APPS,
-  GOOGLE_WORKSPACE_SCOPES,
+  GOOGLE_ACCOUNT_IDENTITY_SCOPES,
+  GOOGLE_WORKSPACE_APPS: GOOGLE_WORKSPACE_APPS.map(
+    ({ id, label, description, scopes }) => ({
+      id,
+      label,
+      description,
+      scopes: scopes.slice(),
+    }),
+  ),
 };
