@@ -29,9 +29,6 @@ At least one hosted-provider API key is required unless you only use local Ollam
 | `XAI_API_KEY` | Grok (xAI) |
 | `XAI_BASE_URL` | Optional xAI-compatible base URL override |
 | `GOOGLE_AI_KEY` | Gemini (Google) |
-| `GOOGLE_OAUTH_CLIENT_ID` | Google Workspace official integrations OAuth client ID |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Workspace official integrations OAuth client secret |
-| `GOOGLE_OAUTH_REDIRECT_URI` | Optional override for the Google Workspace OAuth callback URL |
 | `MINIMAX_API_KEY` | MiniMax Code (Coding Plan / Token Plan for `MiniMax-M2.7`) |
 | `BRAVE_SEARCH_API_KEY` | Brave Search API for the native `web_search` tool |
 | `OPENAI_BASE_URL` | Optional OpenAI-compatible base URL override |
@@ -42,7 +39,30 @@ At least one hosted-provider API key is required unless you only use local Ollam
 | `DEEPGRAM_LANGUAGE` | Deepgram language override (defaults to `multi`) |
 | `OLLAMA_URL` | Local Ollama (`http://localhost:11434`) |
 
-`GOOGLE_OAUTH_CLIENT_SECRET` is sensitive, just like `SESSION_SECRET`. Do not commit it to version control, print it to logs, or expose it in client-side code. Store it in server-side environment variables or a secrets manager, restrict access to operators who need it, and rotate it immediately if you suspect it was exposed.
+### Official Integrations
+
+All official integration OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` unless you override the provider-specific redirect URI.
+
+| Variable | Description |
+|---|---|
+| `GOOGLE_OAUTH_CLIENT_ID` | Google Workspace official integrations OAuth client ID |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Workspace official integrations OAuth client secret |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Optional override for the Google Workspace OAuth callback URL |
+| `NOTION_OAUTH_CLIENT_ID` | Notion official integrations OAuth client ID |
+| `NOTION_OAUTH_CLIENT_SECRET` | Notion official integrations OAuth client secret |
+| `NOTION_OAUTH_REDIRECT_URI` | Optional override for the Notion OAuth callback URL |
+| `MICROSOFT_OAUTH_CLIENT_ID` | Microsoft 365 official integrations OAuth client ID |
+| `MICROSOFT_OAUTH_CLIENT_SECRET` | Microsoft 365 official integrations OAuth client secret |
+| `MICROSOFT_OAUTH_REDIRECT_URI` | Optional override for the Microsoft 365 OAuth callback URL |
+| `MICROSOFT_OAUTH_TENANT_ID` | Optional Entra tenant selector (`common` by default) |
+| `SLACK_OAUTH_CLIENT_ID` | Slack official integrations OAuth client ID |
+| `SLACK_OAUTH_CLIENT_SECRET` | Slack official integrations OAuth client secret |
+| `SLACK_OAUTH_REDIRECT_URI` | Optional override for the Slack OAuth callback URL |
+| `FIGMA_OAUTH_CLIENT_ID` | Figma official integrations OAuth client ID |
+| `FIGMA_OAUTH_CLIENT_SECRET` | Figma official integrations OAuth client secret |
+| `FIGMA_OAUTH_REDIRECT_URI` | Optional override for the Figma OAuth callback URL |
+
+OAuth client secrets such as `GOOGLE_OAUTH_CLIENT_SECRET`, `NOTION_OAUTH_CLIENT_SECRET`, `MICROSOFT_OAUTH_CLIENT_SECRET`, `SLACK_OAUTH_CLIENT_SECRET`, and `FIGMA_OAUTH_CLIENT_SECRET` are sensitive, just like `SESSION_SECRET`. Do not commit them to version control, print them to logs, or expose them in client-side code. Store them in server-side environment variables or a secrets manager, restrict access to operators who need them, and rotate them immediately if you suspect they were exposed.
 
 ### Messaging
 

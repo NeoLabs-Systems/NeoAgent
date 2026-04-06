@@ -13,21 +13,46 @@ function resolvePublicBaseUrl() {
   return `${scheme}://localhost:${trimEnv('PORT') || '3333'}`;
 }
 
-function resolveGoogleOAuthConfig() {
-  const clientId = trimEnv('GOOGLE_OAUTH_CLIENT_ID');
-  const clientSecret = trimEnv('GOOGLE_OAUTH_CLIENT_SECRET');
+function resolveOAuthConfig(prefix) {
+  const normalizedPrefix = String(prefix || '').trim().toUpperCase();
+  const clientId = trimEnv(`${normalizedPrefix}_OAUTH_CLIENT_ID`);
+  const clientSecret = trimEnv(`${normalizedPrefix}_OAUTH_CLIENT_SECRET`);
   const redirectUri =
-    trimEnv('GOOGLE_OAUTH_REDIRECT_URI') ||
+    trimEnv(`${normalizedPrefix}_OAUTH_REDIRECT_URI`) ||
     `${resolvePublicBaseUrl()}/api/integrations/oauth/callback`;
   const missing = [];
-  if (!clientId) missing.push('GOOGLE_OAUTH_CLIENT_ID');
-  if (!clientSecret) missing.push('GOOGLE_OAUTH_CLIENT_SECRET');
+  if (!clientId) missing.push(`${normalizedPrefix}_OAUTH_CLIENT_ID`);
+  if (!clientSecret) missing.push(`${normalizedPrefix}_OAUTH_CLIENT_SECRET`);
   return {
     clientId,
     clientSecret,
     redirectUri,
     configured: missing.length === 0,
     missing,
+  };
+}
+
+function resolveGoogleOAuthConfig() {
+  return resolveOAuthConfig('GOOGLE');
+}
+
+function resolveNotionOAuthConfig() {
+  return resolveOAuthConfig('NOTION');
+}
+
+function resolveSlackOAuthConfig() {
+  return resolveOAuthConfig('SLACK');
+}
+
+function resolveFigmaOAuthConfig() {
+  return resolveOAuthConfig('FIGMA');
+}
+
+function resolveMicrosoftOAuthConfig() {
+  const base = resolveOAuthConfig('MICROSOFT');
+  return {
+    ...base,
+    tenantId: trimEnv('MICROSOFT_OAUTH_TENANT_ID') || 'common',
   };
 }
 
@@ -50,6 +75,11 @@ function describeEnvStatus(config, options = {}) {
 
 module.exports = {
   describeEnvStatus,
+  resolveFigmaOAuthConfig,
+  resolveMicrosoftOAuthConfig,
+  resolveNotionOAuthConfig,
+  resolveOAuthConfig,
   resolveGoogleOAuthConfig,
   resolvePublicBaseUrl,
+  resolveSlackOAuthConfig,
 };
