@@ -1,6 +1,10 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const { DATA_DIR, ensureRuntimeDirs } = require('../../runtime/paths');
+const {
+  encryptValue,
+  isEncryptedValue,
+} = require('../services/integrations/secrets');
 ensureRuntimeDirs();
 
 const DB_PATH = path.join(DATA_DIR, 'neoagent.db');
@@ -204,6 +208,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agent_steps_run ON agent_steps(run_id, step_index);
   CREATE INDEX IF NOT EXISTS idx_integration_connections_user ON integration_connections(user_id, provider_key, app_key);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_state ON integration_oauth_states(state);
+  CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_expires ON integration_oauth_states(expires_at);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
   CREATE INDEX IF NOT EXISTS idx_conv_messages ON conversation_messages(conversation_id, created_at);
@@ -379,6 +384,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_recording_sources_session ON recording_sources(session_id, source_key);
   CREATE INDEX IF NOT EXISTS idx_recording_chunks_source ON recording_chunks(source_id, sequence_index);
   CREATE INDEX IF NOT EXISTS idx_recording_segments_session ON recording_transcript_segments(session_id, start_ms, created_at);
+
+  CREATE TRIGGER IF NOT EXISTS cleanup_expired_oauth_states
+  AFTER INSERT ON integration_oauth_states BEGIN
+    DELETE FROM integration_oauth_states
+    WHERE datetime(expires_at) <= datetime('now');
+  END;
 `);
 
 try {
@@ -581,8 +592,43 @@ function migrateIntegrationOauthStatesTable() {
   `);
 }
 
+function migrateIntegrationSecretStorage() {
+  try {
+    const connectionRows = db
+      .prepare('SELECT id, credentials_json FROM integration_connections')
+      .all();
+    const updateConnection = db.prepare(
+      'UPDATE integration_connections SET credentials_json = ? WHERE id = ?',
+    );
+    for (const row of connectionRows) {
+      const current = String(row.credentials_json || '');
+      if (!current || isEncryptedValue(current)) continue;
+      updateConnection.run(encryptValue(current), row.id);
+    }
+  } catch {
+    // Preserve startup even if a row cannot be re-encrypted.
+  }
+
+  try {
+    const stateRows = db
+      .prepare('SELECT id, code_verifier FROM integration_oauth_states')
+      .all();
+    const updateState = db.prepare(
+      'UPDATE integration_oauth_states SET code_verifier = ? WHERE id = ?',
+    );
+    for (const row of stateRows) {
+      const current = String(row.code_verifier || '');
+      if (!current || isEncryptedValue(current)) continue;
+      updateState.run(encryptValue(current), row.id);
+    }
+  } catch {
+    // Preserve startup even if a row cannot be re-encrypted.
+  }
+}
+
 migrateIntegrationConnectionsTable();
 migrateIntegrationOauthStatesTable();
+migrateIntegrationSecretStorage();
 
 try {
   db.exec(`

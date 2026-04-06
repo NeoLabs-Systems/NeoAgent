@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const { google } = require('googleapis');
 const { coerceStringList, ensureParentDir, summarizeFile } = require('./common');
 
@@ -102,6 +103,39 @@ const driveToolDefinitions = [
   },
 ];
 
+async function validateExistingReadableFilePath(filePath) {
+  const normalized = String(filePath || '').trim();
+  if (!normalized) {
+    throw new Error('file_path is required.');
+  }
+  if (normalized.split(/[\\/]+/).includes('..')) {
+    throw new Error('file_path must not contain parent traversal segments.');
+  }
+  const resolved = path.resolve(normalized);
+  const stats = await fs.promises.stat(resolved);
+  if (!stats.isFile()) {
+    throw new Error('file_path must point to a readable file.');
+  }
+  await fs.promises.access(resolved, fs.constants.R_OK);
+  return resolved;
+}
+
+function requireNonEmptyString(value, label) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    throw new Error(`${label} is required.`);
+  }
+  return normalized;
+}
+
+function requireDestinationPath(value, label) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    throw new Error(`${label} is required.`);
+  }
+  return path.resolve(normalized);
+}
+
 async function executeDriveTool(toolName, args, auth) {
   const drive = google.drive({ version: 'v3', auth });
 
@@ -119,7 +153,7 @@ async function executeDriveTool(toolName, args, auth) {
     }
 
     case 'google_workspace_drive_upload_file': {
-      const filePath = String(args.file_path || '');
+      const filePath = await validateExistingReadableFilePath(args.file_path);
       const response = await drive.files.create({
         requestBody: {
           name: args.name || undefined,
@@ -136,52 +170,66 @@ async function executeDriveTool(toolName, args, auth) {
     }
 
     case 'google_workspace_drive_download_file': {
-      const destinationPath = String(args.destination_path || '');
+      const fileId = requireNonEmptyString(args.file_id, 'file_id');
+      const destinationPath = requireDestinationPath(
+        args.destination_path,
+        'destination_path',
+      );
       ensureParentDir(destinationPath);
       const response = await drive.files.get(
-        { fileId: String(args.file_id || ''), alt: 'media' },
+        { fileId, alt: 'media' },
         { responseType: 'arraybuffer' },
       );
       const data = Buffer.from(response.data);
-      fs.writeFileSync(destinationPath, data);
+      await fs.promises.writeFile(destinationPath, data);
       return {
-        fileId: String(args.file_id || ''),
+        fileId,
         destinationPath,
         bytesWritten: data.byteLength,
       };
     }
 
     case 'google_workspace_drive_export_file': {
-      const destinationPath = String(args.destination_path || '');
+      const fileId = requireNonEmptyString(args.file_id, 'file_id');
+      const mimeType = requireNonEmptyString(args.mime_type, 'mime_type');
+      const destinationPath = requireDestinationPath(
+        args.destination_path,
+        'destination_path',
+      );
       ensureParentDir(destinationPath);
       const response = await drive.files.export(
         {
-          fileId: String(args.file_id || ''),
-          mimeType: String(args.mime_type || ''),
+          fileId,
+          mimeType,
         },
         { responseType: 'arraybuffer' },
       );
-      fs.writeFileSync(destinationPath, Buffer.from(response.data));
+      await fs.promises.writeFile(destinationPath, Buffer.from(response.data));
       return {
-        fileId: String(args.file_id || ''),
+        fileId,
         destinationPath,
-        mimeType: String(args.mime_type || ''),
+        mimeType,
       };
     }
 
     case 'google_workspace_drive_create_share_link': {
+      const fileId = requireNonEmptyString(args.file_id, 'file_id');
+      const type = requireNonEmptyString(args.type, 'type');
+      if (type === 'user') {
+        requireNonEmptyString(args.email_address, 'email_address');
+      }
       await drive.permissions.create({
-        fileId: String(args.file_id || ''),
+        fileId,
         requestBody: {
           role: String(args.role || 'reader'),
-          type: String(args.type || 'anyone'),
+          type,
           ...(args.email_address
             ? { emailAddress: String(args.email_address) }
             : {}),
         },
       });
       const fileResponse = await drive.files.get({
-        fileId: String(args.file_id || ''),
+        fileId,
         fields: 'id,name,webViewLink,webContentLink',
       });
       return summarizeFile(fileResponse.data);

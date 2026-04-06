@@ -1069,9 +1069,13 @@ class NeoAgentController extends ChangeNotifier {
     storeSkills = (await _backendClient.fetchSkillStore(
       backendUrl,
     )).map(StoreSkillItem.fromJson).toList();
-    officialIntegrations = (await _backendClient.fetchOfficialIntegrations(
-      backendUrl,
-    )).map(OfficialIntegrationItem.fromJson).toList();
+    try {
+      officialIntegrations = (await _backendClient.fetchOfficialIntegrations(
+        backendUrl,
+      )).map(OfficialIntegrationItem.fromJson).toList();
+    } catch (_) {
+      officialIntegrations = const <OfficialIntegrationItem>[];
+    }
     notifyListeners();
   }
 
@@ -2245,10 +2249,15 @@ class NeoAgentController extends ChangeNotifier {
   }) async {
     final deadline = DateTime.now().add(const Duration(minutes: 2));
     while (DateTime.now().isBefore(deadline)) {
-      final items = await _backendClient.fetchOfficialIntegrations(backendUrl);
-      officialIntegrations = items
-          .map(OfficialIntegrationItem.fromJson)
-          .toList();
+      try {
+        final items = await _backendClient.fetchOfficialIntegrations(backendUrl);
+        officialIntegrations = items
+            .map(OfficialIntegrationItem.fromJson)
+            .toList();
+      } catch (_) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        continue;
+      }
       final match = _findOfficialIntegrationApp(providerId, appId);
       final latestConnectedAt = match?.accounts
           .map((account) => account.lastConnectedAt)
@@ -2267,6 +2276,7 @@ class NeoAgentController extends ChangeNotifier {
               (previousLatestConnectedAt != null &&
                   latestConnectedAt != null &&
                   latestConnectedAt.isAfter(previousLatestConnectedAt)))) {
+        await refreshSkills();
         notifyListeners();
         return;
       }

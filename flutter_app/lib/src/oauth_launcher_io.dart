@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'oauth_launcher.dart';
@@ -14,12 +15,23 @@ class _IoOAuthLauncher extends OAuthLauncher {
     Duration timeout = const Duration(minutes: 2),
   }) async {
     try {
+      late final ProcessResult result;
       if (Platform.isMacOS) {
-        await Process.run('open', <String>[url]);
+        result = await Process.run(
+          'open',
+          <String>[url],
+        ).timeout(timeout);
       } else if (Platform.isLinux) {
-        await Process.run('xdg-open', <String>[url]);
+        result = await Process.run(
+          'xdg-open',
+          <String>[url],
+        ).timeout(timeout);
       } else if (Platform.isWindows) {
-        await Process.run('cmd', <String>['/c', 'start', '', url]);
+        result = await Process.run(
+          'start',
+          <String>[url],
+          runInShell: true,
+        ).timeout(timeout);
       } else {
         return const OAuthLaunchResult(
           launched: false,
@@ -28,7 +40,23 @@ class _IoOAuthLauncher extends OAuthLauncher {
         );
       }
 
+      if (result.exitCode != 0) {
+        return OAuthLaunchResult(
+          launched: false,
+          completed: false,
+          error: (result.stderr?.toString().trim().isNotEmpty ?? false)
+              ? result.stderr.toString().trim()
+              : 'External browser launch failed with exit code ${result.exitCode}.',
+        );
+      }
+
       return const OAuthLaunchResult(launched: true, completed: false);
+    } on TimeoutException {
+      return const OAuthLaunchResult(
+        launched: false,
+        completed: false,
+        error: 'External browser launch timed out.',
+      );
     } catch (error) {
       return OAuthLaunchResult(
         launched: false,

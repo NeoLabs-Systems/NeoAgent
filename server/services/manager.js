@@ -257,6 +257,7 @@ function createAgentEngine(
     app,
     'agentEngine',
     new AgentEngine(io, {
+      app,
       cliExecutor,
       memoryManager,
       mcpClient,

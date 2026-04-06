@@ -8,6 +8,14 @@ const {
   stringToBase64Url,
 } = require('./common');
 
+function sanitizeHeaderValue(value, label) {
+  const normalized = String(value || '').trim();
+  if (/[\r\n]/.test(normalized)) {
+    throw new Error(`${label} must not contain newline characters.`);
+  }
+  return normalized;
+}
+
 const gmailToolDefinitions = [
   {
     name: 'google_workspace_gmail_search_threads',
@@ -229,12 +237,16 @@ async function executeGmailTool(toolName, args, auth) {
     }
 
     case 'google_workspace_gmail_send_email': {
-      const lines = [`To: ${String(args.to || '').trim()}`];
-      if (String(args.cc || '').trim()) lines.push(`Cc: ${String(args.cc).trim()}`);
-      if (String(args.bcc || '').trim()) {
-        lines.push(`Bcc: ${String(args.bcc).trim()}`);
+      const to = sanitizeHeaderValue(args.to, 'to');
+      const cc = sanitizeHeaderValue(args.cc, 'cc');
+      const bcc = sanitizeHeaderValue(args.bcc, 'bcc');
+      const subject = sanitizeHeaderValue(args.subject, 'subject');
+      const lines = [`To: ${to}`];
+      if (cc) lines.push(`Cc: ${cc}`);
+      if (bcc) {
+        lines.push(`Bcc: ${bcc}`);
       }
-      lines.push(`Subject: ${String(args.subject || '').trim()}`);
+      lines.push(`Subject: ${subject}`);
       lines.push('Content-Type: text/plain; charset=utf-8');
       lines.push('MIME-Version: 1.0');
       lines.push('');

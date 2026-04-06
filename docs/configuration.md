@@ -42,6 +42,8 @@ At least one hosted-provider API key is required unless you only use local Ollam
 | `DEEPGRAM_LANGUAGE` | Deepgram language override (defaults to `multi`) |
 | `OLLAMA_URL` | Local Ollama (`http://localhost:11434`) |
 
+`GOOGLE_OAUTH_CLIENT_SECRET` is sensitive, just like `SESSION_SECRET`. Do not commit it to version control, print it to logs, or expose it in client-side code. Store it in server-side environment variables or a secrets manager, restrict access to operators who need it, and rotate it immediately if you suspect it was exposed.
+
 ### Messaging
 
 | Variable | Description |

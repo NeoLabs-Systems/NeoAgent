@@ -82,73 +82,81 @@ const sheetsToolDefinitions = [
 async function executeSheetsTool(toolName, args, auth) {
   const sheets = google.sheets({ version: 'v4', auth });
 
-  switch (toolName) {
-    case 'google_workspace_sheets_get_values': {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: String(args.spreadsheet_id || ''),
-        range: String(args.range || ''),
-      });
-      return {
-        range: response.data.range || String(args.range || ''),
-        majorDimension: response.data.majorDimension || 'ROWS',
-        values: Array.isArray(response.data.values) ? response.data.values : [],
-      };
-    }
+  try {
+    switch (toolName) {
+      case 'google_workspace_sheets_get_values': {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: String(args.spreadsheet_id || ''),
+          range: String(args.range || ''),
+        });
+        return {
+          range: response.data.range || String(args.range || ''),
+          majorDimension: response.data.majorDimension || 'ROWS',
+          values: Array.isArray(response.data.values) ? response.data.values : [],
+        };
+      }
 
-    case 'google_workspace_sheets_update_values': {
-      const response = await sheets.spreadsheets.values.update({
-        spreadsheetId: String(args.spreadsheet_id || ''),
-        range: String(args.range || ''),
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: Array.isArray(args.values) ? args.values : [],
-        },
-      });
-      return {
-        updatedRange: response.data.updatedRange || String(args.range || ''),
-        updatedRows: response.data.updatedRows || 0,
-        updatedColumns: response.data.updatedColumns || 0,
-        updatedCells: response.data.updatedCells || 0,
-      };
-    }
+      case 'google_workspace_sheets_update_values': {
+        const response = await sheets.spreadsheets.values.update({
+          spreadsheetId: String(args.spreadsheet_id || ''),
+          range: String(args.range || ''),
+          valueInputOption: 'USER_ENTERED',
+          requestBody: {
+            values: Array.isArray(args.values) ? args.values : [],
+          },
+        });
+        return {
+          updatedRange: response.data.updatedRange || String(args.range || ''),
+          updatedRows: response.data.updatedRows || 0,
+          updatedColumns: response.data.updatedColumns || 0,
+          updatedCells: response.data.updatedCells || 0,
+        };
+      }
 
-    case 'google_workspace_sheets_append_rows': {
-      const response = await sheets.spreadsheets.values.append({
-        spreadsheetId: String(args.spreadsheet_id || ''),
-        range: String(args.range || ''),
-        valueInputOption: 'USER_ENTERED',
-        insertDataOption: 'INSERT_ROWS',
-        requestBody: {
-          values: Array.isArray(args.rows) ? args.rows : [],
-        },
-      });
-      return {
-        tableRange: response.data.tableRange || null,
-        updates: response.data.updates || null,
-      };
-    }
+      case 'google_workspace_sheets_append_rows': {
+        const response = await sheets.spreadsheets.values.append({
+          spreadsheetId: String(args.spreadsheet_id || ''),
+          range: String(args.range || ''),
+          valueInputOption: 'USER_ENTERED',
+          insertDataOption: 'INSERT_ROWS',
+          requestBody: {
+            values: Array.isArray(args.rows) ? args.rows : [],
+          },
+        });
+        return {
+          tableRange: response.data.tableRange || null,
+          updates: response.data.updates || null,
+        };
+      }
 
-    case 'google_workspace_sheets_create_spreadsheet': {
-      const response = await sheets.spreadsheets.create({
-        requestBody: {
-          properties: { title: String(args.title || '') },
-          sheets: Array.isArray(args.sheet_titles)
-            ? args.sheet_titles
-                .map((title) => String(title || '').trim())
-                .filter(Boolean)
-                .map((title) => ({ properties: { title } }))
-            : undefined,
-        },
-      });
-      return {
-        spreadsheetId: response.data.spreadsheetId || null,
-        spreadsheetUrl: response.data.spreadsheetUrl || null,
-        title: response.data.properties?.title || String(args.title || ''),
-      };
-    }
+      case 'google_workspace_sheets_create_spreadsheet': {
+        const response = await sheets.spreadsheets.create({
+          requestBody: {
+            properties: { title: String(args.title || '') },
+            sheets: Array.isArray(args.sheet_titles)
+              ? args.sheet_titles
+                  .map((title) => String(title || '').trim())
+                  .filter(Boolean)
+                  .map((title) => ({ properties: { title } }))
+              : undefined,
+          },
+        });
+        return {
+          spreadsheetId: response.data.spreadsheetId || null,
+          spreadsheetUrl: response.data.spreadsheetUrl || null,
+          title: response.data.properties?.title || String(args.title || ''),
+        };
+      }
 
-    default:
-      return null;
+      default:
+        return null;
+    }
+  } catch (error) {
+    const wrapped = new Error(
+      `Google Sheets request failed for ${toolName} (spreadsheet_id=${args.spreadsheet_id || 'n/a'}, range=${args.range || 'n/a'}): ${error?.message || 'Unknown error.'}`,
+    );
+    wrapped.cause = error;
+    throw wrapped;
   }
 }
 

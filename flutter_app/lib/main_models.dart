@@ -1301,6 +1301,7 @@ class OfficialIntegrationItem {
     required this.env,
     required this.connection,
     required this.availableToolCount,
+    this.connectPrompt,
   });
 
   factory OfficialIntegrationItem.fromJson(Map<dynamic, dynamic> json) {
@@ -1321,6 +1322,7 @@ class OfficialIntegrationItem {
         _jsonMap(json['connection']),
       ),
       availableToolCount: _asInt(json['availableToolCount']),
+      connectPrompt: json['connectPrompt']?.toString(),
     );
   }
 
@@ -1332,6 +1334,7 @@ class OfficialIntegrationItem {
   final OfficialIntegrationEnvStatus env;
   final OfficialIntegrationConnectionStatus connection;
   final int availableToolCount;
+  final String? connectPrompt;
 
   bool get isConnected => connection.connected;
 }

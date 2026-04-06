@@ -66,50 +66,72 @@ function documentToText(document) {
     .trim();
 }
 
+function requireNonEmptyString(value, label) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    throw new Error(`${label} is required.`);
+  }
+  return normalized;
+}
+
 async function executeDocsTool(toolName, args, auth) {
   const docs = google.docs({ version: 'v1', auth });
 
   switch (toolName) {
     case 'google_workspace_docs_get_document': {
+      const documentId = requireNonEmptyString(args.document_id, 'document_id');
       const response = await docs.documents.get({
-        documentId: String(args.document_id || ''),
+        documentId,
       });
       return {
-        documentId: response.data.documentId || String(args.document_id || ''),
+        documentId: response.data.documentId || documentId,
         title: response.data.title || '',
         text: documentToText(response.data),
       };
     }
 
     case 'google_workspace_docs_create_document': {
+      const title = requireNonEmptyString(args.title, 'title');
       const createResponse = await docs.documents.create({
-        requestBody: { title: String(args.title || '') },
+        requestBody: { title },
       });
       const documentId = createResponse.data.documentId || '';
       if (args.initial_text) {
-        await docs.documents.batchUpdate({
-          documentId,
-          requestBody: {
-            requests: [
-              {
-                insertText: {
-                  endOfSegmentLocation: {},
-                  text: String(args.initial_text),
+        try {
+          await docs.documents.batchUpdate({
+            documentId,
+            requestBody: {
+              requests: [
+                {
+                  insertText: {
+                    endOfSegmentLocation: {},
+                    text: String(args.initial_text),
+                  },
                 },
-              },
-            ],
-          },
-        });
+              ],
+            },
+          });
+        } catch (error) {
+          return {
+            documentId,
+            title: createResponse.data.title || title,
+            created: true,
+            initialized: false,
+            error:
+              error?.message || 'Initial document content could not be written.',
+          };
+        }
       }
       return {
         documentId,
-        title: createResponse.data.title || String(args.title || ''),
+        title: createResponse.data.title || title,
       };
     }
 
     case 'google_workspace_docs_append_text': {
+      const documentId = requireNonEmptyString(args.document_id, 'document_id');
       await docs.documents.batchUpdate({
-        documentId: String(args.document_id || ''),
+        documentId,
         requestBody: {
           requests: [
             {
@@ -121,18 +143,20 @@ async function executeDocsTool(toolName, args, auth) {
           ],
         },
       });
-      return { documentId: String(args.document_id || ''), appended: true };
+      return { documentId, appended: true };
     }
 
     case 'google_workspace_docs_replace_text': {
+      const documentId = requireNonEmptyString(args.document_id, 'document_id');
+      const searchText = requireNonEmptyString(args.search_text, 'search_text');
       const response = await docs.documents.batchUpdate({
-        documentId: String(args.document_id || ''),
+        documentId,
         requestBody: {
           requests: [
             {
               replaceAllText: {
                 containsText: {
-                  text: String(args.search_text || ''),
+                  text: searchText,
                   matchCase: true,
                 },
                 replaceText: String(args.replace_text || ''),
@@ -145,7 +169,7 @@ async function executeDocsTool(toolName, args, auth) {
         ? response.data.replies
         : [];
       return {
-        documentId: String(args.document_id || ''),
+        documentId,
         occurrencesChanged: Number(
           replies[0]?.replaceAllText?.occurrencesChanged || 0,
         ),

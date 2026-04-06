@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { resolvePublicBaseUrl } = require('../services/integrations/env');
 
 function getIntegrationManager(req) {
   return req.app?.locals?.integrationManager;
@@ -16,10 +17,19 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function getTrustedPostMessageOrigin(req) {
+  try {
+    return new URL(resolvePublicBaseUrl()).origin;
+  } catch {
+    return `${req.protocol}://${req.get('host')}`;
+  }
+}
+
 router.get('/oauth/callback', async (req, res) => {
   const state = String(req.query.state || '');
   const code = String(req.query.code || '');
   const error = String(req.query.error || '');
+  const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));
 
   if (!state) return res.status(400).send('Missing state parameter');
   if (error) {
@@ -28,7 +38,7 @@ router.get('/oauth/callback', async (req, res) => {
       <html><body>
       <script>
         if (window.opener) {
-          window.opener.postMessage({ type: 'integration_oauth_error', error: ${JSON.stringify(error)} }, '*');
+          window.opener.postMessage({ type: 'integration_oauth_error', error: ${JSON.stringify(error)} }, ${trustedOrigin});
           window.close();
         }
       </script>
@@ -39,6 +49,9 @@ router.get('/oauth/callback', async (req, res) => {
 
   try {
     const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
     const result = await manager.finishOAuth(state, code);
     const payload = JSON.stringify({
       type: 'integration_oauth_success',
@@ -51,7 +64,7 @@ router.get('/oauth/callback', async (req, res) => {
       <html><body>
       <script>
         if (window.opener) {
-          window.opener.postMessage(${payload}, '*');
+          window.opener.postMessage(${payload}, ${trustedOrigin});
           window.close();
         } else {
           window.location.href = '/?page=skills';
@@ -67,7 +80,8 @@ router.get('/oauth/callback', async (req, res) => {
       <html><body>
       <script>
         if (window.opener) {
-          window.opener.postMessage({ type: 'integration_oauth_error', error: ${JSON.stringify(message)} }, '*');
+          window.opener.postMessage({ type: 'integration_oauth_error', error: ${JSON.stringify(message)} }, ${trustedOrigin});
+          window.close();
         }
       </script>
       <p>Authentication failed: ${safeMessage}</p>
@@ -79,13 +93,23 @@ router.get('/oauth/callback', async (req, res) => {
 router.use(requireAuth);
 
 router.get('/', (req, res) => {
-  const manager = getIntegrationManager(req);
-  res.json(manager.listProviders(req.session.userId));
+  try {
+    const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
+    res.json(manager.listProviders(req.session.userId));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
 });
 
 router.post('/:provider/connect', async (req, res) => {
   try {
     const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
     const result = await manager.beginOAuth(
       req.session.userId,
       req.params.provider,
@@ -102,6 +126,9 @@ router.post('/:provider/connect', async (req, res) => {
 router.post('/:provider/disconnect', async (req, res) => {
   try {
     const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
     const result = await manager.disconnect(
       req.session.userId,
       req.params.provider,
@@ -118,6 +145,9 @@ router.post('/:provider/disconnect', async (req, res) => {
 router.get('/:provider/tools/status', (req, res) => {
   try {
     const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
     res.json(manager.getToolStatus(req.session.userId, req.params.provider));
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });

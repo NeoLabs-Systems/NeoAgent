@@ -7,7 +7,10 @@ function trimEnv(name) {
 function resolvePublicBaseUrl() {
   const explicit = trimEnv('PUBLIC_URL');
   if (explicit) return explicit.replace(/\/$/, '');
-  return `http://localhost:${trimEnv('PORT') || '3333'}`;
+  const schemeOverride = trimEnv('PUBLIC_URL_SCHEME').toLowerCase();
+  const scheme = schemeOverride ||
+    (String(process.env.NODE_ENV || '').trim() === 'development' ? 'http' : 'https');
+  return `${scheme}://localhost:${trimEnv('PORT') || '3333'}`;
 }
 
 function resolveGoogleOAuthConfig() {

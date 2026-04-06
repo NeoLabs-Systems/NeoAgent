@@ -177,7 +177,7 @@ function getIntegrationHealth(userId, app) {
     });
   }
 
-  const providers = manager.listProviders(userId);
+  const providers = manager.listProviders(userId) || [];
   const connectedCount = providers.filter((provider) => provider.connection?.connected).length;
   const providerSummary = providers
     .map((provider) => {
@@ -197,7 +197,7 @@ function getIntegrationHealth(userId, app) {
   return capabilityEntry({
     connected: connectedCount > 0,
     configured: providers.some((provider) => provider.env?.configured),
-    healthy: true,
+    healthy: providers.length > 0 ? connectedCount > 0 : false,
     degraded: providers.some((provider) => provider.connection?.status === 'env_not_configured'),
     summary: providers.length === 0
       ? 'No official integrations are available.'

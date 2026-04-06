@@ -187,13 +187,21 @@ async function executeCalendarTool(toolName, args, auth) {
       if (args.start !== undefined) {
         next.start = {
           dateTime: String(args.start || ''),
-          ...(args.timezone ? { timeZone: String(args.timezone) } : {}),
+          ...((args.timezone
+            ? { timeZone: String(args.timezone) }
+            : existing.data?.start?.timeZone
+            ? { timeZone: existing.data.start.timeZone }
+            : {})),
         };
       }
       if (args.end !== undefined) {
         next.end = {
           dateTime: String(args.end || ''),
-          ...(args.timezone ? { timeZone: String(args.timezone) } : {}),
+          ...((args.timezone
+            ? { timeZone: String(args.timezone) }
+            : existing.data?.end?.timeZone
+            ? { timeZone: existing.data.end.timeZone }
+            : {})),
         };
       }
       if (args.attendees !== undefined) {

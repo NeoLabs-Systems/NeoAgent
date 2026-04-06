@@ -359,6 +359,7 @@ class AgentEngine {
     this.maxIterations = 12;
     this.activeRuns = new Map();
     this.subagents = new Map();
+    this.app = services.app || null;
     this.cliExecutor = services.cliExecutor || null;
     this.browserController = services.browserController || null;
     this.androidController = services.androidController || null;
@@ -886,7 +887,7 @@ class AgentEngine {
 
     const runId = options.runId || uuidv4();
     const conversationId = options.conversationId;
-    const app = options.app;
+    const app = options.app || this.app;
     const triggerSource = options.triggerSource || 'web';
     const historyWindow = aiSettings.chat_history_window;
     const toolReplayBudget = aiSettings.tool_replay_budget_chars;
@@ -1819,6 +1820,7 @@ class AgentEngine {
     const handle = uuidv4();
     const childRunId = uuidv4();
     const subEngine = new AgentEngine(this.io, {
+      app: options.app || this.app,
       cliExecutor: this.cliExecutor,
       browserController: this.browserController,
       androidController: this.androidController,
@@ -1858,7 +1860,7 @@ class AgentEngine {
           userId,
           task,
           {
-            app: options.app,
+            app: options.app || this.app,
             triggerType: 'subagent',
             triggerSource: 'agent',
             runId: childRunId,

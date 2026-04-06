@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const db = require('../../db/database');
 const { createIntegrationRegistry } = require('./registry');
+const { decryptValue, encryptValue } = require('./secrets');
 
 class IntegrationManager {
   constructor() {
@@ -87,7 +88,14 @@ class IntegrationManager {
          code_verifier,
          expires_at
        ) VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run(userId, provider.key, appKey, state, codeVerifier, expiresAt);
+    ).run(
+      userId,
+      provider.key,
+      appKey,
+      state,
+      encryptValue(codeVerifier),
+      expiresAt,
+    );
 
     return {
       provider: provider.key,
@@ -118,7 +126,7 @@ class IntegrationManager {
       userId: stateRow.user_id,
       state: stateRow.state,
       code,
-      codeVerifier: stateRow.code_verifier,
+      codeVerifier: decryptValue(stateRow.code_verifier),
       appKey: stateRow.app_key,
     });
 
@@ -148,7 +156,7 @@ class IntegrationManager {
       stateRow.app_key,
       result.accountEmail,
       JSON.stringify(result.scopes || []),
-      JSON.stringify(result.credentials || {}),
+      encryptValue(JSON.stringify(result.credentials || {})),
       JSON.stringify(result.metadata || {}),
     );
 
@@ -322,8 +330,10 @@ class IntegrationManager {
   }
 
   async executeTool(userId, toolName, args) {
+    let foundSupportingProvider = false;
     for (const provider of this.registry.list()) {
       if (!provider.supportsTool(toolName)) continue;
+      foundSupportingProvider = true;
       const env = provider.getEnvStatus();
       if (!env.configured) {
         return { error: env.summary };
@@ -334,12 +344,19 @@ class IntegrationManager {
         return { error: selection.error };
       }
 
-      const execution = await provider.executeTool(
-        toolName,
-        args,
-        selection.connection,
-      );
-      if (!execution) return null;
+      let execution;
+      try {
+        execution = await provider.executeTool(
+          toolName,
+          args,
+          selection.connection,
+        );
+      } catch (err) {
+        return { error: err?.message || 'execution_error' };
+      }
+      if (!execution) {
+        return { error: 'execution_failed' };
+      }
 
       if (execution.credentials) {
         db.prepare(
@@ -347,7 +364,7 @@ class IntegrationManager {
            SET credentials_json = ?, updated_at = datetime('now')
            WHERE id = ? AND user_id = ?`,
         ).run(
-          JSON.stringify(execution.credentials),
+          encryptValue(JSON.stringify(execution.credentials)),
           selection.connection.id,
           userId,
         );
@@ -356,7 +373,9 @@ class IntegrationManager {
       return execution.result;
     }
 
-    return null;
+    return foundSupportingProvider
+      ? { error: 'execution_failed' }
+      : { error: 'no_provider_support' };
   }
 
   summarizeConnectedProviders(userId) {

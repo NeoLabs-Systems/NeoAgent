@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const { google } = require('googleapis');
 const { describeEnvStatus, resolveGoogleOAuthConfig } = require('../env');
+const { decryptValue } = require('../secrets');
 const { gmailToolDefinitions, executeGmailTool } = require('./gmail');
 const { calendarToolDefinitions, executeCalendarTool } = require('./calendar');
 const { driveToolDefinitions, executeDriveTool } = require('./drive');
@@ -120,7 +121,9 @@ async function buildAuthorizedClient(connection) {
   const { client } = createOAuthClient();
   let credentials = {};
   try {
-    credentials = JSON.parse(connection.credentials_json || '{}');
+    credentials = JSON.parse(
+      decryptValue(connection.credentials_json || '{}') || '{}',
+    );
   } catch {
     credentials = {};
   }
@@ -223,9 +226,13 @@ async function executeGoogleWorkspaceTool(toolName, args, connection) {
   const auth = await buildAuthorizedClient(connection);
   const appId = toolAppMap.get(toolName);
   const app = getApp(appId);
-  if (!app) return null;
+  if (!app) {
+    throw new Error(`Unknown tool: ${toolName}`);
+  }
   const result = await app.executor(toolName, args, auth);
-  if (result === null) return null;
+  if (result === null) {
+    throw new Error(`Unknown tool: ${toolName}`);
+  }
   return { result, credentials: auth.credentials };
 }
 

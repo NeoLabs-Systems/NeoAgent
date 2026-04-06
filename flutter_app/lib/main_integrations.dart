@@ -101,8 +101,10 @@ class OfficialIntegrationsTab extends StatelessWidget {
                             !item.env.configured
                                 ? item.env.summary
                                 : item.isConnected
-                                ? 'Connect as many accounts as you want. Each app can use a different Google account.'
-                                : 'Connect app accounts individually so the AI can use the right Gmail, Calendar, Drive, Docs, or Sheets account.',
+                                ? 'Connect as many accounts as you want. Each app can use a different account.'
+                                : ((item.connectPrompt ?? '').trim().isNotEmpty
+                                    ? item.connectPrompt!.trim()
+                                    : 'Connect app accounts individually so the AI can use the right account for each official integration.'),
                             style: const TextStyle(color: _textSecondary),
                           ),
                         ],
