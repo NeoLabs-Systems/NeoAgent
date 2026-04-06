@@ -36,18 +36,52 @@ function summarizeCapabilityHealth(health) {
 }
 
 async function getBrowserHealth(userId, app, engine) {
-  const resolver = app?.locals?.getBrowserControllerForUser;
-  const controller = typeof resolver === 'function'
-    ? await resolver(userId)
-    : (app?.locals?.browserController || engine?.browserController || null);
-
+  const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
   const executablePath = resolveBrowserExecutablePath();
+  let controller = null;
+  let resolutionError = null;
+
+  if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
+    try {
+      controller = await runtimeManager.getBrowserProviderForUser(userId);
+    } catch (err) {
+      resolutionError = err;
+    }
+  }
+
+  if (!controller) {
+    try {
+      const resolver = app?.locals?.getBrowserControllerForUser;
+      controller = await Promise.resolve(
+        typeof resolver === 'function'
+          ? resolver(userId)
+          : (app?.locals?.browserController || engine?.browserController || null)
+      );
+    } catch (err) {
+      resolutionError = resolutionError || err;
+    }
+  }
+
+  if (!controller && resolutionError) {
+    return capabilityEntry({
+      configured: Boolean(executablePath),
+      healthy: false,
+      degraded: true,
+      summary: `Browser controller resolution failed: ${resolutionError.message}`,
+      details: {
+        executablePath: executablePath || null,
+        error: resolutionError.message,
+      },
+    });
+  }
   let pageInfo = null;
   let launched = false;
   let error = null;
 
   try {
-    launched = typeof controller?.isLaunched === 'function' ? controller.isLaunched() : false;
+    launched = typeof controller?.isLaunched === 'function'
+      ? await Promise.resolve(controller.isLaunched())
+      : false;
     pageInfo = typeof controller?.getPageInfo === 'function' ? await controller.getPageInfo() : null;
   } catch (err) {
     error = err.message;
@@ -72,14 +106,39 @@ async function getBrowserHealth(userId, app, engine) {
 }
 
 async function getAndroidHealth(userId, app, engine) {
-  const resolver = app?.locals?.getAndroidControllerForUser;
-  const controller = typeof resolver === 'function'
-    ? await resolver(userId)
-    : (app?.locals?.androidController || engine?.androidController || null);
+  const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
+  let controller = null;
+  let resolutionError = null;
+
+  if (runtimeManager && typeof runtimeManager.getAndroidProviderForUser === 'function') {
+    try {
+      controller = await runtimeManager.getAndroidProviderForUser(userId);
+    } catch (err) {
+      resolutionError = err;
+    }
+  }
+
+  if (!controller) {
+    try {
+      const resolver = app?.locals?.getAndroidControllerForUser;
+      controller = await Promise.resolve(
+        typeof resolver === 'function'
+          ? resolver(userId)
+          : (app?.locals?.androidController || engine?.androidController || null)
+      );
+    } catch (err) {
+      resolutionError = resolutionError || err;
+      controller = null;
+    }
+  }
 
   if (!controller || typeof controller.getStatus !== 'function') {
     return capabilityEntry({
-      summary: 'Android controller is not available.',
+      degraded: Boolean(resolutionError),
+      summary: resolutionError
+        ? `Android controller resolution failed: ${resolutionError.message}`
+        : 'Android controller is not available.',
+      details: resolutionError ? { error: resolutionError.message } : {},
     });
   }
 
@@ -229,14 +288,18 @@ function getFileHealth() {
   });
 }
 
-function getCommandHealth(engine) {
+function getCommandHealth(userId, app, engine) {
+  const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
+  const backend = runtimeManager?.getSettings?.(userId)?.runtime_backend || 'host';
   return capabilityEntry({
-    connected: Boolean(engine?.cliExecutor),
+    connected: Boolean(runtimeManager || engine?.cliExecutor),
     configured: true,
-    healthy: Boolean(engine?.cliExecutor),
-    summary: engine?.cliExecutor
-      ? 'Shell command execution is available.'
-      : 'Shell executor is not available.',
+    healthy: Boolean(runtimeManager || engine?.cliExecutor),
+    summary: runtimeManager
+      ? `Shell command execution is available through the ${backend} runtime backend.`
+      : engine?.cliExecutor
+        ? 'Shell command execution is available.'
+        : 'Shell executor is not available.',
   });
 }
 
@@ -270,7 +333,7 @@ async function getCapabilityHealth({ userId, app, engine }) {
   return {
     providers,
     capabilities: {
-      command: getCommandHealth(engine),
+      command: getCommandHealth(userId, app, engine),
       files: getFileHealth(),
       memory: getMemoryHealth(engine),
       search: getSearchHealth(),

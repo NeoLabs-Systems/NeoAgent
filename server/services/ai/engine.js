@@ -363,6 +363,7 @@ class AgentEngine {
     this.cliExecutor = services.cliExecutor || null;
     this.browserController = services.browserController || null;
     this.androidController = services.androidController || null;
+    this.runtimeManager = services.runtimeManager || null;
     this.messagingManager = services.messagingManager || null;
     this.mcpManager = services.mcpManager || services.mcpClient || null;
     this.skillRunner = services.skillRunner || null;
@@ -1824,6 +1825,7 @@ class AgentEngine {
       cliExecutor: this.cliExecutor,
       browserController: this.browserController,
       androidController: this.androidController,
+      runtimeManager: this.runtimeManager,
       messagingManager: this.messagingManager,
       mcpManager: this.mcpManager,
       skillRunner: this.skillRunner,

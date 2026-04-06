@@ -43,6 +43,10 @@ const androidApkUpload = multer({
 });
 
 async function getAndroidController(req) {
+  const runtimeManager = req.app?.locals?.runtimeManager;
+  if (runtimeManager && typeof runtimeManager.getAndroidProviderForUser === 'function') {
+    return runtimeManager.getAndroidProviderForUser(req.session?.userId);
+  }
   const resolver = req.app?.locals?.getAndroidControllerForUser;
   if (typeof resolver === 'function') {
     return resolver(req.session?.userId);

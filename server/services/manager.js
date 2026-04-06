@@ -17,6 +17,9 @@ const { RecordingManager } = require('./recordings/manager');
 const WearableManager = require('./wearables/manager');
 const { CLIExecutor } = require('./cli/executor');
 const { IntegrationManager } = require('./integrations/manager');
+const { ArtifactStore } = require('./artifacts/store');
+const { RuntimeManager } = require('./runtime/manager');
+const { assertRuntimeValidation, getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
   restoreBrowserHeadlessPreference,
@@ -36,6 +39,12 @@ function createCliExecutor(app) {
   const cliExecutor = registerLocal(app, 'cliExecutor', new CLIExecutor());
   logServiceReady('CLI executor ready');
   return cliExecutor;
+}
+
+function createArtifactStore(app) {
+  const artifactStore = registerLocal(app, 'artifactStore', new ArtifactStore());
+  logServiceReady('Artifact store ready');
+  return artifactStore;
 }
 
 function createMemoryManager(app) {
@@ -60,7 +69,7 @@ function createIntegrationManager(app) {
   return integrationManager;
 }
 
-function createBrowserController(app) {
+function createBrowserController(app, artifactStore) {
   const browserControllers = registerLocal(app, 'browserControllers', new Map());
   const browserCreationPromises = registerLocal(app, 'browserControllerCreationPromises', new Map());
   const browserLastAccess = registerLocal(app, 'browserControllerLastAccess', new Map());
@@ -124,7 +133,11 @@ function createBrowserController(app) {
     }
 
     const creationPromise = Promise.resolve().then(async () => {
-      const controller = new BrowserController();
+      const controller = new BrowserController({
+        userId,
+        artifactStore,
+        runtimeBackend: 'host',
+      });
       controller.headless = getUserHeadlessPreference(userId);
       browserControllers.set(key, controller);
       touchBrowserControllerKey(key);
@@ -143,7 +156,10 @@ function createBrowserController(app) {
   const browserController = registerLocal(
     app,
     'browserController',
-    new BrowserController(),
+    new BrowserController({
+      artifactStore,
+      runtimeBackend: 'host',
+    }),
   );
   const { restored, userCount, headless } = restoreBrowserHeadlessPreference(
     browserController,
@@ -158,7 +174,7 @@ function createBrowserController(app) {
   return browserController;
 }
 
-function createAndroidController(app) {
+function createAndroidController(app, artifactStore) {
   const androidControllers = registerLocal(app, 'androidControllers', new Map());
   const androidCreationPromises = registerLocal(app, 'androidControllerCreationPromises', new Map());
   const androidLastAccess = registerLocal(app, 'androidControllerLastAccess', new Map());
@@ -206,7 +222,11 @@ function createAndroidController(app) {
     }
 
     const creationPromise = Promise.resolve().then(async () => {
-      const controller = new AndroidController({ userId: key });
+      const controller = new AndroidController({
+        userId: key,
+        artifactStore,
+        runtimeBackend: 'host',
+      });
       androidControllers.set(key, controller);
       touchAndroidControllerKey(key);
       await evictStaleAndroidControllers();
@@ -224,17 +244,47 @@ function createAndroidController(app) {
   const androidController = registerLocal(
     app,
     'androidController',
-    new AndroidController(),
+    new AndroidController({
+      artifactStore,
+      runtimeBackend: 'host',
+    }),
   );
   logServiceReady('Android controller ready');
   return androidController;
 }
 
-async function createSkillRunner(app, cliExecutor) {
+function createRuntimeManager(app, cliExecutor) {
+  const runtimeManager = registerLocal(
+    app,
+    'runtimeManager',
+    new RuntimeManager({
+      cliExecutor,
+      artifactStore: app.locals.artifactStore,
+      getHostBrowserProvider: (userId) => {
+        const resolver = app.locals.getBrowserControllerForUser;
+        if (typeof resolver === 'function') {
+          return resolver(userId);
+        }
+        return app.locals.browserController;
+      },
+      getHostAndroidProvider: (userId) => {
+        const resolver = app.locals.getAndroidControllerForUser;
+        if (typeof resolver === 'function') {
+          return resolver(userId);
+        }
+        return app.locals.androidController;
+      },
+    }),
+  );
+  logServiceReady('Runtime manager ready');
+  return runtimeManager;
+}
+
+async function createSkillRunner(app, cliExecutor, runtimeManager) {
   const skillRunner = registerLocal(
     app,
     'skillRunner',
-    new SkillRunner({ executor: cliExecutor }),
+    new SkillRunner({ executor: cliExecutor, runtimeManager }),
   );
   await skillRunner.loadSkills();
   logServiceReady('Skills loaded');
@@ -250,6 +300,7 @@ function createAgentEngine(
     mcpClient,
     browserController,
     androidController,
+    runtimeManager,
     skillRunner,
   },
 ) {
@@ -263,6 +314,7 @@ function createAgentEngine(
       mcpClient,
       browserController,
       androidController,
+      runtimeManager,
       messagingManager: null,
       skillRunner,
     }),
@@ -375,18 +427,23 @@ async function startServices(app, io) {
 
   try {
     const cliExecutor = createCliExecutor(app);
+    const artifactStore = createArtifactStore(app);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
     const integrationManager = createIntegrationManager(app);
-    const browserController = createBrowserController(app);
-    const androidController = createAndroidController(app);
-    const skillRunner = await createSkillRunner(app, cliExecutor);
+    const browserController = createBrowserController(app, artifactStore);
+    const androidController = createAndroidController(app, artifactStore);
+    const runtimeManager = createRuntimeManager(app, cliExecutor);
+    registerLocal(app, 'runtimeValidation', getRuntimeValidation(runtimeManager));
+    assertRuntimeValidation(runtimeManager);
+    const skillRunner = await createSkillRunner(app, cliExecutor, runtimeManager);
     const agentEngine = createAgentEngine(app, io, {
       cliExecutor,
       memoryManager,
       mcpClient,
       browserController,
       androidController,
+      runtimeManager,
       skillRunner,
     });
 
@@ -491,6 +548,14 @@ async function stopServices(app) {
     tasks.push(
       app.locals.messagingManager.shutdown().catch((err) => {
         console.error('[Messaging] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (app.locals.runtimeManager) {
+    tasks.push(
+      app.locals.runtimeManager.shutdown().catch((err) => {
+        console.error('[Runtime] Shutdown error:', getErrorMessage(err));
       }),
     );
   }

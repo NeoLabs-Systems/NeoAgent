@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
 const { requireNoAuth } = require('../middleware/auth');
+const { getDeploymentPolicy } = require('../utils/deployment');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -39,15 +40,17 @@ function establishSession(req, res, user) {
 
 router.get('/api/auth/status', (req, res) => {
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get();
-  res.json({ hasUser: count.count > 0 });
+  const policy = getDeploymentPolicy();
+  res.json({
+    hasUser: count.count > 0,
+    registrationOpen: policy.registrationOpen || count.count === 0,
+    deploymentProfile: policy.profile,
+  });
 });
 
 router.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-    if (userCount.count > 0) {
-      return res.status(403).json({ error: 'Registration is closed' });
-    }
+    const policy = getDeploymentPolicy();
 
     const { username, password } = req.body;
     if (!username || !password) {
@@ -58,13 +61,28 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
     }
 
     const hash = await bcrypt.hash(password, 12);
-    const result = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(username, hash);
+    const createUser = db.transaction(() => {
+      const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
+      if (userCount.count > 0 && !policy.registrationOpen) {
+        const error = new Error('Registration is closed');
+        error.code = 'REGISTRATION_CLOSED';
+        throw error;
+      }
+      return db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(username, hash);
+    });
+    const result = createUser();
 
     establishSession(req, res, {
       id: result.lastInsertRowid,
       username
     });
   } catch (err) {
+    if (err?.code === 'REGISTRATION_CLOSED') {
+      return res.status(403).json({ error: 'Registration is closed' });
+    }
+    if (String(err?.code || '').startsWith('SQLITE_CONSTRAINT')) {
+      return res.status(409).json({ error: 'Username is already taken' });
+    }
     console.error('Register error:', err);
     res.status(500).json({ error: 'Registration failed' });
   }

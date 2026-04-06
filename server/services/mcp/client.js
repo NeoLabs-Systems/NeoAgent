@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('../../db/database');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js');
+const { validateRemoteMcpEndpoint } = require('../runtime/mcp');
 
 class DBAuthProvider {
   constructor(serverId, clientId, authServerUrl) {
@@ -78,6 +79,7 @@ class MCPClient extends EventEmitter {
 
     const slug = (name || String(serverId)).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
     try {
+      const endpoint = validateRemoteMcpEndpoint(url);
       const serverRow = db.prepare('SELECT config FROM mcp_servers WHERE id = ?').get(serverId);
       let configObj = {};
       let authObj = {};
@@ -100,7 +102,7 @@ class MCPClient extends EventEmitter {
         transportOpts.authProvider = new DBAuthProvider(serverId, authObj.clientId, authObj.authServerUrl);
       }
 
-      const transport = new SSEClientTransport(new URL(url), transportOpts);
+      const transport = new SSEClientTransport(new URL(endpoint), transportOpts);
       const client = new Client(
         { name: 'NeoAgent', version: '1.0.0' },
         { capabilities: { tools: {} } }
@@ -109,10 +111,10 @@ class MCPClient extends EventEmitter {
       const serverObj = {
         id: serverId,
         userId,
-        url,
+        url: endpoint,
         slug,
         name: name || String(serverId),
-        command: url,
+        command: endpoint,
         client,
         transport,
         tools: [],

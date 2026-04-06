@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "start": "node server/index.js",
+    "start:guest-agent": "node server/guest_agent.js",
     "dev": "node --watch server/index.js",
     "dev:backend": "./dev/backend.sh",
     "dev:web": "./dev/web.sh",

@@ -385,6 +385,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_recording_chunks_source ON recording_chunks(source_id, sequence_index);
   CREATE INDEX IF NOT EXISTS idx_recording_segments_session ON recording_transcript_segments(session_id, start_ms, created_at);
 
+  CREATE TABLE IF NOT EXISTS artifacts (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    backend TEXT NOT NULL,
+    content_type TEXT,
+    storage_path TEXT NOT NULL,
+    original_filename TEXT,
+    byte_size INTEGER DEFAULT 0,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_artifacts_user ON artifacts(user_id, created_at DESC);
+
   CREATE TRIGGER IF NOT EXISTS cleanup_expired_oauth_states
   AFTER INSERT ON integration_oauth_states BEGIN
     DELETE FROM integration_oauth_states
@@ -462,6 +478,7 @@ for (const col of [
   "ALTER TABLE recording_sessions ADD COLUMN transcript_model TEXT",
   "ALTER TABLE recording_sessions ADD COLUMN duration_ms INTEGER DEFAULT 0",
   "ALTER TABLE recording_sessions ADD COLUMN structured_content_json TEXT",
+  "ALTER TABLE artifacts ADD COLUMN metadata_json TEXT DEFAULT '{}'",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }

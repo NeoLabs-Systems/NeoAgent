@@ -72,8 +72,11 @@ function getVersionInfo() {
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
     npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
     deploymentMode: deployment.mode,
+    deploymentProfile: deployment.profile,
     managedDeployment: deployment.managed,
     allowSelfUpdate: deployment.allowSelfUpdate,
+    runtimeDefaults: deployment.runtimeDefaults,
+    allowHostRuntime: deployment.allowHostRuntime,
   };
 }
 

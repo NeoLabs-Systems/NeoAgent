@@ -62,8 +62,11 @@ function sleep(ms) {
 }
 
 class BrowserController {
-  constructor(io) {
-    this.io = io;
+  constructor(options = {}) {
+    this.io = options.io || null;
+    this.userId = options.userId != null ? String(options.userId) : null;
+    this.artifactStore = options.artifactStore || null;
+    this.runtimeBackend = options.runtimeBackend || 'host';
     this.browser = null;
     this.page = null;
     this.launching = false;
@@ -194,8 +197,24 @@ class BrowserController {
 
   async takeScreenshot(options = {}) {
     const page = await this.ensurePage();
-    const filename = `screenshot_${Date.now()}.png`;
-    const filepath = path.join(SCREENSHOTS_DIR, filename);
+    let artifactRecord = null;
+    let filename = `screenshot_${Date.now()}.png`;
+    let filepath = path.join(SCREENSHOTS_DIR, filename);
+    if (this.artifactStore && this.userId != null) {
+      artifactRecord = this.artifactStore.allocateFile(this.userId, {
+        kind: 'browser-screenshot',
+        backend: this.runtimeBackend,
+        extension: 'png',
+        contentType: 'image/png',
+        filenameBase: 'browser-screenshot',
+        metadata: {
+          selector: options.selector || null,
+          fullPage: options.fullPage === true,
+        },
+      });
+      filepath = artifactRecord.storagePath;
+      filename = path.basename(filepath);
+    }
 
     const screenshotOptions = { path: filepath, type: 'png' };
     if (options.fullPage) screenshotOptions.fullPage = true;
@@ -210,7 +229,16 @@ class BrowserController {
       await page.screenshot(screenshotOptions);
     }
 
-    return { screenshotPath: `/screenshots/${filename}`, filename, fullPath: filepath };
+    if (artifactRecord) {
+      this.artifactStore.finalizeFile(artifactRecord.artifactId, filepath);
+    }
+
+    return {
+      screenshotPath: artifactRecord ? artifactRecord.url : `/screenshots/${filename}`,
+      artifactId: artifactRecord?.artifactId || null,
+      filename,
+      fullPath: filepath,
+    };
   }
 
   async navigate(url, options = {}) {

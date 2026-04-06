@@ -9,6 +9,7 @@ const {
   readUpdateStatus,
   writeUpdateStatusFile: writeUpdateStatus,
 } = require('../utils/update_status');
+const { getRuntimeValidation } = require('../services/runtime/validation');
 const {
   parseReleaseChannel,
   writeReleaseChannelToEnvFile,
@@ -20,11 +21,22 @@ const {
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
 } = require('../services/ai/settings');
+const {
+  ensureDefaultRuntimeSettings,
+  getRuntimeSettings,
+  redactRuntimeSettingValue,
+  serializeRuntimeSettingValue,
+  validateRuntimeSettings,
+} = require('../services/runtime/settings');
 const { isManagedDeployment } = require('../utils/deployment');
 
 router.use(requireAuth);
 
 function getBrowserController(req) {
+  const runtimeManager = req.app?.locals?.runtimeManager;
+  if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
+    return runtimeManager.getBrowserProviderForUser(req.session?.userId);
+  }
   const resolver = req.app?.locals?.getBrowserControllerForUser;
   if (typeof resolver === 'function') {
     return resolver(req.session?.userId);
@@ -77,16 +89,17 @@ router.get('/meta/ai-providers', async (req, res) => {
 // Get all settings
 router.get('/', (req, res) => {
   ensureDefaultAiSettings(req.session.userId);
+  ensureDefaultRuntimeSettings(req.session.userId);
   const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId);
   const settings = createDefaultAiSettings();
   for (const row of rows) {
     try {
-      settings[row.key] = JSON.parse(row.value);
+      settings[row.key] = redactRuntimeSettingValue(row.key, JSON.parse(row.value));
     } catch (e) {
       if (typeof row.value === 'string' && (row.value.trim().startsWith('{') || row.value.trim().startsWith('['))) {
         console.warn(`[Settings] Failed to parse '${row.key}' as JSON, treating as raw string. Error:`, e.message);
       }
-      settings[row.key] = row.value;
+      settings[row.key] = redactRuntimeSettingValue(row.key, row.value);
     }
   }
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
@@ -96,6 +109,7 @@ router.get('/', (req, res) => {
 // Update settings (batch)
 router.put('/', (req, res) => {
   const userId = req.session.userId;
+  ensureDefaultRuntimeSettings(userId);
   const upsert = db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value');
   const normalizedBody = { ...req.body };
 
@@ -115,9 +129,32 @@ router.put('/', (req, res) => {
     normalizedBody.ai_provider_configs = normalizeProviderConfigs(normalizedBody.ai_provider_configs);
   }
 
+  if (
+    'runtime_profile' in normalizedBody
+    || 'runtime_backend' in normalizedBody
+    || 'browser_backend' in normalizedBody
+    || 'android_backend' in normalizedBody
+    || 'mcp_backend' in normalizedBody
+    || 'remote_worker_base_url' in normalizedBody
+    || 'remote_worker_token' in normalizedBody
+  ) {
+    const validation = validateRuntimeSettings({
+      ...getRuntimeSettings(userId),
+      ...normalizedBody,
+    });
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.issues[0],
+        issues: validation.issues,
+      });
+    }
+    Object.assign(normalizedBody, validation.settings);
+  }
+
   const tx = db.transaction((entries) => {
     for (const [key, value] of entries) {
-      const v = typeof value === 'string' ? value : JSON.stringify(value);
+      const v = serializeRuntimeSettingValue(key, value);
       upsert.run(userId, key, v);
     }
   });
@@ -219,20 +256,22 @@ router.get('/token-usage/summary', (req, res) => {
 
 // Get single setting
 router.get('/:key', (req, res) => {
+  ensureDefaultRuntimeSettings(req.session.userId);
   const row = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(req.session.userId, req.params.key);
   if (!row) return res.json({ value: null });
   try {
-    res.json({ value: JSON.parse(row.value) });
+    res.json({ value: redactRuntimeSettingValue(req.params.key, JSON.parse(row.value)) });
   } catch (e) {
     if (typeof row.value === 'string' && (row.value.trim().startsWith('{') || row.value.trim().startsWith('['))) {
       console.warn(`[Settings] Failed to parse '${req.params.key}' as JSON, returning as raw string. Error:`, e.message);
     }
-    res.json({ value: row.value });
+    res.json({ value: redactRuntimeSettingValue(req.params.key, row.value) });
   }
 });
 
 // Set single setting
 router.put('/:key', (req, res) => {
+  ensureDefaultRuntimeSettings(req.session.userId);
   let value = req.body.value;
   if (req.params.key === 'platform_whitelist_whatsapp') {
     if (typeof value === 'string') {
@@ -245,8 +284,24 @@ router.put('/:key', (req, res) => {
     value = normalizeWhatsAppWhitelist(value);
   } else if (req.params.key === 'ai_provider_configs') {
     value = normalizeProviderConfigs(value);
+  } else if (
+    ['runtime_profile', 'runtime_backend', 'browser_backend', 'android_backend', 'mcp_backend', 'remote_worker_base_url', 'remote_worker_token']
+      .includes(req.params.key)
+  ) {
+    const validation = validateRuntimeSettings({
+      ...getRuntimeSettings(req.session.userId),
+      [req.params.key]: value,
+    });
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.issues[0],
+        issues: validation.issues,
+      });
+    }
+    value = validation.settings[req.params.key];
   }
-  const v = typeof value === 'string' ? value : JSON.stringify(value);
+  const v = serializeRuntimeSettingValue(req.params.key, value);
   db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
     .run(req.session.userId, req.params.key, v);
   if (req.params.key === 'headless_browser') {
@@ -352,8 +407,12 @@ router.get('/update/status', (req, res) => {
     targetBranch: status.targetBranch || version.targetBranch,
     npmDistTag: status.npmDistTag || version.npmDistTag,
     deploymentMode: version.deploymentMode,
+    deploymentProfile: version.deploymentProfile,
     managedDeployment: version.managedDeployment,
     allowSelfUpdate: version.allowSelfUpdate,
+    runtimeDefaults: version.runtimeDefaults,
+    allowHostRuntime: version.allowHostRuntime,
+    runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
   });
 });
 

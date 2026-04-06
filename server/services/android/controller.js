@@ -681,6 +681,8 @@ class AndroidController {
   constructor(options = {}) {
     this.io = options?.io;
     this.userId = options?.userId != null ? String(options.userId) : null;
+    this.artifactStore = options?.artifactStore || null;
+    this.runtimeBackend = options?.runtimeBackend || 'host';
     this.scopeKey = sanitizeScopeKey(this.userId ? `user-${this.userId}` : 'default');
     this.ownerKey = normalizeOwnerKey(this.userId);
     this.stateFile = resolveStateFile(this.scopeKey);
@@ -1381,13 +1383,32 @@ class AndroidController {
 
   async screenshot(options = {}) {
     const serial = options.serial || await this.ensureDevice();
-    const filename = `android_${Date.now()}.png`;
-    const fullPath = path.join(SCREENSHOTS_DIR, filename);
+    let artifactRecord = null;
+    let filename = `android_${Date.now()}.png`;
+    let fullPath = path.join(SCREENSHOTS_DIR, filename);
+    if (this.artifactStore && this.userId != null) {
+      artifactRecord = this.artifactStore.allocateFile(this.userId, {
+        kind: 'android-screenshot',
+        backend: this.runtimeBackend,
+        extension: 'png',
+        contentType: 'image/png',
+        filenameBase: 'android-screenshot',
+        metadata: {
+          serial,
+        },
+      });
+      fullPath = artifactRecord.storagePath;
+      filename = path.basename(fullPath);
+    }
     await this.#adb(serial, `exec-out screencap -p > ${quoteShell(fullPath)}`, { timeout: 30000 });
+    if (artifactRecord) {
+      this.artifactStore.finalizeFile(artifactRecord.artifactId, fullPath);
+    }
     return {
       success: true,
       serial,
-      screenshotPath: `/screenshots/${filename}`,
+      screenshotPath: artifactRecord ? artifactRecord.url : `/screenshots/${filename}`,
+      artifactId: artifactRecord?.artifactId || null,
       fullPath,
     };
   }
@@ -1401,16 +1422,35 @@ class AndroidController {
       xml = await this.#adb(serial, `shell cat ${quoteShell(remote)}`, { timeout: 30000 });
     }
     xml = sanitizeUiXml(xml);
-    const filename = `android_ui_${Date.now()}.xml`;
-    const fullPath = path.join(UI_DUMPS_DIR, filename);
+    let artifactRecord = null;
+    let filename = `android_ui_${Date.now()}.xml`;
+    let fullPath = path.join(UI_DUMPS_DIR, filename);
+    if (this.artifactStore && this.userId != null) {
+      artifactRecord = this.artifactStore.allocateFile(this.userId, {
+        kind: 'android-ui-dump',
+        backend: this.runtimeBackend,
+        extension: 'xml',
+        contentType: 'application/xml',
+        filenameBase: 'android-ui',
+        metadata: {
+          serial,
+        },
+      });
+      fullPath = artifactRecord.storagePath;
+      filename = path.basename(fullPath);
+    }
     fs.writeFileSync(fullPath, xml);
+    if (artifactRecord) {
+      this.artifactStore.finalizeFile(artifactRecord.artifactId, fullPath);
+    }
 
     const nodes = parseUiDump(xml);
     return {
       success: true,
       serial,
       nodeCount: nodes.length,
-      uiDumpPath: fullPath,
+      uiDumpPath: artifactRecord ? artifactRecord.url : fullPath,
+      uiDumpArtifactId: artifactRecord?.artifactId || null,
       preview: options.includeNodes === false ? undefined : nodes.slice(0, 25).map((node) => summarizeNode(node)),
       xml,
     };

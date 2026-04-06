@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { validateRemoteMcpEndpoint } = require('../services/runtime/mcp');
 
 router.use(requireAuth);
 
@@ -27,25 +28,35 @@ router.get('/', (req, res) => {
 
 // Add a new MCP server
 router.post('/', (req, res) => {
-  const { name, command, config, enabled } = req.body;
-  if (!name || !command) return res.status(400).json({ error: 'name and command are required' });
+  try {
+    const { name, command, config, enabled } = req.body;
+    if (!name || !command) return res.status(400).json({ error: 'name and command are required' });
+    const endpoint = validateRemoteMcpEndpoint(command);
 
-  const result = db.prepare('INSERT INTO mcp_servers (user_id, name, command, config, enabled) VALUES (?, ?, ?, ?, ?)')
-    .run(req.session.userId, name, command, JSON.stringify(config || {}), enabled !== false ? 1 : 0);
+    const result = db.prepare('INSERT INTO mcp_servers (user_id, name, command, config, enabled) VALUES (?, ?, ?, ?, ?)')
+      .run(req.session.userId, name, endpoint, JSON.stringify(config || {}), enabled !== false ? 1 : 0);
 
-  res.status(201).json({ id: result.lastInsertRowid, name, command });
+    res.status(201).json({ id: result.lastInsertRowid, name, command: endpoint });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
 });
 
 // Update an MCP server
 router.put('/:id', (req, res) => {
-  const server = db.prepare('SELECT * FROM mcp_servers WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
-  if (!server) return res.status(404).json({ error: 'Server not found' });
+  try {
+    const server = db.prepare('SELECT * FROM mcp_servers WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+    if (!server) return res.status(404).json({ error: 'Server not found' });
 
-  const { name, command, config, enabled } = req.body;
-  db.prepare('UPDATE mcp_servers SET name = ?, command = ?, config = ?, enabled = ? WHERE id = ?')
-    .run(name || server.name, command || server.command, JSON.stringify(config || JSON.parse(server.config)), enabled !== undefined ? (enabled ? 1 : 0) : server.enabled, server.id);
+    const { name, command, config, enabled } = req.body;
+    const endpoint = command ? validateRemoteMcpEndpoint(command) : server.command;
+    db.prepare('UPDATE mcp_servers SET name = ?, command = ?, config = ?, enabled = ? WHERE id = ?')
+      .run(name || server.name, endpoint, JSON.stringify(config || JSON.parse(server.config)), enabled !== undefined ? (enabled ? 1 : 0) : server.enabled, server.id);
 
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
 });
 
 // Delete an MCP server

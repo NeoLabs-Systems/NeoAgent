@@ -5,10 +5,19 @@ const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 
 const SKILLS_DIR = path.join(AGENT_DATA_DIR, 'skills');
 
+function shellEscape(value) {
+  const text = String(value ?? '');
+  if (text.length === 0) {
+    return "''";
+  }
+  return `'${text.replace(/'/g, `'\\''`)}'`;
+}
+
 class SkillRunner {
   constructor(options = {}) {
     this.skills = new Map();
     this.executor = options.executor || null;
+    this.runtimeManager = options.runtimeManager || null;
   }
 
   async loadSkills() {
@@ -115,7 +124,7 @@ class SkillRunner {
     return tools;
   }
 
-  async executeTool(toolName, args) {
+  async executeTool(toolName, args, context = {}) {
     const skill = this.skills.get(toolName);
     if (!skill) return null;
     if (skill.metadata.enabled === false) {
@@ -124,11 +133,14 @@ class SkillRunner {
 
     if (skill.metadata.command) {
       const { CLIExecutor } = require('../cli/executor');
-      const executor = this.executor || new CLIExecutor();
       let command = skill.metadata.command;
       for (const [key, value] of Object.entries(args)) {
-        command = command.replace(`{${key}}`, value);
+        command = command.replaceAll(`{${key}}`, shellEscape(value));
       }
+      if (this.runtimeManager && context.userId != null) {
+        return await this.runtimeManager.executeCommand(context.userId, command, { cwd: skill.dir });
+      }
+      const executor = this.executor || new CLIExecutor();
       return await executor.execute(command, { cwd: skill.dir });
     }
 

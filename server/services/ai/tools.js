@@ -957,7 +957,12 @@ async function executeTool(toolName, args, context, engine) {
         deliveryState = null,
         allowMultipleProactiveMessages = false
     } = context;
+    const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
     const bc = () => {
+        const manager = runtime();
+        if (manager && typeof manager.getBrowserProviderForUser === 'function') {
+            return manager.getBrowserProviderForUser(userId);
+        }
         const scoped = app?.locals?.getBrowserControllerForUser;
         if (typeof scoped === 'function') {
             return scoped(userId);
@@ -965,6 +970,10 @@ async function executeTool(toolName, args, context, engine) {
         return app?.locals?.browserController || engine.browserController;
     };
     const ac = () => {
+        const manager = runtime();
+        if (manager && typeof manager.getAndroidProviderForUser === 'function') {
+            return manager.getAndroidProviderForUser(userId);
+        }
         const scoped = app?.locals?.getAndroidControllerForUser;
         if (typeof scoped === 'function') {
             return scoped(userId);
@@ -1003,6 +1012,18 @@ async function executeTool(toolName, args, context, engine) {
 
     switch (toolName) {
         case 'execute_command': {
+            const runtimeManager = runtime();
+            if (runtimeManager && typeof runtimeManager.executeCommand === 'function') {
+                const onSpawn = (pid) => engine.attachProcessToRun(runId, pid);
+                return await runtimeManager.executeCommand(userId, args.command, {
+                    cwd: args.cwd,
+                    timeout: args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000),
+                    stdinInput: args.stdin_input,
+                    pty: args.pty === true,
+                    inputs: args.inputs || [],
+                    onSpawn,
+                });
+            }
             const { CLIExecutor } = require('../cli/executor');
             const executor = app?.locals?.cliExecutor || engine.cliExecutor || new CLIExecutor();
             const onSpawn = (pid) => engine.attachProcessToRun(runId, pid);
@@ -1022,7 +1043,7 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'browser_navigate': {
-            const controller = bc();
+            const controller = await bc();
             if (!controller) return { error: 'Browser controller not available' };
             return await controller.navigate(args.url, {
                 screenshot: args.screenshot !== false,
@@ -1032,13 +1053,13 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'browser_click': {
-            const controller = bc();
+            const controller = await bc();
             if (!controller) return { error: 'Browser controller not available' };
             return await controller.click(args.selector, args.text, args.screenshot !== false);
         }
 
         case 'browser_type': {
-            const controller = bc();
+            const controller = await bc();
             if (!controller) return { error: 'Browser controller not available' };
             return await controller.type(args.selector, args.text, {
                 clear: args.clear !== false,
@@ -1047,121 +1068,121 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'browser_extract': {
-            const controller = bc();
+            const controller = await bc();
             if (!controller) return { error: 'Browser controller not available' };
             return await controller.extract(args.selector, args.attribute, args.all);
         }
 
         case 'browser_screenshot': {
-            const controller = bc();
+            const controller = await bc();
             if (!controller) return { error: 'Browser controller not available' };
             return await controller.screenshot({ fullPage: args.fullPage, selector: args.selector });
         }
 
         case 'browser_evaluate': {
-            const controller = bc();
+            const controller = await bc();
             if (!controller) return { error: 'Browser controller not available' };
             return await controller.evaluate(args.script);
         }
 
         case 'android_start_emulator': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.startEmulator(args || {});
         }
 
         case 'android_stop_emulator': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.stopEmulator();
         }
 
         case 'android_list_devices': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return { devices: await controller.listDevices() };
         }
 
         case 'android_open_app': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.openApp(args || {});
         }
 
         case 'android_open_intent': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.openIntent(args || {});
         }
 
         case 'android_tap': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.tap(args || {});
         }
 
         case 'android_long_press': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.longPress(args || {});
         }
 
         case 'android_type': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.type(args || {});
         }
 
         case 'android_swipe': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.swipe(args || {});
         }
 
         case 'android_press_key': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.pressKey(args || {});
         }
 
         case 'android_wait_for': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.waitFor(args || {});
         }
 
         case 'android_observe': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.observe(args || {});
         }
 
         case 'android_dump_ui': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.dumpUi(args || {});
         }
 
         case 'android_screenshot': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.screenshot(args || {});
         }
 
         case 'android_list_apps': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.listApps(args || {});
         }
 
         case 'android_install_apk': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.installApk(args || {});
         }
 
         case 'android_shell': {
-            const controller = ac();
+            const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.shell(args || {});
         }
@@ -2086,7 +2107,7 @@ async function executeTool(toolName, args, context, engine) {
 
             const skillRunner = sk();
             if (skillRunner) {
-                const skillResult = await skillRunner.executeTool(toolName, args);
+                const skillResult = await skillRunner.executeTool(toolName, args, { userId });
                 if (skillResult !== null) return skillResult;
             }
 

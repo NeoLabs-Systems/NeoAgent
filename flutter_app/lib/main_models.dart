@@ -957,12 +957,16 @@ class UpdateStatusSnapshot {
     this.releaseChannel = 'stable',
     this.allowSelfUpdate = true,
     this.deploymentMode = 'self_hosted',
+    this.deploymentProfile = 'private',
     this.targetBranch,
     this.npmDistTag,
     this.versionBefore,
     this.versionAfter,
     this.backendVersion,
     this.installedVersion,
+    this.runtimeValidationReady = true,
+    this.runtimeValidationIssues = const <String>[],
+    this.runtimeAcceleration,
     this.changelog = const <String>[],
     this.logs = const <String>[],
   });
@@ -975,6 +979,7 @@ class UpdateStatusSnapshot {
       releaseChannel: json['releaseChannel']?.toString() ?? 'stable',
       allowSelfUpdate: json['allowSelfUpdate'] != false,
       deploymentMode: json['deploymentMode']?.toString() ?? 'self_hosted',
+      deploymentProfile: json['deploymentProfile']?.toString() ?? 'private',
       targetBranch: json['targetBranch']?.toString(),
       npmDistTag: json['npmDistTag']?.toString(),
       versionBefore: json['versionBefore']?.toString(),
@@ -983,6 +988,16 @@ class UpdateStatusSnapshot {
       installedVersion:
           json['installedVersion']?.toString() ??
           json['packageVersion']?.toString(),
+      runtimeValidationReady:
+          _jsonMap(json['runtimeValidation'])['ready'] != false,
+      runtimeValidationIssues:
+          (_jsonMap(json['runtimeValidation'])['issues'] as List<dynamic>? ??
+                  const <dynamic>[])
+              .map((item) => item.toString())
+              .toList(),
+      runtimeAcceleration: _jsonMap(
+        _jsonMap(json['runtimeValidation'])['vm'],
+      )['acceleration']?.toString(),
       changelog: (json['changelog'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
           .toList(),
@@ -998,12 +1013,16 @@ class UpdateStatusSnapshot {
   final String releaseChannel;
   final bool allowSelfUpdate;
   final String deploymentMode;
+  final String deploymentProfile;
   final String? targetBranch;
   final String? npmDistTag;
   final String? versionBefore;
   final String? versionAfter;
   final String? backendVersion;
   final String? installedVersion;
+  final bool runtimeValidationReady;
+  final List<String> runtimeValidationIssues;
+  final String? runtimeAcceleration;
   final List<String> changelog;
   final List<String> logs;
 
@@ -1036,6 +1055,19 @@ class UpdateStatusSnapshot {
   String get releaseChannelLabel =>
       releaseChannel.toLowerCase() == 'beta' ? 'Beta' : 'Stable';
 
+  String get deploymentProfileLabel =>
+      deploymentProfile.toLowerCase() == 'prod' ? 'Production' : 'Private';
+
+  String get runtimeModeLabel => deploymentProfile.toLowerCase() == 'prod'
+      ? 'Per-user isolated VM runtime'
+      : 'Trusted host runtime';
+
+  String get runtimeValidationLabel =>
+      runtimeValidationReady ? 'Runtime ready' : 'Runtime setup required';
+
+  Color get runtimeValidationColor =>
+      runtimeValidationReady ? _success : _danger;
+
   String get versionLine {
     final before = versionBefore?.ifEmpty('—') ?? '—';
     final after = versionAfter?.ifEmpty('—') ?? '—';
@@ -1050,7 +1082,7 @@ class UpdateStatusSnapshot {
         ? ''
         : ' | Installed: $installedVersion';
     final backend = backendVersion == null ? '' : ' | Runtime: $backendVersion';
-    return 'Channel: $releaseChannelLabel$branch$npm | Update Version: $updateVersion$installed$backend';
+    return 'Profile: $deploymentProfileLabel | Channel: $releaseChannelLabel$branch$npm | Update Version: $updateVersion$installed$backend';
   }
 
   String get logsText =>

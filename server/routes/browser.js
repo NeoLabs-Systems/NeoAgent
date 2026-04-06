@@ -6,6 +6,13 @@ const { sanitizeError } = require('../utils/security');
 router.use(requireAuth);
 
 async function getBrowserController(req) {
+  const runtimeManager = req.app?.locals?.runtimeManager;
+  if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
+    const runtimeController = await runtimeManager.getBrowserProviderForUser(req.session?.userId);
+    if (runtimeController) {
+      return runtimeController;
+    }
+  }
   const resolver = req.app?.locals?.getBrowserControllerForUser;
   const userId = req.session?.userId;
   let controller;
@@ -28,8 +35,8 @@ router.get('/status', async (req, res) => {
     const bc = await getBrowserController(req);
     const pageInfo = await bc.getPageInfo();
     res.json({
-      launched: bc.isLaunched(),
-      pages: bc.getPageCount(),
+      launched: await Promise.resolve(bc.isLaunched()),
+      pages: await Promise.resolve(bc.getPageCount()),
       headless: bc.headless,
       pageInfo,
     });

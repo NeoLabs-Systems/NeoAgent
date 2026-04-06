@@ -3,6 +3,7 @@
 const { requireAuth } = require('../middleware/auth');
 const { setupTelnyxWebhook } = require('../routes/telnyx');
 const { getVersionInfo } = require('../utils/version');
+const { getRuntimeValidation } = require('../services/runtime/validation');
 
 const routeRegistry = [
   { basePath: null, modulePath: '../routes/auth' },
@@ -13,6 +14,7 @@ const routeRegistry = [
   { basePath: '/api/integrations', modulePath: '../routes/integrations' },
   { basePath: '/api/skills', modulePath: '../routes/skills' },
   { basePath: '/api/store', modulePath: '../routes/store' },
+  { basePath: '/api/artifacts', modulePath: '../routes/artifacts' },
   { basePath: '/api/memory', modulePath: '../routes/memory' },
   { basePath: '/api/scheduler', modulePath: '../routes/scheduler' },
   { basePath: '/api/browser', modulePath: '../routes/browser' },
@@ -35,7 +37,24 @@ function registerApiRoutes(app) {
   setupTelnyxWebhook(app);
 
   app.get('/api/health', requireAuth, (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    const runtimeValidation = getRuntimeValidation(req.app?.locals?.runtimeManager);
+    const ready = Boolean(runtimeValidation && runtimeValidation.ready);
+    const issueCount = Array.isArray(runtimeValidation?.issues)
+      ? runtimeValidation.issues.length
+      : 0;
+    res.json({
+      status: ready ? 'ok' : 'degraded',
+      timestamp: new Date().toISOString(),
+      runtime: {
+        ready,
+        issueCount,
+        summary: ready
+          ? 'Runtime validation passed.'
+          : (issueCount > 0
+              ? `${issueCount} runtime validation issue(s) detected.`
+              : 'Runtime validation is unavailable.'),
+      },
+    });
   });
 
   app.get('/api/version', requireAuth, (req, res) => {

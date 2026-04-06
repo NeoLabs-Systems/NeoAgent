@@ -74,10 +74,22 @@ class _AuthViewState extends State<AuthView> {
       _registerMode = true;
     }
 
-    final title = _registerMode ? 'Create the first account' : 'Sign in';
+    final isProdProfile = controller.deploymentProfile == 'prod';
+    final title = _registerMode
+        ? (controller.hasUser ? 'Create account' : 'Create the first account')
+        : 'Sign in';
     final subtitle = _registerMode
-        ? 'This account will unlock the workspace.'
+        ? (controller.hasUser
+              ? 'Create another NeoAgent account for this deployment.'
+              : isProdProfile
+              ? 'This deployment is configured for isolated per-user workspaces.'
+              : 'This account will unlock the private workspace on this machine.')
+        : isProdProfile
+        ? 'Enter your NeoAgent account details for this shared deployment.'
         : 'Enter your NeoAgent account details.';
+    final modeLabel = isProdProfile
+        ? 'Production profile · isolated per-user runtime'
+        : 'Private profile · trusted host runtime';
 
     return Scaffold(
       backgroundColor: _bgPrimary,
@@ -125,6 +137,38 @@ class _AuthViewState extends State<AuthView> {
                             ],
                           ),
                           const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _bgCard,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: _border),
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Icon(
+                                  isProdProfile
+                                      ? Icons.verified_user_outlined
+                                      : Icons.laptop_mac_outlined,
+                                  size: 16,
+                                  color: _accentHover,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    modeLabel,
+                                    style: const TextStyle(
+                                      color: _textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
                           Text(
                             title,
                             style: const TextStyle(
@@ -213,6 +257,24 @@ class _AuthViewState extends State<AuthView> {
                                         : 'Sign in',
                                   ),
                           ),
+                          if (controller.registrationOpen &&
+                              controller.hasUser) ...<Widget>[
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: controller.isAuthenticating
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _registerMode = !_registerMode;
+                                      });
+                                    },
+                              child: Text(
+                                _registerMode
+                                    ? 'Already have an account? Sign in'
+                                    : 'Need a new account? Register',
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
