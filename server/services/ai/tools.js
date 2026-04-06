@@ -981,7 +981,14 @@ async function executeTool(toolName, args, context, engine) {
     const integrationManager = integrations();
     if (integrationManager) {
         const integrationResult = await integrationManager.executeTool(userId, toolName, args);
-        if (integrationResult !== null) {
+        if (
+            integrationResult &&
+            typeof integrationResult === 'object' &&
+            integrationResult.error === 'no_provider_support'
+        ) {
+            // This tool is not owned by official integrations; fall through to
+            // the normal built-in/MCP/skill dispatch path.
+        } else if (integrationResult !== null) {
             const { detectPromptInjection } = require('../../utils/security');
             const resultText = typeof integrationResult === 'string' ? integrationResult : JSON.stringify(integrationResult);
             if (detectPromptInjection(resultText)) {
