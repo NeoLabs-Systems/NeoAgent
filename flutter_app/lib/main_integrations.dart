@@ -1,5 +1,29 @@
 part of 'main.dart';
 
+class IntegrationsPanel extends StatelessWidget {
+  const IntegrationsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: _pagePadding(context),
+      child: Column(
+        children: <Widget>[
+          _PageTitle(
+            title: 'Integrations',
+            subtitle:
+                'Connect and manage official integrations separately from reusable skills.',
+          ),
+          const SizedBox(height: 12),
+          Expanded(child: OfficialIntegrationsTab(controller: controller)),
+        ],
+      ),
+    );
+  }
+}
+
 class OfficialIntegrationsTab extends StatelessWidget {
   const OfficialIntegrationsTab({super.key, required this.controller});
 
@@ -103,8 +127,8 @@ class OfficialIntegrationsTab extends StatelessWidget {
                                 : item.isConnected
                                 ? 'Connect as many accounts as you want. Each app can use a different account.'
                                 : ((item.connectPrompt ?? '').trim().isNotEmpty
-                                    ? item.connectPrompt!.trim()
-                                    : 'Connect app accounts individually so the AI can use the right account for each official integration.'),
+                                      ? item.connectPrompt!.trim()
+                                      : 'Connect app accounts individually so the AI can use the right account for each official integration.'),
                             style: const TextStyle(color: _textSecondary),
                           ),
                         ],

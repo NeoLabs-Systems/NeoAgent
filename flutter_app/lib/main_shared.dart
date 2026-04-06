@@ -21,6 +21,7 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.devices,
     AppSection.scheduler,
     AppSection.skills,
+    AppSection.integrations,
     AppSection.mcp,
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,

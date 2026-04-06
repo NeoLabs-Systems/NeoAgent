@@ -620,6 +620,8 @@ class _SectionBody extends StatelessWidget {
         return LogsPanel(controller: controller);
       case AppSection.skills:
         return SkillsPanel(controller: controller);
+      case AppSection.integrations:
+        return IntegrationsPanel(controller: controller);
       case AppSection.memory:
         return MemoryPanel(controller: controller);
       case AppSection.scheduler:

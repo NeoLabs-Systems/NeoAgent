@@ -55,6 +55,7 @@ enum AppSection {
   settings,
   logs,
   skills,
+  integrations,
   memory,
   scheduler,
   mcp,
@@ -115,6 +116,8 @@ extension AppSectionX on AppSection {
         return 'Logs';
       case AppSection.skills:
         return 'Skills';
+      case AppSection.integrations:
+        return 'Integrations';
       case AppSection.memory:
         return 'Memory';
       case AppSection.scheduler:
@@ -146,6 +149,8 @@ extension AppSectionX on AppSection {
         return Icons.article_outlined;
       case AppSection.skills:
         return Icons.extension_outlined;
+      case AppSection.integrations:
+        return Icons.integration_instructions_outlined;
       case AppSection.memory:
         return Icons.psychology_outlined;
       case AppSection.scheduler:
@@ -171,6 +176,7 @@ extension AppSectionX on AppSection {
         return SidebarGroup.activity;
       case AppSection.devices:
       case AppSection.skills:
+      case AppSection.integrations:
       case AppSection.memory:
       case AppSection.scheduler:
       case AppSection.mcp:
@@ -2250,7 +2256,9 @@ class NeoAgentController extends ChangeNotifier {
     final deadline = DateTime.now().add(const Duration(minutes: 2));
     while (DateTime.now().isBefore(deadline)) {
       try {
-        final items = await _backendClient.fetchOfficialIntegrations(backendUrl);
+        final items = await _backendClient.fetchOfficialIntegrations(
+          backendUrl,
+        );
         officialIntegrations = items
             .map(OfficialIntegrationItem.fromJson)
             .toList();
@@ -9814,7 +9822,7 @@ class _SkillsPanelState extends State<SkillsPanel>
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -9856,7 +9864,7 @@ class _SkillsPanelState extends State<SkillsPanel>
           _PageTitle(
             title: 'Skills',
             subtitle:
-                'Browse current skills and the store in a split App Store-style view.',
+                'Manage installed skills and browse the store. Official integrations live in their own section.',
             trailing: FilledButton.icon(
               onPressed: () => _openCreateSkill(context),
               icon: const Icon(Icons.add),
@@ -9876,12 +9884,8 @@ class _SkillsPanelState extends State<SkillsPanel>
               indicatorSize: TabBarIndicatorSize.tab,
               labelStyle: const TextStyle(fontWeight: FontWeight.w700),
               tabs: <Widget>[
-                Tab(text: 'Current Skills (${controller.skills.length})'),
+                Tab(text: 'Installed Skills (${controller.skills.length})'),
                 Tab(text: 'Store (${filteredStore.length})'),
-                Tab(
-                  text:
-                      'Official Integrations (${controller.officialIntegrations.length})',
-                ),
               ],
             ),
           ),
@@ -9892,7 +9896,6 @@ class _SkillsPanelState extends State<SkillsPanel>
               children: <Widget>[
                 _buildInstalledTab(controller),
                 _buildStoreTab(controller, categories, filteredStore),
-                OfficialIntegrationsTab(controller: controller),
               ],
             ),
           ),
