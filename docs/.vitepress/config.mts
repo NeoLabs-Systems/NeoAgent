@@ -37,12 +37,12 @@ export default defineConfig({
           { text: 'Operations', link: '/operations' },
         ],
       },
-      { text: 'Why NeoAgent', link: '/why-neoagent' },
       { text: 'GitHub', link: 'https://github.com/NeoLabs-Systems/NeoAgent' },
     ],
     sidebar: [
       {
         text: 'Start',
+        collapsed: false,
         items: [
           { text: 'Overview', link: '/' },
           { text: 'Getting Started', link: '/getting-started' },
@@ -51,6 +51,7 @@ export default defineConfig({
       },
       {
         text: 'Product Surface',
+        collapsed: false,
         items: [
           {
             text: 'Capabilities',
@@ -70,6 +71,7 @@ export default defineConfig({
       },
       {
         text: 'Operate',
+        collapsed: false,
         items: [
           { text: 'Configuration', link: '/configuration' },
           { text: 'Operations', link: '/operations' },
