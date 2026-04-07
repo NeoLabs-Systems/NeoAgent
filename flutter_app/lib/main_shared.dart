@@ -33,7 +33,7 @@ List<AppSection> _mainSections(NeoAgentController controller) {
 List<Widget> _buildSidebarItems(
   NeoAgentController controller, {
   required ValueChanged<AppSection> onSelect,
-  required SidebarGroup expandedGroup,
+  required SidebarGroup? expandedGroup,
   required ValueChanged<SidebarGroup> onToggleGroup,
 }) {
   final widgets = <Widget>[];

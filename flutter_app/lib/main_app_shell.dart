@@ -300,7 +300,7 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   bool _blockedDialogOpen = false;
-  late SidebarGroup _expandedSidebarGroup;
+  SidebarGroup? _expandedSidebarGroup;
 
   @override
   void initState() {
@@ -319,7 +319,7 @@ class _HomeViewState extends State<HomeView> {
 
   void _toggleSidebarGroup(SidebarGroup group) {
     setState(() {
-      _expandedSidebarGroup = group;
+      _expandedSidebarGroup = _expandedSidebarGroup == group ? null : group;
     });
   }
 
@@ -474,7 +474,7 @@ class _Sidebar extends StatelessWidget {
   });
 
   final NeoAgentController controller;
-  final SidebarGroup expandedGroup;
+  final SidebarGroup? expandedGroup;
   final ValueChanged<SidebarGroup> onToggleGroup;
 
   @override
@@ -588,7 +588,7 @@ class _MobileDrawer extends StatelessWidget {
   });
 
   final NeoAgentController controller;
-  final SidebarGroup expandedGroup;
+  final SidebarGroup? expandedGroup;
   final ValueChanged<SidebarGroup> onToggleGroup;
 
   @override
