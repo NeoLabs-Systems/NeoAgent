@@ -4,6 +4,9 @@
   "description": "Proactive personal AI agent with no limits",
   "license": "MIT",
   "main": "server/index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "bin": {
     "neoagent": "bin/neoagent.js"
   },

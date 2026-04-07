@@ -4,7 +4,7 @@ NeoAgent installs as a Node CLI and runs a self-hosted server with a bundled Flu
 
 ## Requirements
 
-- Node.js 18 or newer.
+- Node.js 20 or newer.
 - A reachable server URL if you want OAuth callbacks, mobile access, or messaging webhooks.
 - At least one hosted AI provider API key, unless you only use local Ollama.
 - Android Studio or a Flutter Android toolchain if you build the Android client yourself.

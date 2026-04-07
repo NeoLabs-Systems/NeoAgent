@@ -3,7 +3,7 @@
 <p align="center"><strong>Your agent. Your server. Your rules.</strong></p>
 
 <p align="center">
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-18+-5fa04e?style=flat-square&logo=node.js&logoColor=white" alt="Node.js"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-20+-5fa04e?style=flat-square&logo=node.js&logoColor=white" alt="Node.js"></a>
   <a href="https://sqlite.org"><img src="https://img.shields.io/badge/SQLite-WAL-003b57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-web%20%2B%20android-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-a855f7?style=flat-square" alt="License"></a>
