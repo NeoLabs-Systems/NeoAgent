@@ -96,9 +96,48 @@ function summarizeFile(file) {
   };
 }
 
+function requireGoogleApiUrl(pathOrUrl, defaultBaseUrl) {
+  const raw = String(pathOrUrl || '').trim();
+  if (!raw) throw new Error('path is required.');
+  const base = String(defaultBaseUrl || 'https://www.googleapis.com').replace(/\/$/, '');
+  const url = raw.startsWith('http://') || raw.startsWith('https://')
+    ? new URL(raw)
+    : new URL(raw.startsWith('/') ? raw : `/${raw}`, base);
+  if (!url.hostname.endsWith('googleapis.com')) {
+    throw new Error('Google API request URL must target a googleapis.com host.');
+  }
+  return url.toString();
+}
+
+async function executeGoogleApiRequest(auth, args, options = {}) {
+  const method = String(args.method || 'GET').trim().toUpperCase();
+  const allowedMethods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+  if (!allowedMethods.has(method)) {
+    throw new Error('method must be one of GET, POST, PUT, PATCH, DELETE.');
+  }
+
+  const response = await auth.request({
+    url: requireGoogleApiUrl(args.path || args.url, options.baseUrl),
+    method,
+    params: args.query && typeof args.query === 'object' ? args.query : undefined,
+    data: args.body === undefined ? undefined : args.body,
+    headers: args.headers && typeof args.headers === 'object' ? args.headers : undefined,
+    responseType: args.response_type === 'arraybuffer' ? 'arraybuffer' : undefined,
+  });
+
+  return {
+    status: response.status,
+    statusText: response.statusText,
+    data: Buffer.isBuffer(response.data)
+      ? response.data.toString('base64')
+      : response.data,
+  };
+}
+
 module.exports = {
   coerceStringList,
   ensureParentDir,
+  executeGoogleApiRequest,
   extractMessageBody,
   getHeader,
   stringToBase64Url,

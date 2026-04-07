@@ -1,5 +1,7 @@
 'use strict';
 
+const { decryptValue } = require('./secrets');
+
 function escapeScope(scopes) {
   return Array.from(new Set((scopes || []).filter(Boolean))).join(' ');
 }
@@ -160,30 +162,68 @@ function buildConnectedAppSummary(appSnapshots) {
 function createOAuthProvider(options = {}) {
   const apps = (options.apps || []).map((app) => ({ ...app }));
   const appById = new Map(apps.map((app) => [app.id, app]));
+  const toolDefinitions = (options.toolDefinitions || []).map((tool) => {
+    const app = appById.get(tool.appId);
+    const parameters = tool.parameters || { type: 'object', properties: {} };
+    return {
+      ...tool,
+      description: app
+        ? `${tool.description} When multiple ${app.label} accounts are connected, set connection_id or account_email to choose which account to use.`
+        : tool.description,
+      parameters: {
+        ...parameters,
+        type: 'object',
+        properties: {
+          ...(parameters.properties || {}),
+          connection_id: {
+            type: 'number',
+            description: app
+              ? `Optional connected ${app.label} account ID.`
+              : 'Optional connected account ID.',
+          },
+          account_email: {
+            type: 'string',
+            description: app
+              ? `Optional connected ${app.label} account email or identifier.`
+              : 'Optional connected account email or identifier.',
+          },
+        },
+        required: Array.isArray(parameters.required)
+          ? parameters.required.slice()
+          : [],
+      },
+    };
+  });
+  const toolAppMap = new Map(
+    toolDefinitions
+      .filter((tool) => tool.name && tool.appId)
+      .map((tool) => [tool.name, tool.appId]),
+  );
 
   function getApp(appId) {
     return appById.get(String(appId || '').trim()) || null;
   }
 
-  return {
+  const provider = {
     key: options.key,
     label: options.label,
     description: options.description,
     icon: options.icon,
-    apps,
+    apps: apps.map(({ id, label, description }) => ({ id, label, description })),
     connectPrompt: options.connectPrompt || null,
     getApp,
-    getToolAppId() {
-      return null;
+    getToolAppId(toolName) {
+      return toolAppMap.get(String(toolName || '').trim()) || null;
     },
     getEnvStatus() {
       return options.getEnvStatus();
     },
-    getToolDefinitions() {
-      return [];
+    getToolDefinitions(toolOptions = {}) {
+      const connectedAppIds = new Set(toolOptions.connectedAppIds || []);
+      return toolDefinitions.filter((tool) => connectedAppIds.has(tool.appId));
     },
-    supportsTool() {
-      return false;
+    supportsTool(toolName) {
+      return toolAppMap.has(String(toolName || '').trim());
     },
     buildSnapshot(connectionRows) {
       const env = this.getEnvStatus();
@@ -194,9 +234,14 @@ function createOAuthProvider(options = {}) {
         byApp.get(appId).push(row);
       }
 
-      const appSnapshots = apps.map((app) =>
-        summarizeAppConnection(app, byApp.get(app.id) || [], env),
-      );
+      const appSnapshots = apps.map((app) => {
+        const snapshot = summarizeAppConnection(app, byApp.get(app.id) || [], env);
+        snapshot.availableToolCount =
+          env.configured && snapshot.connection.connected
+            ? toolDefinitions.filter((tool) => tool.appId === app.id).length
+            : 0;
+        return snapshot;
+      });
       const connectedApps = appSnapshots.filter((app) => app.connection.connected);
       const connectedAccounts = connectedApps.flatMap((app) =>
         app.accounts.filter((account) => account.connected),
@@ -229,7 +274,10 @@ function createOAuthProvider(options = {}) {
               .sort()
               .reverse()[0] || null,
         },
-        availableToolCount: 0,
+        availableToolCount: appSnapshots.reduce(
+          (total, app) => total + app.availableToolCount,
+          0,
+        ),
         connectPrompt: this.connectPrompt,
       };
     },
@@ -270,6 +318,24 @@ function createOAuthProvider(options = {}) {
       }
       return null;
     },
+    async executeTool(toolName, args, connectionRow) {
+      if (typeof options.executeTool !== 'function') {
+        return null;
+      }
+      let credentials = {};
+      try {
+        credentials = JSON.parse(
+          decryptValue(connectionRow.credentials_json || '{}') || '{}',
+        );
+      } catch {
+        credentials = {};
+      }
+      return options.executeTool(toolName, args, {
+        appId: toolAppMap.get(String(toolName || '').trim()) || connectionRow.app_key,
+        connection: connectionRow,
+        credentials,
+      });
+    },
     summarizeConnection(connectionRows) {
       const snapshot = this.buildSnapshot(connectionRows);
       if (!snapshot.connection.connected) {
@@ -295,16 +361,27 @@ function createOAuthProvider(options = {}) {
         return `${this.label}: workspace setup is not complete yet. If the user wants to use it, tell them to open Official Integrations and ask an administrator to finish setup first.`;
       }
 
+      const connectedApps = (snapshot.apps || []).filter((app) => app.connection.connected);
       if (!snapshot.connection?.connected) {
-        return `${this.label}: setup is ready and account connection is available in Official Integrations, but no accounts are connected yet. This provider currently exposes no built-in tools in this run.`;
+        return `${this.label}: setup is ready, but no accounts are connected yet. If the user wants to use it, tell them to connect an account in Official Integrations first.`;
       }
 
+      const toolLines = connectedApps.map((app) => {
+        const names = toolDefinitions
+          .filter((tool) => tool.appId === app.id)
+          .map((tool) => tool.name)
+          .join(', ');
+        return `- ${app.label}: ${names || 'no built-in tools'}`;
+      });
       return [
-        `${this.label}: account connections exist in this run, but this provider currently exposes no built-in tools yet.`,
+        `${this.label}: native account access is connected in this run.`,
         `Connected apps: ${buildConnectedAppSummary(snapshot.apps)}`,
+        ...toolLines,
       ].join('\n');
     },
   };
+
+  return provider;
 }
 
 module.exports = {

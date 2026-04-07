@@ -21,7 +21,7 @@ const GOOGLE_WORKSPACE_APPS = [
     id: 'gmail',
     label: 'Gmail',
     description: 'Search threads, read messages, send mail, and manage labels.',
-    scopes: ['https://www.googleapis.com/auth/gmail.modify'],
+    scopes: ['https://mail.google.com/'],
     toolDefinitions: gmailToolDefinitions,
     executor: executeGmailTool,
   },

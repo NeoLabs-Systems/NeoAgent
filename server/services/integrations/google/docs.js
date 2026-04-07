@@ -1,6 +1,7 @@
 'use strict';
 
 const { google } = require('googleapis');
+const { executeGoogleApiRequest } = require('./common');
 
 const docsToolDefinitions = [
   {
@@ -49,6 +50,25 @@ const docsToolDefinitions = [
         replace_text: { type: 'string', description: 'Replacement text.' },
       },
       required: ['document_id', 'search_text', 'replace_text'],
+    },
+  },
+  {
+    name: 'google_workspace_docs_api_request',
+    description:
+      'Make an authenticated Google Docs API request for advanced document batchUpdate operations not covered by the dedicated tools.',
+    parameters: {
+      type: 'object',
+      properties: {
+        method: { type: 'string', description: 'HTTP method: GET, POST, PUT, PATCH, or DELETE.' },
+        path: {
+          type: 'string',
+          description:
+            'Docs API path or URL, e.g. /v1/documents/{documentId}:batchUpdate.',
+        },
+        query: { type: 'object', description: 'Optional query parameters.' },
+        body: { type: 'object', description: 'Optional JSON request body.' },
+      },
+      required: ['method', 'path'],
     },
   },
 ];
@@ -174,6 +194,12 @@ async function executeDocsTool(toolName, args, auth) {
           replies[0]?.replaceAllText?.occurrencesChanged || 0,
         ),
       };
+    }
+
+    case 'google_workspace_docs_api_request': {
+      return executeGoogleApiRequest(auth, args, {
+        baseUrl: 'https://docs.googleapis.com',
+      });
     }
 
     default:

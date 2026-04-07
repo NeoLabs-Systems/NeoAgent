@@ -1,7 +1,7 @@
 'use strict';
 
 const { google } = require('googleapis');
-const { coerceStringList } = require('./common');
+const { coerceStringList, executeGoogleApiRequest } = require('./common');
 
 const calendarToolDefinitions = [
   {
@@ -115,6 +115,25 @@ const calendarToolDefinitions = [
         timezone: { type: 'string', description: 'IANA timezone label.' },
       },
       required: ['time_min', 'time_max'],
+    },
+  },
+  {
+    name: 'google_workspace_calendar_api_request',
+    description:
+      'Make an authenticated Google Calendar API request for advanced calendar operations not covered by the dedicated tools.',
+    parameters: {
+      type: 'object',
+      properties: {
+        method: { type: 'string', description: 'HTTP method: GET, POST, PUT, PATCH, or DELETE.' },
+        path: {
+          type: 'string',
+          description:
+            'Calendar API path or URL, e.g. /calendar/v3/users/me/calendarList.',
+        },
+        query: { type: 'object', description: 'Optional query parameters.' },
+        body: { type: 'object', description: 'Optional JSON request body.' },
+      },
+      required: ['method', 'path'],
     },
   },
 ];
@@ -239,6 +258,12 @@ async function executeCalendarTool(toolName, args, auth) {
         },
       });
       return { calendars: response.data.calendars || {} };
+    }
+
+    case 'google_workspace_calendar_api_request': {
+      return executeGoogleApiRequest(auth, args, {
+        baseUrl: 'https://www.googleapis.com',
+      });
     }
 
     default:

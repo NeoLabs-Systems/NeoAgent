@@ -1,6 +1,7 @@
 'use strict';
 
 const { google } = require('googleapis');
+const { executeGoogleApiRequest } = require('./common');
 
 const sheetsToolDefinitions = [
   {
@@ -77,6 +78,25 @@ const sheetsToolDefinitions = [
       required: ['title'],
     },
   },
+  {
+    name: 'google_workspace_sheets_api_request',
+    description:
+      'Make an authenticated Google Sheets API request for advanced spreadsheet, sheet, chart, formatting, pivot table, and batchUpdate operations.',
+    parameters: {
+      type: 'object',
+      properties: {
+        method: { type: 'string', description: 'HTTP method: GET, POST, PUT, PATCH, or DELETE.' },
+        path: {
+          type: 'string',
+          description:
+            'Sheets API path or URL, e.g. /v4/spreadsheets/{spreadsheetId}:batchUpdate.',
+        },
+        query: { type: 'object', description: 'Optional query parameters.' },
+        body: { type: 'object', description: 'Optional JSON request body.' },
+      },
+      required: ['method', 'path'],
+    },
+  },
 ];
 
 async function executeSheetsTool(toolName, args, auth) {
@@ -146,6 +166,12 @@ async function executeSheetsTool(toolName, args, auth) {
           spreadsheetUrl: response.data.spreadsheetUrl || null,
           title: response.data.properties?.title || String(args.title || ''),
         };
+      }
+
+      case 'google_workspace_sheets_api_request': {
+        return executeGoogleApiRequest(auth, args, {
+          baseUrl: 'https://sheets.googleapis.com',
+        });
       }
 
       default:

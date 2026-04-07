@@ -3,6 +3,7 @@
 const { google } = require('googleapis');
 const {
   coerceStringList,
+  executeGoogleApiRequest,
   extractMessageBody,
   getHeader,
   stringToBase64Url,
@@ -111,6 +112,25 @@ const gmailToolDefinitions = [
         },
       },
       required: ['thread_id'],
+    },
+  },
+  {
+    name: 'google_workspace_gmail_api_request',
+    description:
+      'Make an authenticated Gmail API request for advanced Gmail operations not covered by the dedicated Gmail tools.',
+    parameters: {
+      type: 'object',
+      properties: {
+        method: { type: 'string', description: 'HTTP method: GET, POST, PUT, PATCH, or DELETE.' },
+        path: {
+          type: 'string',
+          description:
+            'Gmail API path or URL, e.g. /gmail/v1/users/me/settings/sendAs.',
+        },
+        query: { type: 'object', description: 'Optional query parameters.' },
+        body: { type: 'object', description: 'Optional JSON request body.' },
+      },
+      required: ['method', 'path'],
     },
   },
 ];
@@ -292,6 +312,12 @@ async function executeGmailTool(toolName, args, auth) {
         added: addLabelIds,
         removed: removeLabelIds,
       };
+    }
+
+    case 'google_workspace_gmail_api_request': {
+      return executeGoogleApiRequest(auth, args, {
+        baseUrl: 'https://gmail.googleapis.com',
+      });
     }
 
     default:

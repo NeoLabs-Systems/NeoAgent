@@ -3,7 +3,12 @@
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
-const { coerceStringList, ensureParentDir, summarizeFile } = require('./common');
+const {
+  coerceStringList,
+  ensureParentDir,
+  executeGoogleApiRequest,
+  summarizeFile,
+} = require('./common');
 
 const driveToolDefinitions = [
   {
@@ -99,6 +104,25 @@ const driveToolDefinitions = [
         },
       },
       required: ['file_id'],
+    },
+  },
+  {
+    name: 'google_workspace_drive_api_request',
+    description:
+      'Make an authenticated Google Drive API request for advanced file, folder, permission, comment, revision, and shared drive operations.',
+    parameters: {
+      type: 'object',
+      properties: {
+        method: { type: 'string', description: 'HTTP method: GET, POST, PUT, PATCH, or DELETE.' },
+        path: {
+          type: 'string',
+          description:
+            'Drive API path or URL, e.g. /drive/v3/files or /drive/v3/files/{fileId}/comments.',
+        },
+        query: { type: 'object', description: 'Optional query parameters.' },
+        body: { type: 'object', description: 'Optional JSON request body.' },
+      },
+      required: ['method', 'path'],
     },
   },
 ];
@@ -233,6 +257,12 @@ async function executeDriveTool(toolName, args, auth) {
         fields: 'id,name,webViewLink,webContentLink',
       });
       return summarizeFile(fileResponse.data);
+    }
+
+    case 'google_workspace_drive_api_request': {
+      return executeGoogleApiRequest(auth, args, {
+        baseUrl: 'https://www.googleapis.com',
+      });
     }
 
     default:
