@@ -1,3 +1,9 @@
+---
+slug: /
+title: NeoAgent
+sidebar_label: Overview
+---
+
 # NeoAgent
 
 NeoAgent is a self-hosted proactive AI agent with a bundled Flutter client for web and Android. It runs on your server, keeps credentials server-side, and gives you an operator UI for chat, runs, logs, scheduler tasks, skills, integrations, MCP, memory, Android control, recordings, Health Connect data, wearables, and settings.
