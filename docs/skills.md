@@ -10,7 +10,7 @@ Skills are Markdown files that teach the agent how to use local capabilities or 
 | `cli.md` | Execute shell commands in a persistent terminal |
 | `files.md` | Read, write, and search files on the host |
 | `memory.md` | Store and recall long-term memories |
-| `messaging.md` | Send messages via Telegram, Discord, or WhatsApp |
+| `messaging.md` | Send messages via connected messaging platforms such as WhatsApp, Telegram, Discord, Slack, Matrix, Teams, Google Chat, or webhook bridges |
 | `system-stats.md` | CPU, memory, and disk usage |
 | `weather.md` | Current weather via wttr.in |
 | `ip-info.md` | Public IP and geolocation |

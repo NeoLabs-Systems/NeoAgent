@@ -1,42 +1,426 @@
 part of 'main.dart';
 
-const List<MessagingPlatformDescriptor> messagingPlatforms =
+const List<MessagingPlatformDescriptor>
+messagingPlatforms = <MessagingPlatformDescriptor>[
+  MessagingPlatformDescriptor(
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    subtitle: 'QR-based phone linking',
+    accent: Color(0xFF25D366),
+    connectMethod: MessagingConnectMethod.qr,
+    icon: Icons.chat_bubble,
+  ),
+  MessagingPlatformDescriptor(
+    id: 'telegram',
+    label: 'Telegram',
+    subtitle: 'Bot token and approved chats',
+    accent: Color(0xFF2AABEE),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.send_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'botToken', label: 'Bot Token', obscure: true),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'discord',
+    label: 'Discord',
+    subtitle: 'Bot token and server/channel access',
+    accent: Color(0xFF5865F2),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.sports_esports_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'token', label: 'Bot Token', obscure: true),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'slack',
+    label: 'Slack',
+    subtitle: 'Bot token, Events API, and channel access',
+    accent: Color(0xFF36C5F0),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.tag_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'botToken', label: 'Bot Token', obscure: true),
+      MessagingConfigField(
+        key: 'signingSecret',
+        label: 'Signing Secret',
+        obscure: true,
+      ),
+      MessagingConfigField(
+        key: 'inboundSecret',
+        label: 'Inbound Secret',
+        obscure: true,
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'google_chat',
+    label: 'Google Chat',
+    subtitle: 'Space webhook and app callback support',
+    accent: Color(0xFF34A853),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.forum_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(
+        key: 'webhookUrl',
+        label: 'Webhook URL',
+        obscure: true,
+      ),
+      MessagingConfigField(
+        key: 'inboundSecret',
+        label: 'Inbound Secret',
+        obscure: true,
+      ),
+      MessagingConfigField(key: 'defaultTo', label: 'Default Space / Chat ID'),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'teams',
+    label: 'Microsoft Teams',
+    subtitle: 'Incoming webhook and outgoing callback support',
+    accent: Color(0xFF6264A7),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.groups_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(
+        key: 'webhookUrl',
+        label: 'Webhook URL',
+        obscure: true,
+      ),
+      MessagingConfigField(
+        key: 'inboundSecret',
+        label: 'Inbound Secret',
+        obscure: true,
+      ),
+      MessagingConfigField(key: 'defaultTo', label: 'Default Conversation ID'),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'matrix',
+    label: 'Matrix',
+    subtitle: 'Homeserver token with room polling',
+    accent: Color(0xFF0DBD8B),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.grid_view_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'homeserver', label: 'Homeserver URL'),
+      MessagingConfigField(
+        key: 'accessToken',
+        label: 'Access Token',
+        obscure: true,
+      ),
+      MessagingConfigField(key: 'userId', label: 'User ID'),
+      MessagingConfigField(
+        key: 'pollIntervalMs',
+        label: 'Poll Interval ms',
+        defaultValue: '5000',
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'signal',
+    label: 'Signal',
+    subtitle: 'signal-cli REST API bridge',
+    accent: Color(0xFF3A76F0),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.lock_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'restUrl', label: 'signal-cli REST API URL'),
+      MessagingConfigField(key: 'account', label: 'Account Number'),
+      MessagingConfigField(
+        key: 'pollEnabled',
+        label: 'Enable receive polling',
+        kind: MessagingConfigFieldKind.boolean,
+      ),
+      MessagingConfigField(
+        key: 'pollIntervalMs',
+        label: 'Poll Interval ms',
+        defaultValue: '10000',
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'imessage',
+    label: 'iMessage',
+    subtitle: 'BlueBubbles-compatible bridge',
+    accent: Color(0xFF007AFF),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.sms_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'serverUrl', label: 'BlueBubbles Server URL'),
+      MessagingConfigField(
+        key: 'password',
+        label: 'Password / API Key',
+        obscure: true,
+      ),
+      MessagingConfigField(
+        key: 'sendPath',
+        label: 'Send Path',
+        defaultValue: '/api/v1/message/text',
+      ),
+      MessagingConfigField(
+        key: 'inboundSecret',
+        label: 'Inbound Secret',
+        obscure: true,
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'bluebubbles',
+    label: 'BlueBubbles',
+    subtitle: 'Direct BlueBubbles iMessage bridge',
+    accent: Color(0xFF0A84FF),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.bubble_chart_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'serverUrl', label: 'BlueBubbles Server URL'),
+      MessagingConfigField(
+        key: 'password',
+        label: 'Password / API Key',
+        obscure: true,
+      ),
+      MessagingConfigField(
+        key: 'sendPath',
+        label: 'Send Path',
+        defaultValue: '/api/v1/message/text',
+      ),
+      MessagingConfigField(
+        key: 'inboundSecret',
+        label: 'Inbound Secret',
+        obscure: true,
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'irc',
+    label: 'IRC',
+    subtitle: 'Server, nick, channel, and optional TLS',
+    accent: Color(0xFF7E57C2),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.terminal_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'server', label: 'Server'),
+      MessagingConfigField(key: 'port', label: 'Port', defaultValue: '6667'),
+      MessagingConfigField(key: 'nick', label: 'Nickname'),
+      MessagingConfigField(key: 'password', label: 'Password', obscure: true),
+      MessagingConfigField(key: 'channels', label: 'Channels, comma-separated'),
+      MessagingConfigField(
+        key: 'tls',
+        label: 'Use TLS',
+        kind: MessagingConfigFieldKind.boolean,
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'twitch',
+    label: 'Twitch',
+    subtitle: 'Twitch chat over IRC',
+    accent: Color(0xFF9146FF),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.live_tv_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(key: 'nick', label: 'Bot Username'),
+      MessagingConfigField(
+        key: 'oauthToken',
+        label: 'OAuth Token',
+        obscure: true,
+      ),
+      MessagingConfigField(key: 'channels', label: 'Channels, comma-separated'),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'line',
+    label: 'LINE',
+    subtitle: 'Messaging API push and webhook events',
+    accent: Color(0xFF06C755),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.chat_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(
+        key: 'channelAccessToken',
+        label: 'Channel Access Token',
+        obscure: true,
+      ),
+      MessagingConfigField(
+        key: 'inboundSecret',
+        label: 'Inbound Secret',
+        obscure: true,
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'mattermost',
+    label: 'Mattermost',
+    subtitle: 'Webhook or REST channel posting',
+    accent: Color(0xFF0058CC),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.forum_outlined,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(
+        key: 'webhookUrl',
+        label: 'Webhook URL',
+        obscure: true,
+      ),
+      MessagingConfigField(key: 'baseUrl', label: 'Base URL'),
+      MessagingConfigField(key: 'token', label: 'Access Token', obscure: true),
+      MessagingConfigField(
+        key: 'inboundSecret',
+        label: 'Inbound Secret',
+        obscure: true,
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
+    id: 'telnyx',
+    label: 'Telnyx Voice',
+    subtitle: 'Inbound and outbound calling',
+    accent: Color(0xFF00C8A0),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.call_rounded,
+  ),
+  ...longTailMessagingPlatforms,
+];
+
+const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
     <MessagingPlatformDescriptor>[
       MessagingPlatformDescriptor(
-        id: 'whatsapp',
-        label: 'WhatsApp',
-        subtitle: 'QR-based phone linking',
-        accent: Color(0xFF25D366),
-        connectMethod: MessagingConnectMethod.qr,
-        icon: Icons.chat_bubble,
+        id: 'feishu',
+        label: 'Feishu',
+        subtitle: 'Configurable webhook bridge',
+        accent: Color(0xFF3370FF),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.webhook_rounded,
+        configFields: genericWebhookConfigFields,
       ),
       MessagingPlatformDescriptor(
-        id: 'telegram',
-        label: 'Telegram',
-        subtitle: 'Bot token and approved chats',
-        accent: Color(0xFF2AABEE),
+        id: 'nextcloud_talk',
+        label: 'Nextcloud Talk',
+        subtitle: 'Configurable Talk webhook bridge',
+        accent: Color(0xFF0082C9),
         connectMethod: MessagingConnectMethod.config,
-        icon: Icons.send_rounded,
+        icon: Icons.cloud_rounded,
+        configFields: genericWebhookConfigFields,
       ),
       MessagingPlatformDescriptor(
-        id: 'discord',
-        label: 'Discord',
-        subtitle: 'Bot token and server/channel access',
-        accent: Color(0xFF5865F2),
+        id: 'nostr',
+        label: 'Nostr',
+        subtitle: 'Configurable relay or webhook bridge',
+        accent: Color(0xFF9C27B0),
         connectMethod: MessagingConnectMethod.config,
-        icon: Icons.sports_esports_rounded,
+        icon: Icons.hub_rounded,
+        configFields: genericWebhookConfigFields,
       ),
       MessagingPlatformDescriptor(
-        id: 'telnyx',
-        label: 'Telnyx Voice',
-        subtitle: 'Inbound and outbound calling',
-        accent: Color(0xFF00C8A0),
+        id: 'synology_chat',
+        label: 'Synology Chat',
+        subtitle: 'Configurable webhook bridge',
+        accent: Color(0xFF1E88E5),
         connectMethod: MessagingConnectMethod.config,
-        icon: Icons.call_rounded,
+        icon: Icons.storage_rounded,
+        configFields: genericWebhookConfigFields,
+      ),
+      MessagingPlatformDescriptor(
+        id: 'tlon',
+        label: 'Tlon',
+        subtitle: 'Configurable webhook bridge',
+        accent: Color(0xFF111111),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.blur_on_rounded,
+        configFields: genericWebhookConfigFields,
+      ),
+      MessagingPlatformDescriptor(
+        id: 'zalo',
+        label: 'Zalo',
+        subtitle: 'Configurable webhook bridge',
+        accent: Color(0xFF0068FF),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.message_rounded,
+        configFields: genericWebhookConfigFields,
+      ),
+      MessagingPlatformDescriptor(
+        id: 'zalo_personal',
+        label: 'Zalo Personal',
+        subtitle: 'Configurable personal webhook bridge',
+        accent: Color(0xFF0288D1),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.person_pin_circle_rounded,
+        configFields: genericWebhookConfigFields,
+      ),
+      MessagingPlatformDescriptor(
+        id: 'wechat',
+        label: 'WeChat',
+        subtitle: 'Configurable webhook bridge',
+        accent: Color(0xFF07C160),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.chat_bubble_outline_rounded,
+        configFields: genericWebhookConfigFields,
+      ),
+      MessagingPlatformDescriptor(
+        id: 'webchat',
+        label: 'WebChat',
+        subtitle: 'Configurable web inbox bridge',
+        accent: Color(0xFF00A1F1),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.public_rounded,
+        configFields: genericWebhookConfigFields,
+      ),
+    ];
+
+const List<MessagingConfigField> genericWebhookConfigFields =
+    <MessagingConfigField>[
+      MessagingConfigField(
+        key: 'webhookUrl',
+        label: 'Outbound Webhook URL',
+        obscure: true,
+      ),
+      MessagingConfigField(
+        key: 'outboundUrl',
+        label: 'Custom Outbound URL',
+        obscure: true,
+      ),
+      MessagingConfigField(key: 'token', label: 'Access Token', obscure: true),
+      MessagingConfigField(
+        key: 'inboundSecret',
+        label: 'Inbound Secret',
+        obscure: true,
+      ),
+      MessagingConfigField(
+        key: 'contentField',
+        label: 'Content Field',
+        defaultValue: 'text',
+      ),
+      MessagingConfigField(key: 'recipientField', label: 'Recipient Field'),
+      MessagingConfigField(
+        key: 'headers',
+        label: 'Headers JSON',
+        kind: MessagingConfigFieldKind.multiline,
+      ),
+      MessagingConfigField(
+        key: 'bodyTemplate',
+        label: 'Body Template JSON',
+        kind: MessagingConfigFieldKind.multiline,
       ),
     ];
 
 enum MessagingConnectMethod { qr, config }
+
+enum MessagingConfigFieldKind { text, password, multiline, boolean }
+
+class MessagingConfigField {
+  const MessagingConfigField({
+    required this.key,
+    required this.label,
+    this.kind = MessagingConfigFieldKind.text,
+    this.obscure = false,
+    this.defaultValue,
+  });
+
+  final String key;
+  final String label;
+  final MessagingConfigFieldKind kind;
+  final bool obscure;
+  final String? defaultValue;
+}
 
 class MessagingPlatformDescriptor {
   const MessagingPlatformDescriptor({
@@ -46,6 +430,7 @@ class MessagingPlatformDescriptor {
     required this.accent,
     required this.connectMethod,
     required this.icon,
+    this.configFields = const <MessagingConfigField>[],
   });
 
   final String id;
@@ -54,6 +439,9 @@ class MessagingPlatformDescriptor {
   final Color accent;
   final MessagingConnectMethod connectMethod;
   final IconData icon;
+  final List<MessagingConfigField> configFields;
+
+  String get settingsKey => '${id}_config';
 }
 
 class MessagingPlatformGroup {
@@ -108,7 +496,7 @@ class MessagingPlatformStatus {
   String get statusLabel => status.replaceAll('_', ' ');
 
   String get authLabel {
-    for (final key in <String>['phoneNumber', 'tag', 'username']) {
+    for (final key in <String>['phoneNumber', 'tag', 'username', 'label']) {
       final value = authInfo[key]?.toString();
       if (value != null && value.trim().isNotEmpty) {
         return key == 'username' ? '@$value' : value;

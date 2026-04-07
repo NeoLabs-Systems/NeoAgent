@@ -67,7 +67,15 @@ All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` u
 
 ## Messaging
 
-Telegram, Discord, and WhatsApp tokens are stored through the Flutter app settings page, not in `.env`. Telnyx webhook verification is configured through the environment.
+Messaging platform credentials are stored through the Flutter app messaging tab, not in `.env`. This includes Telegram, Discord, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Twitch, LINE, Mattermost, and the configurable webhook bridges. Use the app to set platform tokens, webhook URLs, inbound secrets, polling options, and access lists.
+
+Generic inbound messaging callbacks use:
+
+```text
+PUBLIC_URL + /api/messaging/webhook/:platform
+```
+
+Telnyx webhook verification is configured through the environment.
 
 | Variable | Description |
 |---|---|

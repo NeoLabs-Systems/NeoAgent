@@ -616,6 +616,18 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> saveMessagingWhitelist(
+    String baseUrl, {
+    required String platform,
+    required List<String> ids,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/messaging/$platform/whitelist',
+      <String, dynamic>{'ids': ids},
+    );
+  }
+
   Future<Map<String, dynamic>> fetchMemoryOverview(String baseUrl) async {
     return getMap(baseUrl, '/api/memory');
   }

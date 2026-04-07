@@ -79,11 +79,11 @@ The agent tool `read_health_data` returns summaries and recent samples. It is de
 NeoAgent has two separate integration layers:
 
 - Official OAuth integrations expose structured tools for Google Workspace, Microsoft 365, Notion, Slack, and Figma.
-- Messaging platforms let the agent talk through Telegram, Discord, WhatsApp, and Telnyx Voice.
+- Messaging platforms let the agent talk through WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Twitch, LINE, Mattermost, configurable webhook bridges, and Telnyx Voice.
 
 Official integration examples include Gmail thread search and send mail, Google Calendar events, Drive upload/download/export/share links, Docs create/append/replace, Sheets read/update/append/create, Microsoft Outlook/Calendar/OneDrive/Teams tools, Notion search/page/block/database tools, Slack conversation/message tools, and Figma file/node/comment/image tools.
 
-Messaging examples include Telegram and Discord messages, WhatsApp text and media sends, Telnyx inbound voice, Telnyx outbound calls, and scheduled-task call delivery.
+Messaging examples include Telegram and Discord messages, Slack channel replies, Matrix room messages, Google Chat and Teams webhook delivery, Signal bridge delivery, iMessage/BlueBubbles sends, WhatsApp text and media sends, Telnyx inbound voice, Telnyx outbound calls, and scheduled-task call delivery.
 
 ## Agent Tools
 

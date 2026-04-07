@@ -120,7 +120,12 @@ function createSessionMiddleware({ secureCookies }) {
 
 function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOrigin }) {
   const rawRecordingChunkBody = require('express').raw({ limit: '50mb', type: '*/*' });
-  const jsonBody = require('express').json({ limit: '10mb' });
+  const jsonBody = require('express').json({
+    limit: '10mb',
+    verify: (req, _res, buf) => {
+      if (buf && buf.length) req.rawBody = buf.toString('utf8');
+    },
+  });
   const urlencodedBody = require('express').urlencoded({ extended: true });
   const isRecordingChunkPath = (value = '') => {
     const path = `${value}`.split('?')[0];

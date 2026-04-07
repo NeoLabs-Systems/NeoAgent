@@ -3,6 +3,57 @@ const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
 const { TelegramPlatform } = require('./telegram');
+const {
+  SlackPlatform,
+  GoogleChatPlatform,
+  TeamsPlatform,
+  MatrixPlatform,
+  SignalPlatform,
+  LinePlatform,
+  MattermostPlatform,
+  IrcPlatform,
+  BlueBubblesPlatform,
+  createGenericPlatformClass,
+} = require('./http_platforms');
+
+const GENERIC_ALLOWLIST_PLATFORMS = new Set([
+  'slack',
+  'google_chat',
+  'teams',
+  'matrix',
+  'signal',
+  'imessage',
+  'bluebubbles',
+  'irc',
+  'feishu',
+  'line',
+  'mattermost',
+  'nextcloud_talk',
+  'nostr',
+  'synology_chat',
+  'tlon',
+  'twitch',
+  'zalo',
+  'zalo_personal',
+  'wechat',
+  'webchat',
+]);
+
+class IrcMessagingPlatform extends IrcPlatform {
+  constructor(config = {}) { super('irc', config); }
+}
+
+class TwitchMessagingPlatform extends IrcPlatform {
+  constructor(config = {}) { super('twitch', config); }
+}
+
+class BlueBubblesMessagingPlatform extends BlueBubblesPlatform {
+  constructor(config = {}) { super('bluebubbles', config); }
+}
+
+class IMessageMessagingPlatform extends BlueBubblesPlatform {
+  constructor(config = {}) { super('imessage', config); }
+}
 
 class MessagingManager {
   constructor(io) {
@@ -15,6 +66,26 @@ class MessagingManager {
       telnyx:   TelnyxVoicePlatform,
       discord:  DiscordPlatform,
       telegram: TelegramPlatform,
+      slack: SlackPlatform,
+      google_chat: GoogleChatPlatform,
+      teams: TeamsPlatform,
+      matrix: MatrixPlatform,
+      signal: SignalPlatform,
+      imessage: IMessageMessagingPlatform,
+      bluebubbles: BlueBubblesMessagingPlatform,
+      irc: IrcMessagingPlatform,
+      feishu: createGenericPlatformClass('feishu'),
+      line: LinePlatform,
+      mattermost: MattermostPlatform,
+      nextcloud_talk: createGenericPlatformClass('nextcloud_talk'),
+      nostr: createGenericPlatformClass('nostr'),
+      synology_chat: createGenericPlatformClass('synology_chat'),
+      tlon: createGenericPlatformClass('tlon'),
+      twitch: TwitchMessagingPlatform,
+      zalo: createGenericPlatformClass('zalo'),
+      zalo_personal: createGenericPlatformClass('zalo_personal'),
+      wechat: createGenericPlatformClass('wechat'),
+      webchat: createGenericPlatformClass('webchat'),
     };
   }
 
@@ -40,7 +111,7 @@ class MessagingManager {
       }
     }
 
-    // For Discord, inject saved allowedIds whitelist
+    // Inject saved allowlists for platforms that enforce access in the adapter.
     if (platformName === 'discord') {
       const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
         .get(userId, 'platform_whitelist_discord');
@@ -55,6 +126,17 @@ class MessagingManager {
         .get(userId, 'platform_whitelist_telegram');
       if (wlRow) {
         try { config.allowedIds = JSON.parse(wlRow.value); } catch { /* ignore */ }
+      }
+    }
+
+    if (GENERIC_ALLOWLIST_PLATFORMS.has(platformName)) {
+      const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, `platform_whitelist_${platformName}`);
+      if (wlRow) {
+        try {
+          const parsed = JSON.parse(wlRow.value);
+          if (Array.isArray(parsed)) config.allowedIds = parsed;
+        } catch { /* ignore */ }
       }
     }
 
@@ -311,6 +393,26 @@ class MessagingManager {
   }
 
   /**
+   * Route generic platform webhooks to the connected instance that can verify
+   * the request. This backs Slack Events, Google Chat app callbacks, Teams
+   * outgoing webhooks, and configurable webhook channels.
+   */
+  async handlePlatformWebhook(platformName, req) {
+    let forbidden = false;
+    for (const [, platform] of this.platforms.entries()) {
+      if (platform.name !== platformName || typeof platform.handleWebhook !== 'function') continue;
+      const result = await platform.handleWebhook(req);
+      if (result?.handled) return result;
+      if (result?.status === 403) forbidden = true;
+    }
+    return {
+      handled: false,
+      status: forbidden ? 403 : 404,
+      body: forbidden ? 'Forbidden' : 'No connected platform handled this webhook',
+    };
+  }
+
+  /**
    * Update the allowed-numbers list on a live Telnyx platform instance.
    */
   updateTelnyxAllowedNumbers(userId, numbers) {
@@ -345,6 +447,12 @@ class MessagingManager {
    */
   updateTelegramAllowedIds(userId, ids) {
     const key = `${userId}:telegram`;
+    const platform = this.platforms.get(key);
+    if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
+  }
+
+  updateAllowedEntries(userId, platformName, ids) {
+    const key = `${userId}:${platformName}`;
     const platform = this.platforms.get(key);
     if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
   }

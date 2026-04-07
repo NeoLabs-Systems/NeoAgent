@@ -33,9 +33,24 @@ NeoAgent can talk through:
 | WhatsApp | QR-based linking through the app settings; text and media sends |
 | Telegram | Bot token plus approved chats |
 | Discord | Bot token plus server or channel access |
+| Slack | Bot token sends plus Events API callbacks |
+| Google Chat | Space webhook sends plus app callback ingestion |
+| Microsoft Teams | Incoming webhook sends plus outgoing webhook ingestion |
+| Matrix | Homeserver access token with room send and polling |
+| Signal | signal-cli REST API bridge |
+| iMessage / BlueBubbles | BlueBubbles-compatible bridge for macOS-hosted iMessage |
+| IRC and Twitch | IRC-style channel connections |
+| LINE and Mattermost | Native send paths with webhook ingestion |
+| Feishu, Nextcloud Talk, Nostr, Synology Chat, Tlon, Zalo, Zalo Personal, WeChat, and WebChat | Configurable webhook bridges |
 | Telnyx Voice | Inbound and outbound calling with text-to-speech; scheduled tasks can call a number |
 
-Telegram, Discord, and WhatsApp tokens are stored through the Flutter app settings page rather than `.env`. Telnyx webhook verification uses `TELNYX_WEBHOOK_TOKEN`.
+Messaging channel credentials are stored through the Flutter app messaging tab rather than `.env`. The generic inbound callback path is:
+
+```text
+PUBLIC_URL + /api/messaging/webhook/:platform
+```
+
+Use the per-platform inbound secret or native signature fields in the messaging tab for webhook callbacks. Telnyx voice webhooks continue to use `TELNYX_WEBHOOK_TOKEN`.
 
 ## Credentials
 

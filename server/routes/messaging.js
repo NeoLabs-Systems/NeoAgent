@@ -4,6 +4,25 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 
+const PREFIXED_ENTRY_RE = /[^0-9a-z:_.@#+=\-!$*]/gi;
+
+// External platform callbacks. Each connected platform instance verifies its
+// own signature or inbound secret before emitting a message.
+router.post('/webhook/:platform', async (req, res) => {
+  try {
+    const manager = req.app.locals.messagingManager;
+    if (!manager || typeof manager.handlePlatformWebhook !== 'function') {
+      return res.status(503).send('Messaging manager unavailable');
+    }
+    const result = await manager.handlePlatformWebhook(req.params.platform, req);
+    const status = result?.status || (result?.handled ? 200 : 404);
+    if (typeof result?.body === 'object') return res.status(status).json(result.body);
+    return res.status(status).send(result?.body || (result?.handled ? 'OK' : 'Not found'));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 router.use(requireAuth);
 
 // Get all platform statuses
@@ -144,6 +163,24 @@ router.put('/telegram/whitelist', (req, res) => {
       .run(req.session.userId, 'platform_whitelist_telegram', JSON.stringify(list));
     const manager = req.app.locals.messagingManager;
     if (manager) manager.updateTelegramAllowedIds(req.session.userId, list);
+    res.json({ success: true, ids: list });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+// Update generic allowed IDs (whitelist — supports raw IDs and prefixed IDs)
+router.put('/:platform/whitelist', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+    const platform = String(req.params.platform || '').replace(/[^0-9a-z_+-]/gi, '');
+    if (!platform) return res.status(400).json({ error: 'platform is required' });
+    const list = ids.map(id => String(id).replace(PREFIXED_ENTRY_RE, '')).filter(Boolean);
+    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
+      .run(req.session.userId, `platform_whitelist_${platform}`, JSON.stringify(list));
+    const manager = req.app.locals.messagingManager;
+    if (manager?.updateAllowedEntries) manager.updateAllowedEntries(req.session.userId, platform, list);
     res.json({ success: true, ids: list });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });

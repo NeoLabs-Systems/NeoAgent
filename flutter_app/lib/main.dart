@@ -833,7 +833,7 @@ class NeoAgentController extends ChangeNotifier {
         raw = settings['platform_whitelist_telegram'];
         break;
       default:
-        raw = const <dynamic>[];
+        raw = settings['platform_whitelist_$platform'];
         break;
     }
     if (raw is List) {
@@ -862,7 +862,7 @@ class NeoAgentController extends ChangeNotifier {
           await saveTelegramWhitelist(current.toList());
           break;
         default:
-          return;
+          await saveMessagingWhitelist(platform, current.toList());
       }
       errorMessage = null;
       notifyListeners();
@@ -2381,6 +2381,22 @@ class NeoAgentController extends ChangeNotifier {
     settings = <String, dynamic>{
       ...settings,
       'platform_whitelist_telegram': values,
+    };
+    notifyListeners();
+  }
+
+  Future<void> saveMessagingWhitelist(
+    String platform,
+    List<String> values,
+  ) async {
+    await _backendClient.saveMessagingWhitelist(
+      backendUrl,
+      platform: platform,
+      ids: values,
+    );
+    settings = <String, dynamic>{
+      ...settings,
+      'platform_whitelist_$platform': values,
     };
     notifyListeners();
   }
@@ -6891,7 +6907,43 @@ class _MessagingPanelState extends State<MessagingPanel> {
       const MessagingPlatformGroup(
         label: 'Text & Chat',
         subtitle: 'Send and receive messages',
-        ids: <String>['whatsapp', 'telegram', 'discord'],
+        ids: <String>[
+          'whatsapp',
+          'telegram',
+          'discord',
+          'slack',
+          'google_chat',
+          'teams',
+          'matrix',
+          'signal',
+          'imessage',
+          'bluebubbles',
+        ],
+      ),
+      const MessagingPlatformGroup(
+        label: 'Community & ChatOps',
+        subtitle: 'Bridges for team and community channels',
+        ids: <String>[
+          'irc',
+          'twitch',
+          'line',
+          'mattermost',
+          'feishu',
+          'nextcloud_talk',
+          'synology_chat',
+        ],
+      ),
+      const MessagingPlatformGroup(
+        label: 'Configurable Webhooks',
+        subtitle: 'Long-tail channel adapters',
+        ids: <String>[
+          'nostr',
+          'tlon',
+          'zalo',
+          'zalo_personal',
+          'wechat',
+          'webchat',
+        ],
       ),
       const MessagingPlatformGroup(
         label: 'Voice',
@@ -7078,9 +7130,11 @@ class _MessagingPanelState extends State<MessagingPanel> {
       case 'telnyx':
         return _openTelnyxConfig();
       case 'discord':
-        return _openDiscordConfig();
+        return _openGenericMessagingConfig(platform);
       case 'telegram':
-        return _openTelegramConfig();
+        return _openGenericMessagingConfig(platform);
+      default:
+        return _openGenericMessagingConfig(platform);
     }
   }
 
@@ -7258,95 +7312,127 @@ class _MessagingPanelState extends State<MessagingPanel> {
     );
   }
 
-  Future<void> _openDiscordConfig() async {
+  Future<void> _openGenericMessagingConfig(
+    MessagingPlatformDescriptor platform,
+  ) async {
     final saved = _jsonMap(
-      _decodeMaybeJson(widget.controller.settings['discord_config']),
+      _decodeMaybeJson(widget.controller.settings[platform.settingsKey]),
     );
-    final token = TextEditingController(text: saved['token']?.toString() ?? '');
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: const Text('Discord'),
-          content: SizedBox(
-            width: 520,
-            child: TextField(
-              controller: token,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Bot Token'),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final config = <String, dynamic>{'token': token.text.trim()};
-                await widget.controller.connectMessagingPlatform(
-                  platform: 'discord',
-                  config: config,
-                  configSnapshot: <String, dynamic>{
-                    'discord_config': jsonEncode(config),
-                  },
-                );
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Connect'),
-            ),
-          ],
+    final textControllers = <String, TextEditingController>{};
+    final boolValues = <String, bool>{};
+    for (final field in platform.configFields) {
+      final savedValue = saved[field.key];
+      if (field.kind == MessagingConfigFieldKind.boolean) {
+        boolValues[field.key] =
+            savedValue == true || savedValue?.toString() == 'true';
+      } else {
+        textControllers[field.key] = TextEditingController(
+          text: savedValue?.toString() ?? field.defaultValue ?? '',
         );
-      },
-    );
-  }
+      }
+    }
 
-  Future<void> _openTelegramConfig() async {
-    final saved = _jsonMap(
-      _decodeMaybeJson(widget.controller.settings['telegram_config']),
-    );
-    final token = TextEditingController(
-      text: saved['botToken']?.toString() ?? '',
-    );
     await showDialog<void>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: const Text('Telegram'),
-          content: SizedBox(
-            width: 520,
-            child: TextField(
-              controller: token,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Bot Token'),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final config = <String, dynamic>{'botToken': token.text.trim()};
-                await widget.controller.connectMessagingPlatform(
-                  platform: 'telegram',
-                  config: config,
-                  configSnapshot: <String, dynamic>{
-                    'telegram_config': jsonEncode(config),
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              backgroundColor: _bgCard,
+              title: Text(platform.label),
+              content: SizedBox(
+                width: 620,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      if (platform.configFields.isEmpty)
+                        const Text(
+                          'No extra settings are required.',
+                          style: TextStyle(color: _textSecondary),
+                        )
+                      else
+                        ...platform.configFields.map((field) {
+                          if (field.kind == MessagingConfigFieldKind.boolean) {
+                            return SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(field.label),
+                              value: boolValues[field.key] ?? false,
+                              onChanged: (value) {
+                                setLocalState(() {
+                                  boolValues[field.key] = value;
+                                });
+                              },
+                            );
+                          }
+                          final controller = textControllers[field.key]!;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: TextField(
+                              controller: controller,
+                              obscureText:
+                                  field.obscure ||
+                                  field.kind ==
+                                      MessagingConfigFieldKind.password,
+                              minLines:
+                                  field.kind ==
+                                      MessagingConfigFieldKind.multiline
+                                  ? 4
+                                  : 1,
+                              maxLines:
+                                  field.kind ==
+                                      MessagingConfigFieldKind.multiline
+                                  ? 8
+                                  : 1,
+                              decoration: InputDecoration(
+                                labelText: field.label,
+                              ),
+                            ),
+                          );
+                        }),
+                      const SizedBox(height: 8),
+                      SelectableText(
+                        'Inbound webhook: ${widget.controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                        style: const TextStyle(
+                          color: _textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final config = <String, dynamic>{};
+                    for (final entry in textControllers.entries) {
+                      final value = entry.value.text.trim();
+                      if (value.isNotEmpty) config[entry.key] = value;
+                    }
+                    for (final entry in boolValues.entries) {
+                      config[entry.key] = entry.value;
+                    }
+                    await widget.controller.connectMessagingPlatform(
+                      platform: platform.id,
+                      config: config,
+                      configSnapshot: <String, dynamic>{
+                        platform.settingsKey: jsonEncode(config),
+                      },
+                    );
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
                   },
-                );
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Connect'),
-            ),
-          ],
+                  child: const Text('Connect'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -7814,6 +7900,12 @@ class _MessagingCard extends StatelessWidget {
                     break;
                   case 'telegram':
                     await controller.saveTelegramWhitelist(values);
+                    break;
+                  default:
+                    await controller.saveMessagingWhitelist(
+                      platform.id,
+                      values,
+                    );
                     break;
                 }
                 if (context.mounted) {
