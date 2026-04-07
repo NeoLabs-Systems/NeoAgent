@@ -258,7 +258,7 @@ function parseMaybeJson(value, fallback = null) {
   }
 }
 
-function classifyToolExecution(toolName, result, errorMessage = '') {
+function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '') {
   const name = String(toolName || '');
   const evidenceRelevantPrefixes = ['browser_', 'android_'];
   const evidenceRelevantExact = new Set([
@@ -339,7 +339,7 @@ function classifyToolExecution(toolName, result, errorMessage = '') {
     evidenceRelevant,
     stateChanged,
     dependsOnOutput: true,
-    summary: compactToolResult(name, {}, result || { error: errorMessage || 'Tool failed' }, {
+    summary: compactToolResult(name, toolArgs, result || { error: errorMessage || 'Tool failed' }, {
       softLimit: 500,
       hardLimit: 900,
     }),
@@ -1396,7 +1396,7 @@ class AgentEngine {
             );
           }
 
-          toolExecutions.push(classifyToolExecution(toolName, toolResult, toolErrorMessage));
+          toolExecutions.push(classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage));
           this.persistRunMetadata(runId, {
             evidenceSources: [...new Set(toolExecutions.map((item) => item.evidenceSource).filter(Boolean))],
             subagentState: this.listSubagents(runId),
@@ -1424,6 +1424,20 @@ class AgentEngine {
             messages.push({
               role: 'system',
               content: 'The previous shell command did not finish cleanly. Keep working until you rerun it with enough time or verify the requested outcome with follow-up commands.'
+            });
+          }
+
+          if (
+            toolName === 'execute_command'
+            && !toolErrorMessage
+            && !toolResult?.timedOut
+            && !toolResult?.killed
+            && toolResult?.exitCode !== undefined
+            && toolResult.exitCode !== 0
+          ) {
+            messages.push({
+              role: 'system',
+              content: 'The previous shell command exited non-zero. Treat its output as partial evidence only. If it chained multiple shell segments, later segments may not have run. Do not summarize missing sections as observed facts; rerun or verify them separately first.'
             });
           }
 

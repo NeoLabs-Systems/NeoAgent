@@ -47,14 +47,22 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.timedOut ? 'timed_out' : (toolResult?.exitCode === 0 ? 'ok' : 'error'),
+        command: clampText(toolArgs.command || '', Math.floor(softLimit * 0.28)),
         exitCode: toolResult?.exitCode,
         cwd: toolResult?.cwd || toolArgs.cwd,
         killed: toolResult?.killed || false,
         timedOut: toolResult?.timedOut || false,
         signal: toolResult?.signal,
         durationMs: toolResult?.durationMs,
+        note: toolResult?.timedOut
+          ? 'Command timed out. Treat the output as partial.'
+          : toolResult?.killed
+            ? 'Command was killed. Treat the output as partial.'
+            : (toolResult?.exitCode !== undefined && toolResult?.exitCode !== 0)
+              ? 'Command exited non-zero. Output may be partial; later segments of a chained shell command may not have run.'
+              : '',
         stdout: lineExcerpt(toolResult?.stdout, 12, Math.floor(softLimit * 0.45)),
-        stderr: lineExcerpt(toolResult?.stderr, 8, Math.floor(softLimit * 0.25))
+        stderr: lineExcerpt(toolResult?.stderr, 10, Math.floor(softLimit * 0.35))
       });
       break;
 
@@ -156,6 +164,27 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
 
     case 'send_message':
     case 'make_call':
+      envelope = trimObject({
+        tool: toolName,
+        status: toolResult?.skipped
+          ? 'skipped'
+          : (toolResult?.success === false || toolResult?.error ? 'error' : 'ok'),
+        platform: toolArgs.platform,
+        to: toolArgs.to,
+        success: typeof toolResult?.success === 'boolean' ? toolResult.success : undefined,
+        skipped: toolResult?.skipped === true ? true : undefined,
+        sent: typeof toolResult?.sent === 'boolean' ? toolResult.sent : undefined,
+        suppressed: toolResult?.suppressed === true ? true : undefined,
+        message: clampText(toolResult?.message || toolResult?.reason || toolResult?.error || '', Math.floor(softLimit * 0.45)),
+        result: clampText(JSON.stringify(trimObject({
+          id: toolResult?.id,
+          key: toolResult?.key,
+          deleted: toolResult?.deleted,
+          count: Array.isArray(toolResult?.results) ? toolResult.results.length : undefined
+        })), Math.floor(softLimit * 0.3))
+      });
+      break;
+
     case 'memory_save':
     case 'memory_recall':
     case 'memory_update_core':
