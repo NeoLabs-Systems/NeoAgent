@@ -194,11 +194,18 @@ function buildAnalysisPrompt({ triggerSource, capabilityHealth, tools = [], forc
     'Use mode="direct_answer" only if you can fully answer right now without tools and without further verification.',
     'Use mode="execute" when tool work is needed but a formal plan is not necessary.',
     'Use mode="plan_execute" when the task likely needs multiple coordinated steps, retries, or delegated subtasks.',
+    'Use plan_execute for broad personal searches, cross-source questions, code changes, debugging, scheduled-task changes, or anything that touches external/shared state.',
     'freshness_risk must be "possible" or "high" for anything that may depend on current external facts, status, timelines, or ambiguous relative dates.',
     'verification_need must be "required" whenever fresh evidence is needed, tool output materially determines the answer, confidence is low, or actions changed external state.',
+    'verification_need must be "required" for outbound messages/calls/emails, scheduled-task mutations, file edits, installs, service restarts, or code changes.',
     'reply_mode should reflect the intended final reply style: chat, task, status, or silent.',
+    'reply_mode="silent" is only appropriate when the user explicitly asked for silence or the trigger is background-only and has no useful user-facing result.',
     'suggested_tools should name the specific tools or capabilities that are most relevant, but they are advisory only.',
+    'Prefer official integration tools and structured tools over browser automation, shell scraping, or web search when they can answer the task.',
+    'For broad searches, suggest multiple source-specific tools when available so the executor can run them in parallel.',
+    'needs_subagents should be true only when independent subtasks can progress in parallel without blocking the next local step.',
     'success_criteria should be concrete and user-visible.',
+    'If the task requires a missing required value that cannot be inferred safely, set mode="direct_answer" with a concise draft_reply asking only for that value.',
     forceModeLine,
     capabilityHealth ? `Runtime capability health:\n${capabilityHealth}` : '',
     toolNames ? `Available tools/capabilities: ${toolNames}` : '',
@@ -224,6 +231,11 @@ function buildPlanPrompt(analysis, capabilityHealth) {
     'Return JSON only. No markdown, no prose, no code fences.',
     'Create a concise execution plan for the current task.',
     'Focus on practical steps, success criteria, and what needs verification.',
+    'Prefer steps that can be executed in parallel when they are independent. Do not serialize unrelated searches or inspections.',
+    'Prefer native integrations and structured tools before browser automation or generic shell commands.',
+    'For external actions, include a step to draft or confirm before sending unless the user already gave explicit current-session approval.',
+    'For code or config changes, include inspection, scoped edit, and verification steps.',
+    'For scheduled tasks, make the future prompt self-contained and include notification conditions.',
     capabilityHealth ? `Runtime capability health:\n${capabilityHealth}` : '',
     `Task goal: ${analysis.goal || 'Complete the user request.'}`,
     analysis.success_criteria?.length
@@ -275,7 +287,9 @@ function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
   }
 
   lines.push(
-    'Act end-to-end. Retry with alternative tools or approaches when one path fails. If evidence is still insufficient, say so explicitly instead of guessing.'
+    'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',
+    'For outbound messages, calls, emails, shared edits, installs, restarts, or scheduled-task mutations, verify the action result before claiming it happened. If user confirmation is required and missing, draft or ask instead of sending.',
+    'Retry with alternative tools or approaches when one path fails. If evidence is still insufficient, say so explicitly instead of guessing.'
   );
 
   return lines.filter(Boolean).join('\n\n');
@@ -289,6 +303,8 @@ function buildVerifierPrompt({ analysis, toolExecutionSummary, evidenceSources, 
     'Cross-check every concrete claim against tool status and output. Remove or rewrite claims that are contradicted by the evidence.',
     'A non-zero execute_command exit code means partial or failed shell evidence. Do not treat later sections of a chained shell command as observed unless they were verified separately.',
     'A successful send_message or make_call means outbound delivery succeeded in this run unless a later messaging tool failed.',
+    'A successful scheduled-task create/update/delete tool call is required before claiming a schedule changed.',
+    'If external evidence conflicts with memory, history, or another tool result, preserve the uncertainty instead of flattening it into a single confident claim.',
     `Freshness risk: ${analysis.freshness_risk}`,
     `Verification need: ${analysis.verification_need}`,
     evidenceSources?.length ? `Evidence sources used: ${evidenceSources.join(', ')}` : 'Evidence sources used: none',
