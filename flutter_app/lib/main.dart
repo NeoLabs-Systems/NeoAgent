@@ -6899,225 +6899,238 @@ class MessagingPanel extends StatefulWidget {
   State<MessagingPanel> createState() => _MessagingPanelState();
 }
 
+MessagingPlatformDescriptor? _messagingPlatformById(String id) {
+  for (final platform in messagingPlatforms) {
+    if (platform.id == id) return platform;
+  }
+  return null;
+}
+
 class _MessagingPanelState extends State<MessagingPanel> {
+  final TextEditingController _searchController = TextEditingController();
+  String _statusFilter = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_handleSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_handleSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleSearchChanged() => setState(() {});
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    final groups = <MessagingPlatformGroup>[
-      const MessagingPlatformGroup(
-        label: 'Text & Chat',
-        subtitle: 'Send and receive messages',
-        ids: <String>[
+    final groups = [
+      const (
+        'Text & Chat',
+        'Personal channels and direct support surfaces.',
+        [
           'whatsapp',
-          'telegram',
+          'signal',
+          'imessage',
+          'bluebubbles',
+          'line',
+          'zalo_personal',
+        ],
+      ),
+      const (
+        'Community & ChatOps',
+        'Team spaces, rooms, channels, and live communities.',
+        [
           'discord',
+          'telegram',
           'slack',
           'google_chat',
           'teams',
           'matrix',
-          'signal',
-          'imessage',
-          'bluebubbles',
-        ],
-      ),
-      const MessagingPlatformGroup(
-        label: 'Community & ChatOps',
-        subtitle: 'Bridges for team and community channels',
-        ids: <String>[
+          'mattermost',
           'irc',
           'twitch',
-          'line',
-          'mattermost',
-          'feishu',
-          'nextcloud_talk',
-          'synology_chat',
         ],
       ),
-      const MessagingPlatformGroup(
-        label: 'Configurable Webhooks',
-        subtitle: 'Long-tail channel adapters',
-        ids: <String>[
+      const (
+        'Configurable Webhooks',
+        'Bridge any provider that can post and receive webhook payloads.',
+        [
+          'feishu',
+          'nextcloud_talk',
           'nostr',
+          'synology_chat',
           'tlon',
           'zalo',
-          'zalo_personal',
           'wechat',
           'webchat',
         ],
       ),
-      const MessagingPlatformGroup(
-        label: 'Voice',
-        subtitle: 'Inbound and outbound phone calls',
-        ids: <String>['telnyx'],
-      ),
+      const ('Voice', 'Telephony and SMS integrations.', ['telnyx']),
     ];
+    final query = _searchController.text.trim().toLowerCase();
+    final counts = _MessagingStatusCounts.from(controller.messagingStatuses);
+    final hasMatches = _hasMessagingMatches(controller, groups, query);
 
     return ListView(
-      padding: _pagePadding(context),
-      children: <Widget>[
-        const _PageTitle(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      children: [
+        _PageTitle(
           title: 'Messaging',
-          subtitle: 'Connect platforms, manage access, and keep channels live.',
+          subtitle:
+              'Connect channels, limit who can reach the agent, and monitor activity.',
+          trailing: OutlinedButton.icon(
+            onPressed: controller.refreshMessaging,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Refresh'),
+          ),
         ),
-        if (controller.pendingMessagingQr != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
+        const SizedBox(height: 18),
+        _MessagingOverviewStrip(counts: counts),
+        const SizedBox(height: 16),
+        _MessagingToolbar(
+          controller: _searchController,
+          selectedFilter: _statusFilter,
+          onFilterChanged: (value) => setState(() => _statusFilter = value),
+          counts: counts,
+        ),
+        if (controller.pendingMessagingQr != null) ...[
+          const SizedBox(height: 18),
+          _MessagingQrPanel(qrState: controller.pendingMessagingQr!),
+        ],
+        const SizedBox(height: 18),
+        for (final group in groups)
+          Builder(
+            builder: (context) {
+              final platforms = group.$3
+                  .map(_messagingPlatformById)
+                  .nonNulls
+                  .where((platform) {
+                    final status =
+                        controller.messagingStatuses[platform.id] ??
+                        MessagingPlatformStatus.empty(platform.id);
+                    final haystack =
+                        '${platform.label} ${platform.subtitle} ${group.$1}'
+                            .toLowerCase();
+                    return _matchesMessagingStatusFilter(status) &&
+                        (query.isEmpty || haystack.contains(query));
+                  })
+                  .toList(growable: false);
+              if (platforms.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 22),
                 child: Column(
-                  children: <Widget>[
-                    Text(
-                      'Scan to finish ${controller.pendingMessagingQr!.platformLabel}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MessagingGroupHeader(
+                      title: group.$1,
+                      subtitle: group.$2,
+                      count: platforms.length,
                     ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: 220,
-                      height: 220,
-                      child: Image.network(
-                        'https://api.qrserver.com/v1/create-qr-code/?data=${Uri.encodeComponent(controller.pendingMessagingQr!.qr)}&size=280x280',
-                        fit: BoxFit.contain,
-                      ),
+                    const SizedBox(height: 12),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth;
+                        final crossAxisCount = width >= 1380
+                            ? 4
+                            : width >= 1020
+                            ? 3
+                            : width >= 700
+                            ? 2
+                            : 1;
+                        return GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: platforms.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                mainAxisExtent: 268,
+                              ),
+                          itemBuilder: (context, index) {
+                            final platform = platforms[index];
+                            return _MessagingCard(
+                              platform: platform,
+                              status:
+                                  controller.messagingStatuses[platform.id] ??
+                                  MessagingPlatformStatus.empty(platform.id),
+                              whitelist: controller.currentMessagingWhitelist(
+                                platform.id,
+                              ),
+                              controller: controller,
+                              onConnect: () => _openMessagingConfig(platform),
+                              onDisconnect: () => controller
+                                  .disconnectMessagingPlatform(platform.id),
+                              onLogout: () => controller
+                                  .logoutMessagingPlatform(platform.id),
+                            );
+                          },
+                        );
+                      },
                     ),
                   ],
                 ),
-              ),
-            ),
+              );
+            },
           ),
-        ...groups.map((group) {
-          final platforms = messagingPlatforms
-              .where((platform) => group.ids.contains(platform.id))
-              .toList();
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: <Widget>[
-                      Text(
-                        group.label,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        group.subtitle,
-                        style: const TextStyle(color: _textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = constraints.maxWidth;
-                    final crossAxisCount = width >= 1200
-                        ? 3
-                        : width >= 760
-                        ? 2
-                        : 1;
-                    return GridView.builder(
-                      itemCount: platforms.length,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 14,
-                        childAspectRatio: 1.08,
-                      ),
-                      itemBuilder: (context, index) {
-                        final platform = platforms[index];
-                        final status =
-                            controller.messagingStatuses[platform.id] ??
-                            MessagingPlatformStatus.empty(platform.id);
-                        return _MessagingCard(
-                          controller: controller,
-                          platform: platform,
-                          status: status,
-                          onConfigure: () => _openMessagingConfig(platform),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ],
-            ),
-          );
-        }),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Recent Channel Activity'),
-                const SizedBox(height: 12),
-                if (controller.messagingMessages.isEmpty)
-                  const Text(
-                    'No platform traffic has been captured yet.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  ...controller.messagingMessages.take(12).map((message) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _bgSecondary,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                _StatusPill(
-                                  label: message.platform.toUpperCase(),
-                                  color: message.outgoing ? _accent : _info,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    message.senderLabel,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  message.createdAtLabel,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: _textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(message.content.ifEmpty('[empty]')),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-              ],
-            ),
+        if (!hasMatches) ...[
+          const SizedBox(height: 10),
+          const _EmptyCard(
+            title: 'No platforms match',
+            subtitle:
+                'Adjust the search or status filter to see more messaging channels.',
           ),
-        ),
+          const SizedBox(height: 22),
+        ],
+        _MessagingActivityPanel(messages: controller.messagingMessages),
       ],
     );
+  }
+
+  bool _hasMessagingMatches(
+    NeoAgentController controller,
+    List<(String, String, List<String>)> groups,
+    String query,
+  ) {
+    for (final group in groups) {
+      for (final key in group.$3) {
+        final platform = _messagingPlatformById(key);
+        if (platform == null) continue;
+        final status =
+            controller.messagingStatuses[platform.id] ??
+            MessagingPlatformStatus.empty(platform.id);
+        final haystack = '${platform.label} ${platform.subtitle} ${group.$1}'
+            .toLowerCase();
+        if (_matchesMessagingStatusFilter(status) &&
+            (query.isEmpty || haystack.contains(query))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool _matchesMessagingStatusFilter(MessagingPlatformStatus? status) {
+    final effective = status ?? MessagingPlatformStatus.empty('unknown');
+    return switch (_statusFilter) {
+      'connected' => effective.isConnected,
+      'configured' => effective.status != 'not_configured',
+      'attention' => const {
+        'connecting',
+        'awaiting_qr',
+        'logged_out',
+        'disconnected',
+        'error',
+      }.contains(effective.status),
+      _ => true,
+    };
   }
 
   Future<void> _openMessagingConfig(
@@ -7129,10 +7142,6 @@ class _MessagingPanelState extends State<MessagingPanel> {
         return;
       case 'telnyx':
         return _openTelnyxConfig();
-      case 'discord':
-        return _openGenericMessagingConfig(platform);
-      case 'telegram':
-        return _openGenericMessagingConfig(platform);
       default:
         return _openGenericMessagingConfig(platform);
     }
@@ -7439,6 +7448,507 @@ class _MessagingPanelState extends State<MessagingPanel> {
   }
 }
 
+class _MessagingStatusCounts {
+  const _MessagingStatusCounts({
+    required this.total,
+    required this.connected,
+    required this.configured,
+    required this.attention,
+  });
+
+  final int total;
+  final int connected;
+  final int configured;
+  final int attention;
+
+  factory _MessagingStatusCounts.from(
+    Map<String, MessagingPlatformStatus> statuses,
+  ) {
+    var connected = 0;
+    var configured = 0;
+    var attention = 0;
+    for (final platform in messagingPlatforms) {
+      final status =
+          statuses[platform.id] ?? MessagingPlatformStatus.empty(platform.id);
+      if (status.isConnected) connected++;
+      if (status.status != 'not_configured') configured++;
+      if (const {
+        'connecting',
+        'awaiting_qr',
+        'logged_out',
+        'disconnected',
+        'error',
+      }.contains(status.status)) {
+        attention++;
+      }
+    }
+    return _MessagingStatusCounts(
+      total: messagingPlatforms.length,
+      connected: connected,
+      configured: configured,
+      attention: attention,
+    );
+  }
+}
+
+class _MessagingOverviewStrip extends StatelessWidget {
+  const _MessagingOverviewStrip({required this.counts});
+
+  final _MessagingStatusCounts counts;
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = [
+      _MessagingMetricCard(
+        icon: Icons.link_rounded,
+        label: 'Connected',
+        value: '${counts.connected}',
+        helper: '${counts.configured} configured',
+        color: _success,
+      ),
+      _MessagingMetricCard(
+        icon: Icons.error_outline_rounded,
+        label: 'Needs attention',
+        value: '${counts.attention}',
+        helper: 'Reconnect or finish setup',
+        color: counts.attention > 0 ? _warning : _textSecondary,
+      ),
+      _MessagingMetricCard(
+        icon: Icons.apps_rounded,
+        label: 'Available',
+        value: '${counts.total}',
+        helper: 'Native and webhook channels',
+        color: _info,
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 760;
+        if (compact) {
+          return Column(
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                if (index > 0) const SizedBox(height: 10),
+                cards[index],
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var index = 0; index < cards.length; index++) ...[
+              if (index > 0) const SizedBox(width: 12),
+              Expanded(child: cards[index]),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MessagingMetricCard extends StatelessWidget {
+  const _MessagingMetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.helper,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String helper;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(color: _textSecondary, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: _textPrimary,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  helper,
+                  style: const TextStyle(color: _textMuted, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessagingToolbar extends StatelessWidget {
+  const _MessagingToolbar({
+    required this.controller,
+    required this.selectedFilter,
+    required this.onFilterChanged,
+    required this.counts,
+  });
+
+  final TextEditingController controller;
+  final String selectedFilter;
+  final ValueChanged<String> onFilterChanged;
+  final _MessagingStatusCounts counts;
+
+  @override
+  Widget build(BuildContext context) {
+    final filters = <(String, String)>[
+      ('all', 'All ${counts.total}'),
+      ('connected', 'Connected ${counts.connected}'),
+      ('configured', 'Configured ${counts.configured}'),
+      ('attention', 'Attention ${counts.attention}'),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _borderLight),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 780;
+          final search = TextField(
+            controller: controller,
+            style: const TextStyle(color: _textPrimary),
+            decoration: InputDecoration(
+              labelText: 'Find a platform',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: controller.text.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: controller.clear,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+            ),
+          );
+          final chips = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final filter in filters)
+                ChoiceChip(
+                  label: Text(filter.$2),
+                  selected: selectedFilter == filter.$1,
+                  onSelected: (_) => onFilterChanged(filter.$1),
+                  selectedColor: _accent.withValues(alpha: 0.18),
+                  backgroundColor: _bgCard,
+                  side: BorderSide(
+                    color: selectedFilter == filter.$1
+                        ? _accent.withValues(alpha: 0.42)
+                        : _borderLight,
+                  ),
+                  labelStyle: TextStyle(
+                    color: selectedFilter == filter.$1
+                        ? _textPrimary
+                        : _textSecondary,
+                    fontWeight: selectedFilter == filter.$1
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+            ],
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [search, const SizedBox(height: 12), chips],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: search),
+              const SizedBox(width: 14),
+              Flexible(child: chips),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MessagingQrPanel extends StatelessWidget {
+  const _MessagingQrPanel({required this.qrState});
+
+  final MessagingQrState qrState;
+
+  @override
+  Widget build(BuildContext context) {
+    final qrImage = Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Image.network(
+        'https://api.qrserver.com/v1/create-qr-code/?data=${Uri.encodeComponent(qrState.qr)}&size=280x280',
+        width: 168,
+        height: 168,
+        fit: BoxFit.contain,
+      ),
+    );
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StatusPill(label: 'Awaiting scan', color: _warning),
+        const SizedBox(height: 12),
+        Text(
+          'Scan to finish ${qrState.platformLabel}',
+          style: const TextStyle(
+            color: _textPrimary,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Keep this panel open until the platform confirms the connection.',
+          style: TextStyle(color: _textSecondary, height: 1.45),
+        ),
+      ],
+    );
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _warning.withValues(alpha: 0.3)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 680) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                copy,
+                const SizedBox(height: 16),
+                Center(child: qrImage),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: copy),
+              const SizedBox(width: 24),
+              qrImage,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MessagingGroupHeader extends StatelessWidget {
+  const _MessagingGroupHeader({
+    required this.title,
+    required this.subtitle,
+    required this.count,
+  });
+
+  final String title;
+  final String subtitle;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: _textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(color: _textSecondary, height: 1.35),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        _StatusPill(label: '$count shown', color: _textSecondary),
+      ],
+    );
+  }
+}
+
+class _MessagingActivityPanel extends StatelessWidget {
+  const _MessagingActivityPanel({required this.messages});
+
+  final List<MessagingMessage> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Recent Channel Activity',
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _StatusPill(label: '${messages.length} events', color: _info),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (messages.isEmpty)
+            const _EmptyCard(
+              title: 'No recent channel activity',
+              subtitle:
+                  'Incoming and outgoing channel messages will appear here.',
+            )
+          else
+            Column(
+              children: [
+                for (final message in messages.take(12))
+                  _MessagingActivityItem(message: message),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessagingActivityItem extends StatelessWidget {
+  const _MessagingActivityItem({required this.message});
+
+  final MessagingMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOutbound = message.outgoing;
+    final color = isOutbound ? _accent : _success;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              isOutbound ? Icons.north_east_rounded : Icons.south_west_rounded,
+              color: color,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _StatusPill(
+                      label: message.platform.toUpperCase(),
+                      color: _info,
+                    ),
+                    Text(
+                      message.senderLabel,
+                      style: const TextStyle(
+                        color: _textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      message.createdAtLabel,
+                      style: const TextStyle(color: _textMuted, fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message.content.ifEmpty('[empty]'),
+                  style: const TextStyle(color: _textSecondary, height: 1.35),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class RunsPanel extends StatefulWidget {
   const RunsPanel({super.key, required this.controller});
 
@@ -7712,250 +8222,418 @@ class _RunsPanelState extends State<RunsPanel> {
 
 class _MessagingCard extends StatelessWidget {
   const _MessagingCard({
-    required this.controller,
     required this.platform,
     required this.status,
-    required this.onConfigure,
+    required this.whitelist,
+    required this.controller,
+    required this.onConnect,
+    required this.onDisconnect,
+    required this.onLogout,
   });
 
-  final NeoAgentController controller;
   final MessagingPlatformDescriptor platform;
-  final MessagingPlatformStatus status;
-  final Future<void> Function() onConfigure;
+  final MessagingPlatformStatus? status;
+  final List<String> whitelist;
+  final NeoAgentController controller;
+  final Future<void> Function() onConnect;
+  final Future<void> Function() onDisconnect;
+  final Future<void> Function() onLogout;
 
   @override
   Widget build(BuildContext context) {
-    final whitelist = controller.currentMessagingWhitelist(platform.id);
+    final connected = status?.isConnected ?? false;
+    final configured = status != null && status!.status != 'not_configured';
+    final accent = platform.accent;
+    final actionLabel = connected
+        ? 'Connected'
+        : configured
+        ? 'Reconnect'
+        : 'Connect';
+    final accessLabel = whitelist.isEmpty
+        ? 'Open access'
+        : '${whitelist.length} allowed';
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            platform.accent.withValues(alpha: 0.16),
-            const Color(0xFF111625),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: connected ? accent.withValues(alpha: 0.48) : _borderLight,
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _borderLight),
+        boxShadow: [
+          if (connected)
+            BoxShadow(
+              color: accent.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+        ],
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-          leading: Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: platform.accent.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: platform.accent.withValues(alpha: 0.35),
-              ),
-            ),
-            child: Icon(platform.icon, color: Colors.white),
-          ),
-          title: Text(
-            platform.label,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              status.authLabel,
-              style: const TextStyle(color: _textSecondary),
-            ),
-          ),
-          trailing: _StatusPill(
-            label: status.statusLabel,
-            color: status.badgeColor,
-          ),
-          children: <Widget>[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                platform.subtitle,
-                style: const TextStyle(color: _textSecondary, height: 1.45),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                if (status.isConnected) ...<Widget>[
-                  FilledButton.icon(
-                    onPressed: () =>
-                        controller.disconnectMessagingPlatform(platform.id),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: platform.accent,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const Icon(Icons.link_off),
-                    label: const Text('Disconnect'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        controller.logoutMessagingPlatform(platform.id),
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Logout'),
-                  ),
-                ] else
-                  FilledButton.icon(
-                    onPressed: onConfigure,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: platform.accent,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: Icon(
-                      platform.connectMethod == MessagingConnectMethod.qr
-                          ? Icons.qr_code_rounded
-                          : Icons.link_rounded,
-                    ),
-                    label: const Text('Connect'),
-                  ),
-                OutlinedButton.icon(
-                  onPressed: () => _editWhitelist(context, whitelist),
-                  icon: const Icon(Icons.verified_user_outlined),
-                  label: Text(
-                    whitelist.isEmpty
-                        ? 'Access list'
-                        : 'Access list (${whitelist.length})',
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                if (platform.id == 'telnyx')
-                  OutlinedButton.icon(
-                    onPressed: () => _editTelnyxSecret(context),
-                    icon: const Icon(Icons.password_rounded),
-                    label: const Text('Voice PIN'),
-                  ),
-              ],
-            ),
-            if (whitelist.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: whitelist
-                    .take(8)
-                    .map(
-                      (entry) =>
-                          _MetaPill(label: entry, icon: Icons.shield_outlined),
-                    )
-                    .toList(),
+                child: Icon(platform.icon, color: accent, size: 23),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      platform.label,
+                      style: const TextStyle(
+                        color: _textPrimary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      status?.authLabel ?? 'Not configured',
+                      style: const TextStyle(
+                        color: _textSecondary,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _StatusPill(
+                label: connected
+                    ? 'Live'
+                    : configured
+                    ? 'Ready'
+                    : 'Setup',
+                color: connected
+                    ? _success
+                    : configured
+                    ? _warning
+                    : _textMuted,
               ),
             ],
-          ],
-        ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            platform.subtitle,
+            style: const TextStyle(color: _textSecondary, height: 1.4),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MessagingMiniPill(
+                icon: Icons.admin_panel_settings_outlined,
+                label: accessLabel,
+              ),
+              if (configured && !connected)
+                const _MessagingMiniPill(
+                  icon: Icons.tune_rounded,
+                  label: 'Configured',
+                ),
+              if (platform.configFields.isNotEmpty)
+                _MessagingMiniPill(
+                  icon: Icons.edit_note_rounded,
+                  label: '${platform.configFields.length} fields',
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: connected
+                    ? OutlinedButton.icon(
+                        onPressed: onDisconnect,
+                        icon: const Icon(Icons.link_off_rounded, size: 18),
+                        label: const Text(
+                          'Disconnect',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                    : FilledButton.icon(
+                        onPressed: onConnect,
+                        icon: const Icon(
+                          Icons.power_settings_new_rounded,
+                          size: 18,
+                        ),
+                        label: Text(
+                          actionLabel,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        style: FilledButton.styleFrom(backgroundColor: accent),
+                      ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                tooltip: 'Access list',
+                onPressed: () => _editWhitelist(context, controller),
+                icon: const Icon(Icons.group_add_outlined),
+              ),
+              if (platform.id == 'telnyx') ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Voice PIN',
+                  onPressed: () => _editTelnyxSecret(context, controller),
+                  icon: const Icon(Icons.password_outlined),
+                ),
+              ],
+              if (connected) ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Logout',
+                  onPressed: onLogout,
+                  icon: const Icon(Icons.logout_rounded),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _editWhitelist(
     BuildContext context,
-    List<String> initialValues,
+    NeoAgentController controller,
   ) async {
-    final controllerText = TextEditingController(
-      text: initialValues.join('\n'),
-    );
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: Text('${platform.label} access'),
-          content: SizedBox(
-            width: 620,
-            child: TextField(
-              controller: controllerText,
-              minLines: 10,
-              maxLines: 16,
-              decoration: const InputDecoration(
-                labelText: 'One entry per line',
-              ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final values = controllerText.text
-                    .split('\n')
-                    .map((value) => value.trim())
-                    .where((value) => value.isNotEmpty)
-                    .toList();
-                switch (platform.id) {
-                  case 'whatsapp':
-                    await controller.saveWhatsAppWhitelist(values);
-                    break;
-                  case 'telnyx':
-                    await controller.saveTelnyxWhitelist(values);
-                    break;
-                  case 'discord':
-                    await controller.saveDiscordWhitelist(values);
-                    break;
-                  case 'telegram':
-                    await controller.saveTelegramWhitelist(values);
-                    break;
-                  default:
-                    await controller.saveMessagingWhitelist(
-                      platform.id,
-                      values,
-                    );
-                    break;
-                }
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
+    switch (platform.id) {
+      case 'whatsapp':
+        await _showStringListDialog(
+          context,
+          title: 'WhatsApp allowlist',
+          subtitle:
+              'Only listed phone numbers can trigger the agent. Leave empty to allow any sender.',
+          values: controller.currentMessagingWhitelist('whatsapp'),
+          label: 'Phone number',
+          onSave: controller.saveWhatsAppWhitelist,
         );
-      },
-    );
+        break;
+      case 'telnyx':
+        await _showStringListDialog(
+          context,
+          title: 'Telnyx allowlist',
+          subtitle:
+              'Only listed caller numbers can reach voice automation. Leave empty to allow any caller.',
+          values: controller.currentMessagingWhitelist('telnyx'),
+          label: 'Phone number',
+          onSave: controller.saveTelnyxWhitelist,
+        );
+        break;
+      case 'discord':
+        await _showStringListDialog(
+          context,
+          title: 'Discord allowlist',
+          subtitle:
+              'Use user:, channel:, guild:, role: prefixes to decide who can trigger the agent.',
+          values: controller.currentMessagingWhitelist('discord'),
+          label: 'user:123 or channel:456',
+          onSave: controller.saveDiscordWhitelist,
+        );
+        break;
+      case 'telegram':
+        await _showStringListDialog(
+          context,
+          title: 'Telegram allowlist',
+          subtitle:
+              'Only listed Telegram chat IDs can trigger the agent. Leave empty to allow any chat.',
+          values: controller.currentMessagingWhitelist('telegram'),
+          label: 'Chat ID',
+          onSave: controller.saveTelegramWhitelist,
+        );
+        break;
+      default:
+        await _showStringListDialog(
+          context,
+          title: '${platform.label} access list',
+          subtitle:
+              'Limit who can trigger the agent from this channel. Leave empty to allow any sender.',
+          values: controller.currentMessagingWhitelist(platform.id),
+          label: 'Allowed sender or channel',
+          onSave: (values) =>
+              controller.saveMessagingWhitelist(platform.id, values),
+        );
+    }
   }
 
-  Future<void> _editTelnyxSecret(BuildContext context) async {
-    final controllerText = TextEditingController(
-      text:
-          controller.settings['platform_voice_secret_telnyx']?.toString() ?? '',
+  Future<void> _editTelnyxSecret(
+    BuildContext context,
+    NeoAgentController controller,
+  ) async {
+    final initial =
+        controller.settings['platform_voice_secret_telnyx']?.toString() ?? '';
+    final saved = await _showTextSettingDialog(
+      context,
+      title: 'Voice PIN',
+      subtitle:
+          'Set the PIN callers must enter before the voice agent answers.',
+      label: 'PIN or passphrase',
+      initialValue: initial,
+      obscureText: true,
     );
-    await showDialog<void>(
+    if (saved != null) {
+      await controller.saveTelnyxVoiceSecret(saved);
+    }
+  }
+}
+
+Future<void> _showStringListDialog(
+  BuildContext context, {
+  required String title,
+  required String subtitle,
+  required List<String> values,
+  required String label,
+  required Future<void> Function(List<String> values) onSave,
+}) async {
+  final controller = TextEditingController(text: values.join('\n'));
+  try {
+    final saved = await showDialog<List<String>>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: const Text('Voice secret code'),
-          content: SizedBox(
-            width: 520,
-            child: TextField(
-              controller: controllerText,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Digits-only PIN'),
+      builder: (context) => AlertDialog(
+        backgroundColor: _bgCard,
+        title: Text(title),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(subtitle, style: const TextStyle(color: _textSecondary)),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                minLines: 5,
+                maxLines: 10,
+                decoration: InputDecoration(
+                  labelText: label,
+                  helperText: 'One entry per line',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final values = controller.text
+                  .split(RegExp(r'\r?\n'))
+                  .map((value) => value.trim())
+                  .where((value) => value.isNotEmpty)
+                  .toSet()
+                  .toList();
+              Navigator.of(context).pop(values);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved != null) {
+      await onSave(saved);
+    }
+  } finally {
+    controller.dispose();
+  }
+}
+
+Future<String?> _showTextSettingDialog(
+  BuildContext context, {
+  required String title,
+  required String subtitle,
+  required String label,
+  required String initialValue,
+  bool obscureText = false,
+}) async {
+  final controller = TextEditingController(text: initialValue);
+  try {
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _bgCard,
+        title: Text(title),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(subtitle, style: const TextStyle(color: _textSecondary)),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                obscureText: obscureText,
+                decoration: InputDecoration(labelText: label),
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  } finally {
+    controller.dispose();
+  }
+}
+
+class _MessagingMiniPill extends StatelessWidget {
+  const _MessagingMiniPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: _textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: _textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await controller.saveTelnyxVoiceSecret(controllerText.text);
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
   }
 }
