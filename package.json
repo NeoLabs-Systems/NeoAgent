@@ -27,6 +27,9 @@
     "dev:stack": "./dev/stack.sh",
     "dev:build": "./dev/build.sh",
     "dev:test": "./dev/test.sh",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "flutter:run:web": "cd flutter_app && flutter run -d chrome",
     "flutter:build:web": "cd flutter_app && flutter build web --output ../server/public --dart-define=NEOAGENT_BACKEND_URL=${NEOAGENT_BACKEND_URL:-}",
     "manage": "node bin/neoagent.js",
@@ -73,5 +76,8 @@
   },
   "overrides": {
     "undici": "^6.24.0"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
   }
 }

@@ -1,86 +1,99 @@
 # Configuration
 
-All settings live in `~/.neoagent/.env` by default. Run `neoagent setup` to regenerate interactively. AI provider credentials are configured through the server environment or `neoagent setup`, not through the web UI. If a self-edit or local install issue leaves NeoAgent broken, rerun setup or restore the env file and restart the service.
-You can override the runtime root with `NEOAGENT_HOME`.
+NeoAgent keeps deployment secrets on the server. The default config file is `~/.neoagent/.env`; run `neoagent setup` to regenerate it interactively. You can move the runtime root by setting `NEOAGENT_HOME`.
 
-## Variables
+AI provider credentials, OAuth client secrets, and deployment controls are not configured through the public web client. The Flutter UI can select providers and models, but the secrets stay in server-side environment variables or in the local NeoAgent database where the app explicitly stores channel settings.
 
-### Core
+## Core Variables
 
 | Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3333` | HTTP port |
-| `PUBLIC_URL` | *(optional)* | Public base URL used for callbacks and external links |
-| `SESSION_SECRET` | *(required)* | Random string for session signing — generate with `openssl rand -hex 32` |
-| `NODE_ENV` | `production` | Set to `development` to enable verbose logs |
-| `SECURE_COOKIES` | `false` | Set `true` when behind a TLS-terminating proxy |
-| `ALLOWED_ORIGINS` | *(none)* | Comma-separated CORS origins, e.g. `https://example.com` |
-| `NEOAGENT_DEPLOYMENT_MODE` | `self_hosted` | `self_hosted` enables in-app update controls; `managed` hides operator-only controls for SaaS deployments |
-| `NEOAGENT_RELEASE_CHANNEL` | `stable` | Release track used by the self-hosted updater |
+|---|---:|---|
+| `PORT` | `3333` | HTTP port for the NeoAgent server. |
+| `PUBLIC_URL` | optional | Public base URL used for OAuth callbacks and external links. |
+| `SESSION_SECRET` | required | Random string for session signing. Generate one with `openssl rand -hex 32`. |
+| `NODE_ENV` | `production` | Set to `development` to enable verbose logs. |
+| `SECURE_COOKIES` | `false` | Set `true` when NeoAgent is behind a TLS-terminating proxy. |
+| `ALLOWED_ORIGINS` | none | Comma-separated CORS origins, for example `https://example.com`. |
+| `NEOAGENT_DEPLOYMENT_MODE` | `self_hosted` | `self_hosted` enables in-app update controls; `managed` hides operator-only controls for SaaS deployments. |
+| `NEOAGENT_RELEASE_CHANNEL` | `stable` | Release track used by the self-hosted updater. |
 
-### AI Providers
+## AI Providers
 
-At least one hosted-provider API key is required unless you only use local Ollama. The active provider and model routing are configured in the Flutter app; credentials stay in server-side config.
+At least one hosted-provider API key is required unless you only use local Ollama. The active provider and model routing are selected in the app, but credentials are read from server-side config.
 
 | Variable | Provider |
 |---|---|
 | `ANTHROPIC_API_KEY` | Claude (Anthropic) |
-| `OPENAI_API_KEY` | GPT-4o / Whisper (OpenAI) |
+| `OPENAI_API_KEY` | GPT and Whisper (OpenAI) |
 | `XAI_API_KEY` | Grok (xAI) |
 | `XAI_BASE_URL` | Optional xAI-compatible base URL override |
 | `GOOGLE_AI_KEY` | Gemini (Google) |
-| `MINIMAX_API_KEY` | MiniMax Code (Coding Plan / Token Plan for `MiniMax-M2.7`) |
+| `MINIMAX_API_KEY` | MiniMax Code, including `MiniMax-M2.7` |
 | `BRAVE_SEARCH_API_KEY` | Brave Search API for the native `web_search` tool |
 | `OPENAI_BASE_URL` | Optional OpenAI-compatible base URL override |
 | `ANTHROPIC_BASE_URL` | Optional Anthropic-compatible base URL override |
-| `DEEPGRAM_API_KEY` | Recordings transcription with Deepgram Nova-3 multilingual |
+| `DEEPGRAM_API_KEY` | Recordings transcription with Deepgram |
 | `DEEPGRAM_BASE_URL` | Optional Deepgram API base URL override |
-| `DEEPGRAM_MODEL` | Deepgram speech model override (defaults to `nova-3`) |
-| `DEEPGRAM_LANGUAGE` | Deepgram language override (defaults to `multi`) |
-| `OLLAMA_URL` | Local Ollama (`http://localhost:11434`) |
+| `DEEPGRAM_MODEL` | Deepgram speech model override, defaults to `nova-3` |
+| `DEEPGRAM_LANGUAGE` | Deepgram language override, defaults to `multi` |
+| `OLLAMA_URL` | Local Ollama server, usually `http://localhost:11434` |
 
-### Official Integrations
+Recording insight generation is controlled in app AI settings with `auto_recording_insights`. It uses the configured AI providers after Deepgram transcription has produced transcript text.
 
-All official integration OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` unless you override the provider-specific redirect URI.
+## Official Integrations
 
-| Variable | Description |
-|---|---|
-| `GOOGLE_OAUTH_CLIENT_ID` | Google Workspace official integrations OAuth client ID |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Workspace official integrations OAuth client secret |
-| `GOOGLE_OAUTH_REDIRECT_URI` | Optional override for the Google Workspace OAuth callback URL |
-| `NOTION_OAUTH_CLIENT_ID` | Notion official integrations OAuth client ID |
-| `NOTION_OAUTH_CLIENT_SECRET` | Notion official integrations OAuth client secret |
-| `NOTION_OAUTH_REDIRECT_URI` | Optional override for the Notion OAuth callback URL |
-| `MICROSOFT_OAUTH_CLIENT_ID` | Microsoft 365 official integrations OAuth client ID |
-| `MICROSOFT_OAUTH_CLIENT_SECRET` | Microsoft 365 official integrations OAuth client secret |
-| `MICROSOFT_OAUTH_REDIRECT_URI` | Optional override for the Microsoft 365 OAuth callback URL |
-| `MICROSOFT_OAUTH_TENANT_ID` | Optional Entra tenant selector (`common` by default) |
-| `SLACK_OAUTH_CLIENT_ID` | Slack official integrations OAuth client ID |
-| `SLACK_OAUTH_CLIENT_SECRET` | Slack official integrations OAuth client secret |
-| `SLACK_OAUTH_REDIRECT_URI` | Optional override for the Slack OAuth callback URL |
-| `FIGMA_OAUTH_CLIENT_ID` | Figma official integrations OAuth client ID |
-| `FIGMA_OAUTH_CLIENT_SECRET` | Figma official integrations OAuth client secret |
-| `FIGMA_OAUTH_REDIRECT_URI` | Optional override for the Figma OAuth callback URL |
+Official integrations use OAuth and expose structured tools to the agent. The built-in registry currently covers Google Workspace, Notion, Microsoft 365, Slack, and Figma.
 
-OAuth client secrets such as `GOOGLE_OAUTH_CLIENT_SECRET`, `NOTION_OAUTH_CLIENT_SECRET`, `MICROSOFT_OAUTH_CLIENT_SECRET`, `SLACK_OAUTH_CLIENT_SECRET`, and `FIGMA_OAUTH_CLIENT_SECRET` are sensitive, just like `SESSION_SECRET`. Do not commit them to version control, print them to logs, or expose them in client-side code. Store them in server-side environment variables or a secrets manager, restrict access to operators who need them, and rotate them immediately if you suspect they were exposed.
-
-### Messaging
+All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` unless you set a provider-specific redirect URI.
 
 | Variable | Description |
 |---|---|
-| `TELNYX_WEBHOOK_TOKEN` | Telnyx webhook signature verification |
+| `GOOGLE_OAUTH_CLIENT_ID` | Google Workspace OAuth client ID |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Workspace OAuth client secret |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Optional Google Workspace OAuth callback URL |
+| `NOTION_OAUTH_CLIENT_ID` | Notion OAuth client ID |
+| `NOTION_OAUTH_CLIENT_SECRET` | Notion OAuth client secret |
+| `NOTION_OAUTH_REDIRECT_URI` | Optional Notion OAuth callback URL |
+| `MICROSOFT_OAUTH_CLIENT_ID` | Microsoft 365 OAuth client ID |
+| `MICROSOFT_OAUTH_CLIENT_SECRET` | Microsoft 365 OAuth client secret |
+| `MICROSOFT_OAUTH_REDIRECT_URI` | Optional Microsoft 365 OAuth callback URL |
+| `MICROSOFT_OAUTH_TENANT_ID` | Optional Entra tenant selector, defaults to `common` |
+| `SLACK_OAUTH_CLIENT_ID` | Slack OAuth client ID |
+| `SLACK_OAUTH_CLIENT_SECRET` | Slack OAuth client secret |
+| `SLACK_OAUTH_REDIRECT_URI` | Optional Slack OAuth callback URL |
+| `FIGMA_OAUTH_CLIENT_ID` | Figma OAuth client ID |
+| `FIGMA_OAUTH_CLIENT_SECRET` | Figma OAuth client secret |
+| `FIGMA_OAUTH_REDIRECT_URI` | Optional Figma OAuth callback URL |
 
-Telegram, Discord, and WhatsApp tokens are stored in the database via the Flutter app settings page — not in `.env`.
+## Messaging
 
-## Runtime data paths
+Telegram, Discord, and WhatsApp tokens are stored through the Flutter app settings page, not in `.env`. Telnyx webhook verification is configured through the environment.
 
-- Config: `~/.neoagent/.env`
-- Database/session/logs: `~/.neoagent/data/`
-- Skills/memory/daily data files: `~/.neoagent/agent-data/`
+| Variable | Description |
+|---|---|
+| `TELNYX_WEBHOOK_TOKEN` | Telnyx webhook signature verification token |
 
----
+## Runtime Isolation
 
-## Minimal `.env` example
+Runtime profile and backend selection are stored in user settings, not normally in `.env`. The available profiles are `trusted-host`, `secure-vm`, and `hybrid`. They control where CLI, browser, and Android tools run: on the host, through a local VM, or through a configured remote worker.
+
+Production policy can require the VM backend. In that case, set a strong `NEOAGENT_VM_GUEST_TOKEN` of at least 32 characters and avoid placeholder values.
+
+Remote worker settings are stored through the app as `remote_worker_base_url` and encrypted `remote_worker_token` values. Use an `http` or `https` worker URL only.
+
+## Secrets Guidance
+
+Treat `SESSION_SECRET`, provider API keys, OAuth client secrets, messaging credentials, and Telnyx tokens as sensitive. Do not commit them, print them in logs, or expose them in client-side code. Store them in server-side environment variables or a secrets manager, restrict access to operators who need them, and rotate them immediately if you suspect exposure.
+
+## Runtime Paths
+
+| Path | Purpose |
+|---|---|
+| `~/.neoagent/.env` | Server config and deployment secrets |
+| `~/.neoagent/data/` | Database, sessions, update status, and logs |
+| `~/.neoagent/agent-data/` | Skills, memory, and daily data files |
+
+## Minimal `.env` Example
 
 ```dotenv
 PORT=3333

@@ -9,11 +9,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-a855f7?style=flat-square" alt="License"></a>
 </p>
 
-<p align="center">
-  A self-hosted, proactive AI agent with a Flutter client for web and Android.<br>
-  Connects to OpenAI, xAI, Google, MiniMax Code, and local Ollama.<br>
-  Runs tasks on a schedule, controls a browser, manages files, and talks to you over Telegram, Discord, or WhatsApp.
-</p>
+<p align="center">A self-hosted, proactive AI agent with a Flutter client for web and Android.</p>
 
 | | |
 | --- | --- |
@@ -36,14 +32,12 @@ neoagent fix
 neoagent logs
 ```
 
-Use `neoagent fix` if a self-edit or broken local install leaves NeoAgent in a bad state. On git installs it backs up runtime data, saves local tracked changes, resets tracked source files, reinstalls dependencies, and restarts the service.
-
 ## Links
 
-[⚙️ Configuration](docs/configuration.md) · [🧰 Skills](docs/skills.md) · [🐛 Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
+[Docs site](https://neolabs-systems.github.io/NeoAgent/) | [Getting started](docs/getting-started.md) | [Capabilities](docs/capabilities.md) | [Configuration](docs/configuration.md) | [Why NeoAgent](docs/why-neoagent.md) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
 
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/neooriginal">Neo</a> · <a href="https://github.com/NeoLabs-Systems">NeoLabs Systems</a>
+  Made by <a href="https://github.com/neooriginal">Neo</a> | <a href="https://github.com/NeoLabs-Systems">NeoLabs Systems</a>
 </p>
