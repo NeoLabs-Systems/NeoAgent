@@ -3026,6 +3026,21 @@ class NeoAgentController extends ChangeNotifier {
   String get browserBackend =>
       settings['browser_backend']?.toString().trim().toLowerCase() ?? 'host';
 
+  String get cloudBrowserBackend {
+    final browser = browserBackend;
+    final profile = settings['runtime_profile']?.toString().trim().toLowerCase();
+    final runtime = settings['runtime_backend']?.toString().trim().toLowerCase();
+    if (updateStatus.deploymentProfile.toLowerCase() == 'prod' ||
+        profile == 'secure-vm') {
+      return 'vm';
+    }
+    if (browser == 'host' || browser == 'vm') {
+      return browser;
+    }
+    if (runtime == 'vm') return 'vm';
+    return 'host';
+  }
+
   bool get browserExtensionConnected =>
       browserExtensionStatus['connected'] == true;
 
@@ -9836,9 +9851,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   String _normalizeBrowserBackend(String value) {
-    const allowed = <String>{'host', 'vm', 'remote', 'extension'};
     final normalized = value.trim().toLowerCase();
-    return allowed.contains(normalized) ? normalized : 'host';
+    return normalized == 'extension' ? 'extension' : 'cloud';
   }
 
   @override
@@ -9876,7 +9890,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ? null
                 : () => controller.saveSettings(
                     headlessBrowser: _headlessBrowser,
-                    browserBackend: _browserBackend,
+                    browserBackend: _browserBackend == 'extension'
+                        ? 'extension'
+                        : controller.cloudBrowserBackend,
                     smarterSelector: _smarterSelector,
                     enabledModels: _enabledModels.toList(),
                     defaultChatModel: _defaultChatModel,
@@ -10225,14 +10241,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   decoration: const InputDecoration(
                     labelText: 'Browser backend',
                     helperText:
-                        'Extension uses the paired Chrome browser on this or another machine.',
+                        'Cloud uses this deployment. Extension uses a paired Chrome browser.',
                   ),
                   items: const <DropdownMenuItem<String>>[
-                    DropdownMenuItem<String>(value: 'host', child: Text('Host')),
-                    DropdownMenuItem<String>(value: 'vm', child: Text('VM')),
                     DropdownMenuItem<String>(
-                      value: 'remote',
-                      child: Text('Remote worker'),
+                      value: 'cloud',
+                      child: Text('Cloud (local)'),
                     ),
                     DropdownMenuItem<String>(
                       value: 'extension',
@@ -10251,7 +10265,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ? (controller.browserExtensionConnected
                             ? 'Chrome extension connected.'
                             : 'Chrome extension selected. Download it here, load it unpacked in Chrome on the remote machine, then pair after login.')
-                      : 'For remote Chrome control, download the extension ZIP and load it unpacked on that machine.',
+                      : controller.cloudBrowserBackend == 'vm'
+                          ? "Cloud uses this deployment's isolated VM browser runtime."
+                          : "Cloud uses this deployment's local host browser runtime.",
                   style: const TextStyle(
                     color: _textSecondary,
                     height: 1.4,

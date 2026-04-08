@@ -83,13 +83,11 @@ Telnyx webhook verification is configured through the environment.
 
 ## Runtime Isolation
 
-Runtime profile and backend selection are stored in user settings, not normally in `.env`. The available profiles are `trusted-host`, `secure-vm`, and `hybrid`. They control where CLI, browser, and Android tools run: on the host, through a local VM, or through a configured remote worker.
+Runtime profile and backend selection are stored in user settings, not normally in `.env`. The main profiles are `trusted-host` and `secure-vm`. They control whether CLI, browser, and Android tools run on the host or through the local VM backend.
 
 Production policy can require the VM backend. In that case, set a strong `NEOAGENT_VM_GUEST_TOKEN` of at least 32 characters and avoid placeholder values.
 
-Remote worker settings are stored through the app as `remote_worker_base_url` and encrypted `remote_worker_token` values. Use an `http` or `https` worker URL only.
-
-The browser backend can also be set to `extension`. In that mode, browser actions use the paired Chrome extension connection rather than the server-local Puppeteer browser. To install only the extension on a remote machine, open NeoAgent, download `/api/browser-extension/download`, unzip it, load the folder through `chrome://extensions` with Developer mode enabled, then pair after logging in to NeoAgent. Unpacked Chrome extensions cannot replace themselves automatically; use the extension popup's update check to compare against the server bundle, then download and reload the latest ZIP when needed.
+The app exposes two browser backend choices: Cloud and Chrome extension. Cloud uses the current deployment policy, which means host browser control for trusted private installs and VM browser control for isolated production installs. Chrome extension uses the paired extension connection instead of the server-local Puppeteer browser. To install only the extension on a remote machine, open NeoAgent, download `/api/browser-extension/download`, unzip it, load the folder through `chrome://extensions` with Developer mode enabled, then pair after logging in to NeoAgent. Unpacked Chrome extensions cannot replace themselves automatically; use the extension popup's update check to compare against the server bundle, then download and reload the latest ZIP when needed.
 
 ## Secrets Guidance
 
