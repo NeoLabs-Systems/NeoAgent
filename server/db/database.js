@@ -22,6 +22,7 @@ db.exec(`
     email TEXT UNIQUE,
     email_verified_at TEXT,
     password TEXT NOT NULL,
+    password_login_enabled INTEGER DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now')),
     last_login TEXT
   );
@@ -98,6 +99,36 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     expires_at TEXT NOT NULL,
     consumed_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS user_auth_providers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    provider_key TEXT NOT NULL,
+    provider_user_id TEXT NOT NULL,
+    email TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    last_used_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(provider_key, provider_user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS auth_oauth_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    provider_key TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    state TEXT NOT NULL UNIQUE,
+    code_verifier TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    result_json TEXT,
+    error_message TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
@@ -322,6 +353,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, revoked_at, last_seen_at DESC);
   CREATE INDEX IF NOT EXISTS idx_user_email_tokens_lookup ON user_email_tokens(token_hash, consumed_at, expires_at);
   CREATE INDEX IF NOT EXISTS idx_user_email_tokens_user ON user_email_tokens(user_id, type, consumed_at);
+  CREATE INDEX IF NOT EXISTS idx_user_auth_providers_user ON user_auth_providers(user_id, provider_key, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_auth_oauth_states_state ON auth_oauth_states(state);
+  CREATE INDEX IF NOT EXISTS idx_auth_oauth_states_expires ON auth_oauth_states(expires_at, status);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_state ON integration_oauth_states(state);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_expires ON integration_oauth_states(expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
@@ -626,6 +660,7 @@ for (const col of [
   "ALTER TABLE agents ADD COLUMN can_be_delegated_to INTEGER",
   "ALTER TABLE agents ADD COLUMN delegate_targets_json TEXT",
   "ALTER TABLE users ADD COLUMN email_verified_at TEXT",
+  "ALTER TABLE users ADD COLUMN password_login_enabled INTEGER DEFAULT 1",
   "ALTER TABLE messages ADD COLUMN agent_id TEXT",
   "ALTER TABLE platform_connections ADD COLUMN agent_id TEXT",
   "ALTER TABLE mcp_servers ADD COLUMN agent_id TEXT",

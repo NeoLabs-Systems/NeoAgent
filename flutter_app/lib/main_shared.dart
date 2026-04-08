@@ -3,12 +3,62 @@ part of 'main.dart';
 EdgeInsets _pagePadding(BuildContext context) {
   final width = MediaQuery.sizeOf(context).width;
   if (width >= 1280) {
-    return const EdgeInsets.fromLTRB(36, 28, 36, 36);
+    return const EdgeInsets.fromLTRB(40, 34, 40, 40);
   }
   if (width >= 900) {
-    return const EdgeInsets.fromLTRB(28, 24, 28, 28);
+    return const EdgeInsets.fromLTRB(30, 28, 30, 32);
   }
-  return const EdgeInsets.fromLTRB(18, 18, 18, 26);
+  return const EdgeInsets.fromLTRB(20, 20, 20, 28);
+}
+
+class _AmbientBackdrop extends StatelessWidget {
+  const _AmbientBackdrop({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: _appBackgroundGradient),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: -120,
+            left: -90,
+            child: _BlurOrb(size: 340, color: _accent.withValues(alpha: 0.9)),
+          ),
+          Positioned(
+            top: 90,
+            right: -120,
+            child: _BlurOrb(size: 280, color: _accentAlt.withValues(alpha: 0.85)),
+          ),
+          Positioned(
+            bottom: -140,
+            left: 100,
+            child: _BlurOrb(size: 360, color: _accent.withValues(alpha: 0.45)),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      Colors.white.withValues(alpha: 0.02),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.08),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
 }
 
 List<AppSection> _mainSections(NeoAgentController controller) {
@@ -171,19 +221,27 @@ class _PageTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 760;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(bottom: 24),
       child: compact
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
+                const SizedBox(height: 8),
                 Text(
                   title,
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+                  style: _displayTitleStyle(30),
                 ),
-                const SizedBox(height: 6),
-                Text(subtitle, style: TextStyle(color: _textSecondary)),
+                const SizedBox(height: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(color: _textSecondary, height: 1.5),
+                  ),
+                ),
                 if (trailing != null) ...<Widget>[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
                   trailing!,
                 ],
               ],
@@ -195,15 +253,20 @@ class _PageTitle extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
+                      Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
+                      const SizedBox(height: 8),
                       Text(
                         title,
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
+                        style: _displayTitleStyle(32),
+                      ),
+                      const SizedBox(height: 10),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 760),
+                        child: Text(
+                          subtitle,
+                          style: TextStyle(color: _textSecondary, height: 1.5),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(subtitle, style: TextStyle(color: _textSecondary)),
                     ],
                   ),
                 ),
@@ -375,18 +438,35 @@ class _OverviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(title, style: TextStyle(color: _textSecondary)),
-            const SizedBox(height: 8),
+            Container(
+              width: 34,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _accent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 10),
             Text(
               value,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              style: _displayTitleStyle(28),
             ),
-            const SizedBox(height: 8),
-            Text(helper, style: TextStyle(color: _textSecondary)),
+            const SizedBox(height: 12),
+            Text(helper, style: TextStyle(color: _textSecondary, height: 1.45)),
           ],
         ),
       ),
@@ -404,7 +484,7 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(34),
         child: _EmptyState(title: title, subtitle: subtitle),
       ),
     );
@@ -419,8 +499,13 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      text,
-      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+      text.toUpperCase(),
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+        color: _textSecondary,
+      ),
     );
   }
 }
@@ -480,45 +565,66 @@ class _SidebarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: active ? _accentMuted : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onTap,
-          child: Container(
-            width: double.infinity,
-            padding: EdgeInsets.fromLTRB(10 + indent, 9, 10, 9),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: active
-                  ? Border(left: BorderSide(color: _accent, width: 3))
-                  : null,
-            ),
-            child: Row(
-              children: <Widget>[
-                Icon(
-                  icon,
-                  size: iconSize,
-                  color: active ? _accent : _textSecondary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w500,
-                      color: active ? _accent : _textSecondary,
+      padding: const EdgeInsets.only(bottom: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          gradient: active
+              ? LinearGradient(
+                  colors: <Color>[
+                    _accentMuted,
+                    _accentMuted.withValues(alpha: 0.06),
+                  ],
+                )
+              : null,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: active ? _accent.withValues(alpha: 0.35) : Colors.transparent,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(12 + indent, 12, 12, 12),
+              child: Row(
+                children: <Widget>[
+                  if (active)
+                    Container(
+                      width: 6,
+                      height: 26,
+                      margin: const EdgeInsets.only(right: 10),
+                      decoration: BoxDecoration(
+                        color: _accent,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  Icon(
+                    icon,
+                    size: iconSize,
+                    color: active ? _accentHover : _textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                        color: active ? _textPrimary : _textSecondary,
+                      ),
                     ),
                   ),
-                ),
-                if (trailing != null) ...<Widget>[
-                  const SizedBox(width: 8),
-                  trailing!,
+                  if (trailing != null) ...<Widget>[
+                    const SizedBox(width: 8),
+                    trailing!,
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -543,14 +649,14 @@ class _SidebarIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: _bgCard,
+        color: _bgCard.withValues(alpha: 0.8),
         shape: CircleBorder(side: BorderSide(color: _borderLight)),
         child: InkWell(
           customBorder: CircleBorder(),
           onTap: onTap,
           child: SizedBox(
-            width: 34,
-            height: 34,
+            width: 38,
+            height: 38,
             child: Icon(icon, size: 17, color: _textSecondary),
           ),
         ),
@@ -602,15 +708,15 @@ class _LogoBadge extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(size * 0.28),
-        boxShadow: const <BoxShadow>[
+        borderRadius: BorderRadius.circular(size * 0.34),
+        boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Color(0x7314B8A6),
-            blurRadius: 24,
-            offset: Offset(0, 4),
+            color: _accent.withValues(alpha: 0.32),
+            blurRadius: 36,
+            offset: const Offset(0, 10),
           ),
         ],
-        border: Border.all(color: _borderLight),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Padding(
         padding: EdgeInsets.all(size * 0.18),

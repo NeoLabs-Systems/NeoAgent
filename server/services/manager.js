@@ -16,6 +16,7 @@ const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
 const WearableManager = require('./wearables/manager');
 const { CLIExecutor } = require('./cli/executor');
+const { AuthProviderManager } = require('./account/auth_provider_manager');
 const { IntegrationManager } = require('./integrations/manager');
 const { ArtifactStore } = require('./artifacts/store');
 const { RuntimeManager } = require('./runtime/manager');
@@ -74,6 +75,16 @@ function createIntegrationManager(app) {
   );
   logServiceReady('Integration manager ready');
   return integrationManager;
+}
+
+function createAuthProviderManager(app) {
+  const authProviderManager = registerLocal(
+    app,
+    'authProviderManager',
+    new AuthProviderManager(),
+  );
+  logServiceReady('Auth provider manager ready');
+  return authProviderManager;
 }
 
 function createBrowserController(app, artifactStore) {
@@ -439,6 +450,7 @@ async function startServices(app, io) {
     createBrowserExtensionRegistry(app);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
+    createAuthProviderManager(app);
     const integrationManager = createIntegrationManager(app);
     const browserController = createBrowserController(app, artifactStore);
     const androidController = createAndroidController(app, artifactStore);

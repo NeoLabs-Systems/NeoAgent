@@ -2090,6 +2090,79 @@ class AccountSessionItem {
       expiresAt == null ? 'Session cookie' : _formatTimestamp(expiresAt!);
 }
 
+class AuthProviderCatalogItem {
+  const AuthProviderCatalogItem({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.configured,
+    required this.summary,
+  });
+
+  factory AuthProviderCatalogItem.fromJson(Map<dynamic, dynamic> json) {
+    return AuthProviderCatalogItem(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      icon: json['icon']?.toString() ?? '',
+      configured: json['configured'] == true,
+      summary: json['summary']?.toString() ?? '',
+    );
+  }
+
+  final String id;
+  final String label;
+  final String icon;
+  final bool configured;
+  final String summary;
+}
+
+class LinkedAuthProviderItem {
+  const LinkedAuthProviderItem({
+    required this.id,
+    required this.provider,
+    required this.label,
+    required this.icon,
+    required this.email,
+    required this.lastUsedAt,
+    required this.linkedAt,
+    required this.canUnlink,
+    required this.metadata,
+  });
+
+  factory LinkedAuthProviderItem.fromJson(Map<dynamic, dynamic> json) {
+    return LinkedAuthProviderItem(
+      id: _asInt(json['id']),
+      provider: json['provider']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      icon: json['icon']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      lastUsedAt: _parseOptionalTimestamp(json['lastUsedAt']?.toString()),
+      linkedAt: _parseOptionalTimestamp(json['linkedAt']?.toString()),
+      canUnlink: json['canUnlink'] == true,
+      metadata: json['metadata'] is Map
+          ? Map<String, dynamic>.from(json['metadata'] as Map)
+          : const <String, dynamic>{},
+    );
+  }
+
+  final int id;
+  final String provider;
+  final String label;
+  final String icon;
+  final String email;
+  final DateTime? lastUsedAt;
+  final DateTime? linkedAt;
+  final bool canUnlink;
+  final Map<String, dynamic> metadata;
+
+  String get avatarUrl => metadata['avatarUrl']?.toString() ?? '';
+  String get displayName => metadata['displayName']?.toString() ?? '';
+  String get linkedAtLabel =>
+      linkedAt == null ? 'Linked recently' : _formatTimestamp(linkedAt!);
+  String get lastUsedLabel =>
+      lastUsedAt == null ? 'Not used yet' : _formatTimestamp(lastUsedAt!);
+}
+
 class ActiveRunState {
   const ActiveRunState({
     required this.runId,

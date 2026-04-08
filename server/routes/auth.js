@@ -3,9 +3,12 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
-const { requireNoAuth } = require('../middleware/auth');
 const { getDeploymentPolicy } = require('../utils/deployment');
 const { requireValidEmail } = require('../services/account/email');
+const {
+  evaluatePasswordStrength,
+  passwordStrengthError,
+} = require('../services/account/password_policy');
 const { getTwoFactorStatus, verifyLoginCode } = require('../services/account/two_factor');
 const { recordCurrentSession, revokeAllSessionsForUser } = require('../services/account/sessions');
 const {
@@ -27,8 +30,24 @@ const authLimiter = rateLimit({
   max: 20,
   message: { error: 'Too many attempts, try again later' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
+
+function getAuthProviderManager(req) {
+  return req.app?.locals?.authProviderManager;
+}
+
+function toUserPayload(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email || null,
+    emailVerifiedAt: user.email_verified_at || null,
+    createdAt: user.created_at || null,
+    lastLogin: user.last_login || null,
+    hasPassword: Number(user.password_login_enabled || 0) === 1,
+  };
+}
 
 function establishSession(req, res, user) {
   req.session.regenerate((regenerateError) => {
@@ -49,7 +68,7 @@ function establishSession(req, res, user) {
       res.json({
         success: true,
         redirect: '/app',
-        user: { id: user.id, username: user.username, email: user.email || null }
+        user: toUserPayload(user),
       });
       if (sessionInfo?.unusual) {
         sendUnusualLoginNotice(user, sessionInfo).catch((noticeError) => {
@@ -164,16 +183,25 @@ function establishPendingTwoFactorSession(req, res, user) {
       return res.json({
         success: false,
         requiresTwoFactor: true,
-        user: { id: user.id, username: user.username, email: user.email || null }
+        user: toUserPayload(user),
       });
     });
   });
+}
+
+function updateLastLogin(userId) {
+  try {
+    db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(userId);
+  } catch (updateError) {
+    console.warn('Login last_login update failed:', updateError);
+  }
 }
 
 router.get('/api/auth/status', (req, res) => {
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get();
   const policy = getDeploymentPolicy();
   const emailConfig = getEmailConfig();
+  const authProviderManager = getAuthProviderManager(req);
   res.json({
     hasUser: count.count > 0,
     registrationOpen: policy.registrationOpen || count.count === 0,
@@ -183,20 +211,92 @@ router.get('/api/auth/status', (req, res) => {
       configured: emailConfig.configured,
       signupConfirmationRequired: requireSignupEmailConfirmation(),
     },
+    providers: authProviderManager ? authProviderManager.listProviders() : [],
   });
+});
+
+router.get('/api/auth/providers', (req, res) => {
+  const authProviderManager = getAuthProviderManager(req);
+  if (!authProviderManager) {
+    return res.json({ providers: [] });
+  }
+  return res.json({ providers: authProviderManager.listProviders() });
+});
+
+router.post('/api/auth/providers/:provider/begin', authLimiter, async (req, res) => {
+  try {
+    const authProviderManager = getAuthProviderManager(req);
+    if (!authProviderManager) {
+      throw new Error('Provider sign-in is not available.');
+    }
+    const mode = String(req.body?.mode || '').trim().toLowerCase();
+    const result = await authProviderManager.beginAuthorization({
+      providerKey: req.params.provider,
+      mode,
+      userId: mode === 'link' ? req.session?.userId || null : null,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Provider sign-in failed.' });
+  }
+});
+
+router.get('/api/auth/providers/complete', async (req, res) => {
+  try {
+    const authProviderManager = getAuthProviderManager(req);
+    if (!authProviderManager) {
+      throw new Error('Provider sign-in is not available.');
+    }
+    const state = String(req.query?.state || '').trim();
+    const completion = authProviderManager.consumeAuthorization(state);
+    if (completion.status === 'pending') {
+      return res.json(completion);
+    }
+    if (completion.mode === 'link') {
+      return res.json({
+        success: true,
+        status: 'completed',
+        mode: completion.mode,
+        provider: completion.provider,
+        result: completion.result,
+      });
+    }
+
+    const user = db.prepare(
+      `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
+       FROM users
+       WHERE id = ?`,
+    ).get(completion.result.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (getTwoFactorStatus(user.id).enabled) {
+      return establishPendingTwoFactorSession(req, res, user);
+    }
+    updateLastLogin(user.id);
+    return establishSession(req, res, user);
+  } catch (error) {
+    const statusCode = Number(error?.statusCode || 400);
+    return res.status(statusCode).json({ error: error.message || 'Provider sign-in failed.' });
+  }
 });
 
 router.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const policy = getDeploymentPolicy();
-
-    const { username, password } = req.body;
+    const username = String(req.body?.username || '').trim();
+    const password = String(req.body?.password || '');
     const email = requireValidEmail(req.body?.email);
     if (!username || !password) {
       return res.status(400).json({ error: 'Username, email, and password required' });
     }
     if (username.length < 3 || password.length < 8) {
       return res.status(400).json({ error: 'Username min 3 chars, password min 8' });
+    }
+
+    const passwordStrength = evaluatePasswordStrength(password, { username, email });
+    if (!passwordStrength.isAcceptable) {
+      return res.status(400).json({ error: passwordStrengthError(passwordStrength) });
     }
 
     const confirmationRequired = requireSignupEmailConfirmation();
@@ -219,8 +319,8 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
         throw error;
       }
       return db.prepare(`
-        INSERT INTO users (username, email, email_verified_at, password)
-        VALUES (?, ?, CASE WHEN ? THEN NULL ELSE datetime('now') END, ?)
+        INSERT INTO users (username, email, email_verified_at, password, password_login_enabled)
+        VALUES (?, ?, CASE WHEN ? THEN NULL ELSE datetime('now') END, ?, 1)
       `).run(username, email, confirmationRequired ? 1 : 0, hash);
     });
     const result = createUser();
@@ -248,7 +348,11 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
     establishSession(req, res, {
       id: result.lastInsertRowid,
       username,
-      email
+      email,
+      email_verified_at: new Date().toISOString(),
+      password_login_enabled: 1,
+      created_at: new Date().toISOString(),
+      last_login: null,
     });
   } catch (err) {
     if (err?.statusCode) {
@@ -273,13 +377,18 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
 
 router.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const username = String(req.body?.username || '').trim();
+    const password = String(req.body?.password || '');
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-    if (!user) {
+    const user = db.prepare(
+      `SELECT id, username, email, email_verified_at, password, password_login_enabled, created_at, last_login
+       FROM users
+       WHERE username = ?`,
+    ).get(username);
+    if (!user || Number(user.password_login_enabled || 0) !== 1) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -299,13 +408,7 @@ router.post('/api/auth/login', authLimiter, async (req, res) => {
       return establishPendingTwoFactorSession(req, res, user);
     }
 
-    try {
-      db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
-    } catch (updateError) {
-      // Keep login functional even if analytics-style metadata cannot be written.
-      console.warn('Login last_login update failed:', updateError);
-    }
-
+    updateLastLogin(user.id);
     establishSession(req, res, user);
   } catch (err) {
     console.error('Login error:', err);
@@ -331,7 +434,11 @@ router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid 2FA code' });
     }
 
-    const user = db.prepare('SELECT id, username, email, email_verified_at FROM users WHERE id = ?').get(pendingUserId);
+    const user = db.prepare(
+      `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
+       FROM users
+       WHERE id = ?`,
+    ).get(pendingUserId);
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
@@ -343,12 +450,7 @@ router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
       });
     }
 
-    try {
-      db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
-    } catch (updateError) {
-      console.warn('Login last_login update failed:', updateError);
-    }
-
+    updateLastLogin(user.id);
     establishSession(req, res, user);
   } catch (err) {
     console.error('2FA login error:', err);
@@ -435,10 +537,17 @@ router.post('/api/auth/password/reset', authLimiter, async (req, res) => {
         error: 'Open the full password reset link from your NeoAgent email.',
       });
     }
-    if (password.length < 8) {
+    const passwordStrength = evaluatePasswordStrength(password);
+    if (!passwordStrength.hasMinimumLength) {
       return sendPasswordResetPage(res, {
         token,
         error: 'Use a password with at least 8 characters.',
+      });
+    }
+    if (!passwordStrength.isAcceptable) {
+      return sendPasswordResetPage(res, {
+        token,
+        error: passwordStrengthError(passwordStrength),
       });
     }
     if (password !== confirmPassword) {
@@ -449,6 +558,7 @@ router.post('/api/auth/password/reset', authLimiter, async (req, res) => {
     }
     const hash = await bcrypt.hash(password, 12);
     const result = consumePasswordResetToken(token, hash);
+    db.prepare('UPDATE users SET password_login_enabled = 1 WHERE id = ?').run(result.user.id);
     revokeAllSessionsForUser(result.user.id);
     sendPasswordChangedNotice(result.user).catch((noticeError) => {
       console.warn('Password reset notification failed:', noticeError.message);
@@ -479,9 +589,13 @@ router.get('/api/auth/me', (req, res) => {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  const user = db.prepare('SELECT id, username, email, email_verified_at, created_at, last_login FROM users WHERE id = ?').get(req.session.userId);
+  const user = db.prepare(
+    `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
+     FROM users
+     WHERE id = ?`,
+  ).get(req.session.userId);
   if (!user) return res.status(401).json({ error: 'User not found' });
-  res.json({ user });
+  res.json({ user: toUserPayload(user) });
 });
 
 module.exports = router;

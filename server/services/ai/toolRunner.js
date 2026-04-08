@@ -13,6 +13,13 @@ function shellEscape(value) {
   return `'${text.replace(/'/g, `'\\''`)}'`;
 }
 
+function clampText(value, maxChars) {
+  const text = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!text) return '';
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}...`;
+}
+
 class SkillRunner {
   constructor(options = {}) {
     this.skills = new Map();
@@ -96,18 +103,49 @@ class SkillRunner {
     };
   }
 
-  getSkillsForPrompt() {
-    const skills = Array.from(this.skills.values()).filter((skill) => skill.metadata.enabled !== false);
+  getSkillsForPrompt(options = {}) {
+    const maxTotalChars = options.maxTotalChars || 9000;
+    const maxDescriptionChars = options.maxDescriptionChars || 220;
+    const maxTriggerChars = options.maxTriggerChars || 120;
+    const skills = Array.from(this.skills.values())
+      .filter((skill) => skill.metadata.enabled !== false)
+      .sort((a, b) => {
+        const categoryCompare = String(a.metadata?.category || 'general')
+          .localeCompare(String(b.metadata?.category || 'general'));
+        return categoryCompare || a.name.localeCompare(b.name);
+      });
     if (skills.length === 0) return '';
 
-    let prompt = '\n## Available Skills\n';
+    const lines = [
+      '## Installed Skills',
+      'These are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task. For exact metadata and file paths, use `list_skills`.',
+    ];
     for (const skill of skills) {
-      prompt += `\n### ${skill.name}\n${skill.description}\n`;
-      if (skill.instructions) {
-        prompt += `${skill.instructions.slice(0, 500)}\n`;
+      const parts = [`- \`${skill.name}\``];
+      const tags = [];
+      if (skill.metadata?.category) tags.push(skill.metadata.category);
+      if (skill.metadata?.source) tags.push(skill.metadata.source);
+      if (tags.length) {
+        parts.push(`[${tags.join(' / ')}]`);
       }
+      const description = clampText(skill.description, maxDescriptionChars);
+      if (description) {
+        parts.push(description);
+      }
+      const trigger = clampText(skill.metadata?.trigger || '', maxTriggerChars);
+      if (trigger) {
+        parts.push(`Trigger: ${trigger}`);
+      }
+
+      const nextLine = parts.join(' ');
+      const candidate = `${lines.join('\n')}\n${nextLine}`;
+      if (candidate.length > maxTotalChars) {
+        lines.push(`- ...and ${skills.length - (lines.length - 2)} more skills. Use \`list_skills\` if you need the full catalog.`);
+        break;
+      }
+      lines.push(nextLine);
     }
-    return prompt;
+    return `\n${lines.join('\n')}`;
   }
 
   getToolDefinitions() {

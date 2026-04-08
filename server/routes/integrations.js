@@ -9,6 +9,10 @@ function getIntegrationManager(req) {
   return req.app?.locals?.integrationManager;
 }
 
+function getAuthProviderManager(req) {
+  return req.app?.locals?.authProviderManager;
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -31,15 +35,19 @@ router.get('/oauth/callback', async (req, res) => {
   const code = String(req.query.code || '');
   const error = String(req.query.error || '');
   const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));
+  const isAuthProviderState = state.startsWith('auth_');
 
   if (!state) return res.status(400).send('Missing state parameter');
   if (error) {
+    if (isAuthProviderState) {
+      getAuthProviderManager(req)?.failAuthorization(state, error);
+    }
     const safeError = escapeHtml(error);
     return res.status(400).send(`
       <html><body>
       <script>
         if (window.opener) {
-          window.opener.postMessage({ type: 'integration_oauth_error', error: ${JSON.stringify(error)} }, ${trustedOrigin});
+          window.opener.postMessage({ type: ${JSON.stringify(isAuthProviderState ? 'auth_oauth_error' : 'integration_oauth_error')}, error: ${JSON.stringify(error)} }, ${trustedOrigin});
           window.close();
         }
       </script>
@@ -49,6 +57,33 @@ router.get('/oauth/callback', async (req, res) => {
   }
 
   try {
+    if (isAuthProviderState) {
+      const authProviderManager = getAuthProviderManager(req);
+      if (!authProviderManager) {
+        throw new Error('Auth provider manager is not available on app.locals.authProviderManager.');
+      }
+      const result = await authProviderManager.finishAuthorization(state, code);
+      const payload = JSON.stringify({
+        type: 'auth_oauth_success',
+        provider: result.provider,
+        mode: result.action,
+        email: result.email,
+      });
+      return res.send(`
+        <html><body>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage(${payload}, ${trustedOrigin});
+            window.close();
+          } else {
+            window.location.href = '/';
+          }
+        </script>
+        <p>Authentication successful. You can close this window.</p>
+        </body></html>
+      `);
+    }
+
     const manager = getIntegrationManager(req);
     if (!manager) {
       throw new Error('Official integration manager is not available on app.locals.integrationManager.');
@@ -77,11 +112,14 @@ router.get('/oauth/callback', async (req, res) => {
   } catch (err) {
     const message = sanitizeError(err);
     const safeMessage = escapeHtml(message);
+    if (isAuthProviderState) {
+      getAuthProviderManager(req)?.failAuthorization(state, message);
+    }
     res.status(500).send(`
       <html><body>
       <script>
         if (window.opener) {
-          window.opener.postMessage({ type: 'integration_oauth_error', error: ${JSON.stringify(message)} }, ${trustedOrigin});
+          window.opener.postMessage({ type: ${JSON.stringify(isAuthProviderState ? 'auth_oauth_error' : 'integration_oauth_error')}, error: ${JSON.stringify(message)} }, ${trustedOrigin});
           window.close();
         }
       </script>

@@ -82,6 +82,27 @@ class BackendClient {
     });
   }
 
+  Future<Map<String, dynamic>> beginProviderAuth({
+    required String baseUrl,
+    required String provider,
+    required String mode,
+  }) async {
+    return postMap(baseUrl, '/api/auth/providers/$provider/begin', <String, dynamic>{
+      'mode': mode,
+    }, allowUnauthorized: mode != 'link');
+  }
+
+  Future<Map<String, dynamic>> completeProviderAuth({
+    required String baseUrl,
+    required String state,
+  }) async {
+    return getMap(
+      baseUrl,
+      '/api/auth/providers/complete?state=${Uri.encodeQueryComponent(state)}',
+      allowUnauthorized: true,
+    );
+  }
+
   Future<Map<String, dynamic>> completeTwoFactorLogin({
     required String baseUrl,
     required String code,
@@ -186,6 +207,13 @@ class BackendClient {
 
   Future<Map<String, dynamic>> fetchAccountSessions(String baseUrl) async {
     return getMap(baseUrl, '/api/account/sessions');
+  }
+
+  Future<Map<String, dynamic>> unlinkAccountProvider({
+    required String baseUrl,
+    required int providerLinkId,
+  }) async {
+    return deleteMap(baseUrl, '/api/account/providers/$providerLinkId');
   }
 
   Future<Map<String, dynamic>> revokeAccountSession(

@@ -2,16 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
-const { SkillRunner } = require('../services/ai/toolRunner');
+const {
+  getSkillRunner,
+  serializeInstalledSkill,
+  sortInstalledSkills,
+} = require('../services/skills/runtime');
 
 router.use(requireAuth);
-
-async function getSkillRunner(app) {
-  if (app.locals?.skillRunner) return app.locals.skillRunner;
-  const runner = new SkillRunner();
-  await runner.loadSkills();
-  return runner;
-}
 
 function parseSkillDocument(content) {
   const match = String(content || '').match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -52,21 +49,8 @@ function parseSkillDocument(content) {
 router.get('/', async (req, res) => {
   try {
     const runner = await getSkillRunner(req.app);
-    const skills = runner.getAll().map((skill) => ({
-      name: skill.name,
-      description: skill.description,
-      enabled: skill.enabled,
-      draft: skill.metadata?.draft === true,
-      category: skill.metadata?.category || 'general',
-      trigger: skill.metadata?.trigger || '',
-      source: skill.metadata?.source || 'local',
-      autoCreated: skill.metadata?.auto_created === true,
-      filePath: skill.filePath
-    }));
-    res.json(skills.sort((a, b) => {
-      if (a.draft !== b.draft) return a.draft ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    }));
+    const skills = runner.getAll().map(serializeInstalledSkill);
+    res.json(skills.sort(sortInstalledSkills));
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }

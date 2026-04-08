@@ -355,7 +355,14 @@ class AgentEngine {
     const { buildSystemPrompt } = require('./systemPrompt');
     const { MemoryManager } = require('../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
-    return buildSystemPrompt(userId, context, memoryManager);
+    const basePrompt = await buildSystemPrompt(userId, context, memoryManager);
+    const skillRunner = context.skillRunner || this.skillRunner || null;
+    const skillsPrompt = skillRunner?.getSkillsForPrompt?.({
+      maxTotalChars: 9000,
+      maxDescriptionChars: 180,
+      maxTriggerChars: 100,
+    }) || '';
+    return [basePrompt, skillsPrompt].filter(Boolean).join('\n\n');
   }
 
   persistRunMetadata(runId, patch = {}) {

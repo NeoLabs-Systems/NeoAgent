@@ -66,43 +66,43 @@ class _NeoAgentPalette {
 }
 
 const _NeoAgentPalette _darkPalette = _NeoAgentPalette(
-  bgPrimary: Color(0xFF05080D),
-  bgSecondary: Color(0xFF0B1117),
-  bgTertiary: Color(0xFF111827),
-  bgCard: Color(0xFF151C24),
-  textPrimary: Color(0xFFE6F1F5),
-  textSecondary: Color(0xFF8EA3AD),
-  textMuted: Color(0xFF51616B),
-  accent: Color(0xFF14B8A6),
-  accentHover: Color(0xFF2DD4BF),
-  accentAlt: Color(0xFF38BDF8),
-  accentMuted: Color(0x2614B8A6),
-  border: Color(0x12FFFFFF),
-  borderLight: Color(0x22FFFFFF),
-  success: Color(0xFF22C55E),
-  warning: Color(0xFFF59E0B),
-  danger: Color(0xFFEF4444),
-  info: Color(0xFF38BDF8),
+  bgPrimary: Color(0xFF071015),
+  bgSecondary: Color(0xFF0E171E),
+  bgTertiary: Color(0xFF15232B),
+  bgCard: Color(0xFF131E25),
+  textPrimary: Color(0xFFF5EFE4),
+  textSecondary: Color(0xFFB4B3AE),
+  textMuted: Color(0xFF7E8B93),
+  accent: Color(0xFFC7A36A),
+  accentHover: Color(0xFFE4C58D),
+  accentAlt: Color(0xFF5FA897),
+  accentMuted: Color(0x24C7A36A),
+  border: Color(0x204F626E),
+  borderLight: Color(0x30667A86),
+  success: Color(0xFF37B67E),
+  warning: Color(0xFFD49A43),
+  danger: Color(0xFFE26E61),
+  info: Color(0xFF74A8D9),
 );
 
 const _NeoAgentPalette _lightPalette = _NeoAgentPalette(
-  bgPrimary: Color(0xFFFFFFFF),
-  bgSecondary: Color(0xFFF1F5F9),
-  bgTertiary: Color(0xFFE2E8F0),
-  bgCard: Color(0xFFFFFFFF),
-  textPrimary: Color(0xFF0F172A),
-  textSecondary: Color(0xFF475569),
-  textMuted: Color(0xFF94A3B8),
-  accent: Color(0xFF0F766E),
-  accentHover: Color(0xFF0D9488),
-  accentAlt: Color(0xFF0284C7),
-  accentMuted: Color(0x1F0F766E),
-  border: Color(0x1F0F172A),
-  borderLight: Color(0x330F172A),
-  success: Color(0xFF15803D),
-  warning: Color(0xFFB45309),
-  danger: Color(0xFFDC2626),
-  info: Color(0xFF0284C7),
+  bgPrimary: Color(0xFFF6F1E8),
+  bgSecondary: Color(0xFFF0E7DA),
+  bgTertiary: Color(0xFFE3D7C7),
+  bgCard: Color(0xFFFFFCF7),
+  textPrimary: Color(0xFF211B16),
+  textSecondary: Color(0xFF5E584F),
+  textMuted: Color(0xFF998D7E),
+  accent: Color(0xFF8F6D3E),
+  accentHover: Color(0xFFAF8750),
+  accentAlt: Color(0xFF2F7D6E),
+  accentMuted: Color(0x1F8F6D3E),
+  border: Color(0x1F3C3227),
+  borderLight: Color(0x333C3227),
+  success: Color(0xFF1F8C58),
+  warning: Color(0xFFB87322),
+  danger: Color(0xFFD25B4D),
+  info: Color(0xFF2F7AA8),
 );
 
 _NeoAgentPalette get _palette =>
@@ -128,6 +128,53 @@ Color get _success => _palette.success;
 Color get _warning => _palette.warning;
 Color get _danger => _palette.danger;
 Color get _info => _palette.info;
+
+LinearGradient get _appBackgroundGradient => LinearGradient(
+  colors: <Color>[
+    _bgPrimary,
+    _bgSecondary.withValues(alpha: 0.96),
+    _bgPrimary,
+  ],
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+);
+
+LinearGradient get _panelGradient => LinearGradient(
+  colors: <Color>[
+    _bgCard.withValues(alpha: 0.96),
+    _bgSecondary.withValues(alpha: 0.92),
+  ],
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+);
+
+List<BoxShadow> get _softPanelShadow => <BoxShadow>[
+  BoxShadow(
+    color: Colors.black.withValues(alpha: 0.16),
+    blurRadius: 40,
+    offset: const Offset(0, 16),
+  ),
+  BoxShadow(
+    color: _accent.withValues(alpha: 0.05),
+    blurRadius: 28,
+    offset: const Offset(0, 6),
+  ),
+];
+
+TextStyle _displayTitleStyle([double size = 28]) => GoogleFonts.spaceGrotesk(
+  fontSize: size,
+  fontWeight: FontWeight.w700,
+  height: 1.05,
+  letterSpacing: -0.6,
+  color: _textPrimary,
+);
+
+TextStyle _sectionEyebrowStyle() => GoogleFonts.spaceGrotesk(
+  fontSize: 11,
+  fontWeight: FontWeight.w700,
+  letterSpacing: 1.6,
+  color: _accentHover,
+);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -375,51 +422,112 @@ ThemeData _buildNeoAgentTheme(_NeoAgentPalette palette, Brightness brightness) {
       onSurface: palette.textPrimary,
       error: palette.danger,
     ),
-    textTheme: GoogleFonts.interTextTheme(
+    textTheme: GoogleFonts.manropeTextTheme(
       base.textTheme,
     ).apply(bodyColor: palette.textPrimary, displayColor: palette.textPrimary),
     cardTheme: CardThemeData(
-      color: palette.bgCard,
-      elevation: 0,
+      color: palette.bgCard.withValues(alpha: brightness == Brightness.dark ? 0.9 : 0.94),
+      shadowColor: Colors.black.withValues(
+        alpha: brightness == Brightness.dark ? 0.24 : 0.08,
+      ),
+      surfaceTintColor: Colors.transparent,
+      elevation: brightness == Brightness.dark ? 8 : 3,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: palette.border),
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: palette.borderLight),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: palette.bgSecondary,
+      fillColor: palette.bgSecondary.withValues(
+        alpha: brightness == Brightness.dark ? 0.76 : 0.68,
+      ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(color: palette.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(color: palette.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: palette.accent),
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(color: palette.accent, width: 1.4),
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       labelStyle: TextStyle(
         color: palette.textSecondary,
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: FontWeight.w600,
+        letterSpacing: 0.15,
       ),
       hintStyle: TextStyle(color: palette.textMuted),
     ),
     dividerColor: palette.border,
     iconTheme: IconThemeData(color: palette.textSecondary),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: palette.accent,
+        foregroundColor: brightness == Brightness.dark
+            ? palette.bgPrimary
+            : Colors.white,
+        disabledBackgroundColor: palette.bgTertiary,
+        disabledForegroundColor: palette.textMuted,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        textStyle: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.15,
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: palette.textPrimary,
+        side: BorderSide(color: palette.borderLight),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        textStyle: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: palette.accentHover,
+        textStyle: GoogleFonts.manrope(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.15,
+        ),
+      ),
+    ),
     appBarTheme: AppBarTheme(
-      backgroundColor: palette.bgPrimary,
+      backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       foregroundColor: palette.textPrimary,
       elevation: 0,
-      titleTextStyle: GoogleFonts.inter(
+      titleTextStyle: GoogleFonts.spaceGrotesk(
         color: palette.textPrimary,
         fontSize: 18,
         fontWeight: FontWeight.w700,
+        letterSpacing: -0.2,
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: palette.bgCard.withValues(alpha: 0.96),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: palette.borderLight),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
@@ -513,6 +621,10 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic>? user;
   Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
   List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
+  List<AuthProviderCatalogItem> authProviders =
+      const <AuthProviderCatalogItem>[];
+  List<LinkedAuthProviderItem> linkedAuthProviders =
+      const <LinkedAuthProviderItem>[];
   Map<String, dynamic> settings = const <String, dynamic>{};
   Map<String, dynamic>? versionInfo;
   Map<String, dynamic>? backendHealthStatus;
@@ -789,6 +901,11 @@ class NeoAgentController extends ChangeNotifier {
           (status['email'] is Map &&
           (status['email'] as Map)['configured'] == true);
       deploymentProfile = status['deploymentProfile']?.toString() ?? 'private';
+      authProviders =
+          (status['providers'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map(AuthProviderCatalogItem.fromJson)
+              .toList();
 
       final me = await _backendClient.getCurrentUser(backendUrl);
       if (me != null && me['user'] is Map<String, dynamic>) {
@@ -824,6 +941,63 @@ class NeoAgentController extends ChangeNotifier {
     this.email = email.trim();
     this.password = password;
     await _authenticate(register: true);
+  }
+
+  Future<void> authenticateWithProvider({
+    required String provider,
+    required bool register,
+  }) async {
+    isAuthenticating = true;
+    errorMessage = null;
+    authInfoMessage = null;
+    notifyListeners();
+
+    try {
+      final begin = await _backendClient.beginProviderAuth(
+        baseUrl: backendUrl,
+        provider: provider,
+        mode: register ? 'register' : 'login',
+      );
+      final url = begin['url']?.toString();
+      final state = begin['state']?.toString();
+      if (url == null || state == null || url.isEmpty || state.isEmpty) {
+        throw Exception('Provider sign-in could not be started.');
+      }
+      final launchResult = await _oauthLauncher.launch(
+        url: url,
+        provider: provider,
+      );
+      if (!launchResult.launched) {
+        throw Exception(launchResult.error ?? 'Could not open the provider sign-in page.');
+      }
+      final response = await _pollForProviderAuthCompletion(state);
+      if (response['requiresTwoFactor'] == true) {
+        final responseUser =
+            response['user'] as Map<dynamic, dynamic>? ?? const <dynamic, dynamic>{};
+        pendingTwoFactorUsername = responseUser['username']?.toString() ?? '';
+        isAwaitingTwoFactor = true;
+        isAuthenticated = false;
+        password = '';
+        await _persistCredentials();
+        return;
+      }
+      user = Map<String, dynamic>.from(
+        response['user'] as Map<dynamic, dynamic>? ?? const <String, dynamic>{},
+      );
+      hasUser = true;
+      isAuthenticated = true;
+      isAwaitingTwoFactor = false;
+      pendingTwoFactorUsername = '';
+      password = '';
+      await _persistCredentials();
+      await refresh();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      isAuthenticated = false;
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
   }
 
   Future<void> completeTwoFactorLogin({required String code}) async {
@@ -992,6 +1166,7 @@ class NeoAgentController extends ChangeNotifier {
     user = null;
     accountTwoFactor = const <String, dynamic>{};
     accountSessions = const <AccountSessionItem>[];
+    linkedAuthProviders = const <LinkedAuthProviderItem>[];
     settings = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
     agentProfiles = const <AgentProfile>[];
@@ -1169,6 +1344,26 @@ class NeoAgentController extends ChangeNotifier {
     errorMessage = message;
     authInfoMessage = null;
     notifyListeners();
+  }
+
+  Future<Map<String, dynamic>> _pollForProviderAuthCompletion(
+    String state,
+  ) async {
+    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    while (DateTime.now().isBefore(deadline)) {
+      final response = await _backendClient.completeProviderAuth(
+        baseUrl: backendUrl,
+        state: state,
+      );
+      if (response['status']?.toString() == 'pending') {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        continue;
+      }
+      return response;
+    }
+    throw Exception(
+      'Authentication is still pending. Finish the browser flow and try again.',
+    );
   }
 
   void clearLogs() {
@@ -2546,6 +2741,13 @@ class NeoAgentController extends ChangeNotifier {
           .map(AccountSessionItem.fromJson)
           .toList();
     }
+    final authProviderRows = response['authProviders'];
+    if (authProviderRows is List) {
+      linkedAuthProviders = authProviderRows
+          .whereType<Map<dynamic, dynamic>>()
+          .map(LinkedAuthProviderItem.fromJson)
+          .toList();
+    }
   }
 
   Future<void> refreshAccountSettings() async {
@@ -2611,6 +2813,57 @@ class NeoAgentController extends ChangeNotifier {
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       return false;
+    } finally {
+      isSavingAccountSettings = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> linkAccountProvider(String provider) async {
+    isSavingAccountSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final begin = await _backendClient.beginProviderAuth(
+        baseUrl: backendUrl,
+        provider: provider,
+        mode: 'link',
+      );
+      final url = begin['url']?.toString();
+      final state = begin['state']?.toString();
+      if (url == null || state == null || url.isEmpty || state.isEmpty) {
+        throw Exception('Provider linking could not be started.');
+      }
+      final launchResult = await _oauthLauncher.launch(
+        url: url,
+        provider: provider,
+      );
+      if (!launchResult.launched) {
+        throw Exception(launchResult.error ?? 'Could not open the provider linking page.');
+      }
+      await _pollForProviderAuthCompletion(state);
+      await refreshAccountSettings();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingAccountSettings = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> unlinkAccountProvider(int providerLinkId) async {
+    isSavingAccountSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.unlinkAccountProvider(
+          baseUrl: backendUrl,
+          providerLinkId: providerLinkId,
+        ),
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
     } finally {
       isSavingAccountSettings = false;
       notifyListeners();
@@ -3392,6 +3645,9 @@ class NeoAgentController extends ChangeNotifier {
     if (lower.contains('password min 8')) {
       return 'Use a password with at least 8 characters.';
     }
+    if (lower.contains('password is too weak')) {
+      return text;
+    }
     if (lower.contains('invalid 2fa') || lower.contains('two-factor code')) {
       return 'The two-factor code is not valid.';
     }
@@ -3414,6 +3670,19 @@ class NeoAgentController extends ChangeNotifier {
     }
     if (lower.contains('not authenticated')) {
       return 'Your session expired. Please sign in again.';
+    }
+    if (lower.contains('no neoagent account is linked to this provider')) {
+      return 'This Google account is not linked yet. Use provider registration first, or sign in normally and link it from account settings.';
+    }
+    if (lower.contains('already belongs to an existing account')) {
+      return 'That email already belongs to an existing account. Sign in first, then link Google from account settings.';
+    }
+    if (lower.contains('already linked to another neoagent account') ||
+        lower.contains('already linked to another account')) {
+      return 'That Google account is already linked to a different NeoAgent account.';
+    }
+    if (lower.contains('create a password or link another provider before removing this sign-in method')) {
+      return 'Add another sign-in method before removing this one.';
     }
     if (lower.contains('unable to locate a java runtime') ||
         lower.contains('java runtime')) {
@@ -10222,6 +10491,151 @@ class _RunDetailBlock extends StatelessWidget {
   }
 }
 
+class _PasswordStrengthInfo {
+  const _PasswordStrengthInfo({
+    required this.score,
+    required this.label,
+    required this.message,
+    required this.color,
+  });
+
+  final int score;
+  final String label;
+  final String message;
+  final Color color;
+}
+
+_PasswordStrengthInfo _passwordStrengthInfo({
+  required String password,
+  String username = '',
+  String email = '',
+}) {
+  final value = password.trim();
+  if (value.isEmpty) {
+    return _PasswordStrengthInfo(
+      score: 0,
+      label: 'Empty',
+      message: 'Use 8+ characters. Longer passphrases work well.',
+      color: _borderLight,
+    );
+  }
+  final lower = RegExp(r'[a-z]').hasMatch(value);
+  final upper = RegExp(r'[A-Z]').hasMatch(value);
+  final digits = RegExp(r'[0-9]').hasMatch(value);
+  final symbols = RegExp(r'[^A-Za-z0-9]').hasMatch(value);
+  final variety = <bool>[lower, upper, digits, symbols].where((item) => item).length;
+  final normalized = value.toLowerCase();
+  final userHints = <String>{
+    username.trim().toLowerCase(),
+    email.trim().toLowerCase(),
+    email.trim().toLowerCase().split('@').first,
+  }.where((item) => item.length >= 3);
+  final containsUserInfo = userHints.any(normalized.contains);
+  final obviousPattern =
+      RegExp(r'(.)\1\1').hasMatch(value) ||
+      normalized.contains('password') ||
+      normalized.contains('1234') ||
+      normalized.contains('qwerty');
+
+  var score = 0;
+  if (value.length >= 8) score += 1;
+  if (value.length >= 12) score += 1;
+  if (variety >= 3) score += 1;
+  if (variety == 4 || value.length >= 16) score += 1;
+  if (containsUserInfo || obviousPattern) score -= 1;
+  score = score.clamp(0, 4);
+
+  if (value.length < 8) {
+    return _PasswordStrengthInfo(
+      score: 1,
+      label: 'Weak',
+      message: 'Use at least 8 characters.',
+      color: _danger,
+    );
+  }
+  if (containsUserInfo) {
+    return _PasswordStrengthInfo(
+      score: 2,
+      label: 'Fair',
+      message: 'Do not include your username or email.',
+      color: _warning,
+    );
+  }
+  if (obviousPattern) {
+    return _PasswordStrengthInfo(
+      score: 2,
+      label: 'Fair',
+      message: 'Avoid repeated characters and obvious sequences.',
+      color: _warning,
+    );
+  }
+  if (score >= 4) {
+    return _PasswordStrengthInfo(
+      score: 4,
+      label: 'Strong',
+      message: 'Strong password.',
+      color: _success,
+    );
+  }
+  if (score >= 3) {
+    return _PasswordStrengthInfo(
+      score: 3,
+      label: 'Good',
+      message: 'Good password. A little more length makes it stronger.',
+      color: _success,
+    );
+  }
+  return _PasswordStrengthInfo(
+    score: 2,
+    label: 'Fair',
+    message: 'Add more length or another character type.',
+    color: _warning,
+  );
+}
+
+class _PasswordStrengthIndicator extends StatelessWidget {
+  const _PasswordStrengthIndicator({required this.info});
+
+  final _PasswordStrengthInfo info;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Text(
+              'Password strength: ${info.label}',
+              style: TextStyle(
+                color: info.color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  minHeight: 8,
+                  value: info.score / 4,
+                  backgroundColor: _borderLight,
+                  valueColor: AlwaysStoppedAnimation<Color>(info.color),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          info.message,
+          style: TextStyle(color: _textSecondary, fontSize: 12, height: 1.35),
+        ),
+      ],
+    );
+  }
+}
+
 enum AccountSettingsTab { account, security }
 
 class AccountSettingsPanel extends StatefulWidget {
@@ -10367,6 +10781,16 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     final username = controller.user?['username']?.toString() ?? 'Account';
     final currentEmail =
         controller.user?['email']?.toString() ?? 'No email linked';
+    final hasPassword = controller.user?['hasPassword'] == true;
+    final availableProviders = controller.authProviders
+        .where((provider) => provider.configured)
+        .toList();
+    final linkedProviderKeys = controller.linkedAuthProviders
+        .map((provider) => provider.provider)
+        .toSet();
+    final linkableProviders = availableProviders
+        .where((provider) => !linkedProviderKeys.contains(provider.id))
+        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -10385,9 +10809,12 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         TextField(
           controller: _emailPasswordController,
           obscureText: true,
-          decoration: const InputDecoration(
+          enabled: hasPassword,
+          decoration: InputDecoration(
             labelText: 'Current password',
-            helperText: 'Required to add or change your account email.',
+            helperText: hasPassword
+                ? 'Required to add or change your account email.'
+                : 'Create a password first to change your account email.',
           ),
         ),
         if (_emailInlineError != null) ...<Widget>[
@@ -10400,7 +10827,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         ],
         const SizedBox(height: 14),
         FilledButton.icon(
-          onPressed: controller.isSavingAccountSettings
+          onPressed: controller.isSavingAccountSettings || !hasPassword
               ? null
               : () async {
                   setState(() {
@@ -10434,6 +10861,84 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               : Icon(Icons.save_outlined),
           label: Text('Save email'),
         ),
+        const SizedBox(height: 28),
+        Row(
+          children: <Widget>[
+            const Expanded(child: _SectionTitle('Linked sign-in providers')),
+            if (controller.linkedAuthProviders.isNotEmpty)
+              Text(
+                '${controller.linkedAuthProviders.length} linked',
+                style: TextStyle(color: _textSecondary),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (controller.linkedAuthProviders.isEmpty)
+          Text(
+            'No external sign-in providers linked.',
+            style: TextStyle(color: _textSecondary),
+          )
+        else
+          ...controller.linkedAuthProviders.map(
+            (provider) => Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: provider.icon == 'google'
+                    ? const CircleAvatar(
+                        backgroundColor: Color(0x1A4285F4),
+                        child: Text(
+                          'G',
+                          style: TextStyle(
+                            color: Color(0xFF4285F4),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      )
+                    : const CircleAvatar(child: Icon(Icons.link)),
+                title: Text(provider.label),
+                subtitle: Text(
+                  provider.email.isNotEmpty
+                      ? '${provider.email}\nLast used: ${provider.lastUsedLabel}'
+                      : 'Last used: ${provider.lastUsedLabel}',
+                ),
+                isThreeLine: provider.email.isNotEmpty,
+                trailing: TextButton(
+                  onPressed: controller.isSavingAccountSettings ||
+                          !provider.canUnlink
+                      ? null
+                      : () => controller.unlinkAccountProvider(provider.id),
+                  child: const Text('Unlink'),
+                ),
+              ),
+            ),
+          ),
+        if (linkableProviders.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: linkableProviders
+                .map(
+                  (provider) => OutlinedButton.icon(
+                    onPressed: controller.isSavingAccountSettings
+                        ? null
+                        : () => controller.linkAccountProvider(provider.id),
+                    icon: provider.icon == 'google'
+                        ? const Text(
+                            'G',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF4285F4),
+                            ),
+                          )
+                        : const Icon(Icons.link),
+                    label: Text('Link ${provider.label}'),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
       ],
     );
   }
@@ -10504,27 +11009,49 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
 
   Widget _buildPasswordPanel() {
     final controller = widget.controller;
+    final hasPassword = controller.user?['hasPassword'] == true;
+    final strength = _passwordStrengthInfo(
+      password: _newPasswordController.text,
+      username: controller.user?['username']?.toString() ?? '',
+      email: controller.user?['email']?.toString() ?? '',
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         const _SectionTitle('Password'),
         const SizedBox(height: 12),
-        TextField(
-          controller: _currentPasswordController,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'Current password'),
-        ),
-        const SizedBox(height: 12),
+        if (hasPassword) ...<Widget>[
+          TextField(
+            controller: _currentPasswordController,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Current password'),
+          ),
+          const SizedBox(height: 12),
+        ] else ...<Widget>[
+          Text(
+            'No local password is set yet. Create one to enable username/password sign-in.',
+            style: TextStyle(color: _textSecondary, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           controller: _newPasswordController,
+          onChanged: (_) => setState(() {}),
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'New password'),
+          decoration: InputDecoration(
+            labelText: hasPassword ? 'New password' : 'Create password',
+          ),
         ),
+        const SizedBox(height: 10),
+        _PasswordStrengthIndicator(info: strength),
         const SizedBox(height: 12),
         TextField(
           controller: _confirmNewPasswordController,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Confirm new password'),
+          decoration: InputDecoration(
+            labelText:
+                hasPassword ? 'Confirm new password' : 'Confirm password',
+          ),
         ),
         if (_passwordInlineError != null) ...<Widget>[
           const SizedBox(height: 10),
@@ -10543,7 +11070,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                     _passwordInlineError = null;
                     _passwordSuccessMessage = null;
                   });
-                  if (_currentPasswordController.text.isEmpty) {
+                  if (hasPassword &&
+                      _currentPasswordController.text.isEmpty) {
                     setState(() {
                       _passwordInlineError =
                           'Enter your current password to change it.';
@@ -10573,7 +11101,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                       _currentPasswordController.clear();
                       _newPasswordController.clear();
                       _confirmNewPasswordController.clear();
-                      _passwordSuccessMessage = 'Password changed.';
+                      _passwordSuccessMessage =
+                          hasPassword ? 'Password changed.' : 'Password created.';
                     });
                   }
                 },
@@ -10583,7 +11112,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Icon(Icons.password_outlined),
-          label: Text('Change password'),
+          label: Text(hasPassword ? 'Change password' : 'Create password'),
         ),
       ],
     );

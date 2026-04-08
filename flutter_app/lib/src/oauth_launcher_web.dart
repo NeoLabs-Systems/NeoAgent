@@ -40,9 +40,9 @@ class _WebOAuthLauncher extends OAuthLauncher {
       final type = data['type']?.toString();
       final incomingProvider = data['provider']?.toString();
       if (incomingProvider != null && incomingProvider != provider) return;
-      if (type == 'integration_oauth_success') {
+      if (type == 'integration_oauth_success' || type == 'auth_oauth_success') {
         finish(const OAuthLaunchResult(launched: true, completed: true));
-      } else if (type == 'integration_oauth_error') {
+      } else if (type == 'integration_oauth_error' || type == 'auth_oauth_error') {
         finish(
           OAuthLaunchResult(
             launched: true,

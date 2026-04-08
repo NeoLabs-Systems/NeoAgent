@@ -9,6 +9,10 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { requireValidEmail } = require('../services/account/email');
 const {
+  evaluatePasswordStrength,
+  passwordStrengthError,
+} = require('../services/account/password_policy');
+const {
   beginSetup,
   disable,
   enable,
@@ -41,14 +45,36 @@ const accountLimiter = rateLimit({
 
 router.use(requireAuth);
 
+function getAuthProviderManager(req) {
+  return req.app?.locals?.authProviderManager;
+}
+
 function accountPayload(req) {
   recordCurrentSession(req, req.session.userId);
   const user = db
-    .prepare('SELECT id, username, email, email_verified_at, created_at, last_login FROM users WHERE id = ?')
+    .prepare(
+      `SELECT id, username, email, email_verified_at, created_at, last_login, password_login_enabled
+       FROM users
+       WHERE id = ?`,
+    )
     .get(req.session.userId);
+  const authProviderManager = getAuthProviderManager(req);
   return {
-    user,
+    user: user
+      ? {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          email_verified_at: user.email_verified_at,
+          created_at: user.created_at,
+          last_login: user.last_login,
+          hasPassword: Number(user.password_login_enabled || 0) === 1,
+        }
+      : null,
     twoFactor: getTwoFactorStatus(req.session.userId),
+    authProviders: authProviderManager
+      ? authProviderManager.listUserProviders(req.session.userId)
+      : [],
   };
 }
 
@@ -120,15 +146,29 @@ router.put('/password', accountLimiter, async (req, res) => {
   try {
     const currentPassword = String(req.body?.currentPassword || '');
     const nextPassword = String(req.body?.newPassword || '');
-    if (nextPassword.length < 8) {
+    const user = db
+      .prepare('SELECT id, username, email, password_login_enabled FROM users WHERE id = ?')
+      .get(req.session.userId);
+    const passwordStrength = evaluatePasswordStrength(nextPassword, {
+      username: user?.username,
+      email: user?.email,
+    });
+    if (!passwordStrength.hasMinimumLength) {
       return res.status(400).json({ error: 'Password min 8 chars' });
     }
-    await verifyCurrentPassword(req.session.userId, currentPassword);
+    if (!passwordStrength.isAcceptable) {
+      return res.status(400).json({ error: passwordStrengthError(passwordStrength) });
+    }
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (Number(user.password_login_enabled || 0) === 1) {
+      await verifyCurrentPassword(req.session.userId, currentPassword);
+    }
     const hash = await bcrypt.hash(nextPassword, 12);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, req.session.userId);
-    const user = db
-      .prepare('SELECT id, username, email FROM users WHERE id = ?')
-      .get(req.session.userId);
+    db.prepare(
+      'UPDATE users SET password = ?, password_login_enabled = 1 WHERE id = ?',
+    ).run(hash, req.session.userId);
     res.json(accountPayload(req));
     if (user) {
       sendPasswordChangedNotice(user).catch((noticeError) => {
@@ -200,6 +240,19 @@ router.delete('/sessions/:id', accountLimiter, (req, res) => {
       ...revokeSession(req, req.session.userId, id),
       sessions: listSessions(req, req.session.userId),
     });
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.delete('/providers/:id', accountLimiter, (req, res) => {
+  try {
+    const authProviderManager = getAuthProviderManager(req);
+    if (!authProviderManager) {
+      throw new Error('Provider linking is not available.');
+    }
+    authProviderManager.unlinkProvider(req.session.userId, req.params.id);
+    res.json(accountPayload(req));
   } catch (err) {
     sendRouteError(res, err);
   }
