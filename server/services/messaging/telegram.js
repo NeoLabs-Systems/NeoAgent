@@ -31,6 +31,7 @@ class TelegramPlatform extends BasePlatform {
     }
 
     this._bot = new Telegraf(this.botToken);
+    this.status = 'connecting';
     this._bot.on('message', (ctx) => {
       this._handleMessage(ctx).catch((err) => {
         console.error('[Telegram] Message handler error:', err.message);
@@ -44,26 +45,39 @@ class TelegramPlatform extends BasePlatform {
       }
     });
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Telegram login timed out after 20 s')), 20000);
-
-      Promise.all([
-        this._bot.telegram.getMe(),
-        this._bot.launch({ dropPendingUpdates: false }),
-      ])
-        .then(([me]) => {
+    const withTimeout = (promise, label) => new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error(`${label} timed out after 20 s`)), 20000);
+      promise
+        .then((value) => {
           clearTimeout(timeout);
-          this._botUser = me;
-          this.status = 'connected';
-          console.log(`[Telegram] Logged in as @${me.username} (${me.id})`);
-          this.emit('connected');
-          resolve({ status: 'connected' });
+          resolve(value);
         })
         .catch((err) => {
           clearTimeout(timeout);
           reject(err);
         });
     });
+
+    try {
+      const me = await withTimeout(this._bot.telegram.getMe(), 'Telegram login');
+      this._botUser = me;
+      this.status = 'connected';
+      console.log(`[Telegram] Logged in as @${me.username} (${me.id})`);
+      this.emit('connected');
+      this._bot.launch({ dropPendingUpdates: false }).catch((err) => {
+        this.status = 'error';
+        this.emit('error', { message: err.message || 'Telegram polling failed' });
+        console.error('[Telegram] Launch failed:', err.message);
+      });
+      return { status: 'connected' };
+    } catch (err) {
+      this.status = 'error';
+      try {
+        await Promise.resolve(this._bot.stop('connect_failed'));
+      } catch {}
+      this._bot = null;
+      throw err;
+    }
   }
 
   async disconnect() {
@@ -132,6 +146,10 @@ class TelegramPlatform extends BasePlatform {
     const msg = ctx?.message;
     if (!msg) return;
     if (!msg.from || msg.from.is_bot) return;
+    if (this._bot && this.status === 'connecting') {
+      this.status = 'connected';
+      this.emit('connected');
+    }
 
     const isPrivate = msg.chat.type === 'private';
     const userId = String(msg.from.id);
@@ -199,7 +217,9 @@ class TelegramPlatform extends BasePlatform {
   }
 
   async sendMessage(to, content, _options = {}) {
-    if (!this._bot || this.status !== 'connected') throw new Error('Telegram not connected');
+    if (!this._bot || this.status === 'disconnected' || this.status === 'error') {
+      throw new Error('Telegram not connected');
+    }
 
     const telegramChatId = to.startsWith('dm_') ? to.slice(3) : to;
     await this._bot.telegram.sendMessage(telegramChatId, content);

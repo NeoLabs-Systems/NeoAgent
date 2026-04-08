@@ -1,5 +1,8 @@
 const db = require('../../db/database');
+const fs = require('fs');
+const path = require('path');
 const { randomUUID } = require('crypto');
+const { AGENT_DATA_DIR, DATA_DIR } = require('../../../runtime/paths');
 const { resolveAgentId } = require('../agents/manager');
 const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
@@ -40,6 +43,8 @@ const GENERIC_ALLOWLIST_PLATFORMS = new Set([
   'wechat',
   'webchat',
 ]);
+
+const LEGACY_WHATSAPP_AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 
 class IrcMessagingPlatform extends IrcPlatform {
   constructor(config = {}) { super('irc', config); }
@@ -112,10 +117,42 @@ class MessagingManager {
       .get(userId, key);
   }
 
+  _scopedPlatformAuthDir(userId, agentId, platformName) {
+    return path.join(
+      AGENT_DATA_DIR,
+      'messaging-auth',
+      String(userId),
+      String(agentId || 'main'),
+      String(platformName || 'unknown'),
+    );
+  }
+
+  _maybeMigrateLegacyWhatsAppAuth(scopedAuthDir) {
+    if (!fs.existsSync(LEGACY_WHATSAPP_AUTH_DIR) || fs.existsSync(scopedAuthDir)) {
+      return;
+    }
+    try {
+      fs.mkdirSync(path.dirname(scopedAuthDir), { recursive: true });
+      fs.cpSync(LEGACY_WHATSAPP_AUTH_DIR, scopedAuthDir, {
+        recursive: true,
+        force: false,
+        errorOnExist: false,
+      });
+    } catch (err) {
+      console.warn('[Messaging] Failed to copy legacy WhatsApp auth into agent-scoped storage:', err.message);
+    }
+  }
+
   async connectPlatform(userId, platformName, config = {}, options = {}) {
     const agentId = this._agentId(userId, options);
+    config = { ...(config || {}) };
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
+
+    if (platformName === 'whatsapp' && !config.authDir) {
+      config.authDir = this._scopedPlatformAuthDir(userId, agentId, platformName);
+      this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
+    }
 
     // For Telnyx, inject saved whitelist and voice secret into config before constructing
     if (platformName === 'telnyx') {
