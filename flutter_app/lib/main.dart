@@ -10668,7 +10668,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         _PageTitle(
           title: 'Settings',
           subtitle:
-              'Configure model access, routing, runtime behavior, and deployment controls from one place.',
+              'Configure model access, routing, and runtime behavior from one place.',
           trailing: FilledButton.icon(
             onPressed: controller.isSavingSettings
                 ? null
@@ -10767,101 +10767,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       );
                     },
                   ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Deployment'),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    _StatusPill(
-                      label: controller.updateStatus.deploymentProfileLabel,
-                      color: controller.updateStatus.deploymentProfile == 'prod'
-                          ? _accent
-                          : _warning,
-                    ),
-                    _StatusPill(
-                      label: controller.updateStatus.runtimeValidationLabel,
-                      color: controller.updateStatus.runtimeValidationColor,
-                    ),
-                    if ((controller.updateStatus.runtimeAcceleration
-                            ?.trim()
-                            .isNotEmpty ??
-                        false))
-                      _StatusPill(
-                        label: controller.updateStatus.runtimeAcceleration!
-                            .toUpperCase(),
-                        color: _info,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  controller.updateStatus.runtimeModeLabel,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  controller.updateStatus.deploymentProfile == 'prod'
-                      ? 'This deployment is configured for multi-user isolated execution. Browser, CLI, and Android actions stay inside per-user VMs.'
-                      : 'This deployment is configured for trusted host execution. Browser, CLI, and Android actions can run directly on the local machine.',
-                  style: const TextStyle(color: _textSecondary, height: 1.4),
-                ),
-                if (controller
-                    .updateStatus
-                    .runtimeValidationIssues
-                    .isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _danger.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: _danger.withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        const Text(
-                          'Operator action required',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: _danger,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ...controller.updateStatus.runtimeValidationIssues.map(
-                          (issue) => Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text(
-                              '• $issue',
-                              style: const TextStyle(
-                                color: _textSecondary,
-                                height: 1.35,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
