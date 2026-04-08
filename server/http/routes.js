@@ -19,6 +19,7 @@ const routeRegistry = [
   { basePath: '/api/memory', modulePath: '../routes/memory' },
   { basePath: '/api/scheduler', modulePath: '../routes/scheduler' },
   { basePath: '/api/browser', modulePath: '../routes/browser' },
+  { basePath: '/api/browser-extension', modulePath: '../routes/browser_extension' },
   { basePath: '/api/android', modulePath: '../routes/android' },
   { basePath: '/api/recordings', modulePath: '../routes/recordings' },
   { basePath: '/api/wearables', modulePath: '../routes/wearables' },

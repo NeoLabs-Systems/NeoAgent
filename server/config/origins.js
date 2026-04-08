@@ -14,10 +14,19 @@ function isLoopbackOrigin(origin) {
   }
 }
 
+function isChromeExtensionOrigin(origin) {
+  try {
+    return new URL(origin).protocol === 'chrome-extension:';
+  } catch {
+    return false;
+  }
+}
+
 function isAllowedOrigin(origin) {
   if (!origin) return true;
   if (configuredOrigins.includes(origin)) return true;
   if (isLoopbackOrigin(origin)) return true;
+  if (isChromeExtensionOrigin(origin)) return true;
   return false;
 }
 
@@ -28,6 +37,7 @@ function validateOrigin(origin, callback) {
 
 module.exports = {
   configuredOrigins,
+  isChromeExtensionOrigin,
   isAllowedOrigin,
   isLoopbackOrigin,
   validateOrigin

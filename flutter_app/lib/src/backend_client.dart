@@ -238,6 +238,12 @@ class BackendClient {
     return getMap(baseUrl, '/api/browser/status');
   }
 
+  Future<Map<String, dynamic>> fetchBrowserExtensionStatus(
+    String baseUrl,
+  ) async {
+    return getMap(baseUrl, '/api/browser-extension/status');
+  }
+
   Future<Map<String, dynamic>> launchBrowser(
     String baseUrl, {
     Map<String, dynamic>? payload,

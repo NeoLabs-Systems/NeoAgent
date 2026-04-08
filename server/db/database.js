@@ -173,6 +173,33 @@ db.exec(`
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS browser_extension_pairing_requests (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER,
+    pairing_secret_hash TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    approved_at TEXT,
+    claimed_at TEXT,
+    expires_at TEXT NOT NULL,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS browser_extension_tokens (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT UNIQUE NOT NULL,
+    name TEXT DEFAULT 'Chrome Extension',
+    status TEXT DEFAULT 'active',
+    last_connected_at TEXT,
+    last_seen_at TEXT,
+    revoked_at TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS scheduled_tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -245,6 +272,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agents_user ON agents(user_id, status, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_state ON integration_oauth_states(state);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_expires ON integration_oauth_states(expires_at);
+  CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
+  CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_user ON browser_extension_tokens(user_id, status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
   CREATE INDEX IF NOT EXISTS idx_conv_messages ON conversation_messages(conversation_id, created_at);

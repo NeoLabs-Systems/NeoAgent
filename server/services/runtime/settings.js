@@ -146,10 +146,6 @@ function validateRuntimeSettings(raw = {}) {
     }
   }
 
-  if (settings.browser_backend === 'extension') {
-    issues.push('The browser extension backend is planned but not available in this build.');
-  }
-
   if (needsRemoteWorker && !settings.remote_worker_base_url) {
     issues.push('A remote worker URL is required when any runtime backend uses remote execution.');
   } else if (settings.remote_worker_base_url && !isValidRemoteWorkerBaseUrl(settings.remote_worker_base_url)) {

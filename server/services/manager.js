@@ -19,6 +19,7 @@ const { CLIExecutor } = require('./cli/executor');
 const { IntegrationManager } = require('./integrations/manager');
 const { ArtifactStore } = require('./artifacts/store');
 const { RuntimeManager } = require('./runtime/manager');
+const { BrowserExtensionRegistry } = require('./browser/extension/registry');
 const { assertRuntimeValidation, getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
@@ -45,6 +46,12 @@ function createArtifactStore(app) {
   const artifactStore = registerLocal(app, 'artifactStore', new ArtifactStore());
   logServiceReady('Artifact store ready');
   return artifactStore;
+}
+
+function createBrowserExtensionRegistry(app) {
+  const registry = registerLocal(app, 'browserExtensionRegistry', new BrowserExtensionRegistry());
+  logServiceReady('Browser extension registry ready');
+  return registry;
 }
 
 function createMemoryManager(app) {
@@ -260,6 +267,7 @@ function createRuntimeManager(app, cliExecutor) {
     new RuntimeManager({
       cliExecutor,
       artifactStore: app.locals.artifactStore,
+      browserExtensionRegistry: app.locals.browserExtensionRegistry,
       getHostBrowserProvider: (userId) => {
         const resolver = app.locals.getBrowserControllerForUser;
         if (typeof resolver === 'function') {
@@ -428,6 +436,7 @@ async function startServices(app, io) {
   try {
     const cliExecutor = createCliExecutor(app);
     const artifactStore = createArtifactStore(app);
+    createBrowserExtensionRegistry(app);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
     const integrationManager = createIntegrationManager(app);
@@ -558,6 +567,15 @@ async function stopServices(app) {
         console.error('[Runtime] Shutdown error:', getErrorMessage(err));
       }),
     );
+  }
+
+  if (app.locals.browserExtensionRegistry) {
+    try {
+      app.locals.browserExtensionRegistry.closeAll();
+      logServiceReady('Browser extension connections closed');
+    } catch (err) {
+      console.error('[BrowserExtension] Shutdown error:', getErrorMessage(err));
+    }
   }
 
   if (app.locals.cliExecutor) {

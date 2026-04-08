@@ -3,36 +3,7 @@ const { LocalVmExecutionBackend } = require('./backends/local-vm');
 const { RemoteWorkerExecutionBackend } = require('./backends/remote');
 const { QemuVmManager } = require('./qemu');
 const { getRuntimeSettings } = require('./settings');
-
-class UnsupportedExtensionBrowserProvider {
-  constructor() {
-    this.headless = false;
-  }
-
-  #unsupported() {
-    return { error: 'Browser extension backend is planned but not implemented yet.' };
-  }
-
-  navigate() { return this.#unsupported(); }
-  click() { return this.#unsupported(); }
-  clickPoint() { return this.#unsupported(); }
-  type() { return this.#unsupported(); }
-  typeText() { return this.#unsupported(); }
-  pressKey() { return this.#unsupported(); }
-  scroll() { return this.#unsupported(); }
-  extract() { return this.#unsupported(); }
-  evaluate() { return this.#unsupported(); }
-  screenshot() { return this.#unsupported(); }
-  launch() { return this.#unsupported(); }
-  closeBrowser() { return Promise.resolve({ success: true }); }
-  fill() { return this.#unsupported(); }
-  extractContent() { return this.#unsupported(); }
-  executeJS() { return this.#unsupported(); }
-  getPageInfo() { return Promise.resolve({ url: null, title: null, unsupported: true }); }
-  isLaunched() { return false; }
-  getPageCount() { return 0; }
-  setHeadless() { return Promise.resolve({ success: false, unsupported: true }); }
-}
+const { ExtensionBrowserProvider } = require('../browser/extension/provider');
 
 class RuntimeManager {
   constructor(options = {}) {
@@ -50,6 +21,11 @@ class RuntimeManager {
       getToken: (userId) => getRuntimeSettings(userId).remote_worker_token,
       artifactStore: options.artifactStore,
     });
+    this.getExtensionBrowserProvider = options.getExtensionBrowserProvider || ((userId) => new ExtensionBrowserProvider({
+      registry: options.browserExtensionRegistry,
+      artifactStore: options.artifactStore,
+      userId,
+    }));
   }
 
   getSettings(userId) {
@@ -72,7 +48,7 @@ class RuntimeManager {
   async getBrowserProviderForUser(userId) {
     const settings = this.getSettings(userId);
     if (settings.browser_backend === 'extension') {
-      return new UnsupportedExtensionBrowserProvider();
+      return this.getExtensionBrowserProvider(userId);
     }
     const backend = this.resolveBackend(userId, settings.browser_backend === 'host' ? 'host' : settings.browser_backend);
     return backend.getBrowserProviderForUser(userId);

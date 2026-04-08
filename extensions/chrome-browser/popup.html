@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NeoAgent Browser</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>NeoAgent Browser</h1>
+    <p id="status">Loading...</p>
+    <label>
+      Server URL
+      <input id="serverUrl" type="url" placeholder="https://neoagent.example.com">
+    </label>
+    <div class="actions">
+      <button id="pair">Pair after login</button>
+      <button id="claim">Finish pairing</button>
+      <button id="checkUpdate" class="secondary">Check for update</button>
+      <button id="download" class="secondary">Download latest ZIP</button>
+      <button id="disconnect" class="secondary">Disconnect</button>
+    </div>
+    <p class="hint">Pairing opens NeoAgent so you can log in there. This extension never stores your NeoAgent password.</p>
+    <p id="message" class="message"></p>
+  </main>
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

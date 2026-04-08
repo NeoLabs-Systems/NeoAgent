@@ -121,4 +121,6 @@ Runtime settings let operators choose where higher-risk work runs:
 
 Remote execution uses `remote_worker_base_url` and an encrypted `remote_worker_token`. Production policy can require the secure VM profile and a strong VM guest token.
 
-These controls matter operationally: the browser, Android emulator, local files, and shell commands run wherever the NeoAgent backend or configured worker is running, not necessarily on the computer where you are reading the docs.
+These controls matter operationally: the browser, Android emulator, local files, and shell commands run wherever the NeoAgent backend, configured worker, or paired browser extension is running, not necessarily on the computer where you are reading the docs. Logs from a different server or remote browser may not match the logs on the local machine.
+
+For extension-only remote browser control, download `/api/browser-extension/download` from NeoAgent, unzip it on the remote machine, load the folder in `chrome://extensions`, and pair after logging in. The extension uses Chrome's debugger permission for full browser control, so Chrome will show its normal debugging warning while attached. The popup can check whether the server has a newer extension bundle, but unpacked Developer Mode installs still need a manual download and reload.

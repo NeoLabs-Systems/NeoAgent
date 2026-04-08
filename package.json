@@ -12,6 +12,7 @@
     "lib",
     "runtime",
     "server",
+    "extensions",
     "docs",
     "com.neoagent.plist",
     "LICENSE",
@@ -72,7 +73,8 @@
     "socket.io": "^4.8.1",
     "telegraf": "^4.16.3",
     "telnyx": "^5.51.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "ws": "^8.19.0"
   },
   "overrides": {
     "undici": "^6.24.0"

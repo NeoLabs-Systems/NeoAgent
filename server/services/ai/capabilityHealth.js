@@ -38,6 +38,33 @@ function summarizeCapabilityHealth(health) {
 async function getBrowserHealth(userId, app, engine) {
   const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
   const executablePath = resolveBrowserExecutablePath();
+  const runtimeSettings = typeof runtimeManager?.getSettings === 'function'
+    ? runtimeManager.getSettings(userId)
+    : null;
+  if (runtimeSettings?.browser_backend === 'extension') {
+    const extensionStatus = app?.locals?.browserExtensionRegistry?.getStatus(userId);
+    const activeTokens = Array.isArray(extensionStatus?.tokens)
+      ? extensionStatus.tokens.filter((token) => token.status === 'active')
+      : [];
+    const connected = extensionStatus?.connected === true;
+    const configured = connected || activeTokens.length > 0;
+    return capabilityEntry({
+      connected,
+      configured,
+      healthy: connected,
+      degraded: configured && !connected,
+      summary: connected
+        ? 'Browser extension is connected.'
+        : configured
+          ? 'Browser extension is paired but not connected.'
+          : 'Browser extension backend is selected but no extension is paired.',
+      details: {
+        backend: 'extension',
+        activeTokenCount: activeTokens.length,
+        activeTokenId: extensionStatus?.activeTokenId || null,
+      },
+    });
+  }
   let controller = null;
   let resolutionError = null;
 

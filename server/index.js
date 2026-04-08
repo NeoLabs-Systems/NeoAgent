@@ -29,6 +29,7 @@ const { registerApiRoutes } = require('./http/routes');
 const { registerStaticRoutes } = require('./http/static');
 const { registerErrorHandler } = require('./http/errors');
 const { startServices, stopServices } = require('./services/manager');
+const { bindBrowserExtensionGateway } = require('./services/browser/extension/gateway');
 
 const PORT = Number(process.env.PORT) || 3333;
 const SECURE_COOKIES = process.env.SECURE_COOKIES === 'true';
@@ -81,6 +82,7 @@ bindSocketSessions(io, sessionMiddleware);
 registerApiRoutes(app);
 registerStaticRoutes(app);
 registerErrorHandler(app);
+bindBrowserExtensionGateway(httpServer, app);
 
 let shuttingDown = false;
 let shutdownExitCode = 0;

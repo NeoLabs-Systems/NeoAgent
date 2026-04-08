@@ -432,6 +432,7 @@ class NeoAgentController extends ChangeNotifier {
   List<SchedulerTask> schedulerTasks = const <SchedulerTask>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
   Map<String, dynamic> browserRuntime = const <String, dynamic>{};
+  Map<String, dynamic> browserExtensionStatus = const <String, dynamic>{};
   Map<String, dynamic> androidRuntime = const <String, dynamic>{};
   List<String> androidInstalledApps = const <String>[];
   List<Map<String, dynamic>> androidUiPreview = const <Map<String, dynamic>>[];
@@ -794,6 +795,7 @@ class NeoAgentController extends ChangeNotifier {
     schedulerTasks = const <SchedulerTask>[];
     mcpServers = const <McpServerItem>[];
     browserRuntime = const <String, dynamic>{};
+    browserExtensionStatus = const <String, dynamic>{};
     androidRuntime = const <String, dynamic>{};
     androidInstalledApps = const <String>[];
     androidUiPreview = const <Map<String, dynamic>>[];
@@ -1112,6 +1114,9 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
       );
       final browserFuture = _backendClient.fetchBrowserStatus(backendUrl);
+      final browserExtensionFuture = _backendClient.fetchBrowserExtensionStatus(
+        backendUrl,
+      );
       final androidFuture = _backendClient.fetchAndroidStatus(backendUrl);
 
       Map<String, dynamic>? healthResponse;
@@ -1148,6 +1153,7 @@ class NeoAgentController extends ChangeNotifier {
       final mcpResponse = await mcpFuture;
       final recordingsResponse = await recordingsFuture;
       final browserResponse = await browserFuture;
+      final browserExtensionResponse = await browserExtensionFuture;
       final androidResponse = await androidFuture;
 
       chatMessages = (history['messages'] as List<dynamic>? ?? const [])
@@ -1204,6 +1210,9 @@ class NeoAgentController extends ChangeNotifier {
           .map(RecordingSessionItem.fromJson)
           .toList();
       browserRuntime = Map<String, dynamic>.from(browserResponse);
+      browserExtensionStatus = Map<String, dynamic>.from(
+        browserExtensionResponse,
+      );
       androidRuntime = Map<String, dynamic>.from(androidResponse);
       await _recordingBridge.refreshStatus();
       deviceHealthStatus = await _healthBridge.getStatus();
@@ -1397,10 +1406,15 @@ class NeoAgentController extends ChangeNotifier {
       final browserResponse = await _backendClient.fetchBrowserStatus(
         backendUrl,
       );
+      final browserExtensionResponse = await _backendClient
+          .fetchBrowserExtensionStatus(backendUrl);
       final androidResponse = await _backendClient.fetchAndroidStatus(
         backendUrl,
       );
       browserRuntime = Map<String, dynamic>.from(browserResponse);
+      browserExtensionStatus = Map<String, dynamic>.from(
+        browserExtensionResponse,
+      );
       androidRuntime = Map<String, dynamic>.from(androidResponse);
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -2196,6 +2210,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> saveSettings({
     required bool headlessBrowser,
+    required String browserBackend,
     required bool smarterSelector,
     required List<String> enabledModels,
     required String defaultChatModel,
@@ -2209,6 +2224,7 @@ class NeoAgentController extends ChangeNotifier {
 
     final payload = <String, dynamic>{
       'headless_browser': headlessBrowser,
+      'browser_backend': browserBackend,
       'smarter_model_selector': smarterSelector,
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
@@ -2979,6 +2995,12 @@ class NeoAgentController extends ChangeNotifier {
   bool get headlessBrowser =>
       settings['headless_browser'] != false &&
       settings['headless_browser'] != 'false';
+
+  String get browserBackend =>
+      settings['browser_backend']?.toString().trim().toLowerCase() ?? 'host';
+
+  bool get browserExtensionConnected =>
+      browserExtensionStatus['connected'] == true;
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
 
@@ -3902,6 +3924,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final browserStatus = controller.browserRuntime;
+    final usingExtension = controller.browserBackend == 'extension';
+    final extensionConnected = controller.browserExtensionConnected;
     final browserPageInfo = browserStatus['pageInfo'] is Map<dynamic, dynamic>
         ? Map<String, dynamic>.from(browserStatus['pageInfo'] as Map)
         : const <String, dynamic>{};
@@ -3946,6 +3970,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       browserPageInfo: browserPageInfo,
                       androidRuntime: controller.androidRuntime,
                       androidOnline: _androidOnline,
+                      usingBrowserExtension: usingExtension,
+                      browserExtensionConnected: extensionConnected,
                     ),
                     const SizedBox(height: 16),
                     _DeviceLaunchBar(
@@ -3969,6 +3995,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       busy: controller.isRunningDeviceAction,
                       wakingUp: !_isBrowser && _androidStarting,
                       enabled: _isBrowser || _androidOnline,
+                      connectRequired:
+                          _isBrowser && usingExtension && !extensionConnected,
                       onTapPoint: _handleTap,
                       onSwipe: _handleSwipe,
                       onWakeRequested: _openPrimary,
@@ -4048,6 +4076,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
     required this.browserPageInfo,
     required this.androidRuntime,
     required this.androidOnline,
+    required this.usingBrowserExtension,
+    required this.browserExtensionConnected,
   });
 
   final _DeviceSurface surface;
@@ -4055,6 +4085,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
   final Map<String, dynamic> browserPageInfo;
   final Map<String, dynamic> androidRuntime;
   final bool androidOnline;
+  final bool usingBrowserExtension;
+  final bool browserExtensionConnected;
 
   @override
   Widget build(BuildContext context) {
@@ -4066,7 +4098,9 @@ class _DeviceSurfaceHeader extends StatelessWidget {
               : 'Live Browser'
         : 'Android Phone';
     final subtitle = surface == _DeviceSurface.browser
-        ? (browserPageInfo['url']?.toString() ?? 'Ready for navigation')
+        ? usingBrowserExtension && !browserExtensionConnected
+              ? 'Chrome extension backend selected. Pair and connect the extension before using the live surface.'
+              : (browserPageInfo['url']?.toString() ?? 'Ready for navigation')
         : (androidOnline
               ? androidVersion == null
                     ? 'Tap and swipe directly on the preview.'
@@ -4121,7 +4155,9 @@ class _DeviceSurfaceHeader extends StatelessWidget {
         const SizedBox(width: 12),
         _DotStatus(
           label: surface == _DeviceSurface.browser
-              ? (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
+              ? usingBrowserExtension
+                    ? (browserExtensionConnected ? 'Extension' : 'Pairing')
+                    : (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
               : (androidOnline
                     ? 'Live'
                     : androidStarting
@@ -4433,6 +4469,7 @@ class _InteractiveSurfacePreview extends StatefulWidget {
     required this.busy,
     required this.wakingUp,
     required this.enabled,
+    required this.connectRequired,
     required this.onTapPoint,
     required this.onSwipe,
     required this.onWakeRequested,
@@ -4444,6 +4481,7 @@ class _InteractiveSurfacePreview extends StatefulWidget {
   final bool busy;
   final bool wakingUp;
   final bool enabled;
+  final bool connectRequired;
   final Future<void> Function(Offset point) onTapPoint;
   final Future<void> Function(Offset start, Offset end) onSwipe;
   final Future<void> Function() onWakeRequested;
@@ -4621,6 +4659,7 @@ class _InteractiveSurfacePreviewState
                         enabled: widget.enabled,
                         busy: widget.busy,
                         isLoadingPreview: widget.wakingUp,
+                        connectRequired: widget.connectRequired,
                         errorMessage: _imageError?.toString(),
                         onPressed: widget.onWakeRequested,
                       );
@@ -4632,6 +4671,7 @@ class _InteractiveSurfacePreviewState
                         enabled: widget.enabled,
                         busy: widget.busy,
                         isLoadingPreview: _imageError == null,
+                        connectRequired: widget.connectRequired,
                         errorMessage: _imageError?.toString(),
                         onPressed: widget.onWakeRequested,
                       );
@@ -4730,6 +4770,7 @@ class _EmptySurfaceState extends StatelessWidget {
     required this.enabled,
     required this.busy,
     required this.isLoadingPreview,
+    required this.connectRequired,
     this.errorMessage,
     required this.onPressed,
   });
@@ -4738,13 +4779,16 @@ class _EmptySurfaceState extends StatelessWidget {
   final bool enabled;
   final bool busy;
   final bool isLoadingPreview;
+  final bool connectRequired;
   final String? errorMessage;
   final Future<void> Function() onPressed;
 
   @override
   Widget build(BuildContext context) {
     final label = surface == _DeviceSurface.browser
-        ? (busy ? 'Opening Browser...' : 'Wake Browser')
+        ? connectRequired
+              ? 'Open Settings'
+              : (busy ? 'Opening Browser...' : 'Wake Browser')
         : busy
         ? 'Starting Phone...'
         : (enabled ? 'Refresh Phone' : 'Start Phone');
@@ -4759,7 +4803,9 @@ class _EmptySurfaceState extends StatelessWidget {
         'Downloading the latest phone preview...',
       _ =>
         surface == _DeviceSurface.browser
-            ? 'Browser is sleeping. Press Open to start it.'
+            ? connectRequired
+                  ? 'Chrome extension is not connected. Use Settings to download, load, and pair the extension on the remote machine.'
+                  : 'Browser is sleeping. Press Open to start it.'
             : (errorMessage != null && errorMessage!.trim().isNotEmpty)
             ? errorMessage!
             : 'Phone is offline. Press Start Phone to boot it.',
@@ -9683,6 +9729,7 @@ class SettingsPanel extends StatefulWidget {
 
 class _SettingsPanelState extends State<SettingsPanel> {
   late bool _headlessBrowser;
+  late String _browserBackend;
   late bool _smarterSelector;
   late Set<String> _enabledModels;
   late String _defaultChatModel;
@@ -9728,6 +9775,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .map((model) => model.id)
         .toSet();
     _headlessBrowser = controller.headlessBrowser;
+    _browserBackend = _normalizeBrowserBackend(controller.browserBackend);
     _smarterSelector = controller.smarterSelector;
     _enabledModels = controller.enabledModelIds
         .where((id) => knownModels.contains(id))
@@ -9758,6 +9806,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
     _pruneControllers(_providerBaseUrlControllers, providerIds);
     _providerEnabled.removeWhere((id, _) => !providerIds.contains(id));
+  }
+
+  String _normalizeBrowserBackend(String value) {
+    const allowed = <String>{'host', 'vm', 'remote', 'extension'};
+    final normalized = value.trim().toLowerCase();
+    return allowed.contains(normalized) ? normalized : 'host';
   }
 
   @override
@@ -9795,6 +9849,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ? null
                 : () => controller.saveSettings(
                     headlessBrowser: _headlessBrowser,
+                    browserBackend: _browserBackend,
                     smarterSelector: _smarterSelector,
                     enabledModels: _enabledModels.toList(),
                     defaultChatModel: _defaultChatModel,
@@ -10137,6 +10192,45 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   onChanged: (value) =>
                       setState(() => _headlessBrowser = value),
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _browserBackend,
+                  decoration: const InputDecoration(
+                    labelText: 'Browser backend',
+                    helperText:
+                        'Extension uses the paired Chrome browser on this or another machine.',
+                  ),
+                  items: const <DropdownMenuItem<String>>[
+                    DropdownMenuItem<String>(value: 'host', child: Text('Host')),
+                    DropdownMenuItem<String>(value: 'vm', child: Text('VM')),
+                    DropdownMenuItem<String>(
+                      value: 'remote',
+                      child: Text('Remote worker'),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: 'extension',
+                      child: Text('Chrome extension'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _browserBackend = value);
+                    }
+                  },
+                ),
+                if (_browserBackend == 'extension') ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(
+                    controller.browserExtensionConnected
+                        ? 'Chrome extension connected.'
+                        : 'Chrome extension selected. Download the extension from /api/browser-extension/download, load it unpacked in Chrome on the remote machine, then pair after login.',
+                    style: const TextStyle(
+                      color: _textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
                 _SettingToggle(
                   title: 'Smart Selection',
                   subtitle:
@@ -10761,6 +10855,8 @@ class _LogsPanelState extends State<LogsPanel> {
       },
       'runtime': <String, dynamic>{
         'headlessBrowser': controller.headlessBrowser,
+        'browserBackend': controller.browserBackend,
+        'browserExtensionConnected': controller.browserExtensionConnected,
         'hasLiveRun': controller.hasLiveRun,
         'activeRun': controller.activeRun == null
             ? null

@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "NeoAgent Browser",
+  "version": "1.0.0",
+  "description": "Connect this Chrome browser to NeoAgent for browser automation.",
+  "minimum_chrome_version": "118",
+  "permissions": ["debugger", "storage", "tabs"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "NeoAgent Browser",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.mjs",
+    "type": "module"
+  }
+}
