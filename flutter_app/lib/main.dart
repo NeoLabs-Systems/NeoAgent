@@ -2383,7 +2383,7 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> updateAccountEmail({
+  Future<bool> updateAccountEmail({
     required String email,
     required String currentPassword,
   }) async {
@@ -2398,8 +2398,10 @@ class NeoAgentController extends ChangeNotifier {
           currentPassword: currentPassword,
         ),
       );
+      return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      return false;
     } finally {
       isSavingAccountSettings = false;
       notifyListeners();
@@ -10052,6 +10054,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   late final TextEditingController _disableCodeController;
   Map<String, dynamic>? _pendingSetup;
   List<String> _recoveryCodes = const <String>[];
+  String? _emailSuccessMessage;
+  String? _emailInlineError;
 
   @override
   void initState() {
@@ -10176,16 +10180,46 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         TextField(
           controller: _emailPasswordController,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Current password'),
+          decoration: const InputDecoration(
+            labelText: 'Current password',
+            helperText: 'Required to add or change your account email.',
+          ),
         ),
+        if (_emailInlineError != null) ...<Widget>[
+          const SizedBox(height: 10),
+          _InlineError(message: _emailInlineError!),
+        ],
+        if (_emailSuccessMessage != null) ...<Widget>[
+          const SizedBox(height: 10),
+          _InlineSuccess(message: _emailSuccessMessage!),
+        ],
         const SizedBox(height: 14),
         FilledButton.icon(
           onPressed: controller.isSavingAccountSettings
               ? null
-              : () => controller.updateAccountEmail(
-                  email: _emailController.text,
-                  currentPassword: _emailPasswordController.text,
-                ),
+              : () async {
+                  setState(() {
+                    _emailInlineError = null;
+                    _emailSuccessMessage = null;
+                  });
+                  if (_emailPasswordController.text.trim().isEmpty) {
+                    setState(() {
+                      _emailInlineError =
+                          'Enter your current password to save email changes.';
+                    });
+                    return;
+                  }
+                  final saved = await controller.updateAccountEmail(
+                    email: _emailController.text,
+                    currentPassword: _emailPasswordController.text,
+                  );
+                  if (saved && mounted) {
+                    setState(() {
+                      _emailPasswordController.clear();
+                      _emailSuccessMessage = 'Email saved.';
+                    });
+                  }
+                },
           icon: controller.isSavingAccountSettings
               ? const SizedBox.square(
                   dimension: 16,

@@ -869,6 +869,37 @@ class _InlineError extends StatelessWidget {
   }
 }
 
+class _InlineSuccess extends StatelessWidget {
+  const _InlineSuccess({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _success.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _success.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.check_circle_outline, color: _success, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: _success, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 String _ensureModelValue(
   String value,
   List<ModelMeta> models, {

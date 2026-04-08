@@ -545,28 +545,16 @@ class _Sidebar extends StatelessWidget {
               children: <Widget>[
                 const _LogoBadge(size: 30),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const Text(
-                        'NeoAgent',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        controller.accountLabel,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: _textSecondary,
-                        ),
-                      ),
-                    ],
+                const Expanded(
+                  child: Text(
+                    'NeoAgent',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
+                ),
+                _ProfileSettingsButton(
+                  controller: controller,
+                  onTap: () =>
+                      controller.setSelectedSection(AppSection.accountSettings),
                 ),
               ],
             ),
@@ -595,14 +583,6 @@ class _Sidebar extends StatelessWidget {
             ),
             child: Column(
               children: <Widget>[
-                _SidebarButton(
-                  label: 'Account settings',
-                  icon: Icons.manage_accounts_outlined,
-                  active:
-                      controller.selectedSection == AppSection.accountSettings,
-                  onTap: () =>
-                      controller.setSelectedSection(AppSection.accountSettings),
-                ),
                 _SidebarButton(
                   label: 'Refresh',
                   icon: Icons.refresh,
@@ -675,6 +655,68 @@ class _AgentSwitcher extends StatelessWidget {
   }
 }
 
+class _ProfileSettingsButton extends StatelessWidget {
+  const _ProfileSettingsButton({required this.controller, required this.onTap});
+
+  final NeoAgentController controller;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = controller.accountLabel.trim();
+    final initial = label.isEmpty ? 'N' : label.characters.first.toUpperCase();
+    final active = controller.selectedSection == AppSection.accountSettings;
+    return Tooltip(
+      message: 'Account settings',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: active ? _accentMuted : _bgCard,
+                shape: BoxShape.circle,
+                border: Border.all(color: active ? _accent : _borderLight),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                initial,
+                style: TextStyle(
+                  color: active ? _accentHover : _textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                width: 17,
+                height: 17,
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: active ? _accent : _borderLight),
+                ),
+                child: Icon(
+                  Icons.settings,
+                  size: 11,
+                  color: active ? _accentHover : _textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MobileDrawer extends StatelessWidget {
   const _MobileDrawer({
     required this.controller,
@@ -701,12 +743,20 @@ class _MobileDrawer extends StatelessWidget {
                     children: <Widget>[
                       const _LogoBadge(size: 30),
                       const SizedBox(width: 10),
-                      Expanded(
+                      const Expanded(
                         child: Text(
-                          controller.accountLabel,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                          'NeoAgent',
+                          style: TextStyle(fontWeight: FontWeight.w700),
                         ),
+                      ),
+                      _ProfileSettingsButton(
+                        controller: controller,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          controller.setSelectedSection(
+                            AppSection.accountSettings,
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -738,17 +788,6 @@ class _MobileDrawer extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               child: Column(
                 children: <Widget>[
-                  _SidebarButton(
-                    label: 'Account settings',
-                    icon: Icons.manage_accounts_outlined,
-                    active:
-                        controller.selectedSection ==
-                        AppSection.accountSettings,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      controller.setSelectedSection(AppSection.accountSettings);
-                    },
-                  ),
                   _SidebarButton(
                     label: 'Refresh',
                     icon: Icons.refresh,
