@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const crypto = require('crypto');
 const db = require('../../db/database');
-const { resolveAgentId } = require('../agents/manager');
+const { isMainAgent, resolveAgentId } = require('../agents/manager');
 
 const MAX_SCHEDULER_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -498,6 +498,7 @@ class Scheduler {
     const row = db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
       .get(userId, agentId, key);
     if (row) return row.value;
+    if (!isMainAgent(userId, agentId)) return null;
     return db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
       .get(userId, key)?.value || null;
   }

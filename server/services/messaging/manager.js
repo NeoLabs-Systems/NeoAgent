@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { AGENT_DATA_DIR, DATA_DIR } = require('../../../runtime/paths');
-const { resolveAgentId } = require('../agents/manager');
+const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
@@ -113,6 +113,7 @@ class MessagingManager {
       'SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?'
     ).get(userId, agentId, key);
     if (agentRow) return agentRow;
+    if (!isMainAgent(userId, agentId)) return null;
     return db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
       .get(userId, key);
   }

@@ -4,6 +4,7 @@ const db = require('../../db/database');
 const { detectPromptInjection } = require('../../utils/security');
 const { normalizeWhatsAppId } = require('../../utils/whatsapp');
 const { randomUUID } = require('crypto');
+const { isMainAgent } = require('../agents/manager');
 
 function registerMessagingAutomation({ app, io, messagingManager, agentEngine }) {
   const userQueues = {};
@@ -304,9 +305,11 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
   const whitelistRow = db
     .prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
     .get(userId, agentId, `platform_whitelist_${msg.platform}`)
-    || db
-      .prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-      .get(userId, `platform_whitelist_${msg.platform}`);
+    || (isMainAgent(userId, agentId)
+      ? db
+        .prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, `platform_whitelist_${msg.platform}`)
+      : null);
 
   const normalize =
     msg.platform === 'whatsapp'
@@ -379,5 +382,6 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
 }
 
 module.exports = {
+  isAllowedMessagingSender,
   registerMessagingAutomation
 };

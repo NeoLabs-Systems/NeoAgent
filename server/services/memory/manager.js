@@ -11,7 +11,7 @@ const {
 } = require('./embeddings');
 const { getMemoryStorageDecision } = require('./policy');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
-const { resolveAgentId } = require('../agents/manager');
+const { isMainAgent, resolveAgentId } = require('../agents/manager');
 
 async function getActiveProvider(userId, agentId = null) {
   try {
@@ -46,6 +46,16 @@ const CATEGORIES = ['user_fact', 'preference', 'personality', 'episodic'];
 
 // Core memory keys (always injected into every prompt)
 const CORE_KEYS = ['user_profile', 'preferences', 'ai_personality'];
+
+function parseStringSetting(value) {
+  if (typeof value !== 'string') return '';
+  try {
+    const parsed = JSON.parse(value);
+    return typeof parsed === 'string' ? parsed : value;
+  } catch {
+    return value;
+  }
+}
 
 function buildFtsQuery(query) {
   const tokens = String(query || '')
@@ -133,9 +143,11 @@ class MemoryManager {
     const agentId = this._agentId(userId, options);
     const row = db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
       .get(userId, agentId, 'assistant_behavior_notes')
-      || db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, 'assistant_behavior_notes');
-    return typeof row?.value === 'string' ? row.value : '';
+      || (isMainAgent(userId, agentId)
+        ? db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+          .get(userId, 'assistant_behavior_notes')
+        : null);
+    return parseStringSetting(row?.value);
   }
 
   setAssistantBehaviorNotes(userId, content, options = {}) {

@@ -1,6 +1,6 @@
 const db = require('../../db/database');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
-const { resolveAgentId } = require('../agents/manager');
+const { isMainAgent, resolveAgentId } = require('../agents/manager');
 
 const AI_PROVIDER_DEFINITIONS = Object.freeze({
   openai: {
@@ -140,9 +140,10 @@ function getProviderConfigs(userId, agentId = null) {
     if (agentRow) return normalizeProviderConfigs(parseSettingValue(agentRow.value));
   }
 
-  const row = db.prepare(
-    'SELECT value FROM user_settings WHERE user_id = ? AND key = ?'
-  ).get(userId, 'ai_provider_configs');
+  const row = isMainAgent(userId, scopedAgentId)
+    ? db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+      .get(userId, 'ai_provider_configs')
+    : null;
 
   return normalizeProviderConfigs(parseSettingValue(row?.value));
 }
@@ -223,8 +224,10 @@ function ensureDefaultAiSettings(userId, agentId = null) {
 
   for (const [key, value] of Object.entries(createDefaultAiSettings())) {
     if (!seen.has(key)) {
-      const legacy = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, key);
+      const legacy = isMainAgent(userId, scopedAgentId)
+        ? db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+          .get(userId, key)
+        : null;
       insert.run(userId, scopedAgentId, key, legacy?.value ?? JSON.stringify(value));
     }
   }
@@ -264,8 +267,10 @@ function getAiSettings(userId, agentId = null) {
     missing.delete(row.key);
   }
   for (const key of missing) {
-    const legacy = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-      .get(userId, key);
+    const legacy = isMainAgent(userId, scopedAgentId)
+      ? db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, key)
+      : null;
     if (legacy) settings[key] = parseSettingValue(legacy.value);
   }
 

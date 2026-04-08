@@ -29,7 +29,7 @@ const {
   validateRuntimeSettings,
 } = require('../services/runtime/settings');
 const { isManagedDeployment } = require('../utils/deployment');
-const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 
 const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
@@ -50,6 +50,12 @@ const AGENT_SETTING_KEYS = new Set([
 ]);
 
 router.use(requireAuth);
+
+function isAgentScopedSettingKey(key) {
+  return AGENT_SETTING_KEYS.has(key)
+    || key.startsWith('platform_whitelist_')
+    || key === 'platform_voice_secret_telnyx';
+}
 
 function getBrowserController(req) {
   const runtimeManager = req.app?.locals?.runtimeManager;
@@ -112,8 +118,11 @@ router.get('/', (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   ensureDefaultAiSettings(req.session.userId, agentId);
   ensureDefaultRuntimeSettings(req.session.userId);
+  const includeLegacyAgentSettings = isMainAgent(req.session.userId, agentId);
+  const userRows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId)
+    .filter((row) => includeLegacyAgentSettings || !isAgentScopedSettingKey(row.key));
   const rows = [
-    ...db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId),
+    ...userRows,
     ...db.prepare('SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ?').all(req.session.userId, agentId),
   ];
   const settings = createDefaultAiSettings();
@@ -184,11 +193,7 @@ router.put('/', (req, res) => {
   const tx = db.transaction((entries) => {
     for (const [key, value] of entries) {
       const v = serializeRuntimeSettingValue(key, value);
-      if (
-        AGENT_SETTING_KEYS.has(key) ||
-        key.startsWith('platform_whitelist_') ||
-        key === 'platform_voice_secret_telnyx'
-      ) {
+      if (isAgentScopedSettingKey(key)) {
         upsertAgent.run(userId, agentId, key, v);
       } else if (key !== 'agentId' && key !== 'agent_id') {
         upsert.run(userId, key, v);
@@ -297,15 +302,13 @@ router.get('/:key', (req, res) => {
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultRuntimeSettings(userId);
-  const isAgentSetting = AGENT_SETTING_KEYS.has(req.params.key)
-    || req.params.key.startsWith('platform_whitelist_')
-    || req.params.key === 'platform_voice_secret_telnyx'
-    || req.params.key === 'last_platform'
-    || req.params.key === 'last_chat_id';
+  const isAgentSetting = isAgentScopedSettingKey(req.params.key);
   const row = isAgentSetting
     ? (
       db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?').get(userId, agentId, req.params.key)
-      || db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, req.params.key)
+      || (isMainAgent(userId, agentId)
+        ? db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, req.params.key)
+        : null)
     )
     : db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, req.params.key);
   if (!row) return res.json({ value: null });
@@ -355,11 +358,7 @@ router.put('/:key', (req, res) => {
   }
   const v = serializeRuntimeSettingValue(req.params.key, value);
   if (
-    AGENT_SETTING_KEYS.has(req.params.key) ||
-    req.params.key.startsWith('platform_whitelist_') ||
-    req.params.key === 'platform_voice_secret_telnyx' ||
-    req.params.key === 'last_platform' ||
-    req.params.key === 'last_chat_id'
+    isAgentScopedSettingKey(req.params.key)
   ) {
     db.prepare(
       `INSERT INTO agent_settings (user_id, agent_id, key, value)
@@ -381,11 +380,7 @@ router.delete('/:key', (req, res) => {
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   if (
-    AGENT_SETTING_KEYS.has(req.params.key) ||
-    req.params.key.startsWith('platform_whitelist_') ||
-    req.params.key === 'platform_voice_secret_telnyx' ||
-    req.params.key === 'last_platform' ||
-    req.params.key === 'last_chat_id'
+    isAgentScopedSettingKey(req.params.key)
   ) {
     db.prepare('DELETE FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
       .run(userId, agentId, req.params.key);

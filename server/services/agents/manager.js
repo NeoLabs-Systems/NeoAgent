@@ -104,6 +104,11 @@ function getAgentBySlug(userId, slug) {
   return db.prepare('SELECT * FROM agents WHERE user_id = ? AND slug = ?').get(userId, normalized);
 }
 
+function isMainAgent(userId, agentId) {
+  if (!userId || !agentId) return false;
+  return getAgentById(userId, agentId)?.slug === MAIN_AGENT_SLUG;
+}
+
 function resolveAgent(userId, candidate = null) {
   ensureMainAgent(userId);
   const raw = String(candidate || '').trim();
@@ -329,6 +334,7 @@ module.exports = {
   getAgentIdFromRequest,
   getDefaultAgent,
   getDelegationTargets,
+  isMainAgent,
   listAgents,
   parseDelegateTargets,
   resolveAgent,

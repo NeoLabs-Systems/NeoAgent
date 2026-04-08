@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
+const { isMainAgent } = require('../agents/manager');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -1781,8 +1782,10 @@ async function executeTool(toolName, args, context, engine) {
                 const loadAgentSetting = (key) => (
                     db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
                         .get(userId, agentId, key)?.value
-                    || db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-                        .get(userId, key)?.value
+                    || (isMainAgent(userId, agentId)
+                        ? db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+                            .get(userId, key)?.value
+                        : null)
                     || null
                 );
                 const loadDefaultTarget = () => ({
