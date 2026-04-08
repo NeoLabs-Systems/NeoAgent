@@ -310,26 +310,28 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   bool _blockedDialogOpen = false;
   SidebarGroup? _expandedSidebarGroup;
+  AppSection? _lastSelectedSection;
 
   @override
   void initState() {
     super.initState();
+    _lastSelectedSection = widget.controller.selectedSection;
     _expandedSidebarGroup = _sidebarGroupForSection(
       widget.controller.selectedSection,
     );
+    widget.controller.addListener(_handleControllerChanged);
   }
 
   @override
   void didUpdateWidget(covariant HomeView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldGroup = _sidebarGroupForSection(
-      oldWidget.controller.selectedSection,
-    );
-    final nextGroup = _sidebarGroupForSection(
-      widget.controller.selectedSection,
-    );
-    if (oldGroup != nextGroup) {
-      _expandedSidebarGroup = nextGroup;
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerChanged);
+      widget.controller.addListener(_handleControllerChanged);
+      _lastSelectedSection = widget.controller.selectedSection;
+      _expandedSidebarGroup = _sidebarGroupForSection(
+        widget.controller.selectedSection,
+      );
     }
   }
 
@@ -340,10 +342,35 @@ class _HomeViewState extends State<HomeView> {
     return section.group;
   }
 
+  void _handleControllerChanged() {
+    if (!mounted) {
+      return;
+    }
+    final nextSection = widget.controller.selectedSection;
+    setState(() {
+      if (_lastSelectedSection != nextSection) {
+        final oldGroup = _lastSelectedSection == null
+            ? null
+            : _sidebarGroupForSection(_lastSelectedSection!);
+        final nextGroup = _sidebarGroupForSection(nextSection);
+        if (oldGroup != nextGroup) {
+          _expandedSidebarGroup = nextGroup;
+        }
+        _lastSelectedSection = nextSection;
+      }
+    });
+  }
+
   void _toggleSidebarGroup(SidebarGroup group) {
     setState(() {
       _expandedSidebarGroup = _expandedSidebarGroup == group ? null : group;
     });
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
+    super.dispose();
   }
 
   @override

@@ -486,6 +486,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
+  bool isLoadingAccountSettings = false;
   bool isSavingAccountSettings = false;
   bool isConfiguringTwoFactor = false;
   bool isRevokingSession = false;
@@ -2459,7 +2460,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> refreshAccountSettings() async {
     if (!isAuthenticated) return;
-    isSavingAccountSettings = true;
+    isLoadingAccountSettings = true;
     errorMessage = null;
     notifyListeners();
     try {
@@ -2471,7 +2472,7 @@ class NeoAgentController extends ChangeNotifier {
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
-      isSavingAccountSettings = false;
+      isLoadingAccountSettings = false;
       notifyListeners();
     }
   }
@@ -10165,10 +10166,15 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           subtitle:
               'Manage your account email, two-factor authentication, and active sessions.',
           trailing: OutlinedButton.icon(
-            onPressed: widget.controller.isSavingAccountSettings
+            onPressed: widget.controller.isLoadingAccountSettings
                 ? null
                 : widget.controller.refreshAccountSettings,
-            icon: Icon(Icons.refresh),
+            icon: widget.controller.isLoadingAccountSettings
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(Icons.refresh),
             label: Text('Refresh'),
           ),
         ),
