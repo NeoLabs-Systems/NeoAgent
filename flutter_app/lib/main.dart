@@ -10976,11 +10976,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                SelectableText(
-                  controller.browserExtensionDownloadUrl,
-                  style: const TextStyle(color: _textSecondary, fontSize: 12),
-                ),
                 const SizedBox(height: 12),
                 _SettingToggle(
                   title: 'Smart Selection',

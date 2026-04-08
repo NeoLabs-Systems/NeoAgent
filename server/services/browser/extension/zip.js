@@ -50,6 +50,10 @@ function listFiles(rootDir, prefix = '') {
   return files;
 }
 
+function normalizeArchivePath(value) {
+  return String(value || '').replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
 function u16(value) {
   const buffer = Buffer.alloc(2);
   buffer.writeUInt16LE(value);
@@ -62,16 +66,32 @@ function u32(value) {
   return buffer;
 }
 
-function createZipFromDirectory(rootDir) {
+function createZipFromDirectory(rootDir, options = {}) {
   const localParts = [];
   const centralParts = [];
   let offset = 0;
+  const overrides = new Map(
+    Object.entries(options.overrides || {}).map(([archivePath, content]) => [
+      normalizeArchivePath(archivePath),
+      Buffer.isBuffer(content) ? content : Buffer.from(String(content), 'utf8'),
+    ]),
+  );
+  const files = listFiles(rootDir)
+    .filter((file) => !overrides.has(normalizeArchivePath(file.archivePath)))
+    .map((file) => ({
+      archivePath: normalizeArchivePath(file.archivePath),
+      content: fs.readFileSync(file.fullPath),
+      mtime: fs.statSync(file.fullPath).mtime,
+    }));
 
-  for (const file of listFiles(rootDir)) {
-    const content = fs.readFileSync(file.fullPath);
+  for (const [archivePath, content] of overrides.entries()) {
+    files.push({ archivePath, content, mtime: new Date() });
+  }
+
+  for (const file of files) {
+    const content = file.content;
     const name = Buffer.from(file.archivePath.replace(/\\/g, '/'), 'utf8');
-    const stat = fs.statSync(file.fullPath);
-    const { dosTime, dosDate } = dosDateTime(stat.mtime);
+    const { dosTime, dosDate } = dosDateTime(file.mtime);
     const crc = crc32(content);
 
     const localHeader = Buffer.concat([

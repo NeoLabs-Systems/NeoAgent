@@ -1,6 +1,7 @@
 import { createBrowserProtocol } from './protocol.mjs';
+import { DEFAULT_SERVER_URL } from './config.mjs';
 
-const STORAGE_KEYS = ['serverUrl', 'token', 'pairingId', 'pairingSecret', 'approvalUrl', 'status'];
+const STORAGE_KEYS = ['serverUrl', 'configuredServerUrl', 'token', 'pairingId', 'pairingSecret', 'approvalUrl', 'status'];
 const protocol = createBrowserProtocol(chrome);
 let socket = null;
 let reconnectTimer = null;
@@ -19,6 +20,17 @@ function removeStorage(keys) {
 
 function normalizeServerUrl(value) {
   return String(value || '').trim().replace(/\/+$/, '');
+}
+
+function configuredServerUrl() {
+  return normalizeServerUrl(DEFAULT_SERVER_URL);
+}
+
+async function resolveServerUrl(preferred) {
+  const normalized = normalizeServerUrl(preferred);
+  if (normalized) return normalized;
+  const { serverUrl } = await getStorage(['serverUrl']);
+  return normalizeServerUrl(serverUrl) || configuredServerUrl();
 }
 
 function websocketUrl(serverUrl, token) {
@@ -45,7 +57,8 @@ async function updateStatus(status) {
 }
 
 async function connect() {
-  const { serverUrl, token } = await getStorage(['serverUrl', 'token']);
+  const { token } = await getStorage(['token']);
+  const serverUrl = await resolveServerUrl();
   if (!serverUrl || !token) {
     await updateStatus('not_paired');
     return { connected: false };
@@ -104,7 +117,7 @@ async function handleSocketMessage(raw) {
 }
 
 async function startPairing(serverUrl) {
-  const normalized = normalizeServerUrl(serverUrl);
+  const normalized = await resolveServerUrl(serverUrl);
   if (!normalized) throw new Error('NeoAgent server URL required.');
   const response = await fetch(`${normalized}/api/browser-extension/pairing/request`, {
     method: 'POST',
@@ -157,8 +170,8 @@ async function disconnect() {
   await updateStatus('not_paired');
 }
 
-async function checkForUpdates() {
-  const { serverUrl } = await getStorage(['serverUrl']);
+async function checkForUpdates(preferredServerUrl) {
+  const serverUrl = await resolveServerUrl(preferredServerUrl);
   if (!serverUrl) throw new Error('NeoAgent server URL required.');
   const response = await fetch(`${serverUrl}/api/browser-extension/latest`);
   const latest = await response.json().catch(() => ({}));
@@ -172,8 +185,8 @@ async function checkForUpdates() {
   };
 }
 
-async function openDownload() {
-  const { serverUrl } = await getStorage(['serverUrl']);
+async function openDownload(preferredServerUrl) {
+  const serverUrl = await resolveServerUrl(preferredServerUrl);
   if (!serverUrl) throw new Error('NeoAgent server URL required.');
   await chrome.tabs.create({ url: `${serverUrl}/api/browser-extension/download`, active: true });
   return { success: true };
@@ -191,11 +204,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case 'disconnect':
         return disconnect();
       case 'checkForUpdates':
-        return checkForUpdates();
+        return checkForUpdates(message.serverUrl);
       case 'openDownload':
-        return openDownload();
+        return openDownload(message.serverUrl);
       case 'getState':
-        return getStorage([...STORAGE_KEYS, 'tokenId']);
+        return {
+          ...(await getStorage([...STORAGE_KEYS, 'tokenId'])),
+          configuredServerUrl: configuredServerUrl(),
+        };
       default:
         return { error: 'unknown message' };
     }

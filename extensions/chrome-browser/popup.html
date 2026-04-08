@@ -7,20 +7,39 @@
 </head>
 <body>
   <main>
-    <h1>NeoAgent Browser</h1>
-    <p id="status">Loading...</p>
-    <label>
-      Server URL
-      <input id="serverUrl" type="url" placeholder="https://neoagent.example.com">
-    </label>
+    <header>
+      <p class="eyebrow">NeoAgent Browser</p>
+      <h1>Connect this Chrome</h1>
+      <p class="intro">Control this browser from NeoAgent after one approval.</p>
+    </header>
+    <section class="status-card">
+      <span id="statusDot" class="status-dot"></span>
+      <div>
+        <p id="status" class="status">Loading...</p>
+        <p id="serverLabel" class="server-label">Checking bundled server...</p>
+      </div>
+    </section>
+    <ol class="steps">
+      <li>Open NeoAgent and approve this extension.</li>
+      <li>Return here and finish pairing.</li>
+      <li>Use the Devices tab to control this browser.</li>
+    </ol>
     <div class="actions">
-      <button id="pair">Pair after login</button>
-      <button id="claim">Finish pairing</button>
+      <button id="pair">Start pairing</button>
+      <button id="claim">I approved it</button>
       <button id="checkUpdate" class="secondary">Check for update</button>
       <button id="download" class="secondary">Download latest ZIP</button>
       <button id="disconnect" class="secondary">Disconnect</button>
     </div>
-    <p class="hint">Pairing opens NeoAgent so you can log in there. This extension never stores your NeoAgent password.</p>
+    <details class="advanced">
+      <summary>Advanced server URL</summary>
+      <label>
+        Server URL
+        <input id="serverUrl" type="url" placeholder="https://neoagent.example.com">
+      </label>
+      <p class="hint">Usually filled in by the ZIP downloaded from NeoAgent.</p>
+    </details>
+    <p class="hint">Pairing opens NeoAgent in a tab. This extension never stores your NeoAgent password.</p>
     <p id="message" class="message"></p>
   </main>
   <script src="popup.js" type="module"></script>

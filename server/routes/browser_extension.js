@@ -26,6 +26,10 @@ function approvalUrlFor(req, pairingId) {
   return `${baseUrlFor(req)}/api/browser-extension/pairing/${encodeURIComponent(pairingId)}/approve`;
 }
 
+function extensionConfigFor(req) {
+  return `export const DEFAULT_SERVER_URL = ${JSON.stringify(baseUrlFor(req))};\n`;
+}
+
 router.post('/pairing/request', (req, res) => {
   try {
     const pairing = getRegistry(req).createPairingRequest({
@@ -121,7 +125,11 @@ router.post('/revoke', requireAuth, (req, res) => {
 
 router.get('/download', requireAuth, (req, res) => {
   try {
-    const zip = createZipFromDirectory(EXTENSION_DIR);
+    const zip = createZipFromDirectory(EXTENSION_DIR, {
+      overrides: {
+        'config.mjs': extensionConfigFor(req),
+      },
+    });
     res.setHeader('content-type', 'application/zip');
     res.setHeader('content-disposition', 'attachment; filename="neoagent-chrome-browser-extension.zip"');
     res.send(zip);

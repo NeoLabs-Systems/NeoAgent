@@ -1,24 +1,84 @@
 body {
   margin: 0;
-  width: 320px;
-  background: #0f172a;
-  color: #e5e7eb;
+  width: 360px;
+  background: #0b1120;
+  color: #e5edf8;
   font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 main {
-  padding: 16px;
+  padding: 18px;
 }
 
 h1 {
-  margin: 0 0 10px;
-  font-size: 18px;
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0;
 }
 
-#status {
-  margin: 0 0 12px;
+.eyebrow {
+  margin: 0 0 4px;
   color: #38bdf8;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.intro {
+  margin: 8px 0 14px;
+  color: #a9b7c9;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #26364f;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+}
+
+.status-dot[data-status="connected"] {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.16);
+}
+
+.status-dot[data-status="disconnected"],
+.status-dot[data-status="not_paired"] {
+  background: #64748b;
+  box-shadow: 0 0 0 4px rgba(100, 116, 139, 0.16);
+}
+
+.status {
+  margin: 0;
+  color: #f8fafc;
   font-weight: 700;
+}
+
+.server-label {
+  margin: 2px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.steps {
+  margin: 14px 0 0;
+  padding-left: 22px;
+  color: #cbd5e1;
+}
+
+.steps li {
+  margin: 6px 0;
 }
 
 label {
@@ -40,7 +100,7 @@ input {
 .actions {
   display: grid;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 button {
@@ -56,6 +116,22 @@ button {
 
 button.secondary {
   background: #334155;
+}
+
+.advanced {
+  margin-top: 14px;
+  border-top: 1px solid #1e293b;
+  padding-top: 12px;
+}
+
+.advanced summary {
+  color: #cbd5e1;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.advanced label {
+  margin-top: 10px;
 }
 
 .hint,

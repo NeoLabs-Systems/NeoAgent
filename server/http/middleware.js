@@ -139,9 +139,17 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
 
   app.use(helmet(buildHelmetOptions({ secureCookies })));
   app.use(
-    cors({
-      origin: validateOrigin,
-      credentials: true
+    cors((req, callback) => {
+      const requestPath = `${req.originalUrl || req.url || req.path || ''}`.split('?')[0];
+      callback(null, {
+        origin(origin, originCallback) {
+          if (origin === 'null' && requestPath.startsWith('/api/browser-extension/')) {
+            return originCallback(null, true);
+          }
+          return validateOrigin(origin, originCallback);
+        },
+        credentials: true,
+      });
     })
   );
   app.use((req, res, next) => {
