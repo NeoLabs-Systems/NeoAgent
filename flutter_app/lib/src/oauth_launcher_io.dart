@@ -65,4 +65,13 @@ class _IoOAuthLauncher extends OAuthLauncher {
       );
     }
   }
+
+  @override
+  Future<OAuthLaunchResult> openExternal({
+    required String url,
+    required String label,
+    Duration timeout = const Duration(seconds: 10),
+  }) {
+    return launch(url: url, provider: label, timeout: timeout);
+  }
 }

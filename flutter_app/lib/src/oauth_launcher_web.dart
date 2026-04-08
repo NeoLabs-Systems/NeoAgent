@@ -67,6 +67,20 @@ class _WebOAuthLauncher extends OAuthLauncher {
   }
 
   @override
+  Future<OAuthLaunchResult> openExternal({
+    required String url,
+    required String label,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    html.window.open(
+      url,
+      label.replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '_'),
+      'noopener',
+    );
+    return const OAuthLaunchResult(launched: true, completed: false);
+  }
+
+  @override
   void dispose() {
     _timeoutTimer?.cancel();
     _timeoutTimer = null;

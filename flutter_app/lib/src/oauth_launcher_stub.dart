@@ -17,4 +17,17 @@ class _StubOAuthLauncher extends OAuthLauncher {
       error: 'OAuth launch is not supported on this platform.',
     );
   }
+
+  @override
+  Future<OAuthLaunchResult> openExternal({
+    required String url,
+    required String label,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    return const OAuthLaunchResult(
+      launched: false,
+      completed: false,
+      error: 'External browser launch is not supported on this platform.',
+    );
+  }
 }

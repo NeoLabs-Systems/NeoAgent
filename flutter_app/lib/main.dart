@@ -1424,6 +1424,33 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  String get browserExtensionDownloadUrl =>
+      '${_socketOrigin()}/api/browser-extension/download';
+
+  Future<void> refreshBrowserExtensionStatus() async {
+    try {
+      final response = await _backendClient.fetchBrowserExtensionStatus(
+        backendUrl,
+      );
+      browserExtensionStatus = Map<String, dynamic>.from(response);
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> downloadBrowserExtension() async {
+    final result = await _oauthLauncher.openExternal(
+      url: browserExtensionDownloadUrl,
+      label: 'neoagent_browser_extension_download',
+    );
+    if (!result.launched) {
+      errorMessage = result.error ?? 'Could not open browser extension download.';
+      notifyListeners();
+    }
+  }
+
   Future<void> refreshAndroidApps({bool includeSystem = false}) async {
     try {
       final response = await _backendClient.fetchAndroidApps(
@@ -10218,18 +10245,43 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     }
                   },
                 ),
-                if (_browserBackend == 'extension') ...<Widget>[
-                  const SizedBox(height: 10),
-                  Text(
-                    controller.browserExtensionConnected
-                        ? 'Chrome extension connected.'
-                        : 'Chrome extension selected. Download the extension from /api/browser-extension/download, load it unpacked in Chrome on the remote machine, then pair after login.',
-                    style: const TextStyle(
-                      color: _textSecondary,
-                      height: 1.4,
-                    ),
+                const SizedBox(height: 10),
+                Text(
+                  _browserBackend == 'extension'
+                      ? (controller.browserExtensionConnected
+                            ? 'Chrome extension connected.'
+                            : 'Chrome extension selected. Download it here, load it unpacked in Chrome on the remote machine, then pair after login.')
+                      : 'For remote Chrome control, download the extension ZIP and load it unpacked on that machine.',
+                  style: const TextStyle(
+                    color: _textSecondary,
+                    height: 1.4,
                   ),
-                ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    OutlinedButton.icon(
+                      onPressed: controller.downloadBrowserExtension,
+                      icon: const Icon(Icons.download_outlined),
+                      label: const Text('Download extension'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: controller.refreshBrowserExtensionStatus,
+                      icon: const Icon(Icons.sync),
+                      label: const Text('Refresh status'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SelectableText(
+                  controller.browserExtensionDownloadUrl,
+                  style: const TextStyle(
+                    color: _textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _SettingToggle(
                   title: 'Smart Selection',

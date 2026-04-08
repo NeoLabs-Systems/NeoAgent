@@ -11,6 +11,12 @@ abstract class OAuthLauncher {
     Duration timeout = const Duration(minutes: 2),
   });
 
+  Future<OAuthLaunchResult> openExternal({
+    required String url,
+    required String label,
+    Duration timeout = const Duration(seconds: 10),
+  });
+
   void dispose() {}
 }
 

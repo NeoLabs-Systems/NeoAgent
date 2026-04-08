@@ -1,7 +1,8 @@
 function requireAuth(req, res, next) {
   if (!req.session || !req.session.userId) {
     console.warn(`[Auth] Unauthorized request for ${req.method} ${req.originalUrl || req.url}`);
-    if (req.path.startsWith('/api/')) {
+    const requestPath = req.originalUrl || req.url || req.path || '';
+    if (requestPath.startsWith('/api/')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     return res.redirect('/login');
@@ -27,7 +28,8 @@ function attachUser(req, res, next) {
     } else {
       console.warn(`[Auth] Session user ${req.session.userId} not found for ${req.method} ${req.originalUrl || req.url}; destroying session`);
       req.session.destroy(() => {});
-      if (req.path.startsWith('/api/')) {
+      const requestPath = req.originalUrl || req.url || req.path || '';
+      if (requestPath.startsWith('/api/')) {
         return res.status(401).json({ error: 'Session invalid' });
       }
       return res.redirect('/login');

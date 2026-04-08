@@ -138,8 +138,8 @@ function validateRuntimeSettings(raw = {}) {
     if (settings.runtime_backend !== 'vm') {
       issues.push('This deployment requires the isolated VM runtime backend.');
     }
-    if (settings.browser_backend !== 'vm') {
-      issues.push('This deployment requires the VM browser backend.');
+    if (settings.browser_backend !== 'vm' && settings.browser_backend !== 'extension') {
+      issues.push('This deployment requires the VM browser backend or a paired browser extension backend.');
     }
     if (settings.android_backend !== 'vm') {
       issues.push('This deployment requires the VM Android backend.');
