@@ -204,20 +204,24 @@ class MessagingManager extends EventEmitter {
 
     platform = new PlatformClass(config);
     this.platforms.set(key, platform);
+    const currentPlatform = () => this.platforms.get(key) === platform;
 
     platform.on('qr', (qr) => {
+      if (!currentPlatform()) return;
       this.io.to(`user:${userId}`).emit('messaging:qr', { agentId, platform: platformName, qr });
       db.prepare('UPDATE platform_connections SET status = ?, config = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('awaiting_qr', JSON.stringify(config), userId, agentId, platformName);
     });
 
     platform.on('connected', () => {
+      if (!currentPlatform()) return;
       this.io.to(`user:${userId}`).emit('messaging:connected', { agentId, platform: platformName });
       db.prepare('UPDATE platform_connections SET status = ?, last_connected = datetime(\'now\') WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('connected', userId, agentId, platformName);
     });
 
     platform.on('disconnected', (info) => {
+      if (!currentPlatform()) return;
       this.io.to(`user:${userId}`).emit('messaging:disconnected', { agentId, platform: platformName, ...info });
       if (!this.isShuttingDown) {
         db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
@@ -226,6 +230,7 @@ class MessagingManager extends EventEmitter {
     });
 
     platform.on('logged_out', () => {
+      if (!currentPlatform()) return;
       this.io.to(`user:${userId}`).emit('messaging:logged_out', { agentId, platform: platformName });
       db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('logged_out', userId, agentId, platformName);
@@ -429,11 +434,28 @@ class MessagingManager extends EventEmitter {
     const agentId = this._agentId(userId, options);
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
+    const row = db.prepare(
+      'SELECT config FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?'
+    ).get(userId, agentId, platformName);
+    let reconnectConfig = null;
+    if (platformName === 'whatsapp') {
+      reconnectConfig = platform?.config || {};
+      if ((!reconnectConfig || Object.keys(reconnectConfig).length === 0) && row?.config) {
+        try {
+          reconnectConfig = JSON.parse(row.config);
+        } catch {
+          reconnectConfig = {};
+        }
+      }
+    }
     if (platform && platform.logout) {
       await platform.logout();
     }
     this.platforms.delete(key);
     db.prepare('DELETE FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?').run(userId, agentId, platformName);
+    if (platformName === 'whatsapp') {
+      return this.connectPlatform(userId, platformName, reconnectConfig || {}, { agentId });
+    }
     return { status: 'logged_out' };
   }
 

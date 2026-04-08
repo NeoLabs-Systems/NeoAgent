@@ -392,6 +392,7 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
       animation: _controller,
       builder: (context, _) {
         return MaterialApp(
+          key: ValueKey<bool>(_controller.isAuthenticated),
           title: 'NeoAgent',
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
@@ -1449,6 +1450,19 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  MessagingQrState? _derivePendingMessagingQr(
+    Map<String, MessagingPlatformStatus> statuses,
+  ) {
+    for (final entry in statuses.entries) {
+      final status = entry.value;
+      final qr = status.authInfo['qrCode']?.toString() ?? '';
+      if (status.status == 'awaiting_qr' && qr.trim().isNotEmpty) {
+        return MessagingQrState(platform: entry.key, qr: qr);
+      }
+    }
+    return null;
+  }
+
   Future<void> refresh() async {
     if (!isAuthenticated) {
       return;
@@ -1629,6 +1643,7 @@ class NeoAgentController extends ChangeNotifier {
           ),
         ),
       );
+      pendingMessagingQr = _derivePendingMessagingQr(messagingStatuses);
       messagingMessages = messagingMessagesResponse
           .map(MessagingMessage.fromJson)
           .toList();
@@ -1713,6 +1728,7 @@ class NeoAgentController extends ChangeNotifier {
         ),
       ),
     );
+    pendingMessagingQr = _derivePendingMessagingQr(messagingStatuses);
     messagingMessages = (await _backendClient.fetchMessagingMessages(
       backendUrl,
       agentId: _scopedAgentId,
@@ -7846,10 +7862,6 @@ class _ChatPanelState extends State<ChatPanel> {
                   runSpacing: 10,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
-                    _DotStatus(
-                      label: controller.socketConnected ? 'Live' : 'Offline',
-                      color: controller.socketConnected ? _success : _warning,
-                    ),
                     _MetaPill(
                       label: controller.modelIndicator,
                       icon: Icons.memory_outlined,

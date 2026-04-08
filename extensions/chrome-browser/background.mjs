@@ -5,6 +5,7 @@ const STORAGE_KEYS = ['serverUrl', 'configuredServerUrl', 'token', 'pairingId', 
 const protocol = createBrowserProtocol(chrome);
 let socket = null;
 let reconnectTimer = null;
+let suppressSocketClose = false;
 
 function getStorage(keys = STORAGE_KEYS) {
   return chrome.storage.local.get(keys);
@@ -56,6 +57,30 @@ async function updateStatus(status) {
   chrome.runtime.sendMessage({ type: 'status', status }).catch(() => {});
 }
 
+function clearReconnectTimer() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+}
+
+async function handleSocketDisconnected(ws) {
+  if (socket !== ws) {
+    return;
+  }
+  socket = null;
+  if (suppressSocketClose) {
+    suppressSocketClose = false;
+    return;
+  }
+  const { token } = await getStorage(['token']);
+  if (!token) {
+    await updateStatus('not_paired');
+    return;
+  }
+  await updateStatus('disconnected');
+  clearReconnectTimer();
+  reconnectTimer = setTimeout(() => connect().catch(() => {}), 5000);
+}
+
 async function connect() {
   const { token } = await getStorage(['token']);
   const serverUrl = await resolveServerUrl();
@@ -69,22 +94,28 @@ async function connect() {
   if (socket) {
     try { socket.close(); } catch {}
   }
+  clearReconnectTimer();
+  suppressSocketClose = false;
 
-  socket = new WebSocket(websocketUrl(serverUrl, token));
+  const ws = new WebSocket(websocketUrl(serverUrl, token));
+  socket = ws;
   await updateStatus('connecting');
 
-  socket.addEventListener('open', () => {
+  ws.addEventListener('open', () => {
+    if (socket !== ws) return;
     updateStatus('connected');
   });
-  socket.addEventListener('close', () => {
-    updateStatus('disconnected');
-    clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(() => connect().catch(() => {}), 5000);
+  ws.addEventListener('close', () => {
+    handleSocketDisconnected(ws).catch((error) => {
+      console.error('NeoAgent disconnect handling failed', error);
+    });
   });
-  socket.addEventListener('error', () => {
-    updateStatus('disconnected');
+  ws.addEventListener('error', () => {
+    handleSocketDisconnected(ws).catch((error) => {
+      console.error('NeoAgent socket error handling failed', error);
+    });
   });
-  socket.addEventListener('message', (event) => {
+  ws.addEventListener('message', (event) => {
     handleSocketMessage(event.data).catch((error) => {
       console.error('NeoAgent command handling failed', error);
     });
@@ -160,8 +191,8 @@ async function claimPairing() {
 }
 
 async function disconnect() {
-  clearTimeout(reconnectTimer);
-  reconnectTimer = null;
+  clearReconnectTimer();
+  suppressSocketClose = true;
   if (socket) {
     try { socket.close(); } catch {}
   }

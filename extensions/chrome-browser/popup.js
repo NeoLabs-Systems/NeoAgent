@@ -163,8 +163,12 @@ async function runAction(action) {
 
 async function refresh() {
   currentState = await send('getState');
-  const status = currentState.status || 'not_paired';
+  const hasToken = Boolean(currentState.token || currentState.tokenId);
+  const status = !hasToken && currentState.status === 'disconnected'
+    ? 'not_paired'
+    : (currentState.status || 'not_paired');
   const serverUrl = currentState.serverUrl || currentState.configuredServerUrl || '';
+  currentState = { ...currentState, status };
 
   statusEl.textContent = STATUS_LABELS[status] || status;
   statusDotEl.dataset.status = status;

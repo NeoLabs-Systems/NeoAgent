@@ -175,296 +175,318 @@ class _AuthViewState extends State<AuthView> {
               : 'This account will unlock NeoAgent on this machine.')
         : 'Enter your NeoAgent account details.';
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
+    final showRegisterToggle =
+        controller.registrationOpen && controller.hasUser;
 
     return _AmbientBackdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 468),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: _panelGradient,
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: _borderLight),
-                    boxShadow: _softPanelShadow,
+          child: LayoutBuilder(
+            builder: (context, viewportConstraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: viewportConstraints.maxHeight,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(34, 30, 34, 30),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        Column(
-                          children: <Widget>[
-                            const _LogoBadge(size: 58),
-                            const SizedBox(height: 18),
-                            Text(
-                              'NeoAgent',
-                              style: GoogleFonts.spaceGrotesk(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.4,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _accentMuted,
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: _accent.withValues(alpha: 0.2),
-                                ),
-                              ),
-                              child: Text(
-                                controller.deploymentProfile == 'private'
-                                    ? 'Private deployment'
-                                    : controller.deploymentProfile.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.1,
-                                  color: _accentHover,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 26),
-                        Text(
-                          awaitingTwoFactor ? 'Verification' : title.toUpperCase(),
-                          style: _sectionEyebrowStyle(),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          awaitingTwoFactor ? 'Enter 2FA code' : title,
-                          style: _displayTitleStyle(30),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          awaitingTwoFactor
-                              ? 'Open your authenticator app and enter the current NeoAgent code.'
-                              : subtitle,
-                          style: TextStyle(color: _textSecondary, height: 1.5),
-                        ),
-                        const SizedBox(height: 20),
-                        if (controller.errorMessage != null) ...<Widget>[
-                          _InlineError(message: controller.errorMessage!),
-                          const SizedBox(height: 16),
-                        ],
-                        if (controller.authInfoMessage != null) ...<Widget>[
-                          _InlineSuccess(message: controller.authInfoMessage!),
-                          const SizedBox(height: 24),
-                        ],
-                        if (awaitingTwoFactor) ...<Widget>[
-                          TextField(
-                            controller: _twoFactorController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: '2FA or recovery code',
-                            ),
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 468),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: _panelGradient,
+                            borderRadius: BorderRadius.circular(32),
+                            border: Border.all(color: _borderLight),
+                            boxShadow: _softPanelShadow,
                           ),
-                        ] else ...<Widget>[
-                          TextField(
-                            controller: _usernameController,
-                            onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
-                              labelText: 'Username',
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: _passwordController,
-                            onChanged: (_) => setState(() {}),
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                            ),
-                          ),
-                          if (_registerMode) ...<Widget>[
-                            const SizedBox(height: 10),
-                            _PasswordStrengthIndicator(
-                              info: _passwordStrengthInfo(
-                                password: _passwordController.text,
-                                username: _usernameController.text,
-                                email: _emailController.text,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            TextField(
-                              controller: _emailController,
-                              onChanged: (_) => setState(() {}),
-                              keyboardType: TextInputType.emailAddress,
-                              autofillHints: const <String>[AutofillHints.email],
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            TextField(
-                              controller: _confirmPasswordController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Confirm Password',
-                              ),
-                            ),
-                          ],
-                        ],
-                        const SizedBox(height: 22),
-                        FilledButton(
-                          onPressed: controller.isAuthenticating
-                              ? null
-                              : () async {
-                                  if (awaitingTwoFactor) {
-                                    await controller.completeTwoFactorLogin(
-                                      code: _twoFactorController.text,
-                                    );
-                                    return;
-                                  }
-                                  if (_registerMode &&
-                                      _passwordController.text !=
-                                          _confirmPasswordController.text) {
-                                    widget.controller.showInlineError(
-                                      'Passwords do not match.',
-                                    );
-                                    return;
-                                  }
-                                  if (_registerMode) {
-                                    await controller.register(
-                                      username: _usernameController.text,
-                                      email: _emailController.text,
-                                      password: _passwordController.text,
-                                    );
-                                  } else {
-                                    await controller.login(
-                                      username: _usernameController.text,
-                                      password: _passwordController.text,
-                                    );
-                                  }
-                                },
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(58),
-                          ),
-                          child: controller.isAuthenticating
-                              ? const SizedBox.square(
-                                  dimension: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text(
-                                  awaitingTwoFactor
-                                      ? 'Verify'
-                                      : _registerMode
-                                      ? 'Create account'
-                                      : 'Sign in',
-                                ),
-                        ),
-                        if (awaitingTwoFactor) ...<Widget>[
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: controller.isAuthenticating
-                                ? null
-                                : controller.cancelTwoFactorLogin,
-                            child: const Text('Back to sign in'),
-                          ),
-                        ] else ...<Widget>[
-                          if (availableProviders.isNotEmpty) ...<Widget>[
-                            const SizedBox(height: 16),
-                            Row(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(34, 30, 34, 30),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: <Widget>[
-                                Expanded(child: Divider(color: _borderLight)),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                                  child: Text(
-                                    'or continue with',
-                                    style: TextStyle(
-                                      color: _textSecondary,
-                                      fontSize: 12,
+                                Column(
+                                  children: <Widget>[
+                                    const _LogoBadge(size: 58),
+                                    const SizedBox(height: 18),
+                                    Text(
+                                      'NeoAgent',
+                                      style: GoogleFonts.spaceGrotesk(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 26),
+                                Text(
+                                  awaitingTwoFactor
+                                      ? 'Verification'
+                                      : title.toUpperCase(),
+                                  style: _sectionEyebrowStyle(),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  awaitingTwoFactor ? 'Enter 2FA code' : title,
+                                  style: _displayTitleStyle(30),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  awaitingTwoFactor
+                                      ? 'Open your authenticator app and enter the current NeoAgent code.'
+                                      : subtitle,
+                                  style: TextStyle(
+                                    color: _textSecondary,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                if (controller.errorMessage !=
+                                    null) ...<Widget>[
+                                  _InlineError(
+                                    message: controller.errorMessage!,
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                                if (controller.authInfoMessage !=
+                                    null) ...<Widget>[
+                                  _InlineSuccess(
+                                    message: controller.authInfoMessage!,
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+                                if (awaitingTwoFactor) ...<Widget>[
+                                  TextField(
+                                    controller: _twoFactorController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: '2FA or recovery code',
                                     ),
                                   ),
-                                ),
-                                Expanded(child: Divider(color: _borderLight)),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            ...availableProviders.map(
-                              (provider) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: OutlinedButton.icon(
+                                ] else ...<Widget>[
+                                  TextField(
+                                    controller: _usernameController,
+                                    onChanged: (_) => setState(() {}),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Username',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  TextField(
+                                    controller: _passwordController,
+                                    onChanged: (_) => setState(() {}),
+                                    obscureText: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Password',
+                                    ),
+                                  ),
+                                  if (_registerMode) ...<Widget>[
+                                    const SizedBox(height: 10),
+                                    _PasswordStrengthIndicator(
+                                      info: _passwordStrengthInfo(
+                                        password: _passwordController.text,
+                                        username: _usernameController.text,
+                                        email: _emailController.text,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 14),
+                                    TextField(
+                                      controller: _emailController,
+                                      onChanged: (_) => setState(() {}),
+                                      keyboardType: TextInputType.emailAddress,
+                                      autofillHints: const <String>[
+                                        AutofillHints.email,
+                                      ],
+                                      decoration: const InputDecoration(
+                                        labelText: 'Email',
+                                      ),
+                                    ),
+                                    const SizedBox(height: 14),
+                                    TextField(
+                                      controller: _confirmPasswordController,
+                                      obscureText: true,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Confirm Password',
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                                const SizedBox(height: 22),
+                                FilledButton(
                                   onPressed: controller.isAuthenticating
                                       ? null
-                                      : () => controller.authenticateWithProvider(
-                                          provider: provider.id,
-                                          register: _registerMode,
-                                        ),
-                                  icon: provider.icon == 'google'
-                                      ? const Text(
-                                          'G',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF4285F4),
+                                      : () async {
+                                          if (awaitingTwoFactor) {
+                                            await controller
+                                                .completeTwoFactorLogin(
+                                                  code:
+                                                      _twoFactorController.text,
+                                                );
+                                            return;
+                                          }
+                                          if (_registerMode &&
+                                              _passwordController.text !=
+                                                  _confirmPasswordController
+                                                      .text) {
+                                            widget.controller.showInlineError(
+                                              'Passwords do not match.',
+                                            );
+                                            return;
+                                          }
+                                          if (_registerMode) {
+                                            await controller.register(
+                                              username:
+                                                  _usernameController.text,
+                                              email: _emailController.text,
+                                              password:
+                                                  _passwordController.text,
+                                            );
+                                          } else {
+                                            await controller.login(
+                                              username:
+                                                  _usernameController.text,
+                                              password:
+                                                  _passwordController.text,
+                                            );
+                                          }
+                                        },
+                                  style: FilledButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(58),
+                                  ),
+                                  child: controller.isAuthenticating
+                                      ? const SizedBox.square(
+                                          dimension: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
                                           ),
                                         )
-                                      : const Icon(Icons.link),
-                                  label: Text(
-                                    _registerMode
-                                        ? 'Register with ${provider.label}'
-                                        : 'Sign in with ${provider.label}',
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    minimumSize: const Size.fromHeight(54),
-                                    backgroundColor:
-                                        _bgPrimary.withValues(alpha: 0.18),
-                                  ),
+                                      : Text(
+                                          awaitingTwoFactor
+                                              ? 'Verify'
+                                              : _registerMode
+                                              ? 'Create account'
+                                              : 'Sign in',
+                                        ),
                                 ),
-                              ),
+                                if (awaitingTwoFactor) ...<Widget>[
+                                  const SizedBox(height: 12),
+                                  TextButton(
+                                    onPressed: controller.isAuthenticating
+                                        ? null
+                                        : controller.cancelTwoFactorLogin,
+                                    child: const Text('Back to sign in'),
+                                  ),
+                                ] else ...<Widget>[
+                                  if (availableProviders
+                                      .isNotEmpty) ...<Widget>[
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: <Widget>[
+                                        Expanded(
+                                          child: Divider(color: _borderLight),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                          child: Text(
+                                            'or continue with',
+                                            style: TextStyle(
+                                              color: _textSecondary,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Divider(color: _borderLight),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    ...availableProviders.map(
+                                      (provider) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 10,
+                                        ),
+                                        child: OutlinedButton.icon(
+                                          onPressed: controller.isAuthenticating
+                                              ? null
+                                              : () => controller
+                                                    .authenticateWithProvider(
+                                                      provider: provider.id,
+                                                      register: _registerMode,
+                                                    ),
+                                          icon: provider.icon == 'google'
+                                              ? const Text(
+                                                  'G',
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF4285F4),
+                                                  ),
+                                                )
+                                              : const Icon(Icons.link),
+                                          label: Text(
+                                            _registerMode
+                                                ? 'Register with ${provider.label}'
+                                                : 'Sign in with ${provider.label}',
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            minimumSize: const Size.fromHeight(
+                                              54,
+                                            ),
+                                            backgroundColor: _bgPrimary
+                                                .withValues(alpha: 0.18),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (!_registerMode &&
+                                      controller
+                                          .serviceEmailConfigured) ...<Widget>[
+                                    const SizedBox(height: 12),
+                                    TextButton(
+                                      onPressed: controller.isAuthenticating
+                                          ? null
+                                          : _showForgotPasswordDialog,
+                                      child: const Text('Forgot password?'),
+                                    ),
+                                    if (!showRegisterToggle)
+                                      const SizedBox(height: 12),
+                                  ],
+                                  if (showRegisterToggle) ...<Widget>[
+                                    const SizedBox(height: 12),
+                                    TextButton(
+                                      onPressed: controller.isAuthenticating
+                                          ? null
+                                          : () {
+                                              setState(() {
+                                                _registerMode = !_registerMode;
+                                              });
+                                            },
+                                      child: Text(
+                                        _registerMode
+                                            ? 'Already have an account? Sign in'
+                                            : 'Need a new account? Register',
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ],
                             ),
-                          ],
-                          if (!_registerMode &&
-                              controller.serviceEmailConfigured) ...<Widget>[
-                            const SizedBox(height: 12),
-                            TextButton(
-                              onPressed: controller.isAuthenticating
-                                  ? null
-                                  : _showForgotPasswordDialog,
-                              child: const Text('Forgot password?'),
-                            ),
-                          ],
-                          if (controller.registrationOpen &&
-                              controller.hasUser) ...<Widget>[
-                            const SizedBox(height: 12),
-                            TextButton(
-                              onPressed: controller.isAuthenticating
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _registerMode = !_registerMode;
-                                      });
-                                    },
-                              child: Text(
-                                _registerMode
-                                    ? 'Already have an account? Sign in'
-                                    : 'Need a new account? Register',
-                              ),
-                            ),
-                          ],
-                        ],
-                      ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
@@ -606,7 +628,9 @@ class _HomeViewState extends State<HomeView> {
                             );
                           },
                           child: KeyedSubtree(
-                            key: ValueKey<AppSection>(controller.selectedSection),
+                            key: ValueKey<AppSection>(
+                              controller.selectedSection,
+                            ),
                             child: _SectionBody(controller: controller),
                           ),
                         ),
@@ -806,56 +830,10 @@ class _Sidebar extends StatelessWidget {
                               letterSpacing: -0.3,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Private operating console',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _textSecondary,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
                         ],
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _bgPrimary.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: _border),
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: controller.socketConnected ? _success : _warning,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          controller.socketConnected
-                              ? 'Realtime connection active'
-                              : 'Realtime connection offline',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ],
             ),
@@ -1055,14 +1033,6 @@ class _MobileDrawer extends StatelessWidget {
                                 fontSize: 18,
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Private operating console',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: _textSecondary,
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -1096,19 +1066,6 @@ class _MobileDrawer extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               child: Row(
                 children: <Widget>[
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: controller.socketConnected ? _success : _warning,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    controller.socketConnected ? 'Live' : 'Offline',
-                    style: TextStyle(fontSize: 11, color: _textSecondary),
-                  ),
                   const Spacer(),
                   _ProfileSettingsButton(
                     controller: controller,
