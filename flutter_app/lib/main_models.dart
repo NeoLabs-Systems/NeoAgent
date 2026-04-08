@@ -2048,6 +2048,48 @@ class McpServerItem {
   }
 }
 
+class AccountSessionItem {
+  const AccountSessionItem({
+    required this.id,
+    required this.current,
+    required this.ipAddress,
+    required this.userAgent,
+    required this.location,
+    required this.createdAt,
+    required this.lastSeenAt,
+    required this.expiresAt,
+  });
+
+  factory AccountSessionItem.fromJson(Map<dynamic, dynamic> json) {
+    return AccountSessionItem(
+      id: _asInt(json['id']),
+      current: json['current'] == true,
+      ipAddress: json['ipAddress']?.toString() ?? '',
+      userAgent: json['userAgent']?.toString() ?? '',
+      location: json['location']?.toString().ifEmpty('Unknown') ?? 'Unknown',
+      createdAt: _parseOptionalTimestamp(json['createdAt']?.toString()),
+      lastSeenAt: _parseOptionalTimestamp(json['lastSeenAt']?.toString()),
+      expiresAt: _parseOptionalTimestamp(json['expiresAt']?.toString()),
+    );
+  }
+
+  final int id;
+  final bool current;
+  final String ipAddress;
+  final String userAgent;
+  final String location;
+  final DateTime? createdAt;
+  final DateTime? lastSeenAt;
+  final DateTime? expiresAt;
+
+  String get lastSeenLabel =>
+      lastSeenAt == null ? 'Not recorded' : _formatTimestamp(lastSeenAt!);
+  String get createdLabel =>
+      createdAt == null ? 'Not recorded' : _formatTimestamp(createdAt!);
+  String get expiresLabel =>
+      expiresAt == null ? 'Session cookie' : _formatTimestamp(expiresAt!);
+}
+
 class ActiveRunState {
   const ActiveRunState({
     required this.runId,

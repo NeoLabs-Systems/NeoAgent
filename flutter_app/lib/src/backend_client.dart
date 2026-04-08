@@ -72,11 +72,22 @@ class BackendClient {
   Future<Map<String, dynamic>> register({
     required String baseUrl,
     required String username,
+    required String email,
     required String password,
   }) async {
     return postMap(baseUrl, '/api/auth/register', <String, dynamic>{
       'username': username,
+      'email': email,
       'password': password,
+    });
+  }
+
+  Future<Map<String, dynamic>> completeTwoFactorLogin({
+    required String baseUrl,
+    required String code,
+  }) async {
+    return postMap(baseUrl, '/api/auth/login/2fa', <String, dynamic>{
+      'code': code,
     });
   }
 
@@ -95,6 +106,73 @@ class BackendClient {
 
   Future<Map<String, dynamic>> fetchAgentProfiles(String baseUrl) async {
     return getMap(baseUrl, '/api/agent-profiles');
+  }
+
+  Future<Map<String, dynamic>> fetchAccount(String baseUrl) async {
+    return getMap(baseUrl, '/api/account');
+  }
+
+  Future<Map<String, dynamic>> updateAccountEmail({
+    required String baseUrl,
+    required String email,
+    required String currentPassword,
+  }) async {
+    return putMap(baseUrl, '/api/account/email', <String, dynamic>{
+      'email': email,
+      'currentPassword': currentPassword,
+    });
+  }
+
+  Future<Map<String, dynamic>> beginTwoFactorSetup({
+    required String baseUrl,
+    required String currentPassword,
+  }) async {
+    return postMap(baseUrl, '/api/account/2fa/setup', <String, dynamic>{
+      'currentPassword': currentPassword,
+    });
+  }
+
+  Future<Map<String, dynamic>> enableTwoFactor({
+    required String baseUrl,
+    required String code,
+  }) async {
+    return postMap(baseUrl, '/api/account/2fa/enable', <String, dynamic>{
+      'code': code,
+    });
+  }
+
+  Future<Map<String, dynamic>> disableTwoFactor({
+    required String baseUrl,
+    required String currentPassword,
+    required String code,
+  }) async {
+    return postMap(baseUrl, '/api/account/2fa/disable', <String, dynamic>{
+      'currentPassword': currentPassword,
+      'code': code,
+    });
+  }
+
+  Future<Map<String, dynamic>> regenerateRecoveryCodes({
+    required String baseUrl,
+    required String currentPassword,
+    required String code,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/account/2fa/recovery-codes',
+      <String, dynamic>{'currentPassword': currentPassword, 'code': code},
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchAccountSessions(String baseUrl) async {
+    return getMap(baseUrl, '/api/account/sessions');
+  }
+
+  Future<Map<String, dynamic>> revokeAccountSession(
+    String baseUrl,
+    int sessionId,
+  ) async {
+    return deleteMap(baseUrl, '/api/account/sessions/$sessionId');
   }
 
   Future<Map<String, dynamic>> createAgentProfile(

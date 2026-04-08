@@ -1,6 +1,5 @@
 const db = require('../../db/database');
 const { getDeploymentPolicy } = require('../../utils/deployment');
-const { decryptValue, encryptValue } = require('../integrations/secrets');
 
 function createDefaultRuntimeSettings() {
   const policy = getDeploymentPolicy();
@@ -10,8 +9,6 @@ function createDefaultRuntimeSettings() {
     browser_backend: policy.runtimeDefaults.browser_backend,
     android_backend: policy.runtimeDefaults.android_backend,
     mcp_backend: policy.runtimeDefaults.mcp_backend,
-    remote_worker_base_url: '',
-    remote_worker_token: '',
   };
 }
 
@@ -27,8 +24,6 @@ const BASE_FALLBACK_SETTINGS = Object.freeze({
   browser_backend: 'host',
   android_backend: 'host',
   mcp_backend: 'host-remote',
-  remote_worker_base_url: '',
-  remote_worker_token: '',
 });
 
 const RUNTIME_SETTING_KEYS = Object.freeze(Object.keys(DEFAULT_RUNTIME_SETTINGS));
@@ -46,12 +41,6 @@ function deriveDefaultsForProfile(profile) {
         browser_backend: 'vm',
         android_backend: 'vm',
       };
-    case 'hybrid':
-      return {
-        runtime_backend: 'remote',
-        browser_backend: 'remote',
-        android_backend: 'remote',
-      };
     case 'trusted-host':
     default:
       return {
@@ -65,28 +54,23 @@ function deriveDefaultsForProfile(profile) {
 function normalizeRuntimeSettings(raw = {}) {
   const policy = getDeploymentPolicy();
   const defaults = getEffectiveDefaults();
-  const profile = normalizeChoice(raw.runtime_profile, ['secure-vm', 'trusted-host', 'hybrid'], defaults.runtime_profile);
+  const profile = normalizeChoice(raw.runtime_profile, ['secure-vm', 'trusted-host'], defaults.runtime_profile);
   const derived = deriveDefaultsForProfile(profile);
-  const runtimeBackend = normalizeChoice(raw.runtime_backend, ['host', 'vm', 'remote'], derived.runtime_backend);
-  const browserBackend = normalizeChoice(raw.browser_backend, ['host', 'vm', 'remote', 'extension'], derived.browser_backend);
-  const androidBackend = normalizeChoice(raw.android_backend, ['host', 'vm', 'remote'], derived.android_backend);
+  const runtimeBackend = normalizeChoice(raw.runtime_backend, ['host', 'vm'], derived.runtime_backend);
+  const browserBackend = normalizeChoice(raw.browser_backend, ['host', 'vm', 'extension'], derived.browser_backend);
+  const androidBackend = normalizeChoice(raw.android_backend, ['host', 'vm'], derived.android_backend);
   return {
     runtime_profile: profile,
     runtime_backend: policy.allowHostRuntime ? runtimeBackend : (runtimeBackend === 'host' ? 'vm' : runtimeBackend),
     browser_backend: policy.allowHostRuntime ? browserBackend : (browserBackend === 'host' ? 'vm' : browserBackend),
     android_backend: policy.allowHostRuntime ? androidBackend : (androidBackend === 'host' ? 'vm' : androidBackend),
     mcp_backend: 'host-remote',
-    remote_worker_base_url: typeof raw.remote_worker_base_url === 'string' ? raw.remote_worker_base_url.trim() : '',
-    remote_worker_token: typeof raw.remote_worker_token === 'string' ? raw.remote_worker_token.trim() : '',
   };
 }
 
 function parseStoredRuntimeValue(key, value) {
   if (typeof value !== 'string') {
     return value;
-  }
-  if (key === 'remote_worker_token') {
-    return decryptValue(value);
   }
   try {
     return JSON.parse(value);
@@ -96,40 +80,17 @@ function parseStoredRuntimeValue(key, value) {
 }
 
 function serializeRuntimeSettingValue(key, value) {
-  if (key === 'remote_worker_token') {
-    return encryptValue(typeof value === 'string' ? value.trim() : '');
-  }
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
 function redactRuntimeSettingValue(key, value) {
-  if (key === 'remote_worker_token') {
-    return '';
-  }
   return value;
-}
-
-function isValidRemoteWorkerBaseUrl(value) {
-  const candidate = String(value || '').trim();
-  if (!candidate) {
-    return false;
-  }
-  try {
-    const parsed = new URL(candidate);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
 }
 
 function validateRuntimeSettings(raw = {}) {
   const policy = getDeploymentPolicy();
   const settings = normalizeRuntimeSettings(raw);
   const issues = [];
-  const needsRemoteWorker =
-    settings.runtime_backend === 'remote'
-    || settings.browser_backend === 'remote'
-    || settings.android_backend === 'remote';
 
   if (policy.profile === 'prod') {
     if (settings.runtime_profile !== 'secure-vm') {
@@ -144,12 +105,6 @@ function validateRuntimeSettings(raw = {}) {
     if (settings.android_backend !== 'vm') {
       issues.push('This deployment requires the VM Android backend.');
     }
-  }
-
-  if (needsRemoteWorker && !settings.remote_worker_base_url) {
-    issues.push('A remote worker URL is required when any runtime backend uses remote execution.');
-  } else if (settings.remote_worker_base_url && !isValidRemoteWorkerBaseUrl(settings.remote_worker_base_url)) {
-    issues.push('Remote worker URL must be a valid http or https URL.');
   }
 
   return {

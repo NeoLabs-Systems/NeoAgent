@@ -43,8 +43,10 @@ class AuthView extends StatefulWidget {
 
 class _AuthViewState extends State<AuthView> {
   late final TextEditingController _usernameController;
+  late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
   late final TextEditingController _confirmPasswordController;
+  late final TextEditingController _twoFactorController;
   bool _registerMode = false;
 
   @override
@@ -53,17 +55,23 @@ class _AuthViewState extends State<AuthView> {
     _usernameController = TextEditingController(
       text: widget.controller.username,
     );
+    _emailController = TextEditingController(
+      text: widget.controller.user?['email']?.toString() ?? '',
+    );
     _passwordController = TextEditingController(
       text: widget.controller.password,
     );
     _confirmPasswordController = TextEditingController();
+    _twoFactorController = TextEditingController();
   }
 
   @override
   void dispose() {
     _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _twoFactorController.dispose();
     super.dispose();
   }
 
@@ -90,6 +98,7 @@ class _AuthViewState extends State<AuthView> {
     final modeLabel = isProdProfile
         ? 'Production profile · isolated per-user runtime'
         : 'Private profile · trusted host runtime';
+    final awaitingTwoFactor = controller.isAwaitingTwoFactor;
 
     return Scaffold(
       backgroundColor: _bgPrimary,
@@ -170,7 +179,7 @@ class _AuthViewState extends State<AuthView> {
                           ),
                           const SizedBox(height: 18),
                           Text(
-                            title,
+                            awaitingTwoFactor ? 'Enter 2FA code' : title,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -178,7 +187,9 @@ class _AuthViewState extends State<AuthView> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            subtitle,
+                            awaitingTwoFactor
+                                ? 'Open your authenticator app and enter the current NeoAgent code.'
+                                : subtitle,
                             style: const TextStyle(color: _textSecondary),
                           ),
                           const SizedBox(height: 20),
@@ -186,35 +197,62 @@ class _AuthViewState extends State<AuthView> {
                             _InlineError(message: controller.errorMessage!),
                             const SizedBox(height: 16),
                           ],
-                          TextField(
-                            controller: _usernameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Username',
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                            ),
-                          ),
-                          if (_registerMode) ...<Widget>[
-                            const SizedBox(height: 14),
+                          if (awaitingTwoFactor) ...<Widget>[
                             TextField(
-                              controller: _confirmPasswordController,
-                              obscureText: true,
+                              controller: _twoFactorController,
+                              keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
-                                labelText: 'Confirm Password',
+                                labelText: '2FA or recovery code',
                               ),
                             ),
+                          ] else ...<Widget>[
+                            TextField(
+                              controller: _usernameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Username',
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Password',
+                              ),
+                            ),
+                            if (_registerMode) ...<Widget>[
+                              const SizedBox(height: 14),
+                              TextField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                autofillHints: const <String>[
+                                  AutofillHints.email,
+                                ],
+                                decoration: const InputDecoration(
+                                  labelText: 'Email',
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              TextField(
+                                controller: _confirmPasswordController,
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Confirm Password',
+                                ),
+                              ),
+                            ],
                           ],
                           const SizedBox(height: 20),
                           FilledButton(
                             onPressed: controller.isAuthenticating
                                 ? null
                                 : () async {
+                                    if (awaitingTwoFactor) {
+                                      await controller.completeTwoFactorLogin(
+                                        code: _twoFactorController.text,
+                                      );
+                                      return;
+                                    }
                                     if (_registerMode &&
                                         _passwordController.text !=
                                             _confirmPasswordController.text) {
@@ -226,6 +264,7 @@ class _AuthViewState extends State<AuthView> {
                                     if (_registerMode) {
                                       await controller.register(
                                         username: _usernameController.text,
+                                        email: _emailController.text,
                                         password: _passwordController.text,
                                       );
                                     } else {
@@ -252,12 +291,22 @@ class _AuthViewState extends State<AuthView> {
                                     ),
                                   )
                                 : Text(
-                                    _registerMode
+                                    awaitingTwoFactor
+                                        ? 'Verify'
+                                        : _registerMode
                                         ? 'Create account'
                                         : 'Sign in',
                                   ),
                           ),
-                          if (controller.registrationOpen &&
+                          if (awaitingTwoFactor) ...<Widget>[
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: controller.isAuthenticating
+                                  ? null
+                                  : controller.cancelTwoFactorLogin,
+                              child: const Text('Back to sign in'),
+                            ),
+                          ] else if (controller.registrationOpen &&
                               controller.hasUser) ...<Widget>[
                             const SizedBox(height: 12),
                             TextButton(
@@ -547,6 +596,14 @@ class _Sidebar extends StatelessWidget {
             child: Column(
               children: <Widget>[
                 _SidebarButton(
+                  label: 'Account settings',
+                  icon: Icons.manage_accounts_outlined,
+                  active:
+                      controller.selectedSection == AppSection.accountSettings,
+                  onTap: () =>
+                      controller.setSelectedSection(AppSection.accountSettings),
+                ),
+                _SidebarButton(
                   label: 'Refresh',
                   icon: Icons.refresh,
                   onTap: controller.isRefreshing ? null : controller.refresh,
@@ -682,6 +739,17 @@ class _MobileDrawer extends StatelessWidget {
               child: Column(
                 children: <Widget>[
                   _SidebarButton(
+                    label: 'Account settings',
+                    icon: Icons.manage_accounts_outlined,
+                    active:
+                        controller.selectedSection ==
+                        AppSection.accountSettings,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      controller.setSelectedSection(AppSection.accountSettings);
+                    },
+                  ),
+                  _SidebarButton(
                     label: 'Refresh',
                     icon: Icons.refresh,
                     onTap: () {
@@ -727,6 +795,8 @@ class _SectionBody extends StatelessWidget {
         return RunsPanel(controller: controller);
       case AppSection.settings:
         return SettingsPanel(controller: controller);
+      case AppSection.accountSettings:
+        return AccountSettingsPanel(controller: controller);
       case AppSection.logs:
         return LogsPanel(controller: controller);
       case AppSection.skills:

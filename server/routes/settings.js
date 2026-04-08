@@ -173,8 +173,6 @@ router.put('/', (req, res) => {
     || 'browser_backend' in normalizedBody
     || 'android_backend' in normalizedBody
     || 'mcp_backend' in normalizedBody
-    || 'remote_worker_base_url' in normalizedBody
-    || 'remote_worker_token' in normalizedBody
   ) {
     const validation = validateRuntimeSettings({
       ...getRuntimeSettings(userId),
@@ -340,7 +338,7 @@ router.put('/:key', (req, res) => {
   } else if (req.params.key === 'ai_provider_configs') {
     value = normalizeProviderConfigs(value);
   } else if (
-    ['runtime_profile', 'runtime_backend', 'browser_backend', 'android_backend', 'mcp_backend', 'remote_worker_base_url', 'remote_worker_token']
+    ['runtime_profile', 'runtime_backend', 'browser_backend', 'android_backend', 'mcp_backend']
       .includes(req.params.key)
   ) {
     const validation = validateRuntimeSettings({

@@ -1,6 +1,5 @@
 const { HostExecutionBackend } = require('./backends/host');
 const { LocalVmExecutionBackend } = require('./backends/local-vm');
-const { RemoteWorkerExecutionBackend } = require('./backends/remote');
 const { QemuVmManager } = require('./qemu');
 const { getRuntimeSettings } = require('./settings');
 const { ExtensionBrowserProvider } = require('../browser/extension/provider');
@@ -14,11 +13,6 @@ class RuntimeManager {
     });
     this.vmBackend = new LocalVmExecutionBackend({
       vmManager: options.vmManager || new QemuVmManager(),
-      artifactStore: options.artifactStore,
-    });
-    this.remoteBackend = new RemoteWorkerExecutionBackend({
-      getBaseUrl: (userId) => getRuntimeSettings(userId).remote_worker_base_url,
-      getToken: (userId) => getRuntimeSettings(userId).remote_worker_token,
       artifactStore: options.artifactStore,
     });
     this.getExtensionBrowserProvider = options.getExtensionBrowserProvider || ((userId) => new ExtensionBrowserProvider({
@@ -36,7 +30,6 @@ class RuntimeManager {
     const settings = this.getSettings(userId);
     const effective = requested || settings.runtime_backend;
     if (effective === 'vm') return this.vmBackend;
-    if (effective === 'remote') return this.remoteBackend;
     return this.hostBackend;
   }
 
@@ -64,7 +57,6 @@ class RuntimeManager {
     await Promise.allSettled([
       this.hostBackend.shutdown(),
       this.vmBackend.shutdown(),
-      this.remoteBackend.shutdown(),
     ]);
   }
 }

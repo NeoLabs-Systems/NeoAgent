@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:audioplayers/audioplayers.dart';
@@ -53,6 +54,7 @@ enum AppSection {
   messaging,
   runs,
   settings,
+  accountSettings,
   logs,
   skills,
   agents,
@@ -117,6 +119,8 @@ extension AppSectionX on AppSection {
         return 'Runs';
       case AppSection.settings:
         return 'Settings';
+      case AppSection.accountSettings:
+        return 'Account settings';
       case AppSection.logs:
         return 'Logs';
       case AppSection.skills:
@@ -152,6 +156,8 @@ extension AppSectionX on AppSection {
         return Icons.history;
       case AppSection.settings:
         return Icons.tune;
+      case AppSection.accountSettings:
+        return Icons.manage_accounts_outlined;
       case AppSection.logs:
         return Icons.article_outlined;
       case AppSection.skills:
@@ -194,6 +200,7 @@ extension AppSectionX on AppSection {
       case AppSection.health:
         return SidebarGroup.automation;
       case AppSection.settings:
+      case AppSection.accountSettings:
       case AppSection.messaging:
         return SidebarGroup.settings;
     }
@@ -381,10 +388,14 @@ class NeoAgentController extends ChangeNotifier {
   bool isBooting = true;
   bool isAuthenticated = false;
   bool isAuthenticating = false;
+  bool isAwaitingTwoFactor = false;
   bool isRefreshing = false;
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
+  bool isSavingAccountSettings = false;
+  bool isConfiguringTwoFactor = false;
+  bool isRevokingSession = false;
   bool isTriggeringUpdate = false;
   bool isSavingReleaseChannel = false;
   bool isSyncingHealth = false;
@@ -396,11 +407,15 @@ class NeoAgentController extends ChangeNotifier {
   String deploymentProfile = 'private';
   String backendUrl = _defaultBackendUrl;
   String username = '';
+  String email = '';
   String password = '';
+  String pendingTwoFactorUsername = '';
   String? errorMessage;
 
   AppSection selectedSection = AppSection.chat;
   Map<String, dynamic>? user;
+  Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
+  List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
   Map<String, dynamic> settings = const <String, dynamic>{};
   Map<String, dynamic>? versionInfo;
   Map<String, dynamic>? backendHealthStatus;
@@ -665,7 +680,7 @@ class NeoAgentController extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     backendUrl = _defaultBackendUrl;
     username = _prefs?.getString('username') ?? '';
-    password = _prefs?.getString('password') ?? '';
+    password = '';
     await _recordingBridge.refreshStatus();
     notifyListeners();
 
@@ -679,10 +694,7 @@ class NeoAgentController extends ChangeNotifier {
       if (me != null && me['user'] is Map<String, dynamic>) {
         user = Map<String, dynamic>.from(me['user'] as Map<String, dynamic>);
         isAuthenticated = true;
-      } else if (!kIsWeb && username.isNotEmpty && password.isNotEmpty) {
-        await _authenticate(register: false, silent: true);
       }
-
       if (isAuthenticated) {
         await refresh();
       }
@@ -705,11 +717,50 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> register({
     required String username,
+    required String email,
     required String password,
   }) async {
     this.username = username.trim();
+    this.email = email.trim();
     this.password = password;
     await _authenticate(register: true);
+  }
+
+  Future<void> completeTwoFactorLogin({required String code}) async {
+    isAuthenticating = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _backendClient.completeTwoFactorLogin(
+        baseUrl: backendUrl,
+        code: code.trim(),
+      );
+      user = Map<String, dynamic>.from(
+        response['user'] as Map<dynamic, dynamic>? ??
+            <String, dynamic>{'username': pendingTwoFactorUsername},
+      );
+      hasUser = true;
+      isAuthenticated = true;
+      isAwaitingTwoFactor = false;
+      pendingTwoFactorUsername = '';
+      password = '';
+      await _persistCredentials();
+      await refresh();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      isAuthenticated = false;
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
+  }
+
+  void cancelTwoFactorLogin() {
+    isAwaitingTwoFactor = false;
+    pendingTwoFactorUsername = '';
+    password = '';
+    notifyListeners();
   }
 
   Future<void> _authenticate({
@@ -727,6 +778,7 @@ class NeoAgentController extends ChangeNotifier {
           ? await _backendClient.register(
               baseUrl: backendUrl,
               username: username,
+              email: email,
               password: password,
             )
           : await _backendClient.login(
@@ -734,12 +786,23 @@ class NeoAgentController extends ChangeNotifier {
               username: username,
               password: password,
             );
+      if (response['requiresTwoFactor'] == true) {
+        pendingTwoFactorUsername = username;
+        isAwaitingTwoFactor = true;
+        isAuthenticated = false;
+        password = '';
+        await _persistCredentials();
+        return;
+      }
       user = Map<String, dynamic>.from(
         response['user'] as Map<dynamic, dynamic>? ??
             <String, dynamic>{'username': username},
       );
       hasUser = true;
       isAuthenticated = true;
+      isAwaitingTwoFactor = false;
+      pendingTwoFactorUsername = '';
+      password = '';
       await _persistCredentials();
       await refresh();
     } catch (error) {
@@ -771,7 +834,11 @@ class NeoAgentController extends ChangeNotifier {
     _disconnectSocket();
     _updatePollTimer?.cancel();
     isAuthenticated = false;
+    isAwaitingTwoFactor = false;
+    pendingTwoFactorUsername = '';
     user = null;
+    accountTwoFactor = const <String, dynamic>{};
+    accountSessions = const <AccountSessionItem>[];
     settings = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
     agentProfiles = const <AgentProfile>[];
@@ -823,7 +890,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> _persistCredentials() async {
     await _prefs?.setString('username', username);
-    await _prefs?.setString('password', password);
+    await _prefs?.remove('password');
   }
 
   void setSelectedSection(AppSection section) {
@@ -834,6 +901,9 @@ class NeoAgentController extends ChangeNotifier {
     }
     if (section == AppSection.devices) {
       unawaited(refreshDevices());
+    }
+    if (section == AppSection.accountSettings) {
+      unawaited(refreshAccountSettings());
     }
     notifyListeners();
   }
@@ -1446,7 +1516,8 @@ class NeoAgentController extends ChangeNotifier {
       label: 'neoagent_browser_extension_download',
     );
     if (!result.launched) {
-      errorMessage = result.error ?? 'Could not open browser extension download.';
+      errorMessage =
+          result.error ?? 'Could not open browser extension download.';
       notifyListeners();
     }
   }
@@ -2275,6 +2346,182 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  void _applyAccountResponse(Map<String, dynamic> response) {
+    if (response['user'] is Map) {
+      user = Map<String, dynamic>.from(response['user'] as Map);
+    }
+    if (response['twoFactor'] is Map) {
+      accountTwoFactor = Map<String, dynamic>.from(
+        response['twoFactor'] as Map,
+      );
+    }
+    final sessions = response['sessions'];
+    if (sessions is List) {
+      accountSessions = sessions
+          .whereType<Map<dynamic, dynamic>>()
+          .map(AccountSessionItem.fromJson)
+          .toList();
+    }
+  }
+
+  Future<void> refreshAccountSettings() async {
+    if (!isAuthenticated) return;
+    isSavingAccountSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(await _backendClient.fetchAccount(backendUrl));
+      final sessionsResponse = await _backendClient.fetchAccountSessions(
+        backendUrl,
+      );
+      _applyAccountResponse(sessionsResponse);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingAccountSettings = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateAccountEmail({
+    required String email,
+    required String currentPassword,
+  }) async {
+    isSavingAccountSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.updateAccountEmail(
+          baseUrl: backendUrl,
+          email: email,
+          currentPassword: currentPassword,
+        ),
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingAccountSettings = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>?> beginTwoFactorSetup(
+    String currentPassword,
+  ) async {
+    isConfiguringTwoFactor = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.beginTwoFactorSetup(
+        baseUrl: backendUrl,
+        currentPassword: currentPassword,
+      );
+      if (response['status'] is Map) {
+        accountTwoFactor = Map<String, dynamic>.from(response['status'] as Map);
+      }
+      return response;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return null;
+    } finally {
+      isConfiguringTwoFactor = false;
+      notifyListeners();
+    }
+  }
+
+  Future<List<String>> enableTwoFactor(String code) async {
+    isConfiguringTwoFactor = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.enableTwoFactor(
+        baseUrl: backendUrl,
+        code: code,
+      );
+      if (response['status'] is Map) {
+        accountTwoFactor = Map<String, dynamic>.from(response['status'] as Map);
+      }
+      return (response['recoveryCodes'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item.toString())
+          .toList();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return const <String>[];
+    } finally {
+      isConfiguringTwoFactor = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> disableTwoFactor({
+    required String currentPassword,
+    required String code,
+  }) async {
+    isConfiguringTwoFactor = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.disableTwoFactor(
+        baseUrl: backendUrl,
+        currentPassword: currentPassword,
+        code: code,
+      );
+      if (response['status'] is Map) {
+        accountTwoFactor = Map<String, dynamic>.from(response['status'] as Map);
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isConfiguringTwoFactor = false;
+      notifyListeners();
+    }
+  }
+
+  Future<List<String>> regenerateRecoveryCodes({
+    required String currentPassword,
+    required String code,
+  }) async {
+    isConfiguringTwoFactor = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.regenerateRecoveryCodes(
+        baseUrl: backendUrl,
+        currentPassword: currentPassword,
+        code: code,
+      );
+      if (response['status'] is Map) {
+        accountTwoFactor = Map<String, dynamic>.from(response['status'] as Map);
+      }
+      return (response['recoveryCodes'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item.toString())
+          .toList();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return const <String>[];
+    } finally {
+      isConfiguringTwoFactor = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> revokeAccountSession(int sessionId) async {
+    isRevokingSession = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.revokeAccountSession(backendUrl, sessionId),
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRevokingSession = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> triggerUpdate() async {
     isTriggeringUpdate = true;
     errorMessage = null;
@@ -2915,6 +3162,24 @@ class NeoAgentController extends ChangeNotifier {
     if (lower.contains('too many attempts')) {
       return 'Too many sign-in attempts. Please wait and try again.';
     }
+    if (lower.contains('valid email')) {
+      return 'Enter a valid email address.';
+    }
+    if (lower.contains('email is already in use')) {
+      return 'That email is already linked to another account.';
+    }
+    if (lower.contains('current password is incorrect')) {
+      return 'Your current password is incorrect.';
+    }
+    if (lower.contains('invalid 2fa') || lower.contains('two-factor code')) {
+      return 'The two-factor code is not valid.';
+    }
+    if (lower.contains('two-factor challenge expired')) {
+      return 'The two-factor challenge expired. Sign in again.';
+    }
+    if (lower.contains('session_secret')) {
+      return '2FA requires SESSION_SECRET to be configured on this NeoAgent deployment.';
+    }
     if (lower.contains('cors') ||
         lower.contains('xmlhttprequest error') ||
         lower.contains('failed to fetch') ||
@@ -3028,8 +3293,14 @@ class NeoAgentController extends ChangeNotifier {
 
   String get cloudBrowserBackend {
     final browser = browserBackend;
-    final profile = settings['runtime_profile']?.toString().trim().toLowerCase();
-    final runtime = settings['runtime_backend']?.toString().trim().toLowerCase();
+    final profile = settings['runtime_profile']
+        ?.toString()
+        .trim()
+        .toLowerCase();
+    final runtime = settings['runtime_backend']
+        ?.toString()
+        .trim()
+        .toLowerCase();
     if (updateStatus.deploymentProfile.toLowerCase() == 'prod' ||
         profile == 'secure-vm') {
       return 'vm';
@@ -9760,6 +10031,519 @@ class _RunDetailBlock extends StatelessWidget {
   }
 }
 
+enum AccountSettingsTab { account, security }
+
+class AccountSettingsPanel extends StatefulWidget {
+  const AccountSettingsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<AccountSettingsPanel> createState() => _AccountSettingsPanelState();
+}
+
+class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
+  AccountSettingsTab _selectedTab = AccountSettingsTab.account;
+  late final TextEditingController _emailController;
+  late final TextEditingController _emailPasswordController;
+  late final TextEditingController _setupPasswordController;
+  late final TextEditingController _setupCodeController;
+  late final TextEditingController _disablePasswordController;
+  late final TextEditingController _disableCodeController;
+  Map<String, dynamic>? _pendingSetup;
+  List<String> _recoveryCodes = const <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(
+      text: widget.controller.user?['email']?.toString() ?? '',
+    );
+    _emailPasswordController = TextEditingController();
+    _setupPasswordController = TextEditingController();
+    _setupCodeController = TextEditingController();
+    _disablePasswordController = TextEditingController();
+    _disableCodeController = TextEditingController();
+    unawaited(widget.controller.refreshAccountSettings());
+  }
+
+  @override
+  void didUpdateWidget(covariant AccountSettingsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final email = widget.controller.user?['email']?.toString() ?? '';
+    if (_emailController.text.isEmpty && email.isNotEmpty) {
+      _emailController.text = email;
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _emailPasswordController.dispose();
+    _setupPasswordController.dispose();
+    _setupCodeController.dispose();
+    _disablePasswordController.dispose();
+    _disableCodeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 860;
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Account settings',
+          subtitle:
+              'Manage your account email, two-factor authentication, and active sessions.',
+          trailing: OutlinedButton.icon(
+            onPressed: widget.controller.isSavingAccountSettings
+                ? null
+                : widget.controller.refreshAccountSettings,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh'),
+          ),
+        ),
+        if (widget.controller.errorMessage != null) ...<Widget>[
+          _InlineError(message: widget.controller.errorMessage!),
+          const SizedBox(height: 16),
+        ],
+        if (compact)
+          _AccountSettingsTabs(
+            selected: _selectedTab,
+            onSelected: (value) => setState(() => _selectedTab = value),
+          )
+        else
+          const SizedBox.shrink(),
+        if (compact) const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: compact
+                ? _buildSelectedPanel()
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      SizedBox(
+                        width: 220,
+                        child: _AccountSettingsTabs(
+                          selected: _selectedTab,
+                          onSelected: (value) =>
+                              setState(() => _selectedTab = value),
+                          vertical: true,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildSelectedPanel()),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedPanel() {
+    switch (_selectedTab) {
+      case AccountSettingsTab.account:
+        return _buildAccountPanel();
+      case AccountSettingsTab.security:
+        return _buildSecurityPanel();
+    }
+  }
+
+  Widget _buildAccountPanel() {
+    final controller = widget.controller;
+    final username = controller.user?['username']?.toString() ?? 'Account';
+    final currentEmail =
+        controller.user?['email']?.toString() ?? 'No email linked';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const _SectionTitle('Account'),
+        const SizedBox(height: 12),
+        _MetaPill(label: username, icon: Icons.person_outline),
+        const SizedBox(height: 18),
+        Text('Current email: $currentEmail'),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(labelText: 'Email'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _emailPasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'Current password'),
+        ),
+        const SizedBox(height: 14),
+        FilledButton.icon(
+          onPressed: controller.isSavingAccountSettings
+              ? null
+              : () => controller.updateAccountEmail(
+                  email: _emailController.text,
+                  currentPassword: _emailPasswordController.text,
+                ),
+          icon: controller.isSavingAccountSettings
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_outlined),
+          label: const Text('Save email'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecurityPanel() {
+    final controller = widget.controller;
+    final twoFactorEnabled = controller.accountTwoFactor['enabled'] == true;
+    final recoveryCount = _asInt(
+      controller.accountTwoFactor['recoveryCodesRemaining'],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            const Expanded(child: _SectionTitle('Two-factor authentication')),
+            _StatusPill(
+              label: twoFactorEnabled ? 'Enabled' : 'Disabled',
+              color: twoFactorEnabled ? _success : _warning,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          twoFactorEnabled
+              ? '$recoveryCount recovery codes are still available.'
+              : 'Use an authenticator app such as Authy, 1Password, or Google Authenticator.',
+          style: const TextStyle(color: _textSecondary, height: 1.4),
+        ),
+        const SizedBox(height: 16),
+        if (!twoFactorEnabled) _buildEnableTwoFactorPanel(),
+        if (twoFactorEnabled) _buildDisableTwoFactorPanel(),
+        if (_recoveryCodes.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 16),
+          _RecoveryCodesCard(codes: _recoveryCodes),
+        ],
+        const SizedBox(height: 24),
+        Row(
+          children: <Widget>[
+            const Expanded(child: _SectionTitle('Active sessions')),
+            Text(
+              '${controller.accountSessions.length} active',
+              style: const TextStyle(color: _textSecondary),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (controller.accountSessions.isEmpty)
+          const Text(
+            'No active sessions found.',
+            style: TextStyle(color: _textSecondary),
+          )
+        else
+          ...controller.accountSessions.map(
+            (session) => _AccountSessionCard(
+              session: session,
+              busy: controller.isRevokingSession,
+              onRevoke: session.current
+                  ? null
+                  : () => controller.revokeAccountSession(session.id),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEnableTwoFactorPanel() {
+    final setupUrl = _pendingSetup?['otpauthUrl']?.toString() ?? '';
+    final manualKey = _pendingSetup?['manualKey']?.toString() ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (_pendingSetup == null) ...<Widget>[
+          TextField(
+            controller: _setupPasswordController,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Current password'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: widget.controller.isConfiguringTwoFactor
+                ? null
+                : () async {
+                    final setup = await widget.controller.beginTwoFactorSetup(
+                      _setupPasswordController.text,
+                    );
+                    if (setup != null && mounted) {
+                      setState(() => _pendingSetup = setup);
+                    }
+                  },
+            icon: const Icon(Icons.qr_code_2_outlined),
+            label: const Text('Start setup'),
+          ),
+        ] else ...<Widget>[
+          Center(
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(12),
+              child: QrImageView(
+                data: setupUrl,
+                version: QrVersions.auto,
+                size: 220,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SelectableText(
+            manualKey,
+            style: const TextStyle(color: _textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _setupCodeController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Authenticator code'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: widget.controller.isConfiguringTwoFactor
+                ? null
+                : () async {
+                    final codes = await widget.controller.enableTwoFactor(
+                      _setupCodeController.text,
+                    );
+                    if (codes.isNotEmpty && mounted) {
+                      setState(() {
+                        _recoveryCodes = codes;
+                        _pendingSetup = null;
+                        _setupPasswordController.clear();
+                        _setupCodeController.clear();
+                      });
+                    }
+                  },
+            icon: const Icon(Icons.verified_user_outlined),
+            label: const Text('Enable 2FA'),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDisableTwoFactorPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        TextField(
+          controller: _disablePasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'Current password'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _disableCodeController,
+          decoration: const InputDecoration(labelText: '2FA or recovery code'),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            FilledButton.icon(
+              onPressed: widget.controller.isConfiguringTwoFactor
+                  ? null
+                  : () => widget.controller.disableTwoFactor(
+                      currentPassword: _disablePasswordController.text,
+                      code: _disableCodeController.text,
+                    ),
+              icon: const Icon(Icons.lock_open_outlined),
+              label: const Text('Disable 2FA'),
+            ),
+            OutlinedButton.icon(
+              onPressed: widget.controller.isConfiguringTwoFactor
+                  ? null
+                  : () async {
+                      final codes = await widget.controller
+                          .regenerateRecoveryCodes(
+                            currentPassword: _disablePasswordController.text,
+                            code: _disableCodeController.text,
+                          );
+                      if (codes.isNotEmpty && mounted) {
+                        setState(() => _recoveryCodes = codes);
+                      }
+                    },
+              icon: const Icon(Icons.password_outlined),
+              label: const Text('New recovery codes'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountSettingsTabs extends StatelessWidget {
+  const _AccountSettingsTabs({
+    required this.selected,
+    required this.onSelected,
+    this.vertical = false,
+  });
+
+  final AccountSettingsTab selected;
+  final ValueChanged<AccountSettingsTab> onSelected;
+  final bool vertical;
+
+  @override
+  Widget build(BuildContext context) {
+    final buttons = <Widget>[
+      _tabButton(AccountSettingsTab.account, Icons.person_outline, 'Account'),
+      _tabButton(
+        AccountSettingsTab.security,
+        Icons.security_outlined,
+        'Security',
+      ),
+    ];
+    return vertical
+        ? Column(children: buttons)
+        : Wrap(spacing: 8, runSpacing: 8, children: buttons);
+  }
+
+  Widget _tabButton(AccountSettingsTab tab, IconData icon, String label) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: vertical ? 8 : 0),
+      child: _SidebarButton(
+        label: label,
+        icon: icon,
+        active: selected == tab,
+        onTap: () => onSelected(tab),
+      ),
+    );
+  }
+}
+
+class _RecoveryCodesCard extends StatelessWidget {
+  const _RecoveryCodesCard({required this.codes});
+
+  final List<String> codes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _warning.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Save these recovery codes now. They will not be shown again.',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: codes
+                .map(
+                  (code) => SelectableText(
+                    code,
+                    style: const TextStyle(fontFamily: 'monospace'),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () =>
+                Clipboard.setData(ClipboardData(text: codes.join('\n'))),
+            icon: const Icon(Icons.copy_outlined),
+            label: const Text('Copy codes'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountSessionCard extends StatelessWidget {
+  const _AccountSessionCard({
+    required this.session,
+    required this.busy,
+    required this.onRevoke,
+  });
+
+  final AccountSessionItem session;
+  final bool busy;
+  final VoidCallback? onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            session.current ? Icons.devices_outlined : Icons.public_outlined,
+            color: session.current ? _success : _textSecondary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  session.current
+                      ? '${session.location} · Current session'
+                      : session.location,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    if (session.ipAddress.isNotEmpty) session.ipAddress,
+                    'Last seen ${session.lastSeenLabel}',
+                  ].join(' · '),
+                  style: const TextStyle(color: _textSecondary),
+                ),
+                if (session.userAgent.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text(
+                    session.userAgent,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _textMuted, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (!session.current)
+            TextButton(
+              onPressed: busy ? null : onRevoke,
+              child: const Text('Revoke'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class SettingsPanel extends StatefulWidget {
   const SettingsPanel({super.key, required this.controller});
 
@@ -10266,12 +11050,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             ? 'Chrome extension connected.'
                             : 'Chrome extension selected. Download it here, load it unpacked in Chrome on the remote machine, then pair after login.')
                       : controller.cloudBrowserBackend == 'vm'
-                          ? "Cloud uses this deployment's isolated VM browser runtime."
-                          : "Cloud uses this deployment's local host browser runtime.",
-                  style: const TextStyle(
-                    color: _textSecondary,
-                    height: 1.4,
-                  ),
+                      ? "Cloud uses this deployment's isolated VM browser runtime."
+                      : "Cloud uses this deployment's local host browser runtime.",
+                  style: const TextStyle(color: _textSecondary, height: 1.4),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
@@ -10293,10 +11074,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 const SizedBox(height: 8),
                 SelectableText(
                   controller.browserExtensionDownloadUrl,
-                  style: const TextStyle(
-                    color: _textSecondary,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: _textSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
                 _SettingToggle(

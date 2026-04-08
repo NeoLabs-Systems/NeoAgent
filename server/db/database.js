@@ -53,6 +53,41 @@ db.exec(`
     UNIQUE(user_id, key)
   );
 
+  CREATE TABLE IF NOT EXISTS user_two_factor (
+    user_id INTEGER PRIMARY KEY,
+    secret TEXT,
+    pending_secret TEXT,
+    enabled INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    enabled_at TEXT,
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS user_recovery_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    code_hash TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS user_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    session_hash TEXT UNIQUE NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    location_label TEXT,
+    location_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    last_seen_at TEXT DEFAULT (datetime('now')),
+    expires_at TEXT,
+    revoked_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS agent_runs (
     id TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -270,6 +305,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
   CREATE INDEX IF NOT EXISTS idx_agent_steps_run ON agent_steps(run_id, step_index);
   CREATE INDEX IF NOT EXISTS idx_agents_user ON agents(user_id, status, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_user_recovery_codes_user ON user_recovery_codes(user_id, used_at);
+  CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, revoked_at, last_seen_at DESC);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_state ON integration_oauth_states(state);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_expires ON integration_oauth_states(expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
