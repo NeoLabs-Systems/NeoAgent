@@ -152,20 +152,111 @@ function buildForcedFinalReplyPrompt(triggerSource) {
 
 function buildBlankMessagingReplyPrompt(attempt) {
   if (attempt <= 1) {
-    return 'You must send one non-empty plain-text reply for the external messaging user right now. Do not call tools. Do not use markdown. Give either: (a) the concrete outcome, or (b) a clear blocker and the next action.';
+    return 'You must send one non-empty plain-text reply for the external messaging user right now. Do not call tools. Do not use markdown. Give either: (a) the concrete outcome, or (b) a clear blocker and the next action. If tool work already happened, summarize what you actually tried and where it got blocked. Do not ask the user to repeat the original request.';
   }
 
-  return 'Your previous reply was empty. Return one non-empty plain-text message now. Do not call tools. Do not use markdown. If needed, apologize briefly, explain the blocker in one sentence, and tell the user what to do next.';
+  return 'Your previous reply was empty. Return one non-empty plain-text message now. Do not call tools. Do not use markdown. If needed, apologize briefly, explain the blocker in one sentence, and tell the user what to do next. Use the run evidence already in the conversation instead of asking the user to restate the task.';
 }
 
-function buildDeterministicMessagingFallback({ failedStepCount, stepIndex }) {
+function parseToolExecutionSummary(item) {
+  if (!item?.summary) return null;
+  try {
+    const parsed = JSON.parse(item.summary);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function toolWorkDescription(toolName) {
+  const name = String(toolName || '');
+  if (name === 'execute_command') return 'ran shell commands';
+  if (name === 'read_file' || name === 'search_files' || name === 'list_directory') return 'checked files';
+  if (name === 'web_search' || name === 'http_request') return 'looked up supporting information';
+  if (name.startsWith('browser_')) return 'checked the browser state';
+  if (name.startsWith('android_')) return 'checked the Android state';
+  if (name === 'read_health_data' || name.startsWith('recordings_')) return 'checked stored data';
+  return '';
+}
+
+function summarizeRecentWork(toolExecutions = []) {
+  const descriptions = [];
+  for (const item of toolExecutions.slice(-6)) {
+    const description = toolWorkDescription(item?.toolName);
+    if (!description || descriptions.includes(description)) continue;
+    descriptions.push(description);
+    if (descriptions.length >= 2) break;
+  }
+
+  if (descriptions.length === 0) return '';
+  if (descriptions.length === 1) return `I ${descriptions[0]}`;
+  return `I ${descriptions[0]} and ${descriptions[1]}`;
+}
+
+function hasFailureSignal(text) {
+  const normalized = normalizeOutgoingMessage(text);
+  if (!normalized) return false;
+  return /\b(error|failed|failure|traceback|exception|timed out|timeout|not found|no such file|permission denied|unable to|cannot|could not|module not found)\b/i.test(normalized);
+}
+
+function extractToolFailureMessage(item) {
+  const directError = normalizeOutgoingMessage(item?.error || '');
+  if (directError) return directError;
+
+  const summary = parseToolExecutionSummary(item);
+  if (!summary) return '';
+
+  const candidates = [
+    summary.message,
+    summary.note,
+    summary.stderr,
+    summary.stdout,
+    summary.content,
+    summary.excerpt,
+    summary.result,
+    summary.summary,
+  ];
+
+  if (summary.status === 'error') {
+    for (const candidate of candidates) {
+      const normalized = normalizeOutgoingMessage(candidate || '');
+      if (normalized) return normalized;
+    }
+    if (summary.exitCode != null) {
+      return `The last shell command exited with code ${summary.exitCode}`;
+    }
+  }
+
+  for (const candidate of candidates) {
+    const normalized = normalizeOutgoingMessage(candidate || '');
+    if (hasFailureSignal(normalized)) return normalized;
+  }
+
+  return '';
+}
+
+function buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions = [] }) {
+  const workSummary = summarizeRecentWork(toolExecutions);
+  const blocker = [...toolExecutions].reverse()
+    .map((item) => extractToolFailureMessage(item))
+    .find(Boolean);
+
+  if (workSummary && blocker) {
+    return `${workSummary}, but I got blocked: ${blocker}. I do not have a confirmed finished result yet.`;
+  }
+  if (blocker) {
+    return `I got blocked while working on this: ${blocker}. I do not have a confirmed finished result yet.`;
+  }
+  if (workSummary && stepIndex > 0) {
+    return `${workSummary}, but I do not have a confirmed finished result yet.`;
+  }
   if (failedStepCount > 0) {
-    return 'I ran into an internal tool issue while working on your request, so I could not verify a reliable final result yet. Please try again in a moment.';
+    return 'I ran into a tool problem while working on your request, so I do not have a confirmed finished result yet.';
   }
   if (stepIndex > 0) {
-    return 'I completed part of the work, but the final reply did not render correctly. Please send the request again and I will continue from there.';
+    return 'I completed part of the work, but I do not have a confirmed finished result yet.';
   }
-  return 'I could not generate a clean final reply just now. Please send the request again and I will retry immediately.';
+  return 'I could not produce a reliable final reply just now.';
 }
 
 function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
@@ -180,21 +271,21 @@ function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
 function buildMessagingErrorReply(err) {
   const message = String(err?.message || '').trim();
   if (!message) {
-    return 'I ran into an internal error while processing your request. Please try again in a moment.';
+    return 'I ran into an internal error while processing your request and could not finish it reliably.';
   }
 
   if (/no ai providers? are currently available/i.test(message)) {
-    return 'I cannot answer right now because no AI provider is available for this account. Please check provider settings and try again.';
+    return 'I cannot continue right now because no AI provider is available for this account. Please check the provider settings.';
   }
 
   if (/(timeout|timed out)/i.test(message)) {
-    return 'I hit a timeout while processing your request. Please try again in a moment.';
+    return 'I hit a timeout while processing your request and could not finish it reliably.';
   }
 
-  return 'I ran into an internal error while processing your request. Please try again in a moment.';
+  return 'I ran into an internal error while processing your request and could not finish it reliably.';
 }
 
-const MAX_MESSAGING_AUTONOMOUS_RETRIES = 1;
+const MAX_MESSAGING_AUTONOMOUS_RETRIES = 2;
 
 function clampRunContext(text, maxChars) {
   const value = normalizeOutgoingMessage(text);
@@ -311,10 +402,26 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     || name.startsWith('android_')
     || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
 
+  let normalizedError = String(errorMessage || result?.error || '').trim();
+  if (
+    !normalizedError
+    && name === 'execute_command'
+    && result
+    && typeof result === 'object'
+  ) {
+    if (result.timedOut) {
+      normalizedError = `Command timed out after ${result.durationMs || 'unknown'} ms`;
+    } else if (result.killed) {
+      normalizedError = 'Command was killed before it finished';
+    } else if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
+      normalizedError = summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
+    }
+  }
+
   return {
     toolName: name,
-    ok: !errorMessage && !result?.error,
-    error: errorMessage || result?.error || '',
+    ok: !normalizedError,
+    error: normalizedError,
     evidenceSource,
     evidenceRelevant,
     stateChanged,
@@ -589,6 +696,7 @@ class AgentEngine {
     options,
     stepIndex,
     failedStepCount,
+    toolExecutions = [],
     tools = []
   }) {
     const attempts = 3;
@@ -629,7 +737,11 @@ class AgentEngine {
       }
     }
 
-    const fallback = buildDeterministicMessagingFallback({ failedStepCount, stepIndex });
+    const fallback = buildDeterministicMessagingFallback({
+      failedStepCount,
+      stepIndex,
+      toolExecutions,
+    });
     console.warn(
       `[Run ${shortenRunId(runId)}] blank_reply_recovery fallback=natural_language`
     );
@@ -1545,6 +1657,7 @@ class AgentEngine {
           options,
           stepIndex,
           failedStepCount,
+          toolExecutions,
           tools
         });
         lastContent = recovered.content;
@@ -1772,7 +1885,7 @@ class AgentEngine {
                 ...messages,
                 {
                   role: 'system',
-                  content: `The run encountered a runtime error and cannot continue reliably: ${summarizeForLog(err.message, 260)}. Do not call tools. Write exactly one short plain-text user message that explains the issue naturally and includes what the user should do next.`
+                  content: `The run encountered a runtime error and cannot continue reliably: ${summarizeForLog(err.message, 260)}. Do not call tools. Write exactly one short plain-text user message that explains the blocker naturally. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required.`
                 }
               ]);
               const modelReply = await provider.chat(failedMessage, [], {

@@ -31,6 +31,18 @@ function terminateProcess(proc, signal = 'SIGTERM') {
   proc.kill?.(signal) || proc.kill?.();
 }
 
+function shellSupportsPipefail(shellPath) {
+  const normalized = String(shellPath || '').trim().toLowerCase();
+  return /(?:^|\/)(?:bash|zsh|ksh|mksh|yash)$/.test(normalized);
+}
+
+function wrapCommandForShell(command, shellPath) {
+  if (!shellSupportsPipefail(shellPath)) {
+    return command;
+  }
+  return `set -o pipefail; ${command}`;
+}
+
 class CLIExecutor {
   constructor() {
     this.activeProcesses = new Map();
@@ -71,8 +83,9 @@ class CLIExecutor {
       let killed = false;
       let timedOut = false;
       const startedAt = Date.now();
+      const wrappedCommand = wrapCommandForShell(command, this.defaultShell);
 
-      const proc = spawn(this.defaultShell, ['-l', '-c', command], {
+      const proc = spawn(this.defaultShell, ['-l', '-c', wrappedCommand], {
         cwd,
         detached: process.platform !== 'win32',
         env: this._buildEnv(options.env),
@@ -163,6 +176,7 @@ class CLIExecutor {
       let killed = false;
       let timedOut = false;
       const startedAt = Date.now();
+      const wrappedCommand = wrapCommandForShell(command, this.defaultShell);
 
       let pty;
       try {
@@ -171,7 +185,7 @@ class CLIExecutor {
         return this.execute(command, { ...options, stdinInput: inputs.join('\n') + '\n' }).then(resolve);
       }
 
-      const proc = pty.spawn(this.defaultShell, ['-l', '-c', command], {
+      const proc = pty.spawn(this.defaultShell, ['-l', '-c', wrappedCommand], {
         name: 'xterm-256color',
         cols: 120,
         rows: 30,
