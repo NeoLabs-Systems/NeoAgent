@@ -53,7 +53,7 @@ Android control supports:
 - Installing `.apk` and universal `.apks` bundles.
 - Running `adb shell` commands when higher-level tools are not enough.
 
-These actions run where the NeoAgent backend or runtime worker is running. If NeoAgent is deployed on a remote server, the AI controls the Android runtime attached to that server, not the laptop where you are reading the docs.
+These actions run where the NeoAgent backend is running. If NeoAgent is deployed on a remote server, the AI controls the Android runtime attached to that server, not the laptop where you are reading the docs.
 
 ## Android App, Health, And Wearables
 
