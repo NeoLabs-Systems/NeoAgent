@@ -282,19 +282,34 @@ class SlackPlatform extends BasePlatform {
 
     const event = body.event || body;
     if (event.type !== 'message' || event.subtype || !event.text) {
+      if (event.type !== 'app_mention') {
+        return { handled: true, status: 202, body: 'ignored' };
+      }
+    }
+    if (event.subtype || !event.text) {
       return { handled: true, status: 202, body: 'ignored' };
     }
     if (this._botUserId && event.user === this._botUserId) {
       return { handled: true, status: 202, body: 'ignored' };
     }
+    const isGroup = String(event.channel_type || '') !== 'im';
+    const wasMentioned = event.type === 'app_mention'
+      || (this._botUserId && String(event.text || '').includes(`<@${this._botUserId}>`));
+    if (isGroup && !wasMentioned) {
+      return { handled: true, status: 202, body: 'ignored' };
+    }
+    const content = this._botUserId
+      ? String(event.text).replace(new RegExp(`<@${this._botUserId}>`, 'g'), '').trim()
+      : String(event.text);
+    if (!content) return { handled: true, status: 202, body: 'ignored' };
     this.emit('message', {
       platform: 'slack',
       chatId: String(event.channel || 'slack'),
       sender: String(event.user || event.bot_id || 'slack'),
       senderName: event.username || null,
-      content: String(event.text),
+      content,
       mediaType: null,
-      isGroup: String(event.channel_type || '') !== 'im',
+      isGroup,
       messageId: String(event.client_msg_id || event.ts || crypto.randomUUID()),
       timestamp: event.event_ts ? new Date(Number(event.event_ts) * 1000).toISOString() : new Date().toISOString(),
       threadTs: event.thread_ts || null,
@@ -431,12 +446,17 @@ class MatrixPlatform extends BasePlatform {
         if (event.sender && this.userId && event.sender === this.userId) continue;
         const content = event.content?.body || '';
         if (!content) continue;
+        if (this.userId && !content.includes(this.userId)) continue;
+        const cleanContent = this.userId
+          ? String(content).replaceAll(this.userId, '').trim()
+          : String(content);
+        if (!cleanContent) continue;
         this.emit('message', {
           platform: 'matrix',
           chatId: roomId,
           sender: String(event.sender || roomId),
           senderName: event.sender || null,
-          content: String(content),
+          content: cleanContent,
           mediaType: null,
           isGroup: true,
           messageId: String(event.event_id || crypto.randomUUID()),
@@ -739,14 +759,23 @@ class IrcPlatform extends BasePlatform {
       if (!match) continue;
       const [, nick, target, content] = match;
       if (nick === this.nick) continue;
+      const isGroup = target.startsWith('#');
+      if (isGroup) {
+        const escaped = this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!new RegExp(`(^|\\s)${escaped}[:,]?\\b`, 'i').test(content)) continue;
+      }
+      const cleanContent = isGroup
+        ? content.replace(new RegExp(`(^|\\s)${this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[:,]?\\s*`, 'i'), ' ').trim()
+        : content;
+      if (!cleanContent) continue;
       this.emit('message', {
         platform: this.name,
         chatId: target,
         sender: nick,
         senderName: nick,
-        content,
+        content: cleanContent,
         mediaType: null,
-        isGroup: target.startsWith('#'),
+        isGroup,
         messageId: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
       });

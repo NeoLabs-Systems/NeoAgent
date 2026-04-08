@@ -1,7 +1,7 @@
 const { BasePlatform } = require('./base');
 const path = require('path');
 const fs = require('fs');
-const { toWhatsAppJid } = require('../../utils/whatsapp');
+const { normalizeWhatsAppId, toWhatsAppJid } = require('../../utils/whatsapp');
 const { DATA_DIR } = require('../../../runtime/paths');
 
 const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
@@ -16,6 +16,40 @@ class WhatsAppPlatform extends BasePlatform {
     this.reconnectAttempts = 0;
     this.maxReconnect = 5;
     this.authDir = config.authDir || AUTH_DIR;
+  }
+
+  _ownIds() {
+    return new Set([
+      this.sock?.user?.id,
+      this.sock?.user?.jid,
+    ]
+      .map(normalizeWhatsAppId)
+      .filter(Boolean));
+  }
+
+  _contextInfo(message = {}) {
+    return message.extendedTextMessage?.contextInfo
+      || message.imageMessage?.contextInfo
+      || message.videoMessage?.contextInfo
+      || message.documentMessage?.contextInfo
+      || message.audioMessage?.contextInfo
+      || message.conversation?.contextInfo
+      || null;
+  }
+
+  _isGroupAddressedToBot(message = {}) {
+    const ownIds = this._ownIds();
+    if (ownIds.size === 0) return false;
+    const contextInfo = this._contextInfo(message);
+    const mentions = Array.isArray(contextInfo?.mentionedJid) ? contextInfo.mentionedJid : [];
+    if (mentions.some((jid) => ownIds.has(normalizeWhatsAppId(jid)))) return true;
+    if (ownIds.has(normalizeWhatsAppId(contextInfo?.participant))) return true;
+    const text = message.conversation
+      || message.extendedTextMessage?.text
+      || message.imageMessage?.caption
+      || message.videoMessage?.caption
+      || '';
+    return [...ownIds].some((id) => text.includes(`@${id}`));
   }
 
   async connect() {
@@ -133,6 +167,7 @@ class WhatsAppPlatform extends BasePlatform {
         }
 
         if (!content && !mediaType) continue;
+        if (isGroup && !this._isGroupAddressedToBot(msg.message || {})) continue;
 
         let localMediaPath = null;
         if (mediaType && mediaType !== 'sticker') {

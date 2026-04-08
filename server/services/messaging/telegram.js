@@ -100,14 +100,19 @@ class TelegramPlatform extends BasePlatform {
     const userId = String(msg.from.id);
     const chatId = String(msg.chat.id);
     const isPrivate = msg.chat.type === 'private';
+    const userAllowed = super._checkAccess(`user:${userId}`) || super._checkAccess(userId);
 
-    if (this.allowedEntries.size === 0) return { allowed: true, requireMention: !isPrivate };
+    if (isPrivate) {
+      return {
+        allowed: this.allowedEntries.size === 0 || userAllowed,
+        requireMention: false,
+      };
+    }
 
-    if (super._checkAccess(`user:${userId}`)) return { allowed: true, requireMention: false };
-    if (super._checkAccess(userId)) return { allowed: true, requireMention: false };
-    if (super._checkAccess(`group:${chatId}`)) return { allowed: true, requireMention: true };
-
-    return { allowed: false, requireMention: false };
+    return {
+      allowed: userAllowed || super._checkAccess(`group:${chatId}`),
+      requireMention: true,
+    };
   }
 
   _isMentioned(msg) {
@@ -185,6 +190,8 @@ class TelegramPlatform extends BasePlatform {
 
     const { allowed, requireMention } = this._checkAccess(msg);
 
+    if (requireMention && !this._isMentioned(msg)) return;
+
     if (!allowed) {
       const suggestions = [
         { label: `Add user (${senderName})`, prefixedId: `user:${userId}` },
@@ -203,8 +210,6 @@ class TelegramPlatform extends BasePlatform {
       });
       return;
     }
-
-    if (requireMention && !this._isMentioned(msg)) return;
 
     let content = requireMention ? this._stripMention(text) : text;
     if (!content && msg.photo) content = `[photo]`;
@@ -252,8 +257,9 @@ class TelegramPlatform extends BasePlatform {
     return { success: true };
   }
 
-  async sendTyping(chatId, _isTyping) {
+  async sendTyping(chatId, isTyping) {
     if (!this._bot || this.status !== 'connected') return;
+    if (!isTyping) return;
     try {
       const id = chatId.startsWith('dm_') ? chatId.slice(3) : chatId;
       await this._bot.telegram.sendChatAction(id, 'typing');

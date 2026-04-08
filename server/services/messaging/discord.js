@@ -10,7 +10,7 @@ const {
 
 /**
  * Whitelist entry format (prefixed strings):
- *   "user:SNOWFLAKE"    → always respond, no mention needed (DMs + guild messages)
+ *   "user:SNOWFLAKE"    → allow DMs; allow guild messages only when @mentioned
  *   "guild:SNOWFLAKE"   → respond in any channel of this server when @mentioned
  *   "channel:SNOWFLAKE" → respond in this channel when @mentioned
  *   "SNOWFLAKE"         → legacy plain ID, treated as "user"
@@ -112,23 +112,25 @@ class DiscordPlatform extends BasePlatform {
 
   /** Returns {allowed, requireMention} */
   _checkAccess(message) {
-    // Default behavior with no allow-list: respond in DMs and require a mention in guilds.
-    if (this.allowedEntries.size === 0) {
-      const isDM = message.channel.type === ChannelType.DM;
-      return { allowed: true, requireMention: !isDM };
-    }
-
-    // Check prefixed entries
+    const isDM = message.channel.type === ChannelType.DM;
     const userId = message.author.id;
     const guildId = message.guildId || null;
     const channelId = message.channelId;
+    const userAllowed = super._checkAccess(`user:${userId}`) || super._checkAccess(userId);
 
-    if (super._checkAccess(`user:${userId}`)) return { allowed: true, requireMention: false };
-    if (super._checkAccess(userId)) return { allowed: true, requireMention: false }; // legacy
-    if (guildId && super._checkAccess(`guild:${guildId}`)) return { allowed: true, requireMention: true };
-    if (super._checkAccess(`channel:${channelId}`)) return { allowed: true, requireMention: true };
+    if (isDM) {
+      return {
+        allowed: this.allowedEntries.size === 0 || userAllowed,
+        requireMention: false,
+      };
+    }
 
-    return { allowed: false, requireMention: false };
+    return {
+      allowed: userAllowed
+        || (guildId && super._checkAccess(`guild:${guildId}`))
+        || super._checkAccess(`channel:${channelId}`),
+      requireMention: true,
+    };
   }
 
   _isMentioned(message) {
@@ -171,6 +173,8 @@ class DiscordPlatform extends BasePlatform {
 
     const { allowed, requireMention } = this._checkAccess(message);
 
+    if (requireMention && !this._isMentioned(message)) return;
+
     if (!allowed) {
       const suggestions = [
         { label: `Add user (${message.author.username})`, prefixedId: `user:${userId}` },
@@ -187,9 +191,6 @@ class DiscordPlatform extends BasePlatform {
       });
       return;
     }
-
-    // guild/channel entries require @mention to activate
-    if (requireMention && !this._isMentioned(message)) return;
 
     let content = requireMention ? this._stripMention(message.content) : (message.content || '');
     if (message.attachments.size > 0) {
@@ -241,8 +242,9 @@ class DiscordPlatform extends BasePlatform {
     return { success: true };
   }
 
-  async sendTyping(chatId, _isTyping) {
+  async sendTyping(chatId, isTyping) {
     if (!this._client || this.status !== 'connected') return;
+    if (!isTyping) return;
     try {
       if (chatId.startsWith('dm_')) {
         const user = await this._client.users.fetch(chatId.slice(3));

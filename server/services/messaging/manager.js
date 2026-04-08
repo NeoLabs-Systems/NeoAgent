@@ -1,3 +1,4 @@
+const EventEmitter = require('events');
 const db = require('../../db/database');
 const fs = require('fs');
 const path = require('path');
@@ -62,8 +63,9 @@ class IMessageMessagingPlatform extends BlueBubblesPlatform {
   constructor(config = {}) { super('imessage', config); }
 }
 
-class MessagingManager {
+class MessagingManager extends EventEmitter {
   constructor(io) {
+    super();
     this.io = io;
     this.platforms = new Map();
     this.messageHandlers = [];
@@ -340,6 +342,17 @@ class MessagingManager {
       content,
       mediaPath,
       runId
+    });
+
+    this.emit('message_sent', {
+      userId,
+      agentId,
+      platform: platformName,
+      to,
+      content,
+      mediaPath,
+      runId,
+      result
     });
 
     return { success: true, result };

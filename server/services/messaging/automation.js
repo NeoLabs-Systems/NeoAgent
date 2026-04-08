@@ -125,6 +125,7 @@ async function processQueuedMessage({
   queue.running = true;
   let stopTypingKeepalive = async () => {};
   try {
+    const runId = randomUUID();
     await messagingManager
       .markRead(userId, msg.platform, msg.chatId, msg.messageId, { agentId })
       .catch(() => {});
@@ -132,6 +133,7 @@ async function processQueuedMessage({
       messagingManager,
       userId,
       agentId,
+      runId,
       platform: msg.platform,
       chatId: msg.chatId
     });
@@ -139,6 +141,7 @@ async function processQueuedMessage({
     const prompt = buildIncomingPrompt(msg);
     const conversationId = ensureConversation(userId, msg);
     const runOptions = {
+      runId,
       agentId,
       triggerSource: 'messaging',
       conversationId,
@@ -180,6 +183,7 @@ function startTypingKeepalive({
   messagingManager,
   userId,
   agentId,
+  runId,
   platform,
   chatId,
   intervalMs = 4000
@@ -187,6 +191,26 @@ function startTypingKeepalive({
   let stopped = false;
   let timer = null;
   let releaseWait = null;
+  let stopPromise = null;
+
+  const matchesRunDelivery = (event) => (
+    event?.runId
+    && runId
+    && event.runId === runId
+    && event.userId === userId
+    && event.platform === platform
+    && event.to === chatId
+  );
+
+  const onMessageSent = (event) => {
+    if (matchesRunDelivery(event)) {
+      stop().catch(() => {});
+    }
+  };
+
+  if (typeof messagingManager?.on === 'function' && typeof messagingManager?.off === 'function') {
+    messagingManager.on('message_sent', onMessageSent);
+  }
 
   const wait = () =>
     new Promise((resolve) => {
@@ -205,21 +229,30 @@ function startTypingKeepalive({
     }
   })();
 
-  return async () => {
-    stopped = true;
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    if (releaseWait) {
-      releaseWait();
-      releaseWait = null;
-    }
-    await loop.catch(() => {});
-    await messagingManager
-      .sendTyping(userId, platform, chatId, false, { agentId })
-      .catch(() => {});
+  const stop = async () => {
+    if (stopPromise) return stopPromise;
+    stopPromise = (async () => {
+      if (typeof messagingManager?.off === 'function') {
+        messagingManager.off('message_sent', onMessageSent);
+      }
+      stopped = true;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (releaseWait) {
+        releaseWait();
+        releaseWait = null;
+      }
+      await loop.catch(() => {});
+      await messagingManager
+        .sendTyping(userId, platform, chatId, false, { agentId })
+        .catch(() => {});
+    })();
+    return stopPromise;
   };
+
+  return stop;
 }
 
 function ensureConversation(userId, msg) {
@@ -331,7 +364,12 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
   const shouldCheckWhitelist = whitelist.length > 0;
 
   if (!shouldCheckWhitelist) {
-    return true;
+    if (!msg.isGroup) return true;
+    console.log(
+      `[Messaging] Blocked ${msg.platform} group message from ${msg.sender} (no group allowlist configured)`
+    );
+    emitBlockedSenderSuggestion({ io, userId, msg });
+    return false;
   }
 
   const candidates = messagingAllowlistCandidates(msg).map(normalize).filter(Boolean);
@@ -346,6 +384,11 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
   console.log(
     `[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`
   );
+  emitBlockedSenderSuggestion({ io, userId, msg });
+  return false;
+}
+
+function emitBlockedSenderSuggestion({ io, userId, msg }) {
   const suggestions = [];
   if (msg.platform === 'whatsapp') {
     const normalizedSender = normalizeWhatsAppId(msg.sender || msg.chatId);
@@ -367,7 +410,7 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     if (chatId && chatId !== sender) {
       suggestions.push({
         label: `Add chat (${chatId})`,
-        prefixedId: msg.isGroup ? `channel:${chatId}` : chatId
+        prefixedId: msg.isGroup ? `group:${chatId}` : chatId
       });
     }
   }
@@ -378,10 +421,10 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     senderName: msg.senderName || null,
     suggestions: suggestions.length > 0 ? suggestions : null
   });
-  return false;
 }
 
 module.exports = {
   isAllowedMessagingSender,
-  registerMessagingAutomation
+  registerMessagingAutomation,
+  startTypingKeepalive
 };
