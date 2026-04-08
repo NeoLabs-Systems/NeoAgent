@@ -179,8 +179,10 @@ class TelegramPlatform extends BasePlatform {
     const outputChatId = isPrivate ? `dm_${userId}` : rawChatId;
 
     const text = msg.text || msg.caption || '';
-    const senderName = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ')
-      || msg.from.username || userId;
+    const senderUsername = msg.from.username ? `@${msg.from.username}` : null;
+    const senderDisplayName = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ')
+      || senderUsername || userId;
+    const senderName = senderDisplayName;
 
     this._addToContext(rawChatId, {
       author: senderName,
@@ -227,6 +229,9 @@ class TelegramPlatform extends BasePlatform {
       chatId: outputChatId,
       sender: userId,
       senderName: fullSenderName,
+      senderDisplayName,
+      senderUsername,
+      senderTag: senderUsername,
       content,
       mediaType: null,
       isGroup: !isPrivate,

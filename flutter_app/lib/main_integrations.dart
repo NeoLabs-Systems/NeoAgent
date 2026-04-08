@@ -32,7 +32,7 @@ class OfficialIntegrationsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (controller.officialIntegrations.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Center(
@@ -78,7 +78,7 @@ class OfficialIntegrationsTab extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   item.label,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -97,7 +97,7 @@ class OfficialIntegrationsTab extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             item.description,
-                            style: const TextStyle(color: _textSecondary),
+                            style: TextStyle(color: _textSecondary),
                           ),
                           const SizedBox(height: 10),
                           Wrap(
@@ -129,7 +129,7 @@ class OfficialIntegrationsTab extends StatelessWidget {
                                 : ((item.connectPrompt ?? '').trim().isNotEmpty
                                       ? item.connectPrompt!.trim()
                                       : 'Connect app accounts individually so the AI can use the right account for each official integration.'),
-                            style: const TextStyle(color: _textSecondary),
+                            style: TextStyle(color: _textSecondary),
                           ),
                         ],
                       ),
@@ -195,7 +195,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             app.label,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                             ),
@@ -211,7 +211,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         app.description!,
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                     ],
                     const SizedBox(height: 8),
@@ -236,8 +236,8 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
               if (!provider.env.configured)
                 OutlinedButton.icon(
                   onPressed: null,
-                  icon: const Icon(Icons.settings_suggest_outlined),
-                  label: const Text('Admin Setup Required'),
+                  icon: Icon(Icons.settings_suggest_outlined),
+                  label: Text('Admin Setup Required'),
                 )
               else
                 FilledButton.icon(
@@ -247,7 +247,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                           provider.id,
                           appId: app.id,
                         ),
-                  icon: const Icon(Icons.link_rounded),
+                  icon: Icon(Icons.link_rounded),
                   label: Text(
                     connectBusy
                         ? 'Connecting...'
@@ -260,7 +260,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (app.accounts.isEmpty)
-            const Text(
+            Text(
               'No accounts connected yet.',
               style: TextStyle(color: _textSecondary),
             )
@@ -288,14 +288,12 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                           children: <Widget>[
                             Text(
                               account.accountEmail ?? 'Unknown account',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               'Connection #${account.id}',
-                              style: const TextStyle(color: _textSecondary),
+                              style: TextStyle(color: _textSecondary),
                             ),
                           ],
                         ),
@@ -313,7 +311,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                                 provider.id,
                                 connectionId: account.id,
                               ),
-                        icon: const Icon(Icons.link_off_rounded),
+                        icon: Icon(Icons.link_off_rounded),
                         label: Text(
                           disconnectBusy ? 'Working...' : 'Disconnect',
                         ),

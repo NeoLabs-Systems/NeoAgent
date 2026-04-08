@@ -217,6 +217,8 @@ class WhatsAppPlatform extends BasePlatform {
           chatId,
           sender,
           senderName: pushName,
+          senderDisplayName: pushName || null,
+          senderTag: normalizeWhatsAppId(sender) || sender,
           content,
           mediaType,
           localMediaPath,

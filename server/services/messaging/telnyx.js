@@ -565,6 +565,7 @@ class TelnyxVoicePlatform extends BasePlatform {
             chatId:     ccId,
             sender:     sess.callerNumber || ccId,
             senderName: sess.callerNumber || 'Caller',
+            senderTag:  sess.callerNumber || ccId,
             content:    transcript,
             isGroup:    false,
             mediaType:  'voice',

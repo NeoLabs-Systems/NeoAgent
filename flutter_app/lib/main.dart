@@ -25,23 +25,109 @@ part 'main_integrations.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
 
-const Color _bgPrimary = Color(0xFF05080D);
-const Color _bgSecondary = Color(0xFF0B1117);
-const Color _bgTertiary = Color(0xFF111827);
-const Color _bgCard = Color(0xFF151C24);
-const Color _textPrimary = Color(0xFFE6F1F5);
-const Color _textSecondary = Color(0xFF8EA3AD);
-const Color _textMuted = Color(0xFF51616B);
-const Color _accent = Color(0xFF14B8A6);
-const Color _accentHover = Color(0xFF2DD4BF);
-const Color _accentAlt = Color(0xFF38BDF8);
-const Color _accentMuted = Color(0x2614B8A6);
-const Color _border = Color(0x12FFFFFF);
-const Color _borderLight = Color(0x22FFFFFF);
-const Color _success = Color(0xFF22C55E);
-const Color _warning = Color(0xFFF59E0B);
-const Color _danger = Color(0xFFEF4444);
-const Color _info = Color(0xFF38BDF8);
+class _NeoAgentPalette {
+  const _NeoAgentPalette({
+    required this.bgPrimary,
+    required this.bgSecondary,
+    required this.bgTertiary,
+    required this.bgCard,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.textMuted,
+    required this.accent,
+    required this.accentHover,
+    required this.accentAlt,
+    required this.accentMuted,
+    required this.border,
+    required this.borderLight,
+    required this.success,
+    required this.warning,
+    required this.danger,
+    required this.info,
+  });
+
+  final Color bgPrimary;
+  final Color bgSecondary;
+  final Color bgTertiary;
+  final Color bgCard;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color textMuted;
+  final Color accent;
+  final Color accentHover;
+  final Color accentAlt;
+  final Color accentMuted;
+  final Color border;
+  final Color borderLight;
+  final Color success;
+  final Color warning;
+  final Color danger;
+  final Color info;
+}
+
+const _NeoAgentPalette _darkPalette = _NeoAgentPalette(
+  bgPrimary: Color(0xFF05080D),
+  bgSecondary: Color(0xFF0B1117),
+  bgTertiary: Color(0xFF111827),
+  bgCard: Color(0xFF151C24),
+  textPrimary: Color(0xFFE6F1F5),
+  textSecondary: Color(0xFF8EA3AD),
+  textMuted: Color(0xFF51616B),
+  accent: Color(0xFF14B8A6),
+  accentHover: Color(0xFF2DD4BF),
+  accentAlt: Color(0xFF38BDF8),
+  accentMuted: Color(0x2614B8A6),
+  border: Color(0x12FFFFFF),
+  borderLight: Color(0x22FFFFFF),
+  success: Color(0xFF22C55E),
+  warning: Color(0xFFF59E0B),
+  danger: Color(0xFFEF4444),
+  info: Color(0xFF38BDF8),
+);
+
+const _NeoAgentPalette _lightPalette = _NeoAgentPalette(
+  bgPrimary: Color(0xFFFFFFFF),
+  bgSecondary: Color(0xFFF1F5F9),
+  bgTertiary: Color(0xFFE2E8F0),
+  bgCard: Color(0xFFFFFFFF),
+  textPrimary: Color(0xFF0F172A),
+  textSecondary: Color(0xFF475569),
+  textMuted: Color(0xFF94A3B8),
+  accent: Color(0xFF0F766E),
+  accentHover: Color(0xFF0D9488),
+  accentAlt: Color(0xFF0284C7),
+  accentMuted: Color(0x1F0F766E),
+  border: Color(0x1F0F172A),
+  borderLight: Color(0x330F172A),
+  success: Color(0xFF15803D),
+  warning: Color(0xFFB45309),
+  danger: Color(0xFFDC2626),
+  info: Color(0xFF0284C7),
+);
+
+_NeoAgentPalette get _palette =>
+    WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+        Brightness.light
+    ? _lightPalette
+    : _darkPalette;
+
+Color get _bgPrimary => _palette.bgPrimary;
+Color get _bgSecondary => _palette.bgSecondary;
+Color get _bgTertiary => _palette.bgTertiary;
+Color get _bgCard => _palette.bgCard;
+Color get _textPrimary => _palette.textPrimary;
+Color get _textSecondary => _palette.textSecondary;
+Color get _textMuted => _palette.textMuted;
+Color get _accent => _palette.accent;
+Color get _accentHover => _palette.accentHover;
+Color get _accentAlt => _palette.accentAlt;
+Color get _accentMuted => _palette.accentMuted;
+Color get _border => _palette.border;
+Color get _borderLight => _palette.borderLight;
+Color get _success => _palette.success;
+Color get _warning => _palette.warning;
+Color get _danger => _palette.danger;
+Color get _info => _palette.info;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -255,86 +341,92 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
 
   @override
   Widget build(BuildContext context) {
-    final base = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _accent,
-        brightness: Brightness.dark,
-      ),
-    );
-
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
         return MaterialApp(
           title: 'NeoAgent',
           debugShowCheckedModeBanner: false,
-          theme: base.copyWith(
-            scaffoldBackgroundColor: _bgPrimary,
-            colorScheme: base.colorScheme.copyWith(
-              primary: _accent,
-              secondary: _accentHover,
-              surface: _bgCard,
-              onSurface: _textPrimary,
-              error: _danger,
-            ),
-            textTheme: GoogleFonts.interTextTheme(
-              base.textTheme,
-            ).apply(bodyColor: _textPrimary, displayColor: _textPrimary),
-            cardTheme: CardThemeData(
-              color: _bgCard,
-              elevation: 0,
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: _border),
-              ),
-            ),
-            inputDecorationTheme: InputDecorationTheme(
-              filled: true,
-              fillColor: _bgSecondary,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: _border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: _border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: _accent),
-              ),
-              labelStyle: const TextStyle(
-                color: _textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-              hintStyle: const TextStyle(color: _textMuted),
-            ),
-            dividerColor: _border,
-            iconTheme: const IconThemeData(color: _textSecondary),
-            appBarTheme: AppBarTheme(
-              backgroundColor: _bgPrimary,
-              surfaceTintColor: Colors.transparent,
-              foregroundColor: _textPrimary,
-              elevation: 0,
-              titleTextStyle: GoogleFonts.inter(
-                color: _textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            snackBarTheme: const SnackBarThemeData(
-              backgroundColor: _bgCard,
-              contentTextStyle: TextStyle(color: _textPrimary),
-            ),
-          ),
+          theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
+          darkTheme: _buildNeoAgentTheme(_darkPalette, Brightness.dark),
+          themeMode: ThemeMode.system,
           home: NeoAgentRoot(controller: _controller),
         );
       },
     );
   }
+}
+
+ThemeData _buildNeoAgentTheme(_NeoAgentPalette palette, Brightness brightness) {
+  final base = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: palette.accent,
+      brightness: brightness,
+    ),
+  );
+
+  return base.copyWith(
+    scaffoldBackgroundColor: palette.bgPrimary,
+    colorScheme: base.colorScheme.copyWith(
+      primary: palette.accent,
+      secondary: palette.accentHover,
+      surface: palette.bgCard,
+      onSurface: palette.textPrimary,
+      error: palette.danger,
+    ),
+    textTheme: GoogleFonts.interTextTheme(
+      base.textTheme,
+    ).apply(bodyColor: palette.textPrimary, displayColor: palette.textPrimary),
+    cardTheme: CardThemeData(
+      color: palette.bgCard,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: palette.border),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: palette.bgSecondary,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: palette.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: palette.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: palette.accent),
+      ),
+      labelStyle: TextStyle(
+        color: palette.textSecondary,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+      ),
+      hintStyle: TextStyle(color: palette.textMuted),
+    ),
+    dividerColor: palette.border,
+    iconTheme: IconThemeData(color: palette.textSecondary),
+    appBarTheme: AppBarTheme(
+      backgroundColor: palette.bgPrimary,
+      surfaceTintColor: Colors.transparent,
+      foregroundColor: palette.textPrimary,
+      elevation: 0,
+      titleTextStyle: GoogleFonts.inter(
+        color: palette.textPrimary,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: palette.bgCard,
+      contentTextStyle: TextStyle(color: palette.textPrimary),
+    ),
+  );
 }
 
 class NeoAgentRoot extends StatelessWidget {
@@ -4258,8 +4350,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
                     controller.isRunningDeviceAction
                 ? null
                 : _bootstrapSurface,
-            icon: const Icon(Icons.sync),
-            label: const Text('Sync Surface'),
+            icon: Icon(Icons.sync),
+            label: Text('Sync Surface'),
           ),
         ),
         if (controller.errorMessage case final message?)
@@ -4271,10 +4363,10 @@ class _DevicesPanelState extends State<DevicesPanel> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 980),
             child: Card(
-              color: const Color(0xFF121A22),
+              color: _bgCard,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28),
-                side: const BorderSide(color: _borderLight),
+                side: BorderSide(color: _borderLight),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -4453,17 +4545,14 @@ class _DeviceSurfaceHeader extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _textSecondary, height: 1.4),
+                style: TextStyle(color: _textSecondary, height: 1.4),
               ),
             ],
           ),
@@ -4551,7 +4640,7 @@ class _DeviceLaunchBar extends StatelessWidget {
     );
     final sleepButton = OutlinedButton.icon(
       onPressed: busy || !active ? null : onSleep,
-      icon: const Icon(Icons.bedtime_outlined),
+      icon: Icon(Icons.bedtime_outlined),
       label: Text(sleepLabel),
     );
 
@@ -4608,14 +4697,14 @@ class _DeviceTypeDock extends StatelessWidget {
       onSubmitted: (_) => onSubmit(),
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: const Icon(Icons.keyboard_outlined),
+        prefixIcon: Icon(Icons.keyboard_outlined),
       ),
     );
 
     final button = FilledButton.icon(
       onPressed: busy ? null : onSubmit,
-      icon: const Icon(Icons.send_rounded),
-      label: const Text('Send'),
+      icon: Icon(Icons.send_rounded),
+      label: Text('Send'),
     );
 
     if (narrow) {
@@ -4677,7 +4766,7 @@ class _DeviceQuickActions extends StatelessWidget {
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: disabled ? _bgSecondary : const Color(0xFF18232D),
+              color: disabled ? _bgSecondary : _bgTertiary,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _borderLight),
             ),
@@ -4716,7 +4805,7 @@ class _AndroidNavDock extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF101820),
+        color: _bgSecondary,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _borderLight),
       ),
@@ -4753,7 +4842,7 @@ class _SurfaceSwitcher extends StatelessWidget {
       children: <Widget>[
         IconButton.filledTonal(
           onPressed: onPrevious,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: Icon(Icons.arrow_back_ios_new_rounded),
         ),
         const SizedBox(width: 14),
         Column(
@@ -4761,16 +4850,16 @@ class _SurfaceSwitcher extends StatelessWidget {
           children: <Widget>[
             Text(
               surface.label,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
-            Text(surface.helper, style: const TextStyle(color: _textSecondary)),
+            Text(surface.helper, style: TextStyle(color: _textSecondary)),
           ],
         ),
         const SizedBox(width: 14),
         IconButton.filledTonal(
           onPressed: onNext,
-          icon: const Icon(Icons.arrow_forward_ios_rounded),
+          icon: Icon(Icons.arrow_forward_ios_rounded),
         ),
       ],
     );
@@ -4944,10 +5033,10 @@ class _InteractiveSurfacePreviewState
 
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[Color(0xFF17232D), Color(0xFF081018)],
+          colors: <Color>[_bgTertiary, _bgSecondary],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _borderLight),
@@ -5060,7 +5149,7 @@ class _InteractiveSurfacePreviewState
                               child: Text(
                                 widget.surface.helper,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: _textPrimary),
+                                style: TextStyle(color: _textPrimary),
                               ),
                             ),
                           ),
@@ -5144,7 +5233,7 @@ class _EmptySurfaceState extends StatelessWidget {
           if (!(busy || isLoadingPreview)) const SizedBox(height: 12),
           Text(
             message,
-            style: const TextStyle(color: _textSecondary),
+            style: TextStyle(color: _textSecondary),
             textAlign: TextAlign.center,
           ),
           if (errorMessage != null &&
@@ -5156,14 +5245,14 @@ class _EmptySurfaceState extends StatelessWidget {
               child: Text(
                 errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: _textMuted, fontSize: 12),
+                style: TextStyle(color: _textMuted, fontSize: 12),
               ),
             ),
           ],
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: busy ? null : onPressed,
-            icon: const Icon(Icons.play_arrow_rounded),
+            icon: Icon(Icons.play_arrow_rounded),
             label: Text(label),
           ),
         ],
@@ -5203,7 +5292,7 @@ class _RuntimeControlCard extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                         ),
@@ -5211,10 +5300,7 @@ class _RuntimeControlCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                          color: _textSecondary,
-                          height: 1.5,
-                        ),
+                        style: TextStyle(color: _textSecondary, height: 1.5),
                       ),
                     ],
                   ),
@@ -5288,7 +5374,7 @@ class _BrowserControls extends StatelessWidget {
           const SizedBox(height: 14),
           SelectableText(
             '${browserPageInfo['title'] ?? 'Untitled'}\n${browserPageInfo['url'] ?? ''}',
-            style: const TextStyle(color: _textSecondary, height: 1.5),
+            style: TextStyle(color: _textSecondary, height: 1.5),
           ),
         ],
         const SizedBox(height: 18),
@@ -5313,8 +5399,8 @@ class _BrowserControls extends StatelessWidget {
               onPressed: controller.isRunningDeviceAction
                   ? null
                   : controller.launchBrowserRuntime,
-              icon: const Icon(Icons.rocket_launch_outlined),
-              label: const Text('Launch'),
+              icon: Icon(Icons.rocket_launch_outlined),
+              label: Text('Launch'),
             ),
             FilledButton.icon(
               onPressed: controller.isRunningDeviceAction
@@ -5323,22 +5409,22 @@ class _BrowserControls extends StatelessWidget {
                       url: urlController.text.trim(),
                       waitFor: waitForController.text.trim(),
                     ),
-              icon: const Icon(Icons.open_in_browser_outlined),
-              label: const Text('Navigate'),
+              icon: Icon(Icons.open_in_browser_outlined),
+              label: Text('Navigate'),
             ),
             OutlinedButton.icon(
               onPressed: controller.isRunningDeviceAction
                   ? null
                   : controller.screenshotBrowserRuntime,
-              icon: const Icon(Icons.photo_camera_back_outlined),
-              label: const Text('Screenshot'),
+              icon: Icon(Icons.photo_camera_back_outlined),
+              label: Text('Screenshot'),
             ),
             OutlinedButton.icon(
               onPressed: controller.isRunningDeviceAction
                   ? null
                   : controller.closeBrowserRuntime,
-              icon: const Icon(Icons.close),
-              label: const Text('Close'),
+              icon: Icon(Icons.close),
+              label: Text('Close'),
             ),
           ],
         ),
@@ -5366,7 +5452,7 @@ class _BrowserControls extends StatelessWidget {
                   : () => controller.clickBrowserRuntime(
                       selector: clickSelectorController.text.trim(),
                     ),
-              child: const Text('Click Selector'),
+              child: Text('Click Selector'),
             ),
             OutlinedButton(
               onPressed: controller.isRunningDeviceAction
@@ -5374,7 +5460,7 @@ class _BrowserControls extends StatelessWidget {
                   : () => controller.clickBrowserRuntime(
                       text: clickTextController.text.trim(),
                     ),
-              child: const Text('Click Text'),
+              child: Text('Click Text'),
             ),
           ],
         ),
@@ -5399,8 +5485,8 @@ class _BrowserControls extends StatelessWidget {
                   selector: fillSelectorController.text.trim(),
                   value: fillValueController.text,
                 ),
-          icon: const Icon(Icons.keyboard_outlined),
-          label: const Text('Type Into Field'),
+          icon: Icon(Icons.keyboard_outlined),
+          label: Text('Type Into Field'),
         ),
         const SizedBox(height: 18),
         _RuntimePreview(
@@ -5507,36 +5593,36 @@ class _AndroidControls extends StatelessWidget {
               onPressed: controller.isRunningDeviceAction
                   ? null
                   : controller.startAndroidRuntime,
-              icon: const Icon(Icons.play_arrow_outlined),
-              label: const Text('Start Emulator'),
+              icon: Icon(Icons.play_arrow_outlined),
+              label: Text('Start Emulator'),
             ),
             OutlinedButton.icon(
               onPressed: controller.isRunningDeviceAction
                   ? null
                   : controller.stopAndroidRuntime,
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('Stop'),
+              icon: Icon(Icons.stop_circle_outlined),
+              label: Text('Stop'),
             ),
             OutlinedButton.icon(
               onPressed: controller.isRunningDeviceAction
                   ? null
                   : controller.screenshotAndroidRuntime,
-              icon: const Icon(Icons.photo_camera_outlined),
-              label: const Text('Screenshot'),
+              icon: Icon(Icons.photo_camera_outlined),
+              label: Text('Screenshot'),
             ),
             OutlinedButton.icon(
               onPressed: controller.isRunningDeviceAction
                   ? null
                   : controller.dumpAndroidUiRuntime,
-              icon: const Icon(Icons.data_object_outlined),
-              label: const Text('Dump UI'),
+              icon: Icon(Icons.data_object_outlined),
+              label: Text('Dump UI'),
             ),
             OutlinedButton.icon(
               onPressed: controller.isRunningDeviceAction
                   ? null
                   : controller.refreshAndroidApps,
-              icon: const Icon(Icons.apps_outlined),
-              label: const Text('Load Apps'),
+              icon: Icon(Icons.apps_outlined),
+              label: Text('Load Apps'),
             ),
           ],
         ),
@@ -5565,8 +5651,8 @@ class _AndroidControls extends StatelessWidget {
                       packageName: packageController.text.trim(),
                       activity: activityController.text.trim(),
                     ),
-              icon: const Icon(Icons.apps),
-              label: const Text('Open App'),
+              icon: Icon(Icons.apps),
+              label: Text('Open App'),
             ),
             if (controller.androidInstalledApps.isNotEmpty)
               SizedBox(width: 1, height: 1, child: Container()),
@@ -5607,8 +5693,8 @@ class _AndroidControls extends StatelessWidget {
                   dataUri: intentDataController.text.trim(),
                   packageName: packageController.text.trim(),
                 ),
-          icon: const Icon(Icons.route_outlined),
-          label: const Text('Open Intent'),
+          icon: Icon(Icons.route_outlined),
+          label: Text('Open Intent'),
         ),
         const SizedBox(height: 18),
         _DeviceFieldRow(
@@ -5636,7 +5722,7 @@ class _AndroidControls extends StatelessWidget {
                       'timeoutMs': 20000,
                       'intervalMs': 1200,
                     }),
-              child: const Text('Wait For UI'),
+              child: Text('Wait For UI'),
             ),
             OutlinedButton(
               onPressed: controller.isRunningDeviceAction
@@ -5644,7 +5730,7 @@ class _AndroidControls extends StatelessWidget {
                   : () => controller.pressAndroidKeyRuntime(
                       keyController.text.trim(),
                     ),
-              child: const Text('Press Key'),
+              child: Text('Press Key'),
             ),
           ],
         ),
@@ -5696,8 +5782,8 @@ class _AndroidControls extends StatelessWidget {
                   if (toInt(tapYController.text) != null)
                     'y': toInt(tapYController.text),
                 }),
-          icon: const Icon(Icons.touch_app_outlined),
-          label: const Text('Tap'),
+          icon: Icon(Icons.touch_app_outlined),
+          label: Text('Tap'),
         ),
         const SizedBox(height: 18),
         _DeviceFieldRow(
@@ -5736,8 +5822,8 @@ class _AndroidControls extends StatelessWidget {
                     'description': typeFieldDescriptionController.text.trim(),
                   'pressEnter': true,
                 }),
-          icon: const Icon(Icons.keyboard_outlined),
-          label: const Text('Type'),
+          icon: Icon(Icons.keyboard_outlined),
+          label: Text('Type'),
         ),
         const SizedBox(height: 18),
         _DeviceFieldRow(
@@ -5774,8 +5860,8 @@ class _AndroidControls extends StatelessWidget {
                   'x2': toInt(swipeX2Controller.text),
                   'y2': toInt(swipeY2Controller.text),
                 }),
-          icon: const Icon(Icons.swipe_outlined),
-          label: const Text('Swipe'),
+          icon: Icon(Icons.swipe_outlined),
+          label: Text('Swipe'),
         ),
         const SizedBox(height: 18),
         _RuntimePreview(
@@ -5787,7 +5873,7 @@ class _AndroidControls extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             'Latest UI dump preview',
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 10),
           ...controller.androidUiPreview.take(6).map((node) {
@@ -5808,7 +5894,7 @@ class _AndroidControls extends StatelessWidget {
               ),
               child: Text(
                 '$title\n${node['packageName'] ?? ''}',
-                style: const TextStyle(color: _textSecondary, height: 1.5),
+                style: TextStyle(color: _textSecondary, height: 1.5),
               ),
             );
           }),
@@ -5874,7 +5960,7 @@ class _DeviceField extends StatelessWidget {
       children: <Widget>[
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             color: _textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -5916,11 +6002,11 @@ class _RuntimePreview extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(title, style: TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             Text(
               screenshotPath!,
-              style: const TextStyle(color: _textSecondary, fontSize: 12),
+              style: TextStyle(color: _textSecondary, fontSize: 12),
             ),
             const SizedBox(height: 12),
             ClipRRect(
@@ -5934,7 +6020,7 @@ class _RuntimePreview extends StatelessWidget {
                     height: 220,
                     color: _bgCard,
                     alignment: Alignment.center,
-                    child: const Text(
+                    child: Text(
                       'Could not load preview image',
                       style: TextStyle(color: _textSecondary),
                     ),
@@ -5968,7 +6054,7 @@ class _ResultBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text(label, style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
           SelectableText(
             value,
@@ -6046,8 +6132,8 @@ class WearablesPanel extends StatelessWidget {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Icon(Icons.refresh_rounded),
-                                label: const Text('Reconnect'),
+                                    : Icon(Icons.refresh_rounded),
+                                label: Text('Reconnect'),
                               ),
                             if (service.canRequestOfflineSync)
                               FilledButton.tonalIcon(
@@ -6061,7 +6147,7 @@ class WearablesPanel extends StatelessWidget {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Icon(Icons.cloud_sync_outlined),
+                                    : Icon(Icons.cloud_sync_outlined),
                                 label: Text(
                                   service.isOfflineSyncRequestInFlight
                                       ? 'Requesting sync...'
@@ -6075,7 +6161,7 @@ class WearablesPanel extends StatelessWidget {
                                       bridgeWaitingForDevice)
                                   ? service.disconnect
                                   : null,
-                              child: const Text('Disconnect'),
+                              child: Text('Disconnect'),
                             ),
                           ],
                         );
@@ -6093,7 +6179,7 @@ class WearablesPanel extends StatelessWidget {
                                   : 'No device connected',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
                               ),
@@ -6101,7 +6187,7 @@ class WearablesPanel extends StatelessWidget {
                             if (!hasBleConnected &&
                                 !hasBackgroundOnly &&
                                 !bridgeWaitingForDevice)
-                              const Text(
+                              Text(
                                 'Scan for nearby Bluetooth recording devices.',
                                 style: TextStyle(color: _textSecondary),
                               ),
@@ -6116,7 +6202,7 @@ class WearablesPanel extends StatelessWidget {
                             children: <Widget>[
                               Row(
                                 children: <Widget>[
-                                  const Icon(
+                                  Icon(
                                     Icons.watch_off_outlined,
                                     color: _textSecondary,
                                   ),
@@ -6136,10 +6222,7 @@ class WearablesPanel extends StatelessWidget {
                             children: <Widget>[
                               Row(
                                 children: <Widget>[
-                                  const Icon(
-                                    Icons.watch_outlined,
-                                    color: _success,
-                                  ),
+                                  Icon(Icons.watch_outlined, color: _success),
                                   const SizedBox(width: 12),
                                   Expanded(child: headline),
                                 ],
@@ -6153,7 +6236,7 @@ class WearablesPanel extends StatelessWidget {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            const Icon(Icons.watch_outlined, color: _success),
+                            Icon(Icons.watch_outlined, color: _success),
                             const SizedBox(width: 12),
                             Expanded(child: headline),
                             const SizedBox(width: 12),
@@ -6180,7 +6263,7 @@ class WearablesPanel extends StatelessWidget {
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        const Icon(
+                        Icon(
                           Icons.favorite_outline,
                           color: _textSecondary,
                           size: 18,
@@ -6193,7 +6276,7 @@ class WearablesPanel extends StatelessWidget {
                                 : bridgeWaitingForDevice
                                 ? 'Bridge is active. Waiting for your wearable to reconnect.'
                                 : 'Connect a wearable to start recording from it.',
-                            style: const TextStyle(color: _textSecondary),
+                            style: TextStyle(color: _textSecondary),
                           ),
                         ),
                       ],
@@ -6202,7 +6285,7 @@ class WearablesPanel extends StatelessWidget {
                     ExpansionTile(
                       tilePadding: EdgeInsets.zero,
                       childrenPadding: const EdgeInsets.only(bottom: 8),
-                      title: const Text(
+                      title: Text(
                         'Technical details',
                         style: TextStyle(
                           fontSize: 13,
@@ -6264,7 +6347,7 @@ class WearablesPanel extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        const Row(
+                        Row(
                           children: <Widget>[
                             Icon(Icons.sync_alt_rounded, color: _info),
                             SizedBox(width: 8),
@@ -6283,8 +6366,8 @@ class WearablesPanel extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             child: OutlinedButton.icon(
                               onPressed: service.cancelHeyPocketOfflineSync,
-                              icon: const Icon(Icons.cancel_outlined),
-                              label: const Text('Cancel sync'),
+                              icon: Icon(Icons.cancel_outlined),
+                              label: Text('Cancel sync'),
                             ),
                           ),
                         if (service.isOfflineSyncRequestInFlight)
@@ -6304,7 +6387,7 @@ class WearablesPanel extends StatelessWidget {
                         ExpansionTile(
                           tilePadding: EdgeInsets.zero,
                           childrenPadding: EdgeInsets.zero,
-                          title: const Text(
+                          title: Text(
                             'Sync details (advanced)',
                             style: TextStyle(
                               fontSize: 13,
@@ -6334,7 +6417,7 @@ class WearablesPanel extends StatelessWidget {
                                 .heypocketSyncListedFiles
                                 .isNotEmpty) ...<Widget>[
                               const SizedBox(height: 12),
-                              const Text(
+                              Text(
                                 'On-device sync files',
                                 style: TextStyle(
                                   fontSize: 12,
@@ -6367,7 +6450,7 @@ class WearablesPanel extends StatelessWidget {
                                                 file.fileId,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   fontWeight: FontWeight.w700,
                                                   fontSize: 12,
                                                 ),
@@ -6375,7 +6458,7 @@ class WearablesPanel extends StatelessWidget {
                                               const SizedBox(height: 2),
                                               Text(
                                                 '${file.date} • ${formatHeyPocketFileMetric(file.size)}',
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   fontSize: 11,
                                                   color: _textSecondary,
                                                 ),
@@ -6386,7 +6469,7 @@ class WearablesPanel extends StatelessWidget {
                                         IconButton(
                                           onPressed: () => service
                                               .deleteHeyPocketOfflineFile(file),
-                                          icon: const Icon(
+                                          icon: Icon(
                                             Icons.delete_outline,
                                             size: 18,
                                           ),
@@ -6441,7 +6524,7 @@ class WearablesPanel extends StatelessWidget {
                           ),
                           child: Row(
                             children: <Widget>[
-                              const Icon(
+                              Icon(
                                 Icons.tune_rounded,
                                 size: 16,
                                 color: _textSecondary,
@@ -6451,7 +6534,7 @@ class WearablesPanel extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
-                                    const Text(
+                                    Text(
                                       'Mode',
                                       style: TextStyle(
                                         fontSize: 12,
@@ -6461,7 +6544,7 @@ class WearablesPanel extends StatelessWidget {
                                     ),
                                     Text(
                                       service.heypocketModeLabel,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
                                         color: _textPrimary,
@@ -6481,7 +6564,7 @@ class WearablesPanel extends StatelessWidget {
                                 service.heypocketCallModeEnabled
                                     ? 'Call'
                                     : 'Normal',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   color: _textSecondary,
                                   fontWeight: FontWeight.w600,
@@ -6500,7 +6583,7 @@ class WearablesPanel extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                const Text(
+                Text(
                   'Nearby Devices',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
@@ -6512,8 +6595,8 @@ class WearablesPanel extends StatelessWidget {
                 else
                   TextButton.icon(
                     onPressed: service.startScan,
-                    icon: const Icon(Icons.search),
-                    label: const Text('Scan'),
+                    icon: Icon(Icons.search),
+                    label: Text('Scan'),
                   ),
               ],
             ),
@@ -6532,7 +6615,7 @@ class WearablesPanel extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Card(
                     child: ListTile(
-                      leading: const Icon(Icons.bluetooth),
+                      leading: Icon(Icons.bluetooth),
                       title: Text(device.name ?? 'Unknown Device'),
                       subtitle: Text(device.deviceId),
                       trailing: FilledButton(
@@ -6547,7 +6630,7 @@ class WearablesPanel extends StatelessWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Connect'),
+                            : Text('Connect'),
                       ),
                     ),
                   ),
@@ -6589,7 +6672,7 @@ class _SyncStatPill extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               '$label: ',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: _textSecondary,
                 fontWeight: FontWeight.w600,
@@ -6600,7 +6683,7 @@ class _SyncStatPill extends StatelessWidget {
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   color: _textPrimary,
                   fontWeight: FontWeight.w700,
@@ -6731,13 +6814,13 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                         wearableService.heypocketActiveRecordingId.isNotEmpty
                             ? 'Wearable live: ${wearableService.heypocketActiveRecordingId}'
                             : 'Wearable live recording',
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                     if (runtime.platformLabel != null &&
                         runtime.platformLabel!.isNotEmpty)
                       Text(
                         runtime.platformLabel!,
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                   ],
                 ),
@@ -6753,8 +6836,8 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                                 runtime.active
                             ? null
                             : widget.controller.startWebRecording,
-                        icon: const Icon(Icons.desktop_windows_outlined),
-                        label: const Text('Start screen + mic'),
+                        icon: Icon(Icons.desktop_windows_outlined),
+                        label: Text('Start screen + mic'),
                       ),
                     if (runtime.supportsBackgroundMic)
                       FilledButton.icon(
@@ -6798,23 +6881,20 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                         onPressed: widget.controller.isStoppingRecording
                             ? null
                             : widget.controller.stopRecording,
-                        icon: const Icon(Icons.stop_circle_outlined),
-                        label: const Text('Stop'),
+                        icon: Icon(Icons.stop_circle_outlined),
+                        label: Text('Stop'),
                       ),
                     OutlinedButton.icon(
                       onPressed: widget.controller.refreshRecordings,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Refresh'),
+                      icon: Icon(Icons.refresh),
+                      label: Text('Refresh'),
                     ),
                   ],
                 ),
                 if (runtime.errorMessage != null &&
                     runtime.errorMessage!.trim().isNotEmpty) ...<Widget>[
                   const SizedBox(height: 14),
-                  Text(
-                    runtime.errorMessage!,
-                    style: const TextStyle(color: _danger),
-                  ),
+                  Text(runtime.errorMessage!, style: TextStyle(color: _danger)),
                 ],
               ],
             ),
@@ -6892,7 +6972,7 @@ class _RecordingSessionCard extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         session.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
@@ -6900,7 +6980,7 @@ class _RecordingSessionCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         '${session.startedAtLabel} • ${session.platformLabel} • ${session.durationLabel}',
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                     ],
                   ),
@@ -6929,7 +7009,7 @@ class _RecordingSessionCard extends StatelessWidget {
                       ),
                       child: Text(
                         '${source.label} • ${source.durationLabel}',
-                        style: const TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   )
@@ -6950,7 +7030,7 @@ class _RecordingSessionCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
                   session.lastError!,
-                  style: const TextStyle(color: _danger),
+                  style: TextStyle(color: _danger),
                 ),
               ),
             if (session.structuredContent.isNotEmpty) ...<Widget>[
@@ -6983,7 +7063,7 @@ class _RecordingSessionCard extends StatelessWidget {
                       const SizedBox(height: 10),
                       Text(
                         'Summary',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
                           color: _textSecondary,
@@ -6992,7 +7072,7 @@ class _RecordingSessionCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         session.structuredContent['summary'].toString(),
-                        style: const TextStyle(height: 1.45),
+                        style: TextStyle(height: 1.45),
                       ),
                     ],
                     if (session.structuredContent['action_items'] != null &&
@@ -7003,7 +7083,7 @@ class _RecordingSessionCard extends StatelessWidget {
                       const SizedBox(height: 10),
                       Text(
                         'Action Items',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
                           color: _textSecondary,
@@ -7016,7 +7096,7 @@ class _RecordingSessionCard extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 '• ',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
@@ -7026,7 +7106,7 @@ class _RecordingSessionCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   item.toString(),
-                                  style: const TextStyle(height: 1.35),
+                                  style: TextStyle(height: 1.35),
                                 ),
                               ),
                             ],
@@ -7042,7 +7122,7 @@ class _RecordingSessionCard extends StatelessWidget {
                       const SizedBox(height: 10),
                       Text(
                         'Events Mentioned',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
                           color: _textSecondary,
@@ -7055,7 +7135,7 @@ class _RecordingSessionCard extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 '• ',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
@@ -7065,7 +7145,7 @@ class _RecordingSessionCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   item.toString(),
-                                  style: const TextStyle(height: 1.35),
+                                  style: TextStyle(height: 1.35),
                                 ),
                               ),
                             ],
@@ -7089,13 +7169,13 @@ class _RecordingSessionCard extends StatelessWidget {
                         width: 88,
                         child: Text(
                           segment.timestampLabel,
-                          style: const TextStyle(color: _textSecondary),
+                          style: TextStyle(color: _textSecondary),
                         ),
                       ),
                       Expanded(
                         child: Text(
                           segment.displayText,
-                          style: const TextStyle(height: 1.45),
+                          style: TextStyle(height: 1.45),
                         ),
                       ),
                       if (onDeleteSegment != null &&
@@ -7105,7 +7185,7 @@ class _RecordingSessionCard extends StatelessWidget {
                           onPressed: () async {
                             await onDeleteSegment!(segment);
                           },
-                          icon: const Icon(Icons.delete_outline),
+                          icon: Icon(Icons.delete_outline),
                           tooltip: 'Delete segment',
                           visualDensity: VisualDensity.compact,
                         ),
@@ -7116,10 +7196,7 @@ class _RecordingSessionCard extends StatelessWidget {
               ),
             ] else if (session.transcriptText.isNotEmpty) ...<Widget>[
               const SizedBox(height: 16),
-              Text(
-                session.transcriptText,
-                style: const TextStyle(height: 1.45),
-              ),
+              Text(session.transcriptText, style: TextStyle(height: 1.45)),
             ] else ...<Widget>[
               const SizedBox(height: 16),
               Text(
@@ -7130,7 +7207,7 @@ class _RecordingSessionCard extends StatelessWidget {
                     : session.status == 'completed'
                     ? 'Transcription completed but no speech text was returned. You can retry transcription.'
                     : 'Transcript is not available yet.',
-                style: const TextStyle(color: _textSecondary),
+                style: TextStyle(color: _textSecondary),
               ),
             ],
             if (onRetry != null || canDeleteRecording) ...<Widget>[
@@ -7142,16 +7219,16 @@ class _RecordingSessionCard extends StatelessWidget {
                   if (onRetry != null)
                     OutlinedButton.icon(
                       onPressed: onRetry,
-                      icon: const Icon(Icons.replay),
-                      label: const Text('Retry transcription'),
+                      icon: Icon(Icons.replay),
+                      label: Text('Retry transcription'),
                     ),
                   if (canDeleteRecording)
                     OutlinedButton.icon(
                       onPressed: () async {
                         await onDeleteRecording!();
                       },
-                      icon: const Icon(Icons.delete_forever_outlined),
-                      label: const Text('Delete recording'),
+                      icon: Icon(Icons.delete_forever_outlined),
+                      label: Text('Delete recording'),
                       style: OutlinedButton.styleFrom(foregroundColor: _danger),
                     ),
                 ],
@@ -7403,7 +7480,7 @@ class _ChatPanelState extends State<ChatPanel> {
                   ),
                 ),
               if (messages.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 64),
                   child: Center(
                     child: _EmptyState(
@@ -7425,7 +7502,7 @@ class _ChatPanelState extends State<ChatPanel> {
         ),
         Container(
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: _bgPrimary,
             border: Border(top: BorderSide(color: _border)),
           ),
@@ -7488,13 +7565,13 @@ class _ChatPanelState extends State<ChatPanel> {
                 children: <Widget>[
                   Text(
                     controller.chatStatusLabel,
-                    style: const TextStyle(fontSize: 11, color: _textSecondary),
+                    style: TextStyle(fontSize: 11, color: _textSecondary),
                   ),
                   Text(
                     controller.hasLiveRun
                         ? 'Steering mode'
                         : controller.modelIndicator,
-                    style: const TextStyle(fontSize: 11, color: _textSecondary),
+                    style: TextStyle(fontSize: 11, color: _textSecondary),
                   ),
                 ],
               ),
@@ -7602,8 +7679,8 @@ class _MessagingPanelState extends State<MessagingPanel> {
               'Connect channels, limit who can reach the agent, and monitor activity.',
           trailing: OutlinedButton.icon(
             onPressed: controller.refreshMessaging,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Refresh'),
+            icon: Icon(Icons.refresh_rounded),
+            label: Text('Refresh'),
           ),
         ),
         const SizedBox(height: 18),
@@ -7790,7 +7867,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
-              title: const Text('Telnyx Voice'),
+              title: Text('Telnyx Voice'),
               content: SizedBox(
                 width: 620,
                 child: SingleChildScrollView(
@@ -7903,7 +7980,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -7927,7 +8004,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       Navigator.of(context).pop();
                     }
                   },
-                  child: const Text('Connect'),
+                  child: Text('Connect'),
                 ),
               ],
             );
@@ -7972,7 +8049,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       if (platform.configFields.isEmpty)
-                        const Text(
+                        Text(
                           'No extra settings are required.',
                           style: TextStyle(color: _textSecondary),
                         )
@@ -8018,10 +8095,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       const SizedBox(height: 8),
                       SelectableText(
                         'Inbound webhook: ${widget.controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                        style: const TextStyle(
-                          color: _textSecondary,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _textSecondary, fontSize: 12),
                       ),
                     ],
                   ),
@@ -8030,7 +8104,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -8053,7 +8127,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       Navigator.of(context).pop();
                     }
                   },
-                  child: const Text('Connect'),
+                  child: Text('Connect'),
                 ),
               ],
             );
@@ -8205,12 +8279,12 @@ class _MessagingMetricCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(color: _textSecondary, fontSize: 12),
+                  style: TextStyle(color: _textSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textPrimary,
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -8219,7 +8293,7 @@ class _MessagingMetricCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   helper,
-                  style: const TextStyle(color: _textMuted, fontSize: 12),
+                  style: TextStyle(color: _textMuted, fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -8264,15 +8338,15 @@ class _MessagingToolbar extends StatelessWidget {
           final compact = constraints.maxWidth < 780;
           final search = TextField(
             controller: controller,
-            style: const TextStyle(color: _textPrimary),
+            style: TextStyle(color: _textPrimary),
             decoration: InputDecoration(
               labelText: 'Find a platform',
-              prefixIcon: const Icon(Icons.search_rounded),
+              prefixIcon: Icon(Icons.search_rounded),
               suffixIcon: controller.text.isEmpty
                   ? null
                   : IconButton(
                       onPressed: controller.clear,
-                      icon: const Icon(Icons.close_rounded),
+                      icon: Icon(Icons.close_rounded),
                     ),
             ),
           );
@@ -8349,14 +8423,14 @@ class _MessagingQrPanel extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           'Scan to finish ${qrState.platformLabel}',
-          style: const TextStyle(
+          style: TextStyle(
             color: _textPrimary,
             fontSize: 22,
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Keep this panel open until the platform confirms the connection.',
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
@@ -8416,7 +8490,7 @@ class _MessagingGroupHeader extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: _textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -8425,7 +8499,7 @@ class _MessagingGroupHeader extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(color: _textSecondary, height: 1.35),
+                style: TextStyle(color: _textSecondary, height: 1.35),
               ),
             ],
           ),
@@ -8456,7 +8530,7 @@ class _MessagingActivityPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Recent Channel Activity',
                   style: TextStyle(
@@ -8538,21 +8612,21 @@ class _MessagingActivityItem extends StatelessWidget {
                     ),
                     Text(
                       message.senderLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
                       message.createdAtLabel,
-                      style: const TextStyle(color: _textMuted, fontSize: 12),
+                      style: TextStyle(color: _textMuted, fontSize: 12),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
                   message.content.ifEmpty('[empty]'),
-                  style: const TextStyle(color: _textSecondary, height: 1.35),
+                  style: TextStyle(color: _textSecondary, height: 1.35),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -8755,8 +8829,8 @@ class _RunsPanelState extends State<RunsPanel> {
               'Inspect recent runs, failures, tool steps, and final responses.',
           trailing: OutlinedButton.icon(
             onPressed: _refreshRuns,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh'),
+            icon: Icon(Icons.refresh),
+            label: Text('Refresh'),
           ),
         ),
         if (controller.errorMessage != null) ...<Widget>[
@@ -8906,7 +8980,7 @@ class _MessagingCard extends StatelessWidget {
                   children: [
                     Text(
                       platform.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _textPrimary,
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
@@ -8917,10 +8991,7 @@ class _MessagingCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       status?.authLabel ?? 'Not configured',
-                      style: const TextStyle(
-                        color: _textSecondary,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: _textSecondary, fontSize: 12),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -8945,7 +9016,7 @@ class _MessagingCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             platform.subtitle,
-            style: const TextStyle(color: _textSecondary, height: 1.4),
+            style: TextStyle(color: _textSecondary, height: 1.4),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -8977,18 +9048,15 @@ class _MessagingCard extends StatelessWidget {
                 child: connected
                     ? OutlinedButton.icon(
                         onPressed: onDisconnect,
-                        icon: const Icon(Icons.link_off_rounded, size: 18),
-                        label: const Text(
+                        icon: Icon(Icons.link_off_rounded, size: 18),
+                        label: Text(
                           'Disconnect',
                           overflow: TextOverflow.ellipsis,
                         ),
                       )
                     : FilledButton.icon(
                         onPressed: onConnect,
-                        icon: const Icon(
-                          Icons.power_settings_new_rounded,
-                          size: 18,
-                        ),
+                        icon: Icon(Icons.power_settings_new_rounded, size: 18),
                         label: Text(
                           actionLabel,
                           overflow: TextOverflow.ellipsis,
@@ -9000,14 +9068,14 @@ class _MessagingCard extends StatelessWidget {
               IconButton.outlined(
                 tooltip: 'Access list',
                 onPressed: () => _editWhitelist(context, controller),
-                icon: const Icon(Icons.group_add_outlined),
+                icon: Icon(Icons.group_add_outlined),
               ),
               if (platform.id == 'telnyx') ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
                   tooltip: 'Voice PIN',
                   onPressed: () => _editTelnyxSecret(context, controller),
-                  icon: const Icon(Icons.password_outlined),
+                  icon: Icon(Icons.password_outlined),
                 ),
               ],
               if (connected) ...[
@@ -9015,7 +9083,7 @@ class _MessagingCard extends StatelessWidget {
                 IconButton.outlined(
                   tooltip: 'Logout',
                   onPressed: onLogout,
-                  icon: const Icon(Icons.logout_rounded),
+                  icon: Icon(Icons.logout_rounded),
                 ),
               ],
             ],
@@ -9130,7 +9198,7 @@ Future<void> _showStringListDialog(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(subtitle, style: const TextStyle(color: _textSecondary)),
+              Text(subtitle, style: TextStyle(color: _textSecondary)),
               const SizedBox(height: 14),
               TextField(
                 controller: controller,
@@ -9147,7 +9215,7 @@ Future<void> _showStringListDialog(
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
@@ -9159,7 +9227,7 @@ Future<void> _showStringListDialog(
                   .toList();
               Navigator.of(context).pop(values);
             },
-            child: const Text('Save'),
+            child: Text('Save'),
           ),
         ],
       ),
@@ -9193,7 +9261,7 @@ Future<String?> _showTextSettingDialog(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(subtitle, style: const TextStyle(color: _textSecondary)),
+              Text(subtitle, style: TextStyle(color: _textSecondary)),
               const SizedBox(height: 14),
               TextField(
                 controller: controller,
@@ -9206,11 +9274,11 @@ Future<String?> _showTextSettingDialog(
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Save'),
+            child: Text('Save'),
           ),
         ],
       ),
@@ -9242,7 +9310,7 @@ class _MessagingMiniPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: _textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -9342,14 +9410,14 @@ class _RunMetricCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(title, style: const TextStyle(color: _textSecondary)),
+          Text(title, style: TextStyle(color: _textSecondary)),
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
-          Text(helper, style: const TextStyle(color: _textSecondary)),
+          Text(helper, style: TextStyle(color: _textSecondary)),
         ],
       ),
     );
@@ -9381,13 +9449,13 @@ class _RunsFilterBar extends StatelessWidget {
             TextField(
               controller: searchController,
               decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: Icon(Icons.search),
                 hintText: 'Search title, model, trigger, error, or run id',
                 suffixIcon: searchController.text.trim().isEmpty
                     ? null
                     : IconButton(
                         onPressed: searchController.clear,
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                       ),
               ),
             ),
@@ -9402,7 +9470,7 @@ class _RunsFilterBar extends StatelessWidget {
                   selectedColor: _accentMuted,
                   checkmarkColor: _accent,
                   backgroundColor: _bgSecondary,
-                  side: const BorderSide(color: _border),
+                  side: BorderSide(color: _border),
                   onSelected: (_) => onStatusChanged(filter),
                 );
               }).toList(),
@@ -9435,10 +9503,10 @@ class _RunsHistoryPane extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Expanded(child: _SectionTitle('Run History')),
+                Expanded(child: _SectionTitle('Run History')),
                 Text(
                   '${runs.length} items',
-                  style: const TextStyle(color: _textSecondary),
+                  style: TextStyle(color: _textSecondary),
                 ),
               ],
             ),
@@ -9504,20 +9572,17 @@ class _RunHistoryRow extends StatelessWidget {
                     run.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700, height: 1.2),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     '${run.triggerLabel} • ${run.createdAtLabel}${run.durationLabel == 'In progress' ? '' : ' • ${run.durationLabel}'}',
-                    style: const TextStyle(color: _textSecondary, fontSize: 12),
+                    style: TextStyle(color: _textSecondary, fontSize: 12),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${run.modelLabel} • ${run.totalTokensLabel} tokens',
-                    style: const TextStyle(color: _textSecondary, fontSize: 12),
+                    style: TextStyle(color: _textSecondary, fontSize: 12),
                   ),
                   if (run.error.trim().isNotEmpty) ...<Widget>[
                     const SizedBox(height: 8),
@@ -9525,7 +9590,7 @@ class _RunHistoryRow extends StatelessWidget {
                       run.error,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _danger,
                         fontSize: 12,
                         height: 1.4,
@@ -9585,7 +9650,7 @@ class _RunDetailWorkspace extends StatelessWidget {
         _RunHeroCard(run: selectedRun, onDelete: onDelete),
         const SizedBox(height: 16),
         if (loading && snapshot == null)
-          const Card(
+          Card(
             child: Padding(
               padding: EdgeInsets.all(24),
               child: Row(
@@ -9666,7 +9731,7 @@ class _RunHeroCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: <Color>[
             run.statusColor.withValues(alpha: 0.18),
-            const Color(0xFF0E1821),
+            _bgSecondary,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -9705,7 +9770,7 @@ class _RunHeroCard extends StatelessWidget {
                     const SizedBox(height: 16),
                     Text(
                       run.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         height: 1.15,
@@ -9742,8 +9807,8 @@ class _RunHeroCard extends StatelessWidget {
               const SizedBox(width: 12),
               OutlinedButton.icon(
                 onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Delete'),
+                icon: Icon(Icons.delete_outline),
+                label: Text('Delete'),
               ),
             ],
           ),
@@ -9757,7 +9822,7 @@ class _RunHeroCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0x4CEF4444)),
               ),
-              child: Text(run.error, style: const TextStyle(height: 1.45)),
+              child: Text(run.error, style: TextStyle(height: 1.45)),
             ),
           ],
         ],
@@ -9782,17 +9847,17 @@ class _RunResponseCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Expanded(child: _SectionTitle('Final Response')),
+                Expanded(child: _SectionTitle('Final Response')),
                 OutlinedButton.icon(
                   onPressed: response.trim().isEmpty ? null : onCopy,
-                  icon: const Icon(Icons.copy_all_outlined),
-                  label: const Text('Copy'),
+                  icon: Icon(Icons.copy_all_outlined),
+                  label: Text('Copy'),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             if (response.trim().isEmpty)
-              const Text(
+              Text(
                 'No final response was captured for this run.',
                 style: TextStyle(color: _textSecondary),
               )
@@ -9841,7 +9906,7 @@ class _RunTimelineCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Expanded(child: _SectionTitle('Step Timeline')),
+                Expanded(child: _SectionTitle('Step Timeline')),
                 if (loading)
                   const SizedBox.square(
                     dimension: 16,
@@ -9851,7 +9916,7 @@ class _RunTimelineCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (steps.isEmpty)
-              const Text(
+              Text(
                 'No run steps recorded yet.',
                 style: TextStyle(color: _textSecondary),
               )
@@ -9910,16 +9975,13 @@ class _RunStepCard extends StatelessWidget {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                step.label,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
+              Text(step.label, style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               Text(
                 step.summary,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: _textSecondary,
                   fontSize: 12,
                   height: 1.45,
@@ -10002,7 +10064,7 @@ class _RunDetailBlock extends StatelessWidget {
         children: <Widget>[
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: _textSecondary,
               fontWeight: FontWeight.w600,
             ),
@@ -10106,8 +10168,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
             onPressed: widget.controller.isSavingAccountSettings
                 ? null
                 : widget.controller.refreshAccountSettings,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh'),
+            icon: Icon(Icons.refresh),
+            label: Text('Refresh'),
           ),
         ),
         if (widget.controller.errorMessage != null) ...<Widget>[
@@ -10226,8 +10288,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.save_outlined),
-          label: const Text('Save email'),
+              : Icon(Icons.save_outlined),
+          label: Text('Save email'),
         ),
       ],
     );
@@ -10244,7 +10306,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       children: <Widget>[
         Row(
           children: <Widget>[
-            const Expanded(child: _SectionTitle('Two-factor authentication')),
+            Expanded(child: _SectionTitle('Two-factor authentication')),
             _StatusPill(
               label: twoFactorEnabled ? 'Enabled' : 'Disabled',
               color: twoFactorEnabled ? _success : _warning,
@@ -10256,7 +10318,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           twoFactorEnabled
               ? '$recoveryCount recovery codes are still available.'
               : 'Use an authenticator app such as Authy, 1Password, or Google Authenticator.',
-          style: const TextStyle(color: _textSecondary, height: 1.4),
+          style: TextStyle(color: _textSecondary, height: 1.4),
         ),
         const SizedBox(height: 16),
         if (!twoFactorEnabled) _buildEnableTwoFactorPanel(),
@@ -10268,16 +10330,16 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         const SizedBox(height: 24),
         Row(
           children: <Widget>[
-            const Expanded(child: _SectionTitle('Active sessions')),
+            Expanded(child: _SectionTitle('Active sessions')),
             Text(
               '${controller.accountSessions.length} active',
-              style: const TextStyle(color: _textSecondary),
+              style: TextStyle(color: _textSecondary),
             ),
           ],
         ),
         const SizedBox(height: 12),
         if (controller.accountSessions.isEmpty)
-          const Text(
+          Text(
             'No active sessions found.',
             style: TextStyle(color: _textSecondary),
           )
@@ -10319,8 +10381,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                       setState(() => _pendingSetup = setup);
                     }
                   },
-            icon: const Icon(Icons.qr_code_2_outlined),
-            label: const Text('Start setup'),
+            icon: Icon(Icons.qr_code_2_outlined),
+            label: Text('Start setup'),
           ),
         ] else ...<Widget>[
           Center(
@@ -10335,10 +10397,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
             ),
           ),
           const SizedBox(height: 12),
-          SelectableText(
-            manualKey,
-            style: const TextStyle(color: _textSecondary),
-          ),
+          SelectableText(manualKey, style: TextStyle(color: _textSecondary)),
           const SizedBox(height: 12),
           TextField(
             controller: _setupCodeController,
@@ -10362,8 +10421,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                       });
                     }
                   },
-            icon: const Icon(Icons.verified_user_outlined),
-            label: const Text('Enable 2FA'),
+            icon: Icon(Icons.verified_user_outlined),
+            label: Text('Enable 2FA'),
           ),
         ],
       ],
@@ -10396,8 +10455,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                       currentPassword: _disablePasswordController.text,
                       code: _disableCodeController.text,
                     ),
-              icon: const Icon(Icons.lock_open_outlined),
-              label: const Text('Disable 2FA'),
+              icon: Icon(Icons.lock_open_outlined),
+              label: Text('Disable 2FA'),
             ),
             OutlinedButton.icon(
               onPressed: widget.controller.isConfiguringTwoFactor
@@ -10412,8 +10471,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                         setState(() => _recoveryCodes = codes);
                       }
                     },
-              icon: const Icon(Icons.password_outlined),
-              label: const Text('New recovery codes'),
+              icon: Icon(Icons.password_outlined),
+              label: Text('New recovery codes'),
             ),
           ],
         ),
@@ -10479,7 +10538,7 @@ class _RecoveryCodesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
+          Text(
             'Save these recovery codes now. They will not be shown again.',
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
@@ -10491,7 +10550,7 @@ class _RecoveryCodesCard extends StatelessWidget {
                 .map(
                   (code) => SelectableText(
                     code,
-                    style: const TextStyle(fontFamily: 'monospace'),
+                    style: TextStyle(fontFamily: 'monospace'),
                   ),
                 )
                 .toList(),
@@ -10500,8 +10559,8 @@ class _RecoveryCodesCard extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: () =>
                 Clipboard.setData(ClipboardData(text: codes.join('\n'))),
-            icon: const Icon(Icons.copy_outlined),
-            label: const Text('Copy codes'),
+            icon: Icon(Icons.copy_outlined),
+            label: Text('Copy codes'),
           ),
         ],
       ),
@@ -10546,7 +10605,7 @@ class _AccountSessionCard extends StatelessWidget {
                   session.current
                       ? '${session.location} · Current session'
                       : session.location,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -10554,7 +10613,7 @@ class _AccountSessionCard extends StatelessWidget {
                     if (session.ipAddress.isNotEmpty) session.ipAddress,
                     'Last seen ${session.lastSeenLabel}',
                   ].join(' · '),
-                  style: const TextStyle(color: _textSecondary),
+                  style: TextStyle(color: _textSecondary),
                 ),
                 if (session.userAgent.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 4),
@@ -10562,7 +10621,7 @@ class _AccountSessionCard extends StatelessWidget {
                     session.userAgent,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _textMuted, fontSize: 12),
+                    style: TextStyle(color: _textMuted, fontSize: 12),
                   ),
                 ],
               ],
@@ -10571,7 +10630,7 @@ class _AccountSessionCard extends StatelessWidget {
           if (!session.current)
             TextButton(
               onPressed: busy ? null : onRevoke,
-              child: const Text('Revoke'),
+              child: Text('Revoke'),
             ),
         ],
       ),
@@ -10728,8 +10787,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.save_outlined),
-            label: const Text('Save'),
+                : Icon(Icons.save_outlined),
+            label: Text('Save'),
           ),
         ),
         if (controller.errorMessage != null) ...<Widget>[
@@ -10745,7 +10804,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 const _SectionTitle('AI Providers'),
                 const SizedBox(height: 14),
                 if (controller.aiProviders.isEmpty)
-                  const Text(
+                  Text(
                     'Provider metadata is unavailable on this server version.',
                     style: TextStyle(color: _textSecondary),
                   )
@@ -10893,7 +10952,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ),
                   const SizedBox(height: 16),
                 ],
-                const Text(
+                Text(
                   'Smart Selector Allowed Models',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
@@ -10937,7 +10996,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   availableModels.isEmpty
                       ? 'Enable a ready provider above to unlock model routing.'
                       : '$enabledSmartModels models are currently eligible for smart routing.',
-                  style: const TextStyle(color: _textSecondary),
+                  style: TextStyle(color: _textSecondary),
                 ),
               ],
             ),
@@ -10992,7 +11051,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       : controller.cloudBrowserBackend == 'vm'
                       ? "Cloud uses this deployment's isolated VM browser runtime."
                       : "Cloud uses this deployment's local host browser runtime.",
-                  style: const TextStyle(color: _textSecondary, height: 1.4),
+                  style: TextStyle(color: _textSecondary, height: 1.4),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
@@ -11001,13 +11060,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   children: <Widget>[
                     OutlinedButton.icon(
                       onPressed: controller.downloadBrowserExtension,
-                      icon: const Icon(Icons.download_outlined),
-                      label: const Text('Download extension'),
+                      icon: Icon(Icons.download_outlined),
+                      label: Text('Download extension'),
                     ),
                     OutlinedButton.icon(
                       onPressed: controller.refreshBrowserExtensionStatus,
-                      icon: const Icon(Icons.sync),
-                      label: const Text('Refresh status'),
+                      icon: Icon(Icons.sync),
+                      label: Text('Refresh status'),
                     ),
                   ],
                 ),
@@ -11031,7 +11090,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Row(
+                Row(
                   children: <Widget>[
                     _SectionTitle('Token Usage'),
                     SizedBox(width: 8),
@@ -11040,7 +11099,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ),
                 const SizedBox(height: 12),
                 if (controller.tokenUsage == null)
-                  const Text(
+                  Text(
                     'Token usage unavailable on this server version.',
                     style: TextStyle(color: _textSecondary),
                   )
@@ -11109,7 +11168,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         controller.updateStatus.releaseChannel == 'beta'
                             ? 'Beta follows the preview release stream.'
                             : 'Stable follows the production release stream.',
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       );
 
                       if (compact) {
@@ -11139,7 +11198,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ),
                   Row(
                     children: <Widget>[
-                      const Expanded(child: _SectionTitle('Runtime Updates')),
+                      Expanded(child: _SectionTitle('Runtime Updates')),
                       FilledButton.icon(
                         onPressed:
                             controller.isSavingReleaseChannel ||
@@ -11156,15 +11215,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.system_update),
-                        label: const Text('Update'),
+                            : Icon(Icons.system_update),
+                        label: Text('Update'),
                       ),
                     ],
                   ),
                 ] else ...<Widget>[
                   const _SectionTitle('Runtime Updates'),
                   const SizedBox(height: 10),
-                  const Text(
+                  Text(
                     'Updates and release tracks are managed for this deployment.',
                     style: TextStyle(color: _textSecondary),
                   ),
@@ -11187,7 +11246,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     Expanded(
                       child: Text(
                         controller.updateStatus.message,
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                     ),
                     Text('${controller.updateStatus.progress}%'),
@@ -11310,7 +11369,7 @@ class _AiProviderCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       provider.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
@@ -11320,10 +11379,7 @@ class _AiProviderCard extends StatelessWidget {
                       provider.description,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _textSecondary,
-                        height: 1.4,
-                      ),
+                      style: TextStyle(color: _textSecondary, height: 1.4),
                     ),
                   ],
                 ),
@@ -11357,7 +11413,7 @@ class _AiProviderCard extends StatelessWidget {
                         children: <Widget>[
                           Text(
                             expanded ? 'Hide' : 'Setup',
-                            style: const TextStyle(fontSize: 12),
+                            style: TextStyle(fontSize: 12),
                           ),
                           const SizedBox(width: 4),
                           Icon(
@@ -11415,7 +11471,7 @@ class _AiProviderCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     provider.availabilityReason,
-                    style: const TextStyle(color: _textSecondary, height: 1.35),
+                    style: TextStyle(color: _textSecondary, height: 1.35),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -11439,7 +11495,7 @@ class _AiProviderCard extends StatelessWidget {
                   provider.credentialConfigured
                       ? 'Credentials for this provider are already available to the runtime.'
                       : 'Credentials for this provider are managed outside this workspace UI. Finish the server or admin setup, then return here to enable routing.',
-                  style: const TextStyle(color: _textSecondary, height: 1.35),
+                  style: TextStyle(color: _textSecondary, height: 1.35),
                 ),
               ),
             if (provider.supportsBaseUrl) ...<Widget>[
@@ -11459,10 +11515,7 @@ class _AiProviderCard extends StatelessWidget {
               const SizedBox(height: 12),
             ],
             if (models.isNotEmpty) ...<Widget>[
-              const Text(
-                'Models',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+              Text('Models', style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -11533,7 +11586,7 @@ class _RoutingSelectCard extends StatelessWidget {
             children: <Widget>[
               Icon(icon, size: 16, color: _accentHover),
               const SizedBox(width: 8),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(label, style: TextStyle(fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 10),
@@ -11750,18 +11803,18 @@ class _LogsPanelState extends State<LogsPanel> {
             children: <Widget>[
               OutlinedButton.icon(
                 onPressed: _copyDebugInfo,
-                icon: const Icon(Icons.bug_report_outlined),
-                label: const Text('Copy debug info'),
+                icon: Icon(Icons.bug_report_outlined),
+                label: Text('Copy debug info'),
               ),
               OutlinedButton.icon(
                 onPressed: widget.controller.logs.isEmpty ? null : _copyLogs,
-                icon: const Icon(Icons.copy_all_outlined),
-                label: const Text('Copy logs'),
+                icon: Icon(Icons.copy_all_outlined),
+                label: Text('Copy logs'),
               ),
               OutlinedButton.icon(
                 onPressed: widget.controller.clearLogs,
-                icon: const Icon(Icons.clear_all),
-                label: const Text('Clear'),
+                icon: Icon(Icons.clear_all),
+                label: Text('Clear'),
               ),
             ],
           ),
@@ -11770,7 +11823,7 @@ class _LogsPanelState extends State<LogsPanel> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: widget.controller.logs.isEmpty
-                ? const Text(
+                ? Text(
                     'Waiting for log output…',
                     style: TextStyle(color: _textSecondary),
                   )
@@ -11779,7 +11832,7 @@ class _LogsPanelState extends State<LogsPanel> {
                       return Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 6),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           border: Border(bottom: BorderSide(color: _border)),
                         ),
                         child: Text.rich(
@@ -11787,7 +11840,7 @@ class _LogsPanelState extends State<LogsPanel> {
                             children: <InlineSpan>[
                               TextSpan(
                                 text: '[${log.timeLabel}] ',
-                                style: const TextStyle(color: _textMuted),
+                                style: TextStyle(color: _textMuted),
                               ),
                               TextSpan(
                                 text: log.message,
@@ -11875,8 +11928,8 @@ class _SkillsPanelState extends State<SkillsPanel>
                 'Manage installed skills and browse the store. Official integrations live in their own section.',
             trailing: FilledButton.icon(
               onPressed: () => _openCreateSkill(context),
-              icon: const Icon(Icons.add),
-              label: const Text('New Skill'),
+              icon: Icon(Icons.add),
+              label: Text('New Skill'),
             ),
           ),
           const SizedBox(height: 12),
@@ -11890,7 +11943,7 @@ class _SkillsPanelState extends State<SkillsPanel>
               controller: _tabController,
               dividerColor: Colors.transparent,
               indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+              labelStyle: TextStyle(fontWeight: FontWeight.w700),
               tabs: <Widget>[
                 Tab(text: 'Installed Skills (${controller.skills.length})'),
                 Tab(text: 'Store (${filteredStore.length})'),
@@ -11919,7 +11972,7 @@ class _SkillsPanelState extends State<SkillsPanel>
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const <Widget>[
+            children: <Widget>[
               Icon(
                 Icons.extension_off_outlined,
                 size: 34,
@@ -11963,9 +12016,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                               Expanded(
                                 child: Text(
                                   skill.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.w700),
                                 ),
                               ),
                               Switch(
@@ -11977,7 +12028,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                           ),
                           Text(
                             skill.description.ifEmpty('No description'),
-                            style: const TextStyle(color: _textSecondary),
+                            style: TextStyle(color: _textSecondary),
                           ),
                           const SizedBox(height: 10),
                           Wrap(
@@ -12006,17 +12057,17 @@ class _SkillsPanelState extends State<SkillsPanel>
                               OutlinedButton(
                                 onPressed: () =>
                                     _openSkillEditor(context, skill.name),
-                                child: const Text('Open'),
+                                child: Text('Open'),
                               ),
                               const SizedBox(width: 8),
                               TextButton.icon(
                                 onPressed: () =>
                                     _confirmDeleteSkill(context, skill.name),
-                                icon: const Icon(Icons.delete_outline),
+                                icon: Icon(Icons.delete_outline),
                                 style: TextButton.styleFrom(
                                   foregroundColor: _danger,
                                 ),
-                                label: const Text('Delete'),
+                                label: Text('Delete'),
                               ),
                             ],
                           ),
@@ -12031,14 +12082,12 @@ class _SkillsPanelState extends State<SkillsPanel>
                               children: <Widget>[
                                 Text(
                                   skill.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
                                   skill.description.ifEmpty('No description'),
-                                  style: const TextStyle(color: _textSecondary),
+                                  style: TextStyle(color: _textSecondary),
                                 ),
                                 const SizedBox(height: 10),
                                 Wrap(
@@ -12074,17 +12123,17 @@ class _SkillsPanelState extends State<SkillsPanel>
                               OutlinedButton(
                                 onPressed: () =>
                                     _openSkillEditor(context, skill.name),
-                                child: const Text('Open'),
+                                child: Text('Open'),
                               ),
                               const SizedBox(height: 6),
                               TextButton.icon(
                                 onPressed: () =>
                                     _confirmDeleteSkill(context, skill.name),
-                                icon: const Icon(Icons.delete_outline),
+                                icon: Icon(Icons.delete_outline),
                                 style: TextButton.styleFrom(
                                   foregroundColor: _danger,
                                 ),
-                                label: const Text('Delete'),
+                                label: Text('Delete'),
                               ),
                             ],
                           ),
@@ -12112,15 +12161,15 @@ class _SkillsPanelState extends State<SkillsPanel>
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: <Color>[Color(0xFF0E2530), Color(0xFF0B2A24)],
+              gradient: LinearGradient(
+                colors: <Color>[_bgSecondary, _accentMuted],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _borderLight),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
@@ -12141,7 +12190,7 @@ class _SkillsPanelState extends State<SkillsPanel>
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               labelText: 'Search skills',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: Icon(Icons.search),
               suffixIcon: _searchController.text.isEmpty
                   ? null
                   : IconButton(
@@ -12149,7 +12198,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                         _searchController.clear();
                         setState(() {});
                       },
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close),
                     ),
             ),
           ),
@@ -12169,7 +12218,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                   selectedColor: _accentMuted,
                   checkmarkColor: _accent,
                   backgroundColor: _bgSecondary,
-                  side: const BorderSide(color: _border),
+                  side: BorderSide(color: _border),
                   onSelected: (_) =>
                       setState(() => _selectedCategory = category),
                 );
@@ -12203,26 +12252,23 @@ class _SkillsPanelState extends State<SkillsPanel>
                       children: <Widget>[
                         Row(
                           children: <Widget>[
-                            Text(
-                              item.icon,
-                              style: const TextStyle(fontSize: 24),
-                            ),
+                            Text(item.icon, style: TextStyle(fontSize: 24)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 item.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 16,
                                 ),
                               ),
                             ),
                             item.installed
-                                ? const _StatusPill(
+                                ? _StatusPill(
                                     label: 'Installed',
                                     color: _success,
                                   )
-                                : const _StatusPill(label: 'Get', color: _info),
+                                : _StatusPill(label: 'Get', color: _info),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -12230,10 +12276,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                           item.description,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: _textSecondary,
-                            height: 1.35,
-                          ),
+                          style: TextStyle(color: _textSecondary, height: 1.35),
                         ),
                         const Spacer(),
                         Align(
@@ -12242,12 +12285,12 @@ class _SkillsPanelState extends State<SkillsPanel>
                               ? OutlinedButton(
                                   onPressed: () =>
                                       controller.uninstallStoreSkill(item.id),
-                                  child: const Text('Uninstall'),
+                                  child: Text('Uninstall'),
                                 )
                               : FilledButton(
                                   onPressed: () =>
                                       controller.installStoreSkill(item.id),
-                                  child: const Text('Install'),
+                                  child: Text('Install'),
                                 ),
                         ),
                       ],
@@ -12264,13 +12307,13 @@ class _SkillsPanelState extends State<SkillsPanel>
               const Spacer(),
               Text(
                 '${filteredStore.length} results',
-                style: const TextStyle(color: _textSecondary),
+                style: TextStyle(color: _textSecondary),
               ),
             ],
           ),
           const SizedBox(height: 10),
           if (filteredStore.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Text(
                 'No store skills match the current filter.',
@@ -12297,15 +12340,12 @@ class _SkillsPanelState extends State<SkillsPanel>
                           children: <Widget>[
                             Row(
                               children: <Widget>[
-                                Text(
-                                  item.icon,
-                                  style: const TextStyle(fontSize: 22),
-                                ),
+                                Text(item.icon, style: TextStyle(fontSize: 22)),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     item.name,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -12319,7 +12359,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                             const SizedBox(height: 8),
                             Text(
                               item.description,
-                              style: const TextStyle(color: _textSecondary),
+                              style: TextStyle(color: _textSecondary),
                             ),
                             const SizedBox(height: 8),
                             Row(
@@ -12333,12 +12373,12 @@ class _SkillsPanelState extends State<SkillsPanel>
                                     ? OutlinedButton(
                                         onPressed: () => controller
                                             .uninstallStoreSkill(item.id),
-                                        child: const Text('Uninstall'),
+                                        child: Text('Uninstall'),
                                       )
                                     : FilledButton(
                                         onPressed: () => controller
                                             .installStoreSkill(item.id),
-                                        child: const Text('Install'),
+                                        child: Text('Install'),
                                       ),
                               ],
                             ),
@@ -12347,7 +12387,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                       }
                       return Row(
                         children: <Widget>[
-                          Text(item.icon, style: const TextStyle(fontSize: 24)),
+                          Text(item.icon, style: TextStyle(fontSize: 24)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -12355,7 +12395,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                               children: <Widget>[
                                 Text(
                                   item.name,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 16,
                                   ),
@@ -12365,7 +12405,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                                   item.description,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: _textSecondary,
                                     height: 1.35,
                                   ),
@@ -12383,12 +12423,12 @@ class _SkillsPanelState extends State<SkillsPanel>
                               ? OutlinedButton(
                                   onPressed: () =>
                                       controller.uninstallStoreSkill(item.id),
-                                  child: const Text('Uninstall'),
+                                  child: Text('Uninstall'),
                                 )
                               : FilledButton(
                                   onPressed: () =>
                                       controller.installStoreSkill(item.id),
-                                  child: const Text('Install'),
+                                  child: Text('Install'),
                                 ),
                         ],
                       );
@@ -12426,7 +12466,7 @@ class _SkillsPanelState extends State<SkillsPanel>
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             FilledButton(
               onPressed: () async {
@@ -12438,7 +12478,7 @@ class _SkillsPanelState extends State<SkillsPanel>
                   Navigator.of(context).pop();
                 }
               },
-              child: const Text('Save'),
+              child: Text('Save'),
             ),
           ],
         );
@@ -12462,7 +12502,7 @@ Write the instructions for this skill here.
       builder: (context) {
         return AlertDialog(
           backgroundColor: _bgCard,
-          title: const Text('New Skill'),
+          title: Text('New Skill'),
           content: SizedBox(
             width: 720,
             child: SingleChildScrollView(
@@ -12487,7 +12527,7 @@ Write the instructions for this skill here.
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             FilledButton(
               onPressed: () async {
@@ -12499,7 +12539,7 @@ Write the instructions for this skill here.
                   Navigator.of(context).pop();
                 }
               },
-              child: const Text('Create'),
+              child: Text('Create'),
             ),
           ],
         );
@@ -12513,17 +12553,17 @@ Write the instructions for this skill here.
       builder: (context) {
         return AlertDialog(
           backgroundColor: _bgCard,
-          title: const Text('Delete skill?'),
+          title: Text('Delete skill?'),
           content: Text('"$name" will be removed permanently.'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: _danger),
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
+              child: Text('Delete'),
             ),
           ],
         );
@@ -12712,13 +12752,13 @@ class _MemoryPanelState extends State<MemoryPanel> {
             children: <Widget>[
               OutlinedButton.icon(
                 onPressed: () => _openBehaviorNotesEditor(context, controller),
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('Behavior Notes'),
+                icon: Icon(Icons.edit_outlined),
+                label: Text('Behavior Notes'),
               ),
               FilledButton.icon(
                 onPressed: () => _openMemoryCreator(context, controller),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Memory'),
+                icon: Icon(Icons.add),
+                label: Text('Add Memory'),
               ),
             ],
           ),
@@ -12781,12 +12821,12 @@ class _MemoryPanelState extends State<MemoryPanel> {
                     const SizedBox(width: 10),
                     FilledButton(
                       onPressed: () => _runMemorySearch(controller),
-                      child: const Text('Search'),
+                      child: Text('Search'),
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton(
                       onPressed: () => _resetMemorySearch(controller),
-                      child: const Text('Reset'),
+                      child: Text('Reset'),
                     ),
                   ],
                 ),
@@ -12803,18 +12843,18 @@ class _MemoryPanelState extends State<MemoryPanel> {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    const Expanded(child: _SectionTitle('Core Memory')),
+                    Expanded(child: _SectionTitle('Core Memory')),
                     TextButton.icon(
                       onPressed: () =>
                           _openCoreMemoryEditor(context, controller),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Entry'),
+                      icon: Icon(Icons.add),
+                      label: Text('Add Entry'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 if (controller.memoryOverview.coreEntries.isEmpty)
-                  const Text(
+                  Text(
                     'No core memory entries yet.',
                     style: TextStyle(color: _textSecondary),
                   )
@@ -12838,9 +12878,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                               children: <Widget>[
                                 Text(
                                   entry.key,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 6),
                                 Text(entry.value.toString()),
@@ -12853,7 +12891,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                               controller,
                               keyValue: entry,
                             ),
-                            icon: const Icon(Icons.edit_outlined),
+                            icon: Icon(Icons.edit_outlined),
                           ),
                           IconButton(
                             onPressed: () => _confirmDelete(
@@ -12864,7 +12902,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                               onConfirm: () =>
                                   controller.deleteCoreMemory(entry.key),
                             ),
-                            icon: const Icon(Icons.delete_outline),
+                            icon: Icon(Icons.delete_outline),
                           ),
                         ],
                       ),
@@ -12887,7 +12925,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   showingSearchResults
                       ? 'Showing search results. Select memories to archive or delete them together.'
                       : 'Select one or more memories to archive or delete them together.',
-                  style: const TextStyle(color: _textSecondary),
+                  style: TextStyle(color: _textSecondary),
                 ),
                 const SizedBox(height: 10),
                 if (memoriesToShow.isNotEmpty)
@@ -12900,7 +12938,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                         onPressed: allVisibleSelected || _bulkActionInFlight
                             ? null
                             : () => _selectAllVisibleMemories(memoriesToShow),
-                        icon: const Icon(Icons.done_all_outlined),
+                        icon: Icon(Icons.done_all_outlined),
                         label: Text(
                           allVisibleSelected ? 'All Selected' : 'Select All',
                         ),
@@ -12909,8 +12947,8 @@ class _MemoryPanelState extends State<MemoryPanel> {
                         onPressed: selectedCount == 0 || _bulkActionInFlight
                             ? null
                             : _clearMemorySelection,
-                        icon: const Icon(Icons.deselect_outlined),
-                        label: const Text('Clear Selection'),
+                        icon: Icon(Icons.deselect_outlined),
+                        label: Text('Clear Selection'),
                       ),
                       if (selectedCount > 0)
                         FilledButton.icon(
@@ -12923,7 +12961,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                                   confirmLabel: 'Archive',
                                   onConfirm: controller.archiveMemories,
                                 ),
-                          icon: const Icon(Icons.archive_outlined),
+                          icon: Icon(Icons.archive_outlined),
                           label: Text('Archive ($selectedCount)'),
                         ),
                       if (selectedCount > 0)
@@ -12937,7 +12975,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                                   confirmLabel: 'Delete',
                                   onConfirm: controller.deleteMemories,
                                 ),
-                          icon: const Icon(Icons.delete_sweep_outlined),
+                          icon: Icon(Icons.delete_sweep_outlined),
                           label: Text('Delete ($selectedCount)'),
                         ),
                     ],
@@ -12946,7 +12984,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   const SizedBox(height: 10),
                   Text(
                     '$selectedCount selected',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
@@ -12954,7 +12992,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                 ],
                 if (memoriesToShow.isNotEmpty) const SizedBox(height: 10),
                 if (memoriesToShow.isEmpty)
-                  const Text(
+                  Text(
                     'No memory entries found.',
                     style: TextStyle(color: _textSecondary),
                   )
@@ -13031,9 +13069,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                                                           memory.id,
                                                         ),
                                                   ),
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                            ),
+                                            icon: Icon(Icons.delete_outline),
                                           ),
                                         ],
                                       ),
@@ -13042,7 +13078,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                                       const SizedBox(height: 8),
                                       Text(
                                         memory.createdAtLabel,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 12,
                                           color: _textSecondary,
                                         ),
@@ -13071,7 +13107,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                 const _SectionTitle('Recent Conversations'),
                 const SizedBox(height: 10),
                 if (controller.memoryConversations.isEmpty)
-                  const Text(
+                  Text(
                     'No recent conversations found.',
                     style: TextStyle(color: _textSecondary),
                   )
@@ -13092,14 +13128,12 @@ class _MemoryPanelState extends State<MemoryPanel> {
                           children: <Widget>[
                             Text(
                               conversation.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               conversation.preview,
-                              style: const TextStyle(color: _textSecondary),
+                              style: TextStyle(color: _textSecondary),
                             ),
                           ],
                         ),
@@ -13127,7 +13161,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: _bgCard,
-          title: const Text('Add Memory'),
+          title: Text('Add Memory'),
           content: SizedBox(
             width: 620,
             child: Column(
@@ -13178,7 +13212,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             FilledButton(
               onPressed: () async {
@@ -13192,7 +13226,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   Navigator.of(context).pop();
                 }
               },
-              child: const Text('Save'),
+              child: Text('Save'),
             ),
           ],
         );
@@ -13212,7 +13246,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: _bgCard,
-          title: const Text('Edit Assistant Behavior Notes'),
+          title: Text('Edit Assistant Behavior Notes'),
           content: SizedBox(
             width: 720,
             child: TextField(
@@ -13227,7 +13261,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             FilledButton(
               onPressed: () async {
@@ -13238,7 +13272,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   Navigator.of(context).pop();
                 }
               },
-              child: const Text('Save'),
+              child: Text('Save'),
             ),
           ],
         );
@@ -13287,7 +13321,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             FilledButton(
               onPressed: () async {
@@ -13299,7 +13333,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   Navigator.of(context).pop();
                 }
               },
-              child: const Text('Save'),
+              child: Text('Save'),
             ),
           ],
         );
@@ -13353,8 +13387,8 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
               context,
               defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
             ),
-            icon: const Icon(Icons.add),
-            label: const Text('Add Task'),
+            icon: Icon(Icons.add),
+            label: Text('Add Task'),
           ),
         ),
         if (controller.agentProfiles.isNotEmpty) ...<Widget>[
@@ -13364,7 +13398,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Text(
+                  Text(
                     'Assigned agent',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                   ),
@@ -13425,7 +13459,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                           Expanded(
                             child: Text(
                               task.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -13449,24 +13483,21 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                         const SizedBox(height: 8),
                         Text(
                           'Model: ${_modelLabelForValue(task.model, controller.supportedModels)}',
-                          style: const TextStyle(color: _textSecondary),
+                          style: TextStyle(color: _textSecondary),
                         ),
                       ],
                       const SizedBox(height: 8),
                       Text(
                         'Assigned agent: ${controller.agentLabelFor(task.agentId)}',
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        task.prompt,
-                        style: const TextStyle(color: _textPrimary),
-                      ),
+                      Text(task.prompt, style: TextStyle(color: _textPrimary)),
                       if (task.lastRunLabel.isNotEmpty) ...<Widget>[
                         const SizedBox(height: 8),
                         Text(
                           'Last run: ${task.lastRunLabel}',
-                          style: const TextStyle(color: _textSecondary),
+                          style: TextStyle(color: _textSecondary),
                         ),
                       ],
                       const SizedBox(height: 14),
@@ -13477,7 +13508,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                           OutlinedButton(
                             onPressed: () =>
                                 _openTaskEditor(context, task: task),
-                            child: const Text('Edit'),
+                            child: Text('Edit'),
                           ),
                           OutlinedButton(
                             onPressed: () =>
@@ -13487,7 +13518,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                           FilledButton(
                             onPressed: () =>
                                 controller.runSchedulerTask(task.id),
-                            child: const Text('Run Now'),
+                            child: Text('Run Now'),
                           ),
                           OutlinedButton(
                             onPressed: () => _confirmDelete(
@@ -13497,7 +13528,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                               onConfirm: () =>
                                   controller.deleteSchedulerTask(task.id),
                             ),
-                            child: const Text('Delete'),
+                            child: Text('Delete'),
                           ),
                         ],
                       ),
@@ -13618,7 +13649,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                       SwitchListTile(
                         value: enabled,
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Enabled'),
+                        title: Text('Enabled'),
                         onChanged: (value) =>
                             setLocalState(() => enabled = value),
                       ),
@@ -13629,7 +13660,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -13646,7 +13677,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                       Navigator.of(context).pop();
                     }
                   },
-                  child: const Text('Save'),
+                  child: Text('Save'),
                 ),
               ],
             );
@@ -13673,8 +13704,8 @@ class AgentsPanel extends StatelessWidget {
               'Create specialist bots with separate memory, settings, tools, and account assignments.',
           trailing: FilledButton.icon(
             onPressed: () => openAgentEditor(context, controller),
-            icon: const Icon(Icons.add),
-            label: const Text('Add Agent'),
+            icon: Icon(Icons.add),
+            label: Text('Add Agent'),
           ),
         ),
         if (controller.errorMessage != null) ...<Widget>[
@@ -13701,17 +13732,14 @@ class AgentsPanel extends StatelessWidget {
                           Expanded(
                             child: Text(
                               agent.displayName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
                           if (agent.isDefault)
-                            const _StatusPill(
-                              label: 'Default',
-                              color: _accentHover,
-                            ),
+                            _StatusPill(label: 'Default', color: _accentHover),
                           const SizedBox(width: 8),
                           _StatusPill(
                             label: agent.status,
@@ -13724,7 +13752,7 @@ class AgentsPanel extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         '@${agent.slug}',
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                       if (agent.description.trim().isNotEmpty) ...<Widget>[
                         const SizedBox(height: 10),
@@ -13734,13 +13762,13 @@ class AgentsPanel extends StatelessWidget {
                         const SizedBox(height: 10),
                         Text(
                           agent.responsibilities,
-                          style: const TextStyle(color: _textSecondary),
+                          style: TextStyle(color: _textSecondary),
                         ),
                       ],
                       const SizedBox(height: 10),
                       Text(
                         _communicationSummary(controller, agent),
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                       const SizedBox(height: 14),
                       Wrap(
@@ -13761,13 +13789,13 @@ class AgentsPanel extends StatelessWidget {
                               controller,
                               agent: agent,
                             ),
-                            child: const Text('Edit'),
+                            child: Text('Edit'),
                           ),
                           if (!agent.isDefault)
                             OutlinedButton(
                               onPressed: () =>
                                   controller.makeAgentDefault(agent.id),
-                              child: const Text('Make default'),
+                              child: Text('Make default'),
                             ),
                           if (!agent.isMain && !agent.isDefault)
                             TextButton(
@@ -13779,7 +13807,7 @@ class AgentsPanel extends StatelessWidget {
                                 onConfirm: () =>
                                     controller.archiveAgent(agent.id),
                               ),
-                              child: const Text('Archive'),
+                              child: Text('Archive'),
                             ),
                         ],
                       ),
@@ -13904,8 +13932,8 @@ class AgentsPanel extends StatelessWidget {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         value: canDelegate,
-                        title: const Text('Can delegate tasks to other agents'),
-                        subtitle: const Text(
+                        title: Text('Can delegate tasks to other agents'),
+                        subtitle: Text(
                           'Use this for orchestrator agents. Leave off for isolated work bots that should finish direct messages themselves.',
                         ),
                         onChanged: (value) =>
@@ -13914,8 +13942,8 @@ class AgentsPanel extends StatelessWidget {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         value: canBeDelegatedTo,
-                        title: const Text('Can receive delegated tasks'),
-                        subtitle: const Text(
+                        title: Text('Can receive delegated tasks'),
+                        subtitle: Text(
                           'Turn this off to keep this agent fully separate from other agents.',
                         ),
                         onChanged: (value) =>
@@ -13925,7 +13953,7 @@ class AgentsPanel extends StatelessWidget {
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           value: restrictDelegateTargets,
-                          title: const Text('Restrict delegation targets'),
+                          title: Text('Restrict delegation targets'),
                           subtitle: Text(
                             restrictDelegateTargets
                                 ? 'Only selected agents can receive tasks from this agent.'
@@ -13973,7 +14001,7 @@ class AgentsPanel extends StatelessWidget {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -13995,7 +14023,7 @@ class AgentsPanel extends StatelessWidget {
                       Navigator.of(context).pop();
                     }
                   },
-                  child: const Text('Save'),
+                  child: Text('Save'),
                 ),
               ],
             );
@@ -14041,8 +14069,8 @@ class McpPanel extends StatelessWidget {
           subtitle: 'Configured MCP servers and live server status.',
           trailing: FilledButton.icon(
             onPressed: () => _openMcpEditor(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Add Server'),
+            icon: Icon(Icons.add),
+            label: Text('Add Server'),
           ),
         ),
         if (controller.mcpServers.isEmpty)
@@ -14065,7 +14093,7 @@ class McpPanel extends StatelessWidget {
                           Expanded(
                             child: Text(
                               server.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -14119,19 +14147,19 @@ class McpPanel extends StatelessWidget {
                           OutlinedButton(
                             onPressed: () =>
                                 _openMcpEditor(context, server: server),
-                            child: const Text('Edit'),
+                            child: Text('Edit'),
                           ),
                           if (server.status == 'running')
                             FilledButton(
                               onPressed: () =>
                                   controller.stopMcpServer(server.id),
-                              child: const Text('Stop'),
+                              child: Text('Stop'),
                             )
                           else
                             FilledButton(
                               onPressed: () =>
                                   controller.startMcpServer(server.id),
-                              child: const Text('Start'),
+                              child: Text('Start'),
                             ),
                           OutlinedButton(
                             onPressed: () => _confirmDelete(
@@ -14142,7 +14170,7 @@ class McpPanel extends StatelessWidget {
                               onConfirm: () =>
                                   controller.deleteMcpServer(server.id),
                             ),
-                            child: const Text('Delete'),
+                            child: Text('Delete'),
                           ),
                         ],
                       ),
@@ -14283,7 +14311,7 @@ class McpPanel extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 12),
-                      const Align(
+                      Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Matches the old NeoAgent MCP flow: URL plus auth method.',
@@ -14294,12 +14322,12 @@ class McpPanel extends StatelessWidget {
                       SwitchListTile(
                         value: enabled,
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Enabled'),
+                        title: Text('Enabled'),
                         onChanged: (value) =>
                             setLocalState(() => enabled = value),
                       ),
                       const SizedBox(height: 4),
-                      const Align(
+                      Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Start the server later from the list once the config is saved.',
@@ -14313,7 +14341,7 @@ class McpPanel extends StatelessWidget {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -14343,7 +14371,7 @@ class McpPanel extends StatelessWidget {
                       Navigator.of(context).pop();
                     }
                   },
-                  child: const Text('Save'),
+                  child: Text('Save'),
                 ),
               ],
             );
@@ -14434,8 +14462,8 @@ class HealthPanel extends StatelessWidget {
               children: <Widget>[
                 OutlinedButton.icon(
                   onPressed: controller.requestHealthPermissions,
-                  icon: const Icon(Icons.health_and_safety_outlined),
-                  label: const Text('Request permissions'),
+                  icon: Icon(Icons.health_and_safety_outlined),
+                  label: Text('Request permissions'),
                 ),
                 FilledButton.icon(
                   onPressed: controller.isSyncingHealth
@@ -14450,8 +14478,8 @@ class HealthPanel extends StatelessWidget {
                           dimension: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.sync),
-                  label: const Text('Sync now'),
+                      : Icon(Icons.sync),
+                  label: Text('Sync now'),
                 ),
                 _MetaPill(
                   label: 'Background sync stays scheduled on Android',
@@ -14471,7 +14499,7 @@ class HealthPanel extends StatelessWidget {
                 const _SectionTitle('Last Sync Summary'),
                 const SizedBox(height: 12),
                 if (lastSummary.isEmpty)
-                  const Text(
+                  Text(
                     'No detailed sync summary yet.',
                     style: TextStyle(color: _textSecondary),
                   )
@@ -14483,7 +14511,7 @@ class HealthPanel extends StatelessWidget {
                         lastWindowEnd == null
                             ? 'The latest sync completed successfully but did not find any new Health Connect records. Stored metrics below came from earlier syncs.'
                             : 'The latest sync window ended ${_formatTimestamp(lastWindowEnd)} and did not find any new Health Connect records. Stored metrics below came from earlier syncs.',
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                     ),
                   _buildHealthSummaryPills(lastSummary),
@@ -14495,7 +14523,7 @@ class HealthPanel extends StatelessWidget {
                     lastNonEmptyWindowEnd == null
                         ? 'Last non-empty sync'
                         : 'Last non-empty sync · ${_formatTimestamp(lastNonEmptyWindowEnd)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _textSecondary,
                       fontWeight: FontWeight.w700,
                     ),
@@ -14507,7 +14535,7 @@ class HealthPanel extends StatelessWidget {
                 const _SectionTitle('Stored Metrics'),
                 const SizedBox(height: 12),
                 if (metrics.isEmpty)
-                  const Text('No health samples stored yet.')
+                  Text('No health samples stored yet.')
                 else
                   Wrap(
                     spacing: 10,

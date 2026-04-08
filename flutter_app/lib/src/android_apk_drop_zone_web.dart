@@ -247,7 +247,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                       : const Color(0x12FFFFFF),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.install_mobile_outlined,
                   color: Color(0xFFE6F1F5),
                 ),

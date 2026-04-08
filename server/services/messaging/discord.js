@@ -152,11 +152,18 @@ class DiscordPlatform extends BasePlatform {
       const fetched = await channel.messages.fetch({ limit });
       return [...fetched.values()]
         .reverse()  // oldest first
-        .map(m => ({
-          author: m.author.bot ? `[bot] ${m.author.username}` : m.author.username,
-          content: m.content || (m.attachments.size ? '[attachment]' : '[empty]'),
-          mine: m.author.id === this._botUser?.id,
-        }));
+        .map((m) => {
+          const username = m.author.tag || m.author.username || m.author.id;
+          const displayName = m.member?.displayName || m.author.globalName || m.author.username || username;
+          const author = displayName && displayName !== username
+            ? `${displayName} (${username})`
+            : username;
+          return {
+            author: m.author.bot ? `[bot] ${author}` : author,
+            content: m.content || (m.attachments.size ? '[attachment]' : '[empty]'),
+            mine: m.author.id === this._botUser?.id,
+          };
+        });
     } catch { return []; }
   }
 
@@ -199,9 +206,14 @@ class DiscordPlatform extends BasePlatform {
     }
     if (!content) return;
 
+    const senderUsername = message.author.username || null;
+    const senderTag = message.author.tag || senderUsername || userId;
+    const senderDisplayName = isDM
+      ? (message.author.globalName || senderUsername || userId)
+      : (message.member?.displayName || message.author.globalName || senderUsername || userId);
     const senderName = isDM
-      ? message.author.username
-      : `${message.member?.displayName || message.author.username} in #${message.channel.name || channelId}${message.guild ? ` (${message.guild.name})` : ''}`;
+      ? senderDisplayName
+      : `${senderDisplayName} in #${message.channel.name || channelId}${message.guild ? ` (${message.guild.name})` : ''}`;
 
     // Fetch recent channel history for context on guild/channel mentions
     const channelContext = (requireMention && !isDM) ? await this._fetchContext(message.channel, 20) : null;
@@ -211,6 +223,9 @@ class DiscordPlatform extends BasePlatform {
       chatId,
       sender: userId,
       senderName,
+      senderDisplayName,
+      senderUsername,
+      senderTag,
       guildId,
       content,
       mediaType: null,

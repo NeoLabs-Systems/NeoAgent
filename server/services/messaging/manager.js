@@ -255,9 +255,18 @@ class MessagingManager extends EventEmitter {
     });
 
     platform.on('message', async (msg) => {
+      const metadata = {
+        sender: msg.sender,
+        senderName: msg.senderName,
+        senderDisplayName: msg.senderDisplayName,
+        senderUsername: msg.senderUsername,
+        senderTag: msg.senderTag,
+        isGroup: msg.isGroup,
+        mediaType: msg.mediaType,
+      };
       db.prepare('INSERT INTO messages (user_id, agent_id, role, content, platform, platform_msg_id, platform_chat_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
         .run(userId, agentId, 'user', msg.content, platformName, msg.messageId, msg.chatId,
-          JSON.stringify({ sender: msg.sender, senderName: msg.senderName, isGroup: msg.isGroup, mediaType: msg.mediaType }),
+          JSON.stringify(metadata),
           msg.timestamp);
 
       // Enrich with platform name so handlers and the web UI always have it

@@ -106,6 +106,13 @@ function genericMessageFromWebhook(platform, config, req) {
     || jsonPath(body, 'user.name')
     || jsonPath(body, 'from.name')
     || null;
+  const senderUsername = jsonPath(body, config.senderUsernamePath || 'senderUsername')
+    || jsonPath(body, 'user.username')
+    || jsonPath(body, 'from.username')
+    || null;
+  const senderTag = jsonPath(body, config.senderTagPath || 'senderTag')
+    || senderUsername
+    || null;
 
   if (!String(content || '').trim()) return null;
   return {
@@ -113,6 +120,8 @@ function genericMessageFromWebhook(platform, config, req) {
     chatId: String(chatId),
     sender: String(sender),
     senderName: senderName ? String(senderName) : null,
+    senderUsername: senderUsername ? String(senderUsername) : null,
+    senderTag: senderTag ? String(senderTag) : null,
     content: String(content),
     mediaType: null,
     isGroup: Boolean(config.groupByDefault) || String(chatId) !== String(sender),
@@ -307,6 +316,8 @@ class SlackPlatform extends BasePlatform {
       chatId: String(event.channel || 'slack'),
       sender: String(event.user || event.bot_id || 'slack'),
       senderName: event.username || null,
+      senderUsername: event.username || null,
+      senderTag: event.user ? `<@${event.user}>` : (event.bot_id || null),
       content,
       mediaType: null,
       isGroup,
@@ -335,6 +346,8 @@ class GoogleChatPlatform extends ConfigurableHttpPlatform {
       chatId: String(message.space?.name || body.space?.name || this.config.defaultTo || 'google_chat'),
       sender: String(body.user?.name || message.sender?.name || 'google_chat'),
       senderName: body.user?.displayName || message.sender?.displayName || null,
+      senderDisplayName: body.user?.displayName || message.sender?.displayName || null,
+      senderTag: body.user?.name || message.sender?.name || null,
       content: String(content),
       mediaType: null,
       isGroup: true,
@@ -361,6 +374,8 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
       chatId: String(body.conversation?.id || body.channelData?.channel?.id || this.config.defaultTo || 'teams'),
       sender: String(body.from?.id || 'teams'),
       senderName: body.from?.name || null,
+      senderDisplayName: body.from?.name || null,
+      senderTag: body.from?.id || null,
       content: String(content).replace(/<[^>]+>/g, '').trim(),
       mediaType: null,
       isGroup: true,
@@ -456,6 +471,8 @@ class MatrixPlatform extends BasePlatform {
           chatId: roomId,
           sender: String(event.sender || roomId),
           senderName: event.sender || null,
+          senderUsername: event.sender || null,
+          senderTag: event.sender || null,
           content: cleanContent,
           mediaType: null,
           isGroup: true,
@@ -555,6 +572,8 @@ class SignalPlatform extends ConfigurableHttpPlatform {
         chatId: String(envelope.sourceNumber || envelope.source || 'signal'),
         sender: String(envelope.sourceNumber || envelope.source || 'signal'),
         senderName: envelope.sourceName || null,
+        senderDisplayName: envelope.sourceName || null,
+        senderTag: envelope.sourceNumber || envelope.source || null,
         content: String(content),
         mediaType: null,
         isGroup: Boolean(dataMessage.groupInfo),
@@ -619,6 +638,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
         chatId: String(event.source?.groupId || event.source?.roomId || event.source?.userId || 'line'),
         sender: String(event.source?.userId || 'line'),
         senderName: null,
+        senderTag: event.source?.userId || null,
         content: String(content),
         mediaType: null,
         isGroup: Boolean(event.source?.groupId || event.source?.roomId),
@@ -773,6 +793,8 @@ class IrcPlatform extends BasePlatform {
         chatId: target,
         sender: nick,
         senderName: nick,
+        senderUsername: nick,
+        senderTag: nick,
         content: cleanContent,
         mediaType: null,
         isGroup,

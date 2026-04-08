@@ -6,7 +6,7 @@ class SplashView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: RadialGradient(
           center: Alignment(-0.4, -0.6),
           radius: 1.3,
@@ -96,12 +96,12 @@ class _AuthViewState extends State<AuthView> {
       backgroundColor: _bgPrimary,
       body: Stack(
         children: <Widget>[
-          const Positioned(
+          Positioned(
             top: -100,
             left: -100,
             child: _BlurOrb(size: 500, color: _accent),
           ),
-          const Positioned(
+          Positioned(
             right: -80,
             bottom: -80,
             child: _BlurOrb(size: 400, color: _accentAlt),
@@ -113,10 +113,10 @@ class _AuthViewState extends State<AuthView> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Card(
-                    color: const Color(0xEB0B1117),
+                    color: _bgCard.withValues(alpha: 0.92),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: const BorderSide(color: _borderLight),
+                      side: BorderSide(color: _borderLight),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(36),
@@ -140,7 +140,7 @@ class _AuthViewState extends State<AuthView> {
                           const SizedBox(height: 24),
                           Text(
                             awaitingTwoFactor ? 'Enter 2FA code' : title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                             ),
@@ -150,7 +150,7 @@ class _AuthViewState extends State<AuthView> {
                             awaitingTwoFactor
                                 ? 'Open your authenticator app and enter the current NeoAgent code.'
                                 : subtitle,
-                            style: const TextStyle(color: _textSecondary),
+                            style: TextStyle(color: _textSecondary),
                           ),
                           const SizedBox(height: 20),
                           if (controller.errorMessage != null) ...<Widget>[
@@ -264,7 +264,7 @@ class _AuthViewState extends State<AuthView> {
                               onPressed: controller.isAuthenticating
                                   ? null
                                   : controller.cancelTwoFactorLogin,
-                              child: const Text('Back to sign in'),
+                              child: Text('Back to sign in'),
                             ),
                           ] else if (controller.registrationOpen &&
                               controller.hasUser) ...<Widget>[
@@ -411,7 +411,7 @@ class _HomeViewState extends State<HomeView> {
                   children: <Widget>[
                     Text(
                       notice.senderLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
@@ -420,11 +420,11 @@ class _HomeViewState extends State<HomeView> {
                       const SizedBox(height: 6),
                       Text(
                         notice.meta,
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                     ],
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'This sender is currently blocked by the access list. You can allow them now or jump to Messaging to edit the full list.',
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
@@ -443,7 +443,7 @@ class _HomeViewState extends State<HomeView> {
                                   suggestion.entry,
                                 );
                               },
-                              icon: const Icon(Icons.verified_user_outlined),
+                              icon: Icon(Icons.verified_user_outlined),
                               label: Text(suggestion.label),
                             ),
                           ),
@@ -460,11 +460,11 @@ class _HomeViewState extends State<HomeView> {
                   widget.controller.setSelectedSection(AppSection.messaging);
                   Navigator.of(dialogContext).pop();
                 },
-                child: const Text('Open Messaging'),
+                child: Text('Open Messaging'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Dismiss'),
+                child: Text('Dismiss'),
               ),
             ],
           );
@@ -496,7 +496,7 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 232,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _bgSecondary,
         border: Border(right: BorderSide(color: _border)),
       ),
@@ -504,14 +504,14 @@ class _Sidebar extends StatelessWidget {
         children: <Widget>[
           Container(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: _border)),
             ),
             child: Row(
               children: <Widget>[
                 const _LogoBadge(size: 30),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'NeoAgent',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
@@ -539,7 +539,7 @@ class _Sidebar extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _border)),
             ),
             child: Column(
@@ -557,10 +557,7 @@ class _Sidebar extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       controller.socketConnected ? 'Live' : 'Offline',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: _textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 11, color: _textSecondary),
                     ),
                     const Spacer(),
                     _ProfileSettingsButton(
@@ -706,7 +703,7 @@ class _MobileDrawer extends StatelessWidget {
                     children: <Widget>[
                       const _LogoBadge(size: 30),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'NeoAgent',
                           style: TextStyle(fontWeight: FontWeight.w700),
@@ -753,7 +750,7 @@ class _MobileDrawer extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     controller.socketConnected ? 'Live' : 'Offline',
-                    style: const TextStyle(fontSize: 11, color: _textSecondary),
+                    style: TextStyle(fontSize: 11, color: _textSecondary),
                   ),
                   const Spacer(),
                   _ProfileSettingsButton(

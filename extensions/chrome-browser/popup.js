@@ -3,7 +3,13 @@ const statusDotEl = document.querySelector('#statusDot');
 const serverUrlEl = document.querySelector('#serverUrl');
 const serverLabelEl = document.querySelector('#serverLabel');
 const messageEl = document.querySelector('#message');
-const advancedEl = document.querySelector('.advanced');
+const settingsEl = document.querySelector('#settings');
+const stepLabelEl = document.querySelector('#stepLabel');
+const flowTitleEl = document.querySelector('#flowTitle');
+const flowDescriptionEl = document.querySelector('#flowDescription');
+const primaryActionEl = document.querySelector('#primaryAction');
+const secondaryActionEl = document.querySelector('#secondaryAction');
+const openAppEl = document.querySelector('#openApp');
 
 const STATUS_LABELS = {
   connected: 'Connected',
@@ -14,6 +20,8 @@ const STATUS_LABELS = {
   not_paired: 'Not paired',
 };
 
+let currentState = {};
+
 function send(type, payload = {}) {
   return chrome.runtime.sendMessage({ type, ...payload }).then((response) => {
     if (!response?.ok) throw new Error(response?.error || 'Extension action failed.');
@@ -21,75 +29,220 @@ function send(type, payload = {}) {
   });
 }
 
-function setMessage(text) {
+function effectiveServerUrl() {
+  return String(
+    serverUrlEl.value ||
+    currentState.serverUrl ||
+    currentState.configuredServerUrl ||
+    '',
+  ).trim();
+}
+
+function setMessage(text, tone = '') {
   messageEl.textContent = text || '';
+  if (tone) {
+    messageEl.dataset.tone = tone;
+  } else {
+    delete messageEl.dataset.tone;
+  }
+}
+
+function setAction(button, { label, action, hidden = false, disabled = false }) {
+  button.textContent = label;
+  button.dataset.action = action;
+  button.hidden = hidden;
+  button.disabled = disabled;
+}
+
+function updateFlow() {
+  const status = currentState.status || 'not_paired';
+  const serverUrl = effectiveServerUrl();
+  const hasServerUrl = Boolean(serverUrl);
+  const hasToken = Boolean(currentState.token || currentState.tokenId);
+  const approvalUrl = currentState.approvalUrl || '';
+
+  openAppEl.disabled = !hasServerUrl;
+
+  if (!hasServerUrl) {
+    stepLabelEl.textContent = 'Step 1 of 3';
+    flowTitleEl.textContent = 'Add your NeoAgent server';
+    flowDescriptionEl.textContent = 'Paste the web address from NeoAgent before starting the browser pairing.';
+    setAction(primaryActionEl, { label: 'Add server URL', action: 'openSettings' });
+    setAction(secondaryActionEl, { label: '', action: '', hidden: true });
+    settingsEl.open = true;
+    return;
+  }
+
+  if (status === 'approval_pending') {
+    stepLabelEl.textContent = 'Step 2 of 3';
+    flowTitleEl.textContent = 'Approve in NeoAgent';
+    flowDescriptionEl.textContent = 'Use the NeoAgent tab that opened, approve this browser, then return here.';
+    setAction(primaryActionEl, { label: 'I approved it', action: 'claimPairing' });
+    setAction(secondaryActionEl, {
+      label: 'Open approval tab',
+      action: 'openApproval',
+      hidden: !approvalUrl,
+    });
+    return;
+  }
+
+  if (status === 'connected') {
+    stepLabelEl.textContent = 'Ready';
+    flowTitleEl.textContent = 'This browser is connected';
+    flowDescriptionEl.textContent = 'Open NeoAgent and use the Devices tab when you want this browser controlled.';
+    setAction(primaryActionEl, { label: 'Open NeoAgent', action: 'openApp' });
+    setAction(secondaryActionEl, { label: '', action: '', hidden: true });
+    return;
+  }
+
+  if (hasToken && status === 'disconnected') {
+    stepLabelEl.textContent = 'Reconnect';
+    flowTitleEl.textContent = 'Connection paused';
+    flowDescriptionEl.textContent = 'Reconnect this browser to the NeoAgent server, or open NeoAgent first.';
+    setAction(primaryActionEl, { label: 'Reconnect browser', action: 'connect' });
+    setAction(secondaryActionEl, { label: 'Open NeoAgent', action: 'openApp' });
+    return;
+  }
+
+  if (hasToken || status === 'paired' || status === 'connecting') {
+    stepLabelEl.textContent = 'Step 3 of 3';
+    flowTitleEl.textContent = 'Finish connection';
+    flowDescriptionEl.textContent = 'The extension is paired. Open NeoAgent once the status changes to connected.';
+    setAction(primaryActionEl, {
+      label: status === 'connecting' ? 'Connecting...' : 'Open NeoAgent',
+      action: 'openApp',
+      disabled: status === 'connecting',
+    });
+    setAction(secondaryActionEl, { label: '', action: '', hidden: true });
+    return;
+  }
+
+  stepLabelEl.textContent = 'Step 1 of 3';
+  flowTitleEl.textContent = 'Start browser pairing';
+  flowDescriptionEl.textContent = 'Open NeoAgent, approve this extension, then come back to finish.';
+  setAction(primaryActionEl, { label: 'Start pairing', action: 'startPairing' });
+  setAction(secondaryActionEl, { label: '', action: '', hidden: true });
+}
+
+async function openUrl(url, missingMessage) {
+  if (!url) throw new Error(missingMessage);
+  await chrome.tabs.create({ url, active: true });
+}
+
+async function runAction(action) {
+  switch (action) {
+    case 'openSettings':
+      settingsEl.open = true;
+      serverUrlEl.focus();
+      return;
+    case 'startPairing':
+      await send('startPairing', { serverUrl: effectiveServerUrl() });
+      await refresh();
+      setMessage('Approve this browser in the opened NeoAgent tab, then return here.', 'success');
+      return;
+    case 'claimPairing':
+      await send('claimPairing');
+      await refresh();
+      setMessage('Connected.', 'success');
+      return;
+    case 'connect':
+      await send('connect');
+      await refresh();
+      setMessage('Reconnecting to NeoAgent...', 'success');
+      return;
+    case 'openApproval':
+      await openUrl(currentState.approvalUrl, 'No approval tab is available. Start pairing again.');
+      return;
+    case 'openApp':
+      await openUrl(effectiveServerUrl(), 'NeoAgent server URL required.');
+      return;
+    default:
+      return;
+  }
 }
 
 async function refresh() {
-  const state = await send('getState');
-  const status = state.status || 'not_paired';
-  const serverUrl = state.serverUrl || state.configuredServerUrl || '';
+  currentState = await send('getState');
+  const status = currentState.status || 'not_paired';
+  const serverUrl = currentState.serverUrl || currentState.configuredServerUrl || '';
+
   statusEl.textContent = STATUS_LABELS[status] || status;
   statusDotEl.dataset.status = status;
   serverLabelEl.textContent = serverUrl
     ? `Server: ${serverUrl}`
-    : 'No server bundled. Open Advanced server URL.';
-  if (serverUrl) serverUrlEl.value = serverUrl;
-  advancedEl.open = !serverUrl;
+    : 'No server URL yet.';
+
+  if (serverUrl && document.activeElement !== serverUrlEl) {
+    serverUrlEl.value = serverUrl;
+  }
+  if (!serverUrl) {
+    settingsEl.open = true;
+  }
+
+  updateFlow();
 }
 
-document.querySelector('#pair').addEventListener('click', async () => {
+primaryActionEl.addEventListener('click', async () => {
   try {
     setMessage('');
-    await send('startPairing', { serverUrl: serverUrlEl.value });
-    await refresh();
-    setMessage('Log in and approve the extension in the opened NeoAgent tab.');
+    await runAction(primaryActionEl.dataset.action);
   } catch (error) {
-    setMessage(error.message);
+    setMessage(error.message, 'error');
   }
 });
 
-document.querySelector('#claim').addEventListener('click', async () => {
+secondaryActionEl.addEventListener('click', async () => {
   try {
     setMessage('');
-    await send('claimPairing');
-    await refresh();
-    setMessage('Connected.');
+    await runAction(secondaryActionEl.dataset.action);
   } catch (error) {
-    setMessage(error.message);
+    setMessage(error.message, 'error');
   }
 });
+
+openAppEl.addEventListener('click', async () => {
+  try {
+    setMessage('');
+    await runAction('openApp');
+  } catch (error) {
+    setMessage(error.message, 'error');
+  }
+});
+
+serverUrlEl.addEventListener('input', updateFlow);
 
 document.querySelector('#disconnect').addEventListener('click', async () => {
   try {
     setMessage('');
     await send('disconnect');
     await refresh();
+    setMessage('Disconnected.', 'success');
   } catch (error) {
-    setMessage(error.message);
+    setMessage(error.message, 'error');
   }
 });
 
 document.querySelector('#checkUpdate').addEventListener('click', async () => {
   try {
     setMessage('');
-    const result = await send('checkForUpdates', { serverUrl: serverUrlEl.value });
+    const result = await send('checkForUpdates', { serverUrl: effectiveServerUrl() });
     setMessage(
       result.updateAvailable
         ? `Update available: ${result.currentVersion} -> ${result.latestVersion}.`
         : `Current version ${result.currentVersion} is up to date.`,
+      result.updateAvailable ? '' : 'success',
     );
   } catch (error) {
-    setMessage(error.message);
+    setMessage(error.message, 'error');
   }
 });
 
 document.querySelector('#download').addEventListener('click', async () => {
   try {
     setMessage('');
-    await send('openDownload', { serverUrl: serverUrlEl.value });
+    await send('openDownload', { serverUrl: effectiveServerUrl() });
   } catch (error) {
-    setMessage(error.message);
+    setMessage(error.message, 'error');
   }
 });
 
@@ -97,4 +250,4 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === 'status') refresh().catch(() => {});
 });
 
-refresh().catch((error) => setMessage(error.message));
+refresh().catch((error) => setMessage(error.message, 'error'));

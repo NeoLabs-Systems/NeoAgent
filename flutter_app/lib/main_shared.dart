@@ -112,7 +112,7 @@ Future<void> _confirmDelete(
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -178,13 +178,10 @@ class _PageTitle extends StatelessWidget {
               children: <Widget>[
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 6),
-                Text(subtitle, style: const TextStyle(color: _textSecondary)),
+                Text(subtitle, style: TextStyle(color: _textSecondary)),
                 if (trailing != null) ...<Widget>[
                   const SizedBox(height: 14),
                   trailing!,
@@ -200,16 +197,13 @@ class _PageTitle extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(color: _textSecondary),
-                      ),
+                      Text(subtitle, style: TextStyle(color: _textSecondary)),
                     ],
                   ),
                 ),
@@ -242,7 +236,7 @@ class _RunStatusPanel extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         run?.title ?? 'Live run',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
@@ -256,7 +250,7 @@ class _RunStatusPanel extends StatelessWidget {
                                 if (run!.pendingSteeringCount > 0)
                                   '${run!.pendingSteeringCount} steering ${run!.pendingSteeringCount == 1 ? 'update' : 'updates'} queued',
                               ].join(' · '),
-                        style: const TextStyle(color: _textSecondary),
+                        style: TextStyle(color: _textSecondary),
                       ),
                     ],
                   ),
@@ -320,7 +314,7 @@ class _ToolChip extends StatelessWidget {
               Expanded(
                 child: Text(
                   tool.toolName,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
               _StatusPill(label: tool.status, color: color),
@@ -332,7 +326,7 @@ class _ToolChip extends StatelessWidget {
               tool.summary,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: _textSecondary),
+              style: TextStyle(color: _textSecondary),
             ),
           ],
         ],
@@ -385,14 +379,14 @@ class _OverviewCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(title, style: const TextStyle(color: _textSecondary)),
+            Text(title, style: TextStyle(color: _textSecondary)),
             const SizedBox(height: 8),
             Text(
               value,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
-            Text(helper, style: const TextStyle(color: _textSecondary)),
+            Text(helper, style: TextStyle(color: _textSecondary)),
           ],
         ),
       ),
@@ -426,7 +420,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
     );
   }
 }
@@ -499,7 +493,7 @@ class _SidebarButton extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: active
-                  ? const Border(left: BorderSide(color: _accent, width: 3))
+                  ? Border(left: BorderSide(color: _accent, width: 3))
                   : null,
             ),
             child: Row(
@@ -552,7 +546,7 @@ class _SidebarIconButton extends StatelessWidget {
         color: _bgCard,
         shape: CircleBorder(side: BorderSide(color: _borderLight)),
         child: InkWell(
-          customBorder: const CircleBorder(),
+          customBorder: CircleBorder(),
           onTap: onTap,
           child: SizedBox(
             width: 34,
@@ -603,7 +597,7 @@ class _LogoBadge extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: <Color>[_accent, _accentAlt],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -679,7 +673,7 @@ class _EmptyState extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
             color: _textPrimary,
@@ -691,7 +685,7 @@ class _EmptyState extends StatelessWidget {
           child: Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: _textMuted),
+            style: TextStyle(fontSize: 13, color: _textMuted),
           ),
         ),
       ],
@@ -812,7 +806,7 @@ class _MessageAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: assistant
-            ? const LinearGradient(colors: <Color>[_accent, _accentAlt])
+            ? LinearGradient(colors: <Color>[_accent, _accentAlt])
             : null,
         color: assistant ? null : _bgTertiary,
         boxShadow: assistant
@@ -901,7 +895,7 @@ class _InlineError extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0x4CEF4444)),
       ),
-      child: Text(message, style: const TextStyle(fontSize: 13)),
+      child: Text(message, style: TextStyle(fontSize: 13)),
     );
   }
 }
@@ -923,12 +917,12 @@ class _InlineSuccess extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.check_circle_outline, color: _success, size: 18),
+          Icon(Icons.check_circle_outline, color: _success, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: _success, fontSize: 13),
+              style: TextStyle(color: _success, fontSize: 13),
             ),
           ),
         ],
