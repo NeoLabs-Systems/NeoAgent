@@ -39,34 +39,14 @@ function generateTitle(task) {
 
 async function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null, providerConfig = {}) {
   const { getSupportedModels, createProviderInstance } = require('./models');
-  const models = await getSupportedModels(userId);
+  const agentId = providerConfig.agentId || null;
+  const aiSettings = getAiSettings(userId, agentId);
+  const models = await getSupportedModels(userId, agentId);
 
-  let enabledIds = [];
-  let defaultChatModel = 'auto';
-  let defaultSubagentModel = 'auto';
-
-  let smarterSelection = true;
-
-  try {
-    const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?, ?, ?)')
-      .all(userId, 'enabled_models', 'default_chat_model', 'default_subagent_model', 'smarter_model_selector');
-
-    for (const row of rows) {
-      if (!row.value) continue;
-
-      let parsedVal = row.value;
-      try {
-        parsedVal = JSON.parse(row.value);
-      } catch { }
-
-      if (row.key === 'enabled_models') enabledIds = parsedVal;
-      if (row.key === 'default_chat_model') defaultChatModel = parsedVal;
-      if (row.key === 'default_subagent_model') defaultSubagentModel = parsedVal;
-      if (row.key === 'smarter_model_selector') smarterSelection = parsedVal !== false && parsedVal !== 'false';
-    }
-  } catch (e) {
-    console.error('Failed to fetch model settings:', e.message);
-  }
+  let enabledIds = Array.isArray(aiSettings.enabled_models) ? aiSettings.enabled_models : [];
+  const defaultChatModel = aiSettings.default_chat_model || 'auto';
+  const defaultSubagentModel = aiSettings.default_subagent_model || 'auto';
+  const smarterSelection = aiSettings.smarter_model_selector !== false && aiSettings.smarter_model_selector !== 'false';
 
   const knownModelIds = new Set(models.map((m) => m.id));
   const selectableModels = models.filter((m) => m.available !== false);
@@ -883,8 +863,10 @@ class AgentEngine {
 
   async runWithModel(userId, userMessage, options = {}, _modelOverride = null) {
     const triggerType = options.triggerType || 'user';
-    ensureDefaultAiSettings(userId);
-    const aiSettings = getAiSettings(userId);
+    const { resolveAgentId } = require('../agents/manager');
+    const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
+    ensureDefaultAiSettings(userId, agentId);
+    const aiSettings = getAiSettings(userId, agentId);
 
     const runId = options.runId || uuidv4();
     const conversationId = options.conversationId;
@@ -894,6 +876,7 @@ class AgentEngine {
     const toolReplayBudget = aiSettings.tool_replay_budget_chars;
     const maxIterations = this.getIterationLimit(triggerType, aiSettings);
     const providerStatusConfig = {
+      agentId,
       onStatus: (status) => {
         if (!status?.message) return;
         this.emit(userId, 'run:interim', {
@@ -915,11 +898,12 @@ class AgentEngine {
     let providerName = selectedProvider.providerName;
 
     const runTitle = generateTitle(userMessage);
-    db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, title, status, trigger_type, trigger_source, model)
-      VALUES(?, ?, ?, 'running', ?, ?, ?)`).run(runId, userId, runTitle, triggerType, triggerSource, model);
+    db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, agent_id, title, status, trigger_type, trigger_source, model)
+      VALUES(?, ?, ?, ?, 'running', ?, ?, ?)`).run(runId, userId, agentId, runTitle, triggerType, triggerSource, model);
 
     this.activeRuns.set(runId, {
       userId,
+      agentId,
       status: 'running',
       aborted: false,
       messagingSent: false,
@@ -934,32 +918,39 @@ class AgentEngine {
       steeringQueue: [],
       toolPids: new Set()
     });
-    this.emit(userId, 'run:start', { runId, title: runTitle, model, triggerType, triggerSource });
+    this.emit(userId, 'run:start', { runId, agentId, title: runTitle, model, triggerType, triggerSource });
     console.info(
       `[Run ${shortenRunId(runId)}] started trigger=${triggerSource} type=${triggerType} model=${model} title=${summarizeForLog(runTitle, 120)}`
     );
 
-    const systemPrompt = await this.buildSystemPrompt(userId, { ...(options.context || {}), userMessage });
+    const systemPrompt = await this.buildSystemPrompt(userId, {
+      ...(options.context || {}),
+      userMessage,
+      agentId,
+      triggerSource,
+    });
     // Pass short descriptions so the model always knows every available tool.
     // compactToolDefinition caps tool desc at 120 chars, param desc at 70 chars.
     const builtInTools = this.getAvailableTools(app, {
       includeDescriptions: true,
       userId,
+      agentId,
+      triggerSource,
     });
     const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.mcpManager;
     const integrationManager = app?.locals?.integrationManager || null;
-    const mcpTools = mcpManager ? mcpManager.getAllTools(userId) : [];
+    const mcpTools = mcpManager ? mcpManager.getAllTools(userId, { agentId }) : [];
     const tools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
-    const capabilityHealth = await getCapabilityHealth({ userId, app, engine: this });
+    const capabilityHealth = await getCapabilityHealth({ userId, agentId, app, engine: this });
     const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
-    const integrationSummary = integrationManager?.summarizeConnectedProviders?.(userId) || '';
+    const integrationSummary = integrationManager?.summarizeConnectedProviders?.(userId, agentId) || '';
 
     const { MemoryManager } = require('../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
     const recallQuery = options.context?.rawUserMessage || userMessage;
     const recallMsg = options.skipGlobalRecall === true
       ? null
-      : await memoryManager.buildRecallMessage(userId, recallQuery);
+      : await memoryManager.buildRecallMessage(userId, recallQuery, { agentId });
 
     let summaryMessage = null;
     let historyMessages = [];
@@ -1368,11 +1359,13 @@ class AgentEngine {
             toolResult = await this.executeTool(toolName, toolArgs, {
               userId,
               runId,
+              agentId,
               app,
               triggerSource,
               taskId: options.taskId || null,
               deliveryState: options.deliveryState || null,
               allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
+              allowExternalSideEffects: options.allowExternalSideEffects === true,
             });
             this.detachProcessFromRun(runId, toolResult?.pid);
             const screenshotPath = toolResult?.screenshotPath || null;
@@ -1688,10 +1681,10 @@ class AgentEngine {
             for (let i = 0; i < chunks.length; i++) {
               if (i > 0) {
                 const delay = Math.max(1000, Math.min(chunks[i].length * 30, 4000));
-                await manager.sendTyping(userId, options.source, options.chatId, true).catch(() => { });
+                await manager.sendTyping(userId, options.source, options.chatId, true, { agentId }).catch(() => { });
                 await new Promise((resolve) => setTimeout(resolve, delay));
               }
-              await manager.sendMessage(userId, options.source, options.chatId, chunks[i], { runId }).catch((err) =>
+              await manager.sendMessage(userId, options.source, options.chatId, chunks[i], { runId, agentId }).catch((err) =>
                 console.error('[Engine] Auto-reply fallback failed:', err.message)
               );
             }
@@ -1792,7 +1785,7 @@ class AgentEngine {
             }
 
             try {
-              await manager.sendMessage(userId, options.source, options.chatId, messagingFailureContent, { runId });
+              await manager.sendMessage(userId, options.source, options.chatId, messagingFailureContent, { runId, agentId });
               sendSucceeded = true;
               if (runMeta) {
                 runMeta.lastSentMessage = messagingFailureContent;
@@ -1852,6 +1845,7 @@ class AgentEngine {
       parentRunId,
       childRunId,
       userId,
+      agentId: options.agentId || null,
       task,
       model: options.model || null,
       status: 'running',
@@ -1880,6 +1874,7 @@ class AgentEngine {
             triggerType: 'subagent',
             triggerSource: 'agent',
             runId: childRunId,
+            agentId: options.agentId || null,
           },
           options.model || null
         );
@@ -1918,6 +1913,116 @@ class AgentEngine {
       childRunId,
       task: clampRunContext(task, 180),
     };
+  }
+
+  async delegateToAgent({
+    userId,
+    parentAgentId,
+    parentRunId,
+    target,
+    task,
+    context = '',
+    app = null,
+    allowExternalSideEffects = false,
+  } = {}) {
+    const { agentCanDelegateTo, getAgentById, getAgentBySlug, resolveAgentId } = require('../agents/manager');
+    const targetText = String(target || '').trim();
+    const taskText = String(task || '').trim();
+    if (!targetText || !taskText) {
+      throw new Error('Target agent and task are required.');
+    }
+
+    let targetAgent = getAgentById(userId, targetText) || getAgentBySlug(userId, targetText);
+    if (!targetAgent) {
+      targetAgent = db.prepare(
+        "SELECT * FROM agents WHERE user_id = ? AND status = 'active' AND lower(display_name) = lower(?)"
+      ).get(userId, targetText);
+    }
+    if (!targetAgent || targetAgent.status !== 'active') {
+      throw new Error(`No active specialist agent matches "${targetText}".`);
+    }
+
+    const scopedParentAgentId = resolveAgentId(userId, parentAgentId);
+    const parentAgent = getAgentById(userId, scopedParentAgentId);
+    if (targetAgent.id === scopedParentAgentId) {
+      throw new Error('An agent cannot delegate to itself.');
+    }
+    if (!agentCanDelegateTo(parentAgent, targetAgent)) {
+      throw new Error(`${parentAgent?.display_name || 'This agent'} is not allowed to delegate tasks to ${targetAgent.display_name}.`);
+    }
+
+    const delegationId = uuidv4();
+    const childRunId = uuidv4();
+    db.prepare(
+      `INSERT INTO agent_delegations (
+        id, user_id, parent_agent_id, target_agent_id, parent_run_id, child_run_id, task, context, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running')`
+    ).run(
+      delegationId,
+      userId,
+      scopedParentAgentId,
+      targetAgent.id,
+      parentRunId || null,
+      childRunId,
+      taskText,
+      context || null,
+    );
+
+    const delegatedPrompt = [
+      '[SYSTEM: Delegated specialist-agent task]',
+      `You are running as ${targetAgent.display_name} (${targetAgent.slug}).`,
+      'Complete this delegated task using only your own agent memory, settings, credentials, and available tools.',
+      allowExternalSideEffects
+        ? 'External side effects are allowed only when they directly satisfy the delegated task.'
+        : 'Do not send external messages, make calls, or change external shared systems. Return findings and recommendations to the parent agent instead.',
+      '',
+      `Task:\n${taskText}`,
+      context ? `\nContext from parent agent:\n${context}` : '',
+    ].filter(Boolean).join('\n');
+
+    try {
+      const result = await this.runWithModel(
+        userId,
+        delegatedPrompt,
+        {
+          app: app || this.app,
+          runId: childRunId,
+          agentId: targetAgent.id,
+          triggerType: 'agent_delegation',
+          triggerSource: 'agent_delegation',
+          skipConversationHistory: true,
+          skipConversationMaintenance: true,
+          context: { additionalContext: `Parent run: ${parentRunId || 'unknown'}` },
+          allowExternalSideEffects,
+        },
+        null,
+      );
+      const summary = String(result?.content || '').trim();
+      db.prepare(
+        `UPDATE agent_delegations
+         SET status = ?, result_summary = ?, updated_at = datetime('now'), completed_at = datetime('now')
+         WHERE id = ?`
+      ).run(result?.status || 'completed', summary.slice(0, 20000), delegationId);
+      return {
+        delegationId,
+        targetAgent: {
+          id: targetAgent.id,
+          slug: targetAgent.slug,
+          name: targetAgent.display_name,
+        },
+        childRunId: result?.runId || childRunId,
+        status: result?.status || 'completed',
+        summary,
+        totalTokens: result?.totalTokens || 0,
+      };
+    } catch (err) {
+      db.prepare(
+        `UPDATE agent_delegations
+         SET status = 'failed', error = ?, updated_at = datetime('now'), completed_at = datetime('now')
+         WHERE id = ?`
+      ).run(String(err?.message || err).slice(0, 20000), delegationId);
+      throw err;
+    }
   }
 
   listSubagents(parentRunId = null) {
@@ -2024,6 +2129,9 @@ class AgentEngine {
 
   stopRun(runId) {
     const runMeta = this.activeRuns.get(runId);
+    const delegatedChildren = db.prepare(
+      "SELECT child_run_id FROM agent_delegations WHERE parent_run_id = ? AND status = 'running'"
+    ).all(runId);
     if (runMeta) {
       runMeta.status = 'stopped';
       runMeta.aborted = true;
@@ -2033,6 +2141,14 @@ class AgentEngine {
       }
       runMeta.toolPids.clear();
     }
+    for (const child of delegatedChildren) {
+      if (child.child_run_id && child.child_run_id !== runId) {
+        this.stopRun(child.child_run_id);
+      }
+    }
+    db.prepare(
+      "UPDATE agent_delegations SET status = 'stopped', updated_at = datetime('now'), completed_at = datetime('now') WHERE parent_run_id = ? AND status = 'running'"
+    ).run(runId);
     db.prepare("UPDATE agent_runs SET status = 'stopped', updated_at = datetime('now') WHERE id = ?").run(runId);
   }
 

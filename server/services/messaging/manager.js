@@ -1,5 +1,6 @@
 const db = require('../../db/database');
 const { randomUUID } = require('crypto');
+const { resolveAgentId } = require('../agents/manager');
 const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
@@ -94,19 +95,35 @@ class MessagingManager {
     this.messageHandlers.push(handler);
   }
 
-  async connectPlatform(userId, platformName, config = {}) {
+  _agentId(userId, options = {}) {
+    return resolveAgentId(userId, options?.agentId || options?.agent_id || null);
+  }
+
+  _key(userId, agentId, platformName) {
+    return `${userId}:${agentId}:${platformName}`;
+  }
+
+  _setting(userId, agentId, key) {
+    const agentRow = db.prepare(
+      'SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?'
+    ).get(userId, agentId, key);
+    if (agentRow) return agentRow;
+    return db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+      .get(userId, key);
+  }
+
+  async connectPlatform(userId, platformName, config = {}, options = {}) {
+    const agentId = this._agentId(userId, options);
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
 
     // For Telnyx, inject saved whitelist and voice secret into config before constructing
     if (platformName === 'telnyx') {
-      const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, 'platform_whitelist_telnyx');
+      const wlRow = this._setting(userId, agentId, 'platform_whitelist_telnyx');
       if (wlRow) {
         try { config.allowedNumbers = JSON.parse(wlRow.value); } catch { /* ignore */ }
       }
-      const secretRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, 'platform_voice_secret_telnyx');
+      const secretRow = this._setting(userId, agentId, 'platform_voice_secret_telnyx');
       if (secretRow) {
         try { config.voiceSecret = JSON.parse(secretRow.value); } catch { config.voiceSecret = secretRow.value; }
       }
@@ -114,8 +131,7 @@ class MessagingManager {
 
     // Inject saved allowlists for platforms that enforce access in the adapter.
     if (platformName === 'discord') {
-      const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, 'platform_whitelist_discord');
+      const wlRow = this._setting(userId, agentId, 'platform_whitelist_discord');
       if (wlRow) {
         try { config.allowedIds = JSON.parse(wlRow.value); } catch { /* ignore */ }
       }
@@ -123,16 +139,14 @@ class MessagingManager {
 
     // For Telegram, inject saved allowedIds whitelist
     if (platformName === 'telegram') {
-      const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, 'platform_whitelist_telegram');
+      const wlRow = this._setting(userId, agentId, 'platform_whitelist_telegram');
       if (wlRow) {
         try { config.allowedIds = JSON.parse(wlRow.value); } catch { /* ignore */ }
       }
     }
 
     if (GENERIC_ALLOWLIST_PLATFORMS.has(platformName)) {
-      const wlRow = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, `platform_whitelist_${platformName}`);
+      const wlRow = this._setting(userId, agentId, `platform_whitelist_${platformName}`);
       if (wlRow) {
         try {
           const parsed = JSON.parse(wlRow.value);
@@ -141,7 +155,7 @@ class MessagingManager {
       }
     }
 
-    const key = `${userId}:${platformName}`;
+    const key = this._key(userId, agentId, platformName);
     let platform = this.platforms.get(key);
 
     if (platform) {
@@ -152,29 +166,29 @@ class MessagingManager {
     this.platforms.set(key, platform);
 
     platform.on('qr', (qr) => {
-      this.io.to(`user:${userId}`).emit('messaging:qr', { platform: platformName, qr });
-      db.prepare('UPDATE platform_connections SET status = ?, config = ? WHERE user_id = ? AND platform = ?')
-        .run('awaiting_qr', JSON.stringify(config), userId, platformName);
+      this.io.to(`user:${userId}`).emit('messaging:qr', { agentId, platform: platformName, qr });
+      db.prepare('UPDATE platform_connections SET status = ?, config = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+        .run('awaiting_qr', JSON.stringify(config), userId, agentId, platformName);
     });
 
     platform.on('connected', () => {
-      this.io.to(`user:${userId}`).emit('messaging:connected', { platform: platformName });
-      db.prepare('UPDATE platform_connections SET status = ?, last_connected = datetime(\'now\') WHERE user_id = ? AND platform = ?')
-        .run('connected', userId, platformName);
+      this.io.to(`user:${userId}`).emit('messaging:connected', { agentId, platform: platformName });
+      db.prepare('UPDATE platform_connections SET status = ?, last_connected = datetime(\'now\') WHERE user_id = ? AND agent_id = ? AND platform = ?')
+        .run('connected', userId, agentId, platformName);
     });
 
     platform.on('disconnected', (info) => {
-      this.io.to(`user:${userId}`).emit('messaging:disconnected', { platform: platformName, ...info });
+      this.io.to(`user:${userId}`).emit('messaging:disconnected', { agentId, platform: platformName, ...info });
       if (!this.isShuttingDown) {
-        db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND platform = ?')
-          .run('disconnected', userId, platformName);
+        db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+          .run('disconnected', userId, agentId, platformName);
       }
     });
 
     platform.on('logged_out', () => {
-      this.io.to(`user:${userId}`).emit('messaging:logged_out', { platform: platformName });
-      db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND platform = ?')
-        .run('logged_out', userId, platformName);
+      this.io.to(`user:${userId}`).emit('messaging:logged_out', { agentId, platform: platformName });
+      db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+        .run('logged_out', userId, agentId, platformName);
       this.platforms.delete(key);
     });
 
@@ -201,13 +215,13 @@ class MessagingManager {
     });
 
     platform.on('message', async (msg) => {
-      db.prepare('INSERT INTO messages (user_id, role, content, platform, platform_msg_id, platform_chat_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(userId, 'user', msg.content, platformName, msg.messageId, msg.chatId,
+      db.prepare('INSERT INTO messages (user_id, agent_id, role, content, platform, platform_msg_id, platform_chat_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(userId, agentId, 'user', msg.content, platformName, msg.messageId, msg.chatId,
           JSON.stringify({ sender: msg.sender, senderName: msg.senderName, isGroup: msg.isGroup, mediaType: msg.mediaType }),
           msg.timestamp);
 
       // Enrich with platform name so handlers and the web UI always have it
-      const enrichedMsg = { platform: platformName, ...msg };
+      const enrichedMsg = { agentId, platform: platformName, ...msg };
 
       this.io.to(`user:${userId}`).emit('messaging:message', enrichedMsg);
 
@@ -220,35 +234,37 @@ class MessagingManager {
       }
     });
 
-    const existing = db.prepare('SELECT id FROM platform_connections WHERE user_id = ? AND platform = ?').get(userId, platformName);
+    const existing = db.prepare('SELECT id FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?').get(userId, agentId, platformName);
     if (!existing) {
-      db.prepare('INSERT INTO platform_connections (user_id, platform, config, status) VALUES (?, ?, ?, ?)')
-        .run(userId, platformName, JSON.stringify(config), 'connecting');
+      db.prepare('INSERT INTO platform_connections (user_id, agent_id, platform, config, status) VALUES (?, ?, ?, ?, ?)')
+        .run(userId, agentId, platformName, JSON.stringify(config), 'connecting');
     } else {
-      db.prepare('UPDATE platform_connections SET config = ?, status = ? WHERE user_id = ? AND platform = ?')
-        .run(JSON.stringify(config), 'connecting', userId, platformName);
+      db.prepare('UPDATE platform_connections SET config = ?, status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+        .run(JSON.stringify(config), 'connecting', userId, agentId, platformName);
     }
 
     await platform.connect();
     return { status: platform.getStatus() };
   }
 
-  async disconnectPlatform(userId, platformName) {
-    const key = `${userId}:${platformName}`;
+  async disconnectPlatform(userId, platformName, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
     if (!platform) return { status: 'not_connected' };
 
     await platform.disconnect();
     this.platforms.delete(key);
 
-    db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND platform = ?')
-      .run('disconnected', userId, platformName);
+    db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .run('disconnected', userId, agentId, platformName);
 
     return { status: 'disconnected' };
   }
 
   async sendMessage(userId, platformName, to, content, mediaPathOrOptions) {
-    const key = `${userId}:${platformName}`;
+    const agentId = this._agentId(userId, mediaPathOrOptions || {});
+    const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
     if (!platform) throw new Error(`Platform ${platformName} not connected`);
 
@@ -267,11 +283,11 @@ class MessagingManager {
 
     const result = await platform.sendMessage(to, content, { mediaPath });
 
-    db.prepare('INSERT INTO messages (user_id, run_id, role, content, platform, platform_chat_id, media_path) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(userId, runId, 'assistant', content, platformName, to, mediaPath);
+    db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, media_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, agentId, runId, 'assistant', content, platformName, to, mediaPath);
 
     if (persistConversation) {
-      const conversationId = this.getOrCreateConversation(userId, platformName, to);
+      const conversationId = this.getOrCreateConversation(userId, platformName, to, { agentId });
       db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
         .run(conversationId, 'assistant', content);
       db.prepare("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?")
@@ -281,6 +297,7 @@ class MessagingManager {
     // Notify the web UI so the sent message appears in chat
     this.io.to(`user:${userId}`).emit('messaging:sent', {
       platform: platformName,
+      agentId,
       to,
       content,
       mediaPath,
@@ -290,10 +307,11 @@ class MessagingManager {
     return { success: true, result };
   }
 
-  getOrCreateConversation(userId, platformName, chatId) {
+  getOrCreateConversation(userId, platformName, chatId, options = {}) {
+    const agentId = this._agentId(userId, options);
     let conversation = db
-      .prepare('SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?')
-      .get(userId, platformName, chatId);
+      .prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
+      .get(userId, agentId, platformName, chatId);
 
     if (conversation) {
       return conversation.id;
@@ -301,10 +319,11 @@ class MessagingManager {
 
     const conversationId = randomUUID();
     db.prepare(
-      'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(
       conversationId,
       userId,
+      agentId,
       platformName,
       chatId,
       `${platformName} — ${chatId}`
@@ -313,11 +332,12 @@ class MessagingManager {
     return conversationId;
   }
 
-  getPlatformStatus(userId, platformName) {
-    const key = `${userId}:${platformName}`;
+  getPlatformStatus(userId, platformName, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
     if (!platform) {
-      const conn = db.prepare('SELECT status FROM platform_connections WHERE user_id = ? AND platform = ?').get(userId, platformName);
+      const conn = db.prepare('SELECT status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?').get(userId, agentId, platformName);
       return { status: conn?.status || 'not_configured' };
     }
     return {
@@ -326,15 +346,17 @@ class MessagingManager {
     };
   }
 
-  getAllStatuses(userId) {
-    const connections = db.prepare('SELECT platform, status, last_connected FROM platform_connections WHERE user_id = ?').all(userId);
+  getAllStatuses(userId, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const connections = db.prepare('SELECT platform, status, last_connected, agent_id FROM platform_connections WHERE user_id = ? AND agent_id = ?').all(userId, agentId);
     const statuses = {};
 
     for (const conn of connections) {
-      const key = `${userId}:${conn.platform}`;
+      const key = this._key(userId, agentId, conn.platform);
       const platform = this.platforms.get(key);
       statuses[conn.platform] = {
         status: platform ? platform.getStatus() : conn.status,
+        agentId,
         lastConnected: conn.last_connected,
         authInfo: platform?.getAuthInfo() || null
       };
@@ -343,31 +365,32 @@ class MessagingManager {
     return statuses;
   }
 
-  async logoutPlatform(userId, platformName) {
-    const key = `${userId}:${platformName}`;
+  async logoutPlatform(userId, platformName, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
     if (platform && platform.logout) {
       await platform.logout();
     }
     this.platforms.delete(key);
-    db.prepare('DELETE FROM platform_connections WHERE user_id = ? AND platform = ?').run(userId, platformName);
+    db.prepare('DELETE FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?').run(userId, agentId, platformName);
     return { status: 'logged_out' };
   }
 
   async restoreConnections() {
     this.isShuttingDown = false;
     const rows = db.prepare(
-      "SELECT user_id, platform, config FROM platform_connections WHERE status IN ('connected', 'awaiting_qr')"
+      "SELECT user_id, agent_id, platform, config FROM platform_connections WHERE status IN ('connected', 'awaiting_qr')"
     ).all();
     for (const row of rows) {
       try {
         const config = row.config ? JSON.parse(row.config) : {};
-        console.log(`[Messaging] Restoring ${row.platform} for user ${row.user_id}`);
-        await this.connectPlatform(row.user_id, row.platform, config);
+        console.log(`[Messaging] Restoring ${row.platform} for user ${row.user_id} agent ${row.agent_id || 'main'}`);
+        await this.connectPlatform(row.user_id, row.platform, config, { agentId: row.agent_id });
       } catch (err) {
         console.error(`[Messaging] Failed to restore ${row.platform} for user ${row.user_id}:`, err.message);
-        db.prepare("UPDATE platform_connections SET status = 'disconnected' WHERE user_id = ? AND platform = ?")
-          .run(row.user_id, row.platform);
+        db.prepare("UPDATE platform_connections SET status = 'disconnected' WHERE user_id = ? AND agent_id = ? AND platform = ?")
+          .run(row.user_id, row.agent_id, row.platform);
       }
     }
   }
@@ -386,8 +409,8 @@ class MessagingManager {
     this.platforms.clear();
   }
 
-  async makeCall(userId, to, greeting) {
-    const key = `${userId}:telnyx`;
+  async makeCall(userId, to, greeting, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), 'telnyx');
     const platform = this.platforms.get(key);
     if (!platform) throw new Error('Telnyx Voice is not connected');
     if (!platform.initiateCall) throw new Error('Telnyx platform does not support outbound calls');
@@ -396,15 +419,15 @@ class MessagingManager {
     return { success: true, ...result };
   }
 
-  async markRead(userId, platformName, chatId, messageId) {
-    const key = `${userId}:${platformName}`;
+  async markRead(userId, platformName, chatId, messageId, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), platformName);
     const platform = this.platforms.get(key);
     if (!platform?.markRead) return;
     return platform.markRead(chatId, messageId);
   }
 
-  async sendTyping(userId, platformName, chatId, isTyping) {
-    const key = `${userId}:${platformName}`;
+  async sendTyping(userId, platformName, chatId, isTyping, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), platformName);
     const platform = this.platforms.get(key);
     if (!platform?.sendTyping) return;
     return platform.sendTyping(chatId, isTyping);
@@ -448,8 +471,8 @@ class MessagingManager {
   /**
    * Update the allowed-numbers list on a live Telnyx platform instance.
    */
-  updateTelnyxAllowedNumbers(userId, numbers) {
-    const key = `${userId}:telnyx`;
+  updateTelnyxAllowedNumbers(userId, numbers, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), 'telnyx');
     const platform = this.platforms.get(key);
     if (platform?.setAllowedNumbers) platform.setAllowedNumbers(numbers);
   }
@@ -457,8 +480,8 @@ class MessagingManager {
   /**
    * Update the voice secret code on a live Telnyx platform instance.
    */
-  updateTelnyxVoiceSecret(userId, secret) {
-    const key = `${userId}:telnyx`;
+  updateTelnyxVoiceSecret(userId, secret, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), 'telnyx');
     const platform = this.platforms.get(key);
     if (platform?.setVoiceSecret) platform.setVoiceSecret(secret);
   }
@@ -467,8 +490,8 @@ class MessagingManager {
    * Update the allowed-entries list on a live Discord platform instance.
    * Accepts prefixed strings: "user:ID", "guild:ID", "channel:ID"
    */
-  updateDiscordAllowedIds(userId, ids) {
-    const key = `${userId}:discord`;
+  updateDiscordAllowedIds(userId, ids, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), 'discord');
     const platform = this.platforms.get(key);
     if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
     else if (platform?.setAllowedIds) platform.setAllowedIds(ids); // legacy fallback
@@ -478,14 +501,14 @@ class MessagingManager {
    * Update the allowed-entries list on a live Telegram platform instance.
    * Accepts prefixed strings: "user:ID", "group:ID"
    */
-  updateTelegramAllowedIds(userId, ids) {
-    const key = `${userId}:telegram`;
+  updateTelegramAllowedIds(userId, ids, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), 'telegram');
     const platform = this.platforms.get(key);
     if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
   }
 
-  updateAllowedEntries(userId, platformName, ids) {
-    const key = `${userId}:${platformName}`;
+  updateAllowedEntries(userId, platformName, ids, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), platformName);
     const platform = this.platforms.get(key);
     if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
   }

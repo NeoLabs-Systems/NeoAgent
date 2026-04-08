@@ -28,6 +28,19 @@ class BackendClient {
 
   String? get sessionCookie => _httpClient.sessionCookie;
 
+  String _agentQuery(String? agentId) {
+    if (agentId == null || agentId.trim().isEmpty) {
+      return '';
+    }
+    return 'agentId=${Uri.encodeQueryComponent(agentId.trim())}';
+  }
+
+  String _withAgentQuery(String path, String? agentId) {
+    final query = _agentQuery(agentId);
+    if (query.isEmpty) return path;
+    return path.contains('?') ? '$path&$query' : '$path?$query';
+  }
+
   Future<Map<String, dynamic>> getAuthStatus(String baseUrl) async {
     return getMap(baseUrl, '/api/auth/status', allowUnauthorized: true);
   }
@@ -80,38 +93,106 @@ class BackendClient {
     }
   }
 
-  Future<Map<String, dynamic>> fetchChatHistory(String baseUrl) async {
-    return getMap(baseUrl, '/api/agents/chat-history?limit=120');
+  Future<Map<String, dynamic>> fetchAgentProfiles(String baseUrl) async {
+    return getMap(baseUrl, '/api/agent-profiles');
   }
 
-  Future<Map<String, dynamic>> runTask(String baseUrl, String task) async {
+  Future<Map<String, dynamic>> createAgentProfile(
+    String baseUrl,
+    Map<String, dynamic> payload,
+  ) async {
+    return postMap(baseUrl, '/api/agent-profiles', payload);
+  }
+
+  Future<Map<String, dynamic>> updateAgentProfile(
+    String baseUrl,
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    return putMap(baseUrl, '/api/agent-profiles/$id', payload);
+  }
+
+  Future<Map<String, dynamic>> setDefaultAgentProfile(
+    String baseUrl,
+    String id,
+  ) async {
+    return postMap(baseUrl, '/api/agent-profiles/$id/default', const {});
+  }
+
+  Future<void> archiveAgentProfile(String baseUrl, String id) async {
+    await deleteMap(baseUrl, '/api/agent-profiles/$id');
+  }
+
+  Future<Map<String, dynamic>> fetchChatHistory(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/agents/chat-history?limit=120', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> runTask(
+    String baseUrl,
+    String task, {
+    String? agentId,
+  }) async {
     return postMap(baseUrl, '/api/agents', <String, dynamic>{
       'task': task,
-      'options': const <String, dynamic>{},
+      'options': <String, dynamic>{
+        if (agentId != null && agentId.trim().isNotEmpty)
+          'agentId': agentId.trim(),
+      },
     });
   }
 
-  Future<Map<String, dynamic>> fetchSettings(String baseUrl) async {
-    return getMap(baseUrl, '/api/settings');
+  Future<Map<String, dynamic>> fetchSettings(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(baseUrl, _withAgentQuery('/api/settings', agentId));
   }
 
-  Future<Map<String, dynamic>> fetchSupportedModels(String baseUrl) async {
-    return getMap(baseUrl, '/api/settings/meta/models');
+  Future<Map<String, dynamic>> fetchSupportedModels(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/settings/meta/models', agentId),
+    );
   }
 
-  Future<Map<String, dynamic>> fetchAiProviders(String baseUrl) async {
-    return getMap(baseUrl, '/api/settings/meta/ai-providers');
+  Future<Map<String, dynamic>> fetchAiProviders(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/settings/meta/ai-providers', agentId),
+    );
   }
 
   Future<Map<String, dynamic>> saveSettings(
     String baseUrl,
-    Map<String, dynamic> payload,
-  ) async {
-    return putMap(baseUrl, '/api/settings', payload);
+    Map<String, dynamic> payload, {
+    String? agentId,
+  }) async {
+    return putMap(baseUrl, '/api/settings', <String, dynamic>{
+      ...payload,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+    });
   }
 
-  Future<Map<String, dynamic>> fetchTokenUsageSummary(String baseUrl) async {
-    return getMap(baseUrl, '/api/settings/token-usage/summary');
+  Future<Map<String, dynamic>> fetchTokenUsageSummary(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/settings/token-usage/summary', agentId),
+    );
   }
 
   Future<Map<String, dynamic>> fetchUpdateStatus(String baseUrl) async {
@@ -131,8 +212,11 @@ class BackendClient {
     });
   }
 
-  Future<Map<String, dynamic>> fetchRuns(String baseUrl) async {
-    return getMap(baseUrl, '/api/agents?limit=20');
+  Future<Map<String, dynamic>> fetchRuns(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(baseUrl, _withAgentQuery('/api/agents?limit=20', agentId));
   }
 
   Future<Map<String, dynamic>> fetchRunSteps(
@@ -440,9 +524,10 @@ class BackendClient {
   }
 
   Future<List<Map<String, dynamic>>> fetchOfficialIntegrations(
-    String baseUrl,
-  ) async {
-    return getList(baseUrl, '/api/integrations');
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getList(baseUrl, _withAgentQuery('/api/integrations', agentId));
   }
 
   Future<Map<String, dynamic>> fetchSkillDocument(
@@ -506,11 +591,15 @@ class BackendClient {
     String baseUrl,
     String providerId, {
     required String appId,
+    String? agentId,
   }) async {
     return postMap(
       baseUrl,
       '/api/integrations/$providerId/connect',
-      <String, dynamic>{'appId': appId},
+      <String, dynamic>{
+        'appId': appId,
+        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+      },
     );
   }
 
@@ -518,28 +607,38 @@ class BackendClient {
     String baseUrl,
     String providerId, {
     required int connectionId,
+    String? agentId,
   }) async {
     return postMap(
       baseUrl,
       '/api/integrations/$providerId/disconnect',
-      <String, dynamic>{'connectionId': connectionId},
+      <String, dynamic>{
+        'connectionId': connectionId,
+        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+      },
     );
   }
 
-  Future<Map<String, dynamic>> fetchMessagingStatus(String baseUrl) async {
-    return getMap(baseUrl, '/api/messaging/status');
+  Future<Map<String, dynamic>> fetchMessagingStatus(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(baseUrl, _withAgentQuery('/api/messaging/status', agentId));
   }
 
   Future<List<Map<String, dynamic>>> fetchMessagingMessages(
     String baseUrl, {
     String? platform,
     String? chatId,
+    String? agentId,
   }) async {
     final params = <String>[
       if (platform != null && platform.isNotEmpty)
         'platform=${Uri.encodeQueryComponent(platform)}',
       if (chatId != null && chatId.isNotEmpty)
         'chatId=${Uri.encodeQueryComponent(chatId)}',
+      if (agentId != null && agentId.isNotEmpty)
+        'agentId=${Uri.encodeQueryComponent(agentId)}',
       'limit=60',
     ];
     return getList(baseUrl, '/api/messaging/messages?${params.join('&')}');
@@ -549,70 +648,90 @@ class BackendClient {
     String baseUrl, {
     required String platform,
     Map<String, dynamic>? config,
+    String? agentId,
   }) async {
     return postMap(baseUrl, '/api/messaging/connect', <String, dynamic>{
       'platform': platform,
       'config': config ?? const <String, dynamic>{},
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     });
   }
 
   Future<Map<String, dynamic>> disconnectMessagingPlatform(
     String baseUrl, {
     required String platform,
+    String? agentId,
   }) async {
     return postMap(baseUrl, '/api/messaging/disconnect', <String, dynamic>{
       'platform': platform,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     });
   }
 
   Future<Map<String, dynamic>> logoutMessagingPlatform(
     String baseUrl, {
     required String platform,
+    String? agentId,
   }) async {
     return postMap(baseUrl, '/api/messaging/logout', <String, dynamic>{
       'platform': platform,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     });
   }
 
   Future<Map<String, dynamic>> saveTelnyxWhitelist(
     String baseUrl,
-    List<String> numbers,
-  ) async {
+    List<String> numbers, {
+    String? agentId,
+  }) async {
     return putMap(baseUrl, '/api/messaging/telnyx/whitelist', <String, dynamic>{
       'numbers': numbers,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     });
   }
 
   Future<Map<String, dynamic>> saveTelnyxVoiceSecret(
     String baseUrl,
-    String secret,
-  ) async {
+    String secret, {
+    String? agentId,
+  }) async {
     return putMap(
       baseUrl,
       '/api/messaging/telnyx/voice-secret',
-      <String, dynamic>{'secret': secret},
+      <String, dynamic>{
+        'secret': secret,
+        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+      },
     );
   }
 
   Future<Map<String, dynamic>> saveDiscordWhitelist(
     String baseUrl,
-    List<String> ids,
-  ) async {
+    List<String> ids, {
+    String? agentId,
+  }) async {
     return putMap(
       baseUrl,
       '/api/messaging/discord/whitelist',
-      <String, dynamic>{'ids': ids},
+      <String, dynamic>{
+        'ids': ids,
+        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+      },
     );
   }
 
   Future<Map<String, dynamic>> saveTelegramWhitelist(
     String baseUrl,
-    List<String> ids,
-  ) async {
+    List<String> ids, {
+    String? agentId,
+  }) async {
     return putMap(
       baseUrl,
       '/api/messaging/telegram/whitelist',
-      <String, dynamic>{'ids': ids},
+      <String, dynamic>{
+        'ids': ids,
+        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+      },
     );
   }
 
@@ -620,33 +739,48 @@ class BackendClient {
     String baseUrl, {
     required String platform,
     required List<String> ids,
+    String? agentId,
   }) async {
     return putMap(
       baseUrl,
       '/api/messaging/$platform/whitelist',
-      <String, dynamic>{'ids': ids},
+      <String, dynamic>{
+        'ids': ids,
+        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+      },
     );
   }
 
-  Future<Map<String, dynamic>> fetchMemoryOverview(String baseUrl) async {
-    return getMap(baseUrl, '/api/memory');
+  Future<Map<String, dynamic>> fetchMemoryOverview(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(baseUrl, _withAgentQuery('/api/memory', agentId));
   }
 
   Future<List<Map<String, dynamic>>> fetchMemories(
     String baseUrl, {
     String? category,
+    String? agentId,
   }) async {
-    final query = category == null ? '' : '?category=$category';
+    final params = <String>[
+      if (category != null) 'category=${Uri.encodeQueryComponent(category)}',
+      if (agentId != null && agentId.isNotEmpty)
+        'agentId=${Uri.encodeQueryComponent(agentId)}',
+    ];
+    final query = params.isEmpty ? '' : '?${params.join('&')}';
     return getList(baseUrl, '/api/memory/memories$query');
   }
 
   Future<List<Map<String, dynamic>>> recallMemories(
     String baseUrl,
-    String query,
-  ) async {
+    String query, {
+    String? agentId,
+  }) async {
     return postList(baseUrl, '/api/memory/memories/recall', <String, dynamic>{
       'query': query,
       'limit': 8,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     });
   }
 
@@ -655,11 +789,13 @@ class BackendClient {
     required String content,
     required String category,
     required int importance,
+    String? agentId,
   }) async {
     return postMap(baseUrl, '/api/memory/memories', <String, dynamic>{
       'content': content,
       'category': category,
       'importance': importance,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     });
   }
 
@@ -669,12 +805,16 @@ class BackendClient {
 
   Future<Map<String, dynamic>> deleteMemories(
     String baseUrl,
-    List<String> ids,
-  ) async {
+    List<String> ids, {
+    String? agentId,
+  }) async {
     return postMap(
       baseUrl,
       '/api/memory/memories/bulk-delete',
-      <String, dynamic>{'ids': ids},
+      <String, dynamic>{
+        'ids': ids,
+        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+      },
     );
   }
 
@@ -682,34 +822,54 @@ class BackendClient {
     String baseUrl,
     List<String> ids, {
     bool archived = true,
+    String? agentId,
   }) async {
     return postMap(
       baseUrl,
       '/api/memory/memories/bulk-archive',
-      <String, dynamic>{'ids': ids, 'archived': archived},
+      <String, dynamic>{
+        'ids': ids,
+        'archived': archived,
+        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
+      },
     );
   }
 
-  Future<Map<String, dynamic>> fetchCoreMemory(String baseUrl) async {
-    return getMap(baseUrl, '/api/memory/core');
+  Future<Map<String, dynamic>> fetchCoreMemory(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(baseUrl, _withAgentQuery('/api/memory/core', agentId));
   }
 
   Future<Map<String, dynamic>> updateCoreMemory(
     String baseUrl, {
     required String key,
     required String value,
+    String? agentId,
   }) async {
     return putMap(baseUrl, '/api/memory/core/$key', <String, dynamic>{
       'value': value,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     });
   }
 
-  Future<void> deleteCoreMemory(String baseUrl, String key) async {
-    await deleteMap(baseUrl, '/api/memory/core/$key');
+  Future<void> deleteCoreMemory(
+    String baseUrl,
+    String key, {
+    String? agentId,
+  }) async {
+    await deleteMap(baseUrl, _withAgentQuery('/api/memory/core/$key', agentId));
   }
 
-  Future<List<Map<String, dynamic>>> fetchConversations(String baseUrl) async {
-    return getList(baseUrl, '/api/memory/conversations?limit=12');
+  Future<List<Map<String, dynamic>>> fetchConversations(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getList(
+      baseUrl,
+      _withAgentQuery('/api/memory/conversations?limit=12', agentId),
+    );
   }
 
   Future<List<Map<String, dynamic>>> fetchSchedulerTasks(String baseUrl) async {
@@ -724,6 +884,7 @@ class BackendClient {
     required String prompt,
     String? model,
     bool enabled = true,
+    String? agentId,
   }) async {
     final payload = <String, dynamic>{
       'name': name,
@@ -731,6 +892,7 @@ class BackendClient {
       'prompt': prompt,
       'model': model,
       'enabled': enabled,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     };
     if (id == null) {
       return postMap(baseUrl, '/api/scheduler', payload);
@@ -1003,12 +1165,14 @@ class BackendClient {
     required String command,
     required Map<String, dynamic> config,
     required bool enabled,
+    String? agentId,
   }) async {
     final payload = <String, dynamic>{
       'name': name,
       'command': command,
       'config': config,
       'enabled': enabled,
+      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
     };
     if (id == null) {
       return postMap(baseUrl, '/api/mcp', payload);

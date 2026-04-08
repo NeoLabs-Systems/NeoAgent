@@ -8,6 +8,7 @@ const { getRuntimeValidation } = require('../services/runtime/validation');
 const routeRegistry = [
   { basePath: null, modulePath: '../routes/auth' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },
+  { basePath: '/api/agent-profiles', modulePath: '../routes/agent_profiles' },
   { basePath: '/api/agents', modulePath: '../routes/agents' },
   { basePath: '/api/messaging', modulePath: '../routes/messaging' },
   { basePath: '/api/mcp', modulePath: '../routes/mcp' },

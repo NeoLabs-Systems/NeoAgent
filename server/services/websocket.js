@@ -1,5 +1,6 @@
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
+const { resolveAgentId } = require('./agents/manager');
 
 function setupWebSocket(io, services) {
   const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager } = services;
@@ -23,6 +24,7 @@ function setupWebSocket(io, services) {
     socket.on('agent:run', async (data) => {
       try {
         const { task, options } = data;
+        const agentId = resolveAgentId(userId, options?.agentId || data?.agentId || null);
         console.log(`[WS] agent:run received from user ${userId}`, {
           socketId: socket.id,
           hasOptions: Boolean(options),
@@ -41,6 +43,7 @@ function setupWebSocket(io, services) {
         if (commandRouter) {
           const commandResult = await commandRouter.dispatch(task, {
             userId,
+            agentId,
             source: 'web',
             socketId: socket.id
           });
@@ -62,33 +65,35 @@ function setupWebSocket(io, services) {
             socketId: socket.id
           });
           if (queued) {
-            db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+            db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
               .run(
                 userId,
+                activeRun.agentId || agentId,
                 activeRun.runId,
                 'user',
                 task,
-                JSON.stringify({ platform: 'web', steering: true })
+                JSON.stringify({ platform: 'web', steering: true, agentId })
               );
             return;
           }
         }
 
-        db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
-          .run(userId, 'user', task, JSON.stringify({ platform: 'web' }));
+        db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+          .run(userId, agentId, 'user', task, JSON.stringify({ platform: 'web' }));
 
         const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
         const { getWebChatContext } = require('./ai/history');
-        ensureDefaultAiSettings(userId);
-        const aiSettings = getAiSettings(userId);
-        const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(userId);
-        const webContext = getWebChatContext(userId, aiSettings.chat_history_window);
+        ensureDefaultAiSettings(userId, agentId);
+        const aiSettings = getAiSettings(userId, agentId);
+        const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(userId, { agentId });
+        const webContext = getWebChatContext(userId, aiSettings.chat_history_window, { agentId });
         const prior = webContext.recentMessages
           .filter((m) => !(m.role === 'user' && m.content === task))
           .slice(-aiSettings.chat_history_window);
 
         const result = await agentEngine.run(userId, task, {
           ...options,
+          agentId,
           conversationId,
           priorMessages: prior,
           priorSummary: webContext.summary
@@ -101,8 +106,8 @@ function setupWebSocket(io, services) {
         });
 
         if (result?.content) {
-          db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
-            .run(userId, result.runId, 'assistant', result.content, JSON.stringify({ tokens: result.totalTokens }));
+          db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(userId, agentId, result.runId, 'assistant', result.content, JSON.stringify({ tokens: result.totalTokens }));
         }
       } catch (err) {
         console.error(`[WS] agent:run failed for user ${userId}:`, err);
@@ -125,11 +130,12 @@ function setupWebSocket(io, services) {
 
     socket.on('agent:history', (data) => {
       try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
         console.log(`[WS] agent:history requested by user ${userId} limit=${data?.limit || 20}`);
         const runs = db.prepare(
-          'SELECT * FROM agent_runs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
-        ).all(userId, data?.limit || 20);
-        socket.emit('agent:history', runs);
+          'SELECT * FROM agent_runs WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC LIMIT ?'
+        ).all(userId, agentId, data?.limit || 20);
+        socket.emit('agent:history', { agentId, runs });
       } catch (err) {
         console.error(`[WS] agent:history failed for user ${userId}:`, err);
         socket.emit('error', { message: sanitizeError(err) });
@@ -153,8 +159,9 @@ function setupWebSocket(io, services) {
 
     socket.on('messaging:connect', async (data) => {
       try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
         console.log(`[WS] messaging:connect requested by user ${userId} platform=${data?.platform || 'unknown'}`);
-        const result = await messagingManager.connectPlatform(userId, data.platform, data.config || {});
+        const result = await messagingManager.connectPlatform(userId, data.platform, data.config || {}, { agentId });
         socket.emit('messaging:connect_result', result);
       } catch (err) {
         console.error(`[WS] messaging:connect failed for user ${userId}:`, err);
@@ -164,8 +171,9 @@ function setupWebSocket(io, services) {
 
     socket.on('messaging:disconnect', async (data) => {
       try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
         console.log(`[WS] messaging:disconnect requested by user ${userId} platform=${data?.platform || 'unknown'}`);
-        const result = await messagingManager.disconnectPlatform(userId, data.platform);
+        const result = await messagingManager.disconnectPlatform(userId, data.platform, { agentId });
         socket.emit('messaging:disconnect_result', result);
       } catch (err) {
         console.error(`[WS] messaging:disconnect failed for user ${userId}:`, err);
@@ -175,13 +183,17 @@ function setupWebSocket(io, services) {
 
     socket.on('messaging:send', async (data) => {
       try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
         console.log(`[WS] messaging:send requested by user ${userId}`, {
           platform: data?.platform || 'unknown',
           to: data?.to || null,
           contentLength: typeof data?.content === 'string' ? data.content.length : null,
           hasMediaPath: Boolean(data?.mediaPath)
         });
-        const result = await messagingManager.sendMessage(userId, data.platform, data.to, data.content, data.mediaPath);
+        const result = await messagingManager.sendMessage(userId, data.platform, data.to, data.content, {
+          agentId,
+          mediaPath: data.mediaPath,
+        });
         socket.emit('messaging:sent', result);
       } catch (err) {
         console.error(`[WS] messaging:send failed for user ${userId}:`, err);
@@ -189,10 +201,11 @@ function setupWebSocket(io, services) {
       }
     });
 
-    socket.on('messaging:status', () => {
+    socket.on('messaging:status', (data) => {
       try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
         console.log(`[WS] messaging:status requested by user ${userId}`);
-        const statuses = messagingManager.getAllStatuses(userId);
+        const statuses = messagingManager.getAllStatuses(userId, { agentId });
         socket.emit('messaging:status', statuses);
       } catch (err) {
         console.error(`[WS] messaging:status failed for user ${userId}:`, err);
@@ -202,17 +215,28 @@ function setupWebSocket(io, services) {
 
     // ── MCP ──
 
-    socket.on('mcp:status', () => {
-      console.log(`[WS] mcp:status requested by user ${userId}`);
-      socket.emit('mcp:status', mcpClient.getStatus(userId));
+    socket.on('mcp:status', async (data) => {
+      try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
+        console.log(`[WS] mcp:status requested by user ${userId}`);
+        const status = await mcpClient.getStatus(userId, { agentId });
+        socket.emit('mcp:status', status);
+      } catch (err) {
+        console.error(`[WS] mcp:status failed for user ${userId}:`, err);
+        socket.emit('mcp:error', {
+          message: 'Unable to fetch MCP status.',
+          error: sanitizeError(err)
+        });
+      }
     });
 
     socket.on('mcp:tools', async (data) => {
       try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
         console.log(`[WS] mcp:tools requested by user ${userId} server=${data?.serverId || 'all'}`);
         const tools = data?.serverId
           ? await mcpClient.listTools(data.serverId, userId)
-          : mcpClient.getAllTools(userId);
+          : mcpClient.getAllTools(userId, { agentId });
         socket.emit('mcp:tools', tools);
       } catch (err) {
         console.error(`[WS] mcp:tools failed for user ${userId}:`, err);
@@ -220,13 +244,14 @@ function setupWebSocket(io, services) {
       }
     });
 
-    socket.on('integrations:status', () => {
+    socket.on('integrations:status', (data) => {
       try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
         console.log(`[WS] integrations:status requested by user ${userId}`);
         if (!integrationManager || typeof integrationManager.listProviders !== 'function') {
           throw new Error('Official integration manager is not available.');
         }
-        socket.emit('integrations:status', integrationManager.listProviders(userId));
+        socket.emit('integrations:status', integrationManager.listProviders(userId, agentId));
       } catch (err) {
         console.error(`[WS] integrations:status failed for user ${userId}:`, err);
         socket.emit('error', { message: sanitizeError(err) });
@@ -235,21 +260,30 @@ function setupWebSocket(io, services) {
 
     // ── Memory ──
 
-    socket.on('memory:read', () => {
-      console.log(`[WS] memory:read requested by user ${userId}`);
-      socket.emit('memory:data', {
-        memory: memoryManager.readMemory(userId),
-        assistantBehaviorNotes: memoryManager.getAssistantBehaviorNotes(userId),
-        dailyLogs: memoryManager.listDailyLogs(3, userId)
-      });
+    socket.on('memory:read', (data) => {
+      try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
+        console.log(`[WS] memory:read requested by user ${userId}`);
+        socket.emit('memory:data', {
+          agentId,
+          // readMemory/listDailyLogs return user-scoped shared data (not agent-specific).
+          memory: memoryManager.readMemory(userId),
+          assistantBehaviorNotes: memoryManager.getAssistantBehaviorNotes(userId, { agentId }),
+          dailyLogs: memoryManager.listDailyLogs(3, userId)
+        });
+      } catch (err) {
+        console.error(`[WS] memory:read failed for user ${userId}:`, err);
+        socket.emit('error', { message: sanitizeError(err) });
+      }
     });
 
     socket.on('memory:search', async (data) => {
       try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
         console.log(`[WS] memory:search requested by user ${userId}`, {
           queryLength: typeof data?.query === 'string' ? data.query.length : null
         });
-        const results = await memoryManager.searchMemory(data?.query, userId);
+        const results = await memoryManager.searchMemory(data?.query, userId, { agentId });
         socket.emit('memory:search_results', results);
       } catch (err) {
         console.error(`[WS] memory:search failed for user ${userId}:`, err);

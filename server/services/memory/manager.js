@@ -11,23 +11,16 @@ const {
 } = require('./embeddings');
 const { getMemoryStorageDecision } = require('./policy');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
+const { resolveAgentId } = require('../agents/manager');
 
-async function getActiveProvider(userId) {
+async function getActiveProvider(userId, agentId = null) {
   try {
     const { getSupportedModels } = require('../ai/models');
-    const models = await getSupportedModels(userId);
-    const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?)')
-      .all(userId || 1, 'default_chat_model', 'enabled_models');
-
-    let defaultChatModel = null;
-    let enabledIds = null;
-    for (const row of rows) {
-      try {
-        const v = JSON.parse(row.value);
-        if (row.key === 'default_chat_model') defaultChatModel = v;
-        if (row.key === 'enabled_models') enabledIds = v;
-      } catch { }
-    }
+    const { getAiSettings } = require('../ai/settings');
+    const models = await getSupportedModels(userId, agentId);
+    const aiSettings = getAiSettings(userId, agentId);
+    const defaultChatModel = aiSettings.default_chat_model || null;
+    const enabledIds = Array.isArray(aiSettings.enabled_models) ? aiSettings.enabled_models : null;
 
     const modelId = defaultChatModel && defaultChatModel !== 'auto'
       ? defaultChatModel
@@ -131,20 +124,28 @@ class MemoryManager {
     return this._ensureUserDirs(userId).dailyDir;
   }
 
-  getAssistantBehaviorNotes(userId) {
+  _agentId(userId, options = {}) {
+    return resolveAgentId(userId, options?.agentId || options?.agent_id || null);
+  }
+
+  getAssistantBehaviorNotes(userId, options = {}) {
     if (userId == null) return '';
-    const row = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-      .get(userId, 'assistant_behavior_notes');
+    const agentId = this._agentId(userId, options);
+    const row = db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
+      .get(userId, agentId, 'assistant_behavior_notes')
+      || db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, 'assistant_behavior_notes');
     return typeof row?.value === 'string' ? row.value : '';
   }
 
-  setAssistantBehaviorNotes(userId, content) {
+  setAssistantBehaviorNotes(userId, content, options = {}) {
     if (userId == null) return;
+    const agentId = this._agentId(userId, options);
     db.prepare(
-      `INSERT INTO user_settings (user_id, key, value)
-       VALUES (?, ?, ?)
-       ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value`
-    ).run(userId, 'assistant_behavior_notes', String(content || ''));
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
+    ).run(userId, agentId, 'assistant_behavior_notes', String(content || ''));
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -155,19 +156,20 @@ class MemoryManager {
    * Save a new memory. Deduplicates if an existing memory is very similar.
    * Returns the memory id (new or existing).
    */
-  async saveMemory(userId, content, category = 'episodic', importance = 5) {
+  async saveMemory(userId, content, category = 'episodic', importance = 5, options = {}) {
+    const agentId = this._agentId(userId, options);
     const decision = getMemoryStorageDecision(content);
     if (!decision.allow) return null;
     content = decision.normalized;
     category = CATEGORIES.includes(category) ? category : 'episodic';
     importance = Math.max(1, Math.min(10, Number(importance) || 5));
 
-    const embedding = await getEmbedding(content, await getActiveProvider(userId));
+    const embedding = await getEmbedding(content, await getActiveProvider(userId, agentId));
 
     // Dedup check: compare against existing non-archived memories for this user
     const existing = db.prepare(
-      `SELECT id, content, embedding FROM memories WHERE user_id = ? AND archived = 0`
-    ).all(userId);
+      `SELECT id, content, embedding FROM memories WHERE user_id = ? AND agent_id = ? AND archived = 0`
+    ).all(userId, agentId);
 
     for (const mem of existing) {
       let sim = 0;
@@ -194,9 +196,9 @@ class MemoryManager {
     // Save new
     const id = uuidv4();
     db.prepare(
-      `INSERT INTO memories (id, user_id, category, content, importance, embedding)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(id, userId, category, content, importance, embedding ? serializeEmbedding(embedding) : null);
+      `INSERT INTO memories (id, user_id, agent_id, category, content, importance, embedding)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, userId, agentId, category, content, importance, embedding ? serializeEmbedding(embedding) : null);
 
     return id;
   }
@@ -205,17 +207,18 @@ class MemoryManager {
    * Semantic search over memories. Returns top-K most relevant.
    * Falls back to keyword search if embeddings unavailable.
    */
-  async recallMemory(userId, query, topK = 6) {
+  async recallMemory(userId, query, topK = 6, options = {}) {
     if (!query || !query.trim()) return [];
+    const agentId = this._agentId(userId, options);
 
     const all = db.prepare(
       `SELECT id, category, content, importance, embedding, access_count, created_at
-       FROM memories WHERE user_id = ? AND archived = 0 ORDER BY updated_at DESC`
-    ).all(userId);
+       FROM memories WHERE user_id = ? AND agent_id = ? AND archived = 0 ORDER BY updated_at DESC`
+    ).all(userId, agentId);
 
     if (!all.length) return [];
 
-    const queryVec = await getEmbedding(query, await getActiveProvider(userId));
+    const queryVec = await getEmbedding(query, await getActiveProvider(userId, agentId));
 
     const scored = all.map(mem => {
       let score = 0;
@@ -253,10 +256,11 @@ class MemoryManager {
   /**
    * List memories (for UI). Supports category filter + pagination.
    */
-  listMemories(userId, { category, limit = 50, offset = 0, includeArchived = false } = {}) {
+  listMemories(userId, { category, limit = 50, offset = 0, includeArchived = false, agentId = null } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
     let sql = `SELECT id, category, content, importance, access_count, archived, created_at, updated_at
-               FROM memories WHERE user_id = ? AND archived = ?`;
-    const params = [userId, includeArchived ? 1 : 0];
+               FROM memories WHERE user_id = ? AND agent_id = ? AND archived = ?`;
+    const params = [userId, scopedAgentId, includeArchived ? 1 : 0];
     if (category && CATEGORIES.includes(category)) {
       sql += ` AND category = ?`;
       params.push(category);
@@ -335,8 +339,9 @@ class MemoryManager {
   // Core Memory (always-injected key-value pairs)
   // ─────────────────────────────────────────────────────────────────────────
 
-  getCoreMemory(userId) {
-    const rows = db.prepare(`SELECT key, value FROM core_memory WHERE user_id = ?`).all(userId);
+  getCoreMemory(userId, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const rows = db.prepare(`SELECT key, value FROM core_memory WHERE user_id = ? AND agent_id = ?`).all(userId, agentId);
     const result = {};
     for (const row of rows) {
       try { result[row.key] = JSON.parse(row.value); } catch { result[row.key] = row.value; }
@@ -344,17 +349,19 @@ class MemoryManager {
     return result;
   }
 
-  updateCore(userId, key, value) {
+  updateCore(userId, key, value, options = {}) {
+    const agentId = this._agentId(userId, options);
     const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value);
     db.prepare(
-      `INSERT INTO core_memory (user_id, key, value, updated_at)
-       VALUES (?, ?, ?, datetime('now'))
-       ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-    ).run(userId, key, strVal);
+      `INSERT INTO core_memory (user_id, agent_id, key, value, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+    ).run(userId, agentId, key, strVal);
   }
 
-  deleteCore(userId, key) {
-    db.prepare(`DELETE FROM core_memory WHERE user_id = ? AND key = ?`).run(userId, key);
+  deleteCore(userId, key, options = {}) {
+    const agentId = this._agentId(userId, options);
+    db.prepare(`DELETE FROM core_memory WHERE user_id = ? AND agent_id = ? AND key = ?`).run(userId, agentId, key);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -366,32 +373,39 @@ class MemoryManager {
     platformChatId = null,
     title = 'Conversation',
     sessionKey = null,
+    agentId = null,
   } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
     const existing = db.prepare(
-      'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND COALESCE(platform_chat_id, \'\') = COALESCE(?, \'\')'
-    ).get(userId, platform, platformChatId);
+      'SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND COALESCE(platform_chat_id, \'\') = COALESCE(?, \'\')'
+    ).get(userId, scopedAgentId, platform, platformChatId);
 
     if (existing?.id) return existing.id;
 
     const conversationId = uuidv4();
     let migratedSummary = '';
     if (platform === 'web') {
-      const legacySummary = db.prepare(
-        'SELECT value FROM user_settings WHERE user_id = ? AND key = ?'
-      ).get(userId, 'web_chat_summary');
-      migratedSummary = typeof legacySummary?.value === 'string'
-        ? (() => {
-            try { return JSON.parse(legacySummary.value); } catch { return legacySummary.value; }
-          })()
-        : '';
+      const agent = db.prepare('SELECT slug FROM agents WHERE user_id = ? AND id = ?')
+        .get(userId, scopedAgentId);
+      if (agent?.slug === 'main') {
+        const legacySummary = db.prepare(
+          'SELECT value FROM user_settings WHERE user_id = ? AND key = ?'
+        ).get(userId, 'web_chat_summary');
+        migratedSummary = typeof legacySummary?.value === 'string'
+          ? (() => {
+              try { return JSON.parse(legacySummary.value); } catch { return legacySummary.value; }
+            })()
+          : '';
+      }
     }
 
     db.prepare(
-      `INSERT INTO conversations (id, user_id, platform, platform_chat_id, title, session_key, summary, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      `INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title, session_key, summary, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     ).run(
       conversationId,
       userId,
+      scopedAgentId,
       platform,
       platformChatId,
       title,
@@ -402,12 +416,14 @@ class MemoryManager {
     return conversationId;
   }
 
-  getDefaultWebConversationId(userId) {
+  getDefaultWebConversationId(userId, options = {}) {
+    const agentId = this._agentId(userId, options);
     return this.ensureConversation(userId, {
       platform: 'web',
       platformChatId: 'primary',
       title: 'Web chat',
       sessionKey: 'web:primary',
+      agentId,
     });
   }
 
@@ -560,8 +576,9 @@ class MemoryManager {
   // ─────────────────────────────────────────────────────────────────────────
 
   saveConversation(userId, agentRunId, role, content, metadata = {}) {
-    db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
-      .run(userId, agentRunId, role, content, JSON.stringify(metadata));
+    const agentId = this._agentId(userId, metadata);
+    db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(userId, agentId, agentRunId, role, content, JSON.stringify(metadata));
   }
 
   getConversation(agentRunId, limit = 100) {
@@ -569,7 +586,8 @@ class MemoryManager {
       .all(agentRunId, limit);
   }
 
-  getRecentConversations(userId, limit = 20) {
+  getRecentConversations(userId, limit = 20, options = {}) {
+    const agentId = this._agentId(userId, options);
     const rows = db.prepare(`
       SELECT
         c.id,
@@ -587,10 +605,10 @@ class MemoryManager {
           LIMIT 1
         ) AS latest_content
       FROM conversations c
-      WHERE c.user_id = ?
+      WHERE c.user_id = ? AND c.agent_id = ?
       ORDER BY datetime(c.updated_at) DESC
       LIMIT ?
-    `).all(userId, limit);
+    `).all(userId, agentId, limit);
 
     if (rows.length === 0) {
       const fallback = db.prepare(`
@@ -608,10 +626,10 @@ class MemoryManager {
             LIMIT 1
           ) AS latest_content
         FROM agent_runs ar
-        WHERE ar.user_id = ?
+        WHERE ar.user_id = ? AND ar.agent_id = ?
         ORDER BY COALESCE(ar.completed_at, ar.created_at) DESC
         LIMIT ?
-      `).all(userId, limit);
+      `).all(userId, agentId, limit);
 
       return fallback.map((row) => {
         const summary = buildExcerpt(row.latest_content, '') || 'No summary available.';
@@ -652,6 +670,7 @@ class MemoryManager {
   }
 
   searchConversations(userId, query, options = {}) {
+    const agentId = this._agentId(userId, options);
     const ftsQuery = buildFtsQuery(query);
     const maxHits = Math.max(6, Math.min(Number(options.limit) || 24, 60));
     if (!ftsQuery) return [];
@@ -672,10 +691,10 @@ class MemoryManager {
         FROM conversation_history_fts
         JOIN conversation_history ch ON ch.id = conversation_history_fts.rowid
         LEFT JOIN agent_runs ar ON ar.id = ch.agent_run_id
-        WHERE conversation_history_fts MATCH ? AND ch.user_id = ?
+        WHERE conversation_history_fts MATCH ? AND ch.user_id = ? AND ch.agent_id = ?
         ORDER BY score
         LIMIT ?
-      `).all(ftsQuery, userId, maxHits);
+      `).all(ftsQuery, userId, agentId, maxHits);
 
       messageHits = db.prepare(`
         SELECT
@@ -691,10 +710,10 @@ class MemoryManager {
         FROM messages_fts
         JOIN messages m ON m.id = messages_fts.rowid
         LEFT JOIN agent_runs ar ON ar.id = m.run_id
-        WHERE messages_fts MATCH ? AND m.user_id = ?
+        WHERE messages_fts MATCH ? AND m.user_id = ? AND m.agent_id = ?
         ORDER BY score
         LIMIT ?
-      `).all(ftsQuery, userId, maxHits);
+      `).all(ftsQuery, userId, agentId, maxHits);
     } catch {
       const likeQuery = `%${String(query || '').trim()}%`;
       webHits = db.prepare(`
@@ -709,10 +728,10 @@ class MemoryManager {
           0 AS score
         FROM conversation_history ch
         LEFT JOIN agent_runs ar ON ar.id = ch.agent_run_id
-        WHERE ch.user_id = ? AND ch.content LIKE ?
+        WHERE ch.user_id = ? AND ch.agent_id = ? AND ch.content LIKE ?
         ORDER BY ch.created_at DESC
         LIMIT ?
-      `).all(userId, likeQuery, maxHits);
+      `).all(userId, agentId, likeQuery, maxHits);
 
       messageHits = db.prepare(`
         SELECT
@@ -727,10 +746,10 @@ class MemoryManager {
           0 AS score
         FROM messages m
         LEFT JOIN agent_runs ar ON ar.id = m.run_id
-        WHERE m.user_id = ? AND m.content LIKE ?
+        WHERE m.user_id = ? AND m.agent_id = ? AND m.content LIKE ?
         ORDER BY m.created_at DESC
         LIMIT ?
-      `).all(userId, likeQuery, maxHits);
+      `).all(userId, agentId, likeQuery, maxHits);
     }
 
     const grouped = new Map();
@@ -814,10 +833,11 @@ class MemoryManager {
    * No dynamic data (logs, recalled memories) — those are injected as
    * messages at the right position in the messages array by the engine.
    */
-  async buildContext(userId = null) {
+  async buildContext(userId = null, options = {}) {
     let ctx = '';
+    const agentId = this._agentId(userId, options);
 
-    const behaviorNotes = this.getAssistantBehaviorNotes(userId);
+    const behaviorNotes = this.getAssistantBehaviorNotes(userId, { agentId });
     if (behaviorNotes) {
       ctx += `## Assistant Behavior Notes\n`;
       ctx += `These are durable preferences for how the assistant should usually behave. Follow system rules and the active user request first.\n`;
@@ -826,7 +846,7 @@ class MemoryManager {
 
     // 2. Core memory — always-relevant user facts
     if (userId != null) {
-      const core = this.getCoreMemory(userId);
+      const core = this.getCoreMemory(userId, { agentId });
       const filteredCore = Object.fromEntries(
         Object.entries(core).filter(([key]) => key !== 'active_context')
       );
@@ -848,11 +868,12 @@ class MemoryManager {
    * to be injected as a system message in the messages array.
    * Returns null if nothing relevant found.
    */
-  async buildRecallMessage(userId, query) {
+  async buildRecallMessage(userId, query, options = {}) {
     if (!userId || !query || !query.trim()) return null;
     try {
+      const agentId = this._agentId(userId, options);
       const sections = [];
-      const recalled = await this.recallMemory(userId, query, 5);
+      const recalled = await this.recallMemory(userId, query, 5, { agentId });
       if (recalled.length) {
         const memoryLines = recalled.map(m => {
           const badge = m.category !== 'episodic' ? ` [${m.category}]` : '';
@@ -866,10 +887,10 @@ class MemoryManager {
         const recentSchedulerRuns = db.prepare(
           `SELECT title, final_response, completed_at
            FROM agent_runs
-           WHERE user_id = ? AND trigger_source = 'scheduler' AND status = 'completed'
+           WHERE user_id = ? AND agent_id = ? AND trigger_source = 'scheduler' AND status = 'completed'
            ORDER BY completed_at DESC, created_at DESC
            LIMIT 12`
-        ).all(userId);
+        ).all(userId, agentId);
 
         const schedulerMatches = recentSchedulerRuns
           .map((run) => ({
@@ -901,8 +922,8 @@ class MemoryManager {
     return this.read('all_daily', { userId });
   }
 
-  searchMemory(query, userId = null) {
-    return this.recallMemory(userId, query, 6);
+  searchMemory(query, userId = null, options = {}) {
+    return this.recallMemory(userId, query, 6, options);
   }
 }
 

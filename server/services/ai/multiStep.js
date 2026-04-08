@@ -29,6 +29,7 @@ class MultiStepOrchestrator {
     try {
       const result = await this.engine.run(userId, task, {
         runId: orchestrationId,
+        agentId: options.agentId || options.agent_id || null,
         conversationId: options.conversationId,
         app,
         triggerType: options.triggerType || 'user',

@@ -44,13 +44,15 @@ NeoAgent can talk through:
 | Feishu, Nextcloud Talk, Nostr, Synology Chat, Tlon, Zalo, Zalo Personal, WeChat, and WebChat | Configurable webhook bridges |
 | Telnyx Voice | Inbound and outbound calling with text-to-speech; scheduled tasks can call a number |
 
-Messaging channel credentials are stored through the Flutter app messaging tab rather than `.env`. The generic inbound callback path is:
+Messaging channel credentials are configured through the Flutter app messaging tab (not `.env`) for channel setup and inbound callback routing. The generic inbound callback path is:
 
 ```text
 PUBLIC_URL + /api/messaging/webhook/:platform
 ```
 
-Use the per-platform inbound secret or native signature fields in the messaging tab for webhook callbacks. Telnyx voice webhooks continue to use `TELNYX_WEBHOOK_TOKEN`.
+Use the per-platform inbound secret or native signature fields in the messaging tab for webhook callbacks.
+
+Telnyx exception: only the Telnyx voice webhook verification token stays in server environment variables as `TELNYX_WEBHOOK_TOKEN`, because webhook request verification is performed server-side. Other Telnyx and messaging channel credentials should be configured in the Flutter app messaging tab as part of channel/client configuration.
 
 ## Credentials
 

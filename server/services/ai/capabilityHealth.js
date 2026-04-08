@@ -169,7 +169,7 @@ async function getAndroidHealth(userId, app, engine) {
   }
 }
 
-function getMessagingHealth(userId, app, engine) {
+function getMessagingHealth(userId, app, engine, agentId = null) {
   const manager = app?.locals?.messagingManager || engine?.messagingManager;
   if (!manager || typeof manager.getAllStatuses !== 'function') {
     return capabilityEntry({
@@ -177,7 +177,7 @@ function getMessagingHealth(userId, app, engine) {
     });
   }
 
-  const statuses = manager.getAllStatuses(userId) || {};
+  const statuses = manager.getAllStatuses(userId, { agentId }) || {};
   const entries = Object.entries(statuses);
   const connectedCount = entries.filter(([, value]) => value?.status === 'connected').length;
 
@@ -205,7 +205,7 @@ function getSearchHealth() {
   });
 }
 
-function getMcpHealth(userId, app, engine) {
+function getMcpHealth(userId, app, engine, agentId = null) {
   const client = app?.locals?.mcpClient || app?.locals?.mcpManager || engine?.mcpManager;
   if (!client || typeof client.getStatus !== 'function') {
     return capabilityEntry({
@@ -213,7 +213,7 @@ function getMcpHealth(userId, app, engine) {
     });
   }
 
-  const statuses = client.getStatus(userId) || {};
+  const statuses = client.getStatus(userId, { agentId }) || {};
   const entries = Object.values(statuses);
   const runningCount = entries.filter((entry) => entry?.status === 'running').length;
   return capabilityEntry({
@@ -228,7 +228,7 @@ function getMcpHealth(userId, app, engine) {
   });
 }
 
-function getIntegrationHealth(userId, app) {
+function getIntegrationHealth(userId, app, agentId = null) {
   const manager = app?.locals?.integrationManager;
   if (!manager || typeof manager.listProviders !== 'function') {
     return capabilityEntry({
@@ -236,7 +236,7 @@ function getIntegrationHealth(userId, app) {
     });
   }
 
-  const providers = manager.listProviders(userId) || [];
+  const providers = manager.listProviders(userId, agentId) || [];
   const connectedCount = providers.filter((provider) => provider.connection?.connected).length;
   const providerSummary = providers
     .map((provider) => {
@@ -314,8 +314,10 @@ function getMemoryHealth(engine) {
   });
 }
 
-function getSchedulerHealth(userId) {
-  const taskCount = db.prepare('SELECT COUNT(*) AS count FROM scheduled_tasks WHERE user_id = ?').get(userId)?.count || 0;
+function getSchedulerHealth(userId, agentId = null) {
+  const taskCount = agentId
+    ? db.prepare('SELECT COUNT(*) AS count FROM scheduled_tasks WHERE user_id = ? AND agent_id = ?').get(userId, agentId)?.count || 0
+    : db.prepare('SELECT COUNT(*) AS count FROM scheduled_tasks WHERE user_id = ?').get(userId)?.count || 0;
   return capabilityEntry({
     connected: taskCount > 0,
     configured: true,
@@ -327,8 +329,8 @@ function getSchedulerHealth(userId) {
   });
 }
 
-async function getCapabilityHealth({ userId, app, engine }) {
-  const providers = await getProviderHealthCatalog(userId);
+async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
+  const providers = await getProviderHealthCatalog(userId, agentId);
 
   return {
     providers,
@@ -339,11 +341,11 @@ async function getCapabilityHealth({ userId, app, engine }) {
       search: getSearchHealth(),
       browser: await getBrowserHealth(userId, app, engine),
       android: await getAndroidHealth(userId, app, engine),
-      messaging: getMessagingHealth(userId, app, engine),
-      integrations: getIntegrationHealth(userId, app),
-      mcp: getMcpHealth(userId, app, engine),
+      messaging: getMessagingHealth(userId, app, engine, agentId),
+      integrations: getIntegrationHealth(userId, app, agentId),
+      mcp: getMcpHealth(userId, app, engine, agentId),
       skills: getSkillHealth(app, engine),
-      scheduler: getSchedulerHealth(userId),
+      scheduler: getSchedulerHealth(userId, agentId),
     },
   };
 }

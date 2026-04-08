@@ -4,6 +4,7 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { validateRemoteMcpEndpoint } = require('../services/runtime/mcp');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
 router.use(requireAuth);
 
@@ -18,6 +19,7 @@ router.get('/', (req, res) => {
     name: s.name,
     command: s.command,
     config: JSON.parse(s.config || '{}'),
+    agentId: s.agent_id || null,
     enabled: !!s.enabled,
     status: liveStatuses[s.id]?.status || 'stopped',
     toolCount: liveStatuses[s.id]?.toolCount || 0
@@ -30,11 +32,12 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
   try {
     const { name, command, config, enabled } = req.body;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
     if (!name || !command) return res.status(400).json({ error: 'name and command are required' });
     const endpoint = validateRemoteMcpEndpoint(command);
 
-    const result = db.prepare('INSERT INTO mcp_servers (user_id, name, command, config, enabled) VALUES (?, ?, ?, ?, ?)')
-      .run(req.session.userId, name, endpoint, JSON.stringify(config || {}), enabled !== false ? 1 : 0);
+    const result = db.prepare('INSERT INTO mcp_servers (user_id, agent_id, name, command, config, enabled) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(req.session.userId, agentId, name, endpoint, JSON.stringify(config || {}), enabled !== false ? 1 : 0);
 
     res.status(201).json({ id: result.lastInsertRowid, name, command: endpoint });
   } catch (err) {
@@ -49,9 +52,12 @@ router.put('/:id', (req, res) => {
     if (!server) return res.status(404).json({ error: 'Server not found' });
 
     const { name, command, config, enabled } = req.body;
+    const agentId = (req.body.agentId !== undefined || req.body.agent_id !== undefined)
+      ? resolveAgentId(req.session.userId, getAgentIdFromRequest(req))
+      : (server.agent_id || resolveAgentId(req.session.userId, null));
     const endpoint = command ? validateRemoteMcpEndpoint(command) : server.command;
-    db.prepare('UPDATE mcp_servers SET name = ?, command = ?, config = ?, enabled = ? WHERE id = ?')
-      .run(name || server.name, endpoint, JSON.stringify(config || JSON.parse(server.config)), enabled !== undefined ? (enabled ? 1 : 0) : server.enabled, server.id);
+    db.prepare('UPDATE mcp_servers SET agent_id = ?, name = ?, command = ?, config = ?, enabled = ? WHERE id = ?')
+      .run(agentId, name || server.name, endpoint, JSON.stringify(config || JSON.parse(server.config)), enabled !== undefined ? (enabled ? 1 : 0) : server.enabled, server.id);
 
     res.json({ success: true });
   } catch (err) {
@@ -78,7 +84,7 @@ router.post('/:id/start', async (req, res) => {
     if (!server) return res.status(404).json({ error: 'Server not found' });
 
     const mcpClient = req.app.locals.mcpClient;
-    const result = await mcpClient.startServer(server.id, server.command, server.name, req.session.userId);
+    const result = await mcpClient.startServer(server.id, server.command, server.name, req.session.userId, { agentId: server.agent_id });
     const tools = await mcpClient.listTools(server.id, req.session.userId);
 
     res.json({ ...result, tools });
@@ -155,7 +161,8 @@ router.get('/oauth/callback', async (req, res) => {
 // Get all tools from all running servers
 router.get('/tools/all', (req, res) => {
   const mcpClient = req.app.locals.mcpClient;
-  res.json(mcpClient.getAllTools(req.session.userId));
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  res.json(mcpClient.getAllTools(req.session.userId, { agentId }));
 });
 
 // Call a tool
@@ -163,7 +170,9 @@ router.post('/tools/call', async (req, res) => {
   try {
     const { serverId, toolName, args } = req.body;
     if (!serverId || !toolName) return res.status(400).json({ error: 'serverId and toolName required' });
-    const server = db.prepare('SELECT id FROM mcp_servers WHERE id = ? AND user_id = ?').get(serverId, req.session.userId);
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const server = db.prepare('SELECT id FROM mcp_servers WHERE id = ? AND user_id = ? AND agent_id = ?')
+      .get(serverId, req.session.userId, agentId);
     if (!server) return res.status(404).json({ error: 'Server not found' });
 
     const mcpClient = req.app.locals.mcpClient;

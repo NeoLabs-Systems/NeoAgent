@@ -1,4 +1,5 @@
 const db = require('../../db/database');
+const { resolveAgentId } = require('../agents/manager');
 
 const WEB_SUMMARY_KEY = 'web_chat_summary';
 const WEB_SUMMARY_COUNT_KEY = 'web_chat_summary_count';
@@ -130,10 +131,11 @@ async function summarizeMessages(provider, model, existingSummary, messages, lab
   return clampSummary(response.content || existingSummary || '');
 }
 
-function getWebChatSummaryState(userId) {
+function getWebChatSummaryState(userId, agentId = null) {
+  const scopedAgentId = resolveAgentId(userId, agentId);
   const rows = db.prepare(
-    'SELECT key, value FROM user_settings WHERE user_id = ? AND key IN (?, ?)'
-  ).all(userId, WEB_SUMMARY_KEY, WEB_SUMMARY_COUNT_KEY);
+    'SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key IN (?, ?)'
+  ).all(userId, scopedAgentId, WEB_SUMMARY_KEY, WEB_SUMMARY_COUNT_KEY);
 
   let summary = '';
   let count = 0;
@@ -151,23 +153,25 @@ function getWebChatSummaryState(userId) {
   return { summary, count };
 }
 
-function getWebChatContext(userId, recentLimit) {
-  const state = getWebChatSummaryState(userId);
+function getWebChatContext(userId, recentLimit, options = {}) {
+  const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
+  const state = getWebChatSummaryState(userId, agentId);
   const recent = db.prepare(
-    'SELECT role, content FROM conversation_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
-  ).all(userId, recentLimit).reverse();
+    'SELECT role, content FROM conversation_history WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC LIMIT ?'
+  ).all(userId, agentId, recentLimit).reverse();
 
   return {
     summary: state.summary,
     summaryCount: state.count,
     recentMessages: normalizeHistoryRows(recent),
-    totalMessages: db.prepare('SELECT COUNT(*) AS count FROM conversation_history WHERE user_id = ?').get(userId).count
+    totalMessages: db.prepare('SELECT COUNT(*) AS count FROM conversation_history WHERE user_id = ? AND agent_id = ?').get(userId, agentId).count
   };
 }
 
-async function refreshWebChatSummary(userId, provider, model, recentLimit, force = false) {
-  const totalMessages = db.prepare('SELECT COUNT(*) AS count FROM conversation_history WHERE user_id = ?').get(userId).count;
-  const { summary, count } = getWebChatSummaryState(userId);
+async function refreshWebChatSummary(userId, provider, model, recentLimit, force = false, options = {}) {
+  const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
+  const totalMessages = db.prepare('SELECT COUNT(*) AS count FROM conversation_history WHERE user_id = ? AND agent_id = ?').get(userId, agentId).count;
+  const { summary, count } = getWebChatSummaryState(userId, agentId);
   const targetCount = Math.max(0, totalMessages - recentLimit);
   const newMessages = targetCount - count;
 
@@ -176,20 +180,21 @@ async function refreshWebChatSummary(userId, provider, model, recentLimit, force
   }
 
   const rows = db.prepare(
-    'SELECT role, content FROM conversation_history WHERE user_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
-  ).all(userId, newMessages, count);
+    'SELECT role, content FROM conversation_history WHERE user_id = ? AND agent_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
+  ).all(userId, agentId, newMessages, count);
 
   const nextSummary = clampSummary(await summarizeMessages(provider, model, summary, normalizeHistoryRows(rows), 'web chat'));
   const upsert = db.prepare(
-    'INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value'
+    'INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value'
   );
-  upsert.run(userId, WEB_SUMMARY_KEY, JSON.stringify(nextSummary));
-  upsert.run(userId, WEB_SUMMARY_COUNT_KEY, JSON.stringify(targetCount));
+  upsert.run(userId, agentId, WEB_SUMMARY_KEY, JSON.stringify(nextSummary));
+  upsert.run(userId, agentId, WEB_SUMMARY_COUNT_KEY, JSON.stringify(targetCount));
   return { updated: true, summary: nextSummary, summaryCount: targetCount };
 }
 
-function clearWebChatSummary(userId) {
-  db.prepare('DELETE FROM user_settings WHERE user_id = ? AND key IN (?, ?)').run(userId, WEB_SUMMARY_KEY, WEB_SUMMARY_COUNT_KEY);
+function clearWebChatSummary(userId, options = {}) {
+  const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
+  db.prepare('DELETE FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key IN (?, ?)').run(userId, agentId, WEB_SUMMARY_KEY, WEB_SUMMARY_COUNT_KEY);
 }
 
 function getConversationContext(conversationId, recentLimit) {

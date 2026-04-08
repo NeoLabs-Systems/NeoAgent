@@ -690,6 +690,20 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'delegate_to_agent',
+            description: 'Delegate a task to a named specialist agent. Use only when that agent clearly matches the task; if unsure, handle it yourself.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    agent: { type: 'string', description: 'Target agent slug, display name, or ID.' },
+                    task: { type: 'string', description: 'Self-contained task for the specialist agent.' },
+                    context: { type: 'string', description: 'Relevant context to pass. Do not include secrets unless the user explicitly asked.' },
+                    allow_external_side_effects: { type: 'boolean', description: 'Set true only when the user explicitly wants the delegated agent to send messages or affect external systems.' }
+                },
+                required: ['agent', 'task']
+            }
+        },
+        {
             name: 'list_subagents',
             description: 'List the async sub-agents that belong to the current parent run, including status and any finished results.',
             parameters: { type: 'object', properties: {} }
@@ -927,11 +941,27 @@ function getAvailableTools(app, options = {}) {
 
     const integrationManager = app?.locals?.integrationManager;
     if (integrationManager && options.userId != null) {
-        const integrationTools = integrationManager.getToolDefinitions(options.userId) || [];
+        const integrationTools = integrationManager.getToolDefinitions(options.userId, options.agentId || null) || [];
         tools.push(...integrationTools);
     }
 
-    const compacted = tools.map((tool) => compactToolDefinition(tool, options));
+    let visibleTools = tools;
+    if (options.userId != null) {
+        try {
+            const { getDelegationTargets, resolveAgentId } = require('../agents/manager');
+            const agentId = resolveAgentId(options.userId, options.agentId || null);
+            if (
+                options.triggerSource === 'agent_delegation'
+                || getDelegationTargets(options.userId, agentId).length === 0
+            ) {
+                visibleTools = visibleTools.filter((tool) => tool.name !== 'delegate_to_agent');
+            }
+        } catch {
+            // If agent policy cannot be resolved, keep tool discovery resilient.
+        }
+    }
+
+    const compacted = visibleTools.map((tool) => compactToolDefinition(tool, options));
     if (options.names && Array.isArray(options.names)) {
         const allow = new Set(options.names);
         return compacted.filter((tool) => allow.has(tool.name));
@@ -950,6 +980,7 @@ function getAvailableTools(app, options = {}) {
 async function executeTool(toolName, args, context, engine) {
     const {
         userId,
+        agentId,
         runId,
         app,
         triggerSource,
@@ -989,7 +1020,7 @@ async function executeTool(toolName, args, context, engine) {
 
     const integrationManager = integrations();
     if (integrationManager) {
-        const integrationResult = await integrationManager.executeTool(userId, toolName, args);
+        const integrationResult = await integrationManager.executeTool(userId, toolName, args, agentId);
         if (
             integrationResult &&
             typeof integrationResult === 'object' &&
@@ -1258,7 +1289,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'memory_save': {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
-            const id = await mm.saveMemory(userId, args.content, args.category || 'episodic', args.importance || 5);
+            const id = await mm.saveMemory(userId, args.content, args.category || 'episodic', args.importance || 5, { agentId });
             if (!id) {
                 return {
                     success: true,
@@ -1272,7 +1303,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'memory_recall': {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
-            const results = await mm.recallMemory(userId, args.query, args.limit || 6);
+            const results = await mm.recallMemory(userId, args.query, args.limit || 6, { agentId });
             if (!results.length) return { results: [], message: 'Nothing found' };
             return { results };
         }
@@ -1281,7 +1312,8 @@ async function executeTool(toolName, args, context, engine) {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
             const results = mm.searchConversations(userId, args.query, {
-                sessions: args.limit || 6
+                sessions: args.limit || 6,
+                agentId
             });
             if (!results.length) return { results: [], message: 'No matching sessions found' };
             return { results };
@@ -1290,7 +1322,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'memory_update_core': {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
-            mm.updateCore(userId, args.key, args.value);
+            mm.updateCore(userId, args.key, args.value, { agentId });
             return { success: true, key: args.key, message: 'Core memory updated' };
         }
 
@@ -1474,6 +1506,9 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'make_call': {
+            if (triggerSource === 'agent_delegation' && context.allowExternalSideEffects !== true) {
+                return { error: 'Delegated agents cannot make external calls unless external side effects were explicitly allowed.' };
+            }
             const manager = msg();
             if (!manager) return { error: 'Messaging not available' };
             const runState = getRunState(engine, runId);
@@ -1490,7 +1525,7 @@ async function executeTool(toolName, args, context, engine) {
                 };
             }
 
-            const callResult = await manager.makeCall(userId, args.to, args.greeting);
+            const callResult = await manager.makeCall(userId, args.to, args.greeting, { agentId });
             if (callResult?.success !== false) {
                 markProactiveMessageSent({
                     runState,
@@ -1502,6 +1537,9 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'send_message': {
+            if (triggerSource === 'agent_delegation' && context.allowExternalSideEffects !== true) {
+                return { error: 'Delegated agents cannot send external messages unless external side effects were explicitly allowed.' };
+            }
             const manager = msg();
             if (!manager) return { error: 'Messaging not available' };
             const runState = getRunState(engine, runId);
@@ -1520,6 +1558,7 @@ async function executeTool(toolName, args, context, engine) {
             }
 
             const sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
+                agentId,
                 mediaPath: args.media_path,
                 runId,
                 persistConversation: triggerSource === 'scheduler'
@@ -1739,11 +1778,16 @@ async function executeTool(toolName, args, context, engine) {
                     };
                 }
 
+                const loadAgentSetting = (key) => (
+                    db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
+                        .get(userId, agentId, key)?.value
+                    || db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+                        .get(userId, key)?.value
+                    || null
+                );
                 const loadDefaultTarget = () => ({
-                    platform: db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-                        .get(userId, 'last_platform')?.value || null,
-                    to: db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-                        .get(userId, 'last_chat_id')?.value || null
+                    platform: loadAgentSetting('last_platform'),
+                    to: loadAgentSetting('last_chat_id')
                 });
 
                 let taskConfig = null;
@@ -1783,7 +1827,7 @@ async function executeTool(toolName, args, context, engine) {
                 let lastError = null;
                 for (const target of candidateTargets) {
                     const status = typeof manager.getPlatformStatus === 'function'
-                        ? manager.getPlatformStatus(userId, target.platform)
+                        ? manager.getPlatformStatus(userId, target.platform, { agentId })
                         : null;
                     if (!status || status.status !== 'connected') {
                         lastError = new Error(`Platform ${target.platform} is not connected on this server.`);
@@ -1792,6 +1836,7 @@ async function executeTool(toolName, args, context, engine) {
 
                     try {
                         const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
+                            agentId,
                             runId,
                             persistConversation: true
                         });
@@ -1833,7 +1878,8 @@ async function executeTool(toolName, args, context, engine) {
                     enabled: args.enabled !== false,
                     model: args.model || null,
                     callTo: args.call_to || null,
-                    callGreeting: args.call_greeting || null
+                    callGreeting: args.call_greeting || null,
+                    agentId
                 });
                 const callNote = args.call_to ? ` | will call ${args.call_to}` : '';
                 return { success: true, task, message: `Scheduled task "${args.name}" created(${args.cron_expression}${callNote})` };
@@ -1853,7 +1899,8 @@ async function executeTool(toolName, args, context, engine) {
                     oneTime: true,
                     model: args.model || null,
                     callTo: args.call_to || null,
-                    callGreeting: args.call_greeting || null
+                    callGreeting: args.call_greeting || null,
+                    agentId
                 });
                 return { success: true, task, message: `One-time run "${args.name}" scheduled for ${args.run_at}` };
             } catch (err) {
@@ -1864,7 +1911,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'list_scheduled_tasks': {
             const s = sched();
             if (!s) return { error: 'Scheduler not available' };
-            const tasks = s.listTasks(userId);
+            const tasks = s.listTasks(userId).filter((task) => !agentId || task.agentId === agentId);
             return { tasks, count: tasks.length };
         }
 
@@ -1872,6 +1919,8 @@ async function executeTool(toolName, args, context, engine) {
             const s = sched();
             if (!s) return { error: 'Scheduler not available' };
             try {
+                const task = db.prepare('SELECT agent_id FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(args.task_id, userId);
+                if (!task || task.agent_id !== agentId) return { error: 'Scheduled task not found for this agent.' };
                 s.deleteTask(args.task_id, userId);
                 return { success: true, deleted: args.task_id };
             } catch (err) {
@@ -1883,6 +1932,8 @@ async function executeTool(toolName, args, context, engine) {
             const s = sched();
             if (!s) return { error: 'Scheduler not available' };
             try {
+                const existing = db.prepare('SELECT agent_id FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(args.task_id, userId);
+                if (!existing || existing.agent_id !== agentId) return { error: 'Scheduled task not found for this agent.' };
                 const updates = {};
                 if (args.name !== undefined) updates.name = args.name;
                 if (args.cron_expression !== undefined) updates.cronExpression = args.cron_expression;
@@ -1905,14 +1956,14 @@ async function executeTool(toolName, args, context, engine) {
                 const config = { args: args.args || [], env: args.env || {} };
                 const autoStart = args.auto_start !== false;
                 const result = db.prepare(
-                    'INSERT INTO mcp_servers (user_id, name, command, config, enabled) VALUES (?, ?, ?, ?, ?)'
-                ).run(userId, args.name, args.command, JSON.stringify(config), autoStart ? 1 : 0);
+                    'INSERT INTO mcp_servers (user_id, agent_id, name, command, config, enabled) VALUES (?, ?, ?, ?, ?, ?)'
+                ).run(userId, agentId, args.name, args.command, JSON.stringify(config), autoStart ? 1 : 0);
                 const serverId = result.lastInsertRowid;
                 let tools = [];
                 if (autoStart) {
                     try {
-                        await mcpClient.startServer(serverId, args.command, config.args, config.env);
-                        tools = await mcpClient.listTools(serverId);
+                        await mcpClient.startServer(serverId, args.command, args.name, userId, { agentId });
+                        tools = await mcpClient.listTools(serverId, userId);
                     } catch (startErr) {
                         return { registered: true, id: serverId, started: false, error: `Registered but failed to start: ${startErr.message}` };
                     }
@@ -1925,8 +1976,8 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'mcp_list_servers': {
             const mcpClient = mcp();
-            const servers = db.prepare('SELECT * FROM mcp_servers WHERE user_id = ? ORDER BY name ASC').all(userId);
-            const liveStatuses = mcpClient ? mcpClient.getStatus() : {};
+            const servers = db.prepare('SELECT * FROM mcp_servers WHERE user_id = ? AND agent_id = ? ORDER BY name ASC').all(userId, agentId);
+            const liveStatuses = mcpClient ? mcpClient.getStatus(userId, { agentId }) : {};
             return {
                 servers: servers.map(s => ({
                     id: s.id,
@@ -1995,7 +2046,7 @@ async function executeTool(toolName, args, context, engine) {
                 const candidates = [];
 
                 try {
-                    const preferred = await getProviderForUser(userId);
+                    const preferred = await getProviderForUser(userId, '', false, null, { agentId });
                     candidates.push({
                         providerName: preferred.providerName,
                         provider: preferred.provider,
@@ -2004,14 +2055,14 @@ async function executeTool(toolName, args, context, engine) {
                     attempted.push(`default-provider lookup failed: ${err.message}`);
                 }
 
-                for (const providerInfo of getProviderCatalog(userId)) {
+                for (const providerInfo of getProviderCatalog(userId, agentId)) {
                     if (!providerInfo.available) continue;
                     if (candidates.some((candidate) => candidate.providerName === providerInfo.id)) continue;
                     if (!['grok', 'openai'].includes(providerInfo.id)) continue;
                     try {
                         candidates.push({
                             providerName: providerInfo.id,
-                            provider: createProviderInstance(providerInfo.id, userId),
+                            provider: createProviderInstance(providerInfo.id, userId, { agentId }),
                         });
                     } catch (err) {
                         attempted.push(`${providerInfo.id}: ${err.message}`);
@@ -2057,9 +2108,33 @@ async function executeTool(toolName, args, context, engine) {
                     app,
                     model: args.model || null,
                     context: args.context || null,
+                    agentId,
                 });
             } catch (err) {
                 return { error: `Sub-agent failed: ${err.message}` };
+            }
+        }
+
+        case 'delegate_to_agent': {
+            try {
+                if (triggerSource === 'agent_delegation') {
+                    return { error: 'Nested agent delegation is disabled in v1.' };
+                }
+                if (!engine || typeof engine.delegateToAgent !== 'function') {
+                    return { error: 'Agent delegation is not available.' };
+                }
+                return await engine.delegateToAgent({
+                    userId,
+                    parentAgentId: agentId,
+                    parentRunId: runId,
+                    target: args.agent,
+                    task: args.task,
+                    context: args.context || '',
+                    app,
+                    allowExternalSideEffects: args.allow_external_side_effects === true,
+                });
+            } catch (err) {
+                return { error: `delegate_to_agent failed: ${err.message}` };
             }
         }
 
@@ -2093,7 +2168,7 @@ async function executeTool(toolName, args, context, engine) {
             const { detectPromptInjection } = require('../../utils/security');
             const mcpManager = mcp();
             if (mcpManager) {
-                const mcpResult = await mcpManager.callToolByName(toolName, args, userId);
+                const mcpResult = await mcpManager.callToolByName(toolName, args, userId, { agentId });
                 if (mcpResult !== null) {
                     const resultText = typeof mcpResult === 'string' ? mcpResult : JSON.stringify(mcpResult);
                     if (detectPromptInjection(resultText)) {

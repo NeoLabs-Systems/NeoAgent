@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
 router.use(requireAuth);
 
@@ -10,28 +11,30 @@ router.use(requireAuth);
 router.get('/', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const offset = parseInt(req.query.offset) || 0;
-  const runs = db.prepare('SELECT * FROM agent_runs WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?')
-    .all(req.session.userId, limit, offset);
-  const total = db.prepare('SELECT COUNT(*) as count FROM agent_runs WHERE user_id = ?').get(req.session.userId).count;
-  res.json({ runs, total, limit, offset });
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  const runs = db.prepare('SELECT * FROM agent_runs WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?')
+    .all(req.session.userId, agentId, limit, offset);
+  const total = db.prepare('SELECT COUNT(*) as count FROM agent_runs WHERE user_id = ? AND agent_id = ?').get(req.session.userId, agentId).count;
+  res.json({ runs, total, limit, offset, agentId });
 });
 
 // Chat history (web + social messages merged)
 router.get('/chat-history', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
 
   const webMsgs = db.prepare(`
     SELECT id, role, content, 'web' AS platform, NULL AS sender_name, created_at, agent_run_id AS run_id
-    FROM conversation_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?
-  `).all(userId, limit);
+    FROM conversation_history WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC LIMIT ?
+  `).all(userId, agentId, limit);
 
   const socialMsgs = db.prepare(`
     SELECT id, role, content, platform,
       json_extract(metadata, '$.senderName') AS sender_name, created_at, run_id
-    FROM messages WHERE user_id = ? AND platform != 'web'
+    FROM messages WHERE user_id = ? AND agent_id = ? AND platform != 'web'
     ORDER BY created_at DESC LIMIT ?
-  `).all(userId, limit);
+  `).all(userId, agentId, limit);
 
   // Normalize SQL datetime ('YYYY-MM-DD HH:MM:SS', treated as local) and ISO-Z strings to ms
   const toMs = (s) => {
@@ -44,13 +47,14 @@ router.get('/chat-history', (req, res) => {
     .sort((a, b) => toMs(a.created_at) - toMs(b.created_at))
     .slice(-limit);
 
-  res.json({ messages: all });
+  res.json({ messages: all, agentId });
 });
 
 // Create new agent run
 router.post('/', async (req, res) => {
   try {
     const { task, options } = req.body;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
     if (!task || typeof task !== 'string') return res.status(400).json({ error: 'Task must be a non-empty string' });
     if (task.length > 50000) return res.status(400).json({ error: 'Task exceeds maximum length of 50,000 characters' });
 
@@ -58,6 +62,7 @@ router.post('/', async (req, res) => {
     if (commandRouter) {
       const commandResult = await commandRouter.dispatch(task, {
         userId: req.session.userId,
+        agentId,
         source: 'http'
       });
       if (commandResult?.handled) {
@@ -69,20 +74,20 @@ router.post('/', async (req, res) => {
       }
     }
 
-    db.prepare('INSERT INTO conversation_history (user_id, role, content, metadata) VALUES (?, ?, ?, ?)')
-      .run(req.session.userId, 'user', task, JSON.stringify({ platform: 'flutter' }));
+    db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+      .run(req.session.userId, agentId, 'user', task, JSON.stringify({ platform: 'flutter' }));
 
     const engine = req.app?.locals?.agentEngine;
     const memoryManager = req.app?.locals?.memoryManager;
     if (!engine || !memoryManager) {
       return res.status(500).json({ error: 'Agent engine or memory manager is not initialized.' });
     }
-    const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(req.session.userId);
+    const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(req.session.userId, { agentId });
     const { ensureDefaultAiSettings, getAiSettings } = require('../services/ai/settings');
     const { getWebChatContext } = require('../services/ai/history');
-    ensureDefaultAiSettings(req.session.userId);
-    const aiSettings = getAiSettings(req.session.userId);
-    const webContext = getWebChatContext(req.session.userId, aiSettings.chat_history_window);
+    ensureDefaultAiSettings(req.session.userId, agentId);
+    const aiSettings = getAiSettings(req.session.userId, agentId);
+    const webContext = getWebChatContext(req.session.userId, aiSettings.chat_history_window, { agentId });
     const lastMatchIndex = webContext.recentMessages.findLastIndex(
       (message) => message.role === 'user' && message.content === task
     );
@@ -91,15 +96,17 @@ router.post('/', async (req, res) => {
       .slice(-aiSettings.chat_history_window);
     const result = await engine.run(req.session.userId, task, {
       ...(options || {}),
+      agentId,
       conversationId,
       priorMessages,
       priorSummary: webContext.summary,
     });
 
     if (result?.content) {
-      db.prepare('INSERT INTO conversation_history (user_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+      db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
         .run(
           req.session.userId,
+          agentId,
           result.runId,
           'assistant',
           result.content,
@@ -175,6 +182,7 @@ router.delete('/:id', (req, res) => {
 router.post('/multi-step', async (req, res) => {
   try {
     const { task, steps, options } = req.body;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
     if (!task) return res.status(400).json({ error: 'Task is required' });
 
     const multiStep = req.app.locals.multiStep;
@@ -183,6 +191,7 @@ router.post('/multi-step', async (req, res) => {
     }
     const result = await multiStep.planAndExecute(req.session.userId, task, {
       ...(options || {}),
+      agentId,
       requestedSteps: Array.isArray(steps) ? steps : [],
       forceMode: 'plan_execute',
     });

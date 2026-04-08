@@ -522,6 +522,12 @@ class _Sidebar extends StatelessWidget {
               ],
             ),
           ),
+          if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: _AgentSwitcher(controller: controller),
+            ),
+          ],
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(8),
@@ -580,6 +586,38 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
+class _AgentSwitcher extends StatelessWidget {
+  const _AgentSwitcher({required this.controller, this.onChanged});
+
+  final NeoAgentController controller;
+  final VoidCallback? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: controller.selectedAgentId,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Agent',
+        prefixIcon: Icon(Icons.smart_toy_outlined, size: 18),
+      ),
+      items: controller.agentProfiles
+          .map(
+            (agent) => DropdownMenuItem<String>(
+              value: agent.id,
+              child: Text(agent.label, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value == null) return;
+        onChanged?.call();
+        unawaited(controller.switchAgent(value));
+      },
+    );
+  }
+}
+
 class _MobileDrawer extends StatelessWidget {
   const _MobileDrawer({
     required this.controller,
@@ -600,17 +638,28 @@ class _MobileDrawer extends StatelessWidget {
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Row(
+              child: Column(
                 children: <Widget>[
-                  const _LogoBadge(size: 30),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      controller.accountLabel,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
+                  Row(
+                    children: <Widget>[
+                      const _LogoBadge(size: 30),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          controller.accountLabel,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
                   ),
+                  if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    _AgentSwitcher(
+                      controller: controller,
+                      onChanged: () => Navigator.of(context).pop(),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -682,6 +731,8 @@ class _SectionBody extends StatelessWidget {
         return LogsPanel(controller: controller);
       case AppSection.skills:
         return SkillsPanel(controller: controller);
+      case AppSection.agents:
+        return AgentsPanel(controller: controller);
       case AppSection.integrations:
         return IntegrationsPanel(controller: controller);
       case AppSection.memory:

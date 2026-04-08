@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
 router.use(requireAuth);
 
@@ -15,12 +16,13 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
   try {
     const { name, cronExpression, prompt, enabled, model } = req.body;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
     if (!name || !cronExpression || !prompt) {
       return res.status(400).json({ error: 'name, cronExpression, and prompt required' });
     }
 
     const scheduler = req.app.locals.scheduler;
-    const task = scheduler.createTask(req.session.userId, { name, cronExpression, prompt, enabled, model });
+    const task = scheduler.createTask(req.session.userId, { name, cronExpression, prompt, enabled, model, agentId });
     res.status(201).json(task);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });

@@ -191,7 +191,9 @@ function formatCurrentLocalDateTime(now = new Date()) {
 }
 
 async function buildSystemPrompt(userId, context = {}, memoryManager) {
-  const cacheKey = String(userId || 'global');
+  const agentId = context.agentId || null;
+  const triggerSource = context.triggerSource || 'web';
+  const cacheKey = `${String(userId || 'global')}:${String(agentId || 'main')}:${triggerSource}`;
   const now = Date.now();
   const cached = promptCache.get(cacheKey);
   const hasExtraContext = Boolean(context.additionalContext || context.includeRuntimeDetails);
@@ -208,10 +210,38 @@ async function buildSystemPrompt(userId, context = {}, memoryManager) {
     base.push(`Runtime details:\n${buildRuntimeDetails()}`);
   }
 
-  const memCtx = await memoryManager.buildContext(userId);
+  const memCtx = await memoryManager.buildContext(userId, { agentId });
   const compactMemory = clampSection(memCtx, 3200);
   if (compactMemory) {
     base.push(compactMemory);
+  }
+
+  if (agentId) {
+    try {
+      const db = require('../../db/database');
+      const { buildAgentRosterPrompt } = require('../agents/manager');
+      const agent = db.prepare('SELECT display_name, slug, description, responsibilities, instructions FROM agents WHERE user_id = ? AND id = ?')
+        .get(userId, agentId);
+      if (agent) {
+        base.push([
+          '## Active Agent',
+          `Name: ${agent.display_name} (${agent.slug})`,
+          agent.description ? `Description: ${clampSection(agent.description, 600)}` : '',
+          agent.responsibilities ? `Responsibilities: ${clampSection(agent.responsibilities, 1000)}` : '',
+          agent.instructions ? `Agent instructions: ${clampSection(agent.instructions, 1600)}` : '',
+        ].filter(Boolean).join('\n'));
+      }
+      const rosterPrompt = triggerSource === 'agent_delegation'
+        ? ''
+        : buildAgentRosterPrompt(userId, agentId);
+      if (rosterPrompt) base.push(rosterPrompt);
+    } catch (error) {
+      console.debug('Failed to load agent metadata for prompt:', {
+        userId,
+        agentId,
+        error,
+      });
+    }
   }
 
   if (context.additionalContext) {

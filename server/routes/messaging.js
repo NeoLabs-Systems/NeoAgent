@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
 const PREFIXED_ENTRY_RE = /[^0-9a-z:_.@#+=\-!$*]/gi;
 
@@ -25,20 +26,30 @@ router.post('/webhook/:platform', async (req, res) => {
 
 router.use(requireAuth);
 
+function upsertAgentSetting(userId, agentId, key, value) {
+  db.prepare(
+    `INSERT INTO agent_settings (user_id, agent_id, key, value)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
+  ).run(userId, agentId, key, JSON.stringify(value));
+}
+
 // Get all platform statuses
 router.get('/status', (req, res) => {
   const manager = req.app.locals.messagingManager;
-  res.json(manager.getAllStatuses(req.session.userId));
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  res.json(manager.getAllStatuses(req.session.userId, { agentId }));
 });
 
 // Connect to a platform
 router.post('/connect', async (req, res) => {
   try {
     const { platform, config } = req.body;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
     if (!platform) return res.status(400).json({ error: 'Platform is required' });
 
     const manager = req.app.locals.messagingManager;
-    const result = await manager.connectPlatform(req.session.userId, platform, config || {});
+    const result = await manager.connectPlatform(req.session.userId, platform, config || {}, { agentId });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -49,8 +60,9 @@ router.post('/connect', async (req, res) => {
 router.post('/disconnect', async (req, res) => {
   try {
     const { platform } = req.body;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
     const manager = req.app.locals.messagingManager;
-    const result = await manager.disconnectPlatform(req.session.userId, platform);
+    const result = await manager.disconnectPlatform(req.session.userId, platform, { agentId });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -61,8 +73,9 @@ router.post('/disconnect', async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     const { platform } = req.body;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
     const manager = req.app.locals.messagingManager;
-    const result = await manager.logoutPlatform(req.session.userId, platform);
+    const result = await manager.logoutPlatform(req.session.userId, platform, { agentId });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -73,10 +86,11 @@ router.post('/logout', async (req, res) => {
 router.post('/send', async (req, res) => {
   try {
     const { platform, to, content, mediaPath } = req.body;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
     if (!platform || !to || !content) return res.status(400).json({ error: 'platform, to, and content required' });
 
     const manager = req.app.locals.messagingManager;
-    const result = await manager.sendMessage(req.session.userId, platform, to, content, mediaPath);
+    const result = await manager.sendMessage(req.session.userId, platform, to, content, { mediaPath, agentId });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -86,8 +100,9 @@ router.post('/send', async (req, res) => {
 // Get message history
 router.get('/messages', (req, res) => {
   const { platform, chatId, limit } = req.query;
-  let query = 'SELECT * FROM messages WHERE user_id = ?';
-  const params = [req.session.userId];
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  let query = 'SELECT * FROM messages WHERE user_id = ? AND agent_id = ?';
+  const params = [req.session.userId, agentId];
 
   if (platform) { query += ' AND platform = ?'; params.push(platform); }
   if (chatId) { query += ' AND platform_chat_id = ?'; params.push(chatId); }
@@ -102,17 +117,18 @@ router.get('/messages', (req, res) => {
 // Get platform-specific status
 router.get('/status/:platform', (req, res) => {
   const manager = req.app.locals.messagingManager;
-  res.json(manager.getPlatformStatus(req.session.userId, req.params.platform));
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  res.json(manager.getPlatformStatus(req.session.userId, req.params.platform, { agentId }));
 });
 
 // Update Telnyx voice secret code (for non-whitelisted caller gating)
 router.put('/telnyx/voice-secret', (req, res) => {
   try {
     const code = String(req.body.secret || '').replace(/\D/g, ''); // digits only
-    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
-      .run(req.session.userId, 'platform_voice_secret_telnyx', JSON.stringify(code));
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    upsertAgentSetting(req.session.userId, agentId, 'platform_voice_secret_telnyx', code);
     const manager = req.app.locals.messagingManager;
-    if (manager) manager.updateTelnyxVoiceSecret(req.session.userId, code);
+    if (manager) manager.updateTelnyxVoiceSecret(req.session.userId, code, { agentId });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -125,10 +141,10 @@ router.put('/telnyx/whitelist', (req, res) => {
     const { numbers } = req.body;
     if (!Array.isArray(numbers)) return res.status(400).json({ error: 'numbers must be an array' });
     const list = numbers.map(n => n.replace(/[^0-9+]/g, '')).filter(Boolean);
-    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
-      .run(req.session.userId, 'platform_whitelist_telnyx', JSON.stringify(list));
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    upsertAgentSetting(req.session.userId, agentId, 'platform_whitelist_telnyx', list);
     const manager = req.app.locals.messagingManager;
-    if (manager) manager.updateTelnyxAllowedNumbers(req.session.userId, list);
+    if (manager) manager.updateTelnyxAllowedNumbers(req.session.userId, list, { agentId });
     res.json({ success: true, numbers: list });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -142,10 +158,10 @@ router.put('/discord/whitelist', (req, res) => {
     if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
     // Keep prefixed format, strip only clearly unsafe characters
     const list = ids.map(id => String(id).replace(/[^0-9a-z:_-]/gi, '')).filter(Boolean);
-    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
-      .run(req.session.userId, 'platform_whitelist_discord', JSON.stringify(list));
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    upsertAgentSetting(req.session.userId, agentId, 'platform_whitelist_discord', list);
     const manager = req.app.locals.messagingManager;
-    if (manager) manager.updateDiscordAllowedIds(req.session.userId, list);
+    if (manager) manager.updateDiscordAllowedIds(req.session.userId, list, { agentId });
     res.json({ success: true, ids: list });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -159,10 +175,10 @@ router.put('/telegram/whitelist', (req, res) => {
     if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
     // Keep prefixed format; group IDs are negative so allow minus sign
     const list = ids.map(id => String(id).replace(/[^0-9a-z:_-]/gi, '')).filter(Boolean);
-    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
-      .run(req.session.userId, 'platform_whitelist_telegram', JSON.stringify(list));
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    upsertAgentSetting(req.session.userId, agentId, 'platform_whitelist_telegram', list);
     const manager = req.app.locals.messagingManager;
-    if (manager) manager.updateTelegramAllowedIds(req.session.userId, list);
+    if (manager) manager.updateTelegramAllowedIds(req.session.userId, list, { agentId });
     res.json({ success: true, ids: list });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -177,10 +193,10 @@ router.put('/:platform/whitelist', (req, res) => {
     const platform = String(req.params.platform || '').replace(/[^0-9a-z_+-]/gi, '');
     if (!platform) return res.status(400).json({ error: 'platform is required' });
     const list = ids.map(id => String(id).replace(PREFIXED_ENTRY_RE, '')).filter(Boolean);
-    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
-      .run(req.session.userId, `platform_whitelist_${platform}`, JSON.stringify(list));
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    upsertAgentSetting(req.session.userId, agentId, `platform_whitelist_${platform}`, list);
     const manager = req.app.locals.messagingManager;
-    if (manager?.updateAllowedEntries) manager.updateAllowedEntries(req.session.userId, platform, list);
+    if (manager?.updateAllowedEntries) manager.updateAllowedEntries(req.session.userId, platform, list, { agentId });
     res.json({ success: true, ids: list });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });

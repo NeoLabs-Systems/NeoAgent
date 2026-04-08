@@ -29,6 +29,25 @@ const {
   validateRuntimeSettings,
 } = require('../services/runtime/settings');
 const { isManagedDeployment } = require('../utils/deployment');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+
+const AGENT_SETTING_KEYS = new Set([
+  'cost_mode',
+  'chat_history_window',
+  'tool_replay_budget_chars',
+  'subagent_max_iterations',
+  'assistant_behavior_notes',
+  'auto_skill_learning',
+  'auto_recording_insights',
+  'fallback_model_id',
+  'smarter_model_selector',
+  'ai_provider_configs',
+  'default_chat_model',
+  'default_subagent_model',
+  'enabled_models',
+  'last_platform',
+  'last_chat_id',
+]);
 
 router.use(requireAuth);
 
@@ -58,15 +77,17 @@ function applyHeadlessSetting(req, value) {
 // Get supported models metadata
 router.get('/meta/models', async (req, res) => {
   const { getSupportedModels } = require('../services/ai/models');
-  const models = await getSupportedModels(req.session.userId);
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  const models = await getSupportedModels(req.session.userId, agentId);
   res.json({ models });
 });
 
 router.get('/meta/ai-providers', async (req, res) => {
   const { getProviderHealthCatalog, getSupportedModels } = require('../services/ai/models');
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const [providers, models] = await Promise.all([
-    getProviderHealthCatalog(req.session.userId),
-    getSupportedModels(req.session.userId),
+    getProviderHealthCatalog(req.session.userId, agentId),
+    getSupportedModels(req.session.userId, agentId),
   ]);
 
   const modelCounts = models.reduce((acc, model) => {
@@ -88,9 +109,13 @@ router.get('/meta/ai-providers', async (req, res) => {
 
 // Get all settings
 router.get('/', (req, res) => {
-  ensureDefaultAiSettings(req.session.userId);
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  ensureDefaultAiSettings(req.session.userId, agentId);
   ensureDefaultRuntimeSettings(req.session.userId);
-  const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId);
+  const rows = [
+    ...db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId),
+    ...db.prepare('SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ?').all(req.session.userId, agentId),
+  ];
   const settings = createDefaultAiSettings();
   for (const row of rows) {
     try {
@@ -102,6 +127,7 @@ router.get('/', (req, res) => {
       settings[row.key] = redactRuntimeSettingValue(row.key, row.value);
     }
   }
+  settings.agentId = agentId;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
   res.json(settings);
 });
@@ -109,8 +135,11 @@ router.get('/', (req, res) => {
 // Update settings (batch)
 router.put('/', (req, res) => {
   const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  ensureDefaultAiSettings(userId, agentId);
   ensureDefaultRuntimeSettings(userId);
   const upsert = db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value');
+  const upsertAgent = db.prepare('INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value');
   const normalizedBody = { ...req.body };
 
   if ('platform_whitelist_whatsapp' in normalizedBody) {
@@ -155,7 +184,15 @@ router.put('/', (req, res) => {
   const tx = db.transaction((entries) => {
     for (const [key, value] of entries) {
       const v = serializeRuntimeSettingValue(key, value);
-      upsert.run(userId, key, v);
+      if (
+        AGENT_SETTING_KEYS.has(key) ||
+        key.startsWith('platform_whitelist_') ||
+        key === 'platform_voice_secret_telnyx'
+      ) {
+        upsertAgent.run(userId, agentId, key, v);
+      } else if (key !== 'agentId' && key !== 'agent_id') {
+        upsert.run(userId, key, v);
+      }
     }
   });
 
@@ -172,14 +209,15 @@ router.put('/', (req, res) => {
 // Token usage summary for settings UI
 router.get('/token-usage/summary', (req, res) => {
   const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const totals = db.prepare(`
     SELECT
       COALESCE(SUM(total_tokens), 0) AS totalTokens,
       COUNT(*) AS totalRuns,
       COALESCE(AVG(CASE WHEN total_tokens > 0 THEN total_tokens END), 0) AS avgTokensPerRun
     FROM agent_runs
-    WHERE user_id = ?
-  `).get(userId);
+    WHERE user_id = ? AND agent_id = ?
+  `).get(userId, agentId);
 
   const recentRows = db.prepare(`
     SELECT
@@ -187,10 +225,10 @@ router.get('/token-usage/summary', (req, res) => {
       COALESCE(SUM(total_tokens), 0) AS tokens,
       COUNT(*) AS runs
     FROM agent_runs
-    WHERE user_id = ? AND created_at >= datetime('now', '-6 days')
+    WHERE user_id = ? AND agent_id = ? AND created_at >= datetime('now', '-6 days')
     GROUP BY date(created_at)
     ORDER BY day ASC
-  `).all(userId);
+  `).all(userId, agentId);
 
   const byDay = new Map(recentRows.map(r => [r.day, { tokens: Number(r.tokens || 0), runs: Number(r.runs || 0) }]));
   const last7Days = [];
@@ -209,10 +247,10 @@ router.get('/token-usage/summary', (req, res) => {
   const promptMetricRows = db.prepare(`
     SELECT prompt_metrics
     FROM agent_runs
-    WHERE user_id = ? AND prompt_metrics IS NOT NULL
+    WHERE user_id = ? AND agent_id = ? AND prompt_metrics IS NOT NULL
     ORDER BY created_at DESC
     LIMIT 20
-  `).all(userId);
+  `).all(userId, agentId);
 
   const parsedMetrics = promptMetricRows
     .map((row) => {
@@ -256,8 +294,20 @@ router.get('/token-usage/summary', (req, res) => {
 
 // Get single setting
 router.get('/:key', (req, res) => {
-  ensureDefaultRuntimeSettings(req.session.userId);
-  const row = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(req.session.userId, req.params.key);
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  ensureDefaultRuntimeSettings(userId);
+  const isAgentSetting = AGENT_SETTING_KEYS.has(req.params.key)
+    || req.params.key.startsWith('platform_whitelist_')
+    || req.params.key === 'platform_voice_secret_telnyx'
+    || req.params.key === 'last_platform'
+    || req.params.key === 'last_chat_id';
+  const row = isAgentSetting
+    ? (
+      db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?').get(userId, agentId, req.params.key)
+      || db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, req.params.key)
+    )
+    : db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, req.params.key);
   if (!row) return res.json({ value: null });
   try {
     res.json({ value: redactRuntimeSettingValue(req.params.key, JSON.parse(row.value)) });
@@ -271,7 +321,9 @@ router.get('/:key', (req, res) => {
 
 // Set single setting
 router.put('/:key', (req, res) => {
-  ensureDefaultRuntimeSettings(req.session.userId);
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  ensureDefaultRuntimeSettings(userId);
   let value = req.body.value;
   if (req.params.key === 'platform_whitelist_whatsapp') {
     if (typeof value === 'string') {
@@ -302,8 +354,22 @@ router.put('/:key', (req, res) => {
     value = validation.settings[req.params.key];
   }
   const v = serializeRuntimeSettingValue(req.params.key, value);
-  db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
-    .run(req.session.userId, req.params.key, v);
+  if (
+    AGENT_SETTING_KEYS.has(req.params.key) ||
+    req.params.key.startsWith('platform_whitelist_') ||
+    req.params.key === 'platform_voice_secret_telnyx' ||
+    req.params.key === 'last_platform' ||
+    req.params.key === 'last_chat_id'
+  ) {
+    db.prepare(
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
+    ).run(userId, agentId, req.params.key, v);
+  } else {
+    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
+      .run(userId, req.params.key, v);
+  }
   if (req.params.key === 'headless_browser') {
     applyHeadlessSetting(req, value);
   }
@@ -312,7 +378,20 @@ router.put('/:key', (req, res) => {
 
 // Delete setting
 router.delete('/:key', (req, res) => {
-  db.prepare('DELETE FROM user_settings WHERE user_id = ? AND key = ?').run(req.session.userId, req.params.key);
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  if (
+    AGENT_SETTING_KEYS.has(req.params.key) ||
+    req.params.key.startsWith('platform_whitelist_') ||
+    req.params.key === 'platform_voice_secret_telnyx' ||
+    req.params.key === 'last_platform' ||
+    req.params.key === 'last_chat_id'
+  ) {
+    db.prepare('DELETE FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
+      .run(userId, agentId, req.params.key);
+  } else {
+    db.prepare('DELETE FROM user_settings WHERE user_id = ? AND key = ?').run(userId, req.params.key);
+  }
   res.json({ success: true });
 });
 

@@ -72,7 +72,7 @@ class MCPClient extends EventEmitter {
     this.servers = new Map();
   }
 
-  async startServer(serverId, url, name = '', userId = null) {
+  async startServer(serverId, url, name = '', userId = null, options = {}) {
     if (this.servers.has(serverId)) {
       await this.stopServer(serverId);
     }
@@ -111,6 +111,7 @@ class MCPClient extends EventEmitter {
       const serverObj = {
         id: serverId,
         userId,
+        agentId: options.agentId || null,
         url: endpoint,
         slug,
         name: name || String(serverId),
@@ -198,9 +199,10 @@ class MCPClient extends EventEmitter {
     });
   }
 
-  async callToolByName(fullName, args = {}, userId = null) {
+  async callToolByName(fullName, args = {}, userId = null, options = {}) {
     for (const [serverId, server] of this.servers) {
       if (userId != null && server.userId !== userId) continue;
+      if (options.agentId && server.agentId && server.agentId !== options.agentId) continue;
       const prefix = `mcp_${server.slug}_`;
       if (fullName.startsWith(prefix)) {
         const originalName = fullName.substring(prefix.length);
@@ -210,10 +212,11 @@ class MCPClient extends EventEmitter {
     return null;
   }
 
-  getAllTools(userId = null) {
+  getAllTools(userId = null, options = {}) {
     const allTools = [];
     for (const [serverId, server] of this.servers) {
       if (userId != null && server.userId !== userId) continue;
+      if (options.agentId && server.agentId && server.agentId !== options.agentId) continue;
       if (server.status !== 'running') continue;
       for (const tool of server.tools) {
         allTools.push({
@@ -228,10 +231,12 @@ class MCPClient extends EventEmitter {
     return allTools;
   }
 
-  getStatus(userId = null) {
+  getStatus(userId = null, options = {}) {
     const statuses = {};
+    const agentId = options.agentId || options.agent_id || null;
     for (const [serverId, server] of this.servers) {
       if (userId != null && server.userId !== userId) continue;
+      if (agentId && server.agentId && server.agentId !== agentId) continue;
       statuses[serverId] = {
         status: server.status,
         command: server.url,
@@ -249,7 +254,7 @@ class MCPClient extends EventEmitter {
 
     for (const srv of servers) {
       try {
-        await this.startServer(srv.id, srv.command, srv.name, userId);
+        await this.startServer(srv.id, srv.command, srv.name, userId, { agentId: srv.agent_id });
         await this.listTools(srv.id, userId);
         results.push({ id: srv.id, name: srv.name, status: 'running' });
       } catch (err) {

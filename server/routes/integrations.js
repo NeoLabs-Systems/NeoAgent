@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { resolvePublicBaseUrl } = require('../services/integrations/env');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
 function getIntegrationManager(req) {
   return req.app?.locals?.integrationManager;
@@ -98,7 +99,8 @@ router.get('/', (req, res) => {
     if (!manager) {
       throw new Error('Official integration manager is not available on app.locals.integrationManager.');
     }
-    res.json(manager.listProviders(req.session.userId));
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    res.json(manager.listProviders(req.session.userId, agentId));
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }
@@ -115,6 +117,7 @@ router.post('/:provider/connect', async (req, res) => {
       req.params.provider,
       {
         appKey: req.body?.appId,
+        agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
       },
     );
     res.json(result);
@@ -134,6 +137,7 @@ router.post('/:provider/disconnect', async (req, res) => {
       req.params.provider,
       {
         connectionId: req.body?.connectionId,
+        agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
       },
     );
     res.json(result);
@@ -148,7 +152,8 @@ router.get('/:provider/tools/status', (req, res) => {
     if (!manager) {
       throw new Error('Official integration manager is not available on app.locals.integrationManager.');
     }
-    res.json(manager.getToolStatus(req.session.userId, req.params.provider));
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    res.json(manager.getToolStatus(req.session.userId, req.params.provider, agentId));
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }

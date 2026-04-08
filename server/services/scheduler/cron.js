@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const crypto = require('crypto');
 const db = require('../../db/database');
+const { resolveAgentId } = require('../agents/manager');
 
 const MAX_SCHEDULER_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -59,8 +60,9 @@ class Scheduler {
     console.log('[Scheduler] One-time poller active (every 1 min)');
   }
 
-  createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null, model = null, runAt = null, oneTime = false }) {
-    const notifyTarget = this._getDefaultNotifyTarget(userId);
+  createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null, model = null, runAt = null, oneTime = false, agentId = null }) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
+    const notifyTarget = this._getDefaultNotifyTarget(userId, scopedAgentId);
 
     if (oneTime) {
       if (!runAt) throw new Error('runAt is required for one-time tasks');
@@ -76,10 +78,10 @@ class Scheduler {
       }
 
       const result = db.prepare(
-        'INSERT INTO scheduled_tasks (user_id, name, cron_expression, run_at, one_time, task_type, task_config, enabled) VALUES (?, ?, NULL, ?, 1, ?, ?, ?)'
-      ).run(userId, name, runAtDate.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ''), 'agent_prompt', JSON.stringify(config), enabled ? 1 : 0);
+        'INSERT INTO scheduled_tasks (user_id, agent_id, name, cron_expression, run_at, one_time, task_type, task_config, enabled) VALUES (?, ?, ?, NULL, ?, 1, ?, ?, ?)'
+      ).run(userId, scopedAgentId, name, runAtDate.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ''), 'agent_prompt', JSON.stringify(config), enabled ? 1 : 0);
 
-      return { id: result.lastInsertRowid, name, runAt: runAtDate.toISOString(), oneTime: true, enabled, model: config.model || null };
+      return { id: result.lastInsertRowid, name, runAt: runAtDate.toISOString(), oneTime: true, enabled, model: config.model || null, agentId: scopedAgentId };
     }
 
     if (!cronExpression || !cron.validate(cronExpression)) {
@@ -95,16 +97,16 @@ class Scheduler {
     }
 
     const result = db.prepare(
-      'INSERT INTO scheduled_tasks (user_id, name, cron_expression, task_type, task_config, enabled) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(userId, name, cronExpression, 'agent_prompt', JSON.stringify(config), enabled ? 1 : 0);
+      'INSERT INTO scheduled_tasks (user_id, agent_id, name, cron_expression, task_type, task_config, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(userId, scopedAgentId, name, cronExpression, 'agent_prompt', JSON.stringify(config), enabled ? 1 : 0);
 
     const taskId = result.lastInsertRowid;
 
     if (enabled) {
-      this._scheduleTask(taskId, userId, cronExpression, config);
+      this._scheduleTask(taskId, userId, cronExpression, config, scopedAgentId);
     }
 
-    return { id: taskId, name, cronExpression, enabled, callTo: config.callTo || null, model: config.model || null };
+    return { id: taskId, name, cronExpression, enabled, callTo: config.callTo || null, model: config.model || null, agentId: scopedAgentId };
   }
 
   updateTask(taskId, userId, updates) {
@@ -114,6 +116,9 @@ class Scheduler {
     const name = updates.name || task.name;
     const cronExpr = updates.cronExpression || task.cron_expression;
     const enabled = updates.enabled !== undefined ? updates.enabled : task.enabled;
+    const agentId = updates.agentId || updates.agent_id
+      ? resolveAgentId(userId, updates.agentId || updates.agent_id)
+      : (task.agent_id || resolveAgentId(userId, null));
 
     // Merge config — start from existing, apply any changes
     let config = this._normalizeTaskConfig(task.task_config);
@@ -128,7 +133,7 @@ class Scheduler {
       }
     }
     if (!config.notifyPlatform || !config.notifyTo) {
-      const notifyTarget = this._getDefaultNotifyTarget(userId);
+      const notifyTarget = this._getDefaultNotifyTarget(userId, agentId);
       if (notifyTarget.platform && notifyTarget.to) {
         config.notifyPlatform = notifyTarget.platform;
         config.notifyTo = notifyTarget.to;
@@ -141,8 +146,8 @@ class Scheduler {
       throw new Error(`Invalid cron expression: ${updates.cronExpression}`);
     }
 
-    db.prepare('UPDATE scheduled_tasks SET name = ?, cron_expression = ?, task_config = ?, enabled = ? WHERE id = ?')
-      .run(name, cronExpr, JSON.stringify(config), enabled ? 1 : 0, taskId);
+    db.prepare('UPDATE scheduled_tasks SET agent_id = ?, name = ?, cron_expression = ?, task_config = ?, enabled = ? WHERE id = ?')
+      .run(agentId, name, cronExpr, JSON.stringify(config), enabled ? 1 : 0, taskId);
 
     // Reschedule
     const existing = this.jobs.get(taskId);
@@ -152,10 +157,10 @@ class Scheduler {
     }
 
     if (enabled) {
-      this._scheduleTask(taskId, userId, cronExpr, config);
+      this._scheduleTask(taskId, userId, cronExpr, config, agentId);
     }
 
-    return { id: taskId, name, cronExpression: cronExpr, enabled, callTo: config.callTo || null, model: config.model || null };
+    return { id: taskId, name, cronExpression: cronExpr, enabled, callTo: config.callTo || null, model: config.model || null, agentId };
   }
 
   deleteTask(taskId, userId) {
@@ -187,7 +192,8 @@ class Scheduler {
         nextRun: t.one_time ? t.run_at : this._getNextRun(t.cron_expression),
         config,
         prompt: config.prompt || '',
-        model: config.model || null
+        model: config.model || null,
+        agentId: t.agent_id || resolveAgentId(userId, null)
       };
     });
   }
@@ -204,7 +210,7 @@ class Scheduler {
     return { running: true };
   }
 
-  _scheduleTask(taskId, userId, cronExpression, _config) {
+  _scheduleTask(taskId, userId, cronExpression, _config, agentId = null) {
     const task = cron.schedule(cronExpression, async () => {
       await this._executeTask(taskId, userId, {
         scheduledAt: new Date().toISOString(),
@@ -214,7 +220,7 @@ class Scheduler {
       });
     });
 
-    this.jobs.set(taskId, { task, userId });
+    this.jobs.set(taskId, { task, userId, agentId: agentId || resolveAgentId(userId, null) });
   }
 
   async _executeTask(taskId, userId, executionMeta = {}) {
@@ -245,6 +251,7 @@ class Scheduler {
     }
 
     const config = this._normalizeTaskConfig(task.task_config);
+    const agentId = task.agent_id || resolveAgentId(userId, config.agentId || config.agent_id || null);
     const scheduledAtMs = executionMeta.scheduledAt ? new Date(executionMeta.scheduledAt).getTime() : NaN;
     const isLateRecurringRun = (
       executionMeta.manual !== true
@@ -276,7 +283,7 @@ class Scheduler {
     const scheduleInfo = task.one_time ? 'One-time' : task.cron_expression;
 
     if (!config.callTo && (!config.notifyPlatform || !config.notifyTo)) {
-      const notifyTarget = this._getDefaultNotifyTarget(userId);
+      const notifyTarget = this._getDefaultNotifyTarget(userId, agentId);
       if (notifyTarget.platform && notifyTarget.to) {
         config.notifyPlatform = notifyTarget.platform;
         config.notifyTo = notifyTarget.to;
@@ -318,7 +325,7 @@ class Scheduler {
         const userPrompt = config.prompt || `You have been triggered by the scheduler to run the background task "${taskName}". Please execute any necessary checks or actions associated with this task.`;
         const basePrompt = taskContext + userPrompt + notifyHint;
 
-        const convId = this._getTaskConversation(userId, taskId, taskName);
+        const convId = this._getTaskConversation(userId, taskId, taskName, agentId);
 
         let attempt = 0;
         let recoveryNote = '';
@@ -327,6 +334,7 @@ class Scheduler {
           const runOptions = {
             triggerType: 'scheduler',
             triggerSource: 'scheduler',
+            agentId,
             app: this.app,
             ...(convId ? { conversationId: convId } : {}),
             taskId,
@@ -399,7 +407,7 @@ class Scheduler {
           // One-time tasks are handled by the poller; nothing to register here
           // But if it's already past due when we restart, the poller will catch it in <1 min
         } else if (task.cron_expression) {
-          this._scheduleTask(task.id, task.user_id, task.cron_expression, config);
+          this._scheduleTask(task.id, task.user_id, task.cron_expression, config, task.agent_id);
           loaded++;
         }
       } catch (err) {
@@ -445,50 +453,59 @@ class Scheduler {
       return null;
     }
   }
-  _getMessagingConversation(userId) {
-    const lastPlatform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_platform')?.value;
-    const lastChatId = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, 'last_chat_id')?.value;
+  _getMessagingConversation(userId, agentId = null) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
+    const lastPlatform = this._getAgentSetting(userId, scopedAgentId, 'last_platform');
+    const lastChatId = this._getAgentSetting(userId, scopedAgentId, 'last_chat_id');
     if (!lastPlatform || !lastChatId) return null;
 
     let convRow = db.prepare(
-      'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?'
-    ).get(userId, lastPlatform, lastChatId);
+      'SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?'
+    ).get(userId, scopedAgentId, lastPlatform, lastChatId);
 
     if (!convRow) {
       const convId = crypto.randomUUID();
       db.prepare(
-        'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
-      ).run(convId, userId, lastPlatform, lastChatId, `${lastPlatform} — ${lastChatId}`);
+        'INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(convId, userId, scopedAgentId, lastPlatform, lastChatId, `${lastPlatform} — ${lastChatId}`);
       convRow = { id: convId };
     }
 
     return convRow.id;
   }
 
-  _getTaskConversation(userId, taskId, taskName) {
+  _getTaskConversation(userId, taskId, taskName, agentId = null) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
     const platform = 'scheduler';
     const platformChatId = `task:${taskId}`;
 
     let convRow = db.prepare(
-      'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?'
-    ).get(userId, platform, platformChatId);
+      'SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?'
+    ).get(userId, scopedAgentId, platform, platformChatId);
 
     if (!convRow) {
       const convId = crypto.randomUUID();
       db.prepare(
-        'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
-      ).run(convId, userId, platform, platformChatId, `Scheduler — ${taskName || `Task ${taskId}`}`);
+        'INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(convId, userId, scopedAgentId, platform, platformChatId, `Scheduler — ${taskName || `Task ${taskId}`}`);
       convRow = { id: convId };
     }
 
     return convRow.id;
   }
 
-  _getDefaultNotifyTarget(userId) {
-    const platform = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-      .get(userId, 'last_platform')?.value || null;
-    const to = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-      .get(userId, 'last_chat_id')?.value || null;
+  _getAgentSetting(userId, agentId, key) {
+    const row = db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
+      .get(userId, agentId, key);
+    if (row) return row.value;
+    return db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+      .get(userId, key)?.value || null;
+  }
+
+  _getDefaultNotifyTarget(userId, agentId = null) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
+    const platform = this._getAgentSetting(userId, scopedAgentId, 'last_platform');
+    const to = this._getAgentSetting(userId, scopedAgentId, 'last_chat_id');
     return { platform, to };
   }
 }

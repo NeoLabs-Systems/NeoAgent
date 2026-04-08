@@ -6,6 +6,7 @@ const { OpenAIProvider } = require('./providers/openai');
 const {
     AI_PROVIDER_DEFINITIONS,
     getProviderConfigs,
+    getProviderSecrets,
 } = require('./settings');
 
 const STATIC_MODELS = [
@@ -94,15 +95,17 @@ async function probeOllama(baseUrl, timeoutMs = 1500) {
     }
 }
 
-function getProviderRuntimeConfig(userId, providerId) {
+function getProviderRuntimeConfig(userId, providerId, agentId = null) {
     const definition = AI_PROVIDER_DEFINITIONS[providerId];
     if (!definition) {
         throw new Error(`Unknown provider: ${providerId}`);
     }
 
-    const configs = getProviderConfigs(userId);
+    const configs = getProviderConfigs(userId, agentId);
+    const secrets = getProviderSecrets(userId, agentId);
     const config = configs[providerId] || {};
     const envApiKey = definition.envKey ? (process.env[definition.envKey] || '').trim() : '';
+    const scopedApiKey = typeof secrets[providerId] === 'string' ? secrets[providerId].trim() : '';
     const baseUrl = definition.supportsBaseUrl
         ? ((typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '') || definition.defaultBaseUrl || '')
         : '';
@@ -110,15 +113,15 @@ function getProviderRuntimeConfig(userId, providerId) {
     return {
         ...definition,
         enabled: config.enabled !== false,
-        apiKey: envApiKey,
-        credentialConfigured: Boolean(envApiKey),
+        apiKey: scopedApiKey || envApiKey,
+        credentialConfigured: Boolean(scopedApiKey || envApiKey),
         baseUrl
     };
 }
 
-function getProviderCatalog(userId) {
+function getProviderCatalog(userId, agentId = null) {
     return Object.values(AI_PROVIDER_DEFINITIONS).map((definition) => {
-        const runtime = getProviderRuntimeConfig(userId, definition.id);
+        const runtime = getProviderRuntimeConfig(userId, definition.id, agentId);
         const available = runtime.enabled && (!definition.supportsApiKey || Boolean(runtime.apiKey));
 
         let status = 'ready';
@@ -161,8 +164,8 @@ function getProviderCatalog(userId) {
     });
 }
 
-async function getProviderHealthCatalog(userId) {
-    const providers = getProviderCatalog(userId);
+async function getProviderHealthCatalog(userId, agentId = null) {
+    const providers = getProviderCatalog(userId, agentId);
     const enriched = [];
 
     for (const provider of providers) {
@@ -217,8 +220,8 @@ async function getProviderHealthCatalog(userId) {
     return enriched;
 }
 
-async function getSupportedModels(userId) {
-    const providerCatalog = await getProviderHealthCatalog(userId);
+async function getSupportedModels(userId, agentId = null) {
+    const providerCatalog = await getProviderHealthCatalog(userId, agentId);
     const providerById = new Map(providerCatalog.map((provider) => [provider.id, provider]));
 
     const all = [...STATIC_MODELS];
@@ -277,7 +280,8 @@ async function refreshDynamicModels(baseUrl) {
 }
 
 function createProviderInstance(providerStr, userId = null, configOverrides = {}) {
-    const runtime = getProviderRuntimeConfig(userId, providerStr);
+    const { agentId = null, ...providerOverrides } = configOverrides || {};
+    const runtime = getProviderRuntimeConfig(userId, providerStr, agentId);
 
     if (!runtime.enabled) {
         throw new Error(`Provider '${providerStr}' is disabled in settings.`);
@@ -287,17 +291,17 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
     }
 
     if (providerStr === 'grok') {
-        return new GrokProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
+        return new GrokProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
     } else if (providerStr === 'openai') {
-        return new OpenAIProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
+        return new OpenAIProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
     } else if (providerStr === 'anthropic') {
-        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
+        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
     } else if (providerStr === 'google') {
-        return new GoogleProvider({ apiKey: runtime.apiKey, ...configOverrides });
+        return new GoogleProvider({ apiKey: runtime.apiKey, ...providerOverrides });
     } else if (providerStr === 'minimax') {
-        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...configOverrides });
+        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
     } else if (providerStr === 'ollama') {
-        return new OllamaProvider({ baseUrl: runtime.baseUrl, ...configOverrides });
+        return new OllamaProvider({ baseUrl: runtime.baseUrl, ...providerOverrides });
     }
     throw new Error(`Unknown provider: ${providerStr}`);
 }

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const db = require('../../db/database');
 const { createIntegrationRegistry } = require('./registry');
 const { decryptValue, encryptValue } = require('./secrets');
+const { resolveAgentId } = require('../agents/manager');
 
 class IntegrationManager {
   constructor() {
@@ -20,26 +21,29 @@ class IntegrationManager {
     ).run();
   }
 
-  listConnections(userId, providerKey = null) {
+  listConnections(userId, providerKey = null, agentId = null) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
     const query = providerKey
-      ? 'SELECT * FROM integration_connections WHERE user_id = ? AND provider_key = ? ORDER BY updated_at DESC, id DESC'
-      : 'SELECT * FROM integration_connections WHERE user_id = ? ORDER BY updated_at DESC, id DESC';
+      ? 'SELECT * FROM integration_connections WHERE user_id = ? AND agent_id = ? AND provider_key = ? ORDER BY updated_at DESC, id DESC'
+      : 'SELECT * FROM integration_connections WHERE user_id = ? AND agent_id = ? ORDER BY updated_at DESC, id DESC';
     return providerKey
-      ? db.prepare(query).all(userId, providerKey)
-      : db.prepare(query).all(userId);
+      ? db.prepare(query).all(userId, scopedAgentId, providerKey)
+      : db.prepare(query).all(userId, scopedAgentId);
   }
 
-  getConnectionById(userId, connectionId) {
+  getConnectionById(userId, connectionId, agentId = null) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
     return db
       .prepare(
-        'SELECT * FROM integration_connections WHERE user_id = ? AND id = ?',
+        'SELECT * FROM integration_connections WHERE user_id = ? AND agent_id = ? AND id = ?',
       )
-      .get(userId, connectionId);
+      .get(userId, scopedAgentId, connectionId);
   }
 
-  listProviders(userId) {
+  listProviders(userId, agentId = null) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
     this.cleanupExpiredOauthStates();
-    const rows = this.listConnections(userId);
+    const rows = this.listConnections(userId, null, scopedAgentId);
     const rowsByProvider = new Map();
     for (const row of rows) {
       const providerKey = String(row.provider_key || '').trim();
@@ -54,6 +58,7 @@ class IntegrationManager {
 
   async beginOAuth(userId, providerKey, options = {}) {
     this.cleanupExpiredOauthStates();
+    const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
     const provider = this.getProvider(providerKey);
     if (!provider) {
       throw new Error(`Unknown integration provider: ${providerKey}`);
@@ -82,14 +87,16 @@ class IntegrationManager {
     db.prepare(
       `INSERT INTO integration_oauth_states (
          user_id,
+         agent_id,
          provider_key,
          app_key,
          state,
          code_verifier,
          expires_at
-       ) VALUES (?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       userId,
+      agentId,
       provider.key,
       appKey,
       state,
@@ -133,6 +140,7 @@ class IntegrationManager {
     db.prepare(
       `INSERT INTO integration_connections (
          user_id,
+         agent_id,
          provider_key,
          app_key,
          status,
@@ -142,8 +150,8 @@ class IntegrationManager {
          metadata_json,
          last_connected_at,
          updated_at
-       ) VALUES (?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(user_id, provider_key, app_key, account_email) DO UPDATE SET
+       ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
          status = 'connected',
          scopes_json = excluded.scopes_json,
          credentials_json = excluded.credentials_json,
@@ -152,6 +160,7 @@ class IntegrationManager {
          updated_at = excluded.updated_at`,
     ).run(
       stateRow.user_id,
+      stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
       provider.key,
       stateRow.app_key,
       result.accountEmail,
@@ -163,10 +172,11 @@ class IntegrationManager {
     const connection = db
       .prepare(
         `SELECT * FROM integration_connections
-         WHERE user_id = ? AND provider_key = ? AND app_key = ? AND account_email = ?`,
+         WHERE user_id = ? AND agent_id = ? AND provider_key = ? AND app_key = ? AND account_email = ?`,
       )
       .get(
         stateRow.user_id,
+        stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
         provider.key,
         stateRow.app_key,
         result.accountEmail,
@@ -185,6 +195,7 @@ class IntegrationManager {
   }
 
   async disconnect(userId, providerKey, options = {}) {
+    const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
     const provider = this.getProvider(providerKey);
     if (!provider) {
       throw new Error(`Unknown integration provider: ${providerKey}`);
@@ -195,7 +206,7 @@ class IntegrationManager {
       throw new Error('A valid connectionId is required to disconnect an account.');
     }
 
-    const connection = this.getConnectionById(userId, connectionId);
+    const connection = this.getConnectionById(userId, connectionId, agentId);
     if (!connection || connection.provider_key !== provider.key) {
       return {
         disconnected: true,
@@ -206,8 +217,9 @@ class IntegrationManager {
     }
 
     await provider.disconnect(connection).catch(() => {});
-    db.prepare('DELETE FROM integration_connections WHERE user_id = ? AND id = ?').run(
+    db.prepare('DELETE FROM integration_connections WHERE user_id = ? AND agent_id = ? AND id = ?').run(
       userId,
+      agentId,
       connection.id,
     );
 
@@ -220,12 +232,12 @@ class IntegrationManager {
     };
   }
 
-  getToolDefinitions(userId) {
+  getToolDefinitions(userId, agentId = null) {
     const definitions = [];
     for (const provider of this.registry.list()) {
       const env = provider.getEnvStatus();
       if (!env.configured) continue;
-      const connections = this.listConnections(userId, provider.key);
+      const connections = this.listConnections(userId, provider.key, agentId);
       const connectedAppIds = Array.from(
         new Set(
           connections
@@ -240,13 +252,13 @@ class IntegrationManager {
     return definitions;
   }
 
-  getToolStatus(userId, providerKey) {
+  getToolStatus(userId, providerKey, agentId = null) {
     const provider = this.getProvider(providerKey);
     if (!provider) {
       throw new Error(`Unknown integration provider: ${providerKey}`);
     }
     const env = provider.getEnvStatus();
-    const connections = this.listConnections(userId, provider.key);
+    const connections = this.listConnections(userId, provider.key, agentId);
     const snapshot = provider.buildSnapshot(connections);
     const connectedAppIds = snapshot.apps
       .filter((app) => app.connection.connected)
@@ -269,7 +281,7 @@ class IntegrationManager {
     };
   }
 
-  selectToolConnection(provider, toolName, args, userId) {
+  selectToolConnection(provider, toolName, args, userId, agentId = null) {
     const appKey = provider.getToolAppId?.(toolName);
     if (!appKey) {
       return {
@@ -279,7 +291,7 @@ class IntegrationManager {
 
     const app = provider.getApp?.(appKey);
     const appLabel = app?.label || appKey;
-    const connections = this.listConnections(userId, provider.key).filter(
+    const connections = this.listConnections(userId, provider.key, agentId).filter(
       (connection) =>
         connection.status === 'connected' &&
         String(connection.app_key || '').trim() === appKey,
@@ -329,7 +341,7 @@ class IntegrationManager {
     };
   }
 
-  async executeTool(userId, toolName, args) {
+  async executeTool(userId, toolName, args, agentId = null) {
     let foundSupportingProvider = false;
     for (const provider of this.registry.list()) {
       if (!provider.supportsTool(toolName)) continue;
@@ -339,7 +351,7 @@ class IntegrationManager {
         return { error: env.summary };
       }
 
-      const selection = this.selectToolConnection(provider, toolName, args, userId);
+      const selection = this.selectToolConnection(provider, toolName, args, userId, agentId);
       if (selection.error) {
         return { error: selection.error };
       }
@@ -378,10 +390,10 @@ class IntegrationManager {
       : { error: 'no_provider_support' };
   }
 
-  summarizeConnectedProviders(userId) {
+  summarizeConnectedProviders(userId, agentId = null) {
     const providers = this.registry.list().map((provider) => ({
       provider,
-      snapshot: provider.buildSnapshot(this.listConnections(userId, provider.key)),
+      snapshot: provider.buildSnapshot(this.listConnections(userId, provider.key, agentId)),
     }));
 
     if (providers.length === 0) {

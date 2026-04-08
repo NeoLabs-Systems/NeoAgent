@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
 router.use(requireAuth);
 
@@ -13,14 +14,14 @@ function normalizeMemoryIds(value) {
   )];
 }
 
-function findOwnedMemoryIds(db, userId, ids) {
+function findOwnedMemoryIds(db, userId, agentId, ids) {
   if (!ids.length) {
     return [];
   }
   const placeholders = ids.map(() => '?').join(', ');
   return db.prepare(
-    `SELECT id FROM memories WHERE user_id = ? AND id IN (${placeholders})`
-  ).all(userId, ...ids).map((row) => row.id);
+    `SELECT id FROM memories WHERE user_id = ? AND agent_id = ? AND id IN (${placeholders})`
+  ).all(userId, agentId, ...ids).map((row) => row.id);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,10 +31,12 @@ function findOwnedMemoryIds(db, userId, ids) {
 router.get('/', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
-  const coreMemory = { ...(mm.getCoreMemory(userId) || {}) };
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const coreMemory = { ...(mm.getCoreMemory(userId, { agentId }) || {}) };
   delete coreMemory.active_context;
   res.json({
-    assistantBehaviorNotes: mm.getAssistantBehaviorNotes(userId),
+    agentId,
+    assistantBehaviorNotes: mm.getAssistantBehaviorNotes(userId, { agentId }),
     dailyLogs: mm.listDailyLogs(7, userId),
     apiKeys: Object.keys(mm.readApiKeys(userId)),
     coreMemory
@@ -48,13 +51,15 @@ router.get('/', (req, res) => {
 router.get('/memories', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const { category, limit = 50, offset = 0, archived = false } = req.query;
   try {
     const memories = mm.listMemories(userId, {
       category: category || null,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      includeArchived: archived === 'true'
+      includeArchived: archived === 'true',
+      agentId,
     });
     res.json(memories);
   } catch (err) {
@@ -66,10 +71,11 @@ router.get('/memories', (req, res) => {
 router.post('/memories', async (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const { content, category = 'episodic', importance = 5 } = req.body;
   if (!content || !content.trim()) return res.status(400).json({ error: 'content is required' });
   try {
-    const id = await mm.saveMemory(userId, content, category, importance);
+    const id = await mm.saveMemory(userId, content, category, importance, { agentId });
     res.json({ success: true, id });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -81,7 +87,8 @@ router.put('/memories/:id', async (req, res) => {
   const mm = req.app.locals.memoryManager;
   const db = require('../db/database');
   // Verify ownership before updating
-  const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ? AND agent_id = ?').get(req.params.id, req.session.userId, agentId);
   if (!existing) return res.status(404).json({ error: 'Memory not found' });
   const { content, importance, category } = req.body;
   try {
@@ -98,7 +105,8 @@ router.delete('/memories/:id', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const db = require('../db/database');
   // Verify ownership before deleting
-  const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ? AND agent_id = ?').get(req.params.id, req.session.userId, agentId);
   if (!existing) return res.status(404).json({ error: 'Memory not found' });
   mm.deleteMemory(req.params.id);
   res.json({ success: true });
@@ -112,7 +120,8 @@ router.post('/memories/bulk-delete', (req, res) => {
     return res.status(400).json({ error: 'ids is required' });
   }
   try {
-    const ownedIds = findOwnedMemoryIds(db, req.session.userId, ids);
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const ownedIds = findOwnedMemoryIds(db, req.session.userId, agentId, ids);
     if (!ownedIds.length) {
       return res.status(404).json({ error: 'Memory not found' });
     }
@@ -132,7 +141,8 @@ router.post('/memories/bulk-archive', (req, res) => {
     return res.status(400).json({ error: 'ids is required' });
   }
   try {
-    const ownedIds = findOwnedMemoryIds(db, req.session.userId, ids);
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const ownedIds = findOwnedMemoryIds(db, req.session.userId, agentId, ids);
     if (!ownedIds.length) {
       return res.status(404).json({ error: 'Memory not found' });
     }
@@ -147,10 +157,11 @@ router.post('/memories/bulk-archive', (req, res) => {
 router.post('/memories/recall', async (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const { query, limit = 8 } = req.body;
   if (!query) return res.status(400).json({ error: 'query is required' });
   try {
-    const results = await mm.recallMemory(userId, query, parseInt(limit));
+    const results = await mm.recallMemory(userId, query, parseInt(limit), { agentId });
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -164,7 +175,8 @@ router.post('/memories/recall', async (req, res) => {
 router.get('/core', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
-  const coreMemory = { ...(mm.getCoreMemory(userId) || {}) };
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const coreMemory = { ...(mm.getCoreMemory(userId, { agentId }) || {}) };
   delete coreMemory.active_context;
   res.json(coreMemory);
 });
@@ -172,22 +184,24 @@ router.get('/core', (req, res) => {
 router.put('/core/:key', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const { value } = req.body;
   if (value === undefined) return res.status(400).json({ error: 'value is required' });
   if (req.params.key === 'active_context') {
     return res.status(400).json({ error: 'active_context is no longer a supported core memory key' });
   }
-  mm.updateCore(userId, req.params.key, value);
+  mm.updateCore(userId, req.params.key, value, { agentId });
   res.json({ success: true });
 });
 
 router.delete('/core/:key', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   if (req.params.key === 'active_context') {
     return res.status(400).json({ error: 'active_context is no longer a supported core memory key' });
   }
-  mm.deleteCore(userId, req.params.key);
+  mm.deleteCore(userId, req.params.key, { agentId });
   res.json({ success: true });
 });
 
@@ -234,14 +248,17 @@ router.delete('/api-keys/:service', (req, res) => {
 
 router.get('/conversations', (req, res) => {
   const mm = req.app.locals.memoryManager;
-  const conversations = mm.getRecentConversations(req.session.userId, parseInt(req.query.limit) || 20);
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  const conversations = mm.getRecentConversations(req.session.userId, parseInt(req.query.limit) || 20, { agentId });
   res.json(conversations);
 });
 
 router.post('/conversations/search', (req, res) => {
   const mm = req.app.locals.memoryManager;
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const results = mm.searchConversations(req.session.userId, req.body.query, {
-    sessions: parseInt(req.body.limit) || 8
+    sessions: parseInt(req.body.limit) || 8,
+    agentId
   });
   res.json(results);
 });

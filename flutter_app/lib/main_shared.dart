@@ -14,6 +14,7 @@ EdgeInsets _pagePadding(BuildContext context) {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
+    AppSection.agents,
     AppSection.recordings,
     if (controller.showWearablesSection) AppSection.wearables,
     AppSection.runs,

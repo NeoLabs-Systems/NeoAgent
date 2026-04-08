@@ -10,6 +10,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
   app.locals.userQueues = userQueues;
 
   messagingManager.registerHandler(async (userId, msg) => {
+    const agentId = msg.agentId || null;
     if (!(await isAllowedMessagingSender({ io, userId, msg }))) {
       return;
     }
@@ -20,6 +21,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
       try {
         commandResult = await commandRouter.dispatch(msg.content, {
           userId,
+          agentId,
           source: 'messaging',
           platform: msg.platform,
           chatId: msg.chatId,
@@ -36,7 +38,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
             msg.platform,
             msg.chatId,
             `Command handling failed: ${err.message}`,
-            { runId: null }
+            { runId: null, agentId }
           );
         } catch (sendErr) {
           console.error(`[Messaging] Failed to report command dispatch error on ${msg.platform}:`, sendErr.message);
@@ -59,7 +61,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
             msg.platform,
             msg.chatId,
             commandResult.content || 'Done.',
-            { runId: null }
+            { runId: null, agentId }
           );
         } catch (err) {
           console.error(`[Messaging] Failed to send command response on ${msg.platform}:`, err.message);
@@ -72,10 +74,12 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
     }
 
     const upsertSetting = db.prepare(
-      'INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)'
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
     );
-    upsertSetting.run(userId, 'last_platform', msg.platform);
-    upsertSetting.run(userId, 'last_chat_id', msg.chatId);
+    upsertSetting.run(userId, agentId, 'last_platform', msg.platform);
+    upsertSetting.run(userId, agentId, 'last_chat_id', msg.chatId);
 
     await processQueuedMessage({
       userQueues,
@@ -94,10 +98,12 @@ async function processQueuedMessage({
   userId,
   msg
 }) {
-  if (!userQueues[userId]) {
-    userQueues[userId] = { running: false, pending: [], cancelRequested: false };
+  const agentId = msg.agentId || null;
+  const queueKey = `${userId}:${agentId || 'main'}`;
+  if (!userQueues[queueKey]) {
+    userQueues[queueKey] = { running: false, pending: [], cancelRequested: false };
   }
-  const queue = userQueues[userId];
+  const queue = userQueues[queueKey];
 
   if (queue.cancelRequested && !queue.running) {
     queue.pending = [];
@@ -119,11 +125,12 @@ async function processQueuedMessage({
   let stopTypingKeepalive = async () => {};
   try {
     await messagingManager
-      .markRead(userId, msg.platform, msg.chatId, msg.messageId)
+      .markRead(userId, msg.platform, msg.chatId, msg.messageId, { agentId })
       .catch(() => {});
     stopTypingKeepalive = startTypingKeepalive({
       messagingManager,
       userId,
+      agentId,
       platform: msg.platform,
       chatId: msg.chatId
     });
@@ -131,6 +138,7 @@ async function processQueuedMessage({
     const prompt = buildIncomingPrompt(msg);
     const conversationId = ensureConversation(userId, msg);
     const runOptions = {
+      agentId,
       triggerSource: 'messaging',
       conversationId,
       source: msg.platform,
@@ -170,6 +178,7 @@ async function processQueuedMessage({
 function startTypingKeepalive({
   messagingManager,
   userId,
+  agentId,
   platform,
   chatId,
   intervalMs = 4000
@@ -187,7 +196,7 @@ function startTypingKeepalive({
   const loop = (async () => {
     while (!stopped) {
       await messagingManager
-        .sendTyping(userId, platform, chatId, true)
+        .sendTyping(userId, platform, chatId, true, { agentId })
         .catch(() => {});
 
       if (stopped) break;
@@ -207,7 +216,7 @@ function startTypingKeepalive({
     }
     await loop.catch(() => {});
     await messagingManager
-      .sendTyping(userId, platform, chatId, false)
+      .sendTyping(userId, platform, chatId, false, { agentId })
       .catch(() => {});
   };
 }
@@ -215,9 +224,9 @@ function startTypingKeepalive({
 function ensureConversation(userId, msg) {
   let conversation = db
     .prepare(
-      'SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?'
+      'SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?'
     )
-    .get(userId, msg.platform, msg.chatId);
+    .get(userId, msg.agentId, msg.platform, msg.chatId);
 
   if (conversation) {
     return conversation.id;
@@ -225,10 +234,11 @@ function ensureConversation(userId, msg) {
 
   const conversationId = randomUUID();
   db.prepare(
-    'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(
     conversationId,
     userId,
+    msg.agentId,
     msg.platform,
     msg.chatId,
     `${msg.platform} — ${msg.senderName || msg.sender || msg.chatId}`
@@ -290,9 +300,13 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     return true;
   }
 
+  const agentId = msg.agentId || null;
   const whitelistRow = db
-    .prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-    .get(userId, `platform_whitelist_${msg.platform}`);
+    .prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
+    .get(userId, agentId, `platform_whitelist_${msg.platform}`)
+    || db
+      .prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+      .get(userId, `platform_whitelist_${msg.platform}`);
 
   const normalize =
     msg.platform === 'whatsapp'

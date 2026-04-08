@@ -1062,6 +1062,82 @@ class ChatEntry {
   }
 }
 
+class AgentProfile {
+  const AgentProfile({
+    required this.id,
+    required this.slug,
+    required this.displayName,
+    required this.description,
+    required this.responsibilities,
+    required this.instructions,
+    required this.status,
+    required this.isDefault,
+    required this.canDelegate,
+    required this.canBeDelegatedTo,
+    required this.delegateTargets,
+  });
+
+  factory AgentProfile.fromJson(Map<dynamic, dynamic> json) {
+    final displayName =
+        json['displayName']?.toString().ifEmpty('Agent') ??
+        json['display_name']?.toString().ifEmpty('Agent') ??
+        'Agent';
+    return AgentProfile(
+      id: json['id']?.toString() ?? '',
+      slug:
+          json['slug']?.toString().ifEmpty(
+            displayName.toLowerCase().replaceAll(RegExp(r'\s+'), '-'),
+          ) ??
+          'agent',
+      displayName: displayName,
+      description: json['description']?.toString() ?? '',
+      responsibilities: json['responsibilities']?.toString() ?? '',
+      instructions: json['instructions']?.toString() ?? '',
+      status: json['status']?.toString().ifEmpty('active') ?? 'active',
+      isDefault:
+          json['isDefault'] == true ||
+          json['isDefault'] == 1 ||
+          json['is_default'] == true ||
+          json['is_default'] == 1,
+      canDelegate:
+          json['canDelegate'] == true ||
+          json['canDelegate'] == 1 ||
+          json['can_delegate'] == true ||
+          json['can_delegate'] == 1,
+      canBeDelegatedTo:
+          json['canBeDelegatedTo'] != false &&
+          json['canBeDelegatedTo'] != 0 &&
+          json['can_be_delegated_to'] != false &&
+          json['can_be_delegated_to'] != 0,
+      delegateTargets:
+          (json['delegateTargets'] as List<dynamic>? ??
+                  json['delegate_targets'] as List<dynamic>? ??
+                  const <dynamic>[])
+              .map((item) => item.toString())
+              .where((id) => id.isNotEmpty)
+              .toList(),
+    );
+  }
+
+  final String id;
+  final String slug;
+  final String displayName;
+  final String description;
+  final String responsibilities;
+  final String instructions;
+  final String status;
+  final bool isDefault;
+  final bool canDelegate;
+  final bool canBeDelegatedTo;
+  final List<String> delegateTargets;
+
+  bool get isMain => slug == 'main';
+  bool get isArchived => status == 'archived';
+  String get label => isDefault ? '$displayName (default)' : displayName;
+  bool get delegatesToAnyEligibleAgent =>
+      canDelegate && delegateTargets.isEmpty;
+}
+
 class ModelMeta {
   const ModelMeta({
     required this.id,
@@ -1865,6 +1941,7 @@ class ConversationItem {
 class SchedulerTask {
   const SchedulerTask({
     required this.id,
+    required this.agentId,
     required this.name,
     required this.cronExpression,
     required this.runAt,
@@ -1881,6 +1958,7 @@ class SchedulerTask {
         : const <String, dynamic>{};
     return SchedulerTask(
       id: _asInt(json['id']),
+      agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
       name: json['name']?.toString() ?? 'Task',
       cronExpression: json['cronExpression']?.toString() ?? '',
       runAt: _parseOptionalTimestamp(json['runAt']?.toString()),
@@ -1901,6 +1979,7 @@ class SchedulerTask {
   }
 
   final int id;
+  final String? agentId;
   final String name;
   final String cronExpression;
   final DateTime? runAt;
@@ -1922,6 +2001,7 @@ class SchedulerTask {
 class McpServerItem {
   const McpServerItem({
     required this.id,
+    required this.agentId,
     required this.name,
     required this.command,
     required this.config,
@@ -1933,6 +2013,7 @@ class McpServerItem {
   factory McpServerItem.fromJson(Map<dynamic, dynamic> json) {
     return McpServerItem(
       id: _asInt(json['id']),
+      agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
       name: json['name']?.toString() ?? 'MCP Server',
       command: json['command']?.toString() ?? '',
       config: json['config'] is Map
@@ -1945,6 +2026,7 @@ class McpServerItem {
   }
 
   final int id;
+  final String? agentId;
   final String name;
   final String command;
   final Map<String, dynamic> config;

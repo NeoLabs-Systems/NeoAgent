@@ -55,6 +55,7 @@ enum AppSection {
   settings,
   logs,
   skills,
+  agents,
   integrations,
   memory,
   scheduler,
@@ -63,13 +64,15 @@ enum AppSection {
   wearables,
 }
 
-enum SidebarGroup { chat, recordings, activity, automation, settings }
+enum SidebarGroup { chat, agents, recordings, activity, automation, settings }
 
 extension SidebarGroupX on SidebarGroup {
   String get label {
     switch (this) {
       case SidebarGroup.chat:
         return 'Chat';
+      case SidebarGroup.agents:
+        return 'Agents';
       case SidebarGroup.recordings:
         return 'Recording';
       case SidebarGroup.activity:
@@ -85,6 +88,8 @@ extension SidebarGroupX on SidebarGroup {
     switch (this) {
       case SidebarGroup.chat:
         return Icons.chat_bubble_outline;
+      case SidebarGroup.agents:
+        return Icons.smart_toy_outlined;
       case SidebarGroup.recordings:
         return Icons.fiber_smart_record_outlined;
       case SidebarGroup.activity:
@@ -116,6 +121,8 @@ extension AppSectionX on AppSection {
         return 'Logs';
       case AppSection.skills:
         return 'Skills';
+      case AppSection.agents:
+        return 'Agents';
       case AppSection.integrations:
         return 'Integrations';
       case AppSection.memory:
@@ -149,6 +156,8 @@ extension AppSectionX on AppSection {
         return Icons.article_outlined;
       case AppSection.skills:
         return Icons.extension_outlined;
+      case AppSection.agents:
+        return Icons.smart_toy_outlined;
       case AppSection.integrations:
         return Icons.integration_instructions_outlined;
       case AppSection.memory:
@@ -168,6 +177,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return SidebarGroup.chat;
+      case AppSection.agents:
+        return SidebarGroup.agents;
       case AppSection.recordings:
       case AppSection.wearables:
         return SidebarGroup.recordings;
@@ -397,6 +408,8 @@ class NeoAgentController extends ChangeNotifier {
   List<RecordingSessionItem> recordingSessions = const <RecordingSessionItem>[];
 
   List<ChatEntry> chatMessages = const <ChatEntry>[];
+  List<AgentProfile> agentProfiles = const <AgentProfile>[];
+  String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
   List<RunSummary> recentRuns = const <RunSummary>[];
@@ -446,6 +459,27 @@ class NeoAgentController extends ChangeNotifier {
   String get chatComposerHint => hasLiveRun
       ? 'Send a steering update or next-up note for the current run...'
       : 'Ask a question or start a task...';
+
+  AgentProfile? get activeAgent {
+    for (final agent in agentProfiles) {
+      if (agent.id == selectedAgentId) {
+        return agent;
+      }
+    }
+    return agentProfiles.isEmpty ? null : agentProfiles.first;
+  }
+
+  String get activeAgentLabel => activeAgent?.displayName ?? 'Main';
+
+  String? get _scopedAgentId => selectedAgentId;
+
+  String agentLabelFor(String? id) {
+    if (id == null || id.isEmpty) return 'Main';
+    for (final agent in agentProfiles) {
+      if (agent.id == id) return agent.displayName;
+    }
+    return 'Unknown agent';
+  }
 
   String get chatStatusLabel {
     if (activeRun == null) {
@@ -739,6 +773,8 @@ class NeoAgentController extends ChangeNotifier {
     user = null;
     settings = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
+    agentProfiles = const <AgentProfile>[];
+    selectedAgentId = null;
     supportedModels = const <ModelMeta>[];
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
@@ -798,6 +834,110 @@ class NeoAgentController extends ChangeNotifier {
       unawaited(refreshDevices());
     }
     notifyListeners();
+  }
+
+  void _ensureSelectedAgent() {
+    if (agentProfiles.isEmpty) {
+      selectedAgentId = null;
+      return;
+    }
+    final selectedExists = agentProfiles.any(
+      (agent) => agent.id == selectedAgentId,
+    );
+    if (selectedExists) {
+      return;
+    }
+    selectedAgentId = agentProfiles
+        .firstWhere(
+          (agent) => agent.isDefault,
+          orElse: () => agentProfiles.first,
+        )
+        .id;
+  }
+
+  Future<void> switchAgent(String id) async {
+    if (selectedAgentId == id) {
+      return;
+    }
+    selectedAgentId = id;
+    chatMessages = const <ChatEntry>[];
+    recentRuns = const <RunSummary>[];
+    messagingStatuses = const <String, MessagingPlatformStatus>{};
+    messagingMessages = const <MessagingMessage>[];
+    officialIntegrations = const <OfficialIntegrationItem>[];
+    memoryOverview = const MemoryOverview();
+    memories = const <MemoryItem>[];
+    memoryRecallResults = const <MemoryItem>[];
+    memoryConversations = const <ConversationItem>[];
+    _runDetailsCache.clear();
+    notifyListeners();
+    await refresh();
+  }
+
+  Future<bool> saveAgentProfile({
+    String? id,
+    required String displayName,
+    required String slug,
+    String description = '',
+    String responsibilities = '',
+    String instructions = '',
+    String status = 'active',
+    bool canDelegate = false,
+    bool canBeDelegatedTo = true,
+    List<String> delegateTargets = const <String>[],
+  }) async {
+    final payload = <String, dynamic>{
+      'displayName': displayName,
+      'slug': slug,
+      'description': description,
+      'responsibilities': responsibilities,
+      'instructions': instructions,
+      'status': status,
+      'canDelegate': canDelegate,
+      'canBeDelegatedTo': canBeDelegatedTo,
+      'delegateTargets': delegateTargets,
+    };
+    try {
+      if (id == null) {
+        final created = AgentProfile.fromJson(
+          await _backendClient.createAgentProfile(backendUrl, payload),
+        );
+        selectedAgentId = created.id;
+      } else {
+        await _backendClient.updateAgentProfile(backendUrl, id, payload);
+        selectedAgentId = id;
+      }
+      await refresh();
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> makeAgentDefault(String id) async {
+    try {
+      await _backendClient.setDefaultAgentProfile(backendUrl, id);
+      selectedAgentId = id;
+      await refresh();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> archiveAgent(String id) async {
+    try {
+      await _backendClient.archiveAgentProfile(backendUrl, id);
+      if (selectedAgentId == id) {
+        selectedAgentId = null;
+      }
+      await refresh();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
   }
 
   void showInlineError(String message) {
@@ -907,25 +1047,65 @@ class NeoAgentController extends ChangeNotifier {
 
       user = Map<String, dynamic>.from(me['user'] as Map<String, dynamic>);
 
-      final historyFuture = _backendClient.fetchChatHistory(backendUrl);
-      final modelsFuture = _backendClient.fetchSupportedModels(backendUrl);
-      final providersFuture = _backendClient.fetchAiProviders(backendUrl);
-      final settingsFuture = _backendClient.fetchSettings(backendUrl);
-      final runsFuture = _backendClient.fetchRuns(backendUrl);
+      final profilesResponse = await _backendClient.fetchAgentProfiles(
+        backendUrl,
+      );
+      agentProfiles =
+          (profilesResponse['agents'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map(AgentProfile.fromJson)
+              .where((agent) => agent.id.isNotEmpty)
+              .toList();
+      _ensureSelectedAgent();
+      final agentId = _scopedAgentId;
+
+      final historyFuture = _backendClient.fetchChatHistory(
+        backendUrl,
+        agentId: agentId,
+      );
+      final modelsFuture = _backendClient.fetchSupportedModels(
+        backendUrl,
+        agentId: agentId,
+      );
+      final providersFuture = _backendClient.fetchAiProviders(
+        backendUrl,
+        agentId: agentId,
+      );
+      final settingsFuture = _backendClient.fetchSettings(
+        backendUrl,
+        agentId: agentId,
+      );
+      final runsFuture = _backendClient.fetchRuns(backendUrl, agentId: agentId);
       final versionFuture = _backendClient.fetchVersion(backendUrl);
-      final tokenFuture = _backendClient.fetchTokenUsageSummary(backendUrl);
+      final tokenFuture = _backendClient.fetchTokenUsageSummary(
+        backendUrl,
+        agentId: agentId,
+      );
       final updateFuture = _backendClient.fetchUpdateStatus(backendUrl);
-      final messagingFuture = _backendClient.fetchMessagingStatus(backendUrl);
+      final messagingFuture = _backendClient.fetchMessagingStatus(
+        backendUrl,
+        agentId: agentId,
+      );
       final messagingMessagesFuture = _backendClient.fetchMessagingMessages(
         backendUrl,
+        agentId: agentId,
       );
       final skillsFuture = _backendClient.fetchSkills(backendUrl);
       final storeSkillsFuture = _backendClient.fetchSkillStore(backendUrl);
       final officialIntegrationsFuture = _backendClient
-          .fetchOfficialIntegrations(backendUrl);
-      final memoryFuture = _backendClient.fetchMemoryOverview(backendUrl);
-      final memoriesFuture = _backendClient.fetchMemories(backendUrl);
-      final conversationsFuture = _backendClient.fetchConversations(backendUrl);
+          .fetchOfficialIntegrations(backendUrl, agentId: agentId);
+      final memoryFuture = _backendClient.fetchMemoryOverview(
+        backendUrl,
+        agentId: agentId,
+      );
+      final memoriesFuture = _backendClient.fetchMemories(
+        backendUrl,
+        agentId: agentId,
+      );
+      final conversationsFuture = _backendClient.fetchConversations(
+        backendUrl,
+        agentId: agentId,
+      );
       final schedulerFuture = _backendClient.fetchSchedulerTasks(backendUrl);
       final mcpFuture = _backendClient.fetchMcpServers(backendUrl);
       final recordingsFuture = _backendClient.fetchRecordingSessions(
@@ -1040,21 +1220,30 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> refreshRunsOnly() async {
     try {
-      final runsResponse = await _backendClient.fetchRuns(backendUrl);
+      final runsResponse = await _backendClient.fetchRuns(
+        backendUrl,
+        agentId: _scopedAgentId,
+      );
       recentRuns = (runsResponse['runs'] as List<dynamic>? ?? const [])
           .whereType<Map<dynamic, dynamic>>()
           .map((item) => RunSummary.fromJson(item))
           .toList();
       _runDetailsCache.clear();
       tokenUsage = TokenUsageSnapshot.fromJson(
-        await _backendClient.fetchTokenUsageSummary(backendUrl),
+        await _backendClient.fetchTokenUsageSummary(
+          backendUrl,
+          agentId: _scopedAgentId,
+        ),
       );
       notifyListeners();
     } catch (_) {}
   }
 
   Future<void> refreshMessaging() async {
-    final statuses = await _backendClient.fetchMessagingStatus(backendUrl);
+    final statuses = await _backendClient.fetchMessagingStatus(
+      backendUrl,
+      agentId: _scopedAgentId,
+    );
     messagingStatuses = statuses.map(
       (key, value) => MapEntry(
         key,
@@ -1068,6 +1257,7 @@ class NeoAgentController extends ChangeNotifier {
     );
     messagingMessages = (await _backendClient.fetchMessagingMessages(
       backendUrl,
+      agentId: _scopedAgentId,
     )).map(MessagingMessage.fromJson).toList();
     notifyListeners();
   }
@@ -1082,6 +1272,7 @@ class NeoAgentController extends ChangeNotifier {
     try {
       officialIntegrations = (await _backendClient.fetchOfficialIntegrations(
         backendUrl,
+        agentId: _scopedAgentId,
       )).map(OfficialIntegrationItem.fromJson).toList();
     } catch (_) {
       officialIntegrations = const <OfficialIntegrationItem>[];
@@ -1091,13 +1282,18 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> refreshMemory() async {
     memoryOverview = MemoryOverview.fromJson(
-      await _backendClient.fetchMemoryOverview(backendUrl),
+      await _backendClient.fetchMemoryOverview(
+        backendUrl,
+        agentId: _scopedAgentId,
+      ),
     );
     memories = (await _backendClient.fetchMemories(
       backendUrl,
+      agentId: _scopedAgentId,
     )).map(MemoryItem.fromJson).toList();
     memoryConversations = (await _backendClient.fetchConversations(
       backendUrl,
+      agentId: _scopedAgentId,
     )).map(ConversationItem.fromJson).toList();
     notifyListeners();
   }
@@ -1952,12 +2148,17 @@ class NeoAgentController extends ChangeNotifier {
       if (_socket != null && socketConnected) {
         _socket!.emit('agent:run', <String, dynamic>{
           'task': trimmed,
-          'options': const <String, dynamic>{},
+          'agentId': _scopedAgentId,
+          'options': <String, dynamic>{'agentId': _scopedAgentId},
         });
         return;
       }
 
-      final response = await _backendClient.runTask(backendUrl, trimmed);
+      final response = await _backendClient.runTask(
+        backendUrl,
+        trimmed,
+        agentId: _scopedAgentId,
+      );
       final content = response['content']?.toString().trim();
       if (content != null && content.isNotEmpty) {
         chatMessages = <ChatEntry>[
@@ -2017,7 +2218,11 @@ class NeoAgentController extends ChangeNotifier {
     };
 
     try {
-      await _backendClient.saveSettings(backendUrl, payload);
+      await _backendClient.saveSettings(
+        backendUrl,
+        payload,
+        agentId: _scopedAgentId,
+      );
       settings = <String, dynamic>{...settings, ...payload};
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -2173,6 +2378,7 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         providerId,
         appId: appId,
+        agentId: _scopedAgentId,
       );
       final url = response['url']?.toString();
       if (response['status']?.toString() != 'oauth_redirect' || url == null) {
@@ -2226,6 +2432,7 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         providerId,
         connectionId: connectionId,
+        agentId: _scopedAgentId,
       );
       await refreshSkills();
     } catch (error) {
@@ -2262,6 +2469,7 @@ class NeoAgentController extends ChangeNotifier {
       try {
         final items = await _backendClient.fetchOfficialIntegrations(
           backendUrl,
+          agentId: _scopedAgentId,
         );
         officialIntegrations = items
             .map(OfficialIntegrationItem.fromJson)
@@ -2306,13 +2514,18 @@ class NeoAgentController extends ChangeNotifier {
     Map<String, dynamic>? configSnapshot,
   }) async {
     if (configSnapshot != null) {
-      await _backendClient.saveSettings(backendUrl, configSnapshot);
+      await _backendClient.saveSettings(
+        backendUrl,
+        configSnapshot,
+        agentId: _scopedAgentId,
+      );
       settings = <String, dynamic>{...settings, ...configSnapshot};
     }
     await _backendClient.connectMessagingPlatform(
       backendUrl,
       platform: platform,
       config: config,
+      agentId: _scopedAgentId,
     );
     await refreshMessaging();
   }
@@ -2321,6 +2534,7 @@ class NeoAgentController extends ChangeNotifier {
     await _backendClient.disconnectMessagingPlatform(
       backendUrl,
       platform: platform,
+      agentId: _scopedAgentId,
     );
     await refreshMessaging();
   }
@@ -2329,6 +2543,7 @@ class NeoAgentController extends ChangeNotifier {
     await _backendClient.logoutMessagingPlatform(
       backendUrl,
       platform: platform,
+      agentId: _scopedAgentId,
     );
     await refreshMessaging();
   }
@@ -2341,7 +2556,7 @@ class NeoAgentController extends ChangeNotifier {
         .toList();
     await _backendClient.saveSettings(backendUrl, <String, dynamic>{
       'platform_whitelist_whatsapp': jsonEncode(normalized),
-    });
+    }, agentId: _scopedAgentId);
     settings = <String, dynamic>{
       ...settings,
       'platform_whitelist_whatsapp': jsonEncode(normalized),
@@ -2350,7 +2565,11 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> saveTelnyxWhitelist(List<String> values) async {
-    await _backendClient.saveTelnyxWhitelist(backendUrl, values);
+    await _backendClient.saveTelnyxWhitelist(
+      backendUrl,
+      values,
+      agentId: _scopedAgentId,
+    );
     settings = <String, dynamic>{
       ...settings,
       'platform_whitelist_telnyx': values,
@@ -2359,7 +2578,11 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> saveTelnyxVoiceSecret(String secret) async {
-    await _backendClient.saveTelnyxVoiceSecret(backendUrl, secret);
+    await _backendClient.saveTelnyxVoiceSecret(
+      backendUrl,
+      secret,
+      agentId: _scopedAgentId,
+    );
     settings = <String, dynamic>{
       ...settings,
       'platform_voice_secret_telnyx': secret,
@@ -2368,7 +2591,11 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> saveDiscordWhitelist(List<String> values) async {
-    await _backendClient.saveDiscordWhitelist(backendUrl, values);
+    await _backendClient.saveDiscordWhitelist(
+      backendUrl,
+      values,
+      agentId: _scopedAgentId,
+    );
     settings = <String, dynamic>{
       ...settings,
       'platform_whitelist_discord': values,
@@ -2377,7 +2604,11 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> saveTelegramWhitelist(List<String> values) async {
-    await _backendClient.saveTelegramWhitelist(backendUrl, values);
+    await _backendClient.saveTelegramWhitelist(
+      backendUrl,
+      values,
+      agentId: _scopedAgentId,
+    );
     settings = <String, dynamic>{
       ...settings,
       'platform_whitelist_telegram': values,
@@ -2393,6 +2624,7 @@ class NeoAgentController extends ChangeNotifier {
       backendUrl,
       platform: platform,
       ids: values,
+      agentId: _scopedAgentId,
     );
     settings = <String, dynamic>{
       ...settings,
@@ -2411,6 +2643,7 @@ class NeoAgentController extends ChangeNotifier {
       content: content,
       category: category,
       importance: importance,
+      agentId: _scopedAgentId,
     );
     memoryRecallResults = const <MemoryItem>[];
     await refreshMemory();
@@ -2428,6 +2661,7 @@ class NeoAgentController extends ChangeNotifier {
     await _backendClient.deleteMemories(
       backendUrl,
       uniqueIds.toList(growable: false),
+      agentId: _scopedAgentId,
     );
     memoryRecallResults = memoryRecallResults
         .where((memory) => !uniqueIds.contains(memory.id))
@@ -2443,6 +2677,7 @@ class NeoAgentController extends ChangeNotifier {
     await _backendClient.archiveMemories(
       backendUrl,
       uniqueIds.toList(growable: false),
+      agentId: _scopedAgentId,
     );
     memoryRecallResults = memoryRecallResults
         .where((memory) => !uniqueIds.contains(memory.id))
@@ -2454,6 +2689,7 @@ class NeoAgentController extends ChangeNotifier {
     memoryRecallResults = (await _backendClient.recallMemories(
       backendUrl,
       query,
+      agentId: _scopedAgentId,
     )).map(MemoryItem.fromJson).toList();
     notifyListeners();
   }
@@ -2466,17 +2702,26 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> updateAssistantBehaviorNotes(String content) async {
     await _backendClient.saveSettings(backendUrl, <String, dynamic>{
       'assistant_behavior_notes': content,
-    });
+    }, agentId: _scopedAgentId);
     await refreshMemory();
   }
 
   Future<void> updateCoreMemory(String key, String value) async {
-    await _backendClient.updateCoreMemory(backendUrl, key: key, value: value);
+    await _backendClient.updateCoreMemory(
+      backendUrl,
+      key: key,
+      value: value,
+      agentId: _scopedAgentId,
+    );
     await refreshMemory();
   }
 
   Future<void> deleteCoreMemory(String key) async {
-    await _backendClient.deleteCoreMemory(backendUrl, key);
+    await _backendClient.deleteCoreMemory(
+      backendUrl,
+      key,
+      agentId: _scopedAgentId,
+    );
     await refreshMemory();
   }
 
@@ -2487,6 +2732,7 @@ class NeoAgentController extends ChangeNotifier {
     required String prompt,
     String? model,
     bool enabled = true,
+    String? agentId,
   }) async {
     await _backendClient.saveSchedulerTask(
       backendUrl,
@@ -2496,16 +2742,18 @@ class NeoAgentController extends ChangeNotifier {
       prompt: prompt,
       model: model,
       enabled: enabled,
+      agentId: agentId ?? _scopedAgentId,
     );
     await refreshScheduler();
   }
 
   Future<void> toggleSchedulerTask(SchedulerTask task) async {
-    await _backendClient.updateSchedulerTask(
-      backendUrl,
-      task.id,
-      <String, dynamic>{'enabled': !task.enabled},
-    );
+    await _backendClient
+        .updateSchedulerTask(backendUrl, task.id, <String, dynamic>{
+          'enabled': !task.enabled,
+          if (task.agentId != null && task.agentId!.isNotEmpty)
+            'agentId': task.agentId,
+        });
     await refreshScheduler();
   }
 
@@ -2526,6 +2774,7 @@ class NeoAgentController extends ChangeNotifier {
     required String command,
     required Map<String, dynamic> config,
     required bool enabled,
+    String? agentId,
   }) async {
     await _backendClient.saveMcpServer(
       backendUrl,
@@ -2534,6 +2783,7 @@ class NeoAgentController extends ChangeNotifier {
       command: command,
       config: config,
       enabled: enabled,
+      agentId: agentId ?? _scopedAgentId,
     );
     await refreshMcp();
   }
@@ -6769,6 +7019,10 @@ class _ChatPanelState extends State<ChatPanel> {
                     _MetaPill(
                       label: controller.modelIndicator,
                       icon: Icons.memory_outlined,
+                    ),
+                    _MetaPill(
+                      label: 'Agent: ${controller.activeAgentLabel}',
+                      icon: Icons.smart_toy_outlined,
                     ),
                   ],
                 ),
@@ -12177,13 +12431,40 @@ class _MemoryPanelState extends State<MemoryPanel> {
   }
 }
 
-class SchedulerPanel extends StatelessWidget {
+class SchedulerPanel extends StatefulWidget {
   const SchedulerPanel({super.key, required this.controller});
 
   final NeoAgentController controller;
 
   @override
+  State<SchedulerPanel> createState() => _SchedulerPanelState();
+}
+
+class _SchedulerPanelState extends State<SchedulerPanel> {
+  String? _agentFilterId;
+
+  NeoAgentController get controller => widget.controller;
+
+  @override
+  void didUpdateWidget(covariant SchedulerPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_agentFilterId == null) return;
+    final stillExists = controller.agentProfiles.any(
+      (agent) => agent.id == _agentFilterId,
+    );
+    if (!stillExists) {
+      _agentFilterId = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final filteredTasks = _agentFilterId == null
+        ? controller.schedulerTasks
+        : controller.schedulerTasks
+              .where((task) => task.agentId == _agentFilterId)
+              .toList();
+    final selectedAgentLabel = controller.agentLabelFor(_agentFilterId);
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
@@ -12191,18 +12472,69 @@ class SchedulerPanel extends StatelessWidget {
           title: 'Scheduler',
           subtitle: 'Recurring tasks and one-click manual runs.',
           trailing: FilledButton.icon(
-            onPressed: () => _openTaskEditor(context),
+            onPressed: () => _openTaskEditor(
+              context,
+              defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
+            ),
             icon: const Icon(Icons.add),
             label: const Text('Add Task'),
           ),
         ),
+        if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'Assigned agent',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      ChoiceChip(
+                        label: Text(
+                          'All agents (${controller.schedulerTasks.length})',
+                        ),
+                        selected: _agentFilterId == null,
+                        onSelected: (_) =>
+                            setState(() => _agentFilterId = null),
+                      ),
+                      ...controller.agentProfiles.map((agent) {
+                        final count = controller.schedulerTasks
+                            .where((task) => task.agentId == agent.id)
+                            .length;
+                        return ChoiceChip(
+                          label: Text('${agent.displayName} ($count)'),
+                          selected: _agentFilterId == agent.id,
+                          onSelected: (_) =>
+                              setState(() => _agentFilterId = agent.id),
+                        );
+                      }),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         if (controller.schedulerTasks.isEmpty)
           const _EmptyCard(
             title: 'No scheduled tasks',
             subtitle: 'Create a cron-based task to automate regular work.',
           )
+        else if (filteredTasks.isEmpty)
+          _EmptyCard(
+            title: 'No tasks for $selectedAgentLabel',
+            subtitle: 'Create a task while this agent is selected.',
+          )
         else
-          ...controller.schedulerTasks.map(
+          ...filteredTasks.map(
             (task) => Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: Card(
@@ -12243,6 +12575,11 @@ class SchedulerPanel extends StatelessWidget {
                           style: const TextStyle(color: _textSecondary),
                         ),
                       ],
+                      const SizedBox(height: 8),
+                      Text(
+                        'Assigned agent: ${controller.agentLabelFor(task.agentId)}',
+                        style: const TextStyle(color: _textSecondary),
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         task.prompt,
@@ -12300,6 +12637,7 @@ class SchedulerPanel extends StatelessWidget {
   Future<void> _openTaskEditor(
     BuildContext context, {
     SchedulerTask? task,
+    String? defaultAgentId,
   }) async {
     final nameController = TextEditingController(text: task?.name ?? '');
     final cronController = TextEditingController(
@@ -12312,6 +12650,18 @@ class SchedulerPanel extends StatelessWidget {
       controller.supportedModels,
       allowAuto: true,
     );
+    var selectedAgentId =
+        task?.agentId ?? defaultAgentId ?? controller.selectedAgentId;
+    if (selectedAgentId != null &&
+        !controller.agentProfiles.any((agent) => agent.id == selectedAgentId)) {
+      selectedAgentId = controller.selectedAgentId;
+    }
+    if (selectedAgentId != null &&
+        !controller.agentProfiles.any((agent) => agent.id == selectedAgentId)) {
+      selectedAgentId = controller.agentProfiles.isEmpty
+          ? null
+          : controller.agentProfiles.first.id;
+    }
 
     await showDialog<void>(
       context: context,
@@ -12367,6 +12717,26 @@ class SchedulerPanel extends StatelessWidget {
                           () => selectedModel = value ?? 'auto',
                         ),
                       ),
+                      if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedAgentId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Assigned Agent',
+                          ),
+                          items: controller.agentProfiles
+                              .map(
+                                (agent) => DropdownMenuItem<String>(
+                                  value: agent.id,
+                                  child: Text(agent.label),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) =>
+                              setLocalState(() => selectedAgentId = value),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       SwitchListTile(
                         value: enabled,
@@ -12393,6 +12763,7 @@ class SchedulerPanel extends StatelessWidget {
                       prompt: promptController.text.trim(),
                       model: selectedModel == 'auto' ? null : selectedModel,
                       enabled: enabled,
+                      agentId: selectedAgentId,
                     );
                     if (context.mounted) {
                       Navigator.of(context).pop();
@@ -12406,6 +12777,375 @@ class SchedulerPanel extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class AgentsPanel extends StatelessWidget {
+  const AgentsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Agents',
+          subtitle:
+              'Create specialist bots with separate memory, settings, tools, and account assignments.',
+          trailing: FilledButton.icon(
+            onPressed: () => openAgentEditor(context, controller),
+            icon: const Icon(Icons.add),
+            label: const Text('Add Agent'),
+          ),
+        ),
+        if (controller.errorMessage != null) ...<Widget>[
+          _InlineError(message: controller.errorMessage!),
+          const SizedBox(height: 16),
+        ],
+        if (controller.agentProfiles.isEmpty)
+          const _EmptyCard(
+            title: 'No agents yet',
+            subtitle: 'The main agent is created automatically when needed.',
+          )
+        else
+          ...controller.agentProfiles.map(
+            (agent) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              agent.displayName,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (agent.isDefault)
+                            const _StatusPill(
+                              label: 'Default',
+                              color: _accentHover,
+                            ),
+                          const SizedBox(width: 8),
+                          _StatusPill(
+                            label: agent.status,
+                            color: agent.status == 'active'
+                                ? _success
+                                : _textSecondary,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '@${agent.slug}',
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                      if (agent.description.trim().isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 10),
+                        Text(agent.description),
+                      ],
+                      if (agent.responsibilities.trim().isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 10),
+                        Text(
+                          agent.responsibilities,
+                          style: const TextStyle(color: _textSecondary),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Text(
+                        _communicationSummary(controller, agent),
+                        style: const TextStyle(color: _textSecondary),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: <Widget>[
+                          OutlinedButton(
+                            onPressed: () => controller.switchAgent(agent.id),
+                            child: Text(
+                              controller.selectedAgentId == agent.id
+                                  ? 'Selected'
+                                  : 'Switch',
+                            ),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => openAgentEditor(
+                              context,
+                              controller,
+                              agent: agent,
+                            ),
+                            child: const Text('Edit'),
+                          ),
+                          if (!agent.isDefault)
+                            OutlinedButton(
+                              onPressed: () =>
+                                  controller.makeAgentDefault(agent.id),
+                              child: const Text('Make default'),
+                            ),
+                          if (!agent.isMain && !agent.isDefault)
+                            TextButton(
+                              onPressed: () => _confirmDelete(
+                                context,
+                                title: 'Archive agent?',
+                                message:
+                                    'This hides "${agent.displayName}" from routing and selection.',
+                                onConfirm: () =>
+                                    controller.archiveAgent(agent.id),
+                              ),
+                              child: const Text('Archive'),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  static Future<void> openAgentEditor(
+    BuildContext context,
+    NeoAgentController controller, {
+    AgentProfile? agent,
+  }) async {
+    final nameController = TextEditingController(
+      text: agent?.displayName ?? '',
+    );
+    final slugController = TextEditingController(text: agent?.slug ?? '');
+    final descriptionController = TextEditingController(
+      text: agent?.description ?? '',
+    );
+    final responsibilitiesController = TextEditingController(
+      text: agent?.responsibilities ?? '',
+    );
+    final instructionsController = TextEditingController(
+      text: agent?.instructions ?? '',
+    );
+    var status = agent?.status ?? 'active';
+    var canDelegate = agent?.canDelegate ?? false;
+    var canBeDelegatedTo = agent?.canBeDelegatedTo ?? true;
+    var restrictDelegateTargets =
+        agent != null && agent.delegateTargets.isNotEmpty;
+    final delegateTargets = <String>{...?agent?.delegateTargets};
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              backgroundColor: _bgCard,
+              title: Text(agent == null ? 'Add Agent' : 'Edit Agent'),
+              content: SizedBox(
+                width: 720,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(labelText: 'Name'),
+                        onChanged: (value) {
+                          if (agent == null && slugController.text.isEmpty) {
+                            slugController.text = value
+                                .trim()
+                                .toLowerCase()
+                                .replaceAll(RegExp(r'[^a-z0-9_-]+'), '-')
+                                .replaceAll(RegExp(r'^-+|-+$'), '');
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: slugController,
+                        decoration: const InputDecoration(labelText: 'Slug'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: responsibilitiesController,
+                        minLines: 3,
+                        maxLines: 6,
+                        decoration: const InputDecoration(
+                          labelText: 'Responsibilities',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: instructionsController,
+                        minLines: 4,
+                        maxLines: 8,
+                        decoration: const InputDecoration(
+                          labelText: 'Instructions',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: status,
+                        decoration: const InputDecoration(labelText: 'Status'),
+                        items: const <DropdownMenuItem<String>>[
+                          DropdownMenuItem(
+                            value: 'active',
+                            child: Text('Active'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'paused',
+                            child: Text('Paused'),
+                          ),
+                        ],
+                        onChanged: (value) =>
+                            setLocalState(() => status = value ?? 'active'),
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Agent communication',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: canDelegate,
+                        title: const Text('Can delegate tasks to other agents'),
+                        subtitle: const Text(
+                          'Use this for orchestrator agents. Leave off for isolated work bots that should finish direct messages themselves.',
+                        ),
+                        onChanged: (value) =>
+                            setLocalState(() => canDelegate = value),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: canBeDelegatedTo,
+                        title: const Text('Can receive delegated tasks'),
+                        subtitle: const Text(
+                          'Turn this off to keep this agent fully separate from other agents.',
+                        ),
+                        onChanged: (value) =>
+                            setLocalState(() => canBeDelegatedTo = value),
+                      ),
+                      if (canDelegate) ...<Widget>[
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: restrictDelegateTargets,
+                          title: const Text('Restrict delegation targets'),
+                          subtitle: Text(
+                            restrictDelegateTargets
+                                ? 'Only selected agents can receive tasks from this agent.'
+                                : 'This agent can delegate to any eligible receiving agent.',
+                          ),
+                          onChanged: (value) => setLocalState(() {
+                            restrictDelegateTargets = value;
+                            if (!value) delegateTargets.clear();
+                          }),
+                        ),
+                        if (restrictDelegateTargets) ...<Widget>[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: controller.agentProfiles
+                                  .where((target) => target.id != agent?.id)
+                                  .map((target) {
+                                    final selected = delegateTargets.contains(
+                                      target.id,
+                                    );
+                                    return FilterChip(
+                                      label: Text(target.displayName),
+                                      selected: selected,
+                                      onSelected: (value) => setLocalState(() {
+                                        if (value) {
+                                          delegateTargets.add(target.id);
+                                        } else {
+                                          delegateTargets.remove(target.id);
+                                        }
+                                      }),
+                                    );
+                                  })
+                                  .toList(),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final saved = await controller.saveAgentProfile(
+                      id: agent?.id,
+                      displayName: nameController.text.trim(),
+                      slug: slugController.text.trim(),
+                      description: descriptionController.text.trim(),
+                      responsibilities: responsibilitiesController.text.trim(),
+                      instructions: instructionsController.text.trim(),
+                      status: status,
+                      canDelegate: canDelegate,
+                      canBeDelegatedTo: canBeDelegatedTo,
+                      delegateTargets: restrictDelegateTargets
+                          ? delegateTargets.toList(growable: false)
+                          : const <String>[],
+                    );
+                    if (saved && context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static String _communicationSummary(
+    NeoAgentController controller,
+    AgentProfile agent,
+  ) {
+    final parts = <String>[];
+    parts.add(
+      agent.canDelegate
+          ? (agent.delegatesToAnyEligibleAgent
+                ? 'Can delegate to any receiving agent'
+                : 'Can delegate to ${agent.delegateTargets.map(controller.agentLabelFor).join(', ')}')
+          : 'Handles direct tasks itself',
+    );
+    parts.add(
+      agent.canBeDelegatedTo
+          ? 'can receive delegated tasks'
+          : 'cannot receive delegated tasks',
+    );
+    return 'Agent communication: ${parts.join('; ')}.';
   }
 }
 
@@ -12487,6 +13227,11 @@ class McpPanel extends StatelessWidget {
                             label: server.authMethodLabel,
                             icon: Icons.lock_outline,
                           ),
+                          _MetaPill(
+                            label:
+                                'Agent: ${controller.agentLabelFor(server.agentId)}',
+                            icon: Icons.smart_toy_outlined,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -12552,6 +13297,17 @@ class McpPanel extends StatelessWidget {
       text: auth['authServerUrl']?.toString() ?? '',
     );
     var enabled = server?.enabled ?? true;
+    var selectedAgentId = server?.agentId ?? controller.selectedAgentId;
+    if (selectedAgentId != null &&
+        !controller.agentProfiles.any((agent) => agent.id == selectedAgentId)) {
+      selectedAgentId = controller.selectedAgentId;
+    }
+    if (selectedAgentId != null &&
+        !controller.agentProfiles.any((agent) => agent.id == selectedAgentId)) {
+      selectedAgentId = controller.agentProfiles.isEmpty
+          ? null
+          : controller.agentProfiles.first.id;
+    }
 
     await showDialog<void>(
       context: context,
@@ -12629,6 +13385,26 @@ class McpPanel extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedAgentId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Assigned Agent',
+                          ),
+                          items: controller.agentProfiles
+                              .map(
+                                (agent) => DropdownMenuItem<String>(
+                                  value: agent.id,
+                                  child: Text(agent.label),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) =>
+                              setLocalState(() => selectedAgentId = value),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       const Align(
                         alignment: Alignment.centerLeft,
@@ -12684,6 +13460,7 @@ class McpPanel extends StatelessWidget {
                       command: urlController.text.trim(),
                       config: config,
                       enabled: enabled,
+                      agentId: selectedAgentId,
                     );
                     if (context.mounted) {
                       Navigator.of(context).pop();
