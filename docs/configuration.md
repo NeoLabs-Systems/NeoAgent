@@ -17,6 +17,31 @@ AI provider credentials, OAuth client secrets, and deployment controls are not c
 | `NEOAGENT_DEPLOYMENT_MODE` | `self_hosted` | `self_hosted` enables in-app update controls; `managed` hides operator-only controls for SaaS deployments. |
 | `NEOAGENT_RELEASE_CHANNEL` | `stable` | Release track used by the self-hosted updater. |
 
+## Service Email
+
+Service email is optional. When `NEOAGENT_EMAIL_FROM` and `NEOAGENT_EMAIL_SMTP_HOST` are set, NeoAgent uses SMTP for account security flows: signup confirmation, password reset, unusual login notifications, password change notifications, and email change notifications. Confirmation and reset links use the same `PUBLIC_URL` base as the other server-generated links.
+
+This mailbox is only for the NeoAgent server. The agent cannot read, search, or send from it, and it is not exposed as a Gmail, Outlook, or messaging integration account. Configure Gmail/Outlook tools separately under official integrations if you want the agent to work with a mailbox.
+
+| Variable | Default | Description |
+|---|---:|---|
+| `NEOAGENT_EMAIL_REQUIRE_SIGNUP_CONFIRMATION` | `true` when enabled | Requires new signup email confirmation before sign-in. |
+| `NEOAGENT_EMAIL_REQUIRE_EMAIL_CHANGE_CONFIRMATION` | `true` when enabled | Requires account email changes to be confirmed by the new address. |
+| `NEOAGENT_EMAIL_NOTIFY_UNUSUAL_LOGIN` | `true` | Sends a security notice when a login uses a new device or network pattern. |
+| `NEOAGENT_EMAIL_NOTIFY_ACCOUNT_CHANGES` | `true` | Sends notices for password and email changes. |
+| `NEOAGENT_EMAIL_BRAND_NAME` | `NeoAgent` | Display name used by service email templates. |
+| `NEOAGENT_EMAIL_SUPPORT_URL` | optional | Optional operator support URL reserved for service email templates. |
+| `NEOAGENT_EMAIL_TOKEN_TTL_HOURS` | `24` | Confirmation link lifetime. |
+| `NEOAGENT_EMAIL_FROM` | required when enabled | Sender header, for example `NeoAgent <no-reply@example.com>`. |
+| `NEOAGENT_EMAIL_REPLY_TO` | optional | Reply-To header. |
+| `NEOAGENT_EMAIL_SMTP_HOST` | required when enabled | SMTP hostname. |
+| `NEOAGENT_EMAIL_SMTP_PORT` | `587` | SMTP port. |
+| `NEOAGENT_EMAIL_SMTP_SECURE` | `true` on port `465` | Use implicit TLS. |
+| `NEOAGENT_EMAIL_SMTP_REQUIRE_TLS` | `true` unless implicit TLS | Require STARTTLS for non-implicit-TLS SMTP. |
+| `NEOAGENT_EMAIL_SMTP_REJECT_UNAUTHORIZED` | `true` | Reject invalid TLS certificates. Keep enabled in production. |
+| `NEOAGENT_EMAIL_SMTP_USER` | optional | SMTP username. |
+| `NEOAGENT_EMAIL_SMTP_PASS` | optional | SMTP password or app password. |
+
 ## AI Providers
 
 At least one hosted-provider API key is required unless you only use local Ollama. The active provider and model routing are selected in the app, but credentials are read from server-side config.
@@ -91,7 +116,7 @@ The app exposes two browser backend choices: Cloud and Chrome extension. Cloud u
 
 ## Secrets Guidance
 
-Treat `SESSION_SECRET`, provider API keys, OAuth client secrets, messaging credentials, and Telnyx tokens as sensitive. Do not commit them, print them in logs, or expose them in client-side code. Store them in server-side environment variables or a secrets manager, restrict access to operators who need them, and rotate them immediately if you suspect exposure.
+Treat `SESSION_SECRET`, provider API keys, OAuth client secrets, service email SMTP credentials, messaging credentials, and Telnyx tokens as sensitive. Do not commit them, print them in logs, or expose them in client-side code. Store them in server-side environment variables or a secrets manager, restrict access to operators who need them, and rotate them immediately if you suspect exposure.
 
 ## Runtime Paths
 

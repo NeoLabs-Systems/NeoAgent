@@ -31,12 +31,42 @@ function userAgentFromRequest(req) {
   return String(req.get?.('user-agent') || req.headers?.['user-agent'] || '').slice(0, 500);
 }
 
-function recordCurrentSession(req, userId) {
+function sessionIsActiveWhere(alias = '') {
+  const prefix = alias ? `${alias}.` : '';
+  return `${prefix}revoked_at IS NULL AND (${prefix}expires_at IS NULL OR datetime(${prefix}expires_at) > datetime('now'))`;
+}
+
+function sessionLooksUnusual(userId, hash, geo, userAgent) {
+  const previous = db.prepare(`
+    SELECT ip_address, user_agent, location_label
+    FROM user_sessions
+    WHERE user_id = ?
+      AND session_hash != ?
+      AND ${sessionIsActiveWhere()}
+    ORDER BY datetime(last_seen_at) DESC
+    LIMIT 20
+  `).all(userId, hash);
+  if (!previous.length) return false;
+
+  const ip = String(geo.ipAddress || '');
+  const location = String(geo.label || '');
+  return !previous.some((row) => {
+    const sameDevice = row.ip_address === ip && row.user_agent === userAgent;
+    const sameLocation = location && location !== 'Unknown' && row.location_label === location;
+    return sameDevice || sameLocation;
+  });
+}
+
+function recordCurrentSession(req, userId, options = {}) {
   if (!req?.sessionID || !userId) return null;
   const geo = lookupIpLocation(clientIpFromRequest(req));
   const hash = sessionHash(req.sessionID);
   const userAgent = userAgentFromRequest(req);
   const expiresAt = sessionExpiresAt(req);
+  const existing = db.prepare('SELECT id FROM user_sessions WHERE session_hash = ?').get(hash);
+  const unusual = options.login === true && !existing
+    ? sessionLooksUnusual(userId, hash, geo, userAgent)
+    : false;
   db.prepare(`
     INSERT INTO user_sessions (
       user_id, session_hash, ip_address, user_agent, location_label,
@@ -61,7 +91,14 @@ function recordCurrentSession(req, userId) {
     JSON.stringify(geo.data || {}),
     expiresAt,
   );
-  return hash;
+  return {
+    hash,
+    isNew: !existing,
+    unusual,
+    ipAddress: geo.ipAddress,
+    location: geo.label,
+    userAgent,
+  };
 }
 
 function pruneExpiredSessions() {
@@ -146,9 +183,39 @@ function revokeSession(req, userId, sessionRecordId) {
   return { success: true };
 }
 
+function revokeAllSessionsForUser(userId) {
+  if (!userId) return { success: true, revoked: 0 };
+  const rows = db.prepare(`
+    SELECT id, session_hash
+    FROM user_sessions
+    WHERE user_id = ? AND revoked_at IS NULL
+  `).all(userId);
+
+  try {
+    const sessionRows = sessionsDb.prepare('SELECT sid FROM sessions').all();
+    const hashes = new Set(rows.map((row) => row.session_hash));
+    const deleteSession = sessionsDb.prepare('DELETE FROM sessions WHERE sid = ?');
+    for (const sessionRow of sessionRows) {
+      if (hashes.has(sessionHash(sessionRow.sid))) {
+        deleteSession.run(sessionRow.sid);
+      }
+    }
+  } catch {
+    // Session metadata is still revoked below.
+  }
+
+  db.prepare(`
+    UPDATE user_sessions
+    SET revoked_at = datetime('now')
+    WHERE user_id = ? AND revoked_at IS NULL
+  `).run(userId);
+  return { success: true, revoked: rows.length };
+}
+
 module.exports = {
   listSessions,
   recordCurrentSession,
+  revokeAllSessionsForUser,
   revokeSession,
   sessionHash,
 };

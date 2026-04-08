@@ -75,6 +75,87 @@ class _AuthViewState extends State<AuthView> {
     super.dispose();
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final accountController = TextEditingController(
+      text: _usernameController.text.trim(),
+    );
+    String? inlineError;
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                backgroundColor: _bgCard,
+                title: Text('Reset password'),
+                content: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Text(
+                        'Enter your username or account email. NeoAgent will send a reset link if it can match the account.',
+                        style: TextStyle(color: _textSecondary, height: 1.45),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: accountController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Username or email',
+                        ),
+                      ),
+                      if (inlineError != null) ...<Widget>[
+                        const SizedBox(height: 12),
+                        _InlineError(message: inlineError!),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: widget.controller.isAuthenticating
+                        ? null
+                        : () => Navigator.of(dialogContext).pop(),
+                    child: Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: widget.controller.isAuthenticating
+                        ? null
+                        : () async {
+                            final account = accountController.text.trim();
+                            if (account.isEmpty) {
+                              setDialogState(() {
+                                inlineError = 'Enter your username or email.';
+                              });
+                              return;
+                            }
+                            final sent = await widget.controller
+                                .requestPasswordReset(account);
+                            if (sent && dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          },
+                    child: widget.controller.isAuthenticating
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text('Send link'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      accountController.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -155,6 +236,12 @@ class _AuthViewState extends State<AuthView> {
                           const SizedBox(height: 20),
                           if (controller.errorMessage != null) ...<Widget>[
                             _InlineError(message: controller.errorMessage!),
+                            const SizedBox(height: 16),
+                          ],
+                          if (controller.authInfoMessage != null) ...<Widget>[
+                            _InlineSuccess(
+                              message: controller.authInfoMessage!,
+                            ),
                             const SizedBox(height: 16),
                           ],
                           if (awaitingTwoFactor) ...<Widget>[
@@ -266,23 +353,35 @@ class _AuthViewState extends State<AuthView> {
                                   : controller.cancelTwoFactorLogin,
                               child: Text('Back to sign in'),
                             ),
-                          ] else if (controller.registrationOpen &&
-                              controller.hasUser) ...<Widget>[
-                            const SizedBox(height: 12),
-                            TextButton(
-                              onPressed: controller.isAuthenticating
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _registerMode = !_registerMode;
-                                      });
-                                    },
-                              child: Text(
-                                _registerMode
-                                    ? 'Already have an account? Sign in'
-                                    : 'Need a new account? Register',
+                          ] else ...<Widget>[
+                            if (!_registerMode &&
+                                controller.serviceEmailConfigured) ...<Widget>[
+                              const SizedBox(height: 12),
+                              TextButton(
+                                onPressed: controller.isAuthenticating
+                                    ? null
+                                    : _showForgotPasswordDialog,
+                                child: Text('Forgot password?'),
                               ),
-                            ),
+                            ],
+                            if (controller.registrationOpen &&
+                                controller.hasUser) ...<Widget>[
+                              const SizedBox(height: 12),
+                              TextButton(
+                                onPressed: controller.isAuthenticating
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          _registerMode = !_registerMode;
+                                        });
+                                      },
+                                child: Text(
+                                  _registerMode
+                                      ? 'Already have an account? Sign in'
+                                      : 'Need a new account? Register',
+                                ),
+                              ),
+                            ],
                           ],
                         ],
                       ),

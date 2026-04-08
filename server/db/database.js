@@ -20,6 +20,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE,
+    email_verified_at TEXT,
     password TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now')),
     last_login TEXT
@@ -85,6 +86,18 @@ db.exec(`
     last_seen_at TEXT DEFAULT (datetime('now')),
     expires_at TEXT,
     revoked_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS user_email_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    email TEXT NOT NULL,
+    token_hash TEXT UNIQUE NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL,
+    consumed_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
@@ -307,6 +320,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agents_user ON agents(user_id, status, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_user_recovery_codes_user ON user_recovery_codes(user_id, used_at);
   CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, revoked_at, last_seen_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_user_email_tokens_lookup ON user_email_tokens(token_hash, consumed_at, expires_at);
+  CREATE INDEX IF NOT EXISTS idx_user_email_tokens_user ON user_email_tokens(user_id, type, consumed_at);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_state ON integration_oauth_states(state);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_expires ON integration_oauth_states(expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
@@ -610,6 +625,7 @@ for (const col of [
   "ALTER TABLE agents ADD COLUMN can_delegate INTEGER",
   "ALTER TABLE agents ADD COLUMN can_be_delegated_to INTEGER",
   "ALTER TABLE agents ADD COLUMN delegate_targets_json TEXT",
+  "ALTER TABLE users ADD COLUMN email_verified_at TEXT",
   "ALTER TABLE messages ADD COLUMN agent_id TEXT",
   "ALTER TABLE platform_connections ADD COLUMN agent_id TEXT",
   "ALTER TABLE mcp_servers ADD COLUMN agent_id TEXT",
@@ -1116,6 +1132,21 @@ function migrateIntegrationSecretStorage() {
   }
 }
 
+function backfillVerifiedAccountEmails() {
+  try {
+    if (!tableHasColumn('users', 'email_verified_at')) return;
+    db.prepare(`
+      UPDATE users
+      SET email_verified_at = COALESCE(created_at, datetime('now'))
+      WHERE email IS NOT NULL
+        AND trim(email) != ''
+        AND email_verified_at IS NULL
+    `).run();
+  } catch {
+    // Existing local accounts should not be locked out by a best-effort backfill.
+  }
+}
+
 backfillAgentIds();
 backfillAgentPolicies();
 rebuildPlatformConnectionsForAgents();
@@ -1126,6 +1157,7 @@ backfillAgentIds();
 backfillAgentPolicies();
 createAgentScopedIndexes();
 migrateIntegrationSecretStorage();
+backfillVerifiedAccountEmails();
 rebuildFtsForAgents();
 
 try {

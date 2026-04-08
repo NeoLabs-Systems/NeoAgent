@@ -91,6 +91,15 @@ class BackendClient {
     });
   }
 
+  Future<Map<String, dynamic>> requestPasswordReset({
+    required String baseUrl,
+    required String account,
+  }) async {
+    return postMap(baseUrl, '/api/auth/password/forgot', <String, dynamic>{
+      'account': account,
+    }, allowUnauthorized: true);
+  }
+
   Future<void> logout(String baseUrl) async {
     try {
       await postMap(
@@ -120,6 +129,17 @@ class BackendClient {
     return putMap(baseUrl, '/api/account/email', <String, dynamic>{
       'email': email,
       'currentPassword': currentPassword,
+    });
+  }
+
+  Future<Map<String, dynamic>> updateAccountPassword({
+    required String baseUrl,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    return putMap(baseUrl, '/api/account/password', <String, dynamic>{
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
     });
   }
 

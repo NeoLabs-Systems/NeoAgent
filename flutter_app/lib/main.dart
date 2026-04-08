@@ -498,6 +498,7 @@ class NeoAgentController extends ChangeNotifier {
 
   bool hasUser = true;
   bool registrationOpen = false;
+  bool serviceEmailConfigured = false;
   String deploymentProfile = 'private';
   String backendUrl = _defaultBackendUrl;
   String username = '';
@@ -505,6 +506,7 @@ class NeoAgentController extends ChangeNotifier {
   String password = '';
   String pendingTwoFactorUsername = '';
   String? errorMessage;
+  String? authInfoMessage;
 
   AppSection selectedSection = AppSection.chat;
   Map<String, dynamic>? user;
@@ -782,6 +784,9 @@ class NeoAgentController extends ChangeNotifier {
       final status = await _backendClient.getAuthStatus(backendUrl);
       hasUser = status['hasUser'] != false;
       registrationOpen = status['registrationOpen'] == true;
+      serviceEmailConfigured =
+          (status['email'] is Map &&
+          (status['email'] as Map)['configured'] == true);
       deploymentProfile = status['deploymentProfile']?.toString() ?? 'private';
 
       final me = await _backendClient.getCurrentUser(backendUrl);
@@ -823,6 +828,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> completeTwoFactorLogin({required String code}) async {
     isAuthenticating = true;
     errorMessage = null;
+    authInfoMessage = null;
     notifyListeners();
 
     try {
@@ -850,6 +856,29 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<bool> requestPasswordReset(String account) async {
+    isAuthenticating = true;
+    errorMessage = null;
+    authInfoMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.requestPasswordReset(
+        baseUrl: backendUrl,
+        account: account.trim(),
+      );
+      authInfoMessage =
+          response['message']?.toString() ??
+          'If that account has a confirmed email, NeoAgent will send a password reset link.';
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
+  }
+
   void cancelTwoFactorLogin() {
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
@@ -863,6 +892,7 @@ class NeoAgentController extends ChangeNotifier {
   }) async {
     isAuthenticating = true;
     errorMessage = null;
+    authInfoMessage = null;
     if (!silent) {
       notifyListeners();
     }
@@ -885,6 +915,18 @@ class NeoAgentController extends ChangeNotifier {
         isAwaitingTwoFactor = true;
         isAuthenticated = false;
         password = '';
+        await _persistCredentials();
+        return;
+      }
+      if (response['requiresEmailConfirmation'] == true) {
+        hasUser = true;
+        isAuthenticated = false;
+        isAwaitingTwoFactor = false;
+        pendingTwoFactorUsername = '';
+        password = '';
+        authInfoMessage =
+            response['message']?.toString() ??
+            'Check your email to confirm your NeoAgent account before signing in.';
         await _persistCredentials();
         return;
       }
@@ -930,6 +972,7 @@ class NeoAgentController extends ChangeNotifier {
     isAuthenticated = false;
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
+    authInfoMessage = null;
     user = null;
     accountTwoFactor = const <String, dynamic>{};
     accountSessions = const <AccountSessionItem>[];
@@ -1108,6 +1151,7 @@ class NeoAgentController extends ChangeNotifier {
 
   void showInlineError(String message) {
     errorMessage = message;
+    authInfoMessage = null;
     notifyListeners();
   }
 
@@ -2502,6 +2546,31 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateAccountPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    isSavingAccountSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.updateAccountPassword(
+          baseUrl: backendUrl,
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        ),
+      );
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      isSavingAccountSettings = false;
+      notifyListeners();
+    }
+  }
+
   Future<Map<String, dynamic>?> beginTwoFactorSetup(
     String currentPassword,
   ) async {
@@ -3266,6 +3335,16 @@ class NeoAgentController extends ChangeNotifier {
     }
     if (lower.contains('current password is incorrect')) {
       return 'Your current password is incorrect.';
+    }
+    if (lower.contains('email confirmation required')) {
+      return 'Confirm your email before signing in. Check the service email message from NeoAgent.';
+    }
+    if (lower.contains('could not send confirmation email') ||
+        lower.contains('service email is not configured')) {
+      return 'NeoAgent service email is not ready. Ask the server operator to check the email environment settings.';
+    }
+    if (lower.contains('password min 8')) {
+      return 'Use a password with at least 8 characters.';
     }
     if (lower.contains('invalid 2fa') || lower.contains('two-factor code')) {
       return 'The two-factor code is not valid.';
@@ -10116,10 +10195,15 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   late final TextEditingController _setupCodeController;
   late final TextEditingController _disablePasswordController;
   late final TextEditingController _disableCodeController;
+  late final TextEditingController _currentPasswordController;
+  late final TextEditingController _newPasswordController;
+  late final TextEditingController _confirmNewPasswordController;
   Map<String, dynamic>? _pendingSetup;
   List<String> _recoveryCodes = const <String>[];
   String? _emailSuccessMessage;
   String? _emailInlineError;
+  String? _passwordSuccessMessage;
+  String? _passwordInlineError;
 
   @override
   void initState() {
@@ -10132,6 +10216,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     _setupCodeController = TextEditingController();
     _disablePasswordController = TextEditingController();
     _disableCodeController = TextEditingController();
+    _currentPasswordController = TextEditingController();
+    _newPasswordController = TextEditingController();
+    _confirmNewPasswordController = TextEditingController();
     unawaited(widget.controller.refreshAccountSettings());
   }
 
@@ -10152,6 +10239,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     _setupCodeController.dispose();
     _disablePasswordController.dispose();
     _disableCodeController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmNewPasswordController.dispose();
     super.dispose();
   }
 
@@ -10285,7 +10375,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   if (saved && mounted) {
                     setState(() {
                       _emailPasswordController.clear();
-                      _emailSuccessMessage = 'Email saved.';
+                      _emailSuccessMessage =
+                          'Email saved. If confirmation is required, check the new address for a NeoAgent confirmation link.';
                     });
                   }
                 },
@@ -10310,6 +10401,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        _buildPasswordPanel(),
+        const SizedBox(height: 24),
         Row(
           children: <Widget>[
             Expanded(child: _SectionTitle('Two-factor authentication')),
@@ -10359,6 +10452,93 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   : () => controller.revokeAccountSession(session.id),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordPanel() {
+    final controller = widget.controller;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const _SectionTitle('Password'),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _currentPasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'Current password'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _newPasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'New password'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _confirmNewPasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'Confirm new password'),
+        ),
+        if (_passwordInlineError != null) ...<Widget>[
+          const SizedBox(height: 10),
+          _InlineError(message: _passwordInlineError!),
+        ],
+        if (_passwordSuccessMessage != null) ...<Widget>[
+          const SizedBox(height: 10),
+          _InlineSuccess(message: _passwordSuccessMessage!),
+        ],
+        const SizedBox(height: 14),
+        FilledButton.icon(
+          onPressed: controller.isSavingAccountSettings
+              ? null
+              : () async {
+                  setState(() {
+                    _passwordInlineError = null;
+                    _passwordSuccessMessage = null;
+                  });
+                  if (_currentPasswordController.text.isEmpty) {
+                    setState(() {
+                      _passwordInlineError =
+                          'Enter your current password to change it.';
+                    });
+                    return;
+                  }
+                  if (_newPasswordController.text.length < 8) {
+                    setState(() {
+                      _passwordInlineError =
+                          'Use a new password with at least 8 characters.';
+                    });
+                    return;
+                  }
+                  if (_newPasswordController.text !=
+                      _confirmNewPasswordController.text) {
+                    setState(() {
+                      _passwordInlineError = 'New passwords do not match.';
+                    });
+                    return;
+                  }
+                  final saved = await controller.updateAccountPassword(
+                    currentPassword: _currentPasswordController.text,
+                    newPassword: _newPasswordController.text,
+                  );
+                  if (saved && mounted) {
+                    setState(() {
+                      _currentPasswordController.clear();
+                      _newPasswordController.clear();
+                      _confirmNewPasswordController.clear();
+                      _passwordSuccessMessage = 'Password changed.';
+                    });
+                  }
+                },
+          icon: controller.isSavingAccountSettings
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.password_outlined),
+          label: Text('Change password'),
+        ),
       ],
     );
   }
