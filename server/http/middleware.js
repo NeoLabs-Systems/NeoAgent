@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const { DATA_DIR } = require('../../runtime/paths');
 const { logRequestSummary } = require('../utils/logger');
+const { getSessionSecret } = require('../services/account/session_secret');
 
 const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
 
@@ -105,7 +106,7 @@ function createSessionMiddleware({ secureCookies }) {
         intervalMs: 15 * 60 * 1000,
       },
     }),
-    secret: process.env.SESSION_SECRET || 'neoagent-dev-secret-change-me',
+    secret: getSessionSecret(),
     name: 'neoagent.sid',
     resave: false,
     saveUninitialized: false,
@@ -131,6 +132,12 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
     const path = `${value}`.split('?')[0];
     return /^\/api\/recordings\/[^/]+\/chunks$/i.test(path);
   };
+  const isBrowserExtensionCorsPath = (value = '') => {
+    const path = `${value}`.split('?')[0];
+    return path === '/api/browser-extension/latest'
+      || path === '/api/browser-extension/pairing/request'
+      || /^\/api\/browser-extension\/pairing\/[^/]+\/claim$/i.test(path);
+  };
 
   if (secureCookies) {
     app.set('trust proxy', 1);
@@ -143,10 +150,13 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
       const requestPath = `${req.originalUrl || req.url || req.path || ''}`.split('?')[0];
       callback(null, {
         origin(origin, originCallback) {
-          if (origin === 'null' && requestPath.startsWith('/api/browser-extension/')) {
+          const allowBrowserExtensionOrigin = isBrowserExtensionCorsPath(requestPath);
+          if (origin === 'null' && allowBrowserExtensionOrigin) {
             return originCallback(null, true);
           }
-          return validateOrigin(origin, originCallback);
+          return validateOrigin(origin, originCallback, {
+            allowChromeExtension: allowBrowserExtensionOrigin,
+          });
         },
         credentials: true,
       });

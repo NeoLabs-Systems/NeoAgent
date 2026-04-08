@@ -19,6 +19,10 @@ const { createServer } = require('http');
 
 const db = require('./db/database');
 const { setupConsoleInterceptor } = require('./utils/logger');
+const {
+  configuredSessionSecret,
+  isInsecureSessionSecret,
+} = require('./services/account/session_secret');
 const { validateOrigin } = require('./config/origins');
 const {
   applyHttpMiddleware,
@@ -60,9 +64,13 @@ function logStartupConfig() {
 
 logStartupConfig();
 
-if (!process.env.SESSION_SECRET) {
+if (!configuredSessionSecret()) {
   console.warn(
-    'WARNING: SESSION_SECRET not set — using insecure default. Set it in .env before exposing this server.'
+    'WARNING: SESSION_SECRET not set — using a process-local random fallback. Set it in .env before exposing this server.'
+  );
+} else if (isInsecureSessionSecret()) {
+  console.warn(
+    'WARNING: SESSION_SECRET uses a known placeholder value. Replace it with a random secret before exposing this server.'
   );
 }
 

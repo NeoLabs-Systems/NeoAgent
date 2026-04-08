@@ -25,16 +25,17 @@ part 'main_integrations.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
 
-const Color _bgPrimary = Color(0xFF07070F);
-const Color _bgSecondary = Color(0xFF0C0C18);
-const Color _bgTertiary = Color(0xFF111120);
-const Color _bgCard = Color(0xFF181828);
-const Color _textPrimary = Color(0xFFEAEAF4);
-const Color _textSecondary = Color(0xFF8080A8);
-const Color _textMuted = Color(0xFF4D4D6A);
-const Color _accent = Color(0xFF6366F1);
-const Color _accentHover = Color(0xFF818CF8);
-const Color _accentMuted = Color(0x266366F1);
+const Color _bgPrimary = Color(0xFF05080D);
+const Color _bgSecondary = Color(0xFF0B1117);
+const Color _bgTertiary = Color(0xFF111827);
+const Color _bgCard = Color(0xFF151C24);
+const Color _textPrimary = Color(0xFFE6F1F5);
+const Color _textSecondary = Color(0xFF8EA3AD);
+const Color _textMuted = Color(0xFF51616B);
+const Color _accent = Color(0xFF14B8A6);
+const Color _accentHover = Color(0xFF2DD4BF);
+const Color _accentAlt = Color(0xFF38BDF8);
+const Color _accentMuted = Color(0x2614B8A6);
 const Color _border = Color(0x12FFFFFF);
 const Color _borderLight = Color(0x22FFFFFF);
 const Color _success = Color(0xFF22C55E);
@@ -4270,7 +4271,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 980),
             child: Card(
-              color: const Color(0xFF131520),
+              color: const Color(0xFF121A22),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28),
                 side: const BorderSide(color: _borderLight),
@@ -4676,7 +4677,7 @@ class _DeviceQuickActions extends StatelessWidget {
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: disabled ? _bgSecondary : const Color(0xFF1B1F2D),
+              color: disabled ? _bgSecondary : const Color(0xFF18232D),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _borderLight),
             ),
@@ -4715,7 +4716,7 @@ class _AndroidNavDock extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF121624),
+        color: const Color(0xFF101820),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _borderLight),
       ),
@@ -4946,7 +4947,7 @@ class _InteractiveSurfacePreviewState
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[Color(0xFF171B29), Color(0xFF0E111A)],
+          colors: <Color>[Color(0xFF17232D), Color(0xFF081018)],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _borderLight),
@@ -5052,7 +5053,7 @@ class _InteractiveSurfacePreviewState
                                 vertical: 10,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xB20A0C12),
+                                color: const Color(0xB205080D),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: _borderLight),
                               ),
@@ -9665,7 +9666,7 @@ class _RunHeroCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: <Color>[
             run.statusColor.withValues(alpha: 0.18),
-            const Color(0xFF101626),
+            const Color(0xFF0E1821),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -12112,7 +12113,7 @@ class _SkillsPanelState extends State<SkillsPanel>
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: <Color>[Color(0xFF152238), Color(0xFF112A23)],
+                colors: <Color>[Color(0xFF0E2530), Color(0xFF0B2A24)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -14441,8 +14442,8 @@ class HealthPanel extends StatelessWidget {
                       ? null
                       : controller.syncHealthNow,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF5EEAD4),
-                    foregroundColor: const Color(0xFF063238),
+                    backgroundColor: _accentHover,
+                    foregroundColor: _bgPrimary,
                   ),
                   icon: controller.isSyncingHealth
                       ? const SizedBox.square(

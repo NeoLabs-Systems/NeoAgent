@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { createZipFromDirectory } = require('../services/browser/extension/zip');
@@ -7,6 +8,13 @@ const { createZipFromDirectory } = require('../services/browser/extension/zip');
 const router = express.Router();
 const EXTENSION_DIR = path.join(__dirname, '..', '..', 'extensions', 'chrome-browser');
 const EXTENSION_MANIFEST = require('../../extensions/chrome-browser/manifest.json');
+const pairingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'Too many browser extension pairing attempts, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function getRegistry(req) {
   const registry = req.app?.locals?.browserExtensionRegistry;
@@ -30,7 +38,7 @@ function extensionConfigFor(req) {
   return `export const DEFAULT_SERVER_URL = ${JSON.stringify(baseUrlFor(req))};\n`;
 }
 
-router.post('/pairing/request', (req, res) => {
+router.post('/pairing/request', pairingLimiter, (req, res) => {
   try {
     const pairing = getRegistry(req).createPairingRequest({
       extensionName: req.body?.extensionName,
@@ -95,7 +103,7 @@ router.post('/pairing/:pairingId/approve', requireAuth, (req, res) => {
   }
 });
 
-router.post('/pairing/:pairingId/claim', (req, res) => {
+router.post('/pairing/:pairingId/claim', pairingLimiter, (req, res) => {
   try {
     const result = getRegistry(req).claimPairing(req.params.pairingId, req.body?.pairingSecret, {
       extensionName: req.body?.extensionName,

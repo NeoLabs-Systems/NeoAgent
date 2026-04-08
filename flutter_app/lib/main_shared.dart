@@ -38,15 +38,20 @@ List<Widget> _buildSidebarItems(
   required ValueChanged<SidebarGroup> onToggleGroup,
 }) {
   final widgets = <Widget>[];
+  final mainSections = _mainSections(controller);
+  final selectedSidebarSection = mainSections.contains(
+    controller.selectedSection,
+  );
   for (final group in SidebarGroup.values) {
-    final sections = _mainSections(
-      controller,
-    ).where((section) => section.group == group).toList();
+    final sections = mainSections
+        .where((section) => section.group == group)
+        .toList();
     if (sections.isEmpty) {
       continue;
     }
 
-    final active = controller.selectedSection.group == group;
+    final active =
+        selectedSidebarSection && controller.selectedSection.group == group;
     final defaultSection = sections.first;
     final hasChildren = sections.length > 1;
     final expanded = expandedGroup == group;
@@ -528,6 +533,38 @@ class _SidebarButton extends StatelessWidget {
   }
 }
 
+class _SidebarIconButton extends StatelessWidget {
+  const _SidebarIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: _bgCard,
+        shape: CircleBorder(side: BorderSide(color: _borderLight)),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: Icon(icon, size: 17, color: _textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BlurOrb extends StatelessWidget {
   const _BlurOrb({required this.size, required this.color});
 
@@ -567,14 +604,14 @@ class _LogoBadge extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: <Color>[_accent, Color(0xFF8B5CF6)],
+          colors: <Color>[_accent, _accentAlt],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(size * 0.28),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x736366F1),
+            color: Color(0x7314B8A6),
             blurRadius: 24,
             offset: Offset(0, 4),
           ),
@@ -699,7 +736,7 @@ class _ChatBubble extends StatelessWidget {
                 boxShadow: isUser
                     ? const <BoxShadow>[
                         BoxShadow(
-                          color: Color(0x4D6366F1),
+                          color: Color(0x4D14B8A6),
                           blurRadius: 12,
                           offset: Offset(0, 2),
                         ),
@@ -775,13 +812,13 @@ class _MessageAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: assistant
-            ? const LinearGradient(colors: <Color>[_accent, Color(0xFF8B5CF6)])
+            ? const LinearGradient(colors: <Color>[_accent, _accentAlt])
             : null,
-        color: assistant ? null : const Color(0xFF1E1E32),
+        color: assistant ? null : _bgTertiary,
         boxShadow: assistant
             ? const <BoxShadow>[
                 BoxShadow(
-                  color: Color(0x596366F1),
+                  color: Color(0x5914B8A6),
                   blurRadius: 10,
                   offset: Offset(0, 2),
                 ),

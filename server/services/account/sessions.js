@@ -5,6 +5,7 @@ const Sqlite = require('better-sqlite3');
 const { DATA_DIR } = require('../../../runtime/paths');
 const db = require('../../db/database');
 const { clientIpFromRequest, lookupIpLocation } = require('./geoip');
+const { getSessionSecret } = require('./session_secret');
 
 const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
 try {
@@ -13,12 +14,8 @@ try {
   // The primary session middleware owns schema normalization.
 }
 
-function sessionSecret() {
-  return process.env.SESSION_SECRET || 'neoagent-dev-secret-change-me';
-}
-
 function sessionHash(sessionId) {
-  return crypto.createHmac('sha256', sessionSecret()).update(String(sessionId || '')).digest('hex');
+  return crypto.createHmac('sha256', getSessionSecret()).update(String(sessionId || '')).digest('hex');
 }
 
 function sessionExpiresAt(req) {

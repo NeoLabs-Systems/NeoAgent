@@ -82,22 +82,14 @@ class _AuthViewState extends State<AuthView> {
       _registerMode = true;
     }
 
-    final isProdProfile = controller.deploymentProfile == 'prod';
     final title = _registerMode
         ? (controller.hasUser ? 'Create account' : 'Create the first account')
         : 'Sign in';
     final subtitle = _registerMode
         ? (controller.hasUser
-              ? 'Create another NeoAgent account for this deployment.'
-              : isProdProfile
-              ? 'This deployment is configured for isolated per-user workspaces.'
-              : 'This account will unlock the private workspace on this machine.')
-        : isProdProfile
-        ? 'Enter your NeoAgent account details for this shared deployment.'
+              ? 'Create another NeoAgent account.'
+              : 'This account will unlock NeoAgent on this machine.')
         : 'Enter your NeoAgent account details.';
-    final modeLabel = isProdProfile
-        ? 'Production profile · isolated per-user runtime'
-        : 'Private profile · trusted host runtime';
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
 
     return Scaffold(
@@ -112,7 +104,7 @@ class _AuthViewState extends State<AuthView> {
           const Positioned(
             right: -80,
             bottom: -80,
-            child: _BlurOrb(size: 400, color: Color(0xFF8B5CF6)),
+            child: _BlurOrb(size: 400, color: _accentAlt),
           ),
           SafeArea(
             child: Center(
@@ -121,7 +113,7 @@ class _AuthViewState extends State<AuthView> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Card(
-                    color: const Color.fromRGBO(12, 12, 24, 0.92),
+                    color: const Color(0xEB0B1117),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: const BorderSide(color: _borderLight),
@@ -146,38 +138,6 @@ class _AuthViewState extends State<AuthView> {
                             ],
                           ),
                           const SizedBox(height: 24),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _bgCard,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: _border),
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                Icon(
-                                  isProdProfile
-                                      ? Icons.verified_user_outlined
-                                      : Icons.laptop_mac_outlined,
-                                  size: 16,
-                                  color: _accentHover,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    modeLabel,
-                                    style: const TextStyle(
-                                      color: _textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 18),
                           Text(
                             awaitingTwoFactor ? 'Enter 2FA code' : title,
                             style: const TextStyle(
@@ -354,16 +314,30 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    _expandedSidebarGroup = widget.controller.selectedSection.group;
+    _expandedSidebarGroup = _sidebarGroupForSection(
+      widget.controller.selectedSection,
+    );
   }
 
   @override
   void didUpdateWidget(covariant HomeView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller.selectedSection.group !=
-        widget.controller.selectedSection.group) {
-      _expandedSidebarGroup = widget.controller.selectedSection.group;
+    final oldGroup = _sidebarGroupForSection(
+      oldWidget.controller.selectedSection,
+    );
+    final nextGroup = _sidebarGroupForSection(
+      widget.controller.selectedSection,
+    );
+    if (oldGroup != nextGroup) {
+      _expandedSidebarGroup = nextGroup;
     }
+  }
+
+  SidebarGroup? _sidebarGroupForSection(AppSection section) {
+    if (!_mainSections(widget.controller).contains(section)) {
+      return null;
+    }
+    return section.group;
   }
 
   void _toggleSidebarGroup(SidebarGroup group) {
@@ -413,15 +387,7 @@ class _HomeViewState extends State<HomeView> {
         expandedGroup: _expandedSidebarGroup,
         onToggleGroup: _toggleSidebarGroup,
       ),
-      appBar: AppBar(
-        title: Text(controller.selectedSection.navigationTitle),
-        actions: <Widget>[
-          IconButton(
-            onPressed: controller.isRefreshing ? null : controller.refresh,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(controller.selectedSection.navigationTitle)),
       body: SafeArea(child: _SectionBody(controller: controller)),
     );
   }
@@ -551,11 +517,6 @@ class _Sidebar extends StatelessWidget {
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
-                _ProfileSettingsButton(
-                  controller: controller,
-                  onTap: () =>
-                      controller.setSelectedSection(AppSection.accountSettings),
-                ),
               ],
             ),
           ),
@@ -583,17 +544,6 @@ class _Sidebar extends StatelessWidget {
             ),
             child: Column(
               children: <Widget>[
-                _SidebarButton(
-                  label: 'Refresh',
-                  icon: Icons.refresh,
-                  onTap: controller.isRefreshing ? null : controller.refresh,
-                ),
-                _SidebarButton(
-                  label: 'Logout',
-                  icon: Icons.logout,
-                  onTap: controller.logout,
-                ),
-                const SizedBox(height: 8),
                 Row(
                   children: <Widget>[
                     Container(
@@ -611,6 +561,19 @@ class _Sidebar extends StatelessWidget {
                         fontSize: 11,
                         color: _textSecondary,
                       ),
+                    ),
+                    const Spacer(),
+                    _ProfileSettingsButton(
+                      controller: controller,
+                      onTap: () => controller.setSelectedSection(
+                        AppSection.accountSettings,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _SidebarIconButton(
+                      tooltip: 'Logout',
+                      icon: Icons.logout,
+                      onTap: controller.logout,
                     ),
                   ],
                 ),
@@ -749,15 +712,6 @@ class _MobileDrawer extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
-                      _ProfileSettingsButton(
-                        controller: controller,
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          controller.setSelectedSection(
-                            AppSection.accountSettings,
-                          );
-                        },
-                      ),
                     ],
                   ),
                   if (controller.agentProfiles.isNotEmpty) ...<Widget>[
@@ -786,18 +740,32 @@ class _MobileDrawer extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(8),
-              child: Column(
+              child: Row(
                 children: <Widget>[
-                  _SidebarButton(
-                    label: 'Refresh',
-                    icon: Icons.refresh,
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: controller.socketConnected ? _success : _warning,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    controller.socketConnected ? 'Live' : 'Offline',
+                    style: const TextStyle(fontSize: 11, color: _textSecondary),
+                  ),
+                  const Spacer(),
+                  _ProfileSettingsButton(
+                    controller: controller,
                     onTap: () {
                       Navigator.of(context).pop();
-                      controller.refresh();
+                      controller.setSelectedSection(AppSection.accountSettings);
                     },
                   ),
-                  _SidebarButton(
-                    label: 'Logout',
+                  const SizedBox(width: 8),
+                  _SidebarIconButton(
+                    tooltip: 'Logout',
                     icon: Icons.logout,
                     onTap: () {
                       Navigator.of(context).pop();

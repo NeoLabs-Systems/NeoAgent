@@ -22,16 +22,16 @@ function isChromeExtensionOrigin(origin) {
   }
 }
 
-function isAllowedOrigin(origin) {
+function isAllowedOrigin(origin, options = {}) {
   if (!origin) return true;
   if (configuredOrigins.includes(origin)) return true;
   if (isLoopbackOrigin(origin)) return true;
-  if (isChromeExtensionOrigin(origin)) return true;
+  if (options.allowChromeExtension && isChromeExtensionOrigin(origin)) return true;
   return false;
 }
 
-function validateOrigin(origin, callback) {
-  if (isAllowedOrigin(origin)) return callback(null, true);
+function validateOrigin(origin, callback, options = {}) {
+  if (isAllowedOrigin(origin, options)) return callback(null, true);
   return callback(new Error(`Origin not allowed: ${origin || 'unknown'}`));
 }
 
