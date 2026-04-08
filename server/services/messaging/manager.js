@@ -1,4 +1,5 @@
 const db = require('../../db/database');
+const { randomUUID } = require('crypto');
 const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
@@ -257,6 +258,7 @@ class MessagingManager {
         : { mediaPath: mediaPathOrOptions };
     const mediaPath = sendOptions.mediaPath || null;
     const runId = sendOptions.runId || null;
+    const persistConversation = sendOptions.persistConversation === true;
 
     // Sentinel: agent can choose not to reply by sending [NO RESPONSE]
     if (!mediaPath && typeof content === 'string' && content.trim().toUpperCase() === '[NO RESPONSE]') {
@@ -268,6 +270,14 @@ class MessagingManager {
     db.prepare('INSERT INTO messages (user_id, run_id, role, content, platform, platform_chat_id, media_path) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(userId, runId, 'assistant', content, platformName, to, mediaPath);
 
+    if (persistConversation) {
+      const conversationId = this.getOrCreateConversation(userId, platformName, to);
+      db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
+        .run(conversationId, 'assistant', content);
+      db.prepare("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?")
+        .run(conversationId);
+    }
+
     // Notify the web UI so the sent message appears in chat
     this.io.to(`user:${userId}`).emit('messaging:sent', {
       platform: platformName,
@@ -278,6 +288,29 @@ class MessagingManager {
     });
 
     return { success: true, result };
+  }
+
+  getOrCreateConversation(userId, platformName, chatId) {
+    let conversation = db
+      .prepare('SELECT id FROM conversations WHERE user_id = ? AND platform = ? AND platform_chat_id = ?')
+      .get(userId, platformName, chatId);
+
+    if (conversation) {
+      return conversation.id;
+    }
+
+    const conversationId = randomUUID();
+    db.prepare(
+      'INSERT INTO conversations (id, user_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?)'
+    ).run(
+      conversationId,
+      userId,
+      platformName,
+      chatId,
+      `${platformName} — ${chatId}`
+    );
+
+    return conversationId;
   }
 
   getPlatformStatus(userId, platformName) {

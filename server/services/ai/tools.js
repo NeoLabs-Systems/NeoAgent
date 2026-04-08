@@ -1521,7 +1521,8 @@ async function executeTool(toolName, args, context, engine) {
 
             const sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
                 mediaPath: args.media_path,
-                runId
+                runId,
+                persistConversation: triggerSource === 'scheduler'
             });
             // Track that the agent explicitly sent a message during this run
             if (message !== '[NO RESPONSE]') {
@@ -1791,7 +1792,8 @@ async function executeTool(toolName, args, context, engine) {
 
                     try {
                         const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
-                            runId
+                            runId,
+                            persistConversation: true
                         });
                         if (taskId && taskConfig && (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to)) {
                             taskConfig.notifyPlatform = target.platform;
