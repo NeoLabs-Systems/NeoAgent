@@ -648,7 +648,7 @@ class _Sidebar extends StatelessWidget {
           ),
           if (controller.agentProfiles.isNotEmpty) ...<Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child: _AgentSwitcher(controller: controller),
             ),
           ],
@@ -723,6 +723,7 @@ class _AgentSwitcher extends StatelessWidget {
       decoration: const InputDecoration(
         labelText: 'Agent',
         prefixIcon: Icon(Icons.smart_toy_outlined, size: 18),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 13),
       ),
       items: controller.agentProfiles
           .map(
