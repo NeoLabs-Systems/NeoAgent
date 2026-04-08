@@ -211,6 +211,7 @@ class DiscordPlatform extends BasePlatform {
       chatId,
       sender: userId,
       senderName,
+      guildId,
       content,
       mediaType: null,
       isGroup: !isDM,

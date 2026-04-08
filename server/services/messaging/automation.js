@@ -319,21 +319,30 @@ function messagingAllowlistCandidates(msg) {
   const sender = String(msg.sender || '').trim();
   const chatId = String(msg.chatId || '').trim();
   const values = new Set([sender, chatId].filter(Boolean));
+  const normalizedChatId = chatId.startsWith('dm_') ? chatId.slice(3) : chatId;
+  const guildId = String(msg.guildId || '').trim();
+
+  if (normalizedChatId) {
+    values.add(normalizedChatId);
+  }
   if (sender) values.add(`user:${sender}`);
+  if (guildId) values.add(`guild:${guildId}`);
   if (chatId) {
     values.add(`chat:${chatId}`);
     values.add(`channel:${chatId}`);
     values.add(`room:${chatId}`);
     values.add(`group:${chatId}`);
   }
+  if (normalizedChatId) {
+    values.add(`chat:${normalizedChatId}`);
+    values.add(`channel:${normalizedChatId}`);
+    values.add(`room:${normalizedChatId}`);
+    values.add(`group:${normalizedChatId}`);
+  }
   return [...values];
 }
 
 async function isAllowedMessagingSender({ io, userId, msg }) {
-  if (msg.platform === 'discord' || msg.platform === 'telegram') {
-    return true;
-  }
-
   const agentId = msg.agentId || null;
   const whitelistRow = db
     .prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
