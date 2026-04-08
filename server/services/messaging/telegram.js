@@ -114,19 +114,36 @@ class TelegramPlatform extends BasePlatform {
     if (!this._botUser) return false;
     const text = msg.text || msg.caption || '';
     const entities = msg.entities || msg.caption_entities || [];
+    const botId = String(this._botUser.id || '');
+    const botUsername = String(this._botUser.username || '').toLowerCase();
+    const botMention = `@${botUsername}`;
     for (const e of entities) {
+      const value = text.slice(e.offset, e.offset + e.length).toLowerCase();
       if (e.type === 'mention') {
-        const mention = text.slice(e.offset, e.offset + e.length);
-        if (mention.toLowerCase() === `@${this._botUser.username.toLowerCase()}`) return true;
+        if (value === botMention) return true;
       }
+      if (e.type === 'bot_command') {
+        if (value.endsWith(botMention)) return true;
+      }
+      if (e.type === 'text_mention' && String(e.user?.id || '') === botId) {
+        return true;
+      }
+    }
+    if (msg.reply_to_message?.from && String(msg.reply_to_message.from.id || '') === botId) {
+      return true;
+    }
+    if (botUsername) {
+      const escaped = botUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp(`(^|\\s)@${escaped}\\b`, 'i').test(text)) return true;
     }
     return false;
   }
 
   _stripMention(text) {
     if (!this._botUser) return (text || '').trim();
+    const username = String(this._botUser.username || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return (text || '')
-      .replace(new RegExp(`@${this._botUser.username}`, 'gi'), '')
+      .replace(new RegExp(`@${username}`, 'gi'), '')
       .replace(/\s{2,}/g, ' ')
       .trim();
   }
