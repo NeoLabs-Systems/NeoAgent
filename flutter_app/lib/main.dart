@@ -477,6 +477,7 @@ class NeoAgentController extends ChangeNotifier {
   Timer? _updatePollTimer;
   final Set<String> _backgroundRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
+  int _authCycle = 0;
 
   bool isBooting = true;
   bool isAuthenticated = false;
@@ -964,14 +965,29 @@ class NeoAgentController extends ChangeNotifier {
         }
       } catch (_) {}
     }
+
+    final logoutFuture = _backendClient.logout(backendUrl);
+    _authCycle += 1;
+    _clearAuthenticatedState();
+    isAuthenticating = true;
+    notifyListeners();
+
     try {
-      await _backendClient.logout(backendUrl);
+      await logoutFuture;
     } catch (_) {}
+    isAuthenticating = false;
+    notifyListeners();
+  }
+
+  void _clearAuthenticatedState() {
     _disconnectSocket();
     _updatePollTimer?.cancel();
+    _updatePollTimer = null;
     isAuthenticated = false;
+    isRefreshing = false;
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
+    errorMessage = null;
     authInfoMessage = null;
     user = null;
     accountTwoFactor = const <String, dynamic>{};
@@ -1014,6 +1030,7 @@ class NeoAgentController extends ChangeNotifier {
     activeRun = null;
     toolEvents = const <ToolEventItem>[];
     streamingAssistant = '';
+    selectedSection = AppSection.chat;
     _runDetailsCache.clear();
     unawaited(
       _healthBridge.configureBackgroundSync(
@@ -1022,7 +1039,6 @@ class NeoAgentController extends ChangeNotifier {
         sessionCookie: '',
       ),
     );
-    notifyListeners();
   }
 
   Future<void> _persistCredentials() async {
@@ -1243,15 +1259,19 @@ class NeoAgentController extends ChangeNotifier {
       return;
     }
 
+    final authCycle = _authCycle;
     isRefreshing = true;
     errorMessage = null;
     notifyListeners();
 
     try {
       final me = await _backendClient.getCurrentUser(backendUrl);
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
       if (me == null || me['user'] is! Map<String, dynamic>) {
-        isAuthenticated = false;
-        _disconnectSocket();
+        _authCycle += 1;
+        _clearAuthenticatedState();
         return;
       }
 
@@ -1260,6 +1280,9 @@ class NeoAgentController extends ChangeNotifier {
       final profilesResponse = await _backendClient.fetchAgentProfiles(
         backendUrl,
       );
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
       agentProfiles =
           (profilesResponse['agents'] as List<dynamic>? ?? const <dynamic>[])
               .whereType<Map<dynamic, dynamic>>()
@@ -1333,6 +1356,9 @@ class NeoAgentController extends ChangeNotifier {
       } catch (_) {
         healthResponse = null;
       }
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
 
       try {
         officialIntegrations = (await officialIntegrationsFuture)
@@ -1340,6 +1366,9 @@ class NeoAgentController extends ChangeNotifier {
             .toList();
       } catch (_) {
         officialIntegrations = const <OfficialIntegrationItem>[];
+      }
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
       }
 
       final history = await historyFuture;
@@ -1363,6 +1392,9 @@ class NeoAgentController extends ChangeNotifier {
       final browserResponse = await browserFuture;
       final browserExtensionResponse = await browserExtensionFuture;
       final androidResponse = await androidFuture;
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
 
       chatMessages = (history['messages'] as List<dynamic>? ?? const [])
           .whereType<Map<dynamic, dynamic>>()
@@ -1423,17 +1455,31 @@ class NeoAgentController extends ChangeNotifier {
       );
       androidRuntime = Map<String, dynamic>.from(androidResponse);
       await _recordingBridge.refreshStatus();
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
       deviceHealthStatus = await _healthBridge.getStatus();
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
       await _syncBackgroundHealthConfig();
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
       _ensureSocketConnected();
       _ensureUpdatePolling();
     } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
+      if (_isCurrentAuthCycle(authCycle)) {
+        errorMessage = _friendlyErrorMessage(error);
+      }
     } finally {
       isRefreshing = false;
       notifyListeners();
     }
   }
+
+  bool _isCurrentAuthCycle(int authCycle) =>
+      isAuthenticated && _authCycle == authCycle;
 
   Future<void> refreshRunsOnly() async {
     try {

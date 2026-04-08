@@ -465,7 +465,12 @@ router.post('/api/auth/password/reset', authLimiter, async (req, res) => {
 router.post('/api/auth/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ error: 'Logout failed' });
-    res.clearCookie('neoagent.sid');
+    res.clearCookie('neoagent.sid', {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.SECURE_COOKIES === 'true',
+    });
     res.json({ success: true });
   });
 });
