@@ -173,10 +173,10 @@ function joinSentMessages(messages = []) {
 
 function buildBlankMessagingReplyPrompt(attempt) {
   if (attempt <= 1) {
-    return 'You must send one non-empty plain-text reply for the external messaging user right now. Do not call tools. Do not use markdown. Give either: (a) the concrete outcome, or (b) a clear blocker and the next action. If tool work already happened, summarize what you actually tried and where it got blocked. Do not ask the user to repeat the original request.';
+    return 'You must send one non-empty plain-text reply for the external messaging user right now. Do not call tools. Do not use markdown. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.';
   }
 
-  return 'Your previous reply was empty. Return one non-empty plain-text message now. Do not call tools. Do not use markdown. If needed, apologize briefly, explain the blocker in one sentence, and tell the user what to do next. Use the run evidence already in the conversation instead of asking the user to restate the task.';
+  return 'Your previous reply was empty. Return one non-empty plain-text message now. Do not call tools. Do not use markdown. If needed, apologize briefly and explain the blocker in one sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.';
 }
 
 function parseToolExecutionSummary(item) {
@@ -280,21 +280,35 @@ function buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolE
   return 'I could not produce a reliable final reply just now.';
 }
 
-function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
-  return [
-    `The previous model call on "${failedModel}" failed with: ${summarizeForLog(errorMessage, 220)}.`,
-    `Continue on "${nextModel}" and recover autonomously.`,
-    'If a previous plan depended on that failed call, adjust your approach and proceed end-to-end.',
-    'Only ask the user for help if no safe path remains.'
-  ].join(' ');
-}
+function buildMessagingFailureScenario({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
+  const parts = [];
+  const runtimeError = normalizeOutgoingMessage(err?.message || '');
+  const workSummary = summarizeRecentWork(toolExecutions);
+  const blocker = [...toolExecutions].reverse()
+    .map((item) => extractToolFailureMessage(item))
+    .find(Boolean);
 
-function buildMessagingErrorReply(err) {
-  const message = String(err?.message || '').trim();
-  if (!message) {
-    return 'I ran into an internal error while processing your request and could not finish it reliably.';
+  if (runtimeError) {
+    parts.push(`Runtime error: ${summarizeForLog(runtimeError, 260)}.`);
+  }
+  if (workSummary) {
+    parts.push(`Observed work before failure: ${workSummary}.`);
+  }
+  if (blocker) {
+    parts.push(`Most specific blocker from run evidence: ${summarizeForLog(blocker, 260)}.`);
+  }
+  if (stepIndex > 0) {
+    parts.push(`Completed steps before failure: ${stepIndex}.`);
+  }
+  if (failedStepCount > 0) {
+    parts.push(`Failed tool steps: ${failedStepCount}.`);
   }
 
+  return parts.join(' ');
+}
+
+function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
+  const message = normalizeOutgoingMessage(err?.message || '');
   if (/no ai providers? are currently available/i.test(message)) {
     return 'I cannot continue right now because no AI provider is available for this account. Please check the provider settings.';
   }
@@ -303,7 +317,27 @@ function buildMessagingErrorReply(err) {
     return 'I hit a timeout while processing your request and could not finish it reliably.';
   }
 
-  return 'I ran into an internal error while processing your request and could not finish it reliably.';
+  const blocker = [...toolExecutions].reverse()
+    .map((item) => extractToolFailureMessage(item))
+    .find(Boolean);
+  if (blocker) {
+    return `I got blocked while checking this: ${blocker}.`;
+  }
+
+  if (message) {
+    return `I got blocked while working on this: ${message}.`;
+  }
+
+  return buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+}
+
+function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
+  return [
+    `The previous model call on "${failedModel}" failed with: ${summarizeForLog(errorMessage, 220)}.`,
+    `Continue on "${nextModel}" and recover autonomously.`,
+    'If a previous plan depended on that failed call, adjust your approach and proceed end-to-end.',
+    'Only ask the user for help if no safe path remains.'
+  ].join(' ');
 }
 
 const MAX_AUTONOMOUS_MESSAGING_RETRIES = 2;
@@ -1984,12 +2018,18 @@ class AgentEngine {
         if (!runMeta?.messagingSent) {
           const manager = this.messagingManager;
           if (manager) {
+            const failureScenario = buildMessagingFailureScenario({
+              err,
+              failedStepCount,
+              stepIndex,
+              toolExecutions,
+            });
             try {
               const failedMessage = sanitizeConversationMessages([
                 ...messages,
                 {
                   role: 'system',
-                  content: `The run encountered a runtime error and cannot continue reliably: ${summarizeForLog(err.message, 260)}. Do not call tools. Write exactly one short plain-text user message that explains the blocker naturally. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required.`
+                  content: `The run encountered a runtime error and cannot continue reliably. Use the actual run scenario below to explain the blocker naturally.\n\nScenario:\n${failureScenario || 'No additional scenario details were captured.'}\n\nDo not call tools. Write exactly one short plain-text user message. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required. Do not promise future work unless it will happen automatically before this reply is sent.`
                 }
               ]);
               const modelReply = await provider.chat(failedMessage, [], {
@@ -2005,7 +2045,12 @@ class AgentEngine {
             }
 
             if (!messagingFailureContent) {
-              messagingFailureContent = buildMessagingErrorReply(err);
+              messagingFailureContent = buildDeterministicMessagingErrorReply({
+                err,
+                failedStepCount,
+                stepIndex,
+                toolExecutions,
+              });
             }
 
             try {
