@@ -18,168 +18,24 @@ import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
 import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
+import 'src/theme/palette.dart';
 import 'wearables/wearable_service.dart';
 
+part 'main_theme.dart';
 part 'main_app_shell.dart';
 part 'main_integrations.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
 
-class _NeoAgentPalette {
-  const _NeoAgentPalette({
-    required this.bgPrimary,
-    required this.bgSecondary,
-    required this.bgTertiary,
-    required this.bgCard,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.textMuted,
-    required this.accent,
-    required this.accentHover,
-    required this.accentAlt,
-    required this.accentMuted,
-    required this.border,
-    required this.borderLight,
-    required this.success,
-    required this.warning,
-    required this.danger,
-    required this.info,
-  });
-
-  final Color bgPrimary;
-  final Color bgSecondary;
-  final Color bgTertiary;
-  final Color bgCard;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color textMuted;
-  final Color accent;
-  final Color accentHover;
-  final Color accentAlt;
-  final Color accentMuted;
-  final Color border;
-  final Color borderLight;
-  final Color success;
-  final Color warning;
-  final Color danger;
-  final Color info;
-}
-
-const _NeoAgentPalette _darkPalette = _NeoAgentPalette(
-  bgPrimary: Color(0xFF071015),
-  bgSecondary: Color(0xFF0E171E),
-  bgTertiary: Color(0xFF15232B),
-  bgCard: Color(0xFF131E25),
-  textPrimary: Color(0xFFF5EFE4),
-  textSecondary: Color(0xFFB4B3AE),
-  textMuted: Color(0xFF7E8B93),
-  accent: Color(0xFFC7A36A),
-  accentHover: Color(0xFFE4C58D),
-  accentAlt: Color(0xFF5FA897),
-  accentMuted: Color(0x24C7A36A),
-  border: Color(0x204F626E),
-  borderLight: Color(0x30667A86),
-  success: Color(0xFF37B67E),
-  warning: Color(0xFFD49A43),
-  danger: Color(0xFFE26E61),
-  info: Color(0xFF74A8D9),
-);
-
-const _NeoAgentPalette _lightPalette = _NeoAgentPalette(
-  bgPrimary: Color(0xFFF6F1E8),
-  bgSecondary: Color(0xFFF0E7DA),
-  bgTertiary: Color(0xFFE3D7C7),
-  bgCard: Color(0xFFFFFCF7),
-  textPrimary: Color(0xFF211B16),
-  textSecondary: Color(0xFF5E584F),
-  textMuted: Color(0xFF998D7E),
-  accent: Color(0xFF8F6D3E),
-  accentHover: Color(0xFFAF8750),
-  accentAlt: Color(0xFF2F7D6E),
-  accentMuted: Color(0x1F8F6D3E),
-  border: Color(0x1F3C3227),
-  borderLight: Color(0x333C3227),
-  success: Color(0xFF1F8C58),
-  warning: Color(0xFFB87322),
-  danger: Color(0xFFD25B4D),
-  info: Color(0xFF2F7AA8),
-);
-
-_NeoAgentPalette get _palette =>
-    WidgetsBinding.instance.platformDispatcher.platformBrightness ==
-        Brightness.light
-    ? _lightPalette
-    : _darkPalette;
-
-Color get _bgPrimary => _palette.bgPrimary;
-Color get _bgSecondary => _palette.bgSecondary;
-Color get _bgTertiary => _palette.bgTertiary;
-Color get _bgCard => _palette.bgCard;
-Color get _textPrimary => _palette.textPrimary;
-Color get _textSecondary => _palette.textSecondary;
-Color get _textMuted => _palette.textMuted;
-Color get _accent => _palette.accent;
-Color get _accentHover => _palette.accentHover;
-Color get _accentAlt => _palette.accentAlt;
-Color get _accentMuted => _palette.accentMuted;
-Color get _border => _palette.border;
-Color get _borderLight => _palette.borderLight;
-Color get _success => _palette.success;
-Color get _warning => _palette.warning;
-Color get _danger => _palette.danger;
-Color get _info => _palette.info;
-
-LinearGradient get _appBackgroundGradient => LinearGradient(
-  colors: <Color>[
-    _bgPrimary,
-    _bgSecondary.withValues(alpha: 0.96),
-    _bgPrimary,
-  ],
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-);
-
-LinearGradient get _panelGradient => LinearGradient(
-  colors: <Color>[
-    _bgCard.withValues(alpha: 0.96),
-    _bgSecondary.withValues(alpha: 0.92),
-  ],
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-);
-
-List<BoxShadow> get _softPanelShadow => <BoxShadow>[
-  BoxShadow(
-    color: Colors.black.withValues(alpha: 0.16),
-    blurRadius: 40,
-    offset: const Offset(0, 16),
-  ),
-  BoxShadow(
-    color: _accent.withValues(alpha: 0.05),
-    blurRadius: 28,
-    offset: const Offset(0, 6),
-  ),
-];
-
-TextStyle _displayTitleStyle([double size = 28]) => GoogleFonts.spaceGrotesk(
-  fontSize: size,
-  fontWeight: FontWeight.w700,
-  height: 1.05,
-  letterSpacing: -0.6,
-  color: _textPrimary,
-);
-
-TextStyle _sectionEyebrowStyle() => GoogleFonts.spaceGrotesk(
-  fontSize: 11,
-  fontWeight: FontWeight.w700,
-  letterSpacing: 1.6,
-  color: _accentHover,
-);
-
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const NeoAgentApp());
 }
+
+const String _androidEmulatorBackendUrl = 'http://10.0.2.2:3333';
+const String _browserUrlPlaceholder = 'https://example.com';
+const String _androidLaunchPlaceholder = 'com.android.settings';
+const String _packageOrUrlHint = 'Package name or URL';
 
 enum AppSection {
   chat,
@@ -405,139 +261,6 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
   }
 }
 
-ThemeData _buildNeoAgentTheme(_NeoAgentPalette palette, Brightness brightness) {
-  final base = ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: palette.accent,
-      brightness: brightness,
-    ),
-  );
-
-  return base.copyWith(
-    scaffoldBackgroundColor: palette.bgPrimary,
-    colorScheme: base.colorScheme.copyWith(
-      primary: palette.accent,
-      secondary: palette.accentHover,
-      surface: palette.bgCard,
-      onSurface: palette.textPrimary,
-      error: palette.danger,
-    ),
-    textTheme: GoogleFonts.manropeTextTheme(
-      base.textTheme,
-    ).apply(bodyColor: palette.textPrimary, displayColor: palette.textPrimary),
-    cardTheme: CardThemeData(
-      color: palette.bgCard.withValues(alpha: brightness == Brightness.dark ? 0.9 : 0.94),
-      shadowColor: Colors.black.withValues(
-        alpha: brightness == Brightness.dark ? 0.24 : 0.08,
-      ),
-      surfaceTintColor: Colors.transparent,
-      elevation: brightness == Brightness.dark ? 8 : 3,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: palette.borderLight),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: palette.bgSecondary.withValues(
-        alpha: brightness == Brightness.dark ? 0.76 : 0.68,
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: palette.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: palette.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: palette.accent, width: 1.4),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      labelStyle: TextStyle(
-        color: palette.textSecondary,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.15,
-      ),
-      hintStyle: TextStyle(color: palette.textMuted),
-    ),
-    dividerColor: palette.border,
-    iconTheme: IconThemeData(color: palette.textSecondary),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: palette.accent,
-        foregroundColor: brightness == Brightness.dark
-            ? palette.bgPrimary
-            : Colors.white,
-        disabledBackgroundColor: palette.bgTertiary,
-        disabledForegroundColor: palette.textMuted,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
-        textStyle: GoogleFonts.manrope(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.15,
-        ),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: palette.textPrimary,
-        side: BorderSide(color: palette.borderLight),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
-        textStyle: GoogleFonts.manrope(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ),
-    textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        foregroundColor: palette.accentHover,
-        textStyle: GoogleFonts.manrope(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.15,
-        ),
-      ),
-    ),
-    appBarTheme: AppBarTheme(
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      foregroundColor: palette.textPrimary,
-      elevation: 0,
-      titleTextStyle: GoogleFonts.spaceGrotesk(
-        color: palette.textPrimary,
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.2,
-      ),
-    ),
-    dialogTheme: DialogThemeData(
-      backgroundColor: palette.bgCard.withValues(alpha: 0.96),
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: palette.borderLight),
-      ),
-    ),
-    snackBarTheme: SnackBarThemeData(
-      backgroundColor: palette.bgCard,
-      contentTextStyle: TextStyle(color: palette.textPrimary),
-    ),
-  );
-}
-
 class NeoAgentRoot extends StatelessWidget {
   const NeoAgentRoot({super.key, required this.controller});
 
@@ -749,7 +472,7 @@ class NeoAgentController extends ChangeNotifier {
       return configured;
     }
 
-    return 'http://10.0.2.2:3333';
+    return _androidEmulatorBackendUrl;
   }
 
   static bool _isLoopbackHost(String host) {
@@ -969,12 +692,15 @@ class NeoAgentController extends ChangeNotifier {
         provider: provider,
       );
       if (!launchResult.launched) {
-        throw Exception(launchResult.error ?? 'Could not open the provider sign-in page.');
+        throw Exception(
+          launchResult.error ?? 'Could not open the provider sign-in page.',
+        );
       }
       final response = await _pollForProviderAuthCompletion(state);
       if (response['requiresTwoFactor'] == true) {
         final responseUser =
-            response['user'] as Map<dynamic, dynamic>? ?? const <dynamic, dynamic>{};
+            response['user'] as Map<dynamic, dynamic>? ??
+            const <dynamic, dynamic>{};
         pendingTwoFactorUsername = responseUser['username']?.toString() ?? '';
         isAwaitingTwoFactor = true;
         isAuthenticated = false;
@@ -2855,7 +2581,9 @@ class NeoAgentController extends ChangeNotifier {
         provider: provider,
       );
       if (!launchResult.launched) {
-        throw Exception(launchResult.error ?? 'Could not open the provider linking page.');
+        throw Exception(
+          launchResult.error ?? 'Could not open the provider linking page.',
+        );
       }
       await _pollForProviderAuthCompletion(state);
       await refreshAccountSettings();
@@ -3697,7 +3425,9 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('already linked to another account')) {
       return 'That Google account is already linked to a different NeoAgent account.';
     }
-    if (lower.contains('create a password or link another provider before removing this sign-in method')) {
+    if (lower.contains(
+      'create a password or link another provider before removing this sign-in method',
+    )) {
       return 'Add another sign-in method before removing this one.';
     }
     if (lower.contains('unable to locate a java runtime') ||
@@ -4502,9 +4232,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
   @override
   void initState() {
     super.initState();
-    _browserUrlController = TextEditingController(text: 'https://example.com');
+    _browserUrlController = TextEditingController(text: _browserUrlPlaceholder);
     _androidLaunchController = TextEditingController(
-      text: 'com.android.settings',
+      text: _androidLaunchPlaceholder,
     );
     _textEntryController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -5015,8 +4745,8 @@ class _DeviceLaunchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hint = surface == _DeviceSurface.browser
-        ? 'https://example.com'
-        : 'Package name or URL';
+        ? _browserUrlPlaceholder
+        : _packageOrUrlHint;
     final buttonLabel = surface == _DeviceSurface.browser
         ? 'Open'
         : starting
@@ -10535,7 +10265,12 @@ _PasswordStrengthInfo _passwordStrengthInfo({
   final upper = RegExp(r'[A-Z]').hasMatch(value);
   final digits = RegExp(r'[0-9]').hasMatch(value);
   final symbols = RegExp(r'[^A-Za-z0-9]').hasMatch(value);
-  final variety = <bool>[lower, upper, digits, symbols].where((item) => item).length;
+  final variety = <bool>[
+    lower,
+    upper,
+    digits,
+    symbols,
+  ].where((item) => item).length;
   final normalized = value.toLowerCase();
   final userHints = <String>{
     username.trim().toLowerCase(),
@@ -10619,10 +10354,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
           children: <Widget>[
             Text(
               'Password strength: ${info.label}',
-              style: TextStyle(
-                color: info.color,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: info.color, fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -10915,8 +10647,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                 ),
                 isThreeLine: provider.email.isNotEmpty,
                 trailing: TextButton(
-                  onPressed: controller.isSavingAccountSettings ||
-                          !provider.canUnlink
+                  onPressed:
+                      controller.isSavingAccountSettings || !provider.canUnlink
                       ? null
                       : () => controller.unlinkAccountProvider(provider.id),
                   child: const Text('Unlink'),
@@ -11061,8 +10793,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           controller: _confirmNewPasswordController,
           obscureText: true,
           decoration: InputDecoration(
-            labelText:
-                hasPassword ? 'Confirm new password' : 'Confirm password',
+            labelText: hasPassword
+                ? 'Confirm new password'
+                : 'Confirm password',
           ),
         ),
         if (_passwordInlineError != null) ...<Widget>[
@@ -11082,8 +10815,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                     _passwordInlineError = null;
                     _passwordSuccessMessage = null;
                   });
-                  if (hasPassword &&
-                      _currentPasswordController.text.isEmpty) {
+                  if (hasPassword && _currentPasswordController.text.isEmpty) {
                     setState(() {
                       _passwordInlineError =
                           'Enter your current password to change it.';
@@ -11113,8 +10845,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                       _currentPasswordController.clear();
                       _newPasswordController.clear();
                       _confirmNewPasswordController.clear();
-                      _passwordSuccessMessage =
-                          hasPassword ? 'Password changed.' : 'Password created.';
+                      _passwordSuccessMessage = hasPassword
+                          ? 'Password changed.'
+                          : 'Password created.';
                     });
                   }
                 },

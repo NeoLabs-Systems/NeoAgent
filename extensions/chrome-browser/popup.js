@@ -10,6 +10,9 @@ const flowDescriptionEl = document.querySelector('#flowDescription');
 const primaryActionEl = document.querySelector('#primaryAction');
 const secondaryActionEl = document.querySelector('#secondaryAction');
 const openAppEl = document.querySelector('#openApp');
+const disconnectEl = document.querySelector('#disconnect');
+const checkUpdateEl = document.querySelector('#checkUpdate');
+const downloadEl = document.querySelector('#download');
 
 const STATUS_LABELS = {
   connected: 'Connected',
@@ -186,68 +189,38 @@ async function refresh() {
   updateFlow();
 }
 
-primaryActionEl.addEventListener('click', async () => {
-  try {
-    setMessage('');
-    await runAction(primaryActionEl.dataset.action);
-  } catch (error) {
-    setMessage(error.message, 'error');
-  }
-});
-
-secondaryActionEl.addEventListener('click', async () => {
-  try {
-    setMessage('');
-    await runAction(secondaryActionEl.dataset.action);
-  } catch (error) {
-    setMessage(error.message, 'error');
-  }
-});
-
-openAppEl.addEventListener('click', async () => {
-  try {
-    setMessage('');
-    await runAction('openApp');
-  } catch (error) {
-    setMessage(error.message, 'error');
-  }
-});
+function bindAsyncClick(element, handler) {
+  element.addEventListener('click', async () => {
+    try {
+      setMessage('');
+      await handler();
+    } catch (error) {
+      setMessage(error.message, 'error');
+    }
+  });
+}
 
 serverUrlEl.addEventListener('input', updateFlow);
 
-document.querySelector('#disconnect').addEventListener('click', async () => {
-  try {
-    setMessage('');
-    await send('disconnect');
-    await refresh();
-    setMessage('Disconnected.', 'success');
-  } catch (error) {
-    setMessage(error.message, 'error');
-  }
+bindAsyncClick(primaryActionEl, () => runAction(primaryActionEl.dataset.action));
+bindAsyncClick(secondaryActionEl, () => runAction(secondaryActionEl.dataset.action));
+bindAsyncClick(openAppEl, () => runAction('openApp'));
+bindAsyncClick(disconnectEl, async () => {
+  await send('disconnect');
+  await refresh();
+  setMessage('Disconnected.', 'success');
 });
-
-document.querySelector('#checkUpdate').addEventListener('click', async () => {
-  try {
-    setMessage('');
-    const result = await send('checkForUpdates', { serverUrl: effectiveServerUrl() });
-    setMessage(
-      result.updateAvailable
-        ? `Update available: ${result.currentVersion} -> ${result.latestVersion}.`
-        : `Current version ${result.currentVersion} is up to date.`,
-      result.updateAvailable ? '' : 'success',
-    );
-  } catch (error) {
-    setMessage(error.message, 'error');
-  }
+bindAsyncClick(checkUpdateEl, async () => {
+  const result = await send('checkForUpdates', { serverUrl: effectiveServerUrl() });
+  setMessage(
+    result.updateAvailable
+      ? `Update available: ${result.currentVersion} -> ${result.latestVersion}.`
+      : `Current version ${result.currentVersion} is up to date.`,
+    result.updateAvailable ? '' : 'success',
+  );
 });
-
-document.querySelector('#download').addEventListener('click', async () => {
-  try {
-    setMessage('');
-    await send('openDownload', { serverUrl: effectiveServerUrl() });
-  } catch (error) {
-    setMessage(error.message, 'error');
-  }
+bindAsyncClick(downloadEl, async () => {
+  await send('openDownload', { serverUrl: effectiveServerUrl() });
 });
 
 chrome.runtime.onMessage.addListener((message) => {

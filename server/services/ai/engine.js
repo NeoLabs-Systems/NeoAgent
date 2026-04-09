@@ -306,6 +306,8 @@ function buildMessagingErrorReply(err) {
   return 'I ran into an internal error while processing your request and could not finish it reliably.';
 }
 
+const MAX_AUTONOMOUS_MESSAGING_RETRIES = 2;
+
 function clampRunContext(text, maxChars) {
   const value = normalizeOutgoingMessage(text);
   if (!value) return '';
@@ -529,6 +531,64 @@ class AgentEngine {
       value: normalize(parsed || {}, fallback),
       raw: response.content || '',
       usage: response.usage?.totalTokens || 0,
+    };
+  }
+
+  async requestModelResponse({
+    provider,
+    providerName,
+    model,
+    messages,
+    tools,
+    options,
+    runId,
+    iteration,
+  }) {
+    const requestMessages = sanitizeConversationMessages(messages);
+    const callOptions = {
+      model,
+      reasoningEffort: this.getReasoningEffort(providerName, options),
+    };
+    let response = null;
+    let streamContent = '';
+
+    if (options.stream !== false) {
+      const stream = provider.stream(requestMessages, tools, callOptions);
+      for await (const chunk of stream) {
+        if (chunk.type === 'content') {
+          streamContent += chunk.content;
+          this.emit(options.userId, 'run:stream', {
+            runId,
+            content: sanitizeModelOutput(streamContent, { model }),
+            iteration,
+          });
+        }
+        if (chunk.type === 'done') {
+          response = chunk;
+        }
+        if (chunk.type === 'tool_calls') {
+          response = {
+            content: chunk.content || streamContent,
+            toolCalls: chunk.toolCalls,
+            providerContentBlocks: chunk.providerContentBlocks || null,
+            finishReason: 'tool_calls',
+            usage: chunk.usage || null,
+          };
+        }
+      }
+    } else {
+      response = await provider.chat(requestMessages, tools, callOptions);
+    }
+
+    return {
+      response: response || {
+        content: streamContent,
+        toolCalls: [],
+        finishReason: 'stop',
+        usage: null,
+      },
+      responseModel: model,
+      streamContent,
     };
   }
 
@@ -978,6 +1038,10 @@ class AgentEngine {
     return options.reasoningEffort || process.env.REASONING_EFFORT || 'low';
   }
 
+  getMessagingRetryLimit(maxIterations) {
+    return Math.max(1, Math.min(MAX_AUTONOMOUS_MESSAGING_RETRIES, maxIterations));
+  }
+
   buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg) {
     const messages = [{ role: 'system', content: systemPrompt }];
     if (summaryMessage) messages.push(summaryMessage);
@@ -1200,6 +1264,7 @@ class AgentEngine {
     let plan = null;
     let verification = null;
     let directAnswerEligible = false;
+    let analysisUsage = 0;
 
     try {
       if (options.skipTaskAnalysis === true) {
@@ -1227,7 +1292,8 @@ class AgentEngine {
           forceMode: options.forceMode || null,
           options: { ...options, triggerSource },
         });
-        totalTokens += analysisResult.usage || 0;
+        analysisUsage = analysisResult.usage || 0;
+        totalTokens += analysisUsage;
         analysis = { ...analysisResult.analysis };
         if (options.forceMode === 'plan_execute') {
           analysis.mode = 'plan_execute';
@@ -1321,7 +1387,7 @@ class AgentEngine {
         messages.push({ role: 'assistant', content: lastContent });
         if (conversationId) {
           db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
-            .run(conversationId, 'assistant', lastContent, analysisResult.usage || 0);
+            .run(conversationId, 'assistant', lastContent, analysisUsage);
         }
       }
 
@@ -1352,41 +1418,22 @@ class AgentEngine {
         let response;
         let responseModel = model;
         let streamContent = '';
-        const callOptions = { model, reasoningEffort: this.getReasoningEffort(providerName, options) };
 
         const tryModelCall = async (retryForFallback = true) => {
-          const requestMessages = sanitizeConversationMessages(messages);
           try {
-            if (options.stream !== false) {
-              const gen = provider.stream(requestMessages, tools, callOptions);
-              for await (const chunk of gen) {
-                if (chunk.type === 'content') {
-                  streamContent += chunk.content;
-                  this.emit(userId, 'run:stream', {
-                    runId,
-                    content: sanitizeModelOutput(streamContent, { model }),
-                    iteration
-                  });
-                }
-                if (chunk.type === 'done') {
-                  response = chunk;
-                  responseModel = model;
-                }
-                if (chunk.type === 'tool_calls') {
-                  response = {
-                    content: chunk.content || streamContent,
-                    toolCalls: chunk.toolCalls,
-                    providerContentBlocks: chunk.providerContentBlocks || null,
-                    finishReason: 'tool_calls',
-                    usage: chunk.usage || null
-                  };
-                  responseModel = model;
-                }
-              }
-            } else {
-              response = await provider.chat(requestMessages, tools, callOptions);
-              responseModel = model;
-            }
+            const modelCall = await this.requestModelResponse({
+              provider,
+              providerName,
+              model,
+              messages,
+              tools,
+              options: { ...options, userId },
+              runId,
+              iteration,
+            });
+            response = modelCall.response;
+            responseModel = modelCall.responseModel;
+            streamContent = modelCall.streamContent;
           } catch (err) {
             console.error(`[Engine] Model call failed (${model}):`, err.message);
             const fallbackModelId = retryForFallback
@@ -1406,8 +1453,6 @@ class AgentEngine {
               model = fallback.model;
               providerName = fallback.providerName;
 
-              // Recursive call once
-              const retryOptions = { ...callOptions, model, reasoningEffort: this.getReasoningEffort(providerName, options) };
               const retryMessages = sanitizeConversationMessages([
                 ...messages,
                 {
@@ -1420,36 +1465,19 @@ class AgentEngine {
                 }
               ]);
 
-              if (options.stream !== false) {
-                const gen = provider.stream(retryMessages, tools, retryOptions);
-                for await (const chunk of gen) {
-                  if (chunk.type === 'content') {
-                    streamContent += chunk.content;
-                    this.emit(userId, 'run:stream', {
-                      runId,
-                      content: sanitizeModelOutput(streamContent, { model }),
-                      iteration
-                    });
-                  }
-                  if (chunk.type === 'done') {
-                    response = chunk;
-                    responseModel = model;
-                  }
-                  if (chunk.type === 'tool_calls') {
-                    response = {
-                      content: chunk.content || streamContent,
-                      toolCalls: chunk.toolCalls,
-                      providerContentBlocks: chunk.providerContentBlocks || null,
-                      finishReason: 'tool_calls',
-                      usage: chunk.usage || null
-                    };
-                    responseModel = model;
-                  }
-                }
-              } else {
-                response = await provider.chat(retryMessages, tools, retryOptions);
-                responseModel = model;
-              }
+              const fallbackCall = await this.requestModelResponse({
+                provider,
+                providerName,
+                model,
+                messages: retryMessages,
+                tools,
+                options: { ...options, userId },
+                runId,
+                iteration,
+              });
+              response = fallbackCall.response;
+              responseModel = fallbackCall.responseModel;
+              streamContent = fallbackCall.streamContent;
             } else {
               throw err;
             }
@@ -1924,7 +1952,7 @@ class AgentEngine {
         && options.source
         && options.chatId
         && !runMeta?.messagingSent
-        && retryCount < maxIterations
+        && retryCount < this.getMessagingRetryLimit(maxIterations)
       );
 
       if (canRetryMessagingRun) {

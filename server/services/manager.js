@@ -87,12 +87,89 @@ function createAuthProviderManager(app) {
   return authProviderManager;
 }
 
-function createBrowserController(app, artifactStore) {
-  const browserControllers = registerLocal(app, 'browserControllers', new Map());
-  const browserCreationPromises = registerLocal(app, 'browserControllerCreationPromises', new Map());
-  const browserLastAccess = registerLocal(app, 'browserControllerLastAccess', new Map());
-  const maxBrowserControllers = 24;
+function createUserScopedControllerPool(app, {
+  controllersKey,
+  creationPromisesKey,
+  lastAccessKey,
+  resolverKey,
+  defaultControllerKey,
+  maxControllers = 24,
+  createController,
+  closeController,
+  closeErrorLabel,
+}) {
+  const controllers = registerLocal(app, controllersKey, new Map());
+  const creationPromises = registerLocal(app, creationPromisesKey, new Map());
+  const lastAccess = registerLocal(app, lastAccessKey, new Map());
 
+  function touch(key) {
+    lastAccess.set(key, Date.now());
+  }
+
+  async function evictStaleControllers() {
+    if (controllers.size <= maxControllers) {
+      return;
+    }
+
+    const entries = Array.from(lastAccess.entries())
+      .sort((left, right) => left[1] - right[1]);
+
+    while (controllers.size > maxControllers && entries.length > 0) {
+      const [staleKey] = entries.shift();
+      const controller = controllers.get(staleKey);
+      if (controller) {
+        try {
+          await closeController(controller);
+        } catch (err) {
+          console.warn(`${closeErrorLabel}:`, getErrorMessage(err));
+        }
+      }
+      controllers.delete(staleKey);
+      lastAccess.delete(staleKey);
+      creationPromises.delete(staleKey);
+    }
+  }
+
+  async function getControllerForUser(userId) {
+    const key = String(userId || '').trim();
+    if (!key) {
+      return app.locals[defaultControllerKey];
+    }
+
+    if (controllers.has(key)) {
+      touch(key);
+      return controllers.get(key);
+    }
+
+    if (creationPromises.has(key)) {
+      return creationPromises.get(key);
+    }
+
+    const creationPromise = Promise.resolve().then(async () => {
+      const controller = await createController(key);
+      controllers.set(key, controller);
+      touch(key);
+      await evictStaleControllers();
+      return controller;
+    }).finally(() => {
+      creationPromises.delete(key);
+    });
+
+    creationPromises.set(key, creationPromise);
+    return creationPromise;
+  }
+
+  registerLocal(app, resolverKey, getControllerForUser);
+
+  return {
+    controllers,
+    creationPromises,
+    lastAccess,
+    getControllerForUser,
+  };
+}
+
+function createBrowserController(app, artifactStore) {
   function getUserHeadlessPreference(userId) {
     try {
       const row = db
@@ -106,70 +183,28 @@ function createBrowserController(app, artifactStore) {
     }
   }
 
-  function touchBrowserControllerKey(key) {
-    browserLastAccess.set(key, Date.now());
-  }
-
-  async function evictStaleBrowserControllers() {
-    if (browserControllers.size <= maxBrowserControllers) {
-      return;
-    }
-    const entries = Array.from(browserLastAccess.entries())
-      .sort((a, b) => a[1] - b[1]);
-    while (browserControllers.size > maxBrowserControllers && entries.length > 0) {
-      const [staleKey] = entries.shift();
-      const controller = browserControllers.get(staleKey);
-      if (controller && typeof controller.closeBrowser === 'function') {
-        try {
-          await controller.closeBrowser();
-        } catch (err) {
-          console.warn('[Browser] Failed to close stale browser controller:', getErrorMessage(err));
-        }
-      }
-      browserControllers.delete(staleKey);
-      browserLastAccess.delete(staleKey);
-      browserCreationPromises.delete(staleKey);
-    }
-  }
-
-  async function getBrowserControllerForUser(userId) {
-    if (userId === null || userId === undefined) {
-      return app.locals.browserController;
-    }
-    const key = String(userId).trim();
-    if (!key) {
-      return app.locals.browserController;
-    }
-
-    if (browserControllers.has(key)) {
-      touchBrowserControllerKey(key);
-      return browserControllers.get(key);
-    }
-
-    if (browserCreationPromises.has(key)) {
-      return browserCreationPromises.get(key);
-    }
-
-    const creationPromise = Promise.resolve().then(async () => {
+  createUserScopedControllerPool(app, {
+    controllersKey: 'browserControllers',
+    creationPromisesKey: 'browserControllerCreationPromises',
+    lastAccessKey: 'browserControllerLastAccess',
+    resolverKey: 'getBrowserControllerForUser',
+    defaultControllerKey: 'browserController',
+    createController: async (userId) => {
       const controller = new BrowserController({
         userId,
         artifactStore,
         runtimeBackend: 'host',
       });
       controller.headless = getUserHeadlessPreference(userId);
-      browserControllers.set(key, controller);
-      touchBrowserControllerKey(key);
-      await evictStaleBrowserControllers();
       return controller;
-    }).finally(() => {
-      browserCreationPromises.delete(key);
-    });
-
-    browserCreationPromises.set(key, creationPromise);
-    return creationPromise;
-  }
-
-  registerLocal(app, 'getBrowserControllerForUser', getBrowserControllerForUser);
+    },
+    closeController: async (controller) => {
+      if (typeof controller.closeBrowser === 'function') {
+        await controller.closeBrowser();
+      }
+    },
+    closeErrorLabel: '[Browser] Failed to close stale browser controller',
+  });
 
   const browserController = registerLocal(
     app,
@@ -193,71 +228,27 @@ function createBrowserController(app, artifactStore) {
 }
 
 function createAndroidController(app, artifactStore) {
-  const androidControllers = registerLocal(app, 'androidControllers', new Map());
-  const androidCreationPromises = registerLocal(app, 'androidControllerCreationPromises', new Map());
-  const androidLastAccess = registerLocal(app, 'androidControllerLastAccess', new Map());
-  const maxAndroidControllers = 24;
-
-  function touchAndroidControllerKey(key) {
-    androidLastAccess.set(key, Date.now());
-  }
-
-  async function evictStaleAndroidControllers() {
-    if (androidControllers.size <= maxAndroidControllers) {
-      return;
-    }
-    const entries = Array.from(androidLastAccess.entries())
-      .sort((a, b) => a[1] - b[1]);
-    while (androidControllers.size > maxAndroidControllers && entries.length > 0) {
-      const [staleKey] = entries.shift();
-      const controller = androidControllers.get(staleKey);
-      if (controller && typeof controller.close === 'function') {
-        try {
-          await controller.close();
-        } catch (err) {
-          console.warn('[Android] Failed to close stale Android controller:', getErrorMessage(err));
-        }
-      }
-      androidControllers.delete(staleKey);
-      androidLastAccess.delete(staleKey);
-      androidCreationPromises.delete(staleKey);
-    }
-  }
-
-  async function getAndroidControllerForUser(userId) {
-    const key = String(userId || '').trim();
-    if (!key) {
-      return app.locals.androidController;
-    }
-
-    if (androidControllers.has(key)) {
-      touchAndroidControllerKey(key);
-      return androidControllers.get(key);
-    }
-
-    if (androidCreationPromises.has(key)) {
-      return androidCreationPromises.get(key);
-    }
-
-    const creationPromise = Promise.resolve().then(async () => {
+  createUserScopedControllerPool(app, {
+    controllersKey: 'androidControllers',
+    creationPromisesKey: 'androidControllerCreationPromises',
+    lastAccessKey: 'androidControllerLastAccess',
+    resolverKey: 'getAndroidControllerForUser',
+    defaultControllerKey: 'androidController',
+    createController: async (userId) => {
       const controller = new AndroidController({
-        userId: key,
+        userId,
         artifactStore,
         runtimeBackend: 'host',
       });
-      androidControllers.set(key, controller);
-      touchAndroidControllerKey(key);
-      await evictStaleAndroidControllers();
       return controller;
-    }).finally(() => {
-      androidCreationPromises.delete(key);
-    });
-
-    androidCreationPromises.set(key, creationPromise);
-    return creationPromise;
-  }
-
-  registerLocal(app, 'getAndroidControllerForUser', getAndroidControllerForUser);
+    },
+    closeController: async (controller) => {
+      if (typeof controller.close === 'function') {
+        await controller.close();
+      }
+    },
+    closeErrorLabel: '[Android] Failed to close stale Android controller',
+  });
 
   const androidController = registerLocal(
     app,

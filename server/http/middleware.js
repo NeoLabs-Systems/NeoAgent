@@ -10,6 +10,7 @@ const { logRequestSummary } = require('../utils/logger');
 const { getSessionSecret } = require('../services/account/session_secret');
 
 const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
+const LEGACY_SESSION_EXPIRE_FALLBACK = 0;
 
 function ensureSessionStoreSchema(db) {
   const table = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'").get();
@@ -35,11 +36,10 @@ function ensureSessionStoreSchema(db) {
     db.exec('CREATE TABLE sessions (sid PRIMARY KEY, sess, expire)');
 
     if (hasSid && hasSess) {
-      // TODO: Verify whether better-sqlite3-session-store treats expire=0 as already expired or non-expiring.
       const expireExpr = expireColumn ? expireColumn : 'NULL';
       db.exec(`
         INSERT OR REPLACE INTO sessions (sid, sess, expire)
-        SELECT sid, sess, COALESCE(${expireExpr}, 0) AS expire
+        SELECT sid, sess, COALESCE(${expireExpr}, ${LEGACY_SESSION_EXPIRE_FALLBACK}) AS expire
         FROM ${legacyTableName}
         WHERE sid IS NOT NULL
       `);
@@ -138,6 +138,13 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
       || path === '/api/browser-extension/pairing/request'
       || /^\/api\/browser-extension\/pairing\/[^/]+\/claim$/i.test(path);
   };
+  const requestPath = (req) => req.originalUrl || req.url || req.path || '';
+  const applyOnlyToRecordingChunk = (handler) => (req, res, next) => (
+    isRecordingChunkPath(requestPath(req)) ? handler(req, res, next) : next()
+  );
+  const skipRecordingChunk = (handler) => (req, res, next) => (
+    isRecordingChunkPath(requestPath(req)) ? next() : handler(req, res, next)
+  );
 
   if (secureCookies) {
     app.set('trust proxy', 1);
@@ -184,24 +191,9 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
 
     next();
   });
-  app.use((req, res, next) => {
-    if (isRecordingChunkPath(req.originalUrl || req.url || req.path)) {
-      return rawRecordingChunkBody(req, res, next);
-    }
-    return next();
-  });
-  app.use((req, res, next) => {
-    if (isRecordingChunkPath(req.originalUrl || req.url || req.path)) {
-      return next();
-    }
-    return jsonBody(req, res, next);
-  });
-  app.use((req, res, next) => {
-    if (isRecordingChunkPath(req.originalUrl || req.url || req.path)) {
-      return next();
-    }
-    return urlencodedBody(req, res, next);
-  });
+  app.use(applyOnlyToRecordingChunk(rawRecordingChunkBody));
+  app.use(skipRecordingChunk(jsonBody));
+  app.use(skipRecordingChunk(urlencodedBody));
   app.use(sessionMiddleware);
 }
 

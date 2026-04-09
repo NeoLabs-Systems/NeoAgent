@@ -28,17 +28,46 @@ class BackendClient {
 
   String? get sessionCookie => _httpClient.sessionCookie;
 
+  String? _normalizedAgentId(String? agentId) {
+    final normalized = agentId?.trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
+  }
+
   String _agentQuery(String? agentId) {
-    if (agentId == null || agentId.trim().isEmpty) {
-      return '';
-    }
-    return 'agentId=${Uri.encodeQueryComponent(agentId.trim())}';
+    final normalized = _normalizedAgentId(agentId);
+    if (normalized == null) return '';
+    return 'agentId=${Uri.encodeQueryComponent(normalized)}';
   }
 
   String _withAgentQuery(String path, String? agentId) {
     final query = _agentQuery(agentId);
     if (query.isEmpty) return path;
     return path.contains('?') ? '$path&$query' : '$path?$query';
+  }
+
+  Map<String, dynamic> _withAgentId(
+    Map<String, dynamic> payload,
+    String? agentId,
+  ) {
+    final normalized = _normalizedAgentId(agentId);
+    if (normalized == null) return payload;
+    return <String, dynamic>{...payload, 'agentId': normalized};
+  }
+
+  Future<Map<String, dynamic>> _saveByOptionalId(
+    String baseUrl,
+    String path,
+    int? id,
+    Map<String, dynamic> payload,
+  ) async {
+    if (id == null) {
+      return postMap(baseUrl, path, payload);
+    }
+    return putMap(baseUrl, '$path/$id', payload);
+  }
+
+  Future<Map<String, dynamic>> _postEmpty(String baseUrl, String path) {
+    return postMap(baseUrl, path, const <String, dynamic>{});
   }
 
   Future<Map<String, dynamic>> getAuthStatus(String baseUrl) async {
@@ -87,9 +116,12 @@ class BackendClient {
     required String provider,
     required String mode,
   }) async {
-    return postMap(baseUrl, '/api/auth/providers/$provider/begin', <String, dynamic>{
-      'mode': mode,
-    }, allowUnauthorized: mode != 'link');
+    return postMap(
+      baseUrl,
+      '/api/auth/providers/$provider/begin',
+      <String, dynamic>{'mode': mode},
+      allowUnauthorized: mode != 'link',
+    );
   }
 
   Future<Map<String, dynamic>> completeProviderAuth({
@@ -305,10 +337,7 @@ class BackendClient {
     Map<String, dynamic> payload, {
     String? agentId,
   }) async {
-    return putMap(baseUrl, '/api/settings', <String, dynamic>{
-      ...payload,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    });
+    return putMap(baseUrl, '/api/settings', _withAgentId(payload, agentId));
   }
 
   Future<Map<String, dynamic>> fetchTokenUsageSummary(
@@ -326,7 +355,7 @@ class BackendClient {
   }
 
   Future<Map<String, dynamic>> triggerUpdate(String baseUrl) async {
-    return postMap(baseUrl, '/api/settings/update', const <String, dynamic>{});
+    return _postEmpty(baseUrl, '/api/settings/update');
   }
 
   Future<Map<String, dynamic>> setReleaseChannel(
@@ -484,7 +513,7 @@ class BackendClient {
   }
 
   Future<Map<String, dynamic>> closeBrowser(String baseUrl) async {
-    return postMap(baseUrl, '/api/browser/close', const <String, dynamic>{});
+    return _postEmpty(baseUrl, '/api/browser/close');
   }
 
   Future<Map<String, dynamic>> fetchAndroidStatus(String baseUrl) async {
@@ -510,15 +539,11 @@ class BackendClient {
   }
 
   Future<Map<String, dynamic>> stopAndroidEmulator(String baseUrl) async {
-    return postMap(baseUrl, '/api/android/stop', const <String, dynamic>{});
+    return _postEmpty(baseUrl, '/api/android/stop');
   }
 
   Future<Map<String, dynamic>> screenshotAndroid(String baseUrl) async {
-    return postMap(
-      baseUrl,
-      '/api/android/screenshot',
-      const <String, dynamic>{},
-    );
+    return _postEmpty(baseUrl, '/api/android/screenshot');
   }
 
   Future<Map<String, dynamic>> observeAndroid(
@@ -728,10 +753,7 @@ class BackendClient {
     return postMap(
       baseUrl,
       '/api/integrations/$providerId/connect',
-      <String, dynamic>{
-        'appId': appId,
-        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-      },
+      _withAgentId(<String, dynamic>{'appId': appId}, agentId),
     );
   }
 
@@ -744,10 +766,7 @@ class BackendClient {
     return postMap(
       baseUrl,
       '/api/integrations/$providerId/disconnect',
-      <String, dynamic>{
-        'connectionId': connectionId,
-        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-      },
+      _withAgentId(<String, dynamic>{'connectionId': connectionId}, agentId),
     );
   }
 
@@ -782,11 +801,14 @@ class BackendClient {
     Map<String, dynamic>? config,
     String? agentId,
   }) async {
-    return postMap(baseUrl, '/api/messaging/connect', <String, dynamic>{
-      'platform': platform,
-      'config': config ?? const <String, dynamic>{},
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    });
+    return postMap(
+      baseUrl,
+      '/api/messaging/connect',
+      _withAgentId(<String, dynamic>{
+        'platform': platform,
+        'config': config ?? const <String, dynamic>{},
+      }, agentId),
+    );
   }
 
   Future<Map<String, dynamic>> disconnectMessagingPlatform(
@@ -794,10 +816,11 @@ class BackendClient {
     required String platform,
     String? agentId,
   }) async {
-    return postMap(baseUrl, '/api/messaging/disconnect', <String, dynamic>{
-      'platform': platform,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    });
+    return postMap(
+      baseUrl,
+      '/api/messaging/disconnect',
+      _withAgentId(<String, dynamic>{'platform': platform}, agentId),
+    );
   }
 
   Future<Map<String, dynamic>> logoutMessagingPlatform(
@@ -805,10 +828,11 @@ class BackendClient {
     required String platform,
     String? agentId,
   }) async {
-    return postMap(baseUrl, '/api/messaging/logout', <String, dynamic>{
-      'platform': platform,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    });
+    return postMap(
+      baseUrl,
+      '/api/messaging/logout',
+      _withAgentId(<String, dynamic>{'platform': platform}, agentId),
+    );
   }
 
   Future<Map<String, dynamic>> saveTelnyxWhitelist(
@@ -816,10 +840,11 @@ class BackendClient {
     List<String> numbers, {
     String? agentId,
   }) async {
-    return putMap(baseUrl, '/api/messaging/telnyx/whitelist', <String, dynamic>{
-      'numbers': numbers,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    });
+    return putMap(
+      baseUrl,
+      '/api/messaging/telnyx/whitelist',
+      _withAgentId(<String, dynamic>{'numbers': numbers}, agentId),
+    );
   }
 
   Future<Map<String, dynamic>> saveTelnyxVoiceSecret(
@@ -830,10 +855,7 @@ class BackendClient {
     return putMap(
       baseUrl,
       '/api/messaging/telnyx/voice-secret',
-      <String, dynamic>{
-        'secret': secret,
-        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-      },
+      _withAgentId(<String, dynamic>{'secret': secret}, agentId),
     );
   }
 
@@ -845,10 +867,7 @@ class BackendClient {
     return putMap(
       baseUrl,
       '/api/messaging/discord/whitelist',
-      <String, dynamic>{
-        'ids': ids,
-        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-      },
+      _withAgentId(<String, dynamic>{'ids': ids}, agentId),
     );
   }
 
@@ -860,10 +879,7 @@ class BackendClient {
     return putMap(
       baseUrl,
       '/api/messaging/telegram/whitelist',
-      <String, dynamic>{
-        'ids': ids,
-        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-      },
+      _withAgentId(<String, dynamic>{'ids': ids}, agentId),
     );
   }
 
@@ -876,10 +892,7 @@ class BackendClient {
     return putMap(
       baseUrl,
       '/api/messaging/$platform/whitelist',
-      <String, dynamic>{
-        'ids': ids,
-        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-      },
+      _withAgentId(<String, dynamic>{'ids': ids}, agentId),
     );
   }
 
@@ -909,11 +922,11 @@ class BackendClient {
     String query, {
     String? agentId,
   }) async {
-    return postList(baseUrl, '/api/memory/memories/recall', <String, dynamic>{
-      'query': query,
-      'limit': 8,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    });
+    return postList(
+      baseUrl,
+      '/api/memory/memories/recall',
+      _withAgentId(<String, dynamic>{'query': query, 'limit': 8}, agentId),
+    );
   }
 
   Future<Map<String, dynamic>> createMemory(
@@ -923,12 +936,15 @@ class BackendClient {
     required int importance,
     String? agentId,
   }) async {
-    return postMap(baseUrl, '/api/memory/memories', <String, dynamic>{
-      'content': content,
-      'category': category,
-      'importance': importance,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    });
+    return postMap(
+      baseUrl,
+      '/api/memory/memories',
+      _withAgentId(<String, dynamic>{
+        'content': content,
+        'category': category,
+        'importance': importance,
+      }, agentId),
+    );
   }
 
   Future<void> deleteMemory(String baseUrl, String id) async {
@@ -943,10 +959,7 @@ class BackendClient {
     return postMap(
       baseUrl,
       '/api/memory/memories/bulk-delete',
-      <String, dynamic>{
-        'ids': ids,
-        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-      },
+      _withAgentId(<String, dynamic>{'ids': ids}, agentId),
     );
   }
 
@@ -959,11 +972,10 @@ class BackendClient {
     return postMap(
       baseUrl,
       '/api/memory/memories/bulk-archive',
-      <String, dynamic>{
+      _withAgentId(<String, dynamic>{
         'ids': ids,
         'archived': archived,
-        if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-      },
+      }, agentId),
     );
   }
 
@@ -980,10 +992,11 @@ class BackendClient {
     required String value,
     String? agentId,
   }) async {
-    return putMap(baseUrl, '/api/memory/core/$key', <String, dynamic>{
-      'value': value,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    });
+    return putMap(
+      baseUrl,
+      '/api/memory/core/$key',
+      _withAgentId(<String, dynamic>{'value': value}, agentId),
+    );
   }
 
   Future<void> deleteCoreMemory(
@@ -1018,18 +1031,14 @@ class BackendClient {
     bool enabled = true,
     String? agentId,
   }) async {
-    final payload = <String, dynamic>{
+    final payload = _withAgentId(<String, dynamic>{
       'name': name,
       'cronExpression': cronExpression,
       'prompt': prompt,
       'model': model,
       'enabled': enabled,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    };
-    if (id == null) {
-      return postMap(baseUrl, '/api/scheduler', payload);
-    }
-    return putMap(baseUrl, '/api/scheduler/$id', payload);
+    }, agentId);
+    return _saveByOptionalId(baseUrl, '/api/scheduler', id, payload);
   }
 
   Future<Map<String, dynamic>> updateSchedulerTask(
@@ -1041,11 +1050,7 @@ class BackendClient {
   }
 
   Future<Map<String, dynamic>> runSchedulerTask(String baseUrl, int id) async {
-    return postMap(
-      baseUrl,
-      '/api/scheduler/$id/run',
-      const <String, dynamic>{},
-    );
+    return _postEmpty(baseUrl, '/api/scheduler/$id/run');
   }
 
   Future<void> deleteSchedulerTask(String baseUrl, int id) async {
@@ -1299,25 +1304,21 @@ class BackendClient {
     required bool enabled,
     String? agentId,
   }) async {
-    final payload = <String, dynamic>{
+    final payload = _withAgentId(<String, dynamic>{
       'name': name,
       'command': command,
       'config': config,
       'enabled': enabled,
-      if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-    };
-    if (id == null) {
-      return postMap(baseUrl, '/api/mcp', payload);
-    }
-    return putMap(baseUrl, '/api/mcp/$id', payload);
+    }, agentId);
+    return _saveByOptionalId(baseUrl, '/api/mcp', id, payload);
   }
 
   Future<Map<String, dynamic>> startMcpServer(String baseUrl, int id) async {
-    return postMap(baseUrl, '/api/mcp/$id/start', const <String, dynamic>{});
+    return _postEmpty(baseUrl, '/api/mcp/$id/start');
   }
 
   Future<Map<String, dynamic>> stopMcpServer(String baseUrl, int id) async {
-    return postMap(baseUrl, '/api/mcp/$id/stop', const <String, dynamic>{});
+    return _postEmpty(baseUrl, '/api/mcp/$id/stop');
   }
 
   Future<void> deleteMcpServer(String baseUrl, int id) async {

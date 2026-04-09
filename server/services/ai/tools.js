@@ -106,12 +106,20 @@ function markProactiveMessageSent({ runState, deliveryState, content }) {
     }
 }
 
-/**
- * Returns the list of available tools for the agent.
- * @param {object} app - Express app instance.
- * @param {object} options - Tool filtering options.
- * @returns {Array} List of tool definitions.
- */
+function buildAndroidUiMatchProperties(extra = {}) {
+    return {
+        x: { type: 'number', description: 'Absolute X coordinate' },
+        y: { type: 'number', description: 'Absolute Y coordinate' },
+        text: { type: 'string', description: 'Visible text to match in the UI dump' },
+        resourceId: { type: 'string', description: 'Android resource-id to match' },
+        description: { type: 'string', description: 'content-desc / accessibility label to match' },
+        className: { type: 'string', description: 'Optional class name filter' },
+        packageName: { type: 'string', description: 'Optional package filter' },
+        clickable: { type: 'boolean', description: 'Prefer clickable elements' },
+        ...extra,
+    };
+}
+
 function getAvailableTools(app, options = {}) {
     const tools = [
         {
@@ -263,16 +271,7 @@ function getAvailableTools(app, options = {}) {
             description: 'Tap the Android screen at coordinates or by matching a UI element from the current UI dump.',
             parameters: {
                 type: 'object',
-                properties: {
-                    x: { type: 'number', description: 'Absolute X coordinate' },
-                    y: { type: 'number', description: 'Absolute Y coordinate' },
-                    text: { type: 'string', description: 'Visible text to match in the UI dump' },
-                    resourceId: { type: 'string', description: 'Android resource-id to match' },
-                    description: { type: 'string', description: 'content-desc / accessibility label to match' },
-                    className: { type: 'string', description: 'Optional class name filter' },
-                    packageName: { type: 'string', description: 'Optional package filter' },
-                    clickable: { type: 'boolean', description: 'Prefer clickable elements' }
-                }
+                properties: buildAndroidUiMatchProperties()
             }
         },
         {
@@ -280,17 +279,9 @@ function getAvailableTools(app, options = {}) {
             description: 'Long-press an Android UI element or screen coordinate. Useful for context menus, drag handles, rearranging icons, and long-click actions.',
             parameters: {
                 type: 'object',
-                properties: {
-                    x: { type: 'number', description: 'Absolute X coordinate' },
-                    y: { type: 'number', description: 'Absolute Y coordinate' },
-                    text: { type: 'string', description: 'Visible text to match in the UI dump' },
-                    resourceId: { type: 'string', description: 'Android resource-id to match' },
-                    description: { type: 'string', description: 'content-desc / accessibility label to match' },
-                    className: { type: 'string', description: 'Optional class name filter' },
-                    packageName: { type: 'string', description: 'Optional package filter' },
-                    clickable: { type: 'boolean', description: 'Prefer clickable elements' },
+                properties: buildAndroidUiMatchProperties({
                     durationMs: { type: 'number', description: 'Press duration in milliseconds (default 650)' }
-                }
+                })
             }
         },
         {
