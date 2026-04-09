@@ -32,6 +32,7 @@ const BUNDLED_SKILL_PATHS = [
   'media/gif-search',
   'media/youtube-content',
   'note-taking/obsidian',
+  'productivity/catbox-upload-skill',
   'productivity/linear',
   'productivity/nano-pdf',
   'productivity/notion',
