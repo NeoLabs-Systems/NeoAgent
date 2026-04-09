@@ -182,7 +182,12 @@ class SkillRunner {
       return await executor.execute(command, { cwd: skill.dir });
     }
 
-    return { skill: skill.name, instructions: skill.instructions, args };
+    return {
+      error: `Skill '${toolName}' is documentation-only and cannot execute directly.`,
+      skill: skill.name,
+      instructions: skill.instructions,
+      args
+    };
   }
 
   createSkill(name, description, instructions, metadata = {}) {

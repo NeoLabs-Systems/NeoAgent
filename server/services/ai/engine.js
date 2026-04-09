@@ -117,6 +117,39 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
   };
 }
 
+async function getFailureFallbackModelId(userId, agentId, currentModelId, preferredFallbackId = null) {
+  const { getSupportedModels } = require('./models');
+  const aiSettings = getAiSettings(userId, agentId);
+  const models = await getSupportedModels(userId, agentId);
+  const availableModels = models.filter((model) => model.available !== false);
+  const knownIds = new Set(availableModels.map((model) => model.id));
+  const enabledIds = Array.isArray(aiSettings.enabled_models)
+    ? aiSettings.enabled_models.map((id) => String(id)).filter((id) => knownIds.has(id))
+    : [];
+  const pool = enabledIds.length > 0
+    ? availableModels.filter((model) => enabledIds.includes(model.id))
+    : availableModels;
+  const currentModel = pool.find((model) => model.id === currentModelId)
+    || availableModels.find((model) => model.id === currentModelId)
+    || null;
+
+  if (preferredFallbackId && preferredFallbackId !== currentModelId) {
+    const preferred = pool.find((model) => model.id === preferredFallbackId)
+      || availableModels.find((model) => model.id === preferredFallbackId);
+    if (preferred) return preferred.id;
+  }
+
+  if (currentModel?.provider) {
+    const differentProvider = pool.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider)
+      || availableModels.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider);
+    if (differentProvider) return differentProvider.id;
+  }
+
+  const differentModel = pool.find((model) => model.id !== currentModelId)
+    || availableModels.find((model) => model.id !== currentModelId);
+  return differentModel?.id || null;
+}
+
 function estimateTokenValue(value) {
   if (!value) return 0;
   if (typeof value === 'string') return Math.ceil(value.length / 4);
@@ -136,18 +169,6 @@ function joinSentMessages(messages = []) {
     .map((message) => String(message || '').trim())
     .filter(Boolean)
     .join('\n\n');
-}
-
-function isProactiveTrigger(triggerSource) {
-  return triggerSource === 'scheduler';
-}
-
-function buildForcedFinalReplyPrompt(triggerSource) {
-  if (triggerSource === 'messaging') {
-    return 'Tool work is finished. Write the user-visible reply that should be sent back now. Do not call tools. Do not use [NO RESPONSE] unless the user explicitly asked for silence or no confirmation.';
-  }
-
-  return 'Tool work is finished. Write the final user-facing reply now. Do not call tools.';
 }
 
 function buildBlankMessagingReplyPrompt(attempt) {
@@ -284,8 +305,6 @@ function buildMessagingErrorReply(err) {
 
   return 'I ran into an internal error while processing your request and could not finish it reliably.';
 }
-
-const MAX_MESSAGING_AUTONOMOUS_RETRIES = 2;
 
 function clampRunContext(text, maxChars) {
   const value = normalizeOutgoingMessage(text);
@@ -583,6 +602,71 @@ class AgentEngine {
     };
   }
 
+  async decideLoopState({
+    provider,
+    providerName,
+    model,
+    messages,
+    analysis,
+    plan,
+    toolExecutions,
+    lastReply,
+    triggerSource,
+    iteration,
+    maxIterations,
+    options,
+    fallbackStatus,
+  }) {
+    const successCriteria = Array.isArray(plan?.success_criteria)
+      ? plan.success_criteria
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 6)
+      : [];
+
+    const response = await this.requestStructuredJson({
+      provider,
+      providerName,
+      model,
+      messages,
+      prompt: [
+        'Return JSON only.',
+        'Decide whether this run should continue autonomously or stop now.',
+        'Schema: {"status":"continue|complete|blocked","reason":"short concrete reason"}',
+        'Rules:',
+        '- Use "continue" whenever any safe next step remains in this same run.',
+        '- Use "complete" only when the requested outcome is actually achieved or a truthful final user reply is already ready now.',
+        '- Use "blocked" only when a specific external dependency outside this run is required.',
+        '- A progress update is not complete.',
+        '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
+        triggerSource === 'messaging'
+          ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked.'
+          : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
+        analysis?.goal ? `Goal: ${analysis.goal}` : '',
+        successCriteria.length > 0 ? `Success criteria:\n${successCriteria.map((item, index) => `${index + 1}. ${item}`).join('\n')}` : '',
+        `Current iteration: ${iteration} of ${maxIterations}.`,
+        `Recent tool evidence:\n${summarizeToolExecutions(toolExecutions, 8) || 'none'}`,
+        `Latest draft reply:\n${normalizeOutgoingMessage(lastReply) || '(empty)'}`,
+      ].filter(Boolean).join('\n'),
+      maxTokens: 320,
+      normalize: (raw) => {
+        const allowed = new Set(['continue', 'complete', 'blocked']);
+        const requestedStatus = String(raw.status || '').trim().toLowerCase();
+        return {
+          status: allowed.has(requestedStatus) ? requestedStatus : fallbackStatus,
+          reason: String(raw.reason || '').trim().slice(0, 400),
+        };
+      },
+      fallback: { status: fallbackStatus },
+      reasoningEffort: this.getReasoningEffort(providerName, options),
+    });
+
+    return {
+      decision: response.value,
+      usage: response.usage,
+    };
+  }
+
   async verifyFinalResponse({
     provider,
     providerName,
@@ -737,15 +821,16 @@ class AgentEngine {
       }
     }
 
-    const fallback = buildDeterministicMessagingFallback({
-      failedStepCount,
-      stepIndex,
-      toolExecutions,
-    });
-    console.warn(
-      `[Run ${shortenRunId(runId)}] blank_reply_recovery fallback=natural_language`
+    const error = new Error(
+      buildDeterministicMessagingFallback({
+        failedStepCount,
+        stepIndex,
+        toolExecutions,
+      })
     );
-    return { content: fallback, tokens: totalTokens, recovered: true };
+    error.code = 'BLANK_MESSAGING_REPLY';
+    error.recoveryTokens = totalTokens;
+    throw error;
   }
 
   getAvailableTools(app, options = {}) {
@@ -1033,7 +1118,6 @@ class AgentEngine {
       startedAt: Date.now(),
       lastToolName: null,
       lastToolTarget: null,
-      proactiveDeliveryCompleted: false,
       steeringQueue: [],
       toolPids: new Set()
     });
@@ -1305,14 +1389,17 @@ class AgentEngine {
             }
           } catch (err) {
             console.error(`[Engine] Model call failed (${model}):`, err.message);
-            if (retryForFallback && aiSettings.fallback_model_id && aiSettings.fallback_model_id !== model) {
+            const fallbackModelId = retryForFallback
+              ? await getFailureFallbackModelId(userId, agentId, model, aiSettings.fallback_model_id)
+              : null;
+            if (fallbackModelId) {
               const failedModel = model;
-              console.log(`[Engine] Attempting fallback to: ${aiSettings.fallback_model_id}`);
+              console.log(`[Engine] Attempting fallback to: ${fallbackModelId}`);
               const fallback = await getProviderForUser(
                 userId,
                 userMessage,
                 triggerType === 'subagent',
-                aiSettings.fallback_model_id,
+                fallbackModelId,
                 providerStatusConfig
               );
               provider = fallback.provider;
@@ -1379,10 +1466,24 @@ class AgentEngine {
           if (!isFatalModelError && modelFailureRecoveries < 2) {
             modelFailureRecoveries += 1;
             failedStepCount += 1;
+            const failedModel = model;
+            const fallbackModelId = await getFailureFallbackModelId(userId, agentId, model, aiSettings.fallback_model_id);
+            if (fallbackModelId && fallbackModelId !== model) {
+              const fallback = await getProviderForUser(
+                userId,
+                userMessage,
+                triggerType === 'subagent',
+                fallbackModelId,
+                providerStatusConfig
+              );
+              provider = fallback.provider;
+              model = fallback.model;
+              providerName = fallback.providerName;
+            }
             messages.push({
               role: 'system',
               content: buildModelFailureLoopPrompt({
-                failedModel: model,
+                failedModel,
                 nextModel: model,
                 errorMessage: modelError
               })
@@ -1444,6 +1545,41 @@ class AgentEngine {
             iteration = Math.max(0, iteration - 1);
             lastContent = '';
             continue;
+          }
+          const messagingSent = this.activeRuns.get(runId)?.messagingSent || false;
+          if (iteration < maxIterations) {
+            const fallbackStatus = (toolExecutions.length > 0 || failedStepCount > 0 || messagingSent) ? 'continue' : 'complete';
+            const loopState = await this.decideLoopState({
+              provider,
+              providerName,
+              model,
+              messages,
+              analysis,
+              plan,
+              toolExecutions,
+              lastReply: lastContent,
+              triggerSource,
+              iteration,
+              maxIterations,
+              options,
+              fallbackStatus,
+            });
+            totalTokens += loopState.usage || 0;
+            if (loopState.decision.status === 'continue') {
+              messages.push({
+                role: 'system',
+                content: [
+                  loopState.decision.reason ? `Continue working: ${loopState.decision.reason}.` : 'Continue working autonomously.',
+                  messagingSent
+                    ? 'You already sent a user-facing message in this run. Keep working silently unless you have a materially new finished result or a real external blocker.'
+                    : triggerSource === 'messaging'
+                    ? 'Do not send a user-facing progress update yet. Call the next tool or continue reasoning until you have either the completed result or a real external blocker.'
+                    : 'Call the next tool or continue reasoning until you have either the completed result or a real external blocker.',
+                ].join(' ')
+              });
+              lastContent = '';
+              continue;
+            }
           }
           break;
         }
@@ -1562,36 +1698,11 @@ class AgentEngine {
           if (runMeta) {
             runMeta.lastToolName = toolName;
             runMeta.lastToolTarget = toolName === 'send_message' ? toolArgs.to : null;
-            if (
-              isProactiveTrigger(triggerSource)
-              && options.allowMultipleProactiveMessages !== true
-              && runMeta.messagingSent
-              && (toolName === 'send_message' || toolName === 'notify_user' || toolName === 'make_call')
-            ) {
-              runMeta.proactiveDeliveryCompleted = true;
-            }
-            if (
-              runMeta.proactiveDeliveryCompleted
-              && isProactiveTrigger(triggerSource)
-              && options.allowMultipleProactiveMessages !== true
-            ) {
-              lastContent = joinSentMessages(runMeta.sentMessages);
-              break;
-            }
           }
         }
 
         if (this.isRunStopped(runId)) break;
         if (!this.activeRuns.has(runId)) break;
-        const runMeta = this.activeRuns.get(runId);
-        if (
-          runMeta?.proactiveDeliveryCompleted
-          && isProactiveTrigger(triggerSource)
-          && options.allowMultipleProactiveMessages !== true
-        ) {
-          lastContent = joinSentMessages(runMeta.sentMessages);
-          break;
-        }
       }
 
       if (this.isRunStopped(runId)) {
@@ -1608,43 +1719,6 @@ class AgentEngine {
       const runMeta = this.activeRuns.get(runId);
       const messagingSent = runMeta?.messagingSent || false;
       const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
-      const proactiveDeliveryCompleted = runMeta?.proactiveDeliveryCompleted === true;
-
-      const shouldForceFinalReply = !(
-        isProactiveTrigger(triggerSource)
-        && proactiveDeliveryCompleted
-        && options.allowMultipleProactiveMessages !== true
-      ) && (
-        (iteration >= maxIterations && messages[messages.length - 1]?.role === 'tool')
-        || (iteration < maxIterations && stepIndex > 0 && !lastContent.trim() && messages[messages.length - 1]?.role !== 'tool' && !lastToolWasMessaging)
-      );
-
-      if (shouldForceFinalReply) {
-        const finalResponse = await provider.chat(sanitizeConversationMessages([
-          ...messages,
-          {
-            role: 'system',
-            content: buildForcedFinalReplyPrompt(triggerSource)
-          }
-        ]), tools, {
-          model,
-          reasoningEffort: this.getReasoningEffort(providerName, options)
-        });
-        lastContent = sanitizeModelOutput(finalResponse.content || '', { model });
-
-        const finalAssistantMessage = { role: 'assistant', content: lastContent };
-        if (finalResponse.providerContentBlocks?.length) {
-          finalAssistantMessage.providerContentBlocks = finalResponse.providerContentBlocks;
-        }
-        messages.push(finalAssistantMessage);
-        if (conversationId) {
-          db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
-            .run(conversationId, 'assistant', lastContent, finalResponse.usage?.totalTokens || 0);
-        }
-        totalTokens += finalResponse.usage?.totalTokens || 0;
-      }
-
-      // runMeta and messagingSent are now defined above the forced reply block.
 
       if (triggerSource === 'messaging' && !normalizeOutgoingMessage(lastContent) && !messagingSent) {
         const recovered = await this.recoverBlankMessagingReply({
@@ -1671,6 +1745,15 @@ class AgentEngine {
         }
       }
 
+      if (!normalizeOutgoingMessage(lastContent) && !messagingSent) {
+        if (iteration >= maxIterations) {
+          throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
+        }
+        if (stepIndex > 0 && !lastToolWasMessaging) {
+          throw new Error('Run ended without an explicit completion or blocker reply.');
+        }
+      }
+
       const sentMessageText = joinSentMessages(runMeta?.sentMessages);
       const normalizedLastContent = normalizeOutgoingMessage(lastContent);
       let finalResponseText = messagingSent
@@ -1682,15 +1765,8 @@ class AgentEngine {
         || ''
       );
 
-      const shouldShortCircuitAfterProactiveDelivery = (
-        isProactiveTrigger(triggerSource)
-        && proactiveDeliveryCompleted
-        && options.allowMultipleProactiveMessages !== true
-      );
-
       if (
-        !shouldShortCircuitAfterProactiveDelivery
-        && options.skipVerifier !== true
+        options.skipVerifier !== true
         && shouldRunVerifier({
         analysis,
         toolExecutions,
@@ -1848,7 +1924,7 @@ class AgentEngine {
         && options.source
         && options.chatId
         && !runMeta?.messagingSent
-        && retryCount < MAX_MESSAGING_AUTONOMOUS_RETRIES
+        && retryCount < maxIterations
       );
 
       if (canRetryMessagingRun) {
