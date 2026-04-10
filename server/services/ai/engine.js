@@ -25,6 +25,11 @@ const {
   shouldRunVerifier,
 } = require('./taskAnalysis');
 const { getCapabilityHealth, summarizeCapabilityHealth } = require('./capabilityHealth');
+const {
+  buildPlatformFormattingGuide,
+  normalizeOutgoingMessageForPlatform,
+  splitOutgoingMessageForPlatform,
+} = require('../messaging/formatting_guides');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -156,11 +161,12 @@ function estimateTokenValue(value) {
   return Math.ceil(JSON.stringify(value).length / 4);
 }
 
-function normalizeOutgoingMessage(content) {
-  return String(content || '')
-    .replace(/\[NO RESPONSE\]/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+function normalizeOutgoingMessage(content, platform = null, options = {}) {
+  const normalized = normalizeOutgoingMessageForPlatform(platform, content);
+  if (options.collapseWhitespace === false) {
+    return normalized;
+  }
+  return normalized.replace(/\s+/g, ' ').trim();
 }
 
 function joinSentMessages(messages = []) {
@@ -171,12 +177,13 @@ function joinSentMessages(messages = []) {
     .join('\n\n');
 }
 
-function buildBlankMessagingReplyPrompt(attempt) {
+function buildBlankMessagingReplyPrompt(attempt, platform = null) {
+  const formattingGuide = buildPlatformFormattingGuide(platform);
   if (attempt <= 1) {
-    return 'You must send one non-empty plain-text reply for the external messaging user right now. Do not call tools. Do not use markdown. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.';
+    return `You must send one non-empty reply for the external messaging user right now. Do not call tools. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
   }
 
-  return 'Your previous reply was empty. Return one non-empty plain-text message now. Do not call tools. Do not use markdown. If needed, apologize briefly and explain the blocker in one sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.';
+  return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, apologize briefly and explain the blocker in one sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
 }
 
 function parseToolExecutionSummary(item) {
@@ -891,7 +898,7 @@ class AgentEngine {
             ...messages,
             {
               role: 'system',
-              content: buildBlankMessagingReplyPrompt(attempt)
+              content: buildBlankMessagingReplyPrompt(attempt, options?.source || null)
             }
           ]),
           [],
@@ -1782,7 +1789,7 @@ class AgentEngine {
       const messagingSent = runMeta?.messagingSent || false;
       const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
 
-      if (triggerSource === 'messaging' && !normalizeOutgoingMessage(lastContent) && !messagingSent) {
+      if (triggerSource === 'messaging' && !normalizeOutgoingMessage(lastContent, options?.source || null) && !messagingSent) {
         const recovered = await this.recoverBlankMessagingReply({
           userId,
           runId,
@@ -1798,7 +1805,7 @@ class AgentEngine {
         });
         lastContent = recovered.content;
         totalTokens += recovered.tokens || 0;
-        if (normalizeOutgoingMessage(lastContent)) {
+        if (normalizeOutgoingMessage(lastContent, options?.source || null)) {
           messages.push({ role: 'assistant', content: lastContent });
           if (conversationId) {
             db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
@@ -1807,7 +1814,7 @@ class AgentEngine {
         }
       }
 
-      if (!normalizeOutgoingMessage(lastContent) && !messagingSent) {
+      if (!normalizeOutgoingMessage(lastContent, options?.source || null) && !messagingSent) {
         if (iteration >= maxIterations) {
           throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
         }
@@ -1817,14 +1824,15 @@ class AgentEngine {
       }
 
       const sentMessageText = joinSentMessages(runMeta?.sentMessages);
-      const normalizedLastContent = normalizeOutgoingMessage(lastContent);
+      const normalizedLastContent = normalizeOutgoingMessage(lastContent, options?.source || null);
       let finalResponseText = messagingSent
         ? (sentMessageText || (normalizedLastContent ? lastContent.trim() : ''))
         : (normalizedLastContent ? lastContent.trim() : sentMessageText);
       const lastSentMessage = normalizeOutgoingMessage(
         runMeta?.lastSentMessage
         || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
-        || ''
+        || '',
+        options?.source || null
       );
 
       if (
@@ -1923,7 +1931,9 @@ class AgentEngine {
       if (triggerSource === 'messaging' && options.source && options.chatId) {
         // Strip [NO RESPONSE] markers the AI may have embedded anywhere in the text,
         // then only send if real content remains.
-        const cleanedContent = normalizeOutgoingMessage(lastContent || '');
+        const cleanedContent = normalizeOutgoingMessage(lastContent || '', options.source, {
+          collapseWhitespace: false
+        });
         const shouldSendFallback = (
           cleanedContent
           && !messagingSent
@@ -1932,7 +1942,7 @@ class AgentEngine {
         if (shouldSendFallback) {
           const manager = this.messagingManager;
           if (manager) {
-            const chunks = cleanedContent.split(/\n\s*\n/).filter((c) => c.trim().length > 0);
+            const chunks = splitOutgoingMessageForPlatform(options.source, cleanedContent);
             console.info(
               `[Run ${shortenRunId(runId)}] messaging_fallback chunks=${chunks.length} to=${summarizeForLog(options.chatId, 80)}`
             );
@@ -2029,7 +2039,7 @@ class AgentEngine {
                 ...messages,
                 {
                   role: 'system',
-                  content: `The run encountered a runtime error and cannot continue reliably. Use the actual run scenario below to explain the blocker naturally.\n\nScenario:\n${failureScenario || 'No additional scenario details were captured.'}\n\nDo not call tools. Write exactly one short plain-text user message. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required. Do not promise future work unless it will happen automatically before this reply is sent.`
+                  content: `The run encountered a runtime error and cannot continue reliably. Use the actual run scenario below to explain the blocker naturally.\n\nScenario:\n${failureScenario || 'No additional scenario details were captured.'}\n\nDo not call tools. Write exactly one short user message. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required. Do not promise future work unless it will happen automatically before this reply is sent.\n\n${buildPlatformFormattingGuide(options?.source || null)}`
                 }
               ]);
               const modelReply = await provider.chat(failedMessage, [], {
@@ -2037,7 +2047,7 @@ class AgentEngine {
                 reasoningEffort: this.getReasoningEffort(providerName, options)
               });
               const drafted = sanitizeModelOutput(modelReply.content || '', { model });
-              if (normalizeOutgoingMessage(drafted)) {
+              if (normalizeOutgoingMessage(drafted, options?.source || null)) {
                 messagingFailureContent = drafted.trim();
               }
             } catch {

@@ -3,6 +3,10 @@ const path = require('path');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent } = require('../agents/manager');
+const {
+    buildSendMessageFormattingReference,
+    normalizeOutgoingMessageForPlatform,
+} = require('../messaging/formatting_guides');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -510,13 +514,13 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'send_message',
-            description: 'Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence or no reply. For Telnyx Voice: always reply with plain spoken text; never use [NO RESPONSE] or markdown.',
+            description: `Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence or no reply.`,
             parameters: {
                 type: 'object',
                 properties: {
                     platform: { type: 'string', description: 'Platform name, for example whatsapp, telnyx, discord, telegram, slack, google_chat, teams, matrix, signal, imessage, bluebubbles, irc, line, mattermost, or webchat' },
                     to: { type: 'string', description: 'Recipient/chat ID for the connected platform, such as a WhatsApp chat ID, Telnyx call_control_id, Slack channel ID, Matrix room ID, Discord channel snowflake / "dm_<userId>", Telegram "dm_<userId>" / raw group chat ID, IRC channel, or webhook target' },
-                    content: { type: 'string', description: 'Message text. For Telnyx voice: plain conversational text only — no markdown, no lists, no formatting. It will be spoken aloud.' },
+                    content: { type: 'string', description: 'Message text. Write one compact natural chat reply; the runtime adapts final formatting for the destination platform.' },
                     media_path: { type: 'string', description: 'WhatsApp only: absolute path to a local file to attach. Leave empty for text-only or Telnyx.' }
                 },
                 required: ['platform', 'to', 'content']
@@ -1536,7 +1540,11 @@ async function executeTool(toolName, args, context, engine) {
             if (!manager) return { error: 'Messaging not available' };
             const runState = getRunState(engine, runId);
             const message = typeof args.content === 'string' ? args.content : '';
-            if (message !== '[NO RESPONSE]' && hasAlreadySentProactiveMessage({
+            const normalizedMessage = normalizeOutgoingMessageForPlatform(args.platform, message, {
+                stripNoResponseMarker: false
+            });
+            const suppressReply = normalizedMessage === '[NO RESPONSE]';
+            if (!suppressReply && hasAlreadySentProactiveMessage({
                 triggerSource,
                 runState,
                 deliveryState,
@@ -1556,8 +1564,8 @@ async function executeTool(toolName, args, context, engine) {
                 persistConversation: triggerSource === 'scheduler'
             });
             // Track that the agent explicitly sent a message during this run
-            if (message !== '[NO RESPONSE]') {
-                markProactiveMessageSent({ runState, deliveryState, content: message });
+            if (!suppressReply && sendResult?.suppressed !== true) {
+                markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
             }
             return sendResult;
         }

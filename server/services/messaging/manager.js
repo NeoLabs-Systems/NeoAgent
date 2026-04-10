@@ -21,6 +21,7 @@ const {
   BlueBubblesPlatform,
   createGenericPlatformClass,
 } = require('./http_platforms');
+const { normalizeOutgoingMessageForPlatform } = require('./formatting_guides');
 
 const GENERIC_ALLOWLIST_PLATFORMS = new Set([
   'slack',
@@ -329,21 +330,24 @@ class MessagingManager extends EventEmitter {
     const mediaPath = sendOptions.mediaPath || null;
     const runId = sendOptions.runId || null;
     const persistConversation = sendOptions.persistConversation === true;
+    const normalizedContent = normalizeOutgoingMessageForPlatform(platformName, content, {
+      stripNoResponseMarker: false
+    });
 
     // Sentinel: agent can choose not to reply by sending [NO RESPONSE]
-    if (!mediaPath && typeof content === 'string' && content.trim().toUpperCase() === '[NO RESPONSE]') {
+    if (!mediaPath && typeof normalizedContent === 'string' && normalizedContent.toUpperCase() === '[NO RESPONSE]') {
       return { success: true, suppressed: true };
     }
 
-    const result = await platform.sendMessage(to, content, { mediaPath });
+    const result = await platform.sendMessage(to, normalizedContent, { mediaPath });
 
     db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, media_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(userId, agentId, runId, 'assistant', content, platformName, to, mediaPath);
+      .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, to, mediaPath);
 
     if (persistConversation) {
       const conversationId = this.getOrCreateConversation(userId, platformName, to, { agentId });
       db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
-        .run(conversationId, 'assistant', content);
+        .run(conversationId, 'assistant', normalizedContent);
       db.prepare("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?")
         .run(conversationId);
     }
@@ -353,7 +357,7 @@ class MessagingManager extends EventEmitter {
       platform: platformName,
       agentId,
       to,
-      content,
+      content: normalizedContent,
       mediaPath,
       runId
     });
@@ -363,7 +367,7 @@ class MessagingManager extends EventEmitter {
       agentId,
       platform: platformName,
       to,
-      content,
+      content: normalizedContent,
       mediaPath,
       runId,
       result
