@@ -502,6 +502,15 @@ function summarizeToolExecutions(toolExecutions = [], maxItems = 10) {
   }).join('\n');
 }
 
+function summarizeAvailableTools(tools = [], { exclude = [] } = {}) {
+  const excluded = new Set((Array.isArray(exclude) ? exclude : [exclude]).filter(Boolean));
+  return tools
+    .map((tool) => String(tool?.name || '').trim())
+    .filter((name) => name && !excluded.has(name))
+    .slice(0, 24)
+    .join(', ');
+}
+
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
@@ -708,6 +717,7 @@ class AgentEngine {
     providerName,
     model,
     messages,
+    tools,
     analysis,
     plan,
     toolExecutions,
@@ -740,12 +750,14 @@ class AgentEngine {
         '- Use "blocked" only when a specific external dependency outside this run is required.',
         '- A progress update is not complete.',
         '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
+        '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
         triggerSource === 'messaging'
           ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked.'
           : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
         analysis?.goal ? `Goal: ${analysis.goal}` : '',
         successCriteria.length > 0 ? `Success criteria:\n${successCriteria.map((item, index) => `${index + 1}. ${item}`).join('\n')}` : '',
         `Current iteration: ${iteration} of ${maxIterations}.`,
+        `Available tools in this run: ${summarizeAvailableTools(tools) || 'none'}`,
         `Recent tool evidence:\n${summarizeToolExecutions(toolExecutions, 8) || 'none'}`,
         `Latest draft reply:\n${normalizeOutgoingMessage(lastReply) || '(empty)'}`,
       ].filter(Boolean).join('\n'),
@@ -1623,6 +1635,7 @@ class AgentEngine {
               providerName,
               model,
               messages,
+              tools,
               analysis,
               plan,
               toolExecutions,
@@ -1731,9 +1744,16 @@ class AgentEngine {
           messages.push(toolMessage);
 
           if (toolErrorMessage) {
+            const alternativeTools = summarizeAvailableTools(tools, { exclude: toolName });
             messages.push({
               role: 'system',
-              content: `Tool "${toolName}" failed with error: ${summarizeForLog(toolErrorMessage, 240)}. Continue autonomously: retry with corrected arguments, try an alternative tool/path, or verify the outcome using other available tools. Contact the user only if no safe path remains.`
+              content: [
+                `Tool "${toolName}" failed with error: ${summarizeForLog(toolErrorMessage, 240)}.`,
+                'This tool failure is not, by itself, a user-facing blocker.',
+                'Continue autonomously: retry with corrected arguments, try an alternative tool/path, or verify the outcome using other available tools.',
+                alternativeTools ? `Other available tools in this run: ${alternativeTools}.` : '',
+                'Only stop and tell the user you are blocked if the remaining issue truly requires an external dependency or user action outside this run.'
+              ].filter(Boolean).join(' ')
             });
           }
 
