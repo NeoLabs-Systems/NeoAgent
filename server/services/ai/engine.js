@@ -347,8 +347,6 @@ function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
   ].join(' ');
 }
 
-const MAX_AUTONOMOUS_MESSAGING_RETRIES = 2;
-
 function clampRunContext(text, maxChars) {
   const value = normalizeOutgoingMessage(text);
   if (!value) return '';
@@ -509,6 +507,55 @@ function summarizeAvailableTools(tools = [], { exclude = [] } = {}) {
     .filter((name) => name && !excluded.has(name))
     .slice(0, 24)
     .join(', ');
+}
+
+function inferToolFailureMessage(toolName, result) {
+  const explicitError = normalizeOutgoingMessage(result?.error || '');
+  if (explicitError) return explicitError;
+
+  if (!result || typeof result !== 'object') return '';
+
+  if (toolName === 'execute_command') {
+    if (result.timedOut) {
+      return `Command timed out after ${result.durationMs || 'unknown'} ms`;
+    }
+    if (result.killed) {
+      return 'Command was killed before it finished';
+    }
+    if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
+      return summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
+    }
+  }
+
+  if (toolName === 'http_request' && typeof result.status === 'number' && result.status >= 400) {
+    const bodySnippet = normalizeOutgoingMessage(result.body || '');
+    return summarizeForLog(
+      bodySnippet
+        ? `HTTP request returned status ${result.status}: ${bodySnippet}`
+        : `HTTP request returned status ${result.status}`,
+      240
+    );
+  }
+
+  return '';
+}
+
+function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], userMessage, messagingSent = false }) {
+  const lastFailure = [...toolExecutions].reverse().find((item) => !item.ok);
+  const alternativeTools = summarizeAvailableTools(tools, { exclude: lastFailure?.toolName || null });
+  const parts = [
+    'This is an internal recovery retry for the same user task. Continue the task instead of stopping.',
+    userMessage ? `Original task: ${clampRunContext(userMessage, 260)}` : '',
+    lastFailure?.toolName ? `Previous attempt failed on tool: ${lastFailure.toolName}.` : '',
+    lastFailure?.error ? `Concrete failure: ${summarizeForLog(lastFailure.error, 260)}.` : '',
+    err?.message ? `Run-level error after that failure: ${summarizeForLog(err.message, 220)}.` : '',
+    'Do not send a blocker message just because one tool path failed.',
+    'Use a different safe approach if available: alternate tool, different query, browser path, HTTP fetch, file/code inspection, or command verification.',
+    messagingSent ? 'A user-facing message was already sent in a previous internal attempt. Continue silently unless you have a materially new finished result or a real external blocker.' : '',
+    alternativeTools ? `Other available tools in this run: ${alternativeTools}.` : '',
+    'Only stop if the remaining problem truly requires an external dependency or user action outside this run.'
+  ];
+  return parts.filter(Boolean).join(' ');
 }
 
 class AgentEngine {
@@ -1092,7 +1139,7 @@ class AgentEngine {
   }
 
   getMessagingRetryLimit(maxIterations) {
-    return Math.max(1, Math.min(MAX_AUTONOMOUS_MESSAGING_RETRIES, maxIterations));
+    return Math.max(1, maxIterations);
   }
 
   buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg) {
@@ -1705,14 +1752,25 @@ class AgentEngine {
               allowExternalSideEffects: options.allowExternalSideEffects === true,
             });
             this.detachProcessFromRun(runId, toolResult?.pid);
+            toolErrorMessage = inferToolFailureMessage(toolName, toolResult);
+            if (toolErrorMessage) {
+              failedStepCount++;
+            }
             const screenshotPath = toolResult?.screenshotPath || null;
-            const stepStatus = this.isRunStopped(runId) ? 'stopped' : 'completed';
-            db.prepare('UPDATE agent_steps SET status = ?, result = ?, screenshot_path = ?, completed_at = datetime(\'now\') WHERE id = ?')
-              .run(stepStatus, JSON.stringify(toolResult).slice(0, 20000), screenshotPath, stepId);
-            this.emit(userId, 'run:tool_end', { runId, stepId, toolName, result: toolResult, screenshotPath, status: stepStatus });
-            console.info(
-              `[Run ${shortenRunId(runId)}] step=${stepIndex} done tool=${toolName} status=${stepStatus} durationMs=${Date.now() - stepStartedAt} result=${summarizeForLog(toolResult)}`
-            );
+            const stepStatus = this.isRunStopped(runId) ? 'stopped' : (toolErrorMessage ? 'failed' : 'completed');
+            db.prepare('UPDATE agent_steps SET status = ?, result = ?, error = ?, screenshot_path = ?, completed_at = datetime(\'now\') WHERE id = ?')
+              .run(stepStatus, JSON.stringify(toolResult).slice(0, 20000), toolErrorMessage || null, screenshotPath, stepId);
+            if (toolErrorMessage) {
+              this.emit(userId, 'run:tool_end', { runId, stepId, toolName, error: toolErrorMessage, result: toolResult, screenshotPath, status: stepStatus });
+              console.warn(
+                `[Run ${shortenRunId(runId)}] step=${stepIndex} failed tool=${toolName} durationMs=${Date.now() - stepStartedAt} error=${summarizeForLog(toolErrorMessage, 160)}`
+              );
+            } else {
+              this.emit(userId, 'run:tool_end', { runId, stepId, toolName, result: toolResult, screenshotPath, status: stepStatus });
+              console.info(
+                `[Run ${shortenRunId(runId)}] step=${stepIndex} done tool=${toolName} status=${stepStatus} durationMs=${Date.now() - stepStartedAt} result=${summarizeForLog(toolResult)}`
+              );
+            }
           } catch (err) {
             toolResult = { error: err.message };
             toolErrorMessage = String(err.message || 'Tool execution failed');
@@ -1766,9 +1824,6 @@ class AgentEngine {
 
           if (
             toolName === 'execute_command'
-            && !toolErrorMessage
-            && !toolResult?.timedOut
-            && !toolResult?.killed
             && toolResult?.exitCode !== undefined
             && toolResult.exitCode !== 0
           ) {
@@ -2015,11 +2070,17 @@ class AgentEngine {
         triggerSource === 'messaging'
         && options.source
         && options.chatId
-        && !runMeta?.messagingSent
         && retryCount < this.getMessagingRetryLimit(maxIterations)
       );
 
       if (canRetryMessagingRun) {
+        const recoveryContext = buildAutonomousRecoveryContext({
+          err,
+          toolExecutions,
+          tools,
+          userMessage,
+          messagingSent: runMeta?.messagingSent === true,
+        });
         db.prepare('UPDATE agent_runs SET status = ?, error = ?, updated_at = datetime(\'now\') WHERE id = ?')
           .run('retrying', err.message, runId);
         console.warn(
@@ -2035,7 +2096,14 @@ class AgentEngine {
 
         const retryOptions = {
           ...options,
-          messagingAutonomousRetryCount: retryCount + 1
+          messagingAutonomousRetryCount: retryCount + 1,
+          context: {
+            ...(options.context || {}),
+            additionalContext: [
+              options.context?.additionalContext || '',
+              recoveryContext,
+            ].filter(Boolean).join('\n\n')
+          }
         };
         delete retryOptions.runId;
 
