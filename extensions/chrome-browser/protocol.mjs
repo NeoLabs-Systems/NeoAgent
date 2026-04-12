@@ -35,6 +35,13 @@ function jsString(value) {
   return JSON.stringify(String(value ?? ''));
 }
 
+function buildIsolatedEvaluationExpression(script) {
+  const source = String(script ?? 'undefined');
+  // Match the host browser controller: keep each arbitrary snippet inside its
+  // own scope so repeated browser_evaluate calls cannot collide on const/let.
+  return `(() => eval(${JSON.stringify(source)}))()`;
+}
+
 function keyCodeFor(key) {
   const normalized = String(key || '').trim();
   const map = {
@@ -277,7 +284,7 @@ export function createBrowserProtocol(chromeApi) {
         return evalJs(expression);
       }
       case COMMANDS.EVALUATE: {
-        const value = await evalJs(String(payload.script || 'undefined'));
+        const value = await evalJs(buildIsolatedEvaluationExpression(payload.script));
         return { result: typeof value === 'object' ? JSON.stringify(value) : String(value) };
       }
       case COMMANDS.SCREENSHOT:

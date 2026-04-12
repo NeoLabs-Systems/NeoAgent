@@ -61,6 +61,13 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+function buildIsolatedEvaluationExpression(script) {
+  const source = String(script || 'undefined');
+  // Evaluate each snippet inside a fresh function scope so repeated calls do not
+  // leak top-level const/let bindings into later browser_evaluate steps.
+  return `(() => eval(${JSON.stringify(source)}))()`;
+}
+
 class BrowserController {
   constructor(options = {}) {
     this.io = options.io || null;
@@ -501,7 +508,7 @@ class BrowserController {
   async evaluate(script) {
     const page = await this.ensurePage();
     try {
-      const result = await page.evaluate(script);
+      const result = await page.evaluate(buildIsolatedEvaluationExpression(script));
       return { result: typeof result === 'object' ? JSON.stringify(result) : String(result) };
     } catch (err) {
       return { error: err.message };
@@ -558,4 +565,4 @@ class BrowserController {
   }
 }
 
-module.exports = { BrowserController, resolveBrowserExecutablePath };
+module.exports = { BrowserController, resolveBrowserExecutablePath, buildIsolatedEvaluationExpression };
