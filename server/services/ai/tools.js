@@ -1615,6 +1615,9 @@ async function executeTool(toolName, args, context, engine) {
             // Track that the agent explicitly sent a message during this run
             if (!suppressReply && sendResult?.suppressed !== true) {
                 markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
+                if (runState && triggerSource === 'messaging') {
+                    runState.explicitMessageSent = true;
+                }
             }
             return sendResult;
         }

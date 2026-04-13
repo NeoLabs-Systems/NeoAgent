@@ -552,7 +552,7 @@ function inferToolFailureMessage(toolName, result) {
   return '';
 }
 
-function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], userMessage, messagingSent = false }) {
+function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], userMessage, visibleMessageSent = false }) {
   const lastFailure = [...toolExecutions].reverse().find((item) => !item.ok);
   const alternativeTools = summarizeAvailableTools(tools, { exclude: lastFailure?.toolName || null });
   const parts = [
@@ -563,7 +563,7 @@ function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], 
     err?.message ? `Run-level error after that failure: ${summarizeForLog(err.message, 220)}.` : '',
     'Do not send a blocker message just because one tool path failed.',
     'Use a different safe approach if available: alternate tool, different query, browser path, HTTP fetch, file/code inspection, or command verification.',
-    messagingSent ? 'A user-facing message was already sent in a previous internal attempt. Continue silently unless you have a materially new finished result or a real external blocker.' : '',
+    visibleMessageSent ? 'A user-facing message was already sent in a previous internal attempt. Continue silently unless you have a materially new finished result or a real external blocker.' : '',
     alternativeTools ? `Other available tools in this run: ${alternativeTools}.` : '',
     'Only stop if the remaining problem truly requires an external dependency or user action outside this run.'
   ];
@@ -1394,20 +1394,25 @@ class AgentEngine {
     db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, agent_id, title, status, trigger_type, trigger_source, model)
       VALUES(?, ?, ?, ?, 'running', ?, ?, ?)`).run(runId, userId, agentId, runTitle, triggerType, triggerSource, model);
 
+    const retryMessagingState = options.messagingRetryState || {};
+    const carriedVisibleMessage = String(retryMessagingState.lastVisibleMessage || '').trim();
+    const carriedExplicitMessageSent = retryMessagingState.explicitMessageSent === true;
+
     this.activeRuns.set(runId, {
       userId,
       agentId,
       status: 'running',
       aborted: false,
       messagingSent: false,
-      lastSentMessage: '',
+      explicitMessageSent: carriedExplicitMessageSent,
+      lastSentMessage: carriedExplicitMessageSent ? carriedVisibleMessage : '',
       sentMessages: [],
       triggerType,
       triggerSource,
       startedAt: Date.now(),
       lastToolName: null,
       lastToolTarget: null,
-      lastInterimMessage: '',
+      lastInterimMessage: carriedExplicitMessageSent ? '' : carriedVisibleMessage,
       interimMessages: [],
       interimSignatures: new Set(),
       terminalInterim: null,
@@ -1947,6 +1952,13 @@ class AgentEngine {
             });
           }
 
+          if (toolName === 'send_interim_update') {
+            messages.push({
+              role: 'system',
+              content: 'An interim user-visible update was already sent. Do not later output meta commentary about having already replied. When you have the final answer, give the answer itself. If you need to deliver that final answer to the user in messaging, use send_message.'
+            });
+          }
+
           if (toolName === 'execute_command' && (toolResult?.timedOut || toolResult?.killed)) {
             messages.push({
               role: 'system',
@@ -2043,8 +2055,9 @@ class AgentEngine {
       let finalResponseText = messagingSent
         ? (sentMessageText || (normalizedLastContent ? lastContent.trim() : ''))
         : (normalizedLastContent ? lastContent.trim() : sentMessageText);
-      const lastSentMessage = normalizeOutgoingMessage(
+      const lastVisibleMessage = normalizeOutgoingMessage(
         runMeta?.lastSentMessage
+        || runMeta?.lastInterimMessage
         || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
         || '',
         options?.source || null
@@ -2139,10 +2152,10 @@ class AgentEngine {
         skipPersistence: options.skipRunContextPersistence === true
       });
 
-      // Fallback: if this was a messaging-triggered run and the AI never called
-      // send_message itself, auto-send its final text as a reply.
-      // If a message was already sent earlier in this run, treat those send_message
-      // calls as authoritative and do not auto-send additional model text.
+      // Fallback: if this was a messaging-triggered run and no user-visible
+      // message was already sent in this run, auto-send the final assistant text.
+      // After any visible reply already went out, later user-facing messages
+      // must be sent explicitly via send_message.
       if (triggerSource === 'messaging' && options.source && options.chatId) {
         // Strip [NO RESPONSE] markers the AI may have embedded anywhere in the text,
         // then only send if real content remains.
@@ -2151,8 +2164,8 @@ class AgentEngine {
         });
         const shouldSendFallback = (
           cleanedContent
-          && !messagingSent
-          && cleanedContent !== lastSentMessage
+          && runMeta?.explicitMessageSent !== true
+          && !lastVisibleMessage
         );
         if (shouldSendFallback) {
           const manager = this.messagingManager;
@@ -2219,8 +2232,18 @@ class AgentEngine {
           toolExecutions,
           tools,
           userMessage,
-          messagingSent: runMeta?.messagingSent === true,
+          visibleMessageSent: Boolean(
+            runMeta?.lastSentMessage
+            || runMeta?.lastInterimMessage
+            || runMeta?.messagingSent === true
+          ),
         });
+        const lastVisibleMessage = normalizeOutgoingMessage(
+          runMeta?.lastSentMessage
+          || runMeta?.lastInterimMessage
+          || '',
+          options?.source || null
+        );
         db.prepare('UPDATE agent_runs SET status = ?, error = ?, updated_at = datetime(\'now\') WHERE id = ?')
           .run('retrying', err.message, runId);
         console.warn(
@@ -2237,6 +2260,10 @@ class AgentEngine {
         const retryOptions = {
           ...options,
           messagingAutonomousRetryCount: retryCount + 1,
+          messagingRetryState: {
+            lastVisibleMessage: lastVisibleMessage || String(options?.messagingRetryState?.lastVisibleMessage || '').trim(),
+            explicitMessageSent: runMeta?.explicitMessageSent === true || options?.messagingRetryState?.explicitMessageSent === true,
+          },
           context: {
             ...(options.context || {}),
             additionalContext: [
