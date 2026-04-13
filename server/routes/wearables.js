@@ -3,6 +3,8 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { wearableDeviceAuth } = require('../services/wearables/device_auth');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -73,6 +75,21 @@ router.get('/protocols', (req, res) => {
   try {
     const manager = req.app.locals.wearableManager;
     res.json(manager.getProtocols());
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/pairing/code', (req, res) => {
+  try {
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const pairing = wearableDeviceAuth.createPairingCode(req.session.userId, {
+      agentId,
+      ttlMinutes: req.body?.ttlMinutes,
+      source: 'wearables_panel',
+      deviceHint: req.body?.deviceHint,
+    });
+    res.status(201).json(pairing);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }

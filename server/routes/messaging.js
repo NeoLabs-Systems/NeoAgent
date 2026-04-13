@@ -121,6 +121,17 @@ router.get('/status/:platform', (req, res) => {
   res.json(manager.getPlatformStatus(req.session.userId, req.params.platform, { agentId }));
 });
 
+router.get('/:platform/devices', (req, res) => {
+  try {
+    const manager = req.app.locals.messagingManager;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const devices = manager.getPlatformDevices(req.session.userId, req.params.platform, { agentId });
+    res.json({ devices });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 // Update Telnyx voice secret code (for non-whitelisted caller gating)
 router.put('/telnyx/voice-secret', (req, res) => {
   try {

@@ -46,4 +46,5 @@ Open the server URL, sign in, configure providers and messaging, then create a s
 | Skills and MCP | [Skills](skills.md) |
 | Secrets and runtime settings | [Configuration](configuration.md) |
 | Logs, updates, and repair | [Operations](operations.md) |
+| Want to flash a Waveshare ESP32-S3 1.8inch AMOLED | [Waveshare ESP32-S3 1.8inch AMOLED Setup](hardware.md) |
 | OpenClaw comparison | [Why NeoAgent](why-neoagent.md) |

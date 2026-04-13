@@ -47,7 +47,15 @@ const sidebars = {
       type: 'category',
       label: 'Operate',
       collapsed: false,
-      items: ['configuration', 'operations'],
+      items: [
+        'configuration',
+        'operations',
+        {
+          type: 'doc',
+          id: 'firmware-hygiene',
+          label: 'Waveshare 1.8inch AMOLED Setup',
+        },
+      ],
     },
   ],
 };

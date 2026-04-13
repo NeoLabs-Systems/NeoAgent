@@ -9,6 +9,7 @@ const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
 const { TelegramPlatform } = require('./telegram');
+const { WaveshareWearablePlatform } = require('./waveshare_wearable');
 const {
   SlackPlatform,
   GoogleChatPlatform,
@@ -87,6 +88,7 @@ class MessagingManager extends EventEmitter {
       feishu: createGenericPlatformClass('feishu'),
       line: LinePlatform,
       mattermost: MattermostPlatform,
+      waveshare_wearable: WaveshareWearablePlatform,
       nextcloud_talk: createGenericPlatformClass('nextcloud_talk'),
       nostr: createGenericPlatformClass('nostr'),
       synology_chat: createGenericPlatformClass('synology_chat'),
@@ -440,6 +442,14 @@ class MessagingManager extends EventEmitter {
     }
 
     return statuses;
+  }
+
+  getPlatformDevices(userId, platformName, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const key = this._key(userId, agentId, platformName);
+    const platform = this.platforms.get(key);
+    if (!platform || typeof platform.listDevices !== 'function') return [];
+    return platform.listDevices(userId, { agentId });
   }
 
   async logoutPlatform(userId, platformName, options = {}) {

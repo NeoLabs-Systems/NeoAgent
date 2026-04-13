@@ -3114,6 +3114,36 @@ class NeoAgentController extends ChangeNotifier {
     await refreshMessaging();
   }
 
+  Future<List<Map<String, dynamic>>> fetchMessagingPlatformDevices(
+    String platform,
+  ) async {
+    final data = await _backendClient.fetchMessagingPlatformDevices(
+      backendUrl,
+      platform: platform,
+      agentId: _scopedAgentId,
+    );
+    final raw = data['devices'];
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((entry) => Map<String, dynamic>.from(entry))
+          .toList(growable: false);
+    }
+    return const <Map<String, dynamic>>[];
+  }
+
+  Future<Map<String, dynamic>> createWearablePairingCode({
+    int ttlMinutes = 10,
+    String? deviceHint,
+  }) async {
+    return _backendClient.createWearablePairingCode(
+      backendUrl,
+      ttlMinutes: ttlMinutes,
+      deviceHint: deviceHint,
+      agentId: _scopedAgentId,
+    );
+  }
+
   Future<void> saveWhatsAppWhitelist(List<String> values) async {
     final normalized = values
         .map((value) => value.replaceAll(RegExp(r'[^0-9]'), ''))
@@ -7877,7 +7907,11 @@ class _MessagingPanelState extends State<MessagingPanel> {
           'webchat',
         ],
       ),
-      const ('Voice', 'Telephony and SMS integrations.', ['telnyx']),
+      const (
+        'Voice',
+        'Telephony and wearable integrations.',
+        ['telnyx', 'waveshare_wearable'],
+      ),
     ];
     final query = _searchController.text.trim().toLowerCase();
     final counts = _MessagingStatusCounts.from(controller.messagingStatuses);
@@ -8048,9 +8082,109 @@ class _MessagingPanelState extends State<MessagingPanel> {
         return;
       case 'telnyx':
         return _openTelnyxConfig();
+      case 'waveshare_wearable':
+        return _openWaveshareWearableConfig();
       default:
         return _openGenericMessagingConfig(platform);
     }
+  }
+
+  Future<void> _openWaveshareWearableConfig() async {
+    final saved = _jsonMap(
+      _decodeMaybeJson(widget.controller.settings['waveshare_wearable_config']),
+    );
+    final deviceLabel = TextEditingController(
+      text: saved['deviceLabel']?.toString() ?? 'Waveshare Wearable',
+    );
+    final ttlController = TextEditingController(text: '10');
+    String pairingCode = '';
+    String expiresAt = '';
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              backgroundColor: _bgCard,
+              title: const Text('Waveshare Wearable'),
+              content: SizedBox(
+                width: 620,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Generate a one-time pairing code, then enter it on the wearable setup AP page.',
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: deviceLabel,
+                      decoration: const InputDecoration(labelText: 'Device Label'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: ttlController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Code TTL (minutes)'),
+                    ),
+                    const SizedBox(height: 12),
+                    if (pairingCode.isNotEmpty)
+                      SelectableText(
+                        'Pairing code: $pairingCode\nExpires: $expiresAt',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      )
+                    else
+                      Text(
+                        'No active code generated yet.',
+                        style: TextStyle(color: _textSecondary),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    final ttl = int.tryParse(ttlController.text.trim()) ?? 10;
+                    final result = await widget.controller.createWearablePairingCode(
+                      ttlMinutes: ttl,
+                      deviceHint: deviceLabel.text.trim(),
+                    );
+                    setLocalState(() {
+                      pairingCode = (result['code'] ?? '').toString();
+                      expiresAt = (result['expiresAt'] ?? '').toString();
+                    });
+                  },
+                  child: const Text('Generate Pairing Code'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final config = <String, dynamic>{
+                      'deviceLabel': deviceLabel.text.trim(),
+                    };
+                    await widget.controller.connectMessagingPlatform(
+                      platform: 'waveshare_wearable',
+                      config: config,
+                      configSnapshot: <String, dynamic>{
+                        'waveshare_wearable_config': jsonEncode(config),
+                      },
+                    );
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('Enable Provider'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _openTelnyxConfig() async {
@@ -9283,6 +9417,14 @@ class _MessagingCard extends StatelessWidget {
                 onPressed: () => _editWhitelist(context, controller),
                 icon: Icon(Icons.group_add_outlined),
               ),
+              if (platform.id == 'waveshare_wearable') ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Connected devices',
+                  onPressed: () => _showWearableDevices(context, controller),
+                  icon: Icon(Icons.watch_rounded),
+                ),
+              ],
               if (platform.id == 'telnyx') ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
@@ -9366,6 +9508,62 @@ class _MessagingCard extends StatelessWidget {
           onSave: (values) =>
               controller.saveMessagingWhitelist(platform.id, values),
         );
+    }
+  }
+
+  Future<void> _showWearableDevices(
+    BuildContext context,
+    NeoAgentController controller,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final devices = await controller.fetchMessagingPlatformDevices(platform.id);
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Wearable devices'),
+            content: SizedBox(
+              width: 420,
+              child: devices.isEmpty
+                  ? const Text('No wearable devices have reported yet.')
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: devices.length,
+                      separatorBuilder: (_, __) => const Divider(height: 14),
+                      itemBuilder: (context, index) {
+                        final device = devices[index];
+                        final name = (device['name'] ?? 'Unnamed').toString();
+                        final status = (device['status'] ?? 'unknown').toString();
+                        final battery = device['batteryLevel'];
+                        final mac = (device['macAddress'] ?? 'n/a').toString();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 2),
+                            Text('Status: $status'),
+                            Text('Battery: ${battery ?? 'n/a'}'),
+                            Text('MAC: $mac'),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Failed to load devices: $error')),
+      );
     }
   }
 

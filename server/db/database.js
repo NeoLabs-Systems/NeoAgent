@@ -521,6 +521,47 @@ db.exec(`
     UNIQUE(user_id, mac_address)
   );
 
+  CREATE TABLE IF NOT EXISTS wearable_pairing_codes (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    code_hash TEXT NOT NULL UNIQUE,
+    status TEXT DEFAULT 'active',
+    metadata_json TEXT DEFAULT '{}',
+    expires_at TEXT NOT NULL,
+    claimed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS wearable_device_tokens (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    token_hash TEXT NOT NULL UNIQUE,
+    device_id TEXT,
+    device_name TEXT,
+    mac_address TEXT,
+    protocol TEXT,
+    firmware_version TEXT,
+    status TEXT DEFAULT 'active',
+    last_seen_at TEXT,
+    last_connected_at TEXT,
+    revoked_at TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS wearable_device_message_cursors (
+    token_id TEXT PRIMARY KEY,
+    last_message_id INTEGER DEFAULT 0,
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (token_id) REFERENCES wearable_device_tokens(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS recording_sources (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
@@ -573,6 +614,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_recording_sources_session ON recording_sources(session_id, source_key);
   CREATE INDEX IF NOT EXISTS idx_recording_chunks_source ON recording_chunks(source_id, sequence_index);
   CREATE INDEX IF NOT EXISTS idx_recording_segments_session ON recording_transcript_segments(session_id, start_ms, created_at);
+  CREATE INDEX IF NOT EXISTS idx_wearable_pairing_codes_user ON wearable_pairing_codes(user_id, status, expires_at);
+  CREATE INDEX IF NOT EXISTS idx_wearable_pairing_codes_agent ON wearable_pairing_codes(agent_id, status, expires_at);
+  CREATE INDEX IF NOT EXISTS idx_wearable_device_tokens_user ON wearable_device_tokens(user_id, status, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_wearable_device_tokens_mac ON wearable_device_tokens(user_id, mac_address, status);
+  CREATE INDEX IF NOT EXISTS idx_wearable_device_cursors_updated ON wearable_device_message_cursors(updated_at);
 
   CREATE TABLE IF NOT EXISTS artifacts (
     id TEXT PRIMARY KEY,

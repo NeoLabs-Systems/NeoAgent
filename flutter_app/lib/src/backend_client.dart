@@ -835,6 +835,33 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchMessagingPlatformDevices(
+    String baseUrl, {
+    required String platform,
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/messaging/$platform/devices', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> createWearablePairingCode(
+    String baseUrl, {
+    int ttlMinutes = 10,
+    String? deviceHint,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/wearables/pairing/code',
+      _withAgentId(<String, dynamic>{
+        'ttlMinutes': ttlMinutes,
+        if (deviceHint != null && deviceHint.isNotEmpty) 'deviceHint': deviceHint,
+      }, agentId),
+    );
+  }
+
   Future<Map<String, dynamic>> saveTelnyxWhitelist(
     String baseUrl,
     List<String> numbers, {
