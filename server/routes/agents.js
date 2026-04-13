@@ -4,6 +4,7 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { isInterimAssistantMetadata } = require('../services/ai/interim');
 
 router.use(requireAuth);
 
@@ -102,7 +103,7 @@ router.post('/', async (req, res) => {
       priorSummary: webContext.summary,
     });
 
-    if (result?.content) {
+    if (result?.status === 'completed' && result?.content) {
       db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
         .run(
           req.session.userId,
@@ -137,19 +138,29 @@ router.get('/:id/steps', (req, res) => {
   if (!run) return res.status(404).json({ error: 'Run not found' });
 
   const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(run.id);
-  const historyResponse = db.prepare(
-    `SELECT content FROM conversation_history WHERE user_id = ? AND agent_run_id = ? AND role = 'assistant' ORDER BY created_at DESC LIMIT 1`
-  ).get(req.session.userId, run.id);
-  const sentMessages = db.prepare(
-    `SELECT content FROM messages WHERE user_id = ? AND run_id = ? AND role = 'assistant' ORDER BY created_at ASC, id ASC`
+  const historyRows = db.prepare(
+    `SELECT content, metadata FROM conversation_history WHERE user_id = ? AND agent_run_id = ? AND role = 'assistant' ORDER BY created_at ASC`
   ).all(req.session.userId, run.id);
+  const latestHistoryAssistant = [...historyRows].reverse().find((row) => String(row?.content || '').trim());
+  const historyResponse = [...historyRows]
+    .reverse()
+    .find((row) => !isInterimAssistantMetadata(row?.metadata));
+  const sentMessages = db.prepare(
+    `SELECT content, metadata FROM messages WHERE user_id = ? AND run_id = ? AND role = 'assistant' ORDER BY created_at ASC, id ASC`
+  ).all(req.session.userId, run.id);
+  const latestSentAssistant = [...sentMessages]
+    .reverse()
+    .find((row) => String(row?.content || '').trim());
   const sentResponse = sentMessages
+    .filter((row) => !isInterimAssistantMetadata(row?.metadata))
     .map((row) => row?.content?.toString().trim() || '')
     .filter(Boolean)
     .join('\n\n');
   const response =
     sentResponse
     || historyResponse?.content
+    || latestSentAssistant?.content
+    || latestHistoryAssistant?.content
     || run.final_response
     || null;
 

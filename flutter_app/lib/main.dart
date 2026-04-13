@@ -2318,6 +2318,82 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  void _appendAssistantChatMessage(
+    String content, {
+    required String platform,
+    bool transient = false,
+  }) {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    final previous = chatMessages.isNotEmpty ? chatMessages.last : null;
+    if (
+      previous != null &&
+      previous.role == 'assistant' &&
+      previous.platform == platform &&
+      previous.content.trim() == trimmed
+    ) {
+      return;
+    }
+
+    chatMessages = <ChatEntry>[
+      ...chatMessages,
+      ChatEntry(
+        role: 'assistant',
+        content: trimmed,
+        platform: platform,
+        createdAt: DateTime.now(),
+        transient: transient,
+      ),
+    ];
+  }
+
+  void _appendUserChatMessage(String content, {required String platform}) {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    final previous = chatMessages.isNotEmpty ? chatMessages.last : null;
+    if (
+      previous != null &&
+      previous.role == 'user' &&
+      previous.platform == platform &&
+      previous.content.trim() == trimmed
+    ) {
+      return;
+    }
+
+    chatMessages = <ChatEntry>[
+      ...chatMessages,
+      ChatEntry(
+        role: 'user',
+        content: trimmed,
+        platform: platform,
+        createdAt: DateTime.now(),
+      ),
+    ];
+  }
+
+  void _appendToolNote(String summary, {String toolName = 'note'}) {
+    final trimmed = summary.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    toolEvents = <ToolEventItem>[
+      ...toolEvents,
+      ToolEventItem(
+        id: 'note-${DateTime.now().microsecondsSinceEpoch}',
+        toolName: toolName,
+        type: 'note',
+        status: 'completed',
+        summary: trimmed,
+      ),
+    ];
+  }
+
   Future<void> refreshUpdateStatus() async {
     try {
       updateStatus = UpdateStatusSnapshot.fromJson(
@@ -2394,15 +2470,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       final content = response['content']?.toString().trim();
       if (content != null && content.isNotEmpty) {
-        chatMessages = <ChatEntry>[
-          ...chatMessages,
-          ChatEntry(
-            role: 'assistant',
-            content: content,
-            platform: 'web',
-            createdAt: DateTime.now(),
-          ),
-        ];
+        _appendAssistantChatMessage(content, platform: 'web');
       }
       activeRun = null;
       await refreshRunsOnly();
@@ -3759,17 +3827,27 @@ class NeoAgentController extends ChangeNotifier {
       notifyListeners();
     });
     socket.on('messaging:sent', (dynamic data) {
+      final payload = _jsonMap(data);
       messagingMessages = <MessagingMessage>[
-        MessagingMessage.fromSocket(_jsonMap(data), outgoing: true),
+        MessagingMessage.fromSocket(payload, outgoing: true),
         ...messagingMessages,
       ];
+      _appendAssistantChatMessage(
+        payload['content']?.toString() ?? '',
+        platform: payload['platform']?.toString().ifEmpty('webchat') ?? 'webchat',
+      );
       notifyListeners();
     });
     socket.on('messaging:message', (dynamic data) {
+      final payload = _jsonMap(data);
       messagingMessages = <MessagingMessage>[
-        MessagingMessage.fromSocket(_jsonMap(data), outgoing: false),
+        MessagingMessage.fromSocket(payload, outgoing: false),
         ...messagingMessages,
       ];
+      _appendUserChatMessage(
+        payload['content']?.toString() ?? '',
+        platform: payload['platform']?.toString().ifEmpty('webchat') ?? 'webchat',
+      );
       notifyListeners();
     });
     socket.on('messaging:blocked_sender', (dynamic data) {
@@ -4091,21 +4169,27 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:interim', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
-      toolEvents = <ToolEventItem>[
-        ...toolEvents,
-        ToolEventItem(
-          id: 'note-${DateTime.now().microsecondsSinceEpoch}',
-          toolName: 'note',
-          type: 'note',
-          status: 'completed',
-          summary: payload['message']?.toString() ?? '',
-        ),
-      ];
+      _appendToolNote(payload['message']?.toString() ?? '');
       if (runId.isNotEmpty && activeRun?.runId == runId) {
         final phase = payload['phase']?.toString().trim() ?? '';
         if (phase.isNotEmpty) {
           activeRun = activeRun!.copyWith(phase: phase);
         }
+      }
+      notifyListeners();
+    });
+    socket.on('run:assistant_interim', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      final content = payload['content']?.toString() ?? '';
+      final kind = payload['kind']?.toString().ifEmpty('progress') ?? 'progress';
+      final platform = payload['platform']?.toString().ifEmpty('web') ?? 'web';
+      _appendAssistantChatMessage(content, platform: platform);
+      _appendToolNote(content, toolName: 'interim_$kind');
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(
+          phase: 'Responding',
+        );
       }
       notifyListeners();
     });
@@ -4135,15 +4219,7 @@ class NeoAgentController extends ChangeNotifier {
       }
       final content = payload['content']?.toString().trim() ?? '';
       if (content.isNotEmpty) {
-        chatMessages = <ChatEntry>[
-          ...chatMessages,
-          ChatEntry(
-            role: 'assistant',
-            content: content,
-            platform: 'web',
-            createdAt: DateTime.now(),
-          ),
-        ];
+        _appendAssistantChatMessage(content, platform: 'web');
       }
       streamingAssistant = '';
       isSendingMessage = false;

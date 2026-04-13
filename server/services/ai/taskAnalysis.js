@@ -288,6 +288,7 @@ function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
 
   lines.push(
     'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',
+    'Use send_interim_update sparingly when a short real update or question would help.',
     'For outbound messages, calls, emails, shared edits, installs, restarts, or scheduled-task mutations, verify the action result before claiming it happened. If user confirmation is required and missing, draft or ask instead of sending.',
     'Retry with alternative tools or approaches when one path fails. If evidence is still insufficient, say so explicitly instead of guessing.'
   );

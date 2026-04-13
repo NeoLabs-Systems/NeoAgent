@@ -7,6 +7,7 @@ const {
     buildSendMessageFormattingReference,
     normalizeOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
+const { INTERIM_KINDS, normalizeInterimKind } = require('./interim');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -935,6 +936,31 @@ function getAvailableTools(app, options = {}) {
         }
     ];
 
+    const allowInterimUpdates = (
+        (options.triggerSource === 'web' || options.triggerSource === 'messaging')
+        && options.triggerType !== 'subagent'
+        && options.triggerSource !== 'agent_delegation'
+    );
+    if (allowInterimUpdates) {
+        tools.splice(
+            tools.findIndex((tool) => tool.name === 'read_file'),
+            0,
+            {
+                name: 'send_interim_update',
+                description: 'Send a short real interim assistant update when it helps.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        content: { type: 'string', description: 'Natural assistant message derived from the current task state.' },
+                        kind: { type: 'string', enum: Array.from(INTERIM_KINDS), description: 'ack, progress, question, or blocker' },
+                        expects_reply: { type: 'boolean', description: 'Set true only when the current run should pause for the user to answer.' }
+                    },
+                    required: ['content', 'kind']
+                }
+            }
+        );
+    }
+
     const integrationManager = app?.locals?.integrationManager;
     if (integrationManager && options.userId != null) {
         const integrationTools = integrationManager.getToolDefinitions(options.userId, options.agentId || null) || [];
@@ -1530,6 +1556,29 @@ async function executeTool(toolName, args, context, engine) {
                 });
             }
             return callResult;
+        }
+
+        case 'send_interim_update': {
+            if (triggerSource === 'agent_delegation' || triggerSource === 'agent' || context.triggerType === 'subagent') {
+                return { error: 'Interim user-facing updates are not allowed from delegated or sub-agent runs.' };
+            }
+            if (!engine || !runId) {
+                return { error: 'Interim updates require an active run.' };
+            }
+            const interimContent = typeof args.content === 'string' ? args.content : '';
+            const expectsReply = args.expects_reply === true;
+            return engine.publishInterimUpdate({
+                userId,
+                runId,
+                agentId,
+                triggerSource,
+                conversationId: context.conversationId || null,
+                platform: context.source || null,
+                chatId: context.chatId || null,
+                content: interimContent,
+                kind: normalizeInterimKind(args.kind),
+                expectsReply,
+            });
         }
 
         case 'send_message': {

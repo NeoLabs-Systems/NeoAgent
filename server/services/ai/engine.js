@@ -30,6 +30,11 @@ const {
   normalizeOutgoingMessageForPlatform,
   splitOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
+const {
+  buildInterimMetadata,
+  buildInterimSignature,
+  normalizeInterimKind,
+} = require('./interim');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -175,6 +180,12 @@ function joinSentMessages(messages = []) {
     .map((message) => String(message || '').trim())
     .filter(Boolean)
     .join('\n\n');
+}
+
+function normalizeInterimText(content, platform = null) {
+  return normalizeOutgoingMessageForPlatform(platform, content, {
+    stripNoResponseMarker: false,
+  }).trim();
 }
 
 function buildBlankMessagingReplyPrompt(attempt, platform = null) {
@@ -411,6 +422,7 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     'execute_command',
     'write_file',
     'edit_file',
+    'send_interim_update',
     'send_message',
     'make_call',
     'create_skill',
@@ -597,6 +609,119 @@ class AgentEngine {
     const next = { ...current, ...patch };
     db.prepare('UPDATE agent_runs SET metadata_json = ? WHERE id = ?')
       .run(JSON.stringify(next), runId);
+  }
+
+  async publishInterimUpdate({
+    userId,
+    runId,
+    agentId = null,
+    triggerSource = 'web',
+    conversationId = null,
+    platform = null,
+    chatId = null,
+    content,
+    kind,
+    expectsReply = false,
+  } = {}) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta || runMeta.aborted) {
+      return { sent: false, skipped: true, reason: 'Run is no longer active.' };
+    }
+
+    const normalizedKind = normalizeInterimKind(kind);
+    const normalizedContent = normalizeInterimText(
+      content,
+      triggerSource === 'messaging' ? platform : null
+    );
+    if (!normalizedContent || normalizedContent.toUpperCase() === '[NO RESPONSE]') {
+      return { sent: false, skipped: true, reason: 'Interim content must be non-empty.' };
+    }
+
+    const signature = buildInterimSignature({
+      content: normalizedContent,
+      kind: normalizedKind,
+      expectsReply,
+      platform: triggerSource === 'messaging' ? platform : 'web',
+    });
+    if (runMeta.interimSignatures?.has(signature)) {
+      return { sent: false, skipped: true, duplicate: true };
+    }
+
+    const metadata = buildInterimMetadata({
+      kind: normalizedKind,
+      expectsReply,
+    });
+    const createdAt = new Date().toISOString();
+
+    if (triggerSource === 'messaging') {
+      if (!platform || !chatId || !this.messagingManager) {
+        return { sent: false, skipped: true, reason: 'Messaging context is not available.' };
+      }
+      await this.messagingManager.sendMessage(userId, platform, chatId, normalizedContent, {
+        agentId,
+        runId,
+        persistConversation: true,
+        metadata,
+        deliveryKind: 'interim',
+      });
+    } else {
+      db.prepare(
+        'INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(userId, agentId, runId, 'assistant', normalizedContent, JSON.stringify(metadata));
+
+      if (conversationId) {
+        db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
+          .run(conversationId, 'assistant', normalizedContent);
+      }
+    }
+
+    if (!runMeta.interimSignatures) runMeta.interimSignatures = new Set();
+    if (!Array.isArray(runMeta.interimMessages)) runMeta.interimMessages = [];
+    runMeta.interimSignatures.add(signature);
+    runMeta.interimMessages.push({
+      content: normalizedContent,
+      kind: normalizedKind,
+      expectsReply: expectsReply === true,
+      createdAt,
+    });
+    runMeta.lastInterimMessage = normalizedContent;
+
+    this.emit(userId, 'run:assistant_interim', {
+      runId,
+      content: normalizedContent,
+      kind: normalizedKind,
+      expectsReply: expectsReply === true,
+      triggerSource,
+      platform: triggerSource === 'messaging' ? platform : 'web',
+    });
+
+    const terminalInterim = expectsReply === true;
+    if (terminalInterim) {
+      runMeta.terminalInterim = {
+        kind: normalizedKind,
+        content: normalizedContent,
+        createdAt,
+      };
+    }
+    this.persistRunMetadata(runId, {
+      latestInterim: {
+        kind: normalizedKind,
+        expectsReply: expectsReply === true,
+        content: normalizedContent,
+        createdAt,
+      },
+      terminalInterim: terminalInterim
+        ? { kind: normalizedKind, content: normalizedContent, createdAt }
+        : null,
+    });
+
+    return {
+      sent: true,
+      kind: normalizedKind,
+      expectsReply: expectsReply === true,
+      content: normalizedContent,
+      terminal: terminalInterim,
+    };
   }
 
   async requestStructuredJson({
@@ -1282,6 +1407,10 @@ class AgentEngine {
       startedAt: Date.now(),
       lastToolName: null,
       lastToolTarget: null,
+      lastInterimMessage: '',
+      interimMessages: [],
+      interimSignatures: new Set(),
+      terminalInterim: null,
       steeringQueue: [],
       toolPids: new Set()
     });
@@ -1302,6 +1431,7 @@ class AgentEngine {
       includeDescriptions: true,
       userId,
       agentId,
+      triggerType,
       triggerSource,
     });
     const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.mcpManager;
@@ -1701,9 +1831,7 @@ class AgentEngine {
                   loopState.decision.reason ? `Continue working: ${loopState.decision.reason}.` : 'Continue working autonomously.',
                   messagingSent
                     ? 'You already sent a user-facing message in this run. Keep working silently unless you have a materially new finished result or a real external blocker.'
-                    : triggerSource === 'messaging'
-                    ? 'Do not send a user-facing progress update yet. Call the next tool or continue reasoning until you have either the completed result or a real external blocker.'
-                    : 'Call the next tool or continue reasoning until you have either the completed result or a real external blocker.',
+                    : 'Use send_interim_update sparingly if a short real update or question would help. Otherwise keep working until you have the result or a real blocker.',
                 ].join(' ')
               });
               lastContent = '';
@@ -1745,7 +1873,11 @@ class AgentEngine {
               runId,
               agentId,
               app,
+              triggerType,
               triggerSource,
+              conversationId,
+              source: options.source || null,
+              chatId: options.chatId || null,
               taskId: options.taskId || null,
               deliveryState: options.deliveryState || null,
               allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
@@ -1843,9 +1975,14 @@ class AgentEngine {
             runMeta.lastToolName = toolName;
             runMeta.lastToolTarget = toolName === 'send_message' ? toolArgs.to : null;
           }
+
+          if (runMeta?.terminalInterim) {
+            break;
+          }
         }
 
         if (this.isRunStopped(runId)) break;
+        if (this.getRunMeta(runId)?.terminalInterim) break;
         if (!this.activeRuns.has(runId)) break;
       }
 
@@ -1861,6 +1998,9 @@ class AgentEngine {
       }
 
       const runMeta = this.activeRuns.get(runId);
+      if (runMeta?.terminalInterim) {
+        lastContent = '';
+      }
       const messagingSent = runMeta?.messagingSent || false;
       const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
 
@@ -2534,6 +2674,7 @@ class AgentEngine {
     if (toolName.startsWith('android_')) return 'android';
     if (toolName === 'execute_command') return 'cli';
     if (toolName.startsWith('memory_')) return 'memory';
+    if (toolName === 'send_interim_update') return 'note';
     if (toolName === 'send_message') return 'messaging';
     if (toolName === 'make_call') return 'messaging';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';

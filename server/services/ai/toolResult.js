@@ -185,6 +185,18 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
+    case 'send_interim_update':
+      envelope = trimObject({
+        tool: toolName,
+        status: toolResult?.skipped
+          ? 'skipped'
+          : (toolResult?.sent === true ? 'ok' : 'error'),
+        kind: toolResult?.kind || toolArgs.kind,
+        expectsReply: toolResult?.expectsReply === true || toolResult?.waitingForUser === true,
+        message: clampText(toolResult?.content || toolArgs.content || toolResult?.reason || '', Math.floor(softLimit * 0.55))
+      });
+      break;
+
     case 'memory_save':
     case 'memory_recall':
     case 'memory_update_core':

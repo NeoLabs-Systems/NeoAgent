@@ -330,6 +330,10 @@ class MessagingManager extends EventEmitter {
     const mediaPath = sendOptions.mediaPath || null;
     const runId = sendOptions.runId || null;
     const persistConversation = sendOptions.persistConversation === true;
+    const metadata = sendOptions.metadata && typeof sendOptions.metadata === 'object'
+      ? sendOptions.metadata
+      : null;
+    const deliveryKind = sendOptions.deliveryKind || 'final';
     const normalizedContent = normalizeOutgoingMessageForPlatform(platformName, content, {
       stripNoResponseMarker: false
     });
@@ -341,8 +345,8 @@ class MessagingManager extends EventEmitter {
 
     const result = await platform.sendMessage(to, normalizedContent, { mediaPath });
 
-    db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, media_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, to, mediaPath);
+    db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, media_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, to, mediaPath, metadata ? JSON.stringify(metadata) : null);
 
     if (persistConversation) {
       const conversationId = this.getOrCreateConversation(userId, platformName, to, { agentId });
@@ -359,7 +363,9 @@ class MessagingManager extends EventEmitter {
       to,
       content: normalizedContent,
       mediaPath,
-      runId
+      runId,
+      deliveryKind,
+      metadata,
     });
 
     this.emit('message_sent', {
@@ -370,6 +376,8 @@ class MessagingManager extends EventEmitter {
       content: normalizedContent,
       mediaPath,
       runId,
+      deliveryKind,
+      metadata,
       result
     });
 

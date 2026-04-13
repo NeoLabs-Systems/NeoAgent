@@ -105,7 +105,7 @@ function setupWebSocket(io, services) {
           totalTokens: result?.totalTokens || null
         });
 
-        if (result?.content) {
+        if (result?.status === 'completed' && result?.content) {
           db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
             .run(userId, agentId, result.runId, 'assistant', result.content, JSON.stringify({ tokens: result.totalTokens }));
         }
