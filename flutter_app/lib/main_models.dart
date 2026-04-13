@@ -280,7 +280,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   ),
   MessagingPlatformDescriptor(
     id: 'waveshare_wearable',
-    label: 'Waveshare Wearable',
+    label: 'NeoOS Wearable',
     subtitle: 'Pairing and connected-device visibility',
     accent: Color(0xFF1D4ED8),
     connectMethod: MessagingConnectMethod.config,

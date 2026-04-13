@@ -1,6 +1,6 @@
-# Waveshare ESP32-S3 Touch AMOLED 1.8 Firmware
+# NeoOS Firmware (Waveshare ESP32-S3 Touch AMOLED 1.8)
 
-This firmware target is the dedicated NeoAgent wearable runtime for the Waveshare ESP32-S3 Touch AMOLED 1.8 board.
+This firmware target is the dedicated NeoOS wearable runtime for the Waveshare ESP32-S3 Touch AMOLED 1.8 board.
 
 ## Current Implementation Slice
 

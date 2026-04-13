@@ -84,7 +84,7 @@ class WearableDeviceAuth {
     const token = randomToken();
     const tokenId = crypto.randomUUID();
     const deviceId = String(payload.deviceId || '').trim().slice(0, 120) || crypto.randomUUID();
-    const deviceName = String(payload.deviceName || 'Waveshare Wearable').trim().slice(0, 120);
+    const deviceName = String(payload.deviceName || 'NeoOS Wearable').trim().slice(0, 120);
     const macAddress = String(payload.macAddress || '').trim().slice(0, 64) || null;
     const protocol = String(payload.protocol || 'waveshare_amoled_1_8').trim().slice(0, 80);
     const firmwareVersion = String(payload.firmwareVersion || '').trim().slice(0, 80) || null;

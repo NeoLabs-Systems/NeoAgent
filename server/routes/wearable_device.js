@@ -136,7 +136,7 @@ router.post('/utterance', requireWearableToken, async (req, res) => {
       chatId,
       JSON.stringify({
         sender: chatId,
-        senderName: token.device_name || 'Wearable',
+        senderName: token.device_name || 'NeoOS Wearable',
         source: 'wearable_device_token',
       }),
     );
@@ -149,7 +149,7 @@ router.post('/utterance', requireWearableToken, async (req, res) => {
     );
 
     const prompt = [
-      'You received a wearable utterance.',
+      'You received a NeoOS wearable utterance.',
       '<sender_identity>',
       `platform: waveshare_wearable`,
       `chat_type: direct`,

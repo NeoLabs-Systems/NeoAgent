@@ -109,7 +109,7 @@ static device_config_t s_cfg;
 
 static const char *HTML_FORM =
     "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
-    "<title>NeoAgent Wearable Setup</title><style>"
+  "<title>NeoOS Wearable Setup</title><style>"
     "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f5f7fb;margin:0;padding:20px;color:#10243b}"
     "main{max-width:760px;margin:auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.08)}"
     "h1{margin:0 0 8px}p{color:#3f5572}label{display:block;margin-top:12px;font-weight:600}"
@@ -117,11 +117,11 @@ static const char *HTML_FORM =
     "button{margin-top:18px;padding:12px 18px;border:none;border-radius:10px;background:#0b65d7;color:#fff;font-weight:700;cursor:pointer}"
     "small{display:block;color:#637b99;margin-top:6px}"
     "</style></head><body><main>"
-    "<h1>NeoAgent Wearable Setup</h1>"
+    "<h1>NeoOS Wearable Setup</h1>"
     "<p>Configure backend URL, pairing code, and up to five Wi-Fi profiles.</p>"
     "<form method='post' action='/save'>"
     "<label>Backend URL<input name='backend_url' placeholder='https://your-neoagent.example.com' required /></label>"
-    "<label>Device Name<input name='device_name' placeholder='Waveshare Wearable' /></label>"
+    "<label>Device Name<input name='device_name' placeholder='NeoOS Wearable' /></label>"
     "<label>Pairing Code<input name='pairing_code' placeholder='Code from NeoAgent app' required /></label>"
     "<label>Wi-Fi 1 SSID<input name='ssid1' required /></label>"
     "<label>Wi-Fi 1 Password<input name='pass1' type='password' /></label>"
@@ -314,6 +314,59 @@ static void lcd_draw_text_block(int x, int y, int w, const char *text, uint16_t 
   }
 }
 
+static void lcd_draw_text_centered(int y, const char *text, uint16_t fg, uint16_t bg, int scale) {
+  if (!text) return;
+  const int char_w = 4 * scale;
+  int text_w = (int)strlen(text) * char_w;
+  if (text_w <= 0) return;
+  int x = (LCD_WIDTH - text_w) / 2;
+  if (x < 4) x = 4;
+  lcd_draw_text_block(x, y, LCD_WIDTH - (x * 2), text, fg, bg, scale, 1);
+}
+
+static void run_neoos_boot_animation(void) {
+  if (!s_display_ready) return;
+
+  const uint16_t base_bg = rgb565(7, 11, 20);
+  const uint16_t stripe_a = rgb565(18, 38, 72);
+  const uint16_t stripe_b = rgb565(22, 88, 176);
+  const uint16_t text_primary = rgb565(233, 245, 255);
+  const uint16_t text_muted = rgb565(145, 190, 235);
+  const uint16_t bar_bg = rgb565(16, 28, 44);
+
+  for (int frame = 0; frame < 26; frame++) {
+    const int progress_w = ((LCD_WIDTH - 80) * (frame + 1)) / 26;
+    const uint8_t pulse = (uint8_t)(160 + ((frame % 6) * 12));
+    const uint16_t pulse_color = rgb565(40, 120, pulse);
+
+    lcd_fill_rect(0, 0, LCD_WIDTH, LCD_HEIGHT, base_bg);
+
+    for (int i = 0; i < 8; i++) {
+      int x = (frame * 17 + i * 53) % LCD_WIDTH;
+      lcd_fill_rect(x, 0, 28, 4, stripe_a);
+      lcd_fill_rect((x + 19) % LCD_WIDTH, LCD_HEIGHT - 4, 24, 4, stripe_b);
+    }
+
+    lcd_fill_rect(24, 102, LCD_WIDTH - 48, 112, rgb565(10, 20, 33));
+    lcd_fill_rect(24, 102, LCD_WIDTH - 48, 3, stripe_b);
+    lcd_fill_rect(24, 211, LCD_WIDTH - 48, 3, stripe_a);
+
+    lcd_draw_text_centered(126, "NEOOS", text_primary, rgb565(10, 20, 33), 5);
+    lcd_draw_text_centered(170, "WEARABLE RUNTIME", text_muted, rgb565(10, 20, 33), 2);
+
+    lcd_fill_rect(40, 252, LCD_WIDTH - 80, 18, bar_bg);
+    lcd_fill_rect(40, 252, progress_w, 18, pulse_color);
+
+    char stage[32];
+    snprintf(stage, sizeof(stage), "BOOT %d%%", (frame + 1) * 100 / 26);
+    lcd_draw_text_centered(278, stage, text_muted, base_bg, 2);
+    vTaskDelay(pdMS_TO_TICKS(38));
+  }
+
+  lcd_draw_text_centered(306, "SYSTEM READY", rgb565(173, 229, 255), base_bg, 2);
+  vTaskDelay(pdMS_TO_TICKS(260));
+}
+
 static void render_response_cards(void) {
   if (!s_display_ready) return;
 
@@ -325,7 +378,7 @@ static void render_response_cards(void) {
 
   lcd_fill_rect(0, 0, LCD_WIDTH, LCD_HEIGHT, bg);
   lcd_fill_rect(0, 0, LCD_WIDTH, 34, bar);
-  lcd_draw_text_block(8, 8, LCD_WIDTH - 16, "NEO WEARABLE RESPONSES", text, bar, 2, 1);
+  lcd_draw_text_block(8, 8, LCD_WIDTH - 16, "NEOOS RESPONSES", text, bar, 2, 1);
 
   const int card_h = 76;
   const int top = 42;
@@ -556,7 +609,7 @@ static bool load_config_from_nvs(device_config_t *cfg) {
 
   len = sizeof(cfg->device_name);
   if (nvs_get_str(nvs, "device_name", cfg->device_name, &len) != ESP_OK) {
-    strncpy(cfg->device_name, "Waveshare Wearable", sizeof(cfg->device_name) - 1);
+    strncpy(cfg->device_name, "NeoOS Wearable", sizeof(cfg->device_name) - 1);
   }
 
   len = sizeof(cfg->mac_address);
@@ -676,7 +729,7 @@ static esp_err_t save_post_handler(httpd_req_t *req) {
   parse_form_value(body, "device_name", new_cfg.device_name, sizeof(new_cfg.device_name));
   parse_form_value(body, "pairing_code", new_cfg.pairing_code, sizeof(new_cfg.pairing_code));
   if (new_cfg.device_name[0] == '\0') {
-    strncpy(new_cfg.device_name, "Waveshare Wearable", sizeof(new_cfg.device_name) - 1);
+    strncpy(new_cfg.device_name, "NeoOS Wearable", sizeof(new_cfg.device_name) - 1);
   }
 
   for (int i = 0; i < MAX_WIFI_PROFILES; i++) {
@@ -718,7 +771,7 @@ static void start_captive_ap_portal(void) {
   esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
 
   char ssid[33];
-  snprintf(ssid, sizeof(ssid), "NeoWearable-%02X%02X", mac[4], mac[5]);
+  snprintf(ssid, sizeof(ssid), "NeoOS-%02X%02X", mac[4], mac[5]);
 
   wifi_config_t ap_cfg = {0};
   strncpy((char *)ap_cfg.ap.ssid, ssid, sizeof(ap_cfg.ap.ssid));
@@ -1039,7 +1092,7 @@ static bool ensure_paired_token(void) {
   cJSON *root = cJSON_CreateObject();
   cJSON_AddStringToObject(root, "code", s_cfg.pairing_code);
   cJSON_AddStringToObject(root, "deviceId", s_cfg.device_id[0] ? s_cfg.device_id : s_cfg.mac_address);
-  cJSON_AddStringToObject(root, "deviceName", s_cfg.device_name[0] ? s_cfg.device_name : "Waveshare Wearable");
+  cJSON_AddStringToObject(root, "deviceName", s_cfg.device_name[0] ? s_cfg.device_name : "NeoOS Wearable");
   cJSON_AddStringToObject(root, "macAddress", s_cfg.mac_address);
   cJSON_AddStringToObject(root, "protocol", "waveshare_amoled_1_8");
   cJSON_AddStringToObject(root, "firmwareVersion", "0.1.0");
@@ -1206,6 +1259,7 @@ void app_main(void) {
 
   s_wifi_event_group = xEventGroupCreate();
   init_display();
+  run_neoos_boot_animation();
   init_audio_capture();
   start_wifi_common();
   xTaskCreate(button_reset_task, "button_reset_task", 4096, NULL, 3, NULL);

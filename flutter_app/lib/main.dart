@@ -8094,7 +8094,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
       _decodeMaybeJson(widget.controller.settings['waveshare_wearable_config']),
     );
     final deviceLabel = TextEditingController(
-      text: saved['deviceLabel']?.toString() ?? 'Waveshare Wearable',
+      text: saved['deviceLabel']?.toString() ?? 'NeoOS Wearable',
     );
     final ttlController = TextEditingController(text: '10');
     String pairingCode = '';
@@ -8107,7 +8107,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
-              title: const Text('Waveshare Wearable'),
+              title: const Text('NeoOS Wearable'),
               content: SizedBox(
                 width: 620,
                 child: Column(
