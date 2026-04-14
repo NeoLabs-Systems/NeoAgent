@@ -8099,6 +8099,10 @@ class _MessagingPanelState extends State<MessagingPanel> {
     final ttlController = TextEditingController(text: '10');
     String pairingCode = '';
     String expiresAt = '';
+    final status =
+      widget.controller.messagingStatuses['waveshare_wearable'] ??
+      MessagingPlatformStatus.empty('waveshare_wearable');
+    final isConnected = status.isConnected;
 
     await showDialog<void>(
       context: context,
@@ -8161,24 +8165,30 @@ class _MessagingPanelState extends State<MessagingPanel> {
                   },
                   child: const Text('Generate Pairing Code'),
                 ),
-                FilledButton(
-                  onPressed: () async {
-                    final config = <String, dynamic>{
-                      'deviceLabel': deviceLabel.text.trim(),
-                    };
-                    await widget.controller.connectMessagingPlatform(
-                      platform: 'waveshare_wearable',
-                      config: config,
-                      configSnapshot: <String, dynamic>{
-                        'waveshare_wearable_config': jsonEncode(config),
-                      },
-                    );
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: const Text('Enable Provider'),
-                ),
+                if (!isConnected)
+                  FilledButton(
+                    onPressed: () async {
+                      final config = <String, dynamic>{
+                        'deviceLabel': deviceLabel.text.trim(),
+                      };
+                      await widget.controller.connectMessagingPlatform(
+                        platform: 'waveshare_wearable',
+                        config: config,
+                        configSnapshot: <String, dynamic>{
+                          'waveshare_wearable_config': jsonEncode(config),
+                        },
+                      );
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: const Text('Enable Provider'),
+                  )
+                else
+                  FilledButton.tonal(
+                    onPressed: null,
+                    child: const Text('Provider Enabled'),
+                  ),
               ],
             );
           },
@@ -9418,6 +9428,12 @@ class _MessagingCard extends StatelessWidget {
                 icon: Icon(Icons.group_add_outlined),
               ),
               if (platform.id == 'waveshare_wearable') ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Pairing code',
+                  onPressed: _openWaveshareWearableConfig,
+                  icon: Icon(Icons.key_rounded),
+                ),
                 const SizedBox(width: 8),
                 IconButton.outlined(
                   tooltip: 'Connected devices',
