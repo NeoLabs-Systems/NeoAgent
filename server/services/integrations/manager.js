@@ -11,6 +11,38 @@ class IntegrationManager {
     this.registry = createIntegrationRegistry();
   }
 
+  parseCredentials(credentialsJson) {
+    try {
+      const parsed = JSON.parse(decryptValue(credentialsJson || '{}') || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  mergeUpdatedCredentials(existingCredentials, updatedCredentials) {
+    const existing =
+      existingCredentials && typeof existingCredentials === 'object'
+        ? existingCredentials
+        : {};
+    const updated =
+      updatedCredentials && typeof updatedCredentials === 'object'
+        ? updatedCredentials
+        : {};
+
+    const merged = {
+      ...existing,
+      ...updated,
+    };
+
+    // Some OAuth token refresh responses omit refresh_token; keep the existing one.
+    if (!merged.refresh_token && existing.refresh_token) {
+      merged.refresh_token = existing.refresh_token;
+    }
+
+    return merged;
+  }
+
   getProvider(providerKey) {
     return this.registry.get(providerKey);
   }
@@ -371,12 +403,19 @@ class IntegrationManager {
       }
 
       if (execution.credentials) {
+        const existingCredentials = this.parseCredentials(
+          selection.connection.credentials_json,
+        );
+        const mergedCredentials = this.mergeUpdatedCredentials(
+          existingCredentials,
+          execution.credentials,
+        );
         db.prepare(
           `UPDATE integration_connections
            SET credentials_json = ?, updated_at = datetime('now')
            WHERE id = ? AND user_id = ?`,
         ).run(
-          encryptValue(JSON.stringify(execution.credentials)),
+          encryptValue(JSON.stringify(mergedCredentials)),
           selection.connection.id,
           userId,
         );
