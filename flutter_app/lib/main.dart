@@ -9431,7 +9431,7 @@ class _MessagingCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton.outlined(
                   tooltip: 'Pairing code',
-                  onPressed: _openWaveshareWearableConfig,
+                  onPressed: onConnect,
                   icon: Icon(Icons.key_rounded),
                 ),
                 const SizedBox(width: 8),
