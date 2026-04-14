@@ -249,7 +249,7 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
       builder: (context, _) {
         return MaterialApp(
           key: ValueKey<bool>(_controller.isAuthenticated),
-          title: 'NeoAgent',
+          title: 'NeoOS',
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
           darkTheme: _buildNeoAgentTheme(_darkPalette, Brightness.dark),

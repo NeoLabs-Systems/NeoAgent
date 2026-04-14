@@ -23,7 +23,7 @@ class SplashView extends StatelessWidget {
               SizedBox(height: 18),
               CircularProgressIndicator(),
               SizedBox(height: 16),
-              Text('Loading NeoAgent'),
+              Text('Loading NeoOS'),
             ],
           ),
         ),
@@ -96,7 +96,7 @@ class _AuthViewState extends State<AuthView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       Text(
-                        'Enter your username or account email. NeoAgent will send a reset link if it can match the account.',
+                        'Enter your username or account email. NeoOS will send a reset link if it can match the account.',
                         style: TextStyle(color: _textSecondary, height: 1.45),
                       ),
                       const SizedBox(height: 16),
@@ -171,9 +171,9 @@ class _AuthViewState extends State<AuthView> {
         : 'Sign in';
     final subtitle = _registerMode
         ? (controller.hasUser
-              ? 'Create another NeoAgent account.'
-              : 'This account will unlock NeoAgent on this machine.')
-        : 'Enter your NeoAgent account details.';
+          ? 'Create another NeoOS account.'
+          : 'This account will unlock NeoOS on this machine.')
+        : 'Enter your NeoOS account details.';
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle =
         controller.registrationOpen && controller.hasUser;
@@ -212,7 +212,7 @@ class _AuthViewState extends State<AuthView> {
                                     const _LogoBadge(size: 58),
                                     const SizedBox(height: 18),
                                     Text(
-                                      'NeoAgent',
+                                      'NeoOS',
                                       style: GoogleFonts.spaceGrotesk(
                                         fontSize: 28,
                                         fontWeight: FontWeight.w700,
@@ -236,7 +236,7 @@ class _AuthViewState extends State<AuthView> {
                                 const SizedBox(height: 8),
                                 Text(
                                   awaitingTwoFactor
-                                      ? 'Open your authenticator app and enter the current NeoAgent code.'
+                                      ? 'Open your authenticator app and enter the current NeoOS code.'
                                       : subtitle,
                                   style: TextStyle(
                                     color: _textSecondary,
@@ -822,12 +822,21 @@ class _Sidebar extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Text(
-                            'NeoAgent',
+                            'NeoOS',
                             style: GoogleFonts.spaceGrotesk(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: _textPrimary,
                               letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'by NeoLabs',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _textSecondary,
+                              letterSpacing: 0.1,
                             ),
                           ),
                         ],
@@ -1027,10 +1036,19 @@ class _MobileDrawer extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              'NeoAgent',
+                              'NeoOS',
                               style: GoogleFonts.spaceGrotesk(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'by NeoLabs',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: _textSecondary,
+                                letterSpacing: 0.1,
                               ),
                             ),
                           ],
