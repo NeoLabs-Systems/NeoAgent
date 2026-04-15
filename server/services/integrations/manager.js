@@ -5,6 +5,11 @@ const db = require('../../db/database');
 const { createIntegrationRegistry } = require('./registry');
 const { decryptValue, encryptValue } = require('./secrets');
 const { resolveAgentId } = require('../agents/manager');
+const {
+  getConnectionAccessMode,
+  normalizeAccessMode,
+  withConnectionAccessMode,
+} = require('./access');
 
 class IntegrationManager {
   constructor() {
@@ -313,6 +318,88 @@ class IntegrationManager {
     };
   }
 
+  updateConnectionAccessMode(userId, providerKey, options = {}) {
+    const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
+    const provider = this.getProvider(providerKey);
+    if (!provider) {
+      throw new Error(`Unknown integration provider: ${providerKey}`);
+    }
+
+    const connectionId = Number(options.connectionId);
+    if (!Number.isInteger(connectionId) || connectionId <= 0) {
+      throw new Error('A valid connectionId is required to update integration access mode.');
+    }
+
+    const connection = this.getConnectionById(userId, connectionId, agentId);
+    if (!connection || connection.provider_key !== provider.key) {
+      throw new Error(`No connected ${provider.label} account matches connection_id ${connectionId}.`);
+    }
+
+    const accessMode = normalizeAccessMode(options.accessMode, null);
+    if (!accessMode) {
+      throw new Error('Invalid accessMode. Use "read_only" or "read_write".');
+    }
+
+    const metadata = withConnectionAccessMode(connection.metadata_json, accessMode);
+    db.prepare(
+      `UPDATE integration_connections
+       SET metadata_json = ?, updated_at = datetime('now')
+       WHERE id = ? AND user_id = ? AND agent_id = ?`
+    ).run(
+      JSON.stringify(metadata),
+      connection.id,
+      userId,
+      agentId,
+    );
+
+    return {
+      provider: provider.key,
+      connectionId: connection.id,
+      accessMode,
+    };
+  }
+
+  isWriteToolExecution(provider, toolName, args = {}) {
+    if (typeof provider?.isWriteTool === 'function') {
+      const providerDecision = provider.isWriteTool(toolName, args);
+      if (typeof providerDecision === 'boolean') {
+        return providerDecision;
+      }
+    }
+
+    const connectedAppIds = Array.from(
+      new Set([
+        ...(Array.isArray(provider?.connections)
+          ? provider.connections
+            .map((connection) => String(connection?.appId || connection?.app_key || '').trim())
+            .filter(Boolean)
+          : []),
+        ...(Array.isArray(provider?.apps)
+          ? provider.apps
+            .map((app) => String(app?.id || '').trim())
+            .filter(Boolean)
+          : []),
+      ]),
+    );
+    const definitions = typeof provider?.getToolDefinitions === 'function'
+      ? provider.getToolDefinitions({ connectedAppIds })
+      : [];
+    const definition = Array.isArray(definitions)
+      ? definitions.find((tool) => String(tool?.name || '').trim() === String(toolName || '').trim())
+      : null;
+
+    const declaredAccess = String(definition?.access || '').trim().toLowerCase();
+    if (declaredAccess === 'write') return true;
+    if (declaredAccess === 'read') return false;
+    if (declaredAccess === 'dynamic_http_method') {
+      const method = String(args?.method || args?.http_method || 'GET').trim().toUpperCase();
+      return !['GET', 'HEAD', 'OPTIONS'].includes(method);
+    }
+
+    // No explicit access metadata means we cannot safely allow writes in read-only mode.
+    return true;
+  }
+
   selectToolConnection(provider, toolName, args, userId, agentId = null) {
     const appKey = provider.getToolAppId?.(toolName);
     if (!appKey) {
@@ -386,6 +473,13 @@ class IntegrationManager {
       const selection = this.selectToolConnection(provider, toolName, args, userId, agentId);
       if (selection.error) {
         return { error: selection.error };
+      }
+
+      const accessMode = getConnectionAccessMode(selection.connection);
+      if (accessMode === 'read_only' && this.isWriteToolExecution(provider, toolName, args)) {
+        return {
+          error: `This ${provider.label} account is set to read-only access. Change the connection access mode to read/write to allow this action.`,
+        };
       }
 
       let execution;

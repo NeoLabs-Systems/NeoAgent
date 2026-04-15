@@ -6,6 +6,7 @@ const { coerceStringList, executeGoogleApiRequest } = require('./common');
 const calendarToolDefinitions = [
   {
     name: 'google_workspace_calendar_list_events',
+    access: 'read',
     description: 'List or search Google Calendar events for the connected account.',
     parameters: {
       type: 'object',
@@ -29,6 +30,7 @@ const calendarToolDefinitions = [
   },
   {
     name: 'google_workspace_calendar_create_event',
+    access: 'write',
     description: 'Create a Google Calendar event.',
     parameters: {
       type: 'object',
@@ -57,6 +59,7 @@ const calendarToolDefinitions = [
   },
   {
     name: 'google_workspace_calendar_update_event',
+    access: 'write',
     description: 'Update fields on an existing Google Calendar event.',
     parameters: {
       type: 'object',
@@ -86,6 +89,7 @@ const calendarToolDefinitions = [
   },
   {
     name: 'google_workspace_calendar_delete_event',
+    access: 'write',
     description: 'Delete a Google Calendar event.',
     parameters: {
       type: 'object',
@@ -101,6 +105,7 @@ const calendarToolDefinitions = [
   },
   {
     name: 'google_workspace_calendar_free_busy',
+    access: 'read',
     description: 'Check Google Calendar free/busy windows across calendars.',
     parameters: {
       type: 'object',
@@ -119,6 +124,7 @@ const calendarToolDefinitions = [
   },
   {
     name: 'google_workspace_calendar_api_request',
+    access: 'dynamic_http_method',
     description:
       'Make an authenticated Google Calendar API request for advanced calendar operations not covered by the dedicated tools.',
     parameters: {

@@ -936,11 +936,12 @@ class AgentEngine {
         '- Use "continue" whenever any safe next step remains in this same run.',
         '- Use "complete" only when the requested outcome is actually achieved or a truthful final user reply is already ready now.',
         '- Use "blocked" only when a specific external dependency outside this run is required.',
+        '- If the latest draft asks the user for a missing required value, confirmation, or choice needed to proceed, use "blocked" so the run waits instead of repeating the same ask.',
         '- A progress update is not complete.',
         '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
         '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
         triggerSource === 'messaging'
-          ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked.'
+          ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked. If you already asked for missing user input, choose "blocked" and wait.'
           : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
         analysis?.goal ? `Goal: ${analysis.goal}` : '',
         successCriteria.length > 0 ? `Success criteria:\n${successCriteria.map((item, index) => `${index + 1}. ${item}`).join('\n')}` : '',

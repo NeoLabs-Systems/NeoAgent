@@ -1,6 +1,7 @@
 'use strict';
 
 const { decryptValue } = require('./secrets');
+const { getConnectionAccessMode } = require('./access');
 
 function escapeScope(scopes) {
   return Array.from(new Set((scopes || []).filter(Boolean))).join(' ');
@@ -97,6 +98,7 @@ function summarizeAccountRow(row, envStatus) {
       connected: false,
       accountEmail: null,
       lastConnectedAt: null,
+      accessMode: 'read_write',
     };
   }
 
@@ -106,6 +108,7 @@ function summarizeAccountRow(row, envStatus) {
     connected: row.status === 'connected',
     accountEmail: row.account_email || null,
     lastConnectedAt: row.last_connected_at || null,
+    accessMode: getConnectionAccessMode(row),
   };
 }
 

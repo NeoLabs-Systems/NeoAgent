@@ -6,6 +6,7 @@ const { executeGoogleApiRequest } = require('./common');
 const docsToolDefinitions = [
   {
     name: 'google_workspace_docs_get_document',
+    access: 'read',
     description: 'Read a Google Doc and return its plain-text content.',
     parameters: {
       type: 'object',
@@ -17,6 +18,7 @@ const docsToolDefinitions = [
   },
   {
     name: 'google_workspace_docs_create_document',
+    access: 'write',
     description: 'Create a Google Doc, optionally with initial content.',
     parameters: {
       type: 'object',
@@ -29,6 +31,7 @@ const docsToolDefinitions = [
   },
   {
     name: 'google_workspace_docs_append_text',
+    access: 'write',
     description: 'Append text to the end of a Google Doc.',
     parameters: {
       type: 'object',
@@ -41,6 +44,7 @@ const docsToolDefinitions = [
   },
   {
     name: 'google_workspace_docs_replace_text',
+    access: 'write',
     description: 'Replace matching text throughout a Google Doc.',
     parameters: {
       type: 'object',
@@ -54,6 +58,7 @@ const docsToolDefinitions = [
   },
   {
     name: 'google_workspace_docs_api_request',
+    access: 'dynamic_http_method',
     description:
       'Make an authenticated Google Docs API request for advanced document batchUpdate operations not covered by the dedicated tools.',
     parameters: {

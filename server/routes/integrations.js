@@ -184,6 +184,27 @@ router.post('/:provider/disconnect', async (req, res) => {
   }
 });
 
+router.post('/:provider/access-mode', async (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
+    const result = await manager.updateConnectionAccessMode(
+      req.session.userId,
+      req.params.provider,
+      {
+        connectionId: req.body?.connectionId,
+        accessMode: req.body?.accessMode,
+        agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+      },
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
 router.get('/:provider/tools/status', (req, res) => {
   try {
     const manager = getIntegrationManager(req);

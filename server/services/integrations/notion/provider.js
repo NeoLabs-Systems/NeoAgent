@@ -21,6 +21,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_search',
+    access: 'read',
     description: 'Search pages and databases available to the connected Notion integration.',
     parameters: {
       type: 'object',
@@ -34,6 +35,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_get_page',
+    access: 'read',
     description: 'Retrieve a Notion page by ID.',
     parameters: {
       type: 'object',
@@ -46,6 +48,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_create_page',
+    access: 'write',
     description: 'Create a Notion page under a page or database parent.',
     parameters: {
       type: 'object',
@@ -60,6 +63,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_update_page',
+    access: 'write',
     description: 'Update a Notion page properties, icon, cover, or archived state.',
     parameters: {
       type: 'object',
@@ -76,6 +80,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_query_database',
+    access: 'read',
     description: 'Query a Notion database or data source by ID.',
     parameters: {
       type: 'object',
@@ -91,6 +96,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_get_block_children',
+    access: 'read',
     description: 'List child blocks under a Notion block or page.',
     parameters: {
       type: 'object',
@@ -104,6 +110,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_append_block_children',
+    access: 'write',
     description: 'Append child blocks under a Notion block or page.',
     parameters: {
       type: 'object',
@@ -117,6 +124,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_update_block',
+    access: 'write',
     description: 'Update a Notion block.',
     parameters: {
       type: 'object',
@@ -130,6 +138,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_delete_block',
+    access: 'write',
     description: 'Delete/archive a Notion block.',
     parameters: {
       type: 'object',
@@ -142,6 +151,7 @@ const notionToolDefinitions = [
   {
     appId: 'notion',
     name: 'notion_api_request',
+    access: 'dynamic_http_method',
     description: 'Make an authenticated Notion API request for advanced Notion operations.',
     parameters: {
       type: 'object',

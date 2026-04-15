@@ -31,12 +31,14 @@ const figmaToolDefinitions = [
   {
     appId: 'figma',
     name: 'figma_get_me',
+    access: 'read',
     description: 'Get the current Figma user.',
     parameters: { type: 'object', properties: {} },
   },
   {
     appId: 'figma',
     name: 'figma_get_file',
+    access: 'read',
     description: 'Read a Figma file JSON document.',
     parameters: {
       type: 'object',
@@ -51,6 +53,7 @@ const figmaToolDefinitions = [
   {
     appId: 'figma',
     name: 'figma_get_file_nodes',
+    access: 'read',
     description: 'Read specific nodes from a Figma file.',
     parameters: {
       type: 'object',
@@ -64,6 +67,7 @@ const figmaToolDefinitions = [
   {
     appId: 'figma',
     name: 'figma_get_file_images',
+    access: 'read',
     description: 'Render Figma nodes to image URLs.',
     parameters: {
       type: 'object',
@@ -79,6 +83,7 @@ const figmaToolDefinitions = [
   {
     appId: 'figma',
     name: 'figma_get_comments',
+    access: 'read',
     description: 'List comments on a Figma file.',
     parameters: {
       type: 'object',
@@ -91,6 +96,7 @@ const figmaToolDefinitions = [
   {
     appId: 'figma',
     name: 'figma_post_comment',
+    access: 'write',
     description: 'Post a Figma file comment.',
     parameters: {
       type: 'object',
@@ -105,6 +111,7 @@ const figmaToolDefinitions = [
   {
     appId: 'figma',
     name: 'figma_api_request',
+    access: 'dynamic_http_method',
     description: 'Make an authenticated Figma REST API request for advanced file, comment, library, variable, webhook, and dev resource operations.',
     parameters: {
       type: 'object',

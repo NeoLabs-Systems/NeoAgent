@@ -40,6 +40,7 @@ const slackToolDefinitions = [
   {
     appId: 'slack',
     name: 'slack_list_conversations',
+    access: 'read',
     description: 'List Slack channels, groups, IMs, or MPIMs visible to the connected user.',
     parameters: {
       type: 'object',
@@ -52,6 +53,7 @@ const slackToolDefinitions = [
   {
     appId: 'slack',
     name: 'slack_get_conversation_history',
+    access: 'read',
     description: 'Read recent Slack conversation messages.',
     parameters: {
       type: 'object',
@@ -65,6 +67,7 @@ const slackToolDefinitions = [
   {
     appId: 'slack',
     name: 'slack_post_message',
+    access: 'write',
     description: 'Post a Slack message to a channel or conversation.',
     parameters: {
       type: 'object',
@@ -79,6 +82,7 @@ const slackToolDefinitions = [
   {
     appId: 'slack',
     name: 'slack_search_messages',
+    access: 'read',
     description: 'Search Slack messages.',
     parameters: {
       type: 'object',
@@ -92,6 +96,7 @@ const slackToolDefinitions = [
   {
     appId: 'slack',
     name: 'slack_get_user_info',
+    access: 'read',
     description: 'Get Slack user profile information.',
     parameters: {
       type: 'object',
@@ -104,6 +109,7 @@ const slackToolDefinitions = [
   {
     appId: 'slack',
     name: 'slack_api_request',
+    access: 'dynamic_http_method',
     description: 'Make an authenticated Slack Web API request for advanced Slack operations.',
     parameters: {
       type: 'object',

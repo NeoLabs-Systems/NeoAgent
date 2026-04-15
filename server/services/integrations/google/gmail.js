@@ -20,6 +20,7 @@ function sanitizeHeaderValue(value, label) {
 const gmailToolDefinitions = [
   {
     name: 'google_workspace_gmail_search_threads',
+    access: 'read',
     description: 'Search Gmail threads for the connected Google Workspace account.',
     parameters: {
       type: 'object',
@@ -38,6 +39,7 @@ const gmailToolDefinitions = [
   },
   {
     name: 'google_workspace_gmail_get_thread',
+    access: 'read',
     description: 'Read a Gmail thread with headers and decoded plain-text bodies.',
     parameters: {
       type: 'object',
@@ -49,6 +51,7 @@ const gmailToolDefinitions = [
   },
   {
     name: 'google_workspace_gmail_get_message',
+    access: 'read',
     description: 'Read a single Gmail message with headers and decoded body.',
     parameters: {
       type: 'object',
@@ -60,11 +63,13 @@ const gmailToolDefinitions = [
   },
   {
     name: 'google_workspace_gmail_list_labels',
+    access: 'read',
     description: 'List Gmail labels available to the connected account.',
     parameters: { type: 'object', properties: {} },
   },
   {
     name: 'google_workspace_gmail_send_email',
+    access: 'write',
     description: 'Send an email from the connected Gmail account.',
     parameters: {
       type: 'object',
@@ -90,6 +95,7 @@ const gmailToolDefinitions = [
   },
   {
     name: 'google_workspace_gmail_modify_thread_labels',
+    access: 'write',
     description:
       'Add or remove Gmail labels from a thread, optionally archiving it by removing INBOX.',
     parameters: {
@@ -116,6 +122,7 @@ const gmailToolDefinitions = [
   },
   {
     name: 'google_workspace_gmail_api_request',
+    access: 'dynamic_http_method',
     description:
       'Make an authenticated Gmail API request for advanced Gmail operations not covered by the dedicated Gmail tools.',
     parameters: {

@@ -6,6 +6,7 @@ const { executeGoogleApiRequest } = require('./common');
 const sheetsToolDefinitions = [
   {
     name: 'google_workspace_sheets_get_values',
+    access: 'read',
     description: 'Read a range from a Google Sheet.',
     parameters: {
       type: 'object',
@@ -21,6 +22,7 @@ const sheetsToolDefinitions = [
   },
   {
     name: 'google_workspace_sheets_update_values',
+    access: 'write',
     description: 'Overwrite a range in a Google Sheet.',
     parameters: {
       type: 'object',
@@ -41,6 +43,7 @@ const sheetsToolDefinitions = [
   },
   {
     name: 'google_workspace_sheets_append_rows',
+    access: 'write',
     description: 'Append rows to a Google Sheet range.',
     parameters: {
       type: 'object',
@@ -64,6 +67,7 @@ const sheetsToolDefinitions = [
   },
   {
     name: 'google_workspace_sheets_create_spreadsheet',
+    access: 'write',
     description: 'Create a new Google Spreadsheet.',
     parameters: {
       type: 'object',
@@ -80,6 +84,7 @@ const sheetsToolDefinitions = [
   },
   {
     name: 'google_workspace_sheets_api_request',
+    access: 'dynamic_http_method',
     description:
       'Make an authenticated Google Sheets API request for advanced spreadsheet, sheet, chart, formatting, pivot table, and batchUpdate operations.',
     parameters: {

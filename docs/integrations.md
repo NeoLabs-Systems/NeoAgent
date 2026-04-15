@@ -16,6 +16,17 @@ The built-in registry includes:
 
 OAuth app credentials are configured through server environment variables. Account connections are created in the Flutter UI under **Integrations**. Connected tools are exposed to the agent as structured tools, so prefer them over browser automation when they can do the job.
 
+### Per-Account Access Mode
+
+Each connected official integration account can be configured per connection as:
+
+- `Read / Write` (default)
+- `Read Only`
+
+When an account is set to `Read Only`, write operations are blocked for that connection (for example: sending email, posting messages, creating/updating/deleting resources, or write-method API requests).
+
+This setting is managed in the Flutter **Integrations** UI on each connected account row and is enforced server-side during tool execution.
+
 The default callback is:
 
 ```text

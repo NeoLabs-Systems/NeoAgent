@@ -3009,6 +3009,37 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> setOfficialIntegrationAccessMode(
+    String providerId, {
+    required int connectionId,
+    required String accessMode,
+  }) async {
+    final busyKey = '$providerId:$connectionId:access_mode';
+    if (_busyOfficialIntegrationKeys.contains(busyKey)) {
+      return;
+    }
+
+    _busyOfficialIntegrationKeys.add(busyKey);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _backendClient.setOfficialIntegrationAccessMode(
+        backendUrl,
+        providerId,
+        connectionId: connectionId,
+        accessMode: accessMode,
+        agentId: _scopedAgentId,
+      );
+      await refreshSkills();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyOfficialIntegrationKeys.remove(busyKey);
+      notifyListeners();
+    }
+  }
+
   OfficialIntegrationAppItem? _findOfficialIntegrationApp(
     String providerId,
     String appId,

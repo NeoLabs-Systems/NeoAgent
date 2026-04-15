@@ -770,6 +770,23 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> setOfficialIntegrationAccessMode(
+    String baseUrl,
+    String providerId, {
+    required int connectionId,
+    required String accessMode,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/integrations/$providerId/access-mode',
+      _withAgentId(<String, dynamic>{
+        'connectionId': connectionId,
+        'accessMode': accessMode,
+      }, agentId),
+    );
+  }
+
   Future<Map<String, dynamic>> fetchMessagingStatus(
     String baseUrl, {
     String? agentId,

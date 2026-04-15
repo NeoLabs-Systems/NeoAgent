@@ -40,6 +40,7 @@ const MICROSOFT_APPS = [
 const graphApiTool = (appId, label) => ({
   appId,
   name: `microsoft_365_${appId}_graph_request`,
+  access: 'dynamic_http_method',
   description: `Make an authenticated Microsoft Graph API request for advanced ${label} operations.`,
   parameters: {
     type: 'object',
@@ -57,6 +58,7 @@ const microsoftToolDefinitions = [
   {
     appId: 'outlook',
     name: 'microsoft_365_outlook_list_messages',
+    access: 'read',
     description: 'List Outlook messages from the connected mailbox.',
     parameters: {
       type: 'object',
@@ -70,6 +72,7 @@ const microsoftToolDefinitions = [
   {
     appId: 'outlook',
     name: 'microsoft_365_outlook_send_mail',
+    access: 'write',
     description: 'Send an Outlook email from the connected mailbox.',
     parameters: {
       type: 'object',
@@ -86,6 +89,7 @@ const microsoftToolDefinitions = [
   {
     appId: 'calendar',
     name: 'microsoft_365_calendar_list_events',
+    access: 'read',
     description: 'List Microsoft 365 calendar events.',
     parameters: {
       type: 'object',
@@ -99,6 +103,7 @@ const microsoftToolDefinitions = [
   {
     appId: 'calendar',
     name: 'microsoft_365_calendar_create_event',
+    access: 'write',
     description: 'Create a Microsoft 365 calendar event.',
     parameters: {
       type: 'object',
@@ -116,6 +121,7 @@ const microsoftToolDefinitions = [
   {
     appId: 'onedrive',
     name: 'microsoft_365_onedrive_list_children',
+    access: 'read',
     description: 'List OneDrive children under root or a drive item.',
     parameters: {
       type: 'object',
@@ -128,6 +134,7 @@ const microsoftToolDefinitions = [
   {
     appId: 'teams',
     name: 'microsoft_365_teams_list_chats',
+    access: 'read',
     description: 'List Microsoft Teams chats visible to the connected user.',
     parameters: {
       type: 'object',
@@ -139,6 +146,7 @@ const microsoftToolDefinitions = [
   {
     appId: 'teams',
     name: 'microsoft_365_teams_send_chat_message',
+    access: 'write',
     description: 'Send a Microsoft Teams chat message.',
     parameters: {
       type: 'object',

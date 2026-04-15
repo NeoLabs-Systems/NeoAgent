@@ -1776,6 +1776,7 @@ class OfficialIntegrationAccountItem {
     required this.connected,
     this.accountEmail,
     this.lastConnectedAt,
+    this.accessMode = 'read_write',
   });
 
   factory OfficialIntegrationAccountItem.fromJson(Map<dynamic, dynamic> json) {
@@ -1787,6 +1788,7 @@ class OfficialIntegrationAccountItem {
       lastConnectedAt: _parseOptionalTimestamp(
         json['lastConnectedAt']?.toString(),
       ),
+      accessMode: json['accessMode']?.toString() ?? 'read_write',
     );
   }
 
@@ -1795,8 +1797,18 @@ class OfficialIntegrationAccountItem {
   final bool connected;
   final String? accountEmail;
   final DateTime? lastConnectedAt;
+  final String accessMode;
 
   String get statusLabel => _titleCase(status.replaceAll('_', ' '));
+
+  String get accessModeLabel {
+    switch (accessMode) {
+      case 'read_only':
+        return 'Read Only';
+      default:
+        return 'Read / Write';
+    }
+  }
 }
 
 class OfficialIntegrationItem {

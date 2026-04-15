@@ -13,6 +13,7 @@ const {
 const driveToolDefinitions = [
   {
     name: 'google_workspace_drive_search_files',
+    access: 'read',
     description: 'List or search Drive files visible to the connected account.',
     parameters: {
       type: 'object',
@@ -30,6 +31,7 @@ const driveToolDefinitions = [
   },
   {
     name: 'google_workspace_drive_upload_file',
+    access: 'write',
     description: 'Upload a local file to Google Drive.',
     parameters: {
       type: 'object',
@@ -51,6 +53,7 @@ const driveToolDefinitions = [
   },
   {
     name: 'google_workspace_drive_download_file',
+    access: 'read',
     description: 'Download a Drive file to a local destination.',
     parameters: {
       type: 'object',
@@ -66,6 +69,7 @@ const driveToolDefinitions = [
   },
   {
     name: 'google_workspace_drive_export_file',
+    access: 'read',
     description: 'Export a native Google file like Docs or Sheets to a local file.',
     parameters: {
       type: 'object',
@@ -85,6 +89,7 @@ const driveToolDefinitions = [
   },
   {
     name: 'google_workspace_drive_create_share_link',
+    access: 'write',
     description: 'Create a Drive sharing permission and return the resulting link.',
     parameters: {
       type: 'object',
@@ -108,6 +113,7 @@ const driveToolDefinitions = [
   },
   {
     name: 'google_workspace_drive_api_request',
+    access: 'dynamic_http_method',
     description:
       'Make an authenticated Google Drive API request for advanced file, folder, permission, comment, revision, and shared drive operations.',
     parameters: {

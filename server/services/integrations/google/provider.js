@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { google } = require('googleapis');
 const { describeEnvStatus, resolveGoogleOAuthConfig } = require('../env');
 const { decryptValue } = require('../secrets');
+const { getConnectionAccessMode } = require('../access');
 const { gmailToolDefinitions, executeGmailTool } = require('./gmail');
 const { calendarToolDefinitions, executeCalendarTool } = require('./calendar');
 const { driveToolDefinitions, executeDriveTool } = require('./drive');
@@ -170,6 +171,7 @@ function summarizeAccountRow(row, envStatus) {
       connected: false,
       accountEmail: null,
       lastConnectedAt: null,
+      accessMode: 'read_write',
     };
   }
 
@@ -179,6 +181,7 @@ function summarizeAccountRow(row, envStatus) {
     connected: row.status === 'connected',
     accountEmail: row.account_email || null,
     lastConnectedAt: row.last_connected_at || null,
+    accessMode: getConnectionAccessMode(row),
   };
 }
 

@@ -270,6 +270,9 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                 final disconnectBusy = controller.isOfficialIntegrationBusy(
                   '${provider.id}:${account.id}:disconnect',
                 );
+                final accessBusy = controller.isOfficialIntegrationBusy(
+                  '${provider.id}:${account.id}:access_mode',
+                );
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
@@ -295,10 +298,63 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                               'Connection #${account.id}',
                               style: TextStyle(color: _textSecondary),
                             ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Access: ${account.accessModeLabel}',
+                              style: TextStyle(color: _textSecondary),
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 12),
+                      PopupMenuButton<String>(
+                        enabled: !accessBusy,
+                        tooltip: 'Access mode',
+                        onSelected: (value) {
+                          if (value == account.accessMode) return;
+                          controller.setOfficialIntegrationAccessMode(
+                            provider.id,
+                            connectionId: account.id,
+                            accessMode: value,
+                          );
+                        },
+                        itemBuilder: (context) => const <PopupMenuEntry<String>>[
+                          PopupMenuItem<String>(
+                            value: 'read_write',
+                            child: Text('Read / Write'),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'read_only',
+                            child: Text('Read Only'),
+                          ),
+                        ],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: _border),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(
+                                Icons.lock_open_rounded,
+                                size: 16,
+                                color: _textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                accessBusy ? 'Saving...' : account.accessModeLabel,
+                                style: TextStyle(color: _textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       _StatusPill(
                         label: account.statusLabel,
                         color: account.connected ? _success : _textSecondary,
