@@ -475,18 +475,34 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
 
   let normalizedError = String(errorMessage || result?.error || '').trim();
-  if (
-    !normalizedError
-    && name === 'execute_command'
-    && result
-    && typeof result === 'object'
-  ) {
+  if (!normalizedError && name === 'execute_command' && result && typeof result === 'object') {
     if (result.timedOut) {
       normalizedError = `Command timed out after ${result.durationMs || 'unknown'} ms`;
     } else if (result.killed) {
       normalizedError = 'Command was killed before it finished';
     } else if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
       normalizedError = summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
+    }
+  }
+
+  if (!normalizedError && result && typeof result === 'object') {
+    const nestedResult = result.result && typeof result.result === 'object' && !Array.isArray(result.result)
+      ? result.result
+      : null;
+    const detail = normalizeOutgoingMessage(
+      result.reason
+      || result.message
+      || nestedResult?.reason
+      || nestedResult?.message
+      || ''
+    );
+
+    if (result.skipped === true || nestedResult?.skipped === true) {
+      normalizedError = detail || 'Tool reported skipped outcome.';
+    } else if (result.success === false || nestedResult?.success === false) {
+      normalizedError = detail || 'Tool reported success=false.';
+    } else if (result.sent === false || nestedResult?.sent === false) {
+      normalizedError = detail || 'Tool reported sent=false.';
     }
   }
 
@@ -1417,7 +1433,7 @@ class AgentEngine {
       interimSignatures: new Set(),
       terminalInterim: null,
       steeringQueue: [],
-      toolPids: new Set()
+      toolPids: new Set(),
     });
     this.emit(userId, 'run:start', { runId, agentId, title: runTitle, model, triggerType, triggerSource });
     console.info(
@@ -1921,7 +1937,8 @@ class AgentEngine {
             );
           }
 
-          toolExecutions.push(classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage));
+          const execution = classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage);
+          toolExecutions.push(execution);
           this.persistRunMetadata(runId, {
             evidenceSources: [...new Set(toolExecutions.map((item) => item.evidenceSource).filter(Boolean))],
             subagentState: this.listSubagents(runId),
