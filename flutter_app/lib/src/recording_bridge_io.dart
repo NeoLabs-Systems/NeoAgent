@@ -24,6 +24,14 @@ class IoRecordingBridge extends RecordingBridge {
   bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  void _requireAndroidOnly() {
+    if (!_isAndroid) {
+      throw const RecordingBridgeException(
+        'Background microphone recording is available on Android only.',
+      );
+    }
+  }
+
   void _log(
     String event, {
     Map<String, Object?> data = const <String, Object?>{},
@@ -69,11 +77,7 @@ class IoRecordingBridge extends RecordingBridge {
     required String sessionCookie,
     required String sessionId,
   }) async {
-    if (!_isAndroid) {
-      throw const RecordingBridgeException(
-        'Background microphone recording is available on Android only.',
-      );
-    }
+    _requireAndroidOnly();
     _log('start_background.request', data: <String, Object?>{
       'sessionId': sessionId,
       'baseUrl': baseUrl,
@@ -93,11 +97,7 @@ class IoRecordingBridge extends RecordingBridge {
 
   @override
   Future<void> pauseBackgroundRecording() async {
-    if (!_isAndroid) {
-      throw const RecordingBridgeException(
-        'Background microphone recording is available on Android only.',
-      );
-    }
+    _requireAndroidOnly();
     _log('pause_background.request', data: <String, Object?>{
       'sessionId': _status.sessionId,
       'active': _status.active,
@@ -113,11 +113,7 @@ class IoRecordingBridge extends RecordingBridge {
 
   @override
   Future<void> resumeBackgroundRecording() async {
-    if (!_isAndroid) {
-      throw const RecordingBridgeException(
-        'Background microphone recording is available on Android only.',
-      );
-    }
+    _requireAndroidOnly();
     _log('resume_background.request', data: <String, Object?>{
       'sessionId': _status.sessionId,
       'active': _status.active,

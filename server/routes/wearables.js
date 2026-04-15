@@ -5,62 +5,10 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { wearableDeviceAuth } = require('../services/wearables/device_auth');
+const { readChunkBody } = require('./_helpers/readChunkBody');
 
 const router = express.Router();
 router.use(requireAuth);
-
-async function readChunkBody(req, maxSize = 10 * 1024 * 1024, timeout = 30000) {
-  if (Buffer.isBuffer(req.body) && req.body.length > 0) {
-    if (req.body.length > maxSize) throw new Error('Payload too large');
-    return req.body;
-  }
-  if (req.readableEnded) {
-    return Buffer.alloc(0);
-  }
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let totalSize = 0;
-
-    const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('Request timeout'));
-      req.destroy();
-    }, timeout);
-
-    const onData = (chunk) => {
-      const b = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      totalSize += b.length;
-      if (totalSize > maxSize) {
-        cleanup();
-        reject(new Error('Payload too large'));
-        req.destroy();
-        return;
-      }
-      chunks.push(b);
-    };
-
-    const onEnd = () => {
-      cleanup();
-      resolve(Buffer.concat(chunks));
-    };
-
-    const onError = (err) => {
-      cleanup();
-      reject(err);
-    };
-
-    function cleanup() {
-      clearTimeout(timer);
-      req.removeListener('data', onData);
-      req.removeListener('end', onEnd);
-      req.removeListener('error', onError);
-    }
-
-    req.on('data', onData);
-    req.on('end', onEnd);
-    req.on('error', onError);
-  });
-}
 
 router.get('/', (req, res) => {
   try {
@@ -136,7 +84,10 @@ router.post('/:macAddress/stop-live', (req, res) => {
 router.post('/:macAddress/stream', async (req, res) => {
   try {
     const manager = req.app.locals.wearableManager;
-    const rawBuffer = await readChunkBody(req);
+    const rawBuffer = await readChunkBody(req, {
+      maxSize: 10 * 1024 * 1024,
+      timeout: 30000,
+    });
     if (rawBuffer.length === 0) return res.status(400).json({ error: 'Empty payload' });
 
     const characteristicUuid = req.headers['x-characteristic-uuid'] || req.query.characteristicUuid;
@@ -172,7 +123,10 @@ router.post('/:macAddress/stream', async (req, res) => {
 router.post('/:macAddress/sync', async (req, res) => {
   try {
     const manager = req.app.locals.wearableManager;
-    const rawBuffer = await readChunkBody(req);
+    const rawBuffer = await readChunkBody(req, {
+      maxSize: 10 * 1024 * 1024,
+      timeout: 30000,
+    });
     if (rawBuffer.length === 0) return res.status(400).json({ error: 'Empty payload' });
 
     const session = await manager.syncOfflineAudio(req.session.userId, req.params.macAddress, rawBuffer);

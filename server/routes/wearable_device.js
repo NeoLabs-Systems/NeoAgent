@@ -4,6 +4,7 @@ const express = require('express');
 const { sanitizeError } = require('../utils/security');
 const { wearableDeviceAuth } = require('../services/wearables/device_auth');
 const db = require('../db/database');
+const { readChunkBody } = require('./_helpers/readChunkBody');
 
 const router = express.Router();
 
@@ -21,58 +22,6 @@ function requireWearableToken(req, res, next) {
   wearableDeviceAuth.touchToken(tokenRow.id);
   req.wearableToken = tokenRow;
   next();
-}
-
-async function readChunkBody(req, maxSize = 10 * 1024 * 1024, timeout = 30000) {
-  if (Buffer.isBuffer(req.body) && req.body.length > 0) {
-    if (req.body.length > maxSize) throw new Error('Payload too large');
-    return req.body;
-  }
-  if (req.readableEnded) return Buffer.alloc(0);
-
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let total = 0;
-
-    const timer = setTimeout(() => {
-      cleanup();
-      req.destroy();
-      reject(new Error('Request timeout'));
-    }, timeout);
-
-    const onData = (chunk) => {
-      const b = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      total += b.length;
-      if (total > maxSize) {
-        cleanup();
-        req.destroy();
-        reject(new Error('Payload too large'));
-        return;
-      }
-      chunks.push(b);
-    };
-
-    const onEnd = () => {
-      cleanup();
-      resolve(Buffer.concat(chunks));
-    };
-
-    const onError = (err) => {
-      cleanup();
-      reject(err);
-    };
-
-    function cleanup() {
-      clearTimeout(timer);
-      req.removeListener('data', onData);
-      req.removeListener('end', onEnd);
-      req.removeListener('error', onError);
-    }
-
-    req.on('data', onData);
-    req.on('end', onEnd);
-    req.on('error', onError);
-  });
 }
 
 router.post('/pair/claim', (req, res) => {
@@ -247,7 +196,10 @@ router.post('/stream', requireWearableToken, async (req, res) => {
     if (!manager) return res.status(503).json({ error: 'Wearable manager unavailable' });
 
     const token = req.wearableToken;
-    const rawBuffer = await readChunkBody(req);
+    const rawBuffer = await readChunkBody(req, {
+      maxSize: 10 * 1024 * 1024,
+      timeout: 30000,
+    });
     if (rawBuffer.length === 0) return res.status(400).json({ error: 'Empty payload' });
 
     const characteristicUuid = req.headers['x-characteristic-uuid'] || req.query.characteristicUuid;
@@ -283,7 +235,10 @@ router.post('/sync', requireWearableToken, async (req, res) => {
     if (!manager) return res.status(503).json({ error: 'Wearable manager unavailable' });
 
     const token = req.wearableToken;
-    const rawBuffer = await readChunkBody(req);
+    const rawBuffer = await readChunkBody(req, {
+      maxSize: 10 * 1024 * 1024,
+      timeout: 30000,
+    });
     if (rawBuffer.length === 0) return res.status(400).json({ error: 'Empty payload' });
 
     const macAddress = req.body?.macAddress || req.query.macAddress || token.mac_address;

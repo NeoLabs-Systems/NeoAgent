@@ -78,6 +78,79 @@ class RecordingManager {
     };
   }
 
+  #requireOwnedSession(userId, sessionId) {
+    const session = db.prepare(`
+      SELECT *
+      FROM recording_sessions
+      WHERE id = ? AND user_id = ?
+    `).get(sessionId, userId);
+    if (!session) {
+      throw new Error('Recording session not found.');
+    }
+    return session;
+  }
+
+  #countSessionChunks(sessionId) {
+    const count = db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM recording_chunks c
+      INNER JOIN recording_sources s ON s.id = c.source_id
+      WHERE s.session_id = ?
+    `).get(sessionId)?.count;
+    return Number(count) || 0;
+  }
+
+  #statusFromChunkCount(sessionId) {
+    return this.#countSessionChunks(sessionId) > 0
+      ? SESSION_STATUS.processing
+      : SESSION_STATUS.cancelled;
+  }
+
+  #applyPostRecordingStatus(sessionId, nextStatus, options = {}) {
+    const now = options.now || new Date().toISOString();
+    const metadataJson = Object.prototype.hasOwnProperty.call(options, 'metadataJson')
+      ? options.metadataJson
+      : undefined;
+
+    db.transaction(() => {
+      if (metadataJson === undefined) {
+        db.prepare(`
+          UPDATE recording_sessions
+          SET
+            status = ?,
+            ended_at = COALESCE(ended_at, ?),
+            updated_at = ?
+          WHERE id = ?
+        `).run(nextStatus, now, now, sessionId);
+      } else {
+        db.prepare(`
+          UPDATE recording_sessions
+          SET
+            status = ?,
+            ended_at = COALESCE(ended_at, ?),
+            metadata_json = ?,
+            updated_at = ?
+          WHERE id = ?
+        `).run(nextStatus, now, metadataJson, now, sessionId);
+      }
+
+      db.prepare(`
+        UPDATE recording_sources
+        SET
+          status = CASE WHEN chunk_count > 0 THEN ? ELSE ? END,
+          updated_at = ?
+        WHERE session_id = ?
+      `).run(
+        nextStatus,
+        nextStatus === SESSION_STATUS.processing ? SESSION_STATUS.cancelled : nextStatus,
+        now,
+        sessionId,
+      );
+    })();
+
+    return now;
+  }
+
   createSession(userId, payload = {}) {
     const sessionId = uuidv4();
     const now = new Date().toISOString();
@@ -140,14 +213,7 @@ class RecordingManager {
       throw new Error('Recording chunk is empty.');
     }
 
-    const session = db.prepare(`
-      SELECT *
-      FROM recording_sessions
-      WHERE id = ? AND user_id = ?
-    `).get(sessionId, userId);
-    if (!session) {
-      throw new Error('Recording session not found.');
-    }
+    const session = this.#requireOwnedSession(userId, sessionId);
     if (![SESSION_STATUS.recording, SESSION_STATUS.processing].includes(session.status)) {
       throw new Error('Recording session is not accepting more chunks.');
     }
@@ -261,46 +327,17 @@ class RecordingManager {
   }
 
   finalizeSession(userId, sessionId, options = {}) {
-    const session = db.prepare(`
-      SELECT *
-      FROM recording_sessions
-      WHERE id = ? AND user_id = ?
-    `).get(sessionId, userId);
-    if (!session) {
-      throw new Error('Recording session not found.');
-    }
+    const session = this.#requireOwnedSession(userId, sessionId);
 
     const stopReason = `${options.stopReason || 'stopped'}`.trim();
     const mergedMetadata = {
       ...this.#parseJson(session.metadata_json, {}),
       stopReason,
     };
-    const chunkCount = db.prepare(`
-      SELECT COUNT(*) AS count
-      FROM recording_chunks c
-      INNER JOIN recording_sources s ON s.id = c.source_id
-      WHERE s.session_id = ?
-    `).get(sessionId).count;
-    const nextStatus = chunkCount > 0 ? SESSION_STATUS.processing : SESSION_STATUS.cancelled;
-    const now = new Date().toISOString();
-
-    db.transaction(() => {
-      db.prepare(`
-        UPDATE recording_sessions
-        SET
-          status = ?,
-          ended_at = COALESCE(ended_at, ?),
-          metadata_json = ?,
-          updated_at = ?
-        WHERE id = ?
-      `).run(nextStatus, now, JSON.stringify(mergedMetadata), now, sessionId);
-
-      db.prepare(`
-        UPDATE recording_sources
-        SET status = CASE WHEN chunk_count > 0 THEN ? ELSE ? END, updated_at = ?
-        WHERE session_id = ?
-      `).run(nextStatus, nextStatus === SESSION_STATUS.processing ? SESSION_STATUS.cancelled : nextStatus, now, sessionId);
-    })();
+    const nextStatus = this.#statusFromChunkCount(sessionId);
+    this.#applyPostRecordingStatus(sessionId, nextStatus, {
+      metadataJson: JSON.stringify(mergedMetadata),
+    });
 
     this.#emitUpdate(userId, sessionId);
 
@@ -314,14 +351,7 @@ class RecordingManager {
   }
 
   async retrySession(userId, sessionId) {
-    const session = db.prepare(`
-      SELECT *
-      FROM recording_sessions
-      WHERE id = ? AND user_id = ?
-    `).get(sessionId, userId);
-    if (!session) {
-      throw new Error('Recording session not found.');
-    }
+    this.#requireOwnedSession(userId, sessionId);
     if (!isDeepgramConfigured()) {
       throw new Error('DEEPGRAM_API_KEY is not configured.');
     }
@@ -365,48 +395,15 @@ class RecordingManager {
     `).all(SESSION_STATUS.recording);
 
     for (const row of staleRows) {
-      const chunkCount = Number(db.prepare(`
-        SELECT COUNT(*) AS count
-        FROM recording_chunks c
-        INNER JOIN recording_sources s ON s.id = c.source_id
-        WHERE s.session_id = ?
-      `).get(row.id)?.count) || 0;
-
-      const nextStatus = chunkCount > 0 ? SESSION_STATUS.processing : SESSION_STATUS.cancelled;
-      const now = new Date().toISOString();
-
-      db.transaction(() => {
-        db.prepare(`
-          UPDATE recording_sessions
-          SET
-            status = ?,
-            ended_at = COALESCE(ended_at, ?),
-            updated_at = ?
-          WHERE id = ?
-        `).run(nextStatus, now, now, row.id);
-
-        db.prepare(`
-          UPDATE recording_sources
-          SET
-            status = CASE WHEN chunk_count > 0 THEN ? ELSE ? END,
-            updated_at = ?
-          WHERE session_id = ?
-        `).run(nextStatus, nextStatus === SESSION_STATUS.processing ? SESSION_STATUS.cancelled : nextStatus, now, row.id);
-      })();
+      const nextStatus = this.#statusFromChunkCount(row.id);
+      this.#applyPostRecordingStatus(row.id, nextStatus);
 
       this.#emitUpdate(row.user_id, row.id);
     }
   }
 
   async processSession(userId, sessionId) {
-    const session = db.prepare(`
-      SELECT *
-      FROM recording_sessions
-      WHERE id = ? AND user_id = ?
-    `).get(sessionId, userId);
-    if (!session) {
-      throw new Error('Recording session not found.');
-    }
+    this.#requireOwnedSession(userId, sessionId);
 
     const sources = db.prepare(`
       SELECT *
@@ -581,14 +578,7 @@ class RecordingManager {
   }
 
   deleteTranscriptSegment(userId, sessionId, segmentId) {
-    const session = db.prepare(`
-      SELECT id
-      FROM recording_sessions
-      WHERE id = ? AND user_id = ?
-    `).get(sessionId, userId);
-    if (!session) {
-      throw new Error('Recording session not found.');
-    }
+    this.#requireOwnedSession(userId, sessionId);
 
     const normalizedSegmentId = Number(segmentId);
     if (!Number.isInteger(normalizedSegmentId) || normalizedSegmentId <= 0) {
@@ -632,14 +622,7 @@ class RecordingManager {
   }
 
   deleteSession(userId, sessionId) {
-    const session = db.prepare(`
-      SELECT id
-      FROM recording_sessions
-      WHERE id = ? AND user_id = ?
-    `).get(sessionId, userId);
-    if (!session) {
-      throw new Error('Recording session not found.');
-    }
+    this.#requireOwnedSession(userId, sessionId);
 
     const chunkRows = db.prepare(`
       SELECT c.file_path AS filePath

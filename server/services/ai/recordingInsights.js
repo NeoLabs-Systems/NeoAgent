@@ -3,6 +3,7 @@
 const { sanitizeError } = require('../../utils/security');
 const { getProviderForUser } = require('./engine');
 const { getAiSettings } = require('./settings');
+const { parseJsonObject } = require('./taskAnalysis');
 
 const INSIGHTS_SYSTEM_PROMPT = `You are an expert audio transcript analyzer. Your job is to read the provided transcript and extract structured insights.
 
@@ -43,24 +44,19 @@ async function extractRecordingInsights(userId, transcriptText, options = {}) {
       reasoningEffort: process.env.REASONING_EFFORT || 'low'
     });
 
-    let content = response.content || '';
-    
-    // Clean markdown blocks if the model ignored the instructions
-    content = content.trim();
-    if (content.startsWith('```json')) {
-      content = content.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
-    } else if (content.startsWith('```')) {
-      content = content.replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
-    }
-
     try {
-      const parsed = JSON.parse(content);
+      const rawContent = String(response.content || '');
+      const parsed = parseJsonObject(rawContent);
+      if (!parsed) {
+        throw new Error('Response did not contain a valid JSON object.');
+      }
       return {
         ...parsed,
         _model: model,
         _generated_at: new Date().toISOString()
       };
     } catch (parseErr) {
+      const content = String(response.content || '');
       console.warn(
         `[AI] Failed to parse recording insights JSON: length=${content.length} error=${parseErr.message}`
       );
