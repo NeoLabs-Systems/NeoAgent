@@ -345,7 +345,7 @@ class MessagingManager extends EventEmitter {
       return { success: true, suppressed: true };
     }
 
-    const result = await platform.sendMessage(to, normalizedContent, { mediaPath });
+    const result = await platform.sendMessage(to, normalizedContent, sendOptions);
 
     db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, media_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, to, mediaPath, metadata ? JSON.stringify(metadata) : null);

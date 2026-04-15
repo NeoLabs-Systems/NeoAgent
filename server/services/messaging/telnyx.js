@@ -68,8 +68,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     const inboundUrl = `${this.webhookUrl}/api/telnyx/webhook${token ? `?token=${token}` : ''}`;
     console.log(`[TelnyxVoice] Inbound webhook URL (configure this in the Telnyx portal): ${inboundUrl}`);
 
-    this._precacheThinkAudio();
-
     this.status = 'connected';
     this.emit('connected');
     console.log(`[TelnyxVoice] Connected — phone: ${this.phoneNumber}`);
@@ -186,6 +184,8 @@ class TelnyxVoicePlatform extends BasePlatform {
       processedRecordings: new Set(),
       awaitingSecret: false,
       secretDigits: '',
+      audioQueue: [],
+      isPlayingInterim: false,
     });
   }
 
@@ -263,45 +263,6 @@ class TelnyxVoicePlatform extends BasePlatform {
   async _stopRecording(ccId) {
     try { await this._client.calls.actions.stopRecording(ccId, {}); }
     catch (err) { if (!this._isTerminalError(err)) throw err; }
-  }
-
-  async _precacheThinkAudio() {
-    if (!this._openai) return;
-    try {
-      const file = `think_hold_${Date.now()}.mp3`;
-      const filePath = path.join(AUDIO_DIR, file);
-      const mp3 = await this._openai.audio.speech.create({
-        model: this.ttsModel,
-        voice: this.ttsVoice,
-        input: 'One moment please.',
-      });
-      const buf = Buffer.from(await mp3.arrayBuffer());
-      await fs.promises.writeFile(filePath, buf);
-      this._thinkAudioFile = file;
-      console.log('[TelnyxVoice] Think audio pre-cached');
-    } catch (err) {
-      console.warn(`[TelnyxVoice] Failed to pre-cache think audio: ${err.message}`);
-    }
-  }
-
-  async _playThinkAudio(ccId) {
-    if (this._thinkAudioFile) {
-      try {
-        await this._playAudio(ccId, this._publicUrl(this._thinkAudioFile));
-        return;
-      } catch (err) {
-        console.warn(`[TelnyxVoice] Pre-cached think audio failed: ${err.message}`);
-      }
-    }
-    try {
-      await this._client.calls.actions.speak(ccId, {
-        payload:  'One moment please.',
-        voice:    'female',
-        language: 'en-US',
-      });
-    } catch (err) {
-      if (!this._isTerminalError(err)) console.error('[TelnyxVoice] Think speak failed:', err.message);
-    }
   }
 
   async _tts(text, destPath) {
@@ -447,6 +408,26 @@ class TelnyxVoicePlatform extends BasePlatform {
         case 'call.speak.ended': {
           if (!this._hasSession(ccId)) break;
           const sess = this._session(ccId);
+          
+          if (sess.audioQueue && sess.audioQueue.length > 0) {
+            const nextAudio = sess.audioQueue.shift();
+            sess.isPlayingInterim = nextAudio.isInterim;
+            if (!nextAudio.isInterim) {
+              sess.isThinking = false;
+              sess.replySent = true;
+            }
+            sess.isProcessing = true;
+            sess.awaitingUserInput = !nextAudio.isInterim;
+            try {
+              await this._sayText(ccId, nextAudio.content);
+            } catch (err) {
+              console.error('[TelnyxVoice] Failed to play queued audio:', err);
+              // Retry or clean up? Fall through to reset if not interim
+            }
+            break;
+          }
+
+          sess.isPlayingInterim = false;
           if (sess.isThinking) break;
           sess.isProcessing = false;
           if (!sess.awaitingUserInput) break;
@@ -492,6 +473,8 @@ class TelnyxVoicePlatform extends BasePlatform {
           sess.awaitingUserInput = false;
           sess.isThinking        = false; // cancel think state if user interrupts
           sess.replySent         = false; // allow a fresh reply for the new turn
+          sess.audioQueue        = [];    // clear pending audio
+          sess.isPlayingInterim  = false;
           await this._stopAudio(ccId);
           await this._stopRecording(ccId);
           setTimeout(async () => {
@@ -552,12 +535,6 @@ class TelnyxVoicePlatform extends BasePlatform {
           sess.isThinking = true;
           sess.replySent  = false;
 
-          // Fire hold phrase and agent processing in parallel — the pre-cached
-          // think audio plays instantly while the AI starts working immediately.
-          this._playThinkAudio(ccId).catch(err =>
-            console.error('[TelnyxVoice] Failed to play think audio:', err.message)
-          );
-
           // Emit message event — MessagingManager routes it to the AI engine.
           // The agent will call sendMessage(ccId, response) when it has a reply.
           this.emit('message', {
@@ -592,39 +569,55 @@ class TelnyxVoicePlatform extends BasePlatform {
   // ── sendMessage — agent TTS reply to an active call ────────────────────────
   //   `to` is the callControlId (= msg.chatId from the message event)
 
-  async sendMessage(to, content, _options = {}) {
+  async sendMessage(to, content, options = {}) {
     const sess = this._session(to);
     if (!sess) {
       console.warn(`[TelnyxVoice] sendMessage: no active session for ${to} (call may have ended)`);
       return { success: false, reason: 'call_ended' };
     }
 
+    const isInterim = options.deliveryKind === 'interim';
+
     // Guard against the agent calling send_message more than once per turn.
-    if (sess.replySent) {
+    if (!isInterim && sess.replySent) {
       console.warn(`[TelnyxVoice] sendMessage: reply already sent for this turn, ignoring duplicate`);
       return { success: false, reason: 'already_replied' };
     }
-    sess.replySent  = true;
-    // Keep isThinking=true until the response audio command is accepted by Telnyx.
-    // This blocks any stray call.playback.ended (from the think-audio stop) from
-    // corrupting session state during the transition window.
+
+    if (!isInterim) {
+      sess.replySent = true;
+    }
 
     // Stop the "please hold" TTS (suppress all errors — it may have already ended)
-    try { await this._stopAudio(to); } catch {}
+    if (!sess.isPlayingInterim) {
+      try { await this._stopAudio(to); } catch {}
+    }
+
+    if (sess.isPlayingInterim || sess.audioQueue.length > 0) {
+      // Queue it up
+      sess.audioQueue.push({ content, isInterim });
+      return { success: true, queued: true };
+    }
 
     // Generate TTS response and play it.
     // If anything here throws, reset replySent so the session isn't bricked.
     try {
       // Commit state before firing audio so call.playback/speak.ended
       // belongs to this response, not any residual think audio.
-      sess.isThinking      = false;
+      sess.isPlayingInterim = isInterim;
+      if (!isInterim) {
+        sess.isThinking      = false;
+      }
       sess.isProcessing    = true;
-      sess.awaitingUserInput = true;
+      sess.awaitingUserInput = !isInterim;
       await this._sayText(to, content);
     } catch (err) {
       // Audio failed — reset so the turn isn't silently lost.
-      sess.replySent     = false;
-      sess.isThinking    = false;
+      if (!isInterim) {
+        sess.replySent     = false;
+        sess.isThinking    = false;
+      }
+      sess.isPlayingInterim = false;
       sess.isProcessing  = false;
       console.error('[TelnyxVoice] sendMessage failed:', err.message);
       throw err;

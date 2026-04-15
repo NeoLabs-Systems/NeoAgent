@@ -194,6 +194,7 @@ function buildAnalysisPrompt({ triggerSource, capabilityHealth, tools = [], forc
     'Use mode="direct_answer" only if you can fully answer right now without tools and without further verification.',
     'Use mode="execute" when tool work is needed but a formal plan is not necessary.',
     'Use mode="plan_execute" when the task likely needs multiple coordinated steps, retries, or delegated subtasks.',
+    'If the request is from a live voice call, favor tool actions and planning to allow intermediate progress updates to play rather than fully executing an opaque plan, but answer right away if trivial.',
     'Use plan_execute for broad personal searches, cross-source questions, code changes, debugging, scheduled-task changes, or anything that touches external/shared state.',
     'freshness_risk must be "possible" or "high" for anything that may depend on current external facts, status, timelines, or ambiguous relative dates.',
     'verification_need must be "required" whenever fresh evidence is needed, tool output materially determines the answer, confidence is low, or actions changed external state.',
