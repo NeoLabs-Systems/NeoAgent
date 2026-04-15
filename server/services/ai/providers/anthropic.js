@@ -38,6 +38,14 @@ class AnthropicProvider extends BaseProvider {
   }
 
   normalizeContentBlocks(blocks = []) {
+    if (!Array.isArray(blocks)) {
+      if (blocks && typeof blocks === 'object' && blocks.type) {
+        blocks = [blocks];
+      } else {
+        return [];
+      }
+    }
+
     const normalized = [];
 
     for (const block of blocks) {
@@ -149,12 +157,15 @@ class AnthropicProvider extends BaseProvider {
     if (tools.length > 0) params.tools = this.formatTools(tools);
 
     const response = await this.client.messages.create(params);
+    const responseBlocks = Array.isArray(response?.content)
+      ? response.content
+      : (response?.content && typeof response.content === 'object' ? [response.content] : []);
 
     let content = '';
     const toolCalls = [];
-    const providerContentBlocks = this.normalizeContentBlocks(response.content);
+    const providerContentBlocks = this.normalizeContentBlocks(responseBlocks);
 
-    for (const block of response.content) {
+    for (const block of responseBlocks) {
       if (block.type === 'text') {
         content += block.text;
       } else if (block.type === 'tool_use') {
