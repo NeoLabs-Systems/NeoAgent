@@ -79,6 +79,7 @@ function buildHelmetOptions({ secureCookies }) {
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'blob:', 'https://api.qrserver.com'],
+        mediaSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: [
           "'self'",
           'https://fonts.googleapis.com',
