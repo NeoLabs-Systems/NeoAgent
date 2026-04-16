@@ -6,8 +6,19 @@ const fs = require('fs');
 const https = require('https');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { getOpenAiClient } = require('../voice/openaiClient');
-const { synthesizeSpeechBuffer } = require('../voice/openaiSpeech');
 const { createVoiceTurnSessionState } = require('../voice/turnState');
+const {
+  DEFAULT_STT_PROVIDER,
+  normalizeSttProvider,
+  resolveSttModel,
+  transcribeAudioFile,
+} = require('../voice/sttProviders');
+const {
+  DEFAULT_TTS_PROVIDER,
+  normalizeTtsProvider,
+  resolveTtsModel,
+  synthesizeSpeechWithProvider,
+} = require('../voice/ttsProviders');
 
 const AUDIO_DIR = path.join(DATA_DIR, 'telnyx-audio');
 const RECORDING_TURN_LIMIT_MS = 4000;
@@ -22,8 +33,10 @@ class TelnyxVoicePlatform extends BasePlatform {
     this.connectionId = config.connectionId || '';
     this.webhookUrl = config.webhookUrl || '';
     this.ttsVoice = config.ttsVoice || 'alloy';
-    this.ttsModel = config.ttsModel || 'tts-1';
-    this.sttModel = config.sttModel || 'whisper-1';
+    this.ttsProvider = normalizeTtsProvider(config.ttsProvider || DEFAULT_TTS_PROVIDER);
+    this.ttsModel = resolveTtsModel(this.ttsProvider, config.ttsModel);
+    this.sttProvider = normalizeSttProvider(config.sttProvider || DEFAULT_STT_PROVIDER);
+    this.sttModel = resolveSttModel(this.sttProvider, config.sttModel);
     this.allowedNumbers = Array.isArray(config.allowedNumbers)
       ? config.allowedNumbers
       : [];
@@ -51,10 +64,12 @@ class TelnyxVoicePlatform extends BasePlatform {
     this._client = new TelnyxClient({ apiKey: this.apiKey });
 
     this._openai = getOpenAiClient();
-    if (this._openai) {
-      console.log('[TelnyxVoice] OpenAI TTS enabled');
-    } else {
-      console.warn('[TelnyxVoice] No OpenAI API key found — TTS will use Telnyx native speak (language auto-detected)');
+    if (this.ttsProvider === 'openai' || this.sttProvider === 'openai') {
+      if (this._openai) {
+        console.log('[TelnyxVoice] OpenAI speech provider configured');
+      } else {
+        console.warn('[TelnyxVoice] OpenAI speech provider selected but OPENAI_API_KEY is missing');
+      }
     }
 
     const token = process.env.TELNYX_WEBHOOK_TOKEN;
@@ -249,25 +264,25 @@ class TelnyxVoicePlatform extends BasePlatform {
   }
 
   async _tts(text, destPath) {
-    const buf = await synthesizeSpeechBuffer(this._openai, text, {
+    const buf = await synthesizeSpeechWithProvider(text, {
+      provider: this.ttsProvider,
       model: this.ttsModel,
       voice: this.ttsVoice,
+      openAiClient: this._openai,
     });
     await fs.promises.writeFile(destPath, buf);
   }
 
   async _sayText(ccId, text) {
-    if (this._openai) {
-      try {
-        const file = this._tmpFile('say', ccId);
-        const filePath = path.join(AUDIO_DIR, file);
-        await this._tts(text, filePath);
-        await this._playAudio(ccId, this._publicUrl(file));
-        setTimeout(() => fs.unlink(filePath, () => {}), 60000);
-        return;
-      } catch (err) {
-        console.warn(`[TelnyxVoice] OpenAI TTS failed (${err.message}), falling back to Telnyx speak`);
-      }
+    try {
+      const file = this._tmpFile('say', ccId);
+      const filePath = path.join(AUDIO_DIR, file);
+      await this._tts(text, filePath);
+      await this._playAudio(ccId, this._publicUrl(file));
+      setTimeout(() => fs.unlink(filePath, () => {}), 60000);
+      return;
+    } catch (err) {
+      console.warn(`[TelnyxVoice] ${this.ttsProvider} TTS failed (${err.message}), falling back to Telnyx speak`);
     }
     try {
       const isGerman = /\b(ich|du|ist|und|der|die|das|nicht|ein|hallo|auf|danke|bitte|wie|was|wer|wo|warum|kann|haben|sein|noch|auch|mit|von|bei|nach|für)\b/i.test(text);
@@ -284,11 +299,11 @@ class TelnyxVoicePlatform extends BasePlatform {
 
   async _stt(filePath) {
     try {
-      const t = await this._openai.audio.transcriptions.create({
-        file:  fs.createReadStream(filePath),
+      return await transcribeAudioFile(filePath, {
+        provider: this.sttProvider,
         model: this.sttModel,
+        openAiClient: this._openai,
       });
-      return t.text;
     } catch (err) {
       console.error('[TelnyxVoice] STT error:', err.message);
       return '';

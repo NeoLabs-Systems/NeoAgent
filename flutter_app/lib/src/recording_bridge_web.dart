@@ -14,12 +14,10 @@ class WebRecordingBridge extends RecordingBridge {
   RecordingRuntimeStatus _status = const RecordingRuntimeStatus(
     supportsScreenAndMic: true,
     supportsBackgroundMic: false,
-    platformLabel: 'Browser screen + microphone recorder',
+    platformLabel: 'Browser microphone recorder',
   );
 
-  html.MediaStream? _displayStream;
   html.MediaStream? _microphoneStream;
-  html.MediaRecorder? _screenRecorder;
   html.MediaRecorder? _microphoneRecorder;
   final Map<String, int> _nextSequenceBySource = <String, int>{};
   final Map<String, int> _lastEndMsBySource = <String, int>{};
@@ -29,7 +27,6 @@ class WebRecordingBridge extends RecordingBridge {
   String? _baseUrl;
   String? _sessionId;
   bool _stopping = false;
-  StreamSubscription<html.Event>? _displayEndedSub;
   static const Set<String> _safeUploadHeaderKeys = <String>{
     'content-type',
     'x-recording-sequence',
@@ -85,23 +82,6 @@ class WebRecordingBridge extends RecordingBridge {
         );
       }
 
-      final displayStream = await js_util.promiseToFuture<html.MediaStream>(
-        js_util.callMethod(mediaDevices, 'getDisplayMedia', <Object?>[
-          js_util.jsify(<String, Object>{'video': true, 'audio': true}),
-        ]),
-      );
-      if (displayStream.getVideoTracks().isEmpty) {
-        throw const RecordingBridgeException(
-          'Screen sharing was cancelled before capture started.',
-        );
-      }
-      if (displayStream.getAudioTracks().isEmpty) {
-        displayStream.getTracks().forEach((track) => track.stop());
-        throw const RecordingBridgeException(
-          'Screen share did not include audio. Share a tab/window and enable audio.',
-        );
-      }
-
       final microphoneStream = await mediaDevices.getUserMedia(
         <String, dynamic>{
           'audio': <String, dynamic>{
@@ -113,7 +93,6 @@ class WebRecordingBridge extends RecordingBridge {
         },
       );
       if (microphoneStream.getAudioTracks().isEmpty) {
-        displayStream.getTracks().forEach((track) => track.stop());
         throw const RecordingBridgeException(
           'Microphone permission is required to start recording.',
         );
@@ -121,50 +100,25 @@ class WebRecordingBridge extends RecordingBridge {
 
       _baseUrl = baseUrl;
       _sessionId = sessionId;
-      _displayStream = displayStream;
       _microphoneStream = microphoneStream;
       _nextSequenceBySource
         ..clear()
-        ..addAll(<String, int>{'screen': 0, 'microphone': 0});
+        ..addAll(<String, int>{'microphone': 0});
       _lastEndMsBySource
         ..clear()
-        ..addAll(<String, int>{'screen': 0, 'microphone': 0});
+        ..addAll(<String, int>{'microphone': 0});
       _uploadQueueBySource
         ..clear()
         ..addAll(<String, Future<void>>{
-          'screen': Future<void>.value(),
           'microphone': Future<void>.value(),
         });
       _stopwatch = Stopwatch()..start();
 
-      final screenMimeType = _pickMimeType(<String>[
-        'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=vp8,opus',
-        'video/webm',
-      ]);
       final micMimeType = _pickMimeType(<String>[
         'audio/webm;codecs=opus',
         'audio/webm',
       ]);
 
-      _screenRecorder = html.MediaRecorder(
-        displayStream,
-        screenMimeType == null
-            ? null
-            : <String, String>{'mimeType': screenMimeType},
-      );
-
-      _displayEndedSub = displayStream.getVideoTracks().first.onEnded.listen((
-        _,
-      ) {
-        unawaited(_handleExternalStop());
-      });
-
-      _bindRecorder(
-        recorder: _screenRecorder!,
-        sourceKey: 'screen',
-        mimeType: screenMimeType ?? 'video/webm',
-      );
       _microphoneRecorder = html.MediaRecorder(
         microphoneStream,
         micMimeType == null ? null : <String, String>{'mimeType': micMimeType},
@@ -188,7 +142,6 @@ class WebRecordingBridge extends RecordingBridge {
         'start_web.done',
         data: <String, Object?>{
           'sessionId': sessionId,
-          'screenMimeType': screenMimeType ?? 'video/webm',
           'micMimeType': micMimeType ?? 'audio/webm',
         },
       );
@@ -379,24 +332,8 @@ class WebRecordingBridge extends RecordingBridge {
     );
   }
 
-  Future<void> _handleExternalStop() async {
-    final sessionId = _sessionId;
-    if (sessionId == null) {
-      return;
-    }
-    _log(
-      'external_stop.detected',
-      data: <String, Object?>{'sessionId': sessionId},
-    );
-    await stopActiveRecording(notifyEnded: true);
-  }
-
   Future<void> _stopRecorders() async {
     final futures = <Future<void>>[];
-    if (_screenRecorder != null && _screenRecorder!.state != 'inactive') {
-      futures.add(_waitForStop(_screenRecorder!));
-      _screenRecorder!.stop();
-    }
     if (_microphoneRecorder != null &&
         _microphoneRecorder!.state != 'inactive') {
       futures.add(_waitForStop(_microphoneRecorder!));
@@ -406,13 +343,8 @@ class WebRecordingBridge extends RecordingBridge {
   }
 
   Future<void> _disposeStreams() async {
-    await _displayEndedSub?.cancel();
-    _displayEndedSub = null;
-    _displayStream?.getTracks().forEach((track) => track.stop());
     _microphoneStream?.getTracks().forEach((track) => track.stop());
-    _displayStream = null;
     _microphoneStream = null;
-    _screenRecorder = null;
     _microphoneRecorder = null;
     _stopwatch?.stop();
     _stopwatch = null;

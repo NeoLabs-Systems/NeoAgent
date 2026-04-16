@@ -2063,18 +2063,8 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         <String, dynamic>{
           'platform': 'web',
-          'screenAnalysisReady': true,
+          'screenAnalysisReady': false,
           'sources': const <Map<String, dynamic>>[
-            <String, dynamic>{
-              'sourceKey': 'screen',
-              'sourceKind': 'screen-share',
-              'mediaKind': 'video',
-              'mimeType': 'video/webm',
-              'metadata': <String, dynamic>{
-                'analysisReady': true,
-                'transcribe': false,
-              },
-            },
             <String, dynamic>{
               'sourceKey': 'microphone',
               'sourceKind': 'microphone',
@@ -7160,8 +7150,8 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                                 runtime.active
                             ? null
                             : widget.controller.startWebRecording,
-                        icon: Icon(Icons.desktop_windows_outlined),
-                        label: Text('Start screen + mic'),
+                        icon: Icon(Icons.mic_none_outlined),
+                        label: Text('Start browser mic'),
                       ),
                     if (runtime.supportsBackgroundMic)
                       FilledButton.icon(
@@ -7632,7 +7622,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                   Text(
                     supportsPtt
                         ? 'Long-press the green button to talk, release to process and play reply audio.'
-                        : 'Voice calling needs Android background mic or browser screen+mic support.',
+                        : 'Voice calling needs Android background mic or browser microphone support.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: _textSecondary, height: 1.4),
                   ),
@@ -8875,6 +8865,60 @@ class _MessagingPanelState extends State<MessagingPanel> {
     );
   }
 
+  List<String> _telnyxSttModels(String provider) {
+    switch (provider) {
+      case 'deepgram':
+        return const <String>['nova-3', 'nova-2', 'enhanced'];
+      case 'gemini':
+        return const <String>[
+          'gemini-2.0-flash-lite',
+          'gemini-2.0-flash',
+          'gemini-1.5-pro',
+        ];
+      default:
+        return const <String>['whisper-1', 'gpt-4o-transcribe'];
+    }
+  }
+
+  List<String> _telnyxTtsModels(String provider) {
+    switch (provider) {
+      case 'deepgram':
+        return const <String>['aura-2-thalia-en', 'aura-2-helena-en'];
+      case 'gemini':
+        return const <String>['gemini-2.5-flash-preview-tts'];
+      default:
+        return const <String>['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'];
+    }
+  }
+
+  List<String> _telnyxTtsVoices(String provider) {
+    switch (provider) {
+      case 'deepgram':
+        return const <String>['aura-2-thalia-en', 'aura-2-helena-en'];
+      case 'gemini':
+        return const <String>['Kore', 'Puck', 'Charon'];
+      default:
+        return const <String>[
+          'alloy',
+          'echo',
+          'fable',
+          'onyx',
+          'nova',
+          'shimmer',
+        ];
+    }
+  }
+
+  String _pickTelnyxOption(String current, List<String> options) {
+    if (options.contains(current)) {
+      return current;
+    }
+    if (options.isNotEmpty) {
+      return options.first;
+    }
+    return current;
+  }
+
   Future<void> _openTelnyxConfig() async {
     final saved = _jsonMap(
       _decodeMaybeJson(widget.controller.settings['telnyx_config']),
@@ -8891,8 +8935,10 @@ class _MessagingPanelState extends State<MessagingPanel> {
     final webhookUrl = TextEditingController(
       text: saved['webhookUrl']?.toString() ?? widget.controller.backendUrl,
     );
+    String ttsProvider = saved['ttsProvider']?.toString() ?? 'openai';
     String ttsVoice = saved['ttsVoice']?.toString() ?? 'alloy';
     String ttsModel = saved['ttsModel']?.toString() ?? 'tts-1';
+    String sttProvider = saved['sttProvider']?.toString() ?? 'openai';
     String sttModel = saved['sttModel']?.toString() ?? 'whisper-1';
 
     await showDialog<void>(
@@ -8900,6 +8946,12 @@ class _MessagingPanelState extends State<MessagingPanel> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setLocalState) {
+            final ttsVoiceOptions = _telnyxTtsVoices(ttsProvider);
+            final ttsModelOptions = _telnyxTtsModels(ttsProvider);
+            final sttModelOptions = _telnyxSttModels(sttProvider);
+            ttsVoice = _pickTelnyxOption(ttsVoice, ttsVoiceOptions);
+            ttsModel = _pickTelnyxOption(ttsModel, ttsModelOptions);
+            sttModel = _pickTelnyxOption(sttModel, sttModelOptions);
             return AlertDialog(
               backgroundColor: _bgCard,
               title: Text('Telnyx Voice'),
@@ -8937,23 +8989,35 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
+                        initialValue: ttsProvider,
+                        items: const <String>['openai', 'deepgram', 'gemini']
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'TTS Provider',
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setLocalState(() => ttsProvider = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
                         initialValue: ttsVoice,
-                        items:
-                            const <String>[
-                                  'alloy',
-                                  'echo',
-                                  'fable',
-                                  'onyx',
-                                  'nova',
-                                  'shimmer',
-                                ]
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                        items: ttsVoiceOptions
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
                         decoration: const InputDecoration(
                           labelText: 'TTS Voice',
                         ),
@@ -8966,19 +9030,14 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: ttsModel,
-                        items:
-                            const <String>[
-                                  'tts-1',
-                                  'tts-1-hd',
-                                  'gpt-4o-mini-tts',
-                                ]
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                        items: ttsModelOptions
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
                         decoration: const InputDecoration(
                           labelText: 'TTS Model',
                         ),
@@ -8990,8 +9049,28 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
+                        initialValue: sttProvider,
+                        items: const <String>['openai', 'deepgram', 'gemini']
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'STT Provider',
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setLocalState(() => sttProvider = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
                         initialValue: sttModel,
-                        items: const <String>['whisper-1', 'gpt-4o-transcribe']
+                        items: sttModelOptions
                             .map(
                               (value) => DropdownMenuItem<String>(
                                 value: value,
@@ -9024,8 +9103,10 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       'phoneNumber': phoneNumber.text.trim(),
                       'connectionId': connectionId.text.trim(),
                       'webhookUrl': webhookUrl.text.trim(),
+                      'ttsProvider': ttsProvider,
                       'ttsVoice': ttsVoice,
                       'ttsModel': ttsModel,
+                      'sttProvider': sttProvider,
                       'sttModel': sttModel,
                     };
                     await widget.controller.connectMessagingPlatform(
