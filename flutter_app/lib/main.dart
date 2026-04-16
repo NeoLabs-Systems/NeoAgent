@@ -2124,6 +2124,72 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> startWebMicrophoneRecording() async {
+    if (isStartingRecording || recordingRuntime.active) {
+      return;
+    }
+    isStartingRecording = true;
+    errorMessage = null;
+    notifyListeners();
+
+    String? sessionId;
+    try {
+      _logRecording('start_web_mic_only.request');
+      final response = await _backendClient.createRecordingSession(
+        backendUrl,
+        <String, dynamic>{
+          'platform': 'web',
+          'screenAnalysisReady': false,
+          'sources': const <Map<String, dynamic>>[
+            <String, dynamic>{
+              'sourceKey': 'microphone',
+              'sourceKind': 'microphone',
+              'mediaKind': 'audio',
+              'mimeType': 'audio/webm',
+            },
+          ],
+        },
+      );
+      final session = RecordingSessionItem.fromJson(
+        _jsonMap(response['session']),
+      );
+      sessionId = session.id;
+      recordingSessions = <RecordingSessionItem>[
+        session,
+        ...recordingSessions.where((item) => item.id != session.id),
+      ];
+      await _recordingBridge.startWebMicrophoneRecording(
+        baseUrl: backendUrl,
+        sessionId: session.id,
+      );
+      _logRecording(
+        'start_web_mic_only.done',
+        data: <String, Object?>{'sessionId': session.id},
+      );
+      notifyListeners();
+    } catch (error) {
+      _logRecording(
+        'start_web_mic_only.failed',
+        data: <String, Object?>{'sessionId': sessionId},
+        error: error,
+      );
+      if (sessionId != null) {
+        try {
+          await _backendClient.finalizeRecordingSession(
+            backendUrl,
+            sessionId,
+            stopReason: 'cancelled',
+          );
+        } catch (_) {}
+      }
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshRecordings();
+    } finally {
+      isStartingRecording = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> startBackgroundRecording() async {
     if (isStartingRecording || recordingRuntime.active) {
       return;
@@ -2327,15 +2393,33 @@ class NeoAgentController extends ChangeNotifier {
   Future<VoiceAssistantTurnResult> runVoiceAssistantTurn({
     required String sessionId,
     String promptHint = '',
-    String ttsVoice = 'alloy',
-    String ttsModel = 'tts-1',
+    String? ttsProvider,
+    String? ttsVoice,
+    String? ttsModel,
   }) async {
+    final resolvedTtsProvider =
+      (ttsProvider ??
+          settings['voice_tts_provider']?.toString() ??
+          'openai')
+            .trim();
+    final resolvedTtsModel =
+      (ttsModel ??
+          settings['voice_tts_model']?.toString() ??
+          'gpt-4o-mini-tts')
+        .trim();
+    final resolvedTtsVoice =
+      (ttsVoice ??
+          settings['voice_tts_voice']?.toString() ??
+          'alloy')
+        .trim();
+
     final response = await _backendClient.runVoiceAssistantTurn(
       backendUrl,
       sessionId: sessionId,
       promptHint: promptHint,
-      ttsVoice: ttsVoice,
-      ttsModel: ttsModel,
+      ttsProvider: resolvedTtsProvider,
+      ttsVoice: resolvedTtsVoice,
+      ttsModel: resolvedTtsModel,
       agentId: _scopedAgentId,
     );
 
@@ -2548,6 +2632,11 @@ class NeoAgentController extends ChangeNotifier {
     required String defaultChatModel,
     required String defaultSubagentModel,
     required String fallbackModel,
+    required String voiceSttProvider,
+    required String voiceSttModel,
+    required String voiceTtsProvider,
+    required String voiceTtsModel,
+    required String voiceTtsVoice,
     required Map<String, dynamic> aiProviderConfigs,
   }) async {
     isSavingSettings = true;
@@ -2562,6 +2651,11 @@ class NeoAgentController extends ChangeNotifier {
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
       'fallback_model_id': fallbackModel,
+      'voice_stt_provider': voiceSttProvider,
+      'voice_stt_model': voiceSttModel,
+      'voice_tts_provider': voiceTtsProvider,
+      'voice_tts_model': voiceTtsModel,
+      'voice_tts_voice': voiceTtsVoice,
       'ai_provider_configs': aiProviderConfigs,
     };
 
@@ -3776,6 +3870,23 @@ class NeoAgentController extends ChangeNotifier {
   String get fallbackModel =>
       settings['fallback_model_id']?.toString() ??
       _firstAvailableModelId(supportedModels);
+
+    String get voiceSttProvider =>
+      settings['voice_stt_provider']?.toString().trim().toLowerCase() ??
+      'openai';
+
+    String get voiceSttModel =>
+      settings['voice_stt_model']?.toString().trim() ?? 'gpt-4o-transcribe';
+
+    String get voiceTtsProvider =>
+      settings['voice_tts_provider']?.toString().trim().toLowerCase() ??
+      'openai';
+
+    String get voiceTtsModel =>
+      settings['voice_tts_model']?.toString().trim() ?? 'gpt-4o-mini-tts';
+
+    String get voiceTtsVoice =>
+      settings['voice_tts_voice']?.toString().trim() ?? 'alloy';
 
   String get accountLabel =>
       user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
@@ -7310,7 +7421,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     });
 
     try {
-      if (runtime.supportsBackgroundMic) {
+      if (kIsWeb) {
+        await widget.controller.startWebMicrophoneRecording();
+      } else if (runtime.supportsBackgroundMic) {
         await widget.controller.startBackgroundRecording();
       } else if (runtime.supportsScreenAndMic) {
         await widget.controller.startWebRecording();
@@ -7364,9 +7477,17 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
         _assistantTranscript = result.transcript;
         _assistantAudioBytes = result.audioBytes;
         _assistantAudioMimeType = result.audioMimeType;
+        _voiceError = null;
+        if ((_assistantAudioBytes?.isEmpty ?? true) &&
+            (result.ttsError?.trim().isNotEmpty ?? false)) {
+          _voiceError =
+              'Speech playback unavailable (${result.ttsProvider ?? 'tts'}): ${result.ttsError}';
+        }
       });
 
-      await _playAssistantAudio();
+      if (_assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty) {
+        await _playAssistantAudio();
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -8812,57 +8933,12 @@ class _MessagingPanelState extends State<MessagingPanel> {
     final webhookUrl = TextEditingController(
       text: saved['webhookUrl']?.toString() ?? widget.controller.backendUrl,
     );
-    String ttsProvider =
-        saved['ttsProvider']?.toString().toLowerCase() ?? 'openai';
-    String sttProvider =
-        saved['sttProvider']?.toString().toLowerCase() ?? 'openai';
-    String ttsVoice = saved['ttsVoice']?.toString() ?? 'alloy';
-    String ttsModel = saved['ttsModel']?.toString() ?? 'tts-1';
-    String sttModel = saved['sttModel']?.toString() ?? 'whisper-1';
-
-    const ttsModelsByProvider = <String, List<String>>{
-      'openai': <String>['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'],
-      'deepgram': <String>[
-        'aura-2-thalia-en',
-        'aura-2-asteria-en',
-        'aura-2-luna-en',
-      ],
-      'gemini': <String>['gemini-2.5-flash-preview-tts'],
-    };
-
-    const sttModelsByProvider = <String, List<String>>{
-      'openai': <String>['whisper-1', 'gpt-4o-transcribe'],
-      'deepgram': <String>['nova-3'],
-      'gemini': <String>['gemini-2.0-flash', 'gemini-2.5-flash'],
-    };
-
-    const voicesByProvider = <String, List<String>>{
-      'openai': <String>['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'],
-      'gemini': <String>['Kore', 'Puck', 'Charon'],
-    };
-
-    if (!ttsModelsByProvider.containsKey(ttsProvider)) {
-      ttsProvider = 'openai';
-    }
-    if (!sttModelsByProvider.containsKey(sttProvider)) {
-      sttProvider = 'openai';
-    }
-    if (!(ttsModelsByProvider[ttsProvider]?.contains(ttsModel) ?? false)) {
-      ttsModel = ttsModelsByProvider[ttsProvider]!.first;
-    }
-    if (!(sttModelsByProvider[sttProvider]?.contains(sttModel) ?? false)) {
-      sttModel = sttModelsByProvider[sttProvider]!.first;
-    }
-    if (voicesByProvider.containsKey(ttsProvider) &&
-        !(voicesByProvider[ttsProvider]?.contains(ttsVoice) ?? false)) {
-      ttsVoice = voicesByProvider[ttsProvider]!.first;
-    }
 
     await showDialog<void>(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setLocalState) {
+          builder: (context, _setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
               title: Text('Telnyx Voice'),
@@ -8899,137 +8975,9 @@ class _MessagingPanelState extends State<MessagingPanel> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: ttsProvider,
-                        items: const <String>['openai', 'deepgram', 'gemini']
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
-                        decoration: const InputDecoration(
-                          labelText: 'TTS Provider',
-                        ),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setLocalState(() {
-                              ttsProvider = value;
-                              final ttsOptions =
-                                  ttsModelsByProvider[ttsProvider] ??
-                                  const <String>[];
-                              if (!ttsOptions.contains(ttsModel) &&
-                                  ttsOptions.isNotEmpty) {
-                                ttsModel = ttsOptions.first;
-                              }
-                              final voiceOptions =
-                                  voicesByProvider[ttsProvider] ??
-                                  const <String>[];
-                              if (voiceOptions.isNotEmpty &&
-                                  !voiceOptions.contains(ttsVoice)) {
-                                ttsVoice = voiceOptions.first;
-                              }
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: ttsModel,
-                        items: (ttsModelsByProvider[ttsProvider] ??
-                                const <String>[])
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
-                        decoration: const InputDecoration(
-                          labelText: 'TTS Model',
-                        ),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setLocalState(() => ttsModel = value);
-                          }
-                        },
-                      ),
-                      if ((voicesByProvider[ttsProvider] ??
-                              const <String>[])
-                          .isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: ttsVoice,
-                          items: (voicesByProvider[ttsProvider] ??
-                                  const <String>[])
-                              .map(
-                                (value) => DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                ),
-                              )
-                              .toList(),
-                          decoration: const InputDecoration(
-                            labelText: 'TTS Voice',
-                          ),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setLocalState(() => ttsVoice = value);
-                            }
-                          },
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: sttProvider,
-                        items: const <String>['openai', 'deepgram', 'gemini']
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
-                        decoration: const InputDecoration(
-                          labelText: 'STT Provider',
-                        ),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setLocalState(() {
-                              sttProvider = value;
-                              final sttOptions =
-                                  sttModelsByProvider[sttProvider] ??
-                                  const <String>[];
-                              if (!sttOptions.contains(sttModel) &&
-                                  sttOptions.isNotEmpty) {
-                                sttModel = sttOptions.first;
-                              }
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        items:
-                            (sttModelsByProvider[sttProvider] ??
-                                    const <String>[])
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
-                        initialValue: sttModel,
-                        decoration: const InputDecoration(
-                          labelText: 'STT Model',
-                        ),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setLocalState(() => sttModel = value);
-                          }
-                        },
+                      Text(
+                        'Voice STT/TTS providers and models are configured in global Settings > Voice.',
+                        style: TextStyle(color: _textSecondary),
                       ),
                     ],
                   ),
@@ -9047,11 +8995,6 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       'phoneNumber': phoneNumber.text.trim(),
                       'connectionId': connectionId.text.trim(),
                       'webhookUrl': webhookUrl.text.trim(),
-                      'ttsProvider': ttsProvider,
-                      'sttProvider': sttProvider,
-                      'ttsVoice': ttsVoice,
-                      'ttsModel': ttsModel,
-                      'sttModel': sttModel,
                     };
                     await widget.controller.connectMessagingPlatform(
                       platform: 'telnyx',
@@ -12154,6 +12097,56 @@ class SettingsPanel extends StatefulWidget {
   State<SettingsPanel> createState() => _SettingsPanelState();
 }
 
+const Map<String, List<String>> _voiceTtsModelsByProvider =
+    <String, List<String>>{
+      'openai': <String>['gpt-4o-mini-tts', 'tts-1-hd', 'tts-1'],
+      'deepgram': <String>[
+        'aura-2-thalia-en',
+        'aura-2-andromeda-en',
+        'aura-2-helena-en',
+      ],
+      'gemini': <String>[
+        'gemini-3.1-flash-tts-preview',
+        'gemini-2.5-flash-preview-tts',
+        'gemini-2.5-pro-preview-tts',
+      ],
+    };
+
+const Map<String, List<String>> _voiceSttModelsByProvider =
+    <String, List<String>>{
+      'openai': <String>[
+        'gpt-4o-transcribe',
+        'gpt-4o-mini-transcribe',
+        'whisper-1',
+      ],
+      'deepgram': <String>['nova-3'],
+      'gemini': <String>[
+        'gemini-3-flash-preview',
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+      ],
+    };
+
+const Map<String, List<String>> _voiceTtsVoicesByProvider =
+    <String, List<String>>{
+      'openai': <String>[
+        'alloy',
+        'ash',
+        'ballad',
+        'coral',
+        'echo',
+        'fable',
+        'nova',
+        'onyx',
+        'sage',
+        'shimmer',
+        'verse',
+        'marin',
+        'cedar',
+      ],
+      'gemini': <String>['Kore', 'Puck', 'Charon', 'Zephyr', 'Leda'],
+    };
+
 class _SettingsPanelState extends State<SettingsPanel> {
   late bool _headlessBrowser;
   late String _browserBackend;
@@ -12162,6 +12155,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late String _defaultChatModel;
   late String _defaultSubagentModel;
   late String _fallbackModel;
+  late String _voiceSttProvider;
+  late String _voiceSttModel;
+  late String _voiceTtsProvider;
+  late String _voiceTtsModel;
+  late String _voiceTtsVoice;
   final Map<String, bool> _providerEnabled = <String, bool>{};
   final Map<String, TextEditingController> _providerBaseUrlControllers =
       <String, TextEditingController>{};
@@ -12213,6 +12211,29 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _defaultChatModel = controller.defaultChatModel;
     _defaultSubagentModel = controller.defaultSubagentModel;
     _fallbackModel = controller.fallbackModel;
+    _voiceSttProvider = controller.voiceSttProvider;
+    _voiceSttModel = controller.voiceSttModel;
+    _voiceTtsProvider = controller.voiceTtsProvider;
+    _voiceTtsModel = controller.voiceTtsModel;
+    _voiceTtsVoice = controller.voiceTtsVoice;
+
+    if (!_voiceSttModelsByProvider.containsKey(_voiceSttProvider)) {
+      _voiceSttProvider = 'openai';
+    }
+    if (!_voiceTtsModelsByProvider.containsKey(_voiceTtsProvider)) {
+      _voiceTtsProvider = 'openai';
+    }
+    if (!(_voiceSttModelsByProvider[_voiceSttProvider]?.contains(_voiceSttModel) ?? false)) {
+      _voiceSttModel = _voiceSttModelsByProvider[_voiceSttProvider]!.first;
+    }
+    if (!(_voiceTtsModelsByProvider[_voiceTtsProvider]?.contains(_voiceTtsModel) ?? false)) {
+      _voiceTtsModel = _voiceTtsModelsByProvider[_voiceTtsProvider]!.first;
+    }
+    final ttsVoiceOptions = _voiceTtsVoicesByProvider[_voiceTtsProvider] ??
+        const <String>[];
+    if (ttsVoiceOptions.isNotEmpty && !ttsVoiceOptions.contains(_voiceTtsVoice)) {
+      _voiceTtsVoice = ttsVoiceOptions.first;
+    }
 
     final providerConfigs = controller.aiProviderConfigs;
     final providerIds = <String>{
@@ -12283,6 +12304,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     defaultChatModel: _defaultChatModel,
                     defaultSubagentModel: _defaultSubagentModel,
                     fallbackModel: _fallbackModel,
+                  voiceSttProvider: _voiceSttProvider,
+                  voiceSttModel: _voiceSttModel,
+                  voiceTtsProvider: _voiceTtsProvider,
+                  voiceTtsModel: _voiceTtsModel,
+                  voiceTtsVoice: _voiceTtsVoice,
                     aiProviderConfigs: _buildProviderPayload(),
                   ),
             style: FilledButton.styleFrom(backgroundColor: _accent),
@@ -12368,6 +12394,185 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       );
                     },
                   ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Voice'),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 920;
+                    final fieldWidth = compact
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 24) / 3;
+                    final ttsVoiceOptions =
+                        _voiceTtsVoicesByProvider[_voiceTtsProvider] ??
+                        const <String>[];
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: <Widget>[
+                        SizedBox(
+                          width: fieldWidth,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _voiceSttProvider,
+                            decoration: const InputDecoration(
+                              labelText: 'STT Provider',
+                            ),
+                            items: const <String>[
+                              'openai',
+                              'deepgram',
+                              'gemini',
+                            ]
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _voiceSttProvider = value;
+                                final sttOptions =
+                                    _voiceSttModelsByProvider[_voiceSttProvider] ??
+                                    const <String>[];
+                                if (!sttOptions.contains(_voiceSttModel) &&
+                                    sttOptions.isNotEmpty) {
+                                  _voiceSttModel = sttOptions.first;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _voiceSttModel,
+                            decoration: const InputDecoration(
+                              labelText: 'STT Model',
+                            ),
+                            items: (_voiceSttModelsByProvider[_voiceSttProvider] ??
+                                    const <String>[])
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _voiceSttModel = value);
+                              }
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _voiceTtsProvider,
+                            decoration: const InputDecoration(
+                              labelText: 'TTS Provider',
+                            ),
+                            items: const <String>[
+                              'openai',
+                              'deepgram',
+                              'gemini',
+                            ]
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _voiceTtsProvider = value;
+                                final ttsOptions =
+                                    _voiceTtsModelsByProvider[_voiceTtsProvider] ??
+                                    const <String>[];
+                                if (!ttsOptions.contains(_voiceTtsModel) &&
+                                    ttsOptions.isNotEmpty) {
+                                  _voiceTtsModel = ttsOptions.first;
+                                }
+                                final voiceOptions =
+                                    _voiceTtsVoicesByProvider[_voiceTtsProvider] ??
+                                    const <String>[];
+                                if (voiceOptions.isNotEmpty &&
+                                    !voiceOptions.contains(_voiceTtsVoice)) {
+                                  _voiceTtsVoice = voiceOptions.first;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _voiceTtsModel,
+                            decoration: const InputDecoration(
+                              labelText: 'TTS Model',
+                            ),
+                            items: (_voiceTtsModelsByProvider[_voiceTtsProvider] ??
+                                    const <String>[])
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _voiceTtsModel = value);
+                              }
+                            },
+                          ),
+                        ),
+                        if (ttsVoiceOptions.isNotEmpty)
+                          SizedBox(
+                            width: fieldWidth,
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _voiceTtsVoice,
+                              decoration: const InputDecoration(
+                                labelText: 'TTS Voice',
+                              ),
+                              items: ttsVoiceOptions
+                                  .map(
+                                    (value) => DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _voiceTtsVoice = value);
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Global voice defaults used by web voice and voice-capable integrations.',
+                  style: TextStyle(color: _textSecondary),
+                ),
               ],
             ),
           ),

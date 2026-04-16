@@ -16,6 +16,11 @@ abstract class RecordingBridge extends ChangeNotifier {
     required String sessionId,
   });
 
+  Future<void> startWebMicrophoneRecording({
+    required String baseUrl,
+    required String sessionId,
+  });
+
   Future<void> startBackgroundRecording({
     required String baseUrl,
     required String sessionCookie,

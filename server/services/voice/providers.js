@@ -14,15 +14,15 @@ const STT_PROVIDERS = Object.freeze(['openai', 'deepgram', 'gemini']);
 const TTS_PROVIDERS = Object.freeze(['openai', 'deepgram', 'gemini']);
 
 const DEFAULT_STT_MODELS = Object.freeze({
-  openai: 'whisper-1',
+  openai: 'gpt-4o-transcribe',
   deepgram: process.env.DEEPGRAM_MODEL || 'nova-3',
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-3-flash-preview',
 });
 
 const DEFAULT_TTS_MODELS = Object.freeze({
-  openai: 'tts-1',
+  openai: 'gpt-4o-mini-tts',
   deepgram: 'aura-2-thalia-en',
-  gemini: 'gemini-2.5-flash-preview-tts',
+  gemini: 'gemini-3.1-flash-tts-preview',
 });
 
 const DEFAULT_TTS_VOICES = Object.freeze({
@@ -102,6 +102,56 @@ function guessExtFromMimeType(mimeType) {
   return 'mp3';
 }
 
+function parsePcmMimeType(mimeType) {
+  const mime = String(mimeType || '').toLowerCase();
+  if (!mime.startsWith('audio/l')) return null;
+
+  const bitDepthMatch = /^audio\/l(\d+)/.exec(mime);
+  const bitsPerSample = Number(bitDepthMatch?.[1] || 16);
+  if (!Number.isFinite(bitsPerSample) || bitsPerSample <= 0 || bitsPerSample % 8 !== 0) {
+    return null;
+  }
+
+  const sampleRateMatch = /(?:^|[;\s])rate=(\d+)/.exec(mime);
+  const channelMatch = /(?:^|[;\s])channels=(\d+)/.exec(mime);
+
+  const sampleRate = Number(sampleRateMatch?.[1] || 24000);
+  const channels = Number(channelMatch?.[1] || 1);
+  if (!Number.isFinite(sampleRate) || sampleRate <= 0 || !Number.isFinite(channels) || channels <= 0) {
+    return null;
+  }
+
+  return {
+    bitsPerSample,
+    sampleRate,
+    channels,
+  };
+}
+
+function wrapPcmAsWav(audioBytes, format) {
+  const data = Buffer.isBuffer(audioBytes) ? audioBytes : Buffer.from(audioBytes || []);
+  const { bitsPerSample, sampleRate, channels } = format;
+  const blockAlign = channels * (bitsPerSample / 8);
+  const byteRate = sampleRate * blockAlign;
+  const header = Buffer.alloc(44);
+
+  header.write('RIFF', 0, 4, 'ascii');
+  header.writeUInt32LE(36 + data.length, 4);
+  header.write('WAVE', 8, 4, 'ascii');
+  header.write('fmt ', 12, 4, 'ascii');
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36, 4, 'ascii');
+  header.writeUInt32LE(data.length, 40);
+
+  return Buffer.concat([header, data]);
+}
+
 async function transcribeWithOpenAi(filePath, model) {
   const client = getOpenAiClient();
   if (!client) {
@@ -148,8 +198,8 @@ async function transcribeWithGemini(filePath, model, mimeType) {
                 text: 'Transcribe this audio verbatim. Return only the transcript text.',
               },
               {
-                inline_data: {
-                  mime_type: mimeType || 'audio/mpeg',
+                inlineData: {
+                  mimeType: mimeType || 'audio/mpeg',
                   data: Buffer.from(audioBytes).toString('base64'),
                 },
               },
@@ -252,14 +302,14 @@ async function synthesizeWithGemini(text, model, voice) {
         ],
         generationConfig: {
           responseModalities: ['AUDIO'],
-          temperature: 0.6,
-        },
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: String(voice || '').trim() || 'Kore',
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: String(voice || '').trim() || 'Kore',
+              },
             },
           },
+          temperature: 0.6,
         },
       }),
     },
@@ -287,6 +337,14 @@ async function synthesizeWithGemini(text, model, voice) {
     || audioPart?.inline_data?.mimeType
     || audioPart?.inline_data?.mime_type
     || 'audio/wav';
+
+  const pcmFormat = parsePcmMimeType(mimeType);
+  if (pcmFormat) {
+    return {
+      audioBytes: wrapPcmAsWav(Buffer.from(data, 'base64'), pcmFormat),
+      mimeType: 'audio/wav',
+    };
+  }
 
   return {
     audioBytes: Buffer.from(data, 'base64'),

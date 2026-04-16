@@ -895,8 +895,10 @@ class VoiceAssistantTurnResult {
     required this.audioMimeType,
     required this.audioBytes,
     this.runId,
+    this.ttsProvider,
     this.ttsModel,
     this.ttsVoice,
+    this.ttsError,
   });
 
   factory VoiceAssistantTurnResult.fromJson(Map<dynamic, dynamic> json) {
@@ -910,8 +912,10 @@ class VoiceAssistantTurnResult {
           ? Uint8List(0)
           : base64Decode(audioBase64),
       runId: json['runId']?.toString(),
+      ttsProvider: json['ttsProvider']?.toString(),
       ttsModel: json['ttsModel']?.toString(),
       ttsVoice: json['ttsVoice']?.toString(),
+      ttsError: json['ttsError']?.toString(),
     );
   }
 
@@ -921,8 +925,10 @@ class VoiceAssistantTurnResult {
   final String audioMimeType;
   final Uint8List audioBytes;
   final String? runId;
+  final String? ttsProvider;
   final String? ttsModel;
   final String? ttsVoice;
+  final String? ttsError;
 }
 
 class RunDetailSnapshot {

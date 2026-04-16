@@ -51,6 +51,16 @@ class UnsupportedRecordingBridge extends RecordingBridge {
   }
 
   @override
+  Future<void> startWebMicrophoneRecording({
+    required String baseUrl,
+    required String sessionId,
+  }) async {
+    throw const RecordingBridgeException(
+      'Microphone-only browser recording is not supported on this platform.',
+    );
+  }
+
+  @override
   Future<void> stopActiveRecording({bool notifyEnded = false}) async {
     _status = _status.copyWith(
       active: false,

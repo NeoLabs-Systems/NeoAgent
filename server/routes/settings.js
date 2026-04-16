@@ -45,9 +45,38 @@ const AGENT_SETTING_KEYS = new Set([
   'default_chat_model',
   'default_subagent_model',
   'enabled_models',
+  'voice_stt_provider',
+  'voice_stt_model',
+  'voice_tts_provider',
+  'voice_tts_model',
+  'voice_tts_voice',
   'last_platform',
   'last_chat_id',
 ]);
+
+const VOICE_SETTING_KEYS = new Set([
+  'voice_stt_provider',
+  'voice_stt_model',
+  'voice_tts_provider',
+  'voice_tts_model',
+  'voice_tts_voice',
+]);
+
+function toOptionalTrimmedString(value) {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function extractVoiceSettings(payload = {}) {
+  return {
+    sttProvider: toOptionalTrimmedString(payload.voice_stt_provider),
+    sttModel: toOptionalTrimmedString(payload.voice_stt_model),
+    ttsProvider: toOptionalTrimmedString(payload.voice_tts_provider),
+    ttsModel: toOptionalTrimmedString(payload.voice_tts_model),
+    ttsVoice: toOptionalTrimmedString(payload.voice_tts_voice),
+  };
+}
 
 router.use(requireAuth);
 
@@ -200,6 +229,15 @@ router.put('/', (req, res) => {
   });
 
   tx(Object.entries(normalizedBody));
+
+  if (Object.keys(normalizedBody).some((key) => VOICE_SETTING_KEYS.has(key))) {
+    const manager = req.app?.locals?.messagingManager;
+    if (manager && typeof manager.updateVoiceSettings === 'function') {
+      manager.updateVoiceSettings(userId, extractVoiceSettings(normalizedBody), {
+        agentId,
+      });
+    }
+  }
 
   // Apply headless toggle immediately without restarting
   if ('headless_browser' in normalizedBody) {
@@ -367,6 +405,18 @@ router.put('/:key', (req, res) => {
     db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
       .run(userId, req.params.key, v);
   }
+
+  if (VOICE_SETTING_KEYS.has(req.params.key)) {
+    const manager = req.app?.locals?.messagingManager;
+    if (manager && typeof manager.updateVoiceSettings === 'function') {
+      manager.updateVoiceSettings(userId, extractVoiceSettings({
+        [req.params.key]: value,
+      }), {
+        agentId,
+      });
+    }
+  }
+
   if (req.params.key === 'headless_browser') {
     applyHeadlessSetting(req, value);
   }

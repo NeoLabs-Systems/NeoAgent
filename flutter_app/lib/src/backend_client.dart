@@ -1185,6 +1185,7 @@ class BackendClient {
     String baseUrl, {
     required String sessionId,
     String promptHint = '',
+    String ttsProvider = 'openai',
     String ttsVoice = 'alloy',
     String ttsModel = 'tts-1',
     String? agentId,
@@ -1192,6 +1193,7 @@ class BackendClient {
     final payload = <String, dynamic>{
       'sessionId': sessionId,
       'promptHint': promptHint,
+      'ttsProvider': ttsProvider,
       'ttsVoice': ttsVoice,
       'ttsModel': ttsModel,
     };

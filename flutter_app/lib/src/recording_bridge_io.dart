@@ -166,6 +166,16 @@ class IoRecordingBridge extends RecordingBridge {
     );
   }
 
+  @override
+  Future<void> startWebMicrophoneRecording({
+    required String baseUrl,
+    required String sessionId,
+  }) async {
+    throw const RecordingBridgeException(
+      'Microphone-only browser recording is available on web only.',
+    );
+  }
+
   DateTime? _parseDate(Object? raw) {
     if (raw == null) {
       return null;

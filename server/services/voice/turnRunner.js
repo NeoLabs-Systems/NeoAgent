@@ -45,7 +45,7 @@ async function runVoiceTranscriptTurn({
   agentEngine,
   memoryManager,
   ttsProvider = 'openai',
-  ttsModel = 'tts-1',
+  ttsModel = 'gpt-4o-mini-tts',
   ttsVoice = 'alloy',
 }) {
   if (!agentEngine || !memoryManager) {
@@ -100,11 +100,21 @@ async function runVoiceTranscriptTurn({
       }),
     );
 
-  const synthesized = await synthesizeVoiceReply(replyText, {
-    provider: normalizeTtsProvider(ttsProvider),
-    model: ttsModel,
-    voice: ttsVoice,
-  });
+  let synthesized;
+  let ttsError = null;
+  try {
+    synthesized = await synthesizeVoiceReply(replyText, {
+      provider: normalizeTtsProvider(ttsProvider),
+      model: ttsModel,
+      voice: ttsVoice,
+    });
+  } catch (error) {
+    ttsError = String(error?.message || error || 'Speech synthesis failed.');
+    synthesized = {
+      mimeType: 'audio/mpeg',
+      audioBytes: Buffer.alloc(0),
+    };
+  }
 
   return {
     runId: runResult?.runId || null,
@@ -115,6 +125,7 @@ async function runVoiceTranscriptTurn({
     ttsVoice,
     audioMimeType: synthesized.mimeType,
     audioBase64: synthesized.audioBytes.toString('base64'),
+    ttsError,
   };
 }
 

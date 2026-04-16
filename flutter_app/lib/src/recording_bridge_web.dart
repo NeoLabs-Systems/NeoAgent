@@ -209,6 +209,114 @@ class WebRecordingBridge extends RecordingBridge {
   }
 
   @override
+  Future<void> startWebMicrophoneRecording({
+    required String baseUrl,
+    required String sessionId,
+  }) async {
+    _log(
+      'start_web_mic_only.request',
+      data: <String, Object?>{
+        'sessionId': sessionId,
+        'baseUrl': baseUrl,
+        'alreadyActive': _status.active,
+      },
+    );
+    if (_status.active) {
+      throw const RecordingBridgeException(
+        'A recording is already in progress.',
+      );
+    }
+
+    try {
+      final mediaDevices = html.window.navigator.mediaDevices;
+      if (mediaDevices == null) {
+        throw const RecordingBridgeException(
+          'This browser does not expose media device APIs.',
+        );
+      }
+
+      final microphoneStream = await mediaDevices.getUserMedia(
+        <String, dynamic>{
+          'audio': <String, dynamic>{
+            'channelCount': 1,
+            'echoCancellation': false,
+            'noiseSuppression': false,
+            'autoGainControl': false,
+          },
+        },
+      );
+      if (microphoneStream.getAudioTracks().isEmpty) {
+        throw const RecordingBridgeException(
+          'Microphone permission is required to start recording.',
+        );
+      }
+
+      _baseUrl = baseUrl;
+      _sessionId = sessionId;
+      _displayStream = null;
+      _microphoneStream = microphoneStream;
+      _nextSequenceBySource
+        ..clear()
+        ..addAll(<String, int>{'microphone': 0});
+      _lastEndMsBySource
+        ..clear()
+        ..addAll(<String, int>{'microphone': 0});
+      _uploadQueueBySource
+        ..clear()
+        ..addAll(<String, Future<void>>{
+          'microphone': Future<void>.value(),
+        });
+      _stopwatch = Stopwatch()..start();
+
+      final micMimeType = _pickMimeType(<String>[
+        'audio/webm;codecs=opus',
+        'audio/webm',
+      ]);
+
+      _displayEndedSub = null;
+      _screenRecorder = null;
+      _microphoneRecorder = html.MediaRecorder(
+        microphoneStream,
+        micMimeType == null ? null : <String, String>{'mimeType': micMimeType},
+      );
+      _bindRecorder(
+        recorder: _microphoneRecorder!,
+        sourceKey: 'microphone',
+        mimeType: micMimeType ?? 'audio/webm',
+      );
+
+      _microphoneRecorder!.start(4000);
+      _status = _status.copyWith(
+        active: true,
+        paused: false,
+        sessionId: sessionId,
+        startedAt: DateTime.now(),
+        errorMessage: null,
+      );
+      _log(
+        'start_web_mic_only.done',
+        data: <String, Object?>{
+          'sessionId': sessionId,
+          'micMimeType': micMimeType ?? 'audio/webm',
+        },
+      );
+      notifyListeners();
+    } catch (error) {
+      await _disposeStreams();
+      _status = _status.copyWith(
+        active: false,
+        paused: false,
+        sessionId: null,
+        startedAt: null,
+        errorMessage: error.toString(),
+      );
+      _log('start_web_mic_only.failed', error: error);
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> startBackgroundRecording({
     required String baseUrl,
     required String sessionCookie,

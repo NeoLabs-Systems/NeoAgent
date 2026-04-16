@@ -162,6 +162,15 @@ class MessagingManager extends EventEmitter {
 
     // For Telnyx, inject saved whitelist and voice secret into config before constructing
     if (platformName === 'telnyx') {
+      const parseSetting = (row, fallback = null) => {
+        if (!row || typeof row.value !== 'string') return fallback;
+        try {
+          return JSON.parse(row.value);
+        } catch {
+          return row.value;
+        }
+      };
+
       const wlRow = this._setting(userId, agentId, 'platform_whitelist_telnyx');
       if (wlRow) {
         try { config.allowedNumbers = JSON.parse(wlRow.value); } catch { /* ignore */ }
@@ -169,6 +178,28 @@ class MessagingManager extends EventEmitter {
       const secretRow = this._setting(userId, agentId, 'platform_voice_secret_telnyx');
       if (secretRow) {
         try { config.voiceSecret = JSON.parse(secretRow.value); } catch { config.voiceSecret = secretRow.value; }
+      }
+
+      const voiceSttProvider = parseSetting(this._setting(userId, agentId, 'voice_stt_provider'));
+      const voiceSttModel = parseSetting(this._setting(userId, agentId, 'voice_stt_model'));
+      const voiceTtsProvider = parseSetting(this._setting(userId, agentId, 'voice_tts_provider'));
+      const voiceTtsModel = parseSetting(this._setting(userId, agentId, 'voice_tts_model'));
+      const voiceTtsVoice = parseSetting(this._setting(userId, agentId, 'voice_tts_voice'));
+
+      if (typeof voiceSttProvider === 'string' && voiceSttProvider.trim()) {
+        config.sttProvider = voiceSttProvider.trim();
+      }
+      if (typeof voiceSttModel === 'string' && voiceSttModel.trim()) {
+        config.sttModel = voiceSttModel.trim();
+      }
+      if (typeof voiceTtsProvider === 'string' && voiceTtsProvider.trim()) {
+        config.ttsProvider = voiceTtsProvider.trim();
+      }
+      if (typeof voiceTtsModel === 'string' && voiceTtsModel.trim()) {
+        config.ttsModel = voiceTtsModel.trim();
+      }
+      if (typeof voiceTtsVoice === 'string' && voiceTtsVoice.trim()) {
+        config.ttsVoice = voiceTtsVoice.trim();
       }
     }
 
@@ -588,6 +619,14 @@ class MessagingManager extends EventEmitter {
     const key = this._key(userId, this._agentId(userId, options), 'telnyx');
     const platform = this.platforms.get(key);
     if (platform?.setVoiceSecret) platform.setVoiceSecret(secret);
+  }
+
+  updateVoiceSettings(userId, voiceSettings = {}, options = {}) {
+    const key = this._key(userId, this._agentId(userId, options), 'telnyx');
+    const platform = this.platforms.get(key);
+    if (platform?.setVoiceConfig) {
+      platform.setVoiceConfig(voiceSettings);
+    }
   }
 
   /**

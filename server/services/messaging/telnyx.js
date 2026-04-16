@@ -108,6 +108,26 @@ class TelnyxVoicePlatform extends BasePlatform {
     console.log(`[TelnyxVoice] Voice secret updated (${this.voiceSecret.length} digit(s))`);
   }
 
+  setVoiceConfig(config = {}) {
+    if (typeof config !== 'object' || config == null) return;
+
+    if (config.sttProvider !== undefined) {
+      this.sttProvider = normalizeSttProvider(config.sttProvider || DEFAULT_STT_PROVIDER);
+    }
+    if (config.ttsProvider !== undefined) {
+      this.ttsProvider = normalizeTtsProvider(config.ttsProvider || DEFAULT_TTS_PROVIDER);
+    }
+
+    this.sttModel = resolveSttModel(this.sttProvider, config.sttModel ?? this.sttModel);
+    this.ttsModel = resolveTtsModel(this.ttsProvider, config.ttsModel ?? this.ttsModel);
+    this.ttsVoice = resolveTtsVoice(this.ttsProvider, config.ttsVoice ?? this.ttsVoice);
+
+    console.log(
+      `[TelnyxVoice] Voice config updated: STT=${this.sttProvider}/${this.sttModel}, ` +
+      `TTS=${this.ttsProvider}/${this.ttsModel}${this.ttsVoice ? ` (${this.ttsVoice})` : ''}`,
+    );
+  }
+
   _isAllowed(number) {
     if (!this.allowedNumbers || !this.allowedNumbers.length) return false;
     const normalize = (n) => n.replace(/\D/g, '');
