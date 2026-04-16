@@ -257,7 +257,7 @@ class TelnyxVoicePlatform extends BasePlatform {
     const sess = this._session(ccId);
     if (sess.isProcessing || sess.isThinking) return;
 
-    const cleaned = String(transcript || '').trim();
+    const cleaned = transcript?.trim() || '';
     if (!cleaned) return;
 
     sess.isProcessing = true;
@@ -483,7 +483,7 @@ class TelnyxVoicePlatform extends BasePlatform {
           sess.isThinking        = false; // cancel think state if user interrupts
           sess.replySent         = false; // allow a fresh reply for the new turn
           await this._stopAudio(ccId);
-          await this._stopTranscription(ccId);
+          try { await this._stopTranscription(ccId); } catch {}
           setTimeout(async () => {
             if (!this._hasSession(ccId)) return;
             this._session(ccId).isProcessing = false;
