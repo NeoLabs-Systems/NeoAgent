@@ -8435,6 +8435,22 @@ class _ChatPanelState extends State<ChatPanel> {
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => controller.setSelectedSection(
+                        AppSection.voiceAssistant,
+                      ),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(46, 42),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        backgroundColor: _success,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Icon(Icons.call_rounded, color: Colors.white),
+                    ),
+                    const SizedBox(width: 8),
                     FilledButton(
                       onPressed: () async {
                         final task = _composerController.text;
