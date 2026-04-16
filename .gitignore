@@ -141,7 +141,10 @@ agent-data/
 /.npm-cache
 /dev
 server/public/.last_build_id
+server/public/assets/NOTICES
 server/public/assets/fonts/MaterialIcons-Regular.otf
+server/public/flutter_bootstrap.js
+server/public/flutter_service_worker.js
 server/public/main.dart.js
 /tmp
 

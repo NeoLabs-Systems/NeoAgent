@@ -1,42 +1,13 @@
 'use strict';
 
 const db = require('../../db/database');
-const { ensureDefaultAiSettings, getAiSettings } = require('../ai/settings');
-const { getWebChatContext } = require('../ai/history');
-const { synthesizeVoiceReply, normalizeTtsProvider } = require('./providers');
-
-const VOICE_HISTORY_WINDOW = 4;
-
-function buildAgentRunContext({ userId, agentId, task, historyWindow = VOICE_HISTORY_WINDOW }) {
-  ensureDefaultAiSettings(userId, agentId);
-  const aiSettings = getAiSettings(userId, agentId);
-  const effectiveWindow = Math.max(1, Math.min(aiSettings.chat_history_window, historyWindow));
-  const webContext = getWebChatContext(userId, effectiveWindow, { agentId });
-
-  const lastMatchIndex = webContext.recentMessages.findLastIndex(
-    (message) => message.role === 'user' && message.content === task,
-  );
-  const priorMessages = webContext.recentMessages
-    .filter((_, index) => index !== lastMatchIndex)
-    .slice(-effectiveWindow);
-
-  return {
-    priorMessages,
-    priorSummary: webContext.summary,
-  };
-}
-
-function normalizeTranscriptPrompt(text, promptHint) {
-  const transcript = String(text || '').trim();
-  const hint = String(promptHint || '').trim();
-  if (!hint) return transcript;
-  return [
-    'Voice request transcript:',
-    transcript,
-    '',
-    `Extra instruction for this turn: ${hint}`,
-  ].join('\n');
-}
+const { buildAgentRunContext } = require('../ai/runContext');
+const { buildDirectVoiceContext } = require('./message');
+const { synthesizeVoiceReply, normalizeVoiceSynthesisOptions } = require('./providers');
+const {
+  VOICE_HISTORY_WINDOW,
+  buildDirectVoiceRunOptions,
+} = require('./runtime');
 
 async function runVoiceTranscriptTurn({
   userId,
@@ -60,32 +31,49 @@ async function runVoiceTranscriptTurn({
     throw new Error('Voice transcript is empty.');
   }
 
-  const normalizedTask = normalizeTranscriptPrompt(transcriptText, promptHint);
+  const voiceOptions = normalizeVoiceSynthesisOptions({
+    provider: ttsProvider,
+    model: ttsModel,
+    voice: ttsVoice,
+  });
+
+  const storedUserContent = transcriptText;
   const normalizedMetadata = metadata && typeof metadata === 'object' ? metadata : {};
+  const directVoiceContext = buildDirectVoiceContext({
+    promptHint,
+    platform,
+  });
 
   db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
-    .run(userId, agentId, 'user', normalizedTask, JSON.stringify({
+    .run(userId, agentId, 'user', storedUserContent, JSON.stringify({
       platform,
       transcript: transcriptText,
+      promptHint,
       ...normalizedMetadata,
     }));
 
   const { priorMessages, priorSummary } = buildAgentRunContext({
     userId,
     agentId,
-    task: normalizedTask,
+    task: storedUserContent,
     historyWindow: VOICE_HISTORY_WINDOW,
   });
   const conversationId = memoryManager.getDefaultWebConversationId(userId, { agentId });
-
-  const runResult = await agentEngine.run(userId, normalizedTask, {
+  const runOptions = buildDirectVoiceRunOptions({
     agentId,
     conversationId,
+    platform,
+  });
+
+  const runResult = await agentEngine.run(userId, storedUserContent, {
+    ...runOptions,
     priorMessages,
     priorSummary,
-    skipConversationHistory: true,
-    skipTaskAnalysis: true,
-    triggerSource: 'voice_assistant',
+    context: {
+      rawUserMessage: storedUserContent,
+      additionalContext: directVoiceContext,
+      voiceMode: true,
+    },
   });
 
   const replyText = String(runResult?.content || '').trim();
@@ -110,11 +98,7 @@ async function runVoiceTranscriptTurn({
   let synthesized;
   let ttsError = null;
   try {
-    synthesized = await synthesizeVoiceReply(replyText, {
-      provider: normalizeTtsProvider(ttsProvider),
-      model: ttsModel,
-      voice: ttsVoice,
-    });
+    synthesized = await synthesizeVoiceReply(replyText, voiceOptions);
   } catch (error) {
     ttsError = String(error?.message || error || 'Speech synthesis failed.');
     synthesized = {
@@ -127,9 +111,9 @@ async function runVoiceTranscriptTurn({
     runId: runResult?.runId || null,
     transcript: transcriptText,
     replyText,
-    ttsProvider: normalizeTtsProvider(ttsProvider),
-    ttsModel,
-    ttsVoice,
+    ttsProvider: voiceOptions.provider,
+    ttsModel: voiceOptions.model,
+    ttsVoice: voiceOptions.voice,
     audioMimeType: synthesized.mimeType,
     audioBase64: synthesized.audioBytes.toString('base64'),
     ttsError,
@@ -137,6 +121,5 @@ async function runVoiceTranscriptTurn({
 }
 
 module.exports = {
-  normalizeTranscriptPrompt,
   runVoiceTranscriptTurn,
 };

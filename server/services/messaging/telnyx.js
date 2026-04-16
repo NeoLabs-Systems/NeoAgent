@@ -17,6 +17,7 @@ const {
   transcribeVoiceInput,
   synthesizeVoiceReply,
 } = require('../voice/providers');
+const { createVoiceMessage } = require('../voice/message');
 const { createVoiceTurnSessionState } = require('../voice/turnState');
 
 const AUDIO_DIR = path.join(DATA_DIR, 'telnyx-audio');
@@ -548,17 +549,16 @@ class TelnyxVoicePlatform extends BasePlatform {
 
           // Emit message event — MessagingManager routes it to the AI engine.
           // The agent will call sendMessage(ccId, response) when it has a reply.
-          this.emit('message', {
-            messageId:  `telnyx_${ccId}_${Date.now()}`,
-            chatId:     ccId,
-            sender:     sess.callerNumber || ccId,
+          this.emit('message', createVoiceMessage({
+            platform: 'telnyx',
+            chatId: ccId,
+            sender: sess.callerNumber || ccId,
             senderName: sess.callerNumber || 'Caller',
-            senderTag:  sess.callerNumber || ccId,
-            content:    transcript,
-            isGroup:    false,
-            mediaType:  'voice',
-            timestamp:  new Date().toISOString(),
-          });
+            senderTag: sess.callerNumber || ccId,
+            content: transcript,
+            isGroup: false,
+            mediaType: 'voice',
+          }));
           break;
         }
 

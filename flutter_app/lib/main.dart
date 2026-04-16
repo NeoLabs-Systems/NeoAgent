@@ -26,6 +26,7 @@ part 'main_app_shell.dart';
 part 'main_integrations.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
+part 'main_voice_assistant.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -511,6 +512,125 @@ class NeoAgentController extends ChangeNotifier {
       'runtimeError': runtime.errorMessage,
       'sessionsLoaded': recordingSessions.length,
     };
+  }
+
+  void _upsertRecordingSession(RecordingSessionItem session) {
+    final existingIndex = recordingSessions.indexWhere(
+      (item) => item.id == session.id,
+    );
+    if (existingIndex >= 0) {
+      recordingSessions = <RecordingSessionItem>[
+        ...recordingSessions.sublist(0, existingIndex),
+        session,
+        ...recordingSessions.sublist(existingIndex + 1),
+      ];
+      return;
+    }
+    recordingSessions = <RecordingSessionItem>[session, ...recordingSessions];
+  }
+
+  void _removeRecordingSession(String sessionId) {
+    recordingSessions = recordingSessions
+        .where((item) => item.id != sessionId)
+        .toList();
+  }
+
+  void _appendChatMessage(
+    String content, {
+    required String role,
+    required String platform,
+    bool transient = false,
+  }) {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    final previous = chatMessages.isNotEmpty ? chatMessages.last : null;
+    if (previous != null &&
+        previous.role == role &&
+        previous.platform == platform &&
+        previous.content.trim() == trimmed) {
+      return;
+    }
+
+    chatMessages = <ChatEntry>[
+      ...chatMessages,
+      ChatEntry(
+        role: role,
+        content: trimmed,
+        platform: platform,
+        createdAt: DateTime.now(),
+        transient: transient,
+      ),
+    ];
+  }
+
+  String _settingString(String key, String fallback, {bool lowercase = false}) {
+    final value = settings[key]?.toString().trim() ?? '';
+    if (value.isEmpty) {
+      return fallback;
+    }
+    return lowercase ? value.toLowerCase() : value;
+  }
+
+  Future<void> _finalizeRecordingSessionQuietly(String? sessionId) async {
+    final trimmed = sessionId?.trim() ?? '';
+    if (trimmed.isEmpty) {
+      return;
+    }
+    try {
+      await _backendClient.finalizeRecordingSession(
+        backendUrl,
+        trimmed,
+        stopReason: 'cancelled',
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _startRecordingCapture({
+    required String logKey,
+    required Map<String, dynamic> payload,
+    required Future<void> Function(String sessionId) startCapture,
+  }) async {
+    if (isStartingRecording || recordingRuntime.active) {
+      return;
+    }
+    isStartingRecording = true;
+    errorMessage = null;
+    notifyListeners();
+
+    String? sessionId;
+    try {
+      _logRecording('$logKey.request');
+      final response = await _backendClient.createRecordingSession(
+        backendUrl,
+        payload,
+      );
+      final session = RecordingSessionItem.fromJson(
+        _jsonMap(response['session']),
+      );
+      sessionId = session.id;
+      _upsertRecordingSession(session);
+      await startCapture(session.id);
+      _logRecording(
+        '$logKey.done',
+        data: <String, Object?>{'sessionId': session.id},
+      );
+      notifyListeners();
+    } catch (error) {
+      _logRecording(
+        '$logKey.failed',
+        data: <String, Object?>{'sessionId': sessionId},
+        error: error,
+      );
+      await _finalizeRecordingSessionQuietly(sessionId);
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshRecordings();
+    } finally {
+      isStartingRecording = false;
+      notifyListeners();
+    }
   }
 
   void _logRecording(
@@ -1555,21 +1675,7 @@ class NeoAgentController extends ChangeNotifier {
       final session = RecordingSessionItem.fromJson(
         _jsonMap(response['session']),
       );
-      final existingIndex = recordingSessions.indexWhere(
-        (item) => item.id == session.id,
-      );
-      if (existingIndex >= 0) {
-        recordingSessions = <RecordingSessionItem>[
-          ...recordingSessions.sublist(0, existingIndex),
-          session,
-          ...recordingSessions.sublist(existingIndex + 1),
-        ];
-      } else {
-        recordingSessions = <RecordingSessionItem>[
-          session,
-          ...recordingSessions,
-        ];
-      }
+      _upsertRecordingSession(session);
 
       await _recordingBridge.refreshStatus();
       _logRecording(
@@ -2049,213 +2155,81 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> startWebRecording() async {
-    if (isStartingRecording || recordingRuntime.active) {
-      return;
-    }
-    isStartingRecording = true;
-    errorMessage = null;
-    notifyListeners();
-
-    String? sessionId;
-    try {
-      _logRecording('start_web.request');
-      final response = await _backendClient.createRecordingSession(
-        backendUrl,
-        <String, dynamic>{
-          'platform': 'web',
-          'screenAnalysisReady': true,
-          'sources': const <Map<String, dynamic>>[
-            <String, dynamic>{
-              'sourceKey': 'screen',
-              'sourceKind': 'screen-share',
-              'mediaKind': 'video',
-              'mimeType': 'video/webm',
-              'metadata': <String, dynamic>{
-                'analysisReady': true,
-                'transcribe': false,
-              },
+    await _startRecordingCapture(
+      logKey: 'start_web',
+      payload: <String, dynamic>{
+        'platform': 'web',
+        'screenAnalysisReady': true,
+        'sources': const <Map<String, dynamic>>[
+          <String, dynamic>{
+            'sourceKey': 'screen',
+            'sourceKind': 'screen-share',
+            'mediaKind': 'video',
+            'mimeType': 'video/webm',
+            'metadata': <String, dynamic>{
+              'analysisReady': true,
+              'transcribe': false,
             },
-            <String, dynamic>{
-              'sourceKey': 'microphone',
-              'sourceKind': 'microphone',
-              'mediaKind': 'audio',
-              'mimeType': 'audio/webm',
-            },
-          ],
-        },
-      );
-      final session = RecordingSessionItem.fromJson(
-        _jsonMap(response['session']),
-      );
-      sessionId = session.id;
-      recordingSessions = <RecordingSessionItem>[
-        session,
-        ...recordingSessions.where((item) => item.id != session.id),
-      ];
-      await _recordingBridge.startWebRecording(
+          },
+          <String, dynamic>{
+            'sourceKey': 'microphone',
+            'sourceKind': 'microphone',
+            'mediaKind': 'audio',
+            'mimeType': 'audio/webm',
+          },
+        ],
+      },
+      startCapture: (sessionId) => _recordingBridge.startWebRecording(
         baseUrl: backendUrl,
-        sessionId: session.id,
-      );
-      _logRecording(
-        'start_web.done',
-        data: <String, Object?>{'sessionId': session.id},
-      );
-      notifyListeners();
-    } catch (error) {
-      _logRecording(
-        'start_web.failed',
-        data: <String, Object?>{'sessionId': sessionId},
-        error: error,
-      );
-      if (sessionId != null) {
-        try {
-          await _backendClient.finalizeRecordingSession(
-            backendUrl,
-            sessionId,
-            stopReason: 'cancelled',
-          );
-        } catch (_) {}
-      }
-      errorMessage = _friendlyErrorMessage(error);
-      await refreshRecordings();
-    } finally {
-      isStartingRecording = false;
-      notifyListeners();
-    }
+        sessionId: sessionId,
+      ),
+    );
   }
 
   Future<void> startWebMicrophoneRecording() async {
-    if (isStartingRecording || recordingRuntime.active) {
-      return;
-    }
-    isStartingRecording = true;
-    errorMessage = null;
-    notifyListeners();
-
-    String? sessionId;
-    try {
-      _logRecording('start_web_mic_only.request');
-      final response = await _backendClient.createRecordingSession(
-        backendUrl,
-        <String, dynamic>{
-          'platform': 'web',
-          'screenAnalysisReady': false,
-          'sources': const <Map<String, dynamic>>[
-            <String, dynamic>{
-              'sourceKey': 'microphone',
-              'sourceKind': 'microphone',
-              'mediaKind': 'audio',
-              'mimeType': 'audio/webm',
-            },
-          ],
-        },
-      );
-      final session = RecordingSessionItem.fromJson(
-        _jsonMap(response['session']),
-      );
-      sessionId = session.id;
-      recordingSessions = <RecordingSessionItem>[
-        session,
-        ...recordingSessions.where((item) => item.id != session.id),
-      ];
-      await _recordingBridge.startWebMicrophoneRecording(
+    await _startRecordingCapture(
+      logKey: 'start_web_mic_only',
+      payload: <String, dynamic>{
+        'platform': 'web',
+        'screenAnalysisReady': false,
+        'sources': const <Map<String, dynamic>>[
+          <String, dynamic>{
+            'sourceKey': 'microphone',
+            'sourceKind': 'microphone',
+            'mediaKind': 'audio',
+            'mimeType': 'audio/webm',
+          },
+        ],
+      },
+      startCapture: (sessionId) => _recordingBridge.startWebMicrophoneRecording(
         baseUrl: backendUrl,
-        sessionId: session.id,
-      );
-      _logRecording(
-        'start_web_mic_only.done',
-        data: <String, Object?>{'sessionId': session.id},
-      );
-      notifyListeners();
-    } catch (error) {
-      _logRecording(
-        'start_web_mic_only.failed',
-        data: <String, Object?>{'sessionId': sessionId},
-        error: error,
-      );
-      if (sessionId != null) {
-        try {
-          await _backendClient.finalizeRecordingSession(
-            backendUrl,
-            sessionId,
-            stopReason: 'cancelled',
-          );
-        } catch (_) {}
-      }
-      errorMessage = _friendlyErrorMessage(error);
-      await refreshRecordings();
-    } finally {
-      isStartingRecording = false;
-      notifyListeners();
-    }
+        sessionId: sessionId,
+      ),
+    );
   }
 
   Future<void> startBackgroundRecording() async {
-    if (isStartingRecording || recordingRuntime.active) {
-      return;
-    }
-    isStartingRecording = true;
-    errorMessage = null;
-    notifyListeners();
-
-    String? sessionId;
-    try {
-      _logRecording('start_background.request');
-      final response = await _backendClient.createRecordingSession(
-        backendUrl,
-        <String, dynamic>{
-          'platform': 'android',
-          'screenAnalysisReady': false,
-          'sources': const <Map<String, dynamic>>[
-            <String, dynamic>{
-              'sourceKey': 'microphone',
-              'sourceKind': 'microphone',
-              'mediaKind': 'audio',
-              'mimeType': 'audio/wav',
-              'metadata': <String, dynamic>{'backgroundCapable': true},
-            },
-          ],
-        },
-      );
-      final session = RecordingSessionItem.fromJson(
-        _jsonMap(response['session']),
-      );
-      sessionId = session.id;
-      recordingSessions = <RecordingSessionItem>[
-        session,
-        ...recordingSessions.where((item) => item.id != session.id),
-      ];
-      await _recordingBridge.startBackgroundRecording(
+    await _startRecordingCapture(
+      logKey: 'start_background',
+      payload: <String, dynamic>{
+        'platform': 'android',
+        'screenAnalysisReady': false,
+        'sources': const <Map<String, dynamic>>[
+          <String, dynamic>{
+            'sourceKey': 'microphone',
+            'sourceKind': 'microphone',
+            'mediaKind': 'audio',
+            'mimeType': 'audio/wav',
+            'metadata': <String, dynamic>{'backgroundCapable': true},
+          },
+        ],
+      },
+      startCapture: (sessionId) => _recordingBridge.startBackgroundRecording(
         baseUrl: backendUrl,
         sessionCookie: _backendClient.sessionCookie ?? '',
-        sessionId: session.id,
-      );
-      _logRecording(
-        'start_background.done',
-        data: <String, Object?>{'sessionId': session.id},
-      );
-      notifyListeners();
-    } catch (error) {
-      _logRecording(
-        'start_background.failed',
-        data: <String, Object?>{'sessionId': sessionId},
-        error: error,
-      );
-      if (sessionId != null) {
-        try {
-          await _backendClient.finalizeRecordingSession(
-            backendUrl,
-            sessionId,
-            stopReason: 'cancelled',
-          );
-        } catch (_) {}
-      }
-      errorMessage = _friendlyErrorMessage(error);
-      await refreshRecordings();
-    } finally {
-      isStartingRecording = false;
-      notifyListeners();
-    }
+        sessionId: sessionId,
+      ),
+    );
   }
 
   Future<void> pauseBackgroundRecording() async {
@@ -2354,21 +2328,7 @@ class NeoAgentController extends ChangeNotifier {
       final session = RecordingSessionItem.fromJson(
         _jsonMap(response['session']),
       );
-      final existingIndex = recordingSessions.indexWhere(
-        (item) => item.id == session.id,
-      );
-      if (existingIndex >= 0) {
-        recordingSessions = <RecordingSessionItem>[
-          ...recordingSessions.sublist(0, existingIndex),
-          session,
-          ...recordingSessions.sublist(existingIndex + 1),
-        ];
-      } else {
-        recordingSessions = <RecordingSessionItem>[
-          session,
-          ...recordingSessions,
-        ];
-      }
+      _upsertRecordingSession(session);
       notifyListeners();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -2380,9 +2340,7 @@ class NeoAgentController extends ChangeNotifier {
     try {
       errorMessage = null;
       await _backendClient.deleteRecordingSession(backendUrl, sessionId);
-      recordingSessions = recordingSessions
-          .where((item) => item.id != sessionId)
-          .toList();
+      _removeRecordingSession(sessionId);
       notifyListeners();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -2392,51 +2350,22 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<VoiceAssistantTurnResult> runVoiceAssistantTurn({
     required String sessionId,
-    String promptHint = '',
     String? ttsProvider,
     String? ttsVoice,
     String? ttsModel,
   }) async {
-    final resolvedTtsProvider =
-      (ttsProvider ??
-          settings['voice_tts_provider']?.toString() ??
-          'openai')
-            .trim();
-    final resolvedTtsModel =
-      (ttsModel ??
-          settings['voice_tts_model']?.toString() ??
-          'gpt-4o-mini-tts')
-        .trim();
-    final resolvedTtsVoice =
-      (ttsVoice ??
-          settings['voice_tts_voice']?.toString() ??
-          'alloy')
-        .trim();
-
     final response = await _backendClient.runVoiceAssistantTurn(
       backendUrl,
       sessionId: sessionId,
-      promptHint: promptHint,
-      ttsProvider: resolvedTtsProvider,
-      ttsVoice: resolvedTtsVoice,
-      ttsModel: resolvedTtsModel,
+      ttsProvider:
+          ttsProvider?.trim().ifEmpty(voiceTtsProvider) ?? voiceTtsProvider,
+      ttsVoice: ttsVoice?.trim().ifEmpty(voiceTtsVoice) ?? voiceTtsVoice,
+      ttsModel: ttsModel?.trim().ifEmpty(voiceTtsModel) ?? voiceTtsModel,
       agentId: _scopedAgentId,
     );
 
     final result = VoiceAssistantTurnResult.fromJson(response);
-    final session = result.session;
-    final existingIndex = recordingSessions.indexWhere(
-      (item) => item.id == session.id,
-    );
-    if (existingIndex >= 0) {
-      recordingSessions = <RecordingSessionItem>[
-        ...recordingSessions.sublist(0, existingIndex),
-        session,
-        ...recordingSessions.sublist(existingIndex + 1),
-      ];
-    } else {
-      recordingSessions = <RecordingSessionItem>[session, ...recordingSessions];
-    }
+    _upsertRecordingSession(result.session);
 
     if (result.transcript.trim().isNotEmpty) {
       _appendUserChatMessage(result.transcript, platform: 'voice_assistant');
@@ -2456,54 +2385,16 @@ class NeoAgentController extends ChangeNotifier {
     required String platform,
     bool transient = false,
   }) {
-    final trimmed = content.trim();
-    if (trimmed.isEmpty) {
-      return;
-    }
-
-    final previous = chatMessages.isNotEmpty ? chatMessages.last : null;
-    if (previous != null &&
-        previous.role == 'assistant' &&
-        previous.platform == platform &&
-        previous.content.trim() == trimmed) {
-      return;
-    }
-
-    chatMessages = <ChatEntry>[
-      ...chatMessages,
-      ChatEntry(
-        role: 'assistant',
-        content: trimmed,
-        platform: platform,
-        createdAt: DateTime.now(),
-        transient: transient,
-      ),
-    ];
+    _appendChatMessage(
+      content,
+      role: 'assistant',
+      platform: platform,
+      transient: transient,
+    );
   }
 
   void _appendUserChatMessage(String content, {required String platform}) {
-    final trimmed = content.trim();
-    if (trimmed.isEmpty) {
-      return;
-    }
-
-    final previous = chatMessages.isNotEmpty ? chatMessages.last : null;
-    if (previous != null &&
-        previous.role == 'user' &&
-        previous.platform == platform &&
-        previous.content.trim() == trimmed) {
-      return;
-    }
-
-    chatMessages = <ChatEntry>[
-      ...chatMessages,
-      ChatEntry(
-        role: 'user',
-        content: trimmed,
-        platform: platform,
-        createdAt: DateTime.now(),
-      ),
-    ];
+    _appendChatMessage(content, role: 'user', platform: platform);
   }
 
   void _appendToolNote(String summary, {String toolName = 'note'}) {
@@ -3871,22 +3762,19 @@ class NeoAgentController extends ChangeNotifier {
       settings['fallback_model_id']?.toString() ??
       _firstAvailableModelId(supportedModels);
 
-    String get voiceSttProvider =>
-      settings['voice_stt_provider']?.toString().trim().toLowerCase() ??
-      'openai';
+  String get voiceSttProvider =>
+      _settingString('voice_stt_provider', 'openai', lowercase: true);
 
-    String get voiceSttModel =>
-      settings['voice_stt_model']?.toString().trim() ?? 'gpt-4o-transcribe';
+  String get voiceSttModel =>
+      _settingString('voice_stt_model', 'gpt-4o-transcribe');
 
-    String get voiceTtsProvider =>
-      settings['voice_tts_provider']?.toString().trim().toLowerCase() ??
-      'openai';
+  String get voiceTtsProvider =>
+      _settingString('voice_tts_provider', 'openai', lowercase: true);
 
-    String get voiceTtsModel =>
-      settings['voice_tts_model']?.toString().trim() ?? 'gpt-4o-mini-tts';
+  String get voiceTtsModel =>
+      _settingString('voice_tts_model', 'gpt-4o-mini-tts');
 
-    String get voiceTtsVoice =>
-      settings['voice_tts_voice']?.toString().trim() ?? 'alloy';
+  String get voiceTtsVoice => _settingString('voice_tts_voice', 'alloy');
 
   String get accountLabel =>
       user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
@@ -7371,510 +7259,6 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
   }
 }
 
-class VoiceAssistantPanel extends StatefulWidget {
-  const VoiceAssistantPanel({super.key, required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  State<VoiceAssistantPanel> createState() => _VoiceAssistantPanelState();
-}
-
-class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
-  late final AudioPlayer _assistantPlayer;
-  bool _pttPressed = false;
-  bool _isRunningAssistant = false;
-  bool _isAssistantPlaying = false;
-  String _assistantReply = '';
-  String _assistantTranscript = '';
-  String? _voiceError;
-  Uint8List? _assistantAudioBytes;
-  String? _assistantAudioMimeType;
-  String? _lastCapturedSessionId;
-
-  @override
-  void initState() {
-    super.initState();
-    _assistantPlayer = AudioPlayer();
-    _assistantPlayer.onPlayerComplete.listen((_) {
-      if (!mounted) return;
-      setState(() {
-        _isAssistantPlaying = false;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    unawaited(_assistantPlayer.dispose());
-    super.dispose();
-  }
-
-  Future<void> _startPttCapture() async {
-    final runtime = widget.controller.recordingRuntime;
-    if (runtime.active || widget.controller.isStartingRecording) {
-      return;
-    }
-
-    setState(() {
-      _pttPressed = true;
-    });
-
-    try {
-      if (kIsWeb) {
-        await widget.controller.startWebMicrophoneRecording();
-      } else if (runtime.supportsBackgroundMic) {
-        await widget.controller.startBackgroundRecording();
-      } else if (runtime.supportsScreenAndMic) {
-        await widget.controller.startWebRecording();
-      }
-      _lastCapturedSessionId = widget.controller.recordingRuntime.sessionId;
-    } finally {
-      if (mounted) {
-        setState(() {
-          _pttPressed = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _stopPttCapture() async {
-    final runtime = widget.controller.recordingRuntime;
-    if (!runtime.active || widget.controller.isStoppingRecording) {
-      return;
-    }
-
-    final capturedSessionId = runtime.sessionId;
-
-    await widget.controller.stopRecording(stopReason: 'voice_assistant');
-
-    final targetSessionId = capturedSessionId ?? _lastCapturedSessionId;
-    if (targetSessionId != null && targetSessionId.trim().isNotEmpty) {
-      await _runAssistantTurn(targetSessionId.trim());
-    }
-  }
-
-  Future<void> _runAssistantTurn(String sessionId) async {
-    if (_isRunningAssistant) {
-      return;
-    }
-
-    setState(() {
-      _isRunningAssistant = true;
-      _voiceError = null;
-    });
-
-    try {
-      final result = await widget.controller.runVoiceAssistantTurn(
-        sessionId: sessionId,
-      );
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _assistantReply = result.replyText;
-        _assistantTranscript = result.transcript;
-        _assistantAudioBytes = result.audioBytes;
-        _assistantAudioMimeType = result.audioMimeType;
-        _voiceError = null;
-        if ((_assistantAudioBytes?.isEmpty ?? true) &&
-            (result.ttsError?.trim().isNotEmpty ?? false)) {
-          _voiceError =
-              'Speech playback unavailable (${result.ttsProvider ?? 'tts'}): ${result.ttsError}';
-        }
-      });
-
-      if (_assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty) {
-        await _playAssistantAudio();
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _voiceError = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRunningAssistant = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _playAssistantAudio() async {
-    final bytes = _assistantAudioBytes;
-    if (bytes == null || bytes.isEmpty) {
-      return;
-    }
-
-    await _assistantPlayer.stop();
-    final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
-        ? _assistantAudioMimeType!.trim()
-        : null;
-    await _assistantPlayer.play(BytesSource(bytes, mimeType: mimeType));
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isAssistantPlaying = true;
-    });
-  }
-
-  Future<void> _stopAssistantAudio() async {
-    await _assistantPlayer.stop();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isAssistantPlaying = false;
-    });
-  }
-
-  RecordingSessionItem? _latestVoiceSession() {
-    for (final session in widget.controller.recordingSessions) {
-      final hasAudioSource = session.sources.any(
-        (source) => source.mediaKind == 'audio' && source.chunkCount > 0,
-      );
-      if (hasAudioSource) {
-        return session;
-      }
-    }
-    return null;
-  }
-
-  String _activeCallElapsedLabel(RecordingRuntimeStatus runtime) {
-    final startedAt = runtime.startedAt;
-    if (startedAt == null) {
-      return '00:00';
-    }
-    final elapsed = DateTime.now().difference(startedAt);
-    final totalSeconds = math.max(0, elapsed.inSeconds);
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final runtime = controller.recordingRuntime;
-    final supportsPtt =
-        runtime.supportsBackgroundMic || runtime.supportsScreenAndMic;
-    final isBusy =
-        controller.isStartingRecording || controller.isStoppingRecording;
-    final canStart = supportsPtt && !isBusy && !runtime.active;
-    final canStop = runtime.active && !controller.isStoppingRecording;
-    final latestSession = _latestVoiceSession();
-    final canGenerate =
-        !_isRunningAssistant && latestSession != null && !runtime.active;
-    final hasAssistantAudio =
-        _assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty;
-    final callStatus = runtime.active
-        ? (runtime.paused ? 'Call paused' : 'On call')
-        : 'Ready';
-    final callSubtitle = runtime.active
-        ? _activeCallElapsedLabel(runtime)
-        : 'Push to talk';
-
-    return ListView(
-      padding: _pagePadding(context),
-      children: <Widget>[
-        _PageTitle(
-          title: 'Voice Assistant',
-          subtitle: 'In-app push-to-talk voice assistant.',
-          trailing: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              _DotStatus(
-                label: runtime.active
-                    ? (runtime.paused ? 'Paused' : 'Listening')
-                    : 'Standby',
-                color: runtime.active ? _danger : _success,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    _bgSecondary.withValues(alpha: 0.98),
-                    _bgPrimary.withValues(alpha: 0.96),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                border: Border.all(color: _borderLight),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 20,
-                    offset: const Offset(0, 14),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: <Widget>[
-                  Container(
-                    width: 84,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Neo Assistant',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(callStatus, style: TextStyle(color: _textSecondary)),
-                  const SizedBox(height: 2),
-                  Text(
-                    callSubtitle,
-                    style: TextStyle(
-                      color: _textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: 108,
-                    height: 108,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: <Color>[
-                          _accent.withValues(alpha: 0.95),
-                          _accentHover,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      runtime.active ? Icons.hearing : Icons.support_agent,
-                      color: Colors.white,
-                      size: 44,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 14,
-                    alignment: WrapAlignment.center,
-                    children: <Widget>[
-                      _PhoneActionButton(
-                        icon: Icons.auto_awesome_outlined,
-                        label: _isRunningAssistant ? 'Thinking' : 'Reply',
-                        onTap: canGenerate
-                            ? () => _runAssistantTurn(latestSession.id)
-                            : null,
-                      ),
-                      _PhoneActionButton(
-                        icon: _isAssistantPlaying
-                            ? Icons.stop_circle_outlined
-                            : Icons.play_arrow,
-                        label: _isAssistantPlaying ? 'Stop' : 'Playback',
-                        onTap: hasAssistantAudio
-                            ? (_isAssistantPlaying
-                                  ? _stopAssistantAudio
-                                  : _playAssistantAudio)
-                            : null,
-                      ),
-                      _PhoneActionButton(
-                        icon: Icons.refresh,
-                        label: 'Refresh',
-                        onTap: controller.refreshRecordings,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      GestureDetector(
-                        onLongPressStart: canStart
-                            ? (_) => unawaited(_startPttCapture())
-                            : null,
-                        onLongPressEnd: canStop
-                            ? (_) => unawaited(_stopPttCapture())
-                            : null,
-                        onLongPressCancel: canStop
-                            ? () => unawaited(_stopPttCapture())
-                            : null,
-                        child: _PhonePrimaryAction(
-                          icon: runtime.active ? Icons.mic_off : Icons.mic,
-                          label: runtime.active ? 'Release' : 'Hold to talk',
-                          color: (runtime.active || _pttPressed)
-                              ? _warning
-                              : _success,
-                          onTap: canStart ? _startPttCapture : null,
-                        ),
-                      ),
-                      const SizedBox(width: 22),
-                      _PhonePrimaryAction(
-                        icon: Icons.call_end,
-                        label: 'End',
-                        color: _danger,
-                        onTap: canStop ? _stopPttCapture : null,
-                      ),
-                    ],
-                  ),
-                  if (controller.errorMessage != null &&
-                      controller.errorMessage!.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 14),
-                    _InlineError(message: controller.errorMessage!),
-                  ],
-                  if (_voiceError != null &&
-                      _voiceError!.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    _InlineError(message: _voiceError!),
-                  ],
-                  if (_assistantReply.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 14),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _bgTertiary,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: _borderLight),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Assistant said',
-                            style: TextStyle(
-                              color: _textSecondary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(_assistantReply, style: TextStyle(height: 1.45)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PhoneActionButton extends StatelessWidget {
-  const _PhoneActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.45 : 1,
-      child: GestureDetector(
-        onTap: onTap,
-        child: SizedBox(
-          width: 82,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _bgCard,
-                  border: Border.all(color: _borderLight),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, size: 22, color: _textPrimary),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: _textSecondary),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PhonePrimaryAction extends StatelessWidget {
-  const _PhonePrimaryAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.45 : 1,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Material(
-            color: color,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onTap,
-              child: SizedBox(
-                width: 78,
-                height: 78,
-                child: Icon(icon, size: 34, color: Colors.white),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: _textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _RecordingSessionCard extends StatelessWidget {
   const _RecordingSessionCard({
     required this.controller,
@@ -8938,7 +8322,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, _setLocalState) {
+          builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
               title: Text('Telnyx Voice'),
@@ -12223,15 +11607,22 @@ class _SettingsPanelState extends State<SettingsPanel> {
     if (!_voiceTtsModelsByProvider.containsKey(_voiceTtsProvider)) {
       _voiceTtsProvider = 'openai';
     }
-    if (!(_voiceSttModelsByProvider[_voiceSttProvider]?.contains(_voiceSttModel) ?? false)) {
+    if (!(_voiceSttModelsByProvider[_voiceSttProvider]?.contains(
+          _voiceSttModel,
+        ) ??
+        false)) {
       _voiceSttModel = _voiceSttModelsByProvider[_voiceSttProvider]!.first;
     }
-    if (!(_voiceTtsModelsByProvider[_voiceTtsProvider]?.contains(_voiceTtsModel) ?? false)) {
+    if (!(_voiceTtsModelsByProvider[_voiceTtsProvider]?.contains(
+          _voiceTtsModel,
+        ) ??
+        false)) {
       _voiceTtsModel = _voiceTtsModelsByProvider[_voiceTtsProvider]!.first;
     }
-    final ttsVoiceOptions = _voiceTtsVoicesByProvider[_voiceTtsProvider] ??
-        const <String>[];
-    if (ttsVoiceOptions.isNotEmpty && !ttsVoiceOptions.contains(_voiceTtsVoice)) {
+    final ttsVoiceOptions =
+        _voiceTtsVoicesByProvider[_voiceTtsProvider] ?? const <String>[];
+    if (ttsVoiceOptions.isNotEmpty &&
+        !ttsVoiceOptions.contains(_voiceTtsVoice)) {
       _voiceTtsVoice = ttsVoiceOptions.first;
     }
 
@@ -12304,11 +11695,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     defaultChatModel: _defaultChatModel,
                     defaultSubagentModel: _defaultSubagentModel,
                     fallbackModel: _fallbackModel,
-                  voiceSttProvider: _voiceSttProvider,
-                  voiceSttModel: _voiceSttModel,
-                  voiceTtsProvider: _voiceTtsProvider,
-                  voiceTtsModel: _voiceTtsModel,
-                  voiceTtsVoice: _voiceTtsVoice,
+                    voiceSttProvider: _voiceSttProvider,
+                    voiceSttModel: _voiceSttModel,
+                    voiceTtsProvider: _voiceTtsProvider,
+                    voiceTtsModel: _voiceTtsModel,
+                    voiceTtsVoice: _voiceTtsVoice,
                     aiProviderConfigs: _buildProviderPayload(),
                   ),
             style: FilledButton.styleFrom(backgroundColor: _accent),
@@ -12427,18 +11818,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             decoration: const InputDecoration(
                               labelText: 'STT Provider',
                             ),
-                            items: const <String>[
-                              'openai',
-                              'deepgram',
-                              'gemini',
-                            ]
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                            items:
+                                const <String>['openai', 'deepgram', 'gemini']
+                                    .map(
+                                      (value) => DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value),
+                                      ),
+                                    )
+                                    .toList(),
                             onChanged: (value) {
                               if (value == null) return;
                               setState(() {
@@ -12461,15 +11849,16 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             decoration: const InputDecoration(
                               labelText: 'STT Model',
                             ),
-                            items: (_voiceSttModelsByProvider[_voiceSttProvider] ??
-                                    const <String>[])
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                            items:
+                                (_voiceSttModelsByProvider[_voiceSttProvider] ??
+                                        const <String>[])
+                                    .map(
+                                      (value) => DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value),
+                                      ),
+                                    )
+                                    .toList(),
                             onChanged: (value) {
                               if (value != null) {
                                 setState(() => _voiceSttModel = value);
@@ -12484,18 +11873,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             decoration: const InputDecoration(
                               labelText: 'TTS Provider',
                             ),
-                            items: const <String>[
-                              'openai',
-                              'deepgram',
-                              'gemini',
-                            ]
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                            items:
+                                const <String>['openai', 'deepgram', 'gemini']
+                                    .map(
+                                      (value) => DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value),
+                                      ),
+                                    )
+                                    .toList(),
                             onChanged: (value) {
                               if (value == null) return;
                               setState(() {
@@ -12525,15 +11911,16 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             decoration: const InputDecoration(
                               labelText: 'TTS Model',
                             ),
-                            items: (_voiceTtsModelsByProvider[_voiceTtsProvider] ??
-                                    const <String>[])
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                            items:
+                                (_voiceTtsModelsByProvider[_voiceTtsProvider] ??
+                                        const <String>[])
+                                    .map(
+                                      (value) => DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value),
+                                      ),
+                                    )
+                                    .toList(),
                             onChanged: (value) {
                               if (value != null) {
                                 setState(() => _voiceTtsModel = value);

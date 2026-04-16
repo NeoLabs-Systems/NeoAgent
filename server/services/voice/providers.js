@@ -31,6 +31,10 @@ const DEFAULT_TTS_VOICES = Object.freeze({
   gemini: 'Kore',
 });
 
+const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const DEFAULT_GEMINI_TRANSCRIPTION_PROMPT =
+  'Transcribe this audio verbatim. Return only the transcript text.';
+
 function readSharedApiKeys() {
   try {
     const keysPath = path.join(AGENT_DATA_DIR, 'API_KEYS.json');
@@ -92,6 +96,47 @@ function resolveTtsVoice(provider, requestedVoice) {
   const normalizedProvider = normalizeTtsProvider(provider);
   const voice = String(requestedVoice || '').trim();
   return voice || DEFAULT_TTS_VOICES[normalizedProvider];
+}
+
+function normalizeVoiceSynthesisOptions(options = {}) {
+  const provider = normalizeTtsProvider(options.provider);
+  return {
+    provider,
+    model: resolveTtsModel(provider, options.model),
+    voice: resolveTtsVoice(provider, options.voice),
+  };
+}
+
+function requireApiKey(settingLabel, candidates = []) {
+  const apiKey = resolveApiKey(candidates);
+  if (!apiKey) {
+    throw new Error(`${settingLabel} is selected but ${candidates[0]} is not configured.`);
+  }
+  return apiKey;
+}
+
+async function throwResponseError(response, prefix) {
+  const body = await response.text();
+  throw new Error(`${prefix} (${response.status}): ${body || 'empty response'}`);
+}
+
+async function fetchJsonOrThrow(url, init, errorPrefix) {
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    await throwResponseError(response, errorPrefix);
+  }
+  return response.json();
+}
+
+async function fetchAudioOrThrow(url, init, errorPrefix, defaultMimeType = 'audio/mpeg') {
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    await throwResponseError(response, errorPrefix);
+  }
+  return {
+    audioBytes: Buffer.from(await response.arrayBuffer()),
+    mimeType: response.headers.get('content-type') || defaultMimeType,
+  };
 }
 
 function guessExtFromMimeType(mimeType) {
@@ -177,14 +222,11 @@ async function transcribeWithDeepgram(filePath, mimeType) {
 }
 
 async function transcribeWithGemini(filePath, model, mimeType) {
-  const apiKey = resolveApiKey(['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
-  if (!apiKey) {
-    throw new Error('Gemini STT is selected but GOOGLE_AI_KEY is not configured.');
-  }
+  const apiKey = requireApiKey('Gemini STT', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
 
   const audioBytes = await fs.promises.readFile(filePath);
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+  const payload = await fetchJsonOrThrow(
+    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
       headers: {
@@ -195,7 +237,7 @@ async function transcribeWithGemini(filePath, model, mimeType) {
           {
             parts: [
               {
-                text: 'Transcribe this audio verbatim. Return only the transcript text.',
+                text: DEFAULT_GEMINI_TRANSCRIPTION_PROMPT,
               },
               {
                 inlineData: {
@@ -211,14 +253,8 @@ async function transcribeWithGemini(filePath, model, mimeType) {
         },
       }),
     },
+    'Gemini STT request failed',
   );
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Gemini STT request failed (${response.status}): ${body || 'empty response'}`);
-  }
-
-  const payload = await response.json();
   const parts = payload?.candidates?.[0]?.content?.parts;
   const transcript = Array.isArray(parts)
     ? parts.map((part) => String(part?.text || '')).join('\n').trim()
@@ -252,12 +288,9 @@ async function synthesizeWithOpenAi(text, model, voice) {
 }
 
 async function synthesizeWithDeepgram(text, model) {
-  const apiKey = resolveApiKey(['DEEPGRAM_API_KEY']);
-  if (!apiKey) {
-    throw new Error('Deepgram TTS is selected but DEEPGRAM_API_KEY is not configured.');
-  }
+  const apiKey = requireApiKey('Deepgram TTS', ['DEEPGRAM_API_KEY']);
 
-  const response = await fetch(
+  return fetchAudioOrThrow(
     `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}`,
     {
       method: 'POST',
@@ -267,28 +300,15 @@ async function synthesizeWithDeepgram(text, model) {
       },
       body: JSON.stringify({ text }),
     },
+    'Deepgram TTS request failed',
   );
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Deepgram TTS request failed (${response.status}): ${body || 'empty response'}`);
-  }
-
-  const audioBytes = Buffer.from(await response.arrayBuffer());
-  return {
-    audioBytes,
-    mimeType: response.headers.get('content-type') || 'audio/mpeg',
-  };
 }
 
 async function synthesizeWithGemini(text, model, voice) {
-  const apiKey = resolveApiKey(['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
-  if (!apiKey) {
-    throw new Error('Gemini TTS is selected but GOOGLE_AI_KEY is not configured.');
-  }
+  const apiKey = requireApiKey('Gemini TTS', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+  const payload = await fetchJsonOrThrow(
+    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
       headers: {
@@ -313,14 +333,8 @@ async function synthesizeWithGemini(text, model, voice) {
         },
       }),
     },
+    'Gemini TTS request failed',
   );
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Gemini TTS request failed (${response.status}): ${body || 'empty response'}`);
-  }
-
-  const payload = await response.json();
   const parts = payload?.candidates?.[0]?.content?.parts;
   const audioPart = Array.isArray(parts)
     ? parts.find((part) => part?.inlineData?.data || part?.inline_data?.data)
@@ -358,9 +372,7 @@ async function synthesizeVoiceReply(text, options = {}) {
     throw new Error('Voice reply text is empty; cannot synthesize speech.');
   }
 
-  const provider = normalizeTtsProvider(options.provider);
-  const model = resolveTtsModel(provider, options.model);
-  const voice = resolveTtsVoice(provider, options.voice);
+  const { provider, model, voice } = normalizeVoiceSynthesisOptions(options);
 
   if (provider === 'openai') {
     return synthesizeWithOpenAi(content, model, voice);
@@ -384,6 +396,7 @@ module.exports = {
   resolveSttModel,
   resolveTtsModel,
   resolveTtsVoice,
+  normalizeVoiceSynthesisOptions,
   guessExtFromMimeType,
   transcribeVoiceInput,
   synthesizeVoiceReply,

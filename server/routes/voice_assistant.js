@@ -4,12 +4,34 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { TurnCoordinator } = require('../services/voice/turnCoordinator');
+const { normalizeVoiceSynthesisOptions } = require('../services/voice/providers');
 const { runVoiceTranscriptTurn } = require('../services/voice/turnRunner');
 
 const router = express.Router();
 const turnCoordinator = new TurnCoordinator();
 
 router.use(requireAuth);
+
+async function resolveCompletedVoiceSession(recordingManager, userId, sessionId) {
+  let session = recordingManager.getSession(userId, sessionId);
+  if (session.status === 'recording') {
+    session = recordingManager.finalizeSession(userId, sessionId, {
+      stopReason: 'voice_assistant',
+      autoProcess: false,
+      includeInsights: false,
+    });
+  }
+  if (session.status === 'processing') {
+    await recordingManager.processSession(userId, sessionId, {
+      includeInsights: false,
+    });
+    session = recordingManager.getSession(userId, sessionId);
+  }
+  if (session.status !== 'completed') {
+    throw new Error(`Recording session is not ready for assistant response (status: ${session.status}).`);
+  }
+  return session;
+}
 
 router.post('/respond', async (req, res) => {
   try {
@@ -26,30 +48,20 @@ router.post('/respond', async (req, res) => {
       return res.status(400).json({ error: 'sessionId is required.' });
     }
 
-    const ttsVoice = String(req.body?.ttsVoice || 'alloy').trim() || 'alloy';
-    const ttsModel = String(req.body?.ttsModel || 'gpt-4o-mini-tts').trim() || 'gpt-4o-mini-tts';
-    const ttsProvider = String(req.body?.ttsProvider || 'openai').trim() || 'openai';
+    const voiceOptions = normalizeVoiceSynthesisOptions({
+      provider: req.body?.ttsProvider,
+      model: req.body?.ttsModel,
+      voice: req.body?.ttsVoice,
+    });
     const promptHint = String(req.body?.promptHint || '').trim();
     const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
 
     const responsePayload = await turnCoordinator.run(sessionId, async () => {
-      let session = recordingManager.getSession(userId, sessionId);
-      if (session.status === 'recording') {
-        session = recordingManager.finalizeSession(userId, sessionId, {
-          stopReason: 'voice_assistant',
-          autoProcess: false,
-          includeInsights: false,
-        });
-      }
-      if (session.status === 'processing') {
-        await recordingManager.processSession(userId, sessionId, {
-          includeInsights: false,
-        });
-        session = recordingManager.getSession(userId, sessionId);
-      }
-      if (session.status !== 'completed') {
-        throw new Error(`Recording session is not ready for assistant response (status: ${session.status}).`);
-      }
+      const session = await resolveCompletedVoiceSession(
+        recordingManager,
+        userId,
+        sessionId,
+      );
 
       const transcript = String(session.transcriptText || '').trim();
       if (!transcript) {
@@ -67,9 +79,9 @@ router.post('/respond', async (req, res) => {
         },
         agentEngine,
         memoryManager,
-        ttsProvider,
-        ttsModel,
-        ttsVoice,
+        ttsProvider: voiceOptions.provider,
+        ttsModel: voiceOptions.model,
+        ttsVoice: voiceOptions.voice,
       });
 
       return {

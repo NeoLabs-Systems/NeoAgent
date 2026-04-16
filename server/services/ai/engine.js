@@ -1312,7 +1312,24 @@ class AgentEngine {
 
   getReasoningEffort(providerName, options = {}) {
     if (providerName === 'google') return undefined;
+    if (options.latencyProfile === 'voice') {
+      return 'low';
+    }
     return options.reasoningEffort || process.env.REASONING_EFFORT || 'low';
+  }
+
+  shouldFastCompleteVoiceReply({
+    options = {},
+    toolExecutions = [],
+    failedStepCount = 0,
+    messagingSent = false,
+    lastReply = '',
+  }) {
+    return options.latencyProfile === 'voice'
+      && toolExecutions.length === 0
+      && failedStepCount === 0
+      && !messagingSent
+      && Boolean(String(lastReply || '').trim());
   }
 
   getMessagingRetryLimit(maxIterations) {
@@ -1417,7 +1434,10 @@ class AgentEngine {
     const conversationId = options.conversationId;
     const app = options.app || this.app;
     const triggerSource = options.triggerSource || 'web';
-    const historyWindow = aiSettings.chat_history_window;
+    const historyWindow = Math.max(
+      1,
+      Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
+    );
     const toolReplayBudget = aiSettings.tool_replay_budget_chars;
     const maxIterations = this.getIterationLimit(triggerType, aiSettings);
     const providerStatusConfig = {
@@ -1844,6 +1864,15 @@ class AgentEngine {
             continue;
           }
           const messagingSent = this.activeRuns.get(runId)?.messagingSent || false;
+          if (this.shouldFastCompleteVoiceReply({
+            options,
+            toolExecutions,
+            failedStepCount,
+            messagingSent,
+            lastReply: lastContent,
+          })) {
+            break;
+          }
           if (iteration < maxIterations) {
             const fallbackStatus = (toolExecutions.length > 0 || failedStepCount > 0 || messagingSent) ? 'continue' : 'complete';
             const loopState = await this.decideLoopState({

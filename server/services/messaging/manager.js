@@ -105,6 +105,49 @@ class MessagingManager extends EventEmitter {
     this.messageHandlers.push(handler);
   }
 
+  async ingestMessage(userId, platformName, msg, options = {}) {
+    const agentId = this._agentId(userId, {
+      ...options,
+      agentId: options?.agentId ?? msg?.agentId ?? null,
+    });
+    const metadata = {
+      sender: msg.sender,
+      senderName: msg.senderName,
+      senderDisplayName: msg.senderDisplayName,
+      senderUsername: msg.senderUsername,
+      senderTag: msg.senderTag,
+      isGroup: msg.isGroup,
+      mediaType: msg.mediaType,
+      ...(msg.metadata && typeof msg.metadata === 'object' ? msg.metadata : {}),
+    };
+    db.prepare('INSERT INTO messages (user_id, agent_id, role, content, platform, platform_msg_id, platform_chat_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(
+        userId,
+        agentId,
+        'user',
+        msg.content,
+        platformName,
+        msg.messageId,
+        msg.chatId,
+        JSON.stringify(metadata),
+        msg.timestamp,
+      );
+
+    const enrichedMsg = { ...msg, agentId, platform: platformName };
+
+    this.io.to(`user:${userId}`).emit('messaging:message', enrichedMsg);
+
+    for (const handler of this.messageHandlers) {
+      try {
+        await handler(userId, enrichedMsg);
+      } catch (err) {
+        console.error('Message handler error:', err.message);
+      }
+    }
+
+    return enrichedMsg;
+  }
+
   _agentId(userId, options = {}) {
     return resolveAgentId(userId, options?.agentId || options?.agent_id || null);
   }
@@ -294,32 +337,7 @@ class MessagingManager extends EventEmitter {
     });
 
     platform.on('message', async (msg) => {
-      const metadata = {
-        sender: msg.sender,
-        senderName: msg.senderName,
-        senderDisplayName: msg.senderDisplayName,
-        senderUsername: msg.senderUsername,
-        senderTag: msg.senderTag,
-        isGroup: msg.isGroup,
-        mediaType: msg.mediaType,
-      };
-      db.prepare('INSERT INTO messages (user_id, agent_id, role, content, platform, platform_msg_id, platform_chat_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(userId, agentId, 'user', msg.content, platformName, msg.messageId, msg.chatId,
-          JSON.stringify(metadata),
-          msg.timestamp);
-
-      // Enrich with platform name so handlers and the web UI always have it
-      const enrichedMsg = { agentId, platform: platformName, ...msg };
-
-      this.io.to(`user:${userId}`).emit('messaging:message', enrichedMsg);
-
-      for (const handler of this.messageHandlers) {
-        try {
-          await handler(userId, enrichedMsg);
-        } catch (err) {
-          console.error('Message handler error:', err.message);
-        }
-      }
+      await this.ingestMessage(userId, platformName, msg, { agentId });
     });
 
     const existing = db.prepare('SELECT id FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?').get(userId, agentId, platformName);

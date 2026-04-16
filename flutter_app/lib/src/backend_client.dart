@@ -1184,15 +1184,13 @@ class BackendClient {
   Future<Map<String, dynamic>> runVoiceAssistantTurn(
     String baseUrl, {
     required String sessionId,
-    String promptHint = '',
     String ttsProvider = 'openai',
     String ttsVoice = 'alloy',
-    String ttsModel = 'tts-1',
+    String ttsModel = 'gpt-4o-mini-tts',
     String? agentId,
   }) async {
     final payload = <String, dynamic>{
       'sessionId': sessionId,
-      'promptHint': promptHint,
       'ttsProvider': ttsProvider,
       'ttsVoice': ttsVoice,
       'ttsModel': ttsModel,
