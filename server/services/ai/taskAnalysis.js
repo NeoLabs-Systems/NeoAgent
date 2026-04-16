@@ -423,6 +423,7 @@ function requiresVerifierWithoutEvidence(analysis, finalReply) {
 }
 
 function shouldRunVerifier({ analysis, toolExecutions = [], finalReply = '' }) {
+  if (!analysis || typeof analysis !== 'object') return true;
   if (requiresVerifierWithoutEvidence(analysis, finalReply)) return true;
 
   const meaningfulExecutions = getMeaningfulToolExecutions(toolExecutions);
