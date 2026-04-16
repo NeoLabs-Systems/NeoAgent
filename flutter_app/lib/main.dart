@@ -7424,6 +7424,18 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     return null;
   }
 
+  String _activeCallElapsedLabel(RecordingRuntimeStatus runtime) {
+    final startedAt = runtime.startedAt;
+    if (startedAt == null) {
+      return '00:00';
+    }
+    final elapsed = DateTime.now().difference(startedAt);
+    final totalSeconds = math.max(0, elapsed.inSeconds);
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -7439,6 +7451,14 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
         !_isRunningAssistant && latestSession != null && !runtime.active;
     final hasAssistantAudio =
         _assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty;
+    final callStatus = runtime.active
+        ? (runtime.paused ? 'Call paused' : 'On call')
+        : 'Ready to call';
+    final callSubtitle = runtime.active
+        ? _activeCallElapsedLabel(runtime)
+        : (runtime.platformLabel?.trim().isNotEmpty == true
+              ? runtime.platformLabel!
+              : 'Voice assistant');
 
     return ListView(
       padding: _pagePadding(context),
@@ -7446,7 +7466,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
         _PageTitle(
           title: 'Voice Assistant',
           subtitle:
-              'Push-to-talk capture with instant playback, using the same recording flow as voice integrations.',
+              'Phone-style calling UI with push-to-talk and spoken replies.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -7466,185 +7486,194 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'Press and hold to talk',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        const SizedBox(height: 14),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                gradient: LinearGradient(
+                  colors: <Color>[
+                    _bgSecondary.withValues(alpha: 0.98),
+                    _bgPrimary.withValues(alpha: 0.96),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  supportsPtt
-                      ? 'Hold the button while speaking. Release to stop, process, and make playback available below.'
-                      : 'Push-to-talk is available on Android (background mic) or in browser mode with screen+mic capture.',
-                  style: TextStyle(color: _textSecondary, height: 1.45),
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: GestureDetector(
-                    onLongPressStart: canStart
-                        ? (_) => unawaited(_startPttCapture())
-                        : null,
-                    onLongPressEnd: canStop
-                        ? (_) => unawaited(_stopPttCapture())
-                        : null,
-                    onLongPressCancel: canStop
-                        ? () => unawaited(_stopPttCapture())
-                        : null,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOutCubic,
-                      width: 188,
-                      height: 188,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: <Color>[
-                            (runtime.active || _pttPressed)
-                                ? _danger.withValues(alpha: 0.95)
-                                : _accent.withValues(alpha: 0.95),
-                            (runtime.active || _pttPressed)
-                                ? _danger
-                                : _accentHover,
-                          ],
-                        ),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: (runtime.active || _pttPressed)
-                                ? _danger.withValues(alpha: 0.35)
-                                : _accent.withValues(alpha: 0.34),
-                            blurRadius: 28,
-                            spreadRadius: 5,
-                            offset: const Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(
-                            runtime.active ? Icons.hearing : Icons.mic,
-                            color: Colors.white,
-                            size: 46,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            runtime.active
-                                ? 'Release to stop'
-                                : (supportsPtt
-                                      ? 'Hold to talk'
-                                      : 'Unsupported'),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
+                border: Border.all(color: _borderLight),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 20,
+                    offset: const Offset(0, 14),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: <Widget>[
+                  Container(
+                    width: 84,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(99),
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Center(
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                  const SizedBox(height: 18),
+                  Text(
+                    'Neo Assistant',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(callStatus, style: TextStyle(color: _textSecondary)),
+                  const SizedBox(height: 2),
+                  Text(
+                    callSubtitle,
+                    style: TextStyle(
+                      color: _textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: 108,
+                    height: 108,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: <Color>[
+                          _accent.withValues(alpha: 0.95),
+                          _accentHover,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      runtime.active ? Icons.hearing : Icons.support_agent,
+                      color: Colors.white,
+                      size: 44,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 14,
+                    alignment: WrapAlignment.center,
                     children: <Widget>[
-                      OutlinedButton.icon(
-                        onPressed: canStart ? _startPttCapture : null,
-                        icon: Icon(Icons.fiber_manual_record),
-                        label: Text('Start'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: canStop ? _stopPttCapture : null,
-                        icon: Icon(Icons.stop_circle_outlined),
-                        label: Text('Stop'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: canGenerate
+                      _PhoneActionButton(
+                        icon: Icons.auto_awesome_outlined,
+                        label: _isRunningAssistant ? 'Thinking' : 'Reply',
+                        onTap: canGenerate
                             ? () => _runAssistantTurn(latestSession.id)
                             : null,
-                        icon: Icon(Icons.auto_awesome_outlined),
-                        label: Text(
-                          _isRunningAssistant
-                              ? 'Thinking...'
-                              : 'Generate reply',
-                        ),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: hasAssistantAudio
+                      _PhoneActionButton(
+                        icon: _isAssistantPlaying
+                            ? Icons.stop_circle_outlined
+                            : Icons.play_arrow,
+                        label: _isAssistantPlaying ? 'Stop' : 'Playback',
+                        onTap: hasAssistantAudio
                             ? (_isAssistantPlaying
                                   ? _stopAssistantAudio
                                   : _playAssistantAudio)
                             : null,
-                        icon: Icon(
-                          _isAssistantPlaying
-                              ? Icons.stop_circle_outlined
-                              : Icons.play_arrow,
-                        ),
-                        label: Text(
-                          _isAssistantPlaying
-                              ? 'Stop reply audio'
-                              : 'Play reply audio',
-                        ),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: controller.refreshRecordings,
-                        icon: Icon(Icons.refresh),
-                        label: Text('Refresh'),
+                      _PhoneActionButton(
+                        icon: Icons.refresh,
+                        label: 'Refresh',
+                        onTap: controller.refreshRecordings,
                       ),
-                      OutlinedButton.icon(
-                        onPressed: () => controller.setSelectedSection(
+                      _PhoneActionButton(
+                        icon: Icons.library_music_outlined,
+                        label: 'Recents',
+                        onTap: () => controller.setSelectedSection(
                           AppSection.recordings,
                         ),
-                        icon: Icon(Icons.library_music_outlined),
-                        label: Text('Open recordings'),
                       ),
                     ],
                   ),
-                ),
-                if (controller.errorMessage != null &&
-                    controller.errorMessage!.trim().isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 14),
-                  _InlineError(message: controller.errorMessage!),
-                ],
-                if (_voiceError != null &&
-                    _voiceError!.trim().isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 10),
-                  _InlineError(message: _voiceError!),
-                ],
-                if (_assistantReply.trim().isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _bgSecondary,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _borderLight),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          'Assistant reply',
-                          style: TextStyle(
-                            color: _textSecondary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                  const SizedBox(height: 22),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      GestureDetector(
+                        onLongPressStart: canStart
+                            ? (_) => unawaited(_startPttCapture())
+                            : null,
+                        onLongPressEnd: canStop
+                            ? (_) => unawaited(_stopPttCapture())
+                            : null,
+                        onLongPressCancel: canStop
+                            ? () => unawaited(_stopPttCapture())
+                            : null,
+                        child: _PhonePrimaryAction(
+                          icon: runtime.active ? Icons.mic_off : Icons.mic,
+                          label: runtime.active ? 'Release' : 'Hold to talk',
+                          color: (runtime.active || _pttPressed)
+                              ? _warning
+                              : _success,
+                          onTap: canStart ? _startPttCapture : null,
                         ),
-                        const SizedBox(height: 8),
-                        Text(_assistantReply, style: TextStyle(height: 1.45)),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 22),
+                      _PhonePrimaryAction(
+                        icon: Icons.call_end,
+                        label: 'End',
+                        color: _danger,
+                        onTap: canStop ? _stopPttCapture : null,
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    supportsPtt
+                        ? 'Long-press the green button to talk, release to process and play reply audio.'
+                        : 'Voice calling needs Android background mic or browser screen+mic support.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: _textSecondary, height: 1.4),
+                  ),
+                  if (controller.errorMessage != null &&
+                      controller.errorMessage!.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    _InlineError(message: controller.errorMessage!),
+                  ],
+                  if (_voiceError != null &&
+                      _voiceError!.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 10),
+                    _InlineError(message: _voiceError!),
+                  ],
+                  if (_assistantReply.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _bgTertiary,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _borderLight),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Assistant said',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(_assistantReply, style: TextStyle(height: 1.45)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -7704,6 +7733,102 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _PhoneActionButton extends StatelessWidget {
+  const _PhoneActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: onTap == null ? 0.45 : 1,
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 82,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _bgCard,
+                  border: Border.all(color: _borderLight),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 22, color: _textPrimary),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: _textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhonePrimaryAction extends StatelessWidget {
+  const _PhonePrimaryAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: onTap == null ? 0.45 : 1,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Material(
+            color: color,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onTap,
+              child: SizedBox(
+                width: 78,
+                height: 78,
+                child: Icon(icon, size: 34, color: Colors.white),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: _textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -8223,6 +8348,13 @@ class _ChatPanelState extends State<ChatPanel> {
                   runSpacing: 10,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
+                    FilledButton.icon(
+                      onPressed: () => controller.setSelectedSection(
+                        AppSection.voiceAssistant,
+                      ),
+                      icon: Icon(Icons.call),
+                      label: Text('Call'),
+                    ),
                     _MetaPill(
                       label: controller.modelIndicator,
                       icon: Icons.memory_outlined,

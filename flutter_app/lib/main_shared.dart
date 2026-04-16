@@ -67,7 +67,6 @@ class _AmbientBackdrop extends StatelessWidget {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
-    AppSection.voiceAssistant,
     AppSection.agents,
     AppSection.recordings,
     if (controller.showWearablesSection) AppSection.wearables,
