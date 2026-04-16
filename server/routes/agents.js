@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { isInterimAssistantMetadata } = require('../services/ai/interim');
+const { buildAgentRunContext } = require('./_helpers/agentRunContext');
 
 router.use(requireAuth);
 
@@ -84,23 +85,17 @@ router.post('/', async (req, res) => {
       return res.status(500).json({ error: 'Agent engine or memory manager is not initialized.' });
     }
     const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(req.session.userId, { agentId });
-    const { ensureDefaultAiSettings, getAiSettings } = require('../services/ai/settings');
-    const { getWebChatContext } = require('../services/ai/history');
-    ensureDefaultAiSettings(req.session.userId, agentId);
-    const aiSettings = getAiSettings(req.session.userId, agentId);
-    const webContext = getWebChatContext(req.session.userId, aiSettings.chat_history_window, { agentId });
-    const lastMatchIndex = webContext.recentMessages.findLastIndex(
-      (message) => message.role === 'user' && message.content === task
-    );
-    const priorMessages = webContext.recentMessages
-      .filter((_, index) => index !== lastMatchIndex)
-      .slice(-aiSettings.chat_history_window);
+    const { priorMessages, priorSummary } = buildAgentRunContext({
+      userId: req.session.userId,
+      agentId,
+      task,
+    });
     const result = await engine.run(req.session.userId, task, {
       ...(options || {}),
       agentId,
       conversationId,
       priorMessages,
-      priorSummary: webContext.summary,
+      priorSummary,
     });
 
     if (result?.status === 'completed' && result?.content) {

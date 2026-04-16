@@ -30,7 +30,10 @@ class _AmbientBackdrop extends StatelessWidget {
           Positioned(
             top: 90,
             right: -120,
-            child: _BlurOrb(size: 280, color: _accentAlt.withValues(alpha: 0.85)),
+            child: _BlurOrb(
+              size: 280,
+              color: _accentAlt.withValues(alpha: 0.85),
+            ),
           ),
           Positioned(
             bottom: -140,
@@ -64,6 +67,7 @@ class _AmbientBackdrop extends StatelessWidget {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
+    AppSection.voiceAssistant,
     AppSection.agents,
     AppSection.recordings,
     if (controller.showWearablesSection) AppSection.wearables,
@@ -228,10 +232,7 @@ class _PageTitle extends StatelessWidget {
               children: <Widget>[
                 Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
                 const SizedBox(height: 8),
-                Text(
-                  title,
-                  style: _displayTitleStyle(30),
-                ),
+                Text(title, style: _displayTitleStyle(30)),
                 const SizedBox(height: 10),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
@@ -255,10 +256,7 @@ class _PageTitle extends StatelessWidget {
                     children: <Widget>[
                       Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
                       const SizedBox(height: 8),
-                      Text(
-                        title,
-                        style: _displayTitleStyle(32),
-                      ),
+                      Text(title, style: _displayTitleStyle(32)),
                       const SizedBox(height: 10),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 760),
@@ -461,10 +459,7 @@ class _OverviewCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            Text(
-              value,
-              style: _displayTitleStyle(28),
-            ),
+            Text(value, style: _displayTitleStyle(28)),
             const SizedBox(height: 12),
             Text(helper, style: TextStyle(color: _textSecondary, height: 1.45)),
           ],
@@ -580,7 +575,9 @@ class _SidebarButton extends StatelessWidget {
               : null,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: active ? _accent.withValues(alpha: 0.35) : Colors.transparent,
+            color: active
+                ? _accent.withValues(alpha: 0.35)
+                : Colors.transparent,
           ),
         ),
         child: Material(

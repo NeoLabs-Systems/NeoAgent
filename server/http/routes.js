@@ -23,6 +23,7 @@ const routeRegistry = [
   { basePath: '/api/browser-extension', modulePath: '../routes/browser_extension' },
   { basePath: '/api/android', modulePath: '../routes/android' },
   { basePath: '/api/recordings', modulePath: '../routes/recordings' },
+  { basePath: '/api/voice-assistant', modulePath: '../routes/voice_assistant' },
   { basePath: '/api/wearables', modulePath: '../routes/wearables' },
   { basePath: '/api/wearable-device', modulePath: '../routes/wearable_device' },
   { basePath: '/api/mobile/health', modulePath: '../routes/mobile-health' }

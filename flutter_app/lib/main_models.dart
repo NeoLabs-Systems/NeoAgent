@@ -887,6 +887,44 @@ class RecordingTranscriptSegment {
   }
 }
 
+class VoiceAssistantTurnResult {
+  const VoiceAssistantTurnResult({
+    required this.session,
+    required this.transcript,
+    required this.replyText,
+    required this.audioMimeType,
+    required this.audioBytes,
+    this.runId,
+    this.ttsModel,
+    this.ttsVoice,
+  });
+
+  factory VoiceAssistantTurnResult.fromJson(Map<dynamic, dynamic> json) {
+    final audioBase64 = json['audioBase64']?.toString() ?? '';
+    return VoiceAssistantTurnResult(
+      session: RecordingSessionItem.fromJson(_jsonMap(json['session'])),
+      transcript: json['transcript']?.toString() ?? '',
+      replyText: json['replyText']?.toString() ?? '',
+      audioMimeType: json['audioMimeType']?.toString() ?? 'audio/mpeg',
+      audioBytes: audioBase64.trim().isEmpty
+          ? Uint8List(0)
+          : base64Decode(audioBase64),
+      runId: json['runId']?.toString(),
+      ttsModel: json['ttsModel']?.toString(),
+      ttsVoice: json['ttsVoice']?.toString(),
+    );
+  }
+
+  final RecordingSessionItem session;
+  final String transcript;
+  final String replyText;
+  final String audioMimeType;
+  final Uint8List audioBytes;
+  final String? runId;
+  final String? ttsModel;
+  final String? ttsVoice;
+}
+
 class RunDetailSnapshot {
   const RunDetailSnapshot({
     required this.run,

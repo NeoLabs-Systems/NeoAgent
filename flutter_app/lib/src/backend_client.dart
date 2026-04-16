@@ -874,7 +874,8 @@ class BackendClient {
       '/api/wearables/pairing/code',
       _withAgentId(<String, dynamic>{
         'ttlMinutes': ttlMinutes,
-        if (deviceHint != null && deviceHint.isNotEmpty) 'deviceHint': deviceHint,
+        if (deviceHint != null && deviceHint.isNotEmpty)
+          'deviceHint': deviceHint,
       }, agentId),
     );
   }
@@ -1178,6 +1179,27 @@ class BackendClient {
 
   Future<void> deleteRecordingSession(String baseUrl, String sessionId) async {
     await deleteMap(baseUrl, '/api/recordings/$sessionId');
+  }
+
+  Future<Map<String, dynamic>> runVoiceAssistantTurn(
+    String baseUrl, {
+    required String sessionId,
+    String promptHint = '',
+    String ttsVoice = 'alloy',
+    String ttsModel = 'tts-1',
+    String? agentId,
+  }) async {
+    final payload = <String, dynamic>{
+      'sessionId': sessionId,
+      'promptHint': promptHint,
+      'ttsVoice': ttsVoice,
+      'ttsModel': ttsModel,
+    };
+    return postMap(
+      baseUrl,
+      _withAgentQuery('/api/voice-assistant/respond', agentId),
+      payload,
+    );
   }
 
   Future<Map<String, dynamic>> streamWearableData(

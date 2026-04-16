@@ -39,6 +39,7 @@ const String _packageOrUrlHint = 'Package name or URL';
 
 enum AppSection {
   chat,
+  voiceAssistant,
   devices,
   recordings,
   messaging,
@@ -99,6 +100,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return 'Chat';
+      case AppSection.voiceAssistant:
+        return 'Voice assistant';
       case AppSection.devices:
         return 'Devices';
       case AppSection.recordings:
@@ -136,6 +139,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return Icons.chat_bubble_outline;
+      case AppSection.voiceAssistant:
+        return Icons.keyboard_voice_outlined;
       case AppSection.devices:
         return Icons.devices_other_outlined;
       case AppSection.recordings:
@@ -172,6 +177,7 @@ extension AppSectionX on AppSection {
   SidebarGroup get group {
     switch (this) {
       case AppSection.chat:
+      case AppSection.voiceAssistant:
         return SidebarGroup.chat;
       case AppSection.agents:
         return SidebarGroup.agents;
@@ -198,7 +204,7 @@ extension AppSectionX on AppSection {
 
   String get navigationTitle {
     final groupLabel = group.label;
-    if (this == AppSection.wearables) {
+    if (this == AppSection.wearables || this == AppSection.voiceAssistant) {
       return label;
     }
     if (group == SidebarGroup.chat || group == SidebarGroup.recordings) {
@@ -2318,6 +2324,49 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<VoiceAssistantTurnResult> runVoiceAssistantTurn({
+    required String sessionId,
+    String promptHint = '',
+    String ttsVoice = 'alloy',
+    String ttsModel = 'tts-1',
+  }) async {
+    final response = await _backendClient.runVoiceAssistantTurn(
+      backendUrl,
+      sessionId: sessionId,
+      promptHint: promptHint,
+      ttsVoice: ttsVoice,
+      ttsModel: ttsModel,
+      agentId: _scopedAgentId,
+    );
+
+    final result = VoiceAssistantTurnResult.fromJson(response);
+    final session = result.session;
+    final existingIndex = recordingSessions.indexWhere(
+      (item) => item.id == session.id,
+    );
+    if (existingIndex >= 0) {
+      recordingSessions = <RecordingSessionItem>[
+        ...recordingSessions.sublist(0, existingIndex),
+        session,
+        ...recordingSessions.sublist(existingIndex + 1),
+      ];
+    } else {
+      recordingSessions = <RecordingSessionItem>[session, ...recordingSessions];
+    }
+
+    if (result.transcript.trim().isNotEmpty) {
+      _appendUserChatMessage(result.transcript, platform: 'voice_assistant');
+    }
+    if (result.replyText.trim().isNotEmpty) {
+      _appendAssistantChatMessage(
+        result.replyText,
+        platform: 'voice_assistant',
+      );
+    }
+    notifyListeners();
+    return result;
+  }
+
   void _appendAssistantChatMessage(
     String content, {
     required String platform,
@@ -2329,12 +2378,10 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     final previous = chatMessages.isNotEmpty ? chatMessages.last : null;
-    if (
-      previous != null &&
-      previous.role == 'assistant' &&
-      previous.platform == platform &&
-      previous.content.trim() == trimmed
-    ) {
+    if (previous != null &&
+        previous.role == 'assistant' &&
+        previous.platform == platform &&
+        previous.content.trim() == trimmed) {
       return;
     }
 
@@ -2357,12 +2404,10 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     final previous = chatMessages.isNotEmpty ? chatMessages.last : null;
-    if (
-      previous != null &&
-      previous.role == 'user' &&
-      previous.platform == platform &&
-      previous.content.trim() == trimmed
-    ) {
+    if (previous != null &&
+        previous.role == 'user' &&
+        previous.platform == platform &&
+        previous.content.trim() == trimmed) {
       return;
     }
 
@@ -3895,7 +3940,8 @@ class NeoAgentController extends ChangeNotifier {
       ];
       _appendAssistantChatMessage(
         payload['content']?.toString() ?? '',
-        platform: payload['platform']?.toString().ifEmpty('webchat') ?? 'webchat',
+        platform:
+            payload['platform']?.toString().ifEmpty('webchat') ?? 'webchat',
       );
       notifyListeners();
     });
@@ -3907,7 +3953,8 @@ class NeoAgentController extends ChangeNotifier {
       ];
       _appendUserChatMessage(
         payload['content']?.toString() ?? '',
-        platform: payload['platform']?.toString().ifEmpty('webchat') ?? 'webchat',
+        platform:
+            payload['platform']?.toString().ifEmpty('webchat') ?? 'webchat',
       );
       notifyListeners();
     });
@@ -4243,14 +4290,13 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
       final content = payload['content']?.toString() ?? '';
-      final kind = payload['kind']?.toString().ifEmpty('progress') ?? 'progress';
+      final kind =
+          payload['kind']?.toString().ifEmpty('progress') ?? 'progress';
       final platform = payload['platform']?.toString().ifEmpty('web') ?? 'web';
       _appendAssistantChatMessage(content, platform: platform);
       _appendToolNote(content, toolName: 'interim_$kind');
       if (activeRun?.runId == runId) {
-        activeRun = activeRun!.copyWith(
-          phase: 'Responding',
-        );
+        activeRun = activeRun!.copyWith(phase: 'Responding');
       }
       notifyListeners();
     });
@@ -7214,6 +7260,454 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
   }
 }
 
+class VoiceAssistantPanel extends StatefulWidget {
+  const VoiceAssistantPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<VoiceAssistantPanel> createState() => _VoiceAssistantPanelState();
+}
+
+class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
+  late final AudioPlayer _assistantPlayer;
+  bool _pttPressed = false;
+  bool _isRunningAssistant = false;
+  bool _isAssistantPlaying = false;
+  String _assistantReply = '';
+  String _assistantTranscript = '';
+  String? _voiceError;
+  Uint8List? _assistantAudioBytes;
+  String? _assistantAudioMimeType;
+  String? _lastCapturedSessionId;
+
+  @override
+  void initState() {
+    super.initState();
+    _assistantPlayer = AudioPlayer();
+    _assistantPlayer.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() {
+        _isAssistantPlaying = false;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_assistantPlayer.dispose());
+    super.dispose();
+  }
+
+  Future<void> _startPttCapture() async {
+    final runtime = widget.controller.recordingRuntime;
+    if (runtime.active || widget.controller.isStartingRecording) {
+      return;
+    }
+
+    setState(() {
+      _pttPressed = true;
+    });
+
+    try {
+      if (runtime.supportsBackgroundMic) {
+        await widget.controller.startBackgroundRecording();
+      } else if (runtime.supportsScreenAndMic) {
+        await widget.controller.startWebRecording();
+      }
+      _lastCapturedSessionId = widget.controller.recordingRuntime.sessionId;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _pttPressed = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopPttCapture() async {
+    final runtime = widget.controller.recordingRuntime;
+    if (!runtime.active || widget.controller.isStoppingRecording) {
+      return;
+    }
+
+    final capturedSessionId = runtime.sessionId;
+
+    await widget.controller.stopRecording();
+
+    final targetSessionId = capturedSessionId ?? _lastCapturedSessionId;
+    if (targetSessionId != null && targetSessionId.trim().isNotEmpty) {
+      await _runAssistantTurn(targetSessionId.trim());
+    }
+  }
+
+  Future<void> _runAssistantTurn(String sessionId) async {
+    if (_isRunningAssistant) {
+      return;
+    }
+
+    setState(() {
+      _isRunningAssistant = true;
+      _voiceError = null;
+    });
+
+    try {
+      final result = await widget.controller.runVoiceAssistantTurn(
+        sessionId: sessionId,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _assistantReply = result.replyText;
+        _assistantTranscript = result.transcript;
+        _assistantAudioBytes = result.audioBytes;
+        _assistantAudioMimeType = result.audioMimeType;
+      });
+
+      await _playAssistantAudio();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _voiceError = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRunningAssistant = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _playAssistantAudio() async {
+    final bytes = _assistantAudioBytes;
+    if (bytes == null || bytes.isEmpty) {
+      return;
+    }
+
+    await _assistantPlayer.stop();
+    final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
+        ? _assistantAudioMimeType!.trim()
+        : null;
+    await _assistantPlayer.play(BytesSource(bytes, mimeType: mimeType));
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isAssistantPlaying = true;
+    });
+  }
+
+  Future<void> _stopAssistantAudio() async {
+    await _assistantPlayer.stop();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isAssistantPlaying = false;
+    });
+  }
+
+  RecordingSessionItem? _latestVoiceSession() {
+    for (final session in widget.controller.recordingSessions) {
+      final hasAudioSource = session.sources.any(
+        (source) => source.mediaKind == 'audio' && source.chunkCount > 0,
+      );
+      if (hasAudioSource) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final runtime = controller.recordingRuntime;
+    final supportsPtt =
+        runtime.supportsBackgroundMic || runtime.supportsScreenAndMic;
+    final isBusy =
+        controller.isStartingRecording || controller.isStoppingRecording;
+    final canStart = supportsPtt && !isBusy && !runtime.active;
+    final canStop = runtime.active && !controller.isStoppingRecording;
+    final latestSession = _latestVoiceSession();
+    final canGenerate =
+        !_isRunningAssistant && latestSession != null && !runtime.active;
+    final hasAssistantAudio =
+        _assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty;
+
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Voice Assistant',
+          subtitle:
+              'Push-to-talk capture with instant playback, using the same recording flow as voice integrations.',
+          trailing: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              _DotStatus(
+                label: runtime.active
+                    ? (runtime.paused ? 'Paused' : 'Listening')
+                    : 'Standby',
+                color: runtime.active ? _danger : _success,
+              ),
+              if (runtime.platformLabel != null &&
+                  runtime.platformLabel!.isNotEmpty)
+                _MetaPill(
+                  label: runtime.platformLabel!,
+                  icon: Icons.memory_outlined,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Press and hold to talk',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  supportsPtt
+                      ? 'Hold the button while speaking. Release to stop, process, and make playback available below.'
+                      : 'Push-to-talk is available on Android (background mic) or in browser mode with screen+mic capture.',
+                  style: TextStyle(color: _textSecondary, height: 1.45),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: GestureDetector(
+                    onLongPressStart: canStart
+                        ? (_) => unawaited(_startPttCapture())
+                        : null,
+                    onLongPressEnd: canStop
+                        ? (_) => unawaited(_stopPttCapture())
+                        : null,
+                    onLongPressCancel: canStop
+                        ? () => unawaited(_stopPttCapture())
+                        : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOutCubic,
+                      width: 188,
+                      height: 188,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: <Color>[
+                            (runtime.active || _pttPressed)
+                                ? _danger.withValues(alpha: 0.95)
+                                : _accent.withValues(alpha: 0.95),
+                            (runtime.active || _pttPressed)
+                                ? _danger
+                                : _accentHover,
+                          ],
+                        ),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: (runtime.active || _pttPressed)
+                                ? _danger.withValues(alpha: 0.35)
+                                : _accent.withValues(alpha: 0.34),
+                            blurRadius: 28,
+                            spreadRadius: 5,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            runtime.active ? Icons.hearing : Icons.mic,
+                            color: Colors.white,
+                            size: 46,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            runtime.active
+                                ? 'Release to stop'
+                                : (supportsPtt
+                                      ? 'Hold to talk'
+                                      : 'Unsupported'),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Center(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      OutlinedButton.icon(
+                        onPressed: canStart ? _startPttCapture : null,
+                        icon: Icon(Icons.fiber_manual_record),
+                        label: Text('Start'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: canStop ? _stopPttCapture : null,
+                        icon: Icon(Icons.stop_circle_outlined),
+                        label: Text('Stop'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: canGenerate
+                            ? () => _runAssistantTurn(latestSession.id)
+                            : null,
+                        icon: Icon(Icons.auto_awesome_outlined),
+                        label: Text(
+                          _isRunningAssistant
+                              ? 'Thinking...'
+                              : 'Generate reply',
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: hasAssistantAudio
+                            ? (_isAssistantPlaying
+                                  ? _stopAssistantAudio
+                                  : _playAssistantAudio)
+                            : null,
+                        icon: Icon(
+                          _isAssistantPlaying
+                              ? Icons.stop_circle_outlined
+                              : Icons.play_arrow,
+                        ),
+                        label: Text(
+                          _isAssistantPlaying
+                              ? 'Stop reply audio'
+                              : 'Play reply audio',
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: controller.refreshRecordings,
+                        icon: Icon(Icons.refresh),
+                        label: Text('Refresh'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => controller.setSelectedSection(
+                          AppSection.recordings,
+                        ),
+                        icon: Icon(Icons.library_music_outlined),
+                        label: Text('Open recordings'),
+                      ),
+                    ],
+                  ),
+                ),
+                if (controller.errorMessage != null &&
+                    controller.errorMessage!.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 14),
+                  _InlineError(message: controller.errorMessage!),
+                ],
+                if (_voiceError != null &&
+                    _voiceError!.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  _InlineError(message: _voiceError!),
+                ],
+                if (_assistantReply.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _bgSecondary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Assistant reply',
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(_assistantReply, style: TextStyle(height: 1.45)),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        const _SectionTitle('Latest voice playback'),
+        const SizedBox(height: 12),
+        if (latestSession == null)
+          const _EmptyCard(
+            title: 'No playable voice capture yet',
+            subtitle:
+                'Record a push-to-talk sample and it will appear here for immediate playback.',
+          )
+        else
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    latestSession.title,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${latestSession.startedAtLabel} • ${latestSession.statusLabel}',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  _RecordingSourceAudioControls(
+                    controller: controller,
+                    session: latestSession,
+                  ),
+                  if (_assistantTranscript.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    Text(
+                      'Detected transcript',
+                      style: TextStyle(
+                        color: _textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_assistantTranscript, style: TextStyle(height: 1.45)),
+                  ],
+                  if (latestSession.transcriptText
+                      .trim()
+                      .isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    Text(
+                      latestSession.transcriptText,
+                      style: TextStyle(height: 1.45),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _RecordingSessionCard extends StatelessWidget {
   const _RecordingSessionCard({
     required this.controller,
@@ -8131,8 +8625,8 @@ class _MessagingPanelState extends State<MessagingPanel> {
     String pairingCode = '';
     String expiresAt = '';
     final status =
-      widget.controller.messagingStatuses['waveshare_wearable'] ??
-      MessagingPlatformStatus.empty('waveshare_wearable');
+        widget.controller.messagingStatuses['waveshare_wearable'] ??
+        MessagingPlatformStatus.empty('waveshare_wearable');
     final isConnected = status.isConnected;
 
     await showDialog<void>(
@@ -8155,13 +8649,17 @@ class _MessagingPanelState extends State<MessagingPanel> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: deviceLabel,
-                      decoration: const InputDecoration(labelText: 'Device Label'),
+                      decoration: const InputDecoration(
+                        labelText: 'Device Label',
+                      ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: ttlController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Code TTL (minutes)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Code TTL (minutes)',
+                      ),
                     ),
                     const SizedBox(height: 12),
                     if (pairingCode.isNotEmpty)
@@ -8185,10 +8683,11 @@ class _MessagingPanelState extends State<MessagingPanel> {
                 OutlinedButton(
                   onPressed: () async {
                     final ttl = int.tryParse(ttlController.text.trim()) ?? 10;
-                    final result = await widget.controller.createWearablePairingCode(
-                      ttlMinutes: ttl,
-                      deviceHint: deviceLabel.text.trim(),
-                    );
+                    final result = await widget.controller
+                        .createWearablePairingCode(
+                          ttlMinutes: ttl,
+                          deviceHint: deviceLabel.text.trim(),
+                        );
                     setLocalState(() {
                       pairingCode = (result['code'] ?? '').toString();
                       expiresAt = (result['expiresAt'] ?? '').toString();
@@ -9564,7 +10063,9 @@ class _MessagingCard extends StatelessWidget {
   ) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final devices = await controller.fetchMessagingPlatformDevices(platform.id);
+      final devices = await controller.fetchMessagingPlatformDevices(
+        platform.id,
+      );
       if (!context.mounted) return;
       await showDialog<void>(
         context: context,
@@ -9582,13 +10083,19 @@ class _MessagingCard extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final device = devices[index];
                         final name = (device['name'] ?? 'Unnamed').toString();
-                        final status = (device['status'] ?? 'unknown').toString();
+                        final status = (device['status'] ?? 'unknown')
+                            .toString();
                         final battery = device['batteryLevel'];
                         final mac = (device['macAddress'] ?? 'n/a').toString();
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                             const SizedBox(height: 2),
                             Text('Status: $status'),
                             Text('Battery: ${battery ?? 'n/a'}'),

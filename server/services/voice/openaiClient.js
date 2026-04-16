@@ -1,0 +1,36 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { OpenAI } = require('openai');
+const { AGENT_DATA_DIR } = require('../../../runtime/paths');
+
+let cachedClient = null;
+
+function resolveOpenAiApiKey() {
+  if (typeof process.env.OPENAI_API_KEY === 'string' && process.env.OPENAI_API_KEY.trim()) {
+    return process.env.OPENAI_API_KEY.trim();
+  }
+
+  try {
+    const keysPath = path.join(AGENT_DATA_DIR, 'API_KEYS.json');
+    const keys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
+    const candidate = keys.OPENAI_API_KEY || keys.openai_api_key || keys.openai;
+    return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function getOpenAiClient() {
+  if (cachedClient) return cachedClient;
+  const apiKey = resolveOpenAiApiKey();
+  if (!apiKey) return null;
+  cachedClient = new OpenAI({ apiKey });
+  return cachedClient;
+}
+
+module.exports = {
+  getOpenAiClient,
+  resolveOpenAiApiKey,
+};

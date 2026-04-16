@@ -4,8 +4,10 @@ const { BasePlatform } = require('./base');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const { OpenAI } = require('openai');
-const { DATA_DIR, AGENT_DATA_DIR } = require('../../../runtime/paths');
+const { DATA_DIR } = require('../../../runtime/paths');
+const { getOpenAiClient } = require('../voice/openaiClient');
+const { synthesizeSpeechBuffer } = require('../voice/openaiSpeech');
+const { createVoiceTurnSessionState } = require('../voice/turnState');
 
 const AUDIO_DIR = path.join(DATA_DIR, 'telnyx-audio');
 const RECORDING_TURN_LIMIT_MS = 4000;
@@ -48,16 +50,8 @@ class TelnyxVoicePlatform extends BasePlatform {
     const TelnyxClient = TelnyxSDK.default || TelnyxSDK;
     this._client = new TelnyxClient({ apiKey: this.apiKey });
 
-    let openAiKey = process.env.OPENAI_API_KEY;
-    if (!openAiKey) {
-      try {
-        const keysPath = path.join(AGENT_DATA_DIR, 'API_KEYS.json');
-        const keys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
-        openAiKey = keys.OPENAI_API_KEY || keys.openai_api_key || keys.openai || null;
-      } catch {}
-    }
-    if (openAiKey) {
-      this._openai = new OpenAI({ apiKey: openAiKey });
+    this._openai = getOpenAiClient();
+    if (this._openai) {
       console.log('[TelnyxVoice] OpenAI TTS enabled');
     } else {
       console.warn('[TelnyxVoice] No OpenAI API key found — TTS will use Telnyx native speak (language auto-detected)');
@@ -175,18 +169,7 @@ class TelnyxVoicePlatform extends BasePlatform {
   }
 
   _initSession(ccId, callerNumber = '') {
-    this._sessions.set(ccId, {
-      callerNumber,
-      isProcessing: false,
-      awaitingUserInput: false,
-      isThinking: false,
-      replySent: false,
-      processedRecordings: new Set(),
-      awaitingSecret: false,
-      secretDigits: '',
-      audioQueue: [],
-      isPlayingInterim: false,
-    });
+    this._sessions.set(ccId, createVoiceTurnSessionState({ callerNumber }));
   }
 
   _session(ccId)    { return this._sessions.get(ccId); }
@@ -266,12 +249,10 @@ class TelnyxVoicePlatform extends BasePlatform {
   }
 
   async _tts(text, destPath) {
-    const mp3 = await this._openai.audio.speech.create({
+    const buf = await synthesizeSpeechBuffer(this._openai, text, {
       model: this.ttsModel,
       voice: this.ttsVoice,
-      input: text,
     });
-    const buf = Buffer.from(await mp3.arrayBuffer());
     await fs.promises.writeFile(destPath, buf);
   }
 

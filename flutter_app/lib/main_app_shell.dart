@@ -171,8 +171,8 @@ class _AuthViewState extends State<AuthView> {
         : 'Sign in';
     final subtitle = _registerMode
         ? (controller.hasUser
-          ? 'Create another NeoOS account.'
-          : 'This account will unlock NeoOS on this machine.')
+              ? 'Create another NeoOS account.'
+              : 'This account will unlock NeoOS on this machine.')
         : 'Enter your NeoOS account details.';
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle =
@@ -1121,6 +1121,8 @@ class _SectionBody extends StatelessWidget {
     switch (controller.selectedSection) {
       case AppSection.chat:
         return ChatPanel(controller: controller);
+      case AppSection.voiceAssistant:
+        return VoiceAssistantPanel(controller: controller);
       case AppSection.devices:
         return DevicesPanel(controller: controller);
       case AppSection.recordings:
