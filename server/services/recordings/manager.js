@@ -48,28 +48,10 @@ class RecordingManager {
   }
 
   getSession(userId, sessionId) {
-    const session = db.prepare(`
-      SELECT *
-      FROM recording_sessions
-      WHERE user_id = ? AND id = ?
-    `).get(userId, sessionId);
-    if (!session) {
-      throw new Error('Recording session not found.');
-    }
+    const session = this.#requireOwnedSession(userId, sessionId);
 
-    const sources = db.prepare(`
-      SELECT *
-      FROM recording_sources
-      WHERE session_id = ?
-      ORDER BY created_at ASC
-    `).all(sessionId);
-
-    const segments = db.prepare(`
-      SELECT *
-      FROM recording_transcript_segments
-      WHERE session_id = ?
-      ORDER BY start_ms ASC, id ASC
-    `).all(sessionId);
+    const sources = this.#getSessionSources(sessionId);
+    const segments = this.#getSessionTranscriptSegments(sessionId);
 
     return {
       ...this.#mapSession(session),
@@ -88,6 +70,47 @@ class RecordingManager {
       throw new Error('Recording session not found.');
     }
     return session;
+  }
+
+  #getSessionSources(sessionId) {
+    return db.prepare(`
+      SELECT *
+      FROM recording_sources
+      WHERE session_id = ?
+      ORDER BY created_at ASC
+    `).all(sessionId);
+  }
+
+  #getSessionTranscriptSegments(sessionId) {
+    return db.prepare(`
+      SELECT *
+      FROM recording_transcript_segments
+      WHERE session_id = ?
+      ORDER BY start_ms ASC, id ASC
+    `).all(sessionId);
+  }
+
+  #clearSessionTranscriptSegments(sessionId) {
+    db.prepare(`
+      DELETE FROM recording_transcript_segments
+      WHERE session_id = ?
+    `).run(sessionId);
+  }
+
+  #getSessionSourceByKey(sessionId, sourceKey) {
+    return db.prepare(`
+      SELECT *
+      FROM recording_sources
+      WHERE session_id = ? AND LOWER(source_key) = LOWER(?)
+    `).get(sessionId, sourceKey);
+  }
+
+  #touchSessionUpdatedAt(sessionId) {
+    db.prepare(`
+      UPDATE recording_sessions
+      SET updated_at = ?
+      WHERE id = ?
+    `).run(new Date().toISOString(), sessionId);
   }
 
   #countSessionChunks(sessionId) {
@@ -223,12 +246,7 @@ class RecordingManager {
       throw new Error('sourceKey is required.');
     }
 
-    // Check case - the stored source_key is lowercase from normalizeSources
-    const source = db.prepare(`
-      SELECT *
-      FROM recording_sources
-      WHERE session_id = ? AND LOWER(source_key) = LOWER(?)
-    `).get(sessionId, sourceKey);
+    const source = this.#getSessionSourceByKey(sessionId, sourceKey);
 
     if (!source) {
       throw new Error(`Unknown recording source: ${sourceKey}`);
@@ -309,11 +327,7 @@ class RecordingManager {
         source.id,
       );
 
-      db.prepare(`
-        UPDATE recording_sessions
-        SET updated_at = ?
-        WHERE id = ?
-      `).run(new Date().toISOString(), sessionId);
+      this.#touchSessionUpdatedAt(sessionId);
     })();
 
     return {
@@ -405,21 +419,13 @@ class RecordingManager {
   async processSession(userId, sessionId) {
     this.#requireOwnedSession(userId, sessionId);
 
-    const sources = db.prepare(`
-      SELECT *
-      FROM recording_sources
-      WHERE session_id = ?
-      ORDER BY created_at ASC
-    `).all(sessionId);
+    const sources = this.#getSessionSources(sessionId);
     if (sources.length == 0) {
       throw new Error('Recording session has no sources.');
     }
 
     db.transaction(() => {
-      db.prepare(`
-        DELETE FROM recording_transcript_segments
-        WHERE session_id = ?
-      `).run(sessionId);
+      this.#clearSessionTranscriptSegments(sessionId);
       db.prepare(`
         UPDATE recording_sources
         SET status = ?, updated_at = ?

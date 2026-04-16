@@ -18,10 +18,12 @@ const {
   buildExecutionGuidance,
   buildPlanPrompt,
   buildVerifierPrompt,
+  isDirectAnswerEligibleAnalysis,
   normalizeExecutionPlan,
   normalizeTaskAnalysis,
   normalizeVerificationResult,
   parseJsonObject,
+  promoteAnalysisMode,
   shouldRunVerifier,
 } = require('./taskAnalysis');
 const { getCapabilityHealth, summarizeCapabilityHealth } = require('./capabilityHealth');
@@ -45,6 +47,44 @@ function generateTitle(task) {
   }
   const cleaned = task.replace(/^\[.*?\]\s*/i, '').replace(/^(system|task|prompt)[:\s]+/i, '').trim();
   return cleaned.slice(0, 90);
+}
+
+function planningDepthForForceMode(forceMode) {
+  return forceMode === 'plan_execute' ? 'deep' : 'light';
+}
+
+function buildSkipTaskAnalysisResult(forceMode) {
+  return {
+    mode: forceMode === 'plan_execute' ? 'plan_execute' : 'execute',
+    reply_mode: 'task',
+    freshness_risk: 'none',
+    verification_need: 'none',
+    planning_depth: planningDepthForForceMode(forceMode),
+    confidence: 0.5,
+    suggested_tools: [],
+    needs_subagents: false,
+    draft_reply: '',
+    goal: 'Complete the user request accurately.',
+    success_criteria: [],
+  };
+}
+
+function buildAnalyzeTaskFallback(forceMode) {
+  return {
+    mode: forceMode || 'execute',
+    verification_need: 'light',
+    planning_depth: planningDepthForForceMode(forceMode),
+  };
+}
+
+function applyForcedAnalysisMode(analysis, forceMode) {
+  if (!analysis || typeof analysis !== 'object') return analysis;
+  if (forceMode !== 'plan_execute') return analysis;
+  return {
+    ...analysis,
+    mode: 'plan_execute',
+    planning_depth: 'deep',
+  };
 }
 
 async function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null, providerConfig = {}) {
@@ -847,18 +887,13 @@ class AgentEngine {
       model,
       messages,
       prompt: buildAnalysisPrompt({
-        triggerSource: options.triggerSource || 'web',
         capabilityHealth: summary,
         tools,
         forceMode,
       }),
       maxTokens: 1100,
       normalize: normalizeTaskAnalysis,
-      fallback: {
-        mode: forceMode || 'execute',
-        verification_need: 'light',
-        planning_depth: forceMode === 'plan_execute' ? 'deep' : 'light',
-      },
+      fallback: buildAnalyzeTaskFallback(forceMode),
       reasoningEffort: this.getReasoningEffort(providerName, options),
     });
 
@@ -1520,19 +1555,7 @@ class AgentEngine {
 
     try {
       if (options.skipTaskAnalysis === true) {
-        analysis = {
-          mode: options.forceMode === 'plan_execute' ? 'plan_execute' : 'execute',
-          reply_mode: 'task',
-          freshness_risk: 'none',
-          verification_need: 'none',
-          planning_depth: options.forceMode === 'plan_execute' ? 'deep' : 'light',
-          confidence: 0.5,
-          suggested_tools: [],
-          needs_subagents: false,
-          draft_reply: '',
-          goal: 'Complete the user request accurately.',
-          success_criteria: [],
-        };
+        analysis = buildSkipTaskAnalysisResult(options.forceMode);
       } else {
         const analysisResult = await this.analyzeTask({
           provider,
@@ -1546,14 +1569,13 @@ class AgentEngine {
         });
         analysisUsage = analysisResult.usage || 0;
         totalTokens += analysisUsage;
-        analysis = { ...analysisResult.analysis };
-        if (options.forceMode === 'plan_execute') {
-          analysis.mode = 'plan_execute';
-          analysis.planning_depth = 'deep';
-        }
-        if (analysis.mode === 'direct_answer' && (analysis.verification_need !== 'none' || analysis.freshness_risk !== 'none')) {
-          analysis.mode = analysis.planning_depth === 'deep' ? 'plan_execute' : 'execute';
-        }
+        analysis = applyForcedAnalysisMode({ ...analysisResult.analysis }, options.forceMode);
+        analysis.mode = promoteAnalysisMode(analysis.mode, {
+          verificationNeed: analysis.verification_need,
+          freshnessRisk: analysis.freshness_risk,
+          draftReply: analysis.draft_reply,
+          planningDepth: analysis.planning_depth,
+        });
 
         stepIndex += 1;
         const analysisStepId = uuidv4();
@@ -1625,13 +1647,8 @@ class AgentEngine {
       });
       messages = sanitizeConversationMessages(messages);
 
-      directAnswerEligible = (
-        analysis.mode === 'direct_answer'
-        && analysis.verification_need === 'none'
-        && analysis.freshness_risk === 'none'
-        && !analysis.needs_subagents
-        && normalizeOutgoingMessage(analysis.draft_reply)
-      );
+      directAnswerEligible = isDirectAnswerEligibleAnalysis(analysis)
+        && Boolean(normalizeOutgoingMessage(analysis.draft_reply));
 
       if (directAnswerEligible) {
         iteration = 1;

@@ -5,6 +5,7 @@ const { finished } = require('stream/promises');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const db = require('../db/database');
+const { readChunkBody } = require('./_helpers/readChunkBody');
 
 const router = express.Router();
 
@@ -65,24 +66,6 @@ function statusFromMessage(message, rules, fallbackStatus = 500) {
 function respondWithMappedError(res, err, rules, fallbackStatus = 500) {
   const message = sanitizeError(err);
   res.status(statusFromMessage(message, rules, fallbackStatus)).json({ error: message });
-}
-
-async function readChunkBody(req) {
-  if (Buffer.isBuffer(req.body) && req.body.length > 0) {
-    return req.body;
-  }
-  if (req.readableEnded) {
-    return Buffer.alloc(0);
-  }
-
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (chunk) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    });
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
 }
 
 router.get('/', (req, res) => {

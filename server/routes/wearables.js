@@ -5,7 +5,13 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { wearableDeviceAuth } = require('../services/wearables/device_auth');
-const { readChunkBody } = require('./_helpers/readChunkBody');
+const {
+  buildIngestHttpResponse,
+  readWearableAudioChunk,
+  requireCharacteristicUuid,
+  requireWearableManager,
+  toWearableRouteError,
+} = require('./_helpers/wearableAudioRoutes');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -76,64 +82,43 @@ router.post('/:macAddress/stop-live', (req, res) => {
     const ended = manager.stopLiveStream(req.session.userId, req.params.macAddress, 'wearable_stopped');
     res.json({ success: true, ended });
   } catch (err) {
-    const is404 = /not found/i.test(err.message);
-    res.status(is404 ? 404 : 500).json({ error: sanitizeError(err) });
+    const mapped = toWearableRouteError(err);
+    res.status(mapped.status).json({ error: mapped.message });
   }
 });
 
 router.post('/:macAddress/stream', async (req, res) => {
   try {
-    const manager = req.app.locals.wearableManager;
-    const rawBuffer = await readChunkBody(req, {
-      maxSize: 10 * 1024 * 1024,
-      timeout: 30000,
-    });
-    if (rawBuffer.length === 0) return res.status(400).json({ error: 'Empty payload' });
-
-    const characteristicUuid = req.headers['x-characteristic-uuid'] || req.query.characteristicUuid;
-    if (!characteristicUuid || String(characteristicUuid).trim().length === 0) {
-      return res.status(400).json({ error: 'Missing characteristicUuid (x-characteristic-uuid header or query.characteristicUuid)' });
-    }
+    const manager = requireWearableManager(req.app.locals);
+    const rawBuffer = await readWearableAudioChunk(req);
+    const characteristicUuid = requireCharacteristicUuid(
+      req,
+      'Missing characteristicUuid (x-characteristic-uuid header or query.characteristicUuid)'
+    );
     const ingestResult = manager.handleLiveStreamChunk(
       req.session.userId,
       req.params.macAddress,
       rawBuffer,
-      { characteristicUuid: String(characteristicUuid) },
+      { characteristicUuid },
     );
-
-    if (!ingestResult) {
-      return res.status(202).json({
-        success: true,
-        accepted: false,
-        ignored: true,
-      });
-    }
-
-    const status = ingestResult.duplicate ? 202 : 201;
-    return res.status(status).json({
-      success: true,
-      ...ingestResult,
-    });
+    const response = buildIngestHttpResponse(ingestResult);
+    return res.status(response.status).json(response.body);
   } catch (err) {
-    const is404 = /not found/i.test(err.message);
-    res.status(is404 ? 404 : 500).json({ error: sanitizeError(err) });
+    const mapped = toWearableRouteError(err);
+    res.status(mapped.status).json({ error: mapped.message });
   }
 });
 
 router.post('/:macAddress/sync', async (req, res) => {
   try {
-    const manager = req.app.locals.wearableManager;
-    const rawBuffer = await readChunkBody(req, {
-      maxSize: 10 * 1024 * 1024,
-      timeout: 30000,
-    });
-    if (rawBuffer.length === 0) return res.status(400).json({ error: 'Empty payload' });
+    const manager = requireWearableManager(req.app.locals);
+    const rawBuffer = await readWearableAudioChunk(req);
 
     const session = await manager.syncOfflineAudio(req.session.userId, req.params.macAddress, rawBuffer);
     res.status(200).json({ success: true, sessionId: session.id });
   } catch (err) {
-    const is404 = /not found/i.test(err.message);
-    res.status(is404 ? 404 : 500).json({ error: sanitizeError(err) });
+    const mapped = toWearableRouteError(err);
+    res.status(mapped.status).json({ error: mapped.message });
   }
 });
 

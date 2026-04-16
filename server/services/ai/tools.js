@@ -45,6 +45,19 @@ function compactRecordingSession(session, options = {}) {
     };
 }
 
+function mapRecordingSource(source) {
+    return {
+        id: source.id,
+        sourceKey: source.sourceKey,
+        sourceKind: source.sourceKind,
+        mediaKind: source.mediaKind,
+        mimeType: source.mimeType,
+        status: source.status,
+        chunkCount: source.chunkCount,
+        durationMs: source.durationMs,
+    };
+}
+
 function compactToolDefinition(tool, options = {}) {
     const compact = {
         name: tool.name,
@@ -1406,16 +1419,7 @@ async function executeTool(toolName, args, context, engine) {
                     transcriptText: includeFullTranscript
                         ? String(session.transcriptText || '')
                         : compactTranscript(session.transcriptText || '', 1600),
-                    sources: (Array.isArray(session.sources) ? session.sources : []).map((source) => ({
-                        id: source.id,
-                        sourceKey: source.sourceKey,
-                        sourceKind: source.sourceKind,
-                        mediaKind: source.mediaKind,
-                        mimeType: source.mimeType,
-                        status: source.status,
-                        chunkCount: source.chunkCount,
-                        durationMs: source.durationMs,
-                    })),
+                    sources: (Array.isArray(session.sources) ? session.sources : []).map(mapRecordingSource),
                     segmentCount: Array.isArray(session.transcriptSegments) ? session.transcriptSegments.length : 0,
                 };
 
