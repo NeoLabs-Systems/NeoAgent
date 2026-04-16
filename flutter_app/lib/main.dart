@@ -7102,7 +7102,6 @@ class _MessagingPanelState extends State<MessagingPanel> {
     );
     String ttsVoice = saved['ttsVoice']?.toString() ?? 'alloy';
     String ttsModel = saved['ttsModel']?.toString() ?? 'tts-1';
-    String sttModel = saved['sttModel']?.toString() ?? 'whisper-1';
 
     await showDialog<void>(
       context: context,
@@ -7197,26 +7196,6 @@ class _MessagingPanelState extends State<MessagingPanel> {
                           }
                         },
                       ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: sttModel,
-                        items: const <String>['whisper-1', 'gpt-4o-transcribe']
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
-                        decoration: const InputDecoration(
-                          labelText: 'STT Model',
-                        ),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setLocalState(() => sttModel = value);
-                          }
-                        },
-                      ),
                     ],
                   ),
                 ),
@@ -7235,7 +7214,6 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       'webhookUrl': webhookUrl.text.trim(),
                       'ttsVoice': ttsVoice,
                       'ttsModel': ttsModel,
-                      'sttModel': sttModel,
                     };
                     await widget.controller.connectMessagingPlatform(
                       platform: 'telnyx',
