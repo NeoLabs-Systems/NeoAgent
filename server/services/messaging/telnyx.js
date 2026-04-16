@@ -19,7 +19,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     this.webhookUrl = config.webhookUrl || '';
     this.ttsVoice = config.ttsVoice || 'alloy';
     this.ttsModel = config.ttsModel || 'tts-1';
-    this.sttModel = config.sttModel || 'whisper-1';
     this.allowedNumbers = Array.isArray(config.allowedNumbers)
       ? config.allowedNumbers
       : [];
