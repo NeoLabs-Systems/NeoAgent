@@ -7270,40 +7270,210 @@ class VoiceAssistantPanel extends StatefulWidget {
 }
 
 class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
-  MessagingPlatformStatus _telnyxStatus() {
-    return widget.controller.messagingStatuses['telnyx'] ??
-        MessagingPlatformStatus.empty('telnyx');
+  late final AudioPlayer _assistantPlayer;
+  bool _pttPressed = false;
+  bool _isRunningAssistant = false;
+  bool _isAssistantPlaying = false;
+  String _assistantReply = '';
+  String _assistantTranscript = '';
+  String? _voiceError;
+  Uint8List? _assistantAudioBytes;
+  String? _assistantAudioMimeType;
+  String? _lastCapturedSessionId;
+
+  @override
+  void initState() {
+    super.initState();
+    _assistantPlayer = AudioPlayer();
+    _assistantPlayer.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() {
+        _isAssistantPlaying = false;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_assistantPlayer.dispose());
+    super.dispose();
+  }
+
+  Future<void> _startPttCapture() async {
+    final runtime = widget.controller.recordingRuntime;
+    if (runtime.active || widget.controller.isStartingRecording) {
+      return;
+    }
+
+    setState(() {
+      _pttPressed = true;
+    });
+
+    try {
+      if (runtime.supportsBackgroundMic) {
+        await widget.controller.startBackgroundRecording();
+      } else if (runtime.supportsScreenAndMic) {
+        await widget.controller.startWebRecording();
+      }
+      _lastCapturedSessionId = widget.controller.recordingRuntime.sessionId;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _pttPressed = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopPttCapture() async {
+    final runtime = widget.controller.recordingRuntime;
+    if (!runtime.active || widget.controller.isStoppingRecording) {
+      return;
+    }
+
+    final capturedSessionId = runtime.sessionId;
+
+    await widget.controller.stopRecording();
+
+    final targetSessionId = capturedSessionId ?? _lastCapturedSessionId;
+    if (targetSessionId != null && targetSessionId.trim().isNotEmpty) {
+      await _runAssistantTurn(targetSessionId.trim());
+    }
+  }
+
+  Future<void> _runAssistantTurn(String sessionId) async {
+    if (_isRunningAssistant) {
+      return;
+    }
+
+    setState(() {
+      _isRunningAssistant = true;
+      _voiceError = null;
+    });
+
+    try {
+      final result = await widget.controller.runVoiceAssistantTurn(
+        sessionId: sessionId,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _assistantReply = result.replyText;
+        _assistantTranscript = result.transcript;
+        _assistantAudioBytes = result.audioBytes;
+        _assistantAudioMimeType = result.audioMimeType;
+      });
+
+      await _playAssistantAudio();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _voiceError = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRunningAssistant = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _playAssistantAudio() async {
+    final bytes = _assistantAudioBytes;
+    if (bytes == null || bytes.isEmpty) {
+      return;
+    }
+
+    await _assistantPlayer.stop();
+    final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
+        ? _assistantAudioMimeType!.trim()
+        : null;
+    await _assistantPlayer.play(BytesSource(bytes, mimeType: mimeType));
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isAssistantPlaying = true;
+    });
+  }
+
+  Future<void> _stopAssistantAudio() async {
+    await _assistantPlayer.stop();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isAssistantPlaying = false;
+    });
+  }
+
+  RecordingSessionItem? _latestVoiceSession() {
+    for (final session in widget.controller.recordingSessions) {
+      final hasAudioSource = session.sources.any(
+        (source) => source.mediaKind == 'audio' && source.chunkCount > 0,
+      );
+      if (hasAudioSource) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  String _activeCallElapsedLabel(RecordingRuntimeStatus runtime) {
+    final startedAt = runtime.startedAt;
+    if (startedAt == null) {
+      return '00:00';
+    }
+    final elapsed = DateTime.now().difference(startedAt);
+    final totalSeconds = math.max(0, elapsed.inSeconds);
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    final telnyx = _telnyxStatus();
-    final phoneNumber = telnyx.authInfo['phoneNumber']?.toString() ?? '';
-    final isConnected = telnyx.isConnected;
-    final sttProvider = _jsonMap(
-      _decodeMaybeJson(controller.settings['telnyx_config']),
-    )['sttProvider']?.toString() ?? 'openai';
-    final ttsProvider = _jsonMap(
-      _decodeMaybeJson(controller.settings['telnyx_config']),
-    )['ttsProvider']?.toString() ?? 'openai';
+    final runtime = controller.recordingRuntime;
+    final supportsPtt =
+        runtime.supportsBackgroundMic || runtime.supportsScreenAndMic;
+    final isBusy =
+        controller.isStartingRecording || controller.isStoppingRecording;
+    final canStart = supportsPtt && !isBusy && !runtime.active;
+    final canStop = runtime.active && !controller.isStoppingRecording;
+    final latestSession = _latestVoiceSession();
+    final canGenerate =
+        !_isRunningAssistant && latestSession != null && !runtime.active;
+    final hasAssistantAudio =
+        _assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty;
+    final callStatus = runtime.active
+        ? (runtime.paused ? 'Call paused' : 'On call')
+        : 'Ready';
+    final callSubtitle = runtime.active
+        ? _activeCallElapsedLabel(runtime)
+        : 'Push to talk';
 
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
           title: 'Voice Assistant',
-          subtitle: 'Inbound phone calls with live mic and playback.',
+          subtitle: 'In-app push-to-talk voice assistant.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
             children: <Widget>[
               _DotStatus(
-                label: isConnected ? 'Connected' : 'Disconnected',
-                color: isConnected ? _success : _danger,
+                label: runtime.active
+                    ? (runtime.paused ? 'Paused' : 'Listening')
+                    : 'Standby',
+                color: runtime.active ? _danger : _success,
               ),
-              _MetaPill(label: 'STT: $sttProvider', icon: Icons.hearing),
-              _MetaPill(label: 'TTS: $ttsProvider', icon: Icons.record_voice_over),
             ],
           ),
         ),
@@ -7348,15 +7518,10 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    isConnected ? 'Ready for inbound calls' : 'Provider is disconnected',
-                    style: TextStyle(color: _textSecondary),
-                  ),
+                  Text(callStatus, style: TextStyle(color: _textSecondary)),
                   const SizedBox(height: 2),
                   Text(
-                    phoneNumber.trim().isEmpty
-                        ? 'Configure your call provider in Settings and call your configured number.'
-                        : 'Call $phoneNumber from an allowed number to talk to the agent.',
+                    callSubtitle,
                     style: TextStyle(
                       color: _textMuted,
                       fontWeight: FontWeight.w600,
@@ -7379,7 +7544,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      isConnected ? Icons.phone_in_talk : Icons.phone_disabled,
+                      runtime.active ? Icons.hearing : Icons.support_agent,
                       color: Colors.white,
                       size: 44,
                     ),
@@ -7391,51 +7556,102 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                     alignment: WrapAlignment.center,
                     children: <Widget>[
                       _PhoneActionButton(
-                        icon: Icons.settings,
-                        label: 'Open Settings',
-                        onTap: () => controller.setSelectedSection(
-                          AppSection.settings,
-                        ),
+                        icon: Icons.auto_awesome_outlined,
+                        label: _isRunningAssistant ? 'Thinking' : 'Reply',
+                        onTap: canGenerate
+                            ? () => _runAssistantTurn(latestSession.id)
+                            : null,
                       ),
                       _PhoneActionButton(
-                        icon: Icons.hub_outlined,
-                        label: 'Integrations',
-                        onTap: () => controller.setSelectedSection(
-                          AppSection.integrations,
-                        ),
+                        icon: _isAssistantPlaying
+                            ? Icons.stop_circle_outlined
+                            : Icons.play_arrow,
+                        label: _isAssistantPlaying ? 'Stop' : 'Playback',
+                        onTap: hasAssistantAudio
+                            ? (_isAssistantPlaying
+                                  ? _stopAssistantAudio
+                                  : _playAssistantAudio)
+                            : null,
                       ),
                       _PhoneActionButton(
                         icon: Icons.refresh,
                         label: 'Refresh',
-                        onTap: controller.refreshMessaging,
+                        onTap: controller.refreshRecordings,
                       ),
                     ],
                   ),
                   const SizedBox(height: 22),
-                  Text(
-                    'Call flow is provider-native: caller audio is transcribed, fed into the normal agent loop, and the reply is played back in-call. No app-side screen recording flow is used.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: _textSecondary, height: 1.4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      GestureDetector(
+                        onLongPressStart: canStart
+                            ? (_) => unawaited(_startPttCapture())
+                            : null,
+                        onLongPressEnd: canStop
+                            ? (_) => unawaited(_stopPttCapture())
+                            : null,
+                        onLongPressCancel: canStop
+                            ? () => unawaited(_stopPttCapture())
+                            : null,
+                        child: _PhonePrimaryAction(
+                          icon: runtime.active ? Icons.mic_off : Icons.mic,
+                          label: runtime.active ? 'Release' : 'Hold to talk',
+                          color: (runtime.active || _pttPressed)
+                              ? _warning
+                              : _success,
+                          onTap: canStart ? _startPttCapture : null,
+                        ),
+                      ),
+                      const SizedBox(width: 22),
+                      _PhonePrimaryAction(
+                        icon: Icons.call_end,
+                        label: 'End',
+                        color: _danger,
+                        onTap: canStop ? _stopPttCapture : null,
+                      ),
+                    ],
                   ),
                   if (controller.errorMessage != null &&
                       controller.errorMessage!.trim().isNotEmpty) ...<Widget>[
                     const SizedBox(height: 14),
                     _InlineError(message: controller.errorMessage!),
                   ],
+                  if (_voiceError != null &&
+                      _voiceError!.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 10),
+                    _InlineError(message: _voiceError!),
+                  ],
+                  if (_assistantReply.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _bgTertiary,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _borderLight),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Assistant said',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(_assistantReply, style: TextStyle(height: 1.45)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        const _SectionTitle('How It Works'),
-        const SizedBox(height: 12),
-        const _EmptyCard(
-          title: '1) User calls the agent number',
-          subtitle:
-              '2) Agent transcribes caller speech via configured STT provider\n'
-              '3) Normal agent loop runs\n'
-              '4) Reply is synthesized with configured TTS provider and played in-call',
         ),
       ],
     );

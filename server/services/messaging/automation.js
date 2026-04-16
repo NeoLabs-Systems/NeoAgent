@@ -299,12 +299,11 @@ function buildIncomingPrompt(msg) {
     );
   }
 
+  const isVoiceCall = msg.mediaType === 'voice';
   const isVoiceNote = !isVoiceCall && msg.mediaType === 'audio';
   const isDiscordGuild = msg.platform === 'discord' && msg.isGroup;
   const senderIdentity = buildSenderIdentityBlock(msg);
   const formattingGuide = buildPlatformFormattingGuide(msg.platform);
-
-  const isVoiceCall = msg.mediaType === 'voice';
   
   const discordContext =
     isDiscordGuild &&
