@@ -3,12 +3,10 @@
 const { BasePlatform } = require('./base');
 const path = require('path');
 const fs = require('fs');
-const https = require('https');
 const { OpenAI } = require('openai');
 const { DATA_DIR, AGENT_DATA_DIR } = require('../../../runtime/paths');
 
 const AUDIO_DIR = path.join(DATA_DIR, 'telnyx-audio');
-const RECORDING_TURN_LIMIT_MS = 4000;
 
 class TelnyxVoicePlatform extends BasePlatform {
   constructor(config = {}) {
@@ -28,7 +26,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     this.voiceSecret = String(config.voiceSecret || '').replace(/\D/g, '');
 
     this._sessions = new Map();
-    this._recordingTimers = new Map();
     this._secretTimers = new Map();
     this._bannedNumbers = new Map();
     this._client = null;
@@ -82,8 +79,6 @@ class TelnyxVoicePlatform extends BasePlatform {
       try { await this._client.calls.actions.hangup(ccId); } catch {}
     }
     this._sessions.clear();
-    for (const t of this._recordingTimers.values()) clearTimeout(t);
-    this._recordingTimers.clear();
     for (const t of this._secretTimers.values()) clearTimeout(t);
     this._secretTimers.clear();
     this.status = 'disconnected';
@@ -183,7 +178,7 @@ class TelnyxVoicePlatform extends BasePlatform {
       awaitingUserInput: false,
       isThinking: false,
       replySent: false,
-      processedRecordings: new Set(),
+      transcriptionActive: false,
       awaitingSecret: false,
       secretDigits: '',
     });
@@ -194,24 +189,7 @@ class TelnyxVoicePlatform extends BasePlatform {
 
   _endSession(ccId) {
     this._sessions.delete(ccId);
-    this._cancelRecordingTimer(ccId);
     this._cancelSecretTimer(ccId);
-  }
-
-  _scheduleRecordingStop(ccId) {
-    this._cancelRecordingTimer(ccId);
-    const t = setTimeout(async () => {
-      this._recordingTimers.delete(ccId);
-      if (!this._hasSession(ccId)) return;
-      console.log(`[TelnyxVoice] Auto-stopping recording for ${ccId}`);
-      try { await this._stopRecording(ccId); } catch {}
-    }, RECORDING_TURN_LIMIT_MS);
-    this._recordingTimers.set(ccId, t);
-  }
-
-  _cancelRecordingTimer(ccId) {
-    const t = this._recordingTimers.get(ccId);
-    if (t) { clearTimeout(t); this._recordingTimers.delete(ccId); }
   }
 
   _isTerminalError(err) {
@@ -249,20 +227,62 @@ class TelnyxVoicePlatform extends BasePlatform {
     catch (err) { if (!this._isTerminalError(err)) throw err; }
   }
 
-  async _startRecording(ccId) {
+  async _startTranscription(ccId) {
     try {
-      await this._client.calls.actions.startRecording(ccId, {
-        format: 'mp3',
-        channels: 'single',
-        play_beep: false,
-        time_limit: 60,
+      await this._client.calls.actions.startTranscription(ccId, {
+        transcription_tracks: 'inbound',
       });
+      if (this._hasSession(ccId)) {
+        this._session(ccId).transcriptionActive = true;
+      }
     } catch (err) { if (!this._isTerminalError(err)) throw err; }
   }
 
-  async _stopRecording(ccId) {
-    try { await this._client.calls.actions.stopRecording(ccId, {}); }
+  async _stopTranscription(ccId) {
+    try { await this._client.calls.actions.stopTranscription(ccId, {}); }
     catch (err) { if (!this._isTerminalError(err)) throw err; }
+    if (this._hasSession(ccId)) {
+      this._session(ccId).transcriptionActive = false;
+    }
+  }
+
+  async _beginListening(ccId) {
+    if (!this._hasSession(ccId)) return;
+    const sess = this._session(ccId);
+    if (sess.transcriptionActive) return;
+    await this._startTranscription(ccId);
+  }
+
+  async _onFinalTranscript(ccId, transcript) {
+    if (!this._hasSession(ccId)) return;
+    const sess = this._session(ccId);
+    if (sess.isProcessing || sess.isThinking) return;
+
+    const cleaned = String(transcript || '').trim();
+    if (!cleaned) return;
+
+    sess.isProcessing = true;
+    sess.awaitingUserInput = false;
+    sess.isThinking = true;
+    sess.replySent = false;
+
+    try { await this._stopTranscription(ccId); } catch {}
+
+    console.log(`[TelnyxVoice] Transcript [${sess.callerNumber}]: ${cleaned}`);
+    this._playThinkAudio(ccId).catch(err =>
+      console.error('[TelnyxVoice] Failed to play think audio:', err.message)
+    );
+
+    this.emit('message', {
+      messageId: `telnyx_${ccId}_${Date.now()}`,
+      chatId: ccId,
+      sender: sess.callerNumber || ccId,
+      senderName: sess.callerNumber || 'Caller',
+      content: cleaned,
+      isGroup: false,
+      mediaType: 'voice',
+      timestamp: new Date().toISOString(),
+    });
   }
 
   async _precacheThinkAudio() {
@@ -338,33 +358,6 @@ class TelnyxVoicePlatform extends BasePlatform {
       console.error(`[TelnyxVoice] Telnyx speak also failed: ${speakErr.message}`, speakErr?.error?.errors || '');
       if (!this._isTerminalError(speakErr)) throw speakErr;
     }
-  }
-
-  async _stt(filePath) {
-    try {
-      const t = await this._openai.audio.transcriptions.create({
-        file:  fs.createReadStream(filePath),
-        model: this.sttModel,
-      });
-      return t.text;
-    } catch (err) {
-      console.error('[TelnyxVoice] STT error:', err.message);
-      return '';
-    }
-  }
-
-  async _downloadRecording(url, dest) {
-    return new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(dest);
-      https.get(url, (res) => {
-        if (res.statusCode !== 200) {
-          file.close();
-          return reject(new Error(`Download failed: ${res.statusCode}`));
-        }
-        res.pipe(file);
-        file.on('finish', () => file.close(resolve));
-      }).on('error', (err) => { fs.unlink(dest, () => {}); reject(err); });
-    });
   }
 
   _publicUrl(filename) {
@@ -453,8 +446,7 @@ class TelnyxVoicePlatform extends BasePlatform {
           sess.awaitingUserInput = false;
           setTimeout(async () => {
             try {
-              await this._startRecording(ccId);
-              this._scheduleRecordingStop(ccId);
+              await this._beginListening(ccId);
             } catch {}
           }, 200);
           break;
@@ -486,90 +478,28 @@ class TelnyxVoicePlatform extends BasePlatform {
             break;
           }
 
-          // ── Normal in-call DTMF — interrupt and restart recording ──────────
-          this._cancelRecordingTimer(ccId);
+          // ── Normal in-call DTMF — interrupt and restart listening ──────────
           sess.isProcessing      = true;
           sess.awaitingUserInput = false;
           sess.isThinking        = false; // cancel think state if user interrupts
           sess.replySent         = false; // allow a fresh reply for the new turn
           await this._stopAudio(ccId);
-          await this._stopRecording(ccId);
+          await this._stopTranscription(ccId);
           setTimeout(async () => {
             if (!this._hasSession(ccId)) return;
             this._session(ccId).isProcessing = false;
             try {
-              await this._startRecording(ccId);
-              this._scheduleRecordingStop(ccId);
+              await this._beginListening(ccId);
             } catch {}
           }, 150);
           break;
         }
 
-        // ── Recording saved — STT → emit message → agent replies ───────────
-        case 'call.recording.saved': {
-          this._cancelRecordingTimer(ccId);
-          if (!this._hasSession(ccId)) break;
-          const sess = this._session(ccId);
-
-          const recordingUrl = payload.recording_urls?.mp3;
-          if (!recordingUrl) break;
-          // Dedup before isProcessing check — prevents Telnyx retries from slipping through.
-          if (sess.processedRecordings.has(recordingUrl)) break;
-          sess.processedRecordings.add(recordingUrl);
-
-          if (sess.isProcessing) break;
-
-          sess.isProcessing     = true;
-          sess.awaitingUserInput = false;
-
-          // Download + transcribe
-          const recFile = this._tmpFile('rec', ccId);
-          const recPath = path.join(AUDIO_DIR, recFile);
-          try {
-            await this._downloadRecording(recordingUrl, recPath);
-          } catch (err) {
-            console.error('[TelnyxVoice] Failed to download recording:', err.message);
-            sess.isProcessing = false;
-            break;
-          }
-
-          const transcript = await this._stt(recPath);
-          fs.unlink(recPath, () => {});
-
-          if (!transcript?.trim()) {
-            // Nothing intelligible — restart recording
-            console.log(`[TelnyxVoice] Empty transcript for ${ccId}, restarting recording`);
-            sess.isProcessing    = false;
-            sess.awaitingUserInput = true;
-            try { await this._startRecording(ccId); this._scheduleRecordingStop(ccId); } catch {}
-            break;
-          }
-
-          console.log(`[TelnyxVoice] Transcript [${sess.callerNumber}]: ${transcript}`);
-
-          // Mark as thinking — gates call.playback.ended so think-audio events
-          // don't corrupt session state while the agent is processing.
-          sess.isThinking = true;
-          sess.replySent  = false;
-
-          // Fire hold phrase and agent processing in parallel — the pre-cached
-          // think audio plays instantly while the AI starts working immediately.
-          this._playThinkAudio(ccId).catch(err =>
-            console.error('[TelnyxVoice] Failed to play think audio:', err.message)
-          );
-
-          // Emit message event — MessagingManager routes it to the AI engine.
-          // The agent will call sendMessage(ccId, response) when it has a reply.
-          this.emit('message', {
-            messageId:  `telnyx_${ccId}_${Date.now()}`,
-            chatId:     ccId,
-            sender:     sess.callerNumber || ccId,
-            senderName: sess.callerNumber || 'Caller',
-            content:    transcript,
-            isGroup:    false,
-            mediaType:  'voice',
-            timestamp:  new Date().toISOString(),
-          });
+        // ── Live transcription result — emit message → agent replies ─────────
+        case 'call.transcription': {
+          const data = payload?.transcription_data;
+          if (!data?.is_final) break;
+          await this._onFinalTranscript(ccId, data.transcript);
           break;
         }
 
@@ -608,8 +538,9 @@ class TelnyxVoicePlatform extends BasePlatform {
     // This blocks any stray call.playback.ended (from the think-audio stop) from
     // corrupting session state during the transition window.
 
-    // Stop the "please hold" TTS (suppress all errors — it may have already ended)
+    // Stop the "please hold" TTS and listening state before speaking.
     try { await this._stopAudio(to); } catch {}
+    try { await this._stopTranscription(to); } catch {}
 
     // Generate TTS response and play it.
     // If anything here throws, reset replySent so the session isn't bricked.
