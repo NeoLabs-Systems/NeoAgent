@@ -7270,219 +7270,40 @@ class VoiceAssistantPanel extends StatefulWidget {
 }
 
 class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
-  late final AudioPlayer _assistantPlayer;
-  bool _pttPressed = false;
-  bool _isRunningAssistant = false;
-  bool _isAssistantPlaying = false;
-  String _assistantReply = '';
-  String _assistantTranscript = '';
-  String? _voiceError;
-  Uint8List? _assistantAudioBytes;
-  String? _assistantAudioMimeType;
-  String? _lastCapturedSessionId;
-
-  @override
-  void initState() {
-    super.initState();
-    _assistantPlayer = AudioPlayer();
-    _assistantPlayer.onPlayerComplete.listen((_) {
-      if (!mounted) return;
-      setState(() {
-        _isAssistantPlaying = false;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    unawaited(_assistantPlayer.dispose());
-    super.dispose();
-  }
-
-  Future<void> _startPttCapture() async {
-    final runtime = widget.controller.recordingRuntime;
-    if (runtime.active || widget.controller.isStartingRecording) {
-      return;
-    }
-
-    setState(() {
-      _pttPressed = true;
-    });
-
-    try {
-      if (runtime.supportsBackgroundMic) {
-        await widget.controller.startBackgroundRecording();
-      } else if (runtime.supportsScreenAndMic) {
-        await widget.controller.startWebRecording();
-      }
-      _lastCapturedSessionId = widget.controller.recordingRuntime.sessionId;
-    } finally {
-      if (mounted) {
-        setState(() {
-          _pttPressed = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _stopPttCapture() async {
-    final runtime = widget.controller.recordingRuntime;
-    if (!runtime.active || widget.controller.isStoppingRecording) {
-      return;
-    }
-
-    final capturedSessionId = runtime.sessionId;
-
-    await widget.controller.stopRecording();
-
-    final targetSessionId = capturedSessionId ?? _lastCapturedSessionId;
-    if (targetSessionId != null && targetSessionId.trim().isNotEmpty) {
-      await _runAssistantTurn(targetSessionId.trim());
-    }
-  }
-
-  Future<void> _runAssistantTurn(String sessionId) async {
-    if (_isRunningAssistant) {
-      return;
-    }
-
-    setState(() {
-      _isRunningAssistant = true;
-      _voiceError = null;
-    });
-
-    try {
-      final result = await widget.controller.runVoiceAssistantTurn(
-        sessionId: sessionId,
-      );
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _assistantReply = result.replyText;
-        _assistantTranscript = result.transcript;
-        _assistantAudioBytes = result.audioBytes;
-        _assistantAudioMimeType = result.audioMimeType;
-      });
-
-      await _playAssistantAudio();
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _voiceError = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRunningAssistant = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _playAssistantAudio() async {
-    final bytes = _assistantAudioBytes;
-    if (bytes == null || bytes.isEmpty) {
-      return;
-    }
-
-    await _assistantPlayer.stop();
-    final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
-        ? _assistantAudioMimeType!.trim()
-        : null;
-    await _assistantPlayer.play(BytesSource(bytes, mimeType: mimeType));
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isAssistantPlaying = true;
-    });
-  }
-
-  Future<void> _stopAssistantAudio() async {
-    await _assistantPlayer.stop();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isAssistantPlaying = false;
-    });
-  }
-
-  RecordingSessionItem? _latestVoiceSession() {
-    for (final session in widget.controller.recordingSessions) {
-      final hasAudioSource = session.sources.any(
-        (source) => source.mediaKind == 'audio' && source.chunkCount > 0,
-      );
-      if (hasAudioSource) {
-        return session;
-      }
-    }
-    return null;
-  }
-
-  String _activeCallElapsedLabel(RecordingRuntimeStatus runtime) {
-    final startedAt = runtime.startedAt;
-    if (startedAt == null) {
-      return '00:00';
-    }
-    final elapsed = DateTime.now().difference(startedAt);
-    final totalSeconds = math.max(0, elapsed.inSeconds);
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  MessagingPlatformStatus _telnyxStatus() {
+    return widget.controller.messagingStatuses['telnyx'] ??
+        MessagingPlatformStatus.empty('telnyx');
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    final runtime = controller.recordingRuntime;
-    final supportsPtt =
-        runtime.supportsBackgroundMic || runtime.supportsScreenAndMic;
-    final isBusy =
-        controller.isStartingRecording || controller.isStoppingRecording;
-    final canStart = supportsPtt && !isBusy && !runtime.active;
-    final canStop = runtime.active && !controller.isStoppingRecording;
-    final latestSession = _latestVoiceSession();
-    final canGenerate =
-        !_isRunningAssistant && latestSession != null && !runtime.active;
-    final hasAssistantAudio =
-        _assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty;
-    final callStatus = runtime.active
-        ? (runtime.paused ? 'Call paused' : 'On call')
-        : 'Ready to call';
-    final callSubtitle = runtime.active
-        ? _activeCallElapsedLabel(runtime)
-        : (runtime.platformLabel?.trim().isNotEmpty == true
-              ? runtime.platformLabel!
-              : 'Voice assistant');
+    final telnyx = _telnyxStatus();
+    final phoneNumber = telnyx.authInfo['phoneNumber']?.toString() ?? '';
+    final isConnected = telnyx.isConnected;
+    final sttProvider = _jsonMap(
+      _decodeMaybeJson(controller.settings['telnyx_config']),
+    )['sttProvider']?.toString() ?? 'openai';
+    final ttsProvider = _jsonMap(
+      _decodeMaybeJson(controller.settings['telnyx_config']),
+    )['ttsProvider']?.toString() ?? 'openai';
 
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
           title: 'Voice Assistant',
-          subtitle:
-              'Phone-style calling UI with push-to-talk and spoken replies.',
+          subtitle: 'Inbound phone calls with live mic and playback.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
             children: <Widget>[
               _DotStatus(
-                label: runtime.active
-                    ? (runtime.paused ? 'Paused' : 'Listening')
-                    : 'Standby',
-                color: runtime.active ? _danger : _success,
+                label: isConnected ? 'Connected' : 'Disconnected',
+                color: isConnected ? _success : _danger,
               ),
-              if (runtime.platformLabel != null &&
-                  runtime.platformLabel!.isNotEmpty)
-                _MetaPill(
-                  label: runtime.platformLabel!,
-                  icon: Icons.memory_outlined,
-                ),
+              _MetaPill(label: 'STT: $sttProvider', icon: Icons.hearing),
+              _MetaPill(label: 'TTS: $ttsProvider', icon: Icons.record_voice_over),
             ],
           ),
         ),
@@ -7527,10 +7348,15 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
-                  Text(callStatus, style: TextStyle(color: _textSecondary)),
+                  Text(
+                    isConnected ? 'Ready for inbound calls' : 'Provider is disconnected',
+                    style: TextStyle(color: _textSecondary),
+                  ),
                   const SizedBox(height: 2),
                   Text(
-                    callSubtitle,
+                    phoneNumber.trim().isEmpty
+                        ? 'Configure your call provider in Settings and call your configured number.'
+                        : 'Call $phoneNumber from an allowed number to talk to the agent.',
                     style: TextStyle(
                       color: _textMuted,
                       fontWeight: FontWeight.w600,
@@ -7553,7 +7379,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      runtime.active ? Icons.hearing : Icons.support_agent,
+                      isConnected ? Icons.phone_in_talk : Icons.phone_disabled,
                       color: Colors.white,
                       size: 44,
                     ),
@@ -7565,74 +7391,29 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                     alignment: WrapAlignment.center,
                     children: <Widget>[
                       _PhoneActionButton(
-                        icon: Icons.auto_awesome_outlined,
-                        label: _isRunningAssistant ? 'Thinking' : 'Reply',
-                        onTap: canGenerate
-                            ? () => _runAssistantTurn(latestSession.id)
-                            : null,
+                        icon: Icons.settings,
+                        label: 'Open Settings',
+                        onTap: () => controller.setSelectedSection(
+                          AppSection.settings,
+                        ),
                       ),
                       _PhoneActionButton(
-                        icon: _isAssistantPlaying
-                            ? Icons.stop_circle_outlined
-                            : Icons.play_arrow,
-                        label: _isAssistantPlaying ? 'Stop' : 'Playback',
-                        onTap: hasAssistantAudio
-                            ? (_isAssistantPlaying
-                                  ? _stopAssistantAudio
-                                  : _playAssistantAudio)
-                            : null,
+                        icon: Icons.hub_outlined,
+                        label: 'Integrations',
+                        onTap: () => controller.setSelectedSection(
+                          AppSection.integrations,
+                        ),
                       ),
                       _PhoneActionButton(
                         icon: Icons.refresh,
                         label: 'Refresh',
-                        onTap: controller.refreshRecordings,
-                      ),
-                      _PhoneActionButton(
-                        icon: Icons.library_music_outlined,
-                        label: 'Recents',
-                        onTap: () => controller.setSelectedSection(
-                          AppSection.recordings,
-                        ),
+                        onTap: controller.refreshMessaging,
                       ),
                     ],
                   ),
                   const SizedBox(height: 22),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      GestureDetector(
-                        onLongPressStart: canStart
-                            ? (_) => unawaited(_startPttCapture())
-                            : null,
-                        onLongPressEnd: canStop
-                            ? (_) => unawaited(_stopPttCapture())
-                            : null,
-                        onLongPressCancel: canStop
-                            ? () => unawaited(_stopPttCapture())
-                            : null,
-                        child: _PhonePrimaryAction(
-                          icon: runtime.active ? Icons.mic_off : Icons.mic,
-                          label: runtime.active ? 'Release' : 'Hold to talk',
-                          color: (runtime.active || _pttPressed)
-                              ? _warning
-                              : _success,
-                          onTap: canStart ? _startPttCapture : null,
-                        ),
-                      ),
-                      const SizedBox(width: 22),
-                      _PhonePrimaryAction(
-                        icon: Icons.call_end,
-                        label: 'End',
-                        color: _danger,
-                        onTap: canStop ? _stopPttCapture : null,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    supportsPtt
-                        ? 'Long-press the green button to talk, release to process and play reply audio.'
-                        : 'Voice calling needs Android background mic or browser screen+mic support.',
+                    'Call flow is provider-native: caller audio is transcribed, fed into the normal agent loop, and the reply is played back in-call. No app-side screen recording flow is used.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: _textSecondary, height: 1.4),
                   ),
@@ -7641,97 +7422,21 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                     const SizedBox(height: 14),
                     _InlineError(message: controller.errorMessage!),
                   ],
-                  if (_voiceError != null &&
-                      _voiceError!.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    _InlineError(message: _voiceError!),
-                  ],
-                  if (_assistantReply.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 14),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _bgTertiary,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: _borderLight),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Assistant said',
-                            style: TextStyle(
-                              color: _textSecondary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(_assistantReply, style: TextStyle(height: 1.45)),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
           ),
         ),
         const SizedBox(height: 20),
-        const _SectionTitle('Latest voice playback'),
+        const _SectionTitle('How It Works'),
         const SizedBox(height: 12),
-        if (latestSession == null)
-          const _EmptyCard(
-            title: 'No playable voice capture yet',
-            subtitle:
-                'Record a push-to-talk sample and it will appear here for immediate playback.',
-          )
-        else
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    latestSession.title,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${latestSession.startedAtLabel} • ${latestSession.statusLabel}',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                  const SizedBox(height: 12),
-                  _RecordingSourceAudioControls(
-                    controller: controller,
-                    session: latestSession,
-                  ),
-                  if (_assistantTranscript.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 14),
-                    Text(
-                      'Detected transcript',
-                      style: TextStyle(
-                        color: _textSecondary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(_assistantTranscript, style: TextStyle(height: 1.45)),
-                  ],
-                  if (latestSession.transcriptText
-                      .trim()
-                      .isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 14),
-                    Text(
-                      latestSession.transcriptText,
-                      style: TextStyle(height: 1.45),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
+        const _EmptyCard(
+          title: '1) User calls the agent number',
+          subtitle:
+              '2) Agent transcribes caller speech via configured STT provider\n'
+              '3) Normal agent loop runs\n'
+              '4) Reply is synthesized with configured TTS provider and played in-call',
+        ),
       ],
     );
   }
@@ -8891,9 +8596,51 @@ class _MessagingPanelState extends State<MessagingPanel> {
     final webhookUrl = TextEditingController(
       text: saved['webhookUrl']?.toString() ?? widget.controller.backendUrl,
     );
+    String ttsProvider =
+        saved['ttsProvider']?.toString().toLowerCase() ?? 'openai';
+    String sttProvider =
+        saved['sttProvider']?.toString().toLowerCase() ?? 'openai';
     String ttsVoice = saved['ttsVoice']?.toString() ?? 'alloy';
     String ttsModel = saved['ttsModel']?.toString() ?? 'tts-1';
     String sttModel = saved['sttModel']?.toString() ?? 'whisper-1';
+
+    const ttsModelsByProvider = <String, List<String>>{
+      'openai': <String>['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'],
+      'deepgram': <String>[
+        'aura-2-thalia-en',
+        'aura-2-asteria-en',
+        'aura-2-luna-en',
+      ],
+      'gemini': <String>['gemini-2.5-flash-preview-tts'],
+    };
+
+    const sttModelsByProvider = <String, List<String>>{
+      'openai': <String>['whisper-1', 'gpt-4o-transcribe'],
+      'deepgram': <String>['nova-3'],
+      'gemini': <String>['gemini-2.0-flash', 'gemini-2.5-flash'],
+    };
+
+    const voicesByProvider = <String, List<String>>{
+      'openai': <String>['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'],
+      'gemini': <String>['Kore', 'Puck', 'Charon'],
+    };
+
+    if (!ttsModelsByProvider.containsKey(ttsProvider)) {
+      ttsProvider = 'openai';
+    }
+    if (!sttModelsByProvider.containsKey(sttProvider)) {
+      sttProvider = 'openai';
+    }
+    if (!(ttsModelsByProvider[ttsProvider]?.contains(ttsModel) ?? false)) {
+      ttsModel = ttsModelsByProvider[ttsProvider]!.first;
+    }
+    if (!(sttModelsByProvider[sttProvider]?.contains(sttModel) ?? false)) {
+      sttModel = sttModelsByProvider[sttProvider]!.first;
+    }
+    if (voicesByProvider.containsKey(ttsProvider) &&
+        !(voicesByProvider[ttsProvider]?.contains(ttsVoice) ?? false)) {
+      ttsVoice = voicesByProvider[ttsProvider]!.first;
+    }
 
     await showDialog<void>(
       context: context,
@@ -8937,48 +8684,52 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        initialValue: ttsVoice,
-                        items:
-                            const <String>[
-                                  'alloy',
-                                  'echo',
-                                  'fable',
-                                  'onyx',
-                                  'nova',
-                                  'shimmer',
-                                ]
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                        initialValue: ttsProvider,
+                        items: const <String>['openai', 'deepgram', 'gemini']
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
                         decoration: const InputDecoration(
-                          labelText: 'TTS Voice',
+                          labelText: 'TTS Provider',
                         ),
                         onChanged: (value) {
                           if (value != null) {
-                            setLocalState(() => ttsVoice = value);
+                            setLocalState(() {
+                              ttsProvider = value;
+                              final ttsOptions =
+                                  ttsModelsByProvider[ttsProvider] ??
+                                  const <String>[];
+                              if (!ttsOptions.contains(ttsModel) &&
+                                  ttsOptions.isNotEmpty) {
+                                ttsModel = ttsOptions.first;
+                              }
+                              final voiceOptions =
+                                  voicesByProvider[ttsProvider] ??
+                                  const <String>[];
+                              if (voiceOptions.isNotEmpty &&
+                                  !voiceOptions.contains(ttsVoice)) {
+                                ttsVoice = voiceOptions.first;
+                              }
+                            });
                           }
                         },
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: ttsModel,
-                        items:
-                            const <String>[
-                                  'tts-1',
-                                  'tts-1-hd',
-                                  'gpt-4o-mini-tts',
-                                ]
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                        items: (ttsModelsByProvider[ttsProvider] ??
+                                const <String>[])
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
                         decoration: const InputDecoration(
                           labelText: 'TTS Model',
                         ),
@@ -8988,10 +8739,35 @@ class _MessagingPanelState extends State<MessagingPanel> {
                           }
                         },
                       ),
+                      if ((voicesByProvider[ttsProvider] ??
+                              const <String>[])
+                          .isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: ttsVoice,
+                          items: (voicesByProvider[ttsProvider] ??
+                                  const <String>[])
+                              .map(
+                                (value) => DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                ),
+                              )
+                              .toList(),
+                          decoration: const InputDecoration(
+                            labelText: 'TTS Voice',
+                          ),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setLocalState(() => ttsVoice = value);
+                            }
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        initialValue: sttModel,
-                        items: const <String>['whisper-1', 'gpt-4o-transcribe']
+                        initialValue: sttProvider,
+                        items: const <String>['openai', 'deepgram', 'gemini']
                             .map(
                               (value) => DropdownMenuItem<String>(
                                 value: value,
@@ -8999,6 +8775,37 @@ class _MessagingPanelState extends State<MessagingPanel> {
                               ),
                             )
                             .toList(),
+                        decoration: const InputDecoration(
+                          labelText: 'STT Provider',
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setLocalState(() {
+                              sttProvider = value;
+                              final sttOptions =
+                                  sttModelsByProvider[sttProvider] ??
+                                  const <String>[];
+                              if (!sttOptions.contains(sttModel) &&
+                                  sttOptions.isNotEmpty) {
+                                sttModel = sttOptions.first;
+                              }
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        items:
+                            (sttModelsByProvider[sttProvider] ??
+                                    const <String>[])
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                        initialValue: sttModel,
                         decoration: const InputDecoration(
                           labelText: 'STT Model',
                         ),
@@ -9024,6 +8831,8 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       'phoneNumber': phoneNumber.text.trim(),
                       'connectionId': connectionId.text.trim(),
                       'webhookUrl': webhookUrl.text.trim(),
+                      'ttsProvider': ttsProvider,
+                      'sttProvider': sttProvider,
                       'ttsVoice': ttsVoice,
                       'ttsModel': ttsModel,
                       'sttModel': sttModel,

@@ -5,8 +5,18 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const { DATA_DIR } = require('../../../runtime/paths');
-const { getOpenAiClient } = require('../voice/openaiClient');
-const { synthesizeSpeechBuffer } = require('../voice/openaiSpeech');
+const {
+  DEFAULT_STT_PROVIDER,
+  DEFAULT_TTS_PROVIDER,
+  normalizeSttProvider,
+  normalizeTtsProvider,
+  resolveSttModel,
+  resolveTtsModel,
+  resolveTtsVoice,
+  guessExtFromMimeType,
+  transcribeVoiceInput,
+  synthesizeVoiceReply,
+} = require('../voice/providers');
 const { createVoiceTurnSessionState } = require('../voice/turnState');
 
 const AUDIO_DIR = path.join(DATA_DIR, 'telnyx-audio');
@@ -21,9 +31,11 @@ class TelnyxVoicePlatform extends BasePlatform {
     this.phoneNumber = config.phoneNumber || '';
     this.connectionId = config.connectionId || '';
     this.webhookUrl = config.webhookUrl || '';
-    this.ttsVoice = config.ttsVoice || 'alloy';
-    this.ttsModel = config.ttsModel || 'tts-1';
-    this.sttModel = config.sttModel || 'whisper-1';
+    this.sttProvider = normalizeSttProvider(config.sttProvider || DEFAULT_STT_PROVIDER);
+    this.ttsProvider = normalizeTtsProvider(config.ttsProvider || DEFAULT_TTS_PROVIDER);
+    this.ttsVoice = resolveTtsVoice(this.ttsProvider, config.ttsVoice);
+    this.ttsModel = resolveTtsModel(this.ttsProvider, config.ttsModel);
+    this.sttModel = resolveSttModel(this.sttProvider, config.sttModel);
     this.allowedNumbers = Array.isArray(config.allowedNumbers)
       ? config.allowedNumbers
       : [];
@@ -34,7 +46,6 @@ class TelnyxVoicePlatform extends BasePlatform {
     this._secretTimers = new Map();
     this._bannedNumbers = new Map();
     this._client = null;
-    this._openai = null;
     this._webhookToken = null;
     this._thinkAudioFile = null;
   }
@@ -50,12 +61,10 @@ class TelnyxVoicePlatform extends BasePlatform {
     const TelnyxClient = TelnyxSDK.default || TelnyxSDK;
     this._client = new TelnyxClient({ apiKey: this.apiKey });
 
-    this._openai = getOpenAiClient();
-    if (this._openai) {
-      console.log('[TelnyxVoice] OpenAI TTS enabled');
-    } else {
-      console.warn('[TelnyxVoice] No OpenAI API key found — TTS will use Telnyx native speak (language auto-detected)');
-    }
+    console.log(
+      `[TelnyxVoice] Voice providers: STT=${this.sttProvider}/${this.sttModel}, ` +
+      `TTS=${this.ttsProvider}/${this.ttsModel}${this.ttsVoice ? ` (${this.ttsVoice})` : ''}`,
+    );
 
     const token = process.env.TELNYX_WEBHOOK_TOKEN;
     this._webhookToken = token || null;
@@ -248,27 +257,27 @@ class TelnyxVoicePlatform extends BasePlatform {
     catch (err) { if (!this._isTerminalError(err)) throw err; }
   }
 
-  async _tts(text, destPath) {
-    const buf = await synthesizeSpeechBuffer(this._openai, text, {
-      model: this.ttsModel,
-      voice: this.ttsVoice,
-    });
-    await fs.promises.writeFile(destPath, buf);
-  }
-
   async _sayText(ccId, text) {
-    if (this._openai) {
-      try {
-        const file = this._tmpFile('say', ccId);
-        const filePath = path.join(AUDIO_DIR, file);
-        await this._tts(text, filePath);
-        await this._playAudio(ccId, this._publicUrl(file));
-        setTimeout(() => fs.unlink(filePath, () => {}), 60000);
-        return;
-      } catch (err) {
-        console.warn(`[TelnyxVoice] OpenAI TTS failed (${err.message}), falling back to Telnyx speak`);
-      }
+    try {
+      const synthesized = await synthesizeVoiceReply(text, {
+        provider: this.ttsProvider,
+        model: this.ttsModel,
+        voice: this.ttsVoice,
+      });
+      const ext = guessExtFromMimeType(synthesized.mimeType);
+      const file = this._tmpFile('say', ccId, ext);
+      const filePath = path.join(AUDIO_DIR, file);
+      await fs.promises.writeFile(filePath, synthesized.audioBytes);
+      await this._playAudio(ccId, this._publicUrl(file));
+      setTimeout(() => fs.unlink(filePath, () => {}), 60000);
+      return;
+    } catch (err) {
+      console.warn(
+        `[TelnyxVoice] ${this.ttsProvider} TTS failed (${err.message}), ` +
+        'falling back to Telnyx native speak',
+      );
     }
+
     try {
       const isGerman = /\b(ich|du|ist|und|der|die|das|nicht|ein|hallo|auf|danke|bitte|wie|was|wer|wo|warum|kann|haben|sein|noch|auch|mit|von|bei|nach|für)\b/i.test(text);
       await this._client.calls.actions.speak(ccId, {
@@ -284,11 +293,11 @@ class TelnyxVoicePlatform extends BasePlatform {
 
   async _stt(filePath) {
     try {
-      const t = await this._openai.audio.transcriptions.create({
-        file:  fs.createReadStream(filePath),
+      return await transcribeVoiceInput(filePath, {
+        provider: this.sttProvider,
         model: this.sttModel,
+        mimeType: 'audio/mpeg',
       });
-      return t.text;
     } catch (err) {
       console.error('[TelnyxVoice] STT error:', err.message);
       return '';
@@ -313,8 +322,9 @@ class TelnyxVoicePlatform extends BasePlatform {
     return `${this.webhookUrl}/telnyx-audio/${filename}`;
   }
 
-  _tmpFile(prefix, ccId) {
-    return `${prefix}_${ccId.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now()}.mp3`;
+  _tmpFile(prefix, ccId, ext = 'mp3') {
+    const safeExt = String(ext || 'mp3').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'mp3';
+    return `${prefix}_${ccId.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now()}.${safeExt}`;
   }
 
   async handleWebhook(event) {
