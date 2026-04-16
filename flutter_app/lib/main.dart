@@ -2282,7 +2282,7 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> stopRecording() async {
+  Future<void> stopRecording({String stopReason = 'stopped'}) async {
     final sessionId = recordingRuntime.sessionId;
     if (sessionId == null || isStoppingRecording) {
       return;
@@ -2308,7 +2308,7 @@ class NeoAgentController extends ChangeNotifier {
         await _backendClient.finalizeRecordingSession(
           backendUrl,
           sessionId,
-          stopReason: 'stopped',
+          stopReason: stopReason,
         );
       }
       await refreshRecordings();
@@ -7446,7 +7446,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
 
     final capturedSessionId = runtime.sessionId;
 
-    await widget.controller.stopRecording();
+    await widget.controller.stopRecording(stopReason: 'voice_assistant');
 
     final targetSessionId = capturedSessionId ?? _lastCapturedSessionId;
     if (targetSessionId != null && targetSessionId.trim().isNotEmpty) {

@@ -5,17 +5,20 @@ const { ensureDefaultAiSettings, getAiSettings } = require('../ai/settings');
 const { getWebChatContext } = require('../ai/history');
 const { synthesizeVoiceReply, normalizeTtsProvider } = require('./providers');
 
-function buildAgentRunContext({ userId, agentId, task }) {
+const VOICE_HISTORY_WINDOW = 4;
+
+function buildAgentRunContext({ userId, agentId, task, historyWindow = VOICE_HISTORY_WINDOW }) {
   ensureDefaultAiSettings(userId, agentId);
   const aiSettings = getAiSettings(userId, agentId);
-  const webContext = getWebChatContext(userId, aiSettings.chat_history_window, { agentId });
+  const effectiveWindow = Math.max(1, Math.min(aiSettings.chat_history_window, historyWindow));
+  const webContext = getWebChatContext(userId, effectiveWindow, { agentId });
 
   const lastMatchIndex = webContext.recentMessages.findLastIndex(
     (message) => message.role === 'user' && message.content === task,
   );
   const priorMessages = webContext.recentMessages
     .filter((_, index) => index !== lastMatchIndex)
-    .slice(-aiSettings.chat_history_window);
+    .slice(-effectiveWindow);
 
   return {
     priorMessages,
@@ -71,6 +74,7 @@ async function runVoiceTranscriptTurn({
     userId,
     agentId,
     task: normalizedTask,
+    historyWindow: VOICE_HISTORY_WINDOW,
   });
   const conversationId = memoryManager.getDefaultWebConversationId(userId, { agentId });
 
@@ -79,6 +83,9 @@ async function runVoiceTranscriptTurn({
     conversationId,
     priorMessages,
     priorSummary,
+    skipConversationHistory: true,
+    skipTaskAnalysis: true,
+    triggerSource: 'voice_assistant',
   });
 
   const replyText = String(runResult?.content || '').trim();

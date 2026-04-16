@@ -27,7 +27,7 @@ router.post('/respond', async (req, res) => {
     }
 
     const ttsVoice = String(req.body?.ttsVoice || 'alloy').trim() || 'alloy';
-    const ttsModel = String(req.body?.ttsModel || 'tts-1').trim() || 'tts-1';
+    const ttsModel = String(req.body?.ttsModel || 'gpt-4o-mini-tts').trim() || 'gpt-4o-mini-tts';
     const ttsProvider = String(req.body?.ttsProvider || 'openai').trim() || 'openai';
     const promptHint = String(req.body?.promptHint || '').trim();
     const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
@@ -35,10 +35,16 @@ router.post('/respond', async (req, res) => {
     const responsePayload = await turnCoordinator.run(sessionId, async () => {
       let session = recordingManager.getSession(userId, sessionId);
       if (session.status === 'recording') {
-        session = recordingManager.finalizeSession(userId, sessionId, { stopReason: 'voice_assistant' });
+        session = recordingManager.finalizeSession(userId, sessionId, {
+          stopReason: 'voice_assistant',
+          autoProcess: false,
+          includeInsights: false,
+        });
       }
       if (session.status === 'processing') {
-        await recordingManager.processSession(userId, sessionId);
+        await recordingManager.processSession(userId, sessionId, {
+          includeInsights: false,
+        });
         session = recordingManager.getSession(userId, sessionId);
       }
       if (session.status !== 'completed') {

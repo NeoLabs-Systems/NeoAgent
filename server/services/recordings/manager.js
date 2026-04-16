@@ -355,8 +355,17 @@ class RecordingManager {
 
     this.#emitUpdate(userId, sessionId);
 
-    if (nextStatus === SESSION_STATUS.processing) {
-      this.processSession(userId, sessionId).catch((error) => {
+    const stopReasonLower = String(stopReason || '').toLowerCase();
+    const isVoiceAssistantStop = stopReasonLower === 'voice_assistant' || stopReasonLower === 'voice';
+    const includeInsights = options.includeInsights === undefined
+      ? !isVoiceAssistantStop
+      : options.includeInsights !== false;
+    const autoProcess = options.autoProcess !== false;
+
+    if (nextStatus === SESSION_STATUS.processing && autoProcess) {
+      this.processSession(userId, sessionId, {
+        includeInsights,
+      }).catch((error) => {
         console.error('[Recordings] Processing failed:', sanitizeError(error));
       });
     }
@@ -416,7 +425,7 @@ class RecordingManager {
     }
   }
 
-  async processSession(userId, sessionId) {
+  async processSession(userId, sessionId, options = {}) {
     this.#requireOwnedSession(userId, sessionId);
 
     const sources = this.#getSessionSources(sessionId);
@@ -525,9 +534,10 @@ class RecordingManager {
 
       const transcriptText = this.#composeTranscriptText(ordered);
 
+      const includeInsights = options.includeInsights !== false;
       let structuredInsights = null;
       const aiSettings = getAiSettings(userId);
-      if (transcriptText && aiSettings.auto_recording_insights) {
+      if (includeInsights && transcriptText && aiSettings.auto_recording_insights) {
         try {
           structuredInsights = await extractRecordingInsights(userId, transcriptText);
         } catch (err) {
