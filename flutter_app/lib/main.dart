@@ -21,7 +21,6 @@ import 'src/live_voice_capture.dart';
 import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
 import 'src/theme/palette.dart';
-import 'wearables/wearable_service.dart';
 
 part 'main_theme.dart';
 part 'main_app_shell.dart';
@@ -57,7 +56,6 @@ enum AppSection {
   scheduler,
   mcp,
   health,
-  wearables,
 }
 
 enum SidebarGroup { chat, agents, recordings, activity, automation, settings }
@@ -133,8 +131,6 @@ extension AppSectionX on AppSection {
         return 'MCP';
       case AppSection.health:
         return 'Health';
-      case AppSection.wearables:
-        return 'Wearables';
     }
   }
 
@@ -172,8 +168,6 @@ extension AppSectionX on AppSection {
         return Icons.hub_outlined;
       case AppSection.health:
         return Icons.favorite_border;
-      case AppSection.wearables:
-        return Icons.watch_outlined;
     }
   }
 
@@ -185,7 +179,6 @@ extension AppSectionX on AppSection {
       case AppSection.agents:
         return SidebarGroup.agents;
       case AppSection.recordings:
-      case AppSection.wearables:
         return SidebarGroup.recordings;
       case AppSection.runs:
       case AppSection.logs:
@@ -207,7 +200,7 @@ extension AppSectionX on AppSection {
 
   String get navigationTitle {
     final groupLabel = group.label;
-    if (this == AppSection.wearables || this == AppSection.voiceAssistant) {
+    if (this == AppSection.voiceAssistant) {
       return label;
     }
     if (group == SidebarGroup.chat || group == SidebarGroup.recordings) {
@@ -238,10 +231,6 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
       backendClient: backendClient,
       healthBridge: HealthBridge(),
       recordingBridge: createRecordingBridge(),
-      wearableService: WearableService(
-        backendClient: backendClient,
-        getBackendUrl: () => _controller.backendUrl,
-      ),
     )..bootstrap();
   }
 
@@ -292,12 +281,10 @@ class NeoAgentController extends ChangeNotifier {
     required BackendClient backendClient,
     required HealthBridge healthBridge,
     required RecordingBridge recordingBridge,
-    required WearableService wearableService,
     OAuthLauncher? oauthLauncher,
   }) : _backendClient = backendClient,
        _healthBridge = healthBridge,
        _recordingBridge = recordingBridge,
-       _wearableService = wearableService,
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher() {
     _recordingBridge.onRecordingStopped = _handleRecordingStopped;
     _recordingBridge.addListener(_handleRecordingBridgeChanged);
@@ -306,7 +293,6 @@ class NeoAgentController extends ChangeNotifier {
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
   final RecordingBridge _recordingBridge;
-  final WearableService _wearableService;
   final OAuthLauncher _oauthLauncher;
   final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
 
@@ -414,8 +400,6 @@ class NeoAgentController extends ChangeNotifier {
   bool _pendingLiveVoiceStop = false;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   VoiceAssistantLiveState voiceAssistantLiveState = VoiceAssistantLiveState();
-
-  WearableService get wearableService => _wearableService;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
 
@@ -1086,11 +1070,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void setSelectedSection(AppSection section) {
-    if (section == AppSection.wearables && !showWearablesSection) {
-      selectedSection = AppSection.chat;
-    } else {
-      selectedSection = section;
-    }
+    selectedSection = section;
     if (section == AppSection.devices) {
       unawaited(refreshDevices());
     }
@@ -3993,8 +3973,6 @@ class NeoAgentController extends ChangeNotifier {
   bool get showHealthSection =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  bool get showWearablesSection => !kIsWeb;
-
   Future<void> _syncBackgroundHealthConfig() async {
     final cookie = _backendClient.sessionCookie ?? '';
     await _prefs?.setString('health_sync_backend_url', backendUrl);
@@ -6783,632 +6761,6 @@ class _ResultBlock extends StatelessWidget {
   }
 }
 
-class WearablesPanel extends StatelessWidget {
-  const WearablesPanel({super.key, required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final service = controller.wearableService;
-
-    String formatHeyPocketFileMetric(int value) {
-      if (value <= 0) {
-        return 'unknown length';
-      }
-      if (value < 36000) {
-        return '${value}s';
-      }
-      return 'len $value';
-    }
-
-    return ListenableBuilder(
-      listenable: service,
-      builder: (context, _) {
-        final hasBleConnected = service.connectedDevice != null;
-        final hasBackgroundOnly =
-            service.backgroundBridgeConnected && !hasBleConnected;
-        final bridgeWaitingForDevice =
-            service.backgroundBridgeActive &&
-            !service.backgroundBridgeConnected;
-        return ListView(
-          padding: _pagePadding(context),
-          children: <Widget>[
-            const _PageTitle(
-              title: 'Wearables (Beta)',
-              subtitle: 'Connect and manage your recording hardware devices.',
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final compact = constraints.maxWidth < 760;
-                        final actions = Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            if (!hasBleConnected && service.hasReconnectTarget)
-                              OutlinedButton.icon(
-                                onPressed: service.isConnecting
-                                    ? null
-                                    : service.reconnectToPreferredDevice,
-                                icon: service.isConnecting
-                                    ? const SizedBox.square(
-                                        dimension: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Icon(Icons.refresh_rounded),
-                                label: Text('Reconnect'),
-                              ),
-                            if (service.canRequestOfflineSync)
-                              FilledButton.tonalIcon(
-                                onPressed: service.isOfflineSyncRequestInFlight
-                                    ? null
-                                    : service.requestHeyPocketOfflineSync,
-                                icon: service.isOfflineSyncRequestInFlight
-                                    ? const SizedBox.square(
-                                        dimension: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Icon(Icons.cloud_sync_outlined),
-                                label: Text(
-                                  service.isOfflineSyncRequestInFlight
-                                      ? 'Requesting sync...'
-                                      : 'Sync from device',
-                                ),
-                              ),
-                            OutlinedButton(
-                              onPressed:
-                                  (hasBleConnected ||
-                                      hasBackgroundOnly ||
-                                      bridgeWaitingForDevice)
-                                  ? service.disconnect
-                                  : null,
-                              child: Text('Disconnect'),
-                            ),
-                          ],
-                        );
-
-                        final headline = Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              hasBleConnected
-                                  ? 'Connected: ${service.connectedDevice!.name ?? 'Wearable'}'
-                                  : hasBackgroundOnly
-                                  ? 'Connected via background bridge: ${service.backgroundBridgeDeviceId ?? 'Wearable'}'
-                                  : bridgeWaitingForDevice
-                                  ? 'Background bridge enabled (waiting for device)'
-                                  : 'No device connected',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
-                            ),
-                            if (!hasBleConnected &&
-                                !hasBackgroundOnly &&
-                                !bridgeWaitingForDevice)
-                              Text(
-                                'Scan for nearby Bluetooth recording devices.',
-                                style: TextStyle(color: _textSecondary),
-                              ),
-                          ],
-                        );
-
-                        if (!hasBleConnected &&
-                            !hasBackgroundOnly &&
-                            !bridgeWaitingForDevice) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                children: <Widget>[
-                                  Icon(
-                                    Icons.watch_off_outlined,
-                                    color: _textSecondary,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(child: headline),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              actions,
-                            ],
-                          );
-                        }
-
-                        if (compact) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                children: <Widget>[
-                                  Icon(Icons.watch_outlined, color: _success),
-                                  const SizedBox(width: 12),
-                                  Expanded(child: headline),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              actions,
-                            ],
-                          );
-                        }
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Icon(Icons.watch_outlined, color: _success),
-                            const SizedBox(width: 12),
-                            Expanded(child: headline),
-                            const SizedBox(width: 12),
-                            Flexible(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: actions,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Icon(
-                          Icons.favorite_outline,
-                          color: _textSecondary,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            hasBleConnected || hasBackgroundOnly
-                                ? 'Your wearable is connected and ready.'
-                                : bridgeWaitingForDevice
-                                ? 'Bridge is active. Waiting for your wearable to reconnect.'
-                                : 'Connect a wearable to start recording from it.',
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: const EdgeInsets.only(bottom: 8),
-                      title: Text(
-                        'Technical details',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      children: <Widget>[
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            _SyncStatPill(
-                              label: 'BLE state',
-                              value: service.connectionState.name,
-                              icon: Icons.bluetooth_searching,
-                            ),
-                            _SyncStatPill(
-                              label: 'Bridge active',
-                              value: service.backgroundBridgeActive
-                                  ? 'yes'
-                                  : 'no',
-                              icon: Icons.settings_ethernet,
-                            ),
-                            _SyncStatPill(
-                              label: 'Bridge connected',
-                              value: service.backgroundBridgeConnected
-                                  ? 'yes'
-                                  : 'no',
-                              icon: Icons.link,
-                            ),
-                            _SyncStatPill(
-                              label: 'Device id',
-                              value:
-                                  service.connectedDevice?.deviceId ??
-                                  service.backgroundBridgeDeviceId ??
-                                  '-',
-                              icon: Icons.badge_outlined,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (service.connectedDevice != null &&
-                service.canRequestOfflineSync) ...<Widget>[
-              const SizedBox(height: 12),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _bgSecondary,
-                    border: Border.all(color: _borderLight),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Icon(Icons.sync_alt_rounded, color: _info),
-                            SizedBox(width: 8),
-                            Text(
-                              'HeyPocket Offline Sync',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: _textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (service.isOfflineSyncRequestInFlight)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: OutlinedButton.icon(
-                              onPressed: service.cancelHeyPocketOfflineSync,
-                              icon: Icon(Icons.cancel_outlined),
-                              label: Text('Cancel sync'),
-                            ),
-                          ),
-                        if (service.isOfflineSyncRequestInFlight)
-                          const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            _SyncStatPill(
-                              label: 'Status',
-                              value: service.heypocketSyncStatus,
-                              icon: Icons.info_outline,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ExpansionTile(
-                          tilePadding: EdgeInsets.zero,
-                          childrenPadding: EdgeInsets.zero,
-                          title: Text(
-                            'Sync details (advanced)',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          children: <Widget>[
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: <Widget>[
-                                _SyncStatPill(
-                                  label: 'Listed files',
-                                  value:
-                                      '${service.heypocketSyncListedFilesCount}',
-                                  icon: Icons.queue_music_outlined,
-                                ),
-                                _SyncStatPill(
-                                  label: 'Upload requests',
-                                  value:
-                                      '${service.heypocketSyncUploadCommandsSent}',
-                                  icon: Icons.cloud_upload_outlined,
-                                ),
-                              ],
-                            ),
-                            if (service
-                                .heypocketSyncListedFiles
-                                .isNotEmpty) ...<Widget>[
-                              const SizedBox(height: 12),
-                              Text(
-                                'On-device sync files',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: _textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              ...service.heypocketSyncListedFiles.map((file) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _bgCard,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: _borderLight),
-                                    ),
-                                    child: Row(
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: <Widget>[
-                                              Text(
-                                                file.fileId,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                '${file.date} • ${formatHeyPocketFileMetric(file.size)}',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: _textSecondary,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        IconButton(
-                                          onPressed: () => service
-                                              .deleteHeyPocketOfflineFile(file),
-                                          icon: Icon(
-                                            Icons.delete_outline,
-                                            size: 18,
-                                          ),
-                                          tooltip: 'Delete from device',
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ],
-                            if (service
-                                .heypocketSyncLastControlMessage
-                                .isNotEmpty) ...<Widget>[
-                              const SizedBox(height: 12),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: _bgPrimary,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: _borderLight),
-                                ),
-                                child: Text(
-                                  'Last response: ${service.heypocketSyncLastControlMessage}',
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: _textSecondary,
-                                    fontFamily:
-                                        GoogleFonts.jetBrainsMono().fontFamily,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 8),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _bgCard,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _borderLight),
-                          ),
-                          child: Row(
-                            children: <Widget>[
-                              Icon(
-                                Icons.tune_rounded,
-                                size: 16,
-                                color: _textSecondary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(
-                                      'Mode',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: _textSecondary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      service.heypocketModeLabel,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: _textPrimary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Switch(
-                                value: service.heypocketCallModeEnabled,
-                                onChanged: service.heypocketModeSwitchInFlight
-                                    ? null
-                                    : service.setHeyPocketCallMode,
-                              ),
-                              Text(
-                                service.heypocketCallModeEnabled
-                                    ? 'Call'
-                                    : 'Normal',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                Text(
-                  'Nearby Devices',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                if (service.isScanning)
-                  const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  TextButton.icon(
-                    onPressed: service.startScan,
-                    icon: Icon(Icons.search),
-                    label: Text('Scan'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (service.scanResults.isEmpty)
-              const _EmptyCard(
-                title: 'No devices found',
-                subtitle:
-                    'Ensure your wearable is in pairing mode and Bluetooth is enabled.',
-              )
-            else
-              ...service.scanResults.map((device) {
-                final isConnectingThisDevice =
-                    service.connectingDeviceId == device.deviceId;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Card(
-                    child: ListTile(
-                      leading: Icon(Icons.bluetooth),
-                      title: Text(device.name ?? 'Unknown Device'),
-                      subtitle: Text(device.deviceId),
-                      trailing: FilledButton(
-                        onPressed: isConnectingThisDevice
-                            ? null
-                            : () => service.connect(device),
-                        child: isConnectingThisDevice
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text('Connect'),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SyncStatPill extends StatelessWidget {
-  const _SyncStatPill({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 160, maxWidth: 340),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: _bgCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _borderLight),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, size: 14, color: _textSecondary),
-            const SizedBox(width: 6),
-            Text(
-              '$label: ',
-              style: TextStyle(
-                fontSize: 12,
-                color: _textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Expanded(
-              child: Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class RecordingsPanel extends StatefulWidget {
   const RecordingsPanel({super.key, required this.controller});
 
@@ -7419,38 +6771,6 @@ class RecordingsPanel extends StatefulWidget {
 }
 
 class _RecordingsPanelState extends State<RecordingsPanel> {
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.wearableService.addListener(_onWearableServiceChanged);
-  }
-
-  @override
-  void didUpdateWidget(covariant RecordingsPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(
-      oldWidget.controller.wearableService,
-      widget.controller.wearableService,
-    )) {
-      oldWidget.controller.wearableService.removeListener(
-        _onWearableServiceChanged,
-      );
-      widget.controller.wearableService.addListener(_onWearableServiceChanged);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.wearableService.removeListener(_onWearableServiceChanged);
-    super.dispose();
-  }
-
-  void _onWearableServiceChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   Future<void> _deleteSegment(
     BuildContext context,
     RecordingSessionItem session,
@@ -7482,20 +6802,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
   @override
   Widget build(BuildContext context) {
     final runtime = widget.controller.recordingRuntime;
-    final wearableService = widget.controller.wearableService;
-    final heypocketConnected = wearableService.canStartHeyPocketRecording;
-    final heypocketRecordingActive =
-        heypocketConnected && wearableService.heypocketRecordingActive;
-    final heypocketStartInFlight = wearableService.heypocketStartInFlight;
-    final anyRecordingActive = runtime.active || heypocketRecordingActive;
-    Future<void> handleWearableRecordingToggle() async {
-      if (heypocketRecordingActive) {
-        await wearableService.stopHeyPocketRecordingFromApp();
-      } else {
-        await wearableService.startHeyPocketRecordingFromApp();
-      }
-      await widget.controller.refreshRecordings();
-    }
+    final anyRecordingActive = runtime.active;
 
     return ListView(
       padding: _pagePadding(context),
@@ -7521,13 +6828,6 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                           ? (runtime.paused ? _warning : _danger)
                           : _success,
                     ),
-                    if (heypocketRecordingActive)
-                      Text(
-                        wearableService.heypocketActiveRecordingId.isNotEmpty
-                            ? 'Wearable live: ${wearableService.heypocketActiveRecordingId}'
-                            : 'Wearable live recording',
-                        style: TextStyle(color: _textSecondary),
-                      ),
                     if (runtime.platformLabel != null &&
                         runtime.platformLabel!.isNotEmpty)
                       Text(
@@ -7555,28 +6855,11 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                       FilledButton.icon(
                         onPressed:
                             widget.controller.isStartingRecording ||
-                                runtime.active ||
-                                heypocketStartInFlight
+                                runtime.active
                             ? null
-                            : (heypocketConnected
-                                  ? handleWearableRecordingToggle
-                                  : widget.controller.startBackgroundRecording),
-                        icon: Icon(
-                          heypocketConnected
-                              ? (heypocketRecordingActive
-                                    ? Icons.stop_circle_outlined
-                                    : Icons.watch_outlined)
-                              : Icons.mic_none_outlined,
-                        ),
-                        label: Text(
-                          heypocketConnected
-                              ? (heypocketStartInFlight
-                                    ? 'Starting wearable recording...'
-                                    : (heypocketRecordingActive
-                                          ? 'Stop wearable recording'
-                                          : 'Start recording on wearable'))
-                              : 'Start background mic',
-                        ),
+                            : widget.controller.startBackgroundRecording,
+                        icon: Icon(Icons.mic_none_outlined),
+                        label: Text('Start background mic'),
                       ),
                     if (runtime.supportsBackgroundMic && runtime.active)
                       OutlinedButton.icon(

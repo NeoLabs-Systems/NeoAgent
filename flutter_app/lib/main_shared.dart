@@ -69,7 +69,6 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.chat,
     AppSection.agents,
     AppSection.recordings,
-    if (controller.showWearablesSection) AppSection.wearables,
     AppSection.runs,
     AppSection.logs,
     AppSection.devices,

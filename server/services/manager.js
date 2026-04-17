@@ -14,7 +14,6 @@ const { Scheduler } = require('./scheduler/cron');
 const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
-const WearableManager = require('./wearables/manager');
 const { VoiceRuntimeManager } = require('./voice/runtimeManager');
 const { CLIExecutor } = require('./cli/executor');
 const { AuthProviderManager } = require('./account/auth_provider_manager');
@@ -392,17 +391,6 @@ function createRecordingManager(app, io) {
   return recordingManager;
 }
 
-function createWearableManager(app, io, services) {
-  const wearableManager = registerLocal(
-    app,
-    'wearableManager',
-    new WearableManager(io, services),
-  );
-  wearableManager.initDatabase();
-  logServiceReady('Wearable manager ready');
-  return wearableManager;
-}
-
 function restoreMessagingConnections(messagingManager) {
   void runBackgroundTask('[Messaging] Restore error:', () =>
     messagingManager.restoreConnections(),
@@ -437,7 +425,6 @@ function configureRealtime(app, io, services) {
     scheduler: services.scheduler,
     recordingManager: services.recordingManager,
     memoryManager: services.memoryManager,
-    wearableManager: services.wearableManager,
     voiceRuntimeManager: services.voiceRuntimeManager,
     app,
   });
@@ -487,7 +474,6 @@ async function startServices(app, io) {
 
     const messagingManager = createMessagingManager(app, io, agentEngine);
     const recordingManager = createRecordingManager(app, io);
-    const wearableManager = createWearableManager(app, io, { recordingManager });
 
     restoreMessagingConnections(messagingManager);
     restoreMcpClients(mcpClient);
@@ -509,7 +495,6 @@ async function startServices(app, io) {
       scheduler,
       recordingManager,
       memoryManager,
-      wearableManager,
       voiceRuntimeManager,
     });
 

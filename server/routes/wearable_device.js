@@ -2,18 +2,30 @@
 
 const express = require('express');
 const { sanitizeError } = require('../utils/security');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { wearableDeviceAuth } = require('../services/wearables/device_auth');
 const { createVoiceMessage } = require('../services/voice/message');
-const {
-  buildIngestHttpResponse,
-  requireMacAddress,
-  requireWearableManager,
-  readWearableAudioChunk,
-  requireCharacteristicUuid,
-  toWearableRouteError,
-} = require('./_helpers/wearableAudioRoutes');
 
 const router = express.Router();
+
+router.post('/pairing/code', (req, res) => {
+  try {
+    const sessionUserId = req.session?.userId;
+    if (!sessionUserId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const agentId = resolveAgentId(sessionUserId, getAgentIdFromRequest(req));
+    const pairing = wearableDeviceAuth.createPairingCode(req.session.userId, {
+      agentId,
+      ttlMinutes: req.body?.ttlMinutes,
+      source: 'messaging_tab',
+      deviceHint: req.body?.deviceHint,
+    });
+    res.status(201).json(pairing);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
 
 function extractBearerToken(req) {
   const auth = String(req.get('authorization') || '');
@@ -43,15 +55,6 @@ router.post('/pair/claim', (req, res) => {
       protocol: req.body?.protocol,
       firmwareVersion: req.body?.firmwareVersion,
     });
-
-    const manager = req.app.locals.wearableManager;
-    if (manager && req.body?.macAddress && req.body?.protocol) {
-      try {
-        manager.registerDevice(claimed.userId, req.body.macAddress, req.body.protocol, req.body.deviceName);
-      } catch (_) {
-        // Device may already be present; ignore duplicate registration errors.
-      }
-    }
 
     res.status(201).json({
       token: claimed.token,
@@ -138,63 +141,6 @@ router.post('/responses/ack', requireWearableToken, (req, res) => {
     res.json({ success: true, lastMessageId });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
-  }
-});
-
-router.post('/status', requireWearableToken, (req, res) => {
-  try {
-    const token = req.wearableToken;
-    const manager = requireWearableManager(req.app.locals);
-
-    const macAddress = requireMacAddress(req.body?.macAddress || token.mac_address);
-    const status = req.body?.status || 'connected';
-    const batteryLevel = req.body?.batteryLevel;
-
-    const device = manager.updateStatus(token.user_id, macAddress, status, batteryLevel);
-    if (!device) return res.status(404).json({ error: 'Device not found' });
-
-    res.json({ success: true, device });
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
-
-router.post('/stream', requireWearableToken, async (req, res) => {
-  try {
-    const manager = requireWearableManager(req.app.locals);
-
-    const token = req.wearableToken;
-    const rawBuffer = await readWearableAudioChunk(req);
-    const characteristicUuid = requireCharacteristicUuid(req, 'Missing characteristicUuid');
-    const macAddress = requireMacAddress(req.body?.macAddress || req.query.macAddress || token.mac_address);
-
-    const ingestResult = manager.handleLiveStreamChunk(
-      token.user_id,
-      macAddress,
-      rawBuffer,
-      { characteristicUuid }
-    );
-    const response = buildIngestHttpResponse(ingestResult);
-    return res.status(response.status).json(response.body);
-  } catch (err) {
-    const mapped = toWearableRouteError(err);
-    res.status(mapped.status).json({ error: mapped.message });
-  }
-});
-
-router.post('/sync', requireWearableToken, async (req, res) => {
-  try {
-    const manager = requireWearableManager(req.app.locals);
-
-    const token = req.wearableToken;
-    const rawBuffer = await readWearableAudioChunk(req);
-    const macAddress = requireMacAddress(req.body?.macAddress || req.query.macAddress || token.mac_address);
-
-    const session = await manager.syncOfflineAudio(token.user_id, macAddress, rawBuffer);
-    res.status(200).json({ success: true, sessionId: session.id });
-  } catch (err) {
-    const mapped = toWearableRouteError(err);
-    res.status(mapped.status).json({ error: mapped.message });
   }
 });
 
