@@ -8,7 +8,12 @@ function isDeepgramConfigured() {
   return typeof process.env.DEEPGRAM_API_KEY === 'string' && process.env.DEEPGRAM_API_KEY.trim().length > 0;
 }
 
-async function transcribeChunkWithDeepgram({ audioBytes, mimeType, detectLanguage = DEFAULT_LANGUAGE } = {}) {
+async function transcribeChunkWithDeepgram({
+  audioBytes,
+  mimeType,
+  detectLanguage = DEFAULT_LANGUAGE,
+  model = DEFAULT_MODEL,
+} = {}) {
   if (!isDeepgramConfigured()) {
     throw new Error('DEEPGRAM_API_KEY is not configured.');
   }
@@ -17,7 +22,7 @@ async function transcribeChunkWithDeepgram({ audioBytes, mimeType, detectLanguag
   }
 
   const query = new URLSearchParams({
-    model: DEFAULT_MODEL,
+    model: `${model || DEFAULT_MODEL}`.trim() || DEFAULT_MODEL,
     language: detectLanguage || DEFAULT_LANGUAGE,
     punctuate: 'true',
     smart_format: 'true',

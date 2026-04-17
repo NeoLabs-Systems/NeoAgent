@@ -444,10 +444,20 @@ class RecordingManager {
 
     const collectedSegments = [];
     let maxDuration = 0;
+    const aiSettings = getAiSettings(userId);
+    const recordingTranscriptionProvider = `${aiSettings.default_recording_transcription_provider || 'deepgram'}`
+      .trim()
+      .toLowerCase() || 'deepgram';
+    const recordingTranscriptionModel = `${aiSettings.default_recording_transcription_model || DEFAULT_MODEL}`.trim() || DEFAULT_MODEL;
+    const recordingSummaryProvider = `${aiSettings.default_recording_summary_provider || 'auto'}`.trim() || 'auto';
+    const recordingSummaryModel = `${aiSettings.default_recording_summary_model || 'auto'}`.trim() || 'auto';
 
     try {
       if (!isDeepgramConfigured()) {
         throw new Error('DEEPGRAM_API_KEY is not configured.');
+      }
+      if (recordingTranscriptionProvider !== 'deepgram') {
+        throw new Error(`Recording transcription provider "${recordingTranscriptionProvider}" is not supported yet.`);
       }
 
       for (const source of sources) {
@@ -484,7 +494,9 @@ class RecordingManager {
           continue;
         }
 
-        const sourceSegments = await this.#transcribeSourceChunks(source, chunks);
+        const sourceSegments = await this.#transcribeSourceChunks(source, chunks, {
+          transcriptionModel: recordingTranscriptionModel,
+        });
         maxDuration = Math.max(
           maxDuration,
           ...sourceSegments.map((segment) => Number(segment.endMs) || 0),
@@ -536,10 +548,12 @@ class RecordingManager {
 
       const includeInsights = options.includeInsights !== false;
       let structuredInsights = null;
-      const aiSettings = getAiSettings(userId);
       if (includeInsights && transcriptText && aiSettings.auto_recording_insights) {
         try {
-          structuredInsights = await extractRecordingInsights(userId, transcriptText);
+          structuredInsights = await extractRecordingInsights(userId, transcriptText, {
+            provider: recordingSummaryProvider,
+            model: recordingSummaryModel,
+          });
         } catch (err) {
           console.error(`[Recordings] Failed to extract insights for session ${sessionId}:`, sanitizeError(err));
         }
@@ -562,7 +576,7 @@ class RecordingManager {
         SESSION_STATUS.completed,
         transcriptText,
         DEFAULT_LANGUAGE,
-        DEFAULT_MODEL,
+        recordingTranscriptionModel,
         structuredInsights ? JSON.stringify(structuredInsights) : null,
         maxDuration,
         new Date().toISOString(),
@@ -686,14 +700,14 @@ class RecordingManager {
     this.#emitUpdate(userId, sessionId);
   }
 
-  async #transcribeSourceChunks(source, chunks) {
+  async #transcribeSourceChunks(source, chunks, { transcriptionModel = DEFAULT_MODEL } = {}) {
     if (this.#canTranscribeAsSingleWav(source, chunks)) {
-      return this.#transcribeMergedWavSource(source, chunks);
+      return this.#transcribeMergedWavSource(source, chunks, { transcriptionModel });
     }
 
     if (this.#canTranscribeAsMergedBinary(source, chunks)) {
       try {
-        return await this.#transcribeMergedBinarySource(source, chunks);
+        return await this.#transcribeMergedBinarySource(source, chunks, { transcriptionModel });
       } catch (error) {
         console.warn(
           `[Recordings] Merged transcription failed for source ${source.source_key}; falling back to per-chunk mode: ${sanitizeError(error)}`,
@@ -718,6 +732,7 @@ class RecordingManager {
           audioBytes,
           mimeType: chunk.mime_type || source.mime_type,
           detectLanguage: DEFAULT_LANGUAGE,
+          model: transcriptionModel,
         });
         segments.push(...this.#extractSegments(source, chunk, payload));
       } catch (error) {
@@ -753,7 +768,7 @@ class RecordingManager {
     return isDeepgramRequestError && likelyCorruptPayload;
   }
 
-  async #transcribeMergedWavSource(source, chunks) {
+  async #transcribeMergedWavSource(source, chunks, { transcriptionModel = DEFAULT_MODEL } = {}) {
     const wavParts = chunks.map((chunk) => {
       const audioBytes = fs.readFileSync(chunk.file_path);
       return {
@@ -805,6 +820,7 @@ class RecordingManager {
       audioBytes: mergedAudioBytes,
       mimeType: chunks[0].mime_type || source.mime_type || 'audio/wav',
       detectLanguage: DEFAULT_LANGUAGE,
+      model: transcriptionModel,
     });
 
     const lastSpan = spans[spans.length - 1];
@@ -832,7 +848,7 @@ class RecordingManager {
     });
   }
 
-  async #transcribeMergedBinarySource(source, chunks) {
+  async #transcribeMergedBinarySource(source, chunks, { transcriptionModel = DEFAULT_MODEL } = {}) {
     const nonEmptyParts = chunks
       .map((chunk) => ({
         chunk,
@@ -854,6 +870,7 @@ class RecordingManager {
       audioBytes: mergedAudioBytes,
       mimeType: firstChunk.mime_type || source.mime_type || 'audio/mpeg',
       detectLanguage: DEFAULT_LANGUAGE,
+      model: transcriptionModel,
     });
 
     return this.#extractSegmentsFromPayload(source, payload, {

@@ -2683,6 +2683,10 @@ class NeoAgentController extends ChangeNotifier {
     required List<String> enabledModels,
     required String defaultChatModel,
     required String defaultSubagentModel,
+    required String defaultRecordingTranscriptionProvider,
+    required String defaultRecordingTranscriptionModel,
+    required String defaultRecordingSummaryProvider,
+    required String defaultRecordingSummaryModel,
     required String fallbackModel,
     required String voiceSttProvider,
     required String voiceSttModel,
@@ -2706,6 +2710,12 @@ class NeoAgentController extends ChangeNotifier {
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
+      'default_recording_transcription_provider':
+          defaultRecordingTranscriptionProvider,
+      'default_recording_transcription_model':
+          defaultRecordingTranscriptionModel,
+      'default_recording_summary_provider': defaultRecordingSummaryProvider,
+      'default_recording_summary_model': defaultRecordingSummaryModel,
       'fallback_model_id': fallbackModel,
       'voice_stt_provider': voiceSttProvider,
       'voice_stt_model': voiceSttModel,
@@ -3926,6 +3936,27 @@ class NeoAgentController extends ChangeNotifier {
 
   String get defaultSubagentModel =>
       settings['default_subagent_model']?.toString() ?? 'auto';
+
+  String get defaultRecordingTranscriptionModel =>
+      settings['default_recording_transcription_model']?.toString() ??
+      'nova-3';
+
+  String get defaultRecordingTranscriptionProvider =>
+      _settingString(
+        'default_recording_transcription_provider',
+        'deepgram',
+        lowercase: true,
+      );
+
+  String get defaultRecordingSummaryModel =>
+      settings['default_recording_summary_model']?.toString() ?? 'auto';
+
+  String get defaultRecordingSummaryProvider =>
+      _settingString(
+        'default_recording_summary_provider',
+        'auto',
+        lowercase: true,
+      );
 
   String get fallbackModel =>
       settings['fallback_model_id']?.toString() ??
@@ -11193,6 +11224,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late Set<String> _enabledModels;
   late String _defaultChatModel;
   late String _defaultSubagentModel;
+  late String _defaultRecordingTranscriptionModel;
+  late String _defaultRecordingSummaryModel;
   late String _fallbackModel;
   late String _voiceLiveProvider;
   late String _voiceLiveModel;
@@ -11247,6 +11280,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
     _defaultChatModel = controller.defaultChatModel;
     _defaultSubagentModel = controller.defaultSubagentModel;
+    _defaultRecordingTranscriptionModel =
+      controller.defaultRecordingTranscriptionModel;
+    _defaultRecordingSummaryModel = controller.defaultRecordingSummaryModel;
     _fallbackModel = controller.fallbackModel;
     _voiceLiveProvider = controller.voiceLiveProvider;
     _voiceLiveModel = controller.voiceLiveModel;
@@ -11335,6 +11371,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     enabledModels: _enabledModels.toList(),
                     defaultChatModel: _defaultChatModel,
                     defaultSubagentModel: _defaultSubagentModel,
+                    defaultRecordingTranscriptionProvider:
+                        'deepgram',
+                    defaultRecordingTranscriptionModel:
+                      _defaultRecordingTranscriptionModel,
+                    defaultRecordingSummaryProvider:
+                        _providerForSelectedModel(
+                          _defaultRecordingSummaryModel,
+                          controller.supportedModels,
+                        ),
+                    defaultRecordingSummaryModel:
+                      _defaultRecordingSummaryModel,
                     fallbackModel: _fallbackModel,
                     voiceSttProvider: controller.voiceSttProvider,
                     voiceSttModel: controller.voiceSttModel,
@@ -11441,125 +11488,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _SectionTitle('Voice'),
-                const SizedBox(height: 12),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 920;
-                    final fieldWidth = compact
-                        ? constraints.maxWidth
-                        : (constraints.maxWidth - 24) / 3;
-                    final liveVoiceOptions =
-                        _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
-                        const <String>[];
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: <Widget>[
-                        SizedBox(
-                          width: fieldWidth,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _voiceLiveProvider,
-                            decoration: const InputDecoration(
-                              labelText: 'Live Provider',
-                            ),
-                            items: const <String>['openai', 'gemini']
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                _voiceLiveProvider = value;
-                                final modelOptions =
-                                    _voiceLiveModelsByProvider[_voiceLiveProvider] ??
-                                    const <String>[];
-                                if (!modelOptions.contains(_voiceLiveModel) &&
-                                    modelOptions.isNotEmpty) {
-                                  _voiceLiveModel = modelOptions.first;
-                                }
-                                final voiceOptions =
-                                    _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
-                                    const <String>[];
-                                if (voiceOptions.isNotEmpty &&
-                                    !voiceOptions.contains(_voiceLiveVoice)) {
-                                  _voiceLiveVoice = voiceOptions.first;
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                        SizedBox(
-                          width: fieldWidth,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _voiceLiveModel,
-                            decoration: const InputDecoration(
-                              labelText: 'Live Model',
-                            ),
-                            items:
-                                (_voiceLiveModelsByProvider[_voiceLiveProvider] ??
-                                        const <String>[])
-                                    .map(
-                                      (value) => DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _voiceLiveModel = value);
-                              }
-                            },
-                          ),
-                        ),
-                        if (liveVoiceOptions.isNotEmpty)
-                          SizedBox(
-                            width: fieldWidth,
-                            child: DropdownButtonFormField<String>(
-                              initialValue: _voiceLiveVoice,
-                              decoration: const InputDecoration(
-                                labelText: 'Live Voice',
-                              ),
-                              items: liveVoiceOptions
-                                  .map(
-                                    (value) => DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _voiceLiveVoice = value);
-                                }
-                              },
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Interactive voice uses the live provider, model, and voice shown here. The Flutter voice assistant now runs on the live path only.',
-                  style: TextStyle(color: _textSecondary),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
                 const _SectionTitle('Model Routing'),
                 const SizedBox(height: 14),
                 if (routingModels.isNotEmpty) ...<Widget>[
@@ -11638,12 +11566,198 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
                 ],
-                Text(
-                  'Smart Selector Allowed Models',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Recording Defaults'),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 940;
+                    final cardWidth = compact
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 12) / 2;
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: <Widget>[
+                        SizedBox(
+                          width: cardWidth,
+                          child: _RoutingSelectCard(
+                            label: 'Recording Summary',
+                            icon: Icons.summarize_outlined,
+                            value: _ensureModelValue(
+                              _defaultRecordingSummaryModel,
+                              routingModels,
+                              allowAuto: true,
+                            ),
+                            items: modelChoices,
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(
+                                  () => _defaultRecordingSummaryModel = value,
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: cardWidth,
+                          child: _RoutingSelectCard(
+                            label: 'Recording Transcription',
+                            icon: Icons.hearing_outlined,
+                            value: _defaultRecordingTranscriptionModel,
+                            items: _recordingTranscriptionModelChoices(
+                              _defaultRecordingTranscriptionModel,
+                            ),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(
+                                  () =>
+                                      _defaultRecordingTranscriptionModel =
+                                          value,
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Live Call'),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 940;
+                    final cardWidth = compact
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 24) / 3;
+                    final liveVoiceOptions =
+                        _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
+                        const <String>[];
+
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: <Widget>[
+                        SizedBox(
+                          width: cardWidth,
+                          child: _RoutingSelectCard(
+                            label: 'Live Provider',
+                            icon: Icons.call_outlined,
+                            value: _voiceLiveProvider,
+                            items: const <String>['openai', 'gemini']
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _voiceLiveProvider = value;
+                                final modelOptions =
+                                    _voiceLiveModelsByProvider[_voiceLiveProvider] ??
+                                    const <String>[];
+                                if (!modelOptions.contains(_voiceLiveModel) &&
+                                    modelOptions.isNotEmpty) {
+                                  _voiceLiveModel = modelOptions.first;
+                                }
+                                final voiceOptions =
+                                    _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
+                                    const <String>[];
+                                if (voiceOptions.isNotEmpty &&
+                                    !voiceOptions.contains(_voiceLiveVoice)) {
+                                  _voiceLiveVoice = voiceOptions.first;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: cardWidth,
+                          child: _RoutingSelectCard(
+                            label: 'Live Model',
+                            icon: Icons.speed_outlined,
+                            value: _voiceLiveModel,
+                            items:
+                                (_voiceLiveModelsByProvider[_voiceLiveProvider] ??
+                                        const <String>[])
+                                    .map(
+                                      (value) => DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value),
+                                      ),
+                                    )
+                                    .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _voiceLiveModel = value);
+                              }
+                            },
+                          ),
+                        ),
+                        if (liveVoiceOptions.isNotEmpty)
+                          SizedBox(
+                            width: cardWidth,
+                            child: _RoutingSelectCard(
+                              label: 'Live Voice',
+                              icon: Icons.graphic_eq_outlined,
+                              value: _voiceLiveVoice,
+                              items: liveVoiceOptions
+                                  .map(
+                                    (value) => DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _voiceLiveVoice = value);
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Smart Selector Allowed Models'),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 10,
@@ -11960,6 +12074,18 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
+  String _providerForSelectedModel(String modelId, List<ModelMeta> models) {
+    if (modelId.trim().isEmpty || modelId == 'auto') {
+      return 'auto';
+    }
+    for (final model in models) {
+      if (model.id == modelId) {
+        return model.provider.trim().isEmpty ? 'auto' : model.provider;
+      }
+    }
+    return 'auto';
+  }
+
   Map<String, dynamic> _buildProviderPayload() {
     final providerIds = <String>{
       ...widget.controller.aiProviders.map((provider) => provider.id),
@@ -12002,6 +12128,25 @@ class _SettingsPanelState extends State<SettingsPanel> {
     for (final id in staleIds) {
       controllers.remove(id)?.dispose();
     }
+  }
+
+  List<DropdownMenuItem<String>> _recordingTranscriptionModelChoices(
+    String current,
+  ) {
+    const defaults = <String>['nova-3', 'nova-2', 'enhanced', 'base'];
+    final normalizedCurrent = current.trim();
+    final values = <String>{...defaults};
+    if (normalizedCurrent.isNotEmpty) {
+      values.add(normalizedCurrent);
+    }
+    return values
+        .map(
+          (value) => DropdownMenuItem<String>(
+            value: value,
+            child: Text(value),
+          ),
+        )
+        .toList();
   }
 }
 
