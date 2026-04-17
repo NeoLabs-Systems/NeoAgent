@@ -88,45 +88,45 @@ jobs:
 
           $scriptPath = Join-Path $env:RUNNER_TEMP "neoagent-installer.iss"
           $guid = "{C5F1E5F6-1D17-4AC8-9E26-86AC8EC36B58}"
-          $iss = @"
-#define MyAppName "NeoAgent"
-#define MyAppVersion "${{ steps.version.outputs.version }}"
-#define MyAppPublisher "NeoAgent"
-#define MyAppExeName "$($exe.Name)"
-
-[Setup]
-AppId=$guid
-AppName={#MyAppName}
-AppVersion={#MyAppVersion}
-AppPublisher={#MyAppPublisher}
-DefaultDirName={autopf}\{#MyAppName}
-DefaultGroupName={#MyAppName}
-DisableProgramGroupPage=yes
-OutputDir=$distDir
-OutputBaseFilename=neoagent-windows-x64-setup-{#MyAppVersion}
-Compression=lzma
-SolidCompression=yes
-WizardStyle=modern
-ArchitecturesInstallIn64BitMode=x64
-UninstallDisplayIcon={app}\{#MyAppExeName}
-
-[Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
-
-[Tasks]
-Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
-
-[Files]
-Source: "$releaseDir\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-[Icons]
-Name: "{autoprograms}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"
-Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; Tasks: desktopicon
-
-[Run]
-Filename: "{app}\\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
-"@
-          Set-Content -Path $scriptPath -Value $iss -Encoding UTF8
+          $issLines = @(
+            '#define MyAppName "NeoAgent"'
+            "#define MyAppVersion \"${{ steps.version.outputs.version }}\""
+            '#define MyAppPublisher "NeoAgent"'
+            "#define MyAppExeName \"$($exe.Name)\""
+            ''
+            '[Setup]'
+            "AppId=$guid"
+            'AppName={#MyAppName}'
+            'AppVersion={#MyAppVersion}'
+            'AppPublisher={#MyAppPublisher}'
+            'DefaultDirName={autopf}\{#MyAppName}'
+            'DefaultGroupName={#MyAppName}'
+            'DisableProgramGroupPage=yes'
+            "OutputDir=$distDir"
+            'OutputBaseFilename=neoagent-windows-x64-setup-{#MyAppVersion}'
+            'Compression=lzma'
+            'SolidCompression=yes'
+            'WizardStyle=modern'
+            'ArchitecturesInstallIn64BitMode=x64'
+            'UninstallDisplayIcon={app}\{#MyAppExeName}'
+            ''
+            '[Languages]'
+            'Name: "english"; MessagesFile: "compiler:Default.isl"'
+            ''
+            '[Tasks]'
+            'Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"'
+            ''
+            '[Files]'
+            "Source: \"$releaseDir\\*\"; DestDir: \"{app}\"; Flags: ignoreversion recursesubdirs createallsubdirs"
+            ''
+            '[Icons]'
+            'Name: "{autoprograms}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"'
+            'Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; Tasks: desktopicon'
+            ''
+            '[Run]'
+            'Filename: "{app}\\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent'
+          )
+          Set-Content -Path $scriptPath -Value ($issLines -join "`r`n") -Encoding UTF8
 
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" $scriptPath
 
@@ -295,33 +295,33 @@ Filename: "{app}\\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: n
           cp -R "$BUNDLE_DIR"/* "$ARCH_APP_DIR/"
           ln -sf "/opt/neoagent/$APP_BIN_NAME" "$ARCH_BIN_LINK_DIR/neoagent"
 
-          cat > "$PKG_ROOT/DEBIAN/control" <<EOF
-Package: neoagent
-Version: ${{ steps.version.outputs.deb_version }}
-Section: utils
-Priority: optional
-Architecture: amd64
-Maintainer: NeoAgent <support@neoagent.ai>
-Description: NeoAgent Flutter desktop app
-EOF
+          printf '%s\n' \
+            'Package: neoagent' \
+            'Version: ${{ steps.version.outputs.deb_version }}' \
+            'Section: utils' \
+            'Priority: optional' \
+            'Architecture: amd64' \
+            'Maintainer: NeoAgent <support@neoagent.ai>' \
+            'Description: NeoAgent Flutter desktop app' \
+            > "$PKG_ROOT/DEBIAN/control"
 
-          cat > "$DESKTOP_DIR/neoagent.desktop" <<EOF
-[Desktop Entry]
-Name=NeoAgent
-Exec=/opt/neoagent/$APP_BIN_NAME
-Terminal=false
-Type=Application
-Categories=Utility;
-EOF
+          printf '%s\n' \
+            '[Desktop Entry]' \
+            'Name=NeoAgent' \
+            "Exec=/opt/neoagent/$APP_BIN_NAME" \
+            'Terminal=false' \
+            'Type=Application' \
+            'Categories=Utility;' \
+            > "$DESKTOP_DIR/neoagent.desktop"
 
-          cat > "$ARCH_DESKTOP_DIR/neoagent.desktop" <<EOF
-[Desktop Entry]
-Name=NeoAgent
-Exec=/opt/neoagent/$APP_BIN_NAME
-Terminal=false
-Type=Application
-Categories=Utility;
-EOF
+          printf '%s\n' \
+            '[Desktop Entry]' \
+            'Name=NeoAgent' \
+            "Exec=/opt/neoagent/$APP_BIN_NAME" \
+            'Terminal=false' \
+            'Type=Application' \
+            'Categories=Utility;' \
+            > "$ARCH_DESKTOP_DIR/neoagent.desktop"
 
           chmod 0755 "$PKG_ROOT/DEBIAN"
           chmod 0644 "$PKG_ROOT/DEBIAN/control"
