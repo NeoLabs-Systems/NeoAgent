@@ -90,9 +90,9 @@ jobs:
           $guid = "{C5F1E5F6-1D17-4AC8-9E26-86AC8EC36B58}"
           $issLines = @(
             '#define MyAppName "NeoAgent"'
-            "#define MyAppVersion \"${{ steps.version.outputs.version }}\""
+            ('#define MyAppVersion "' + '${{ steps.version.outputs.version }}' + '"')
             '#define MyAppPublisher "NeoAgent"'
-            "#define MyAppExeName \"$($exe.Name)\""
+            ('#define MyAppExeName "' + $exe.Name + '"')
             ''
             '[Setup]'
             "AppId=$guid"
@@ -117,7 +117,7 @@ jobs:
             'Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"'
             ''
             '[Files]'
-            "Source: \"$releaseDir\\*\"; DestDir: \"{app}\"; Flags: ignoreversion recursesubdirs createallsubdirs"
+            ('Source: "' + $releaseDir + '\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs')
             ''
             '[Icons]'
             'Name: "{autoprograms}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"'
@@ -224,7 +224,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev ruby-full build-essential
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev ruby-full build-essential libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
           sudo gem install --no-document fpm
 
       - name: Set up Flutter
