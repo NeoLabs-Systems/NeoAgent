@@ -20,6 +20,7 @@ dependencies:
   path_provider: ^2.1.5
   audioplayers: ^6.1.0
   qr_flutter: ^4.1.0
+  record: ^6.1.1
 
 dev_dependencies:
   flutter_test:

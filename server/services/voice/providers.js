@@ -197,8 +197,11 @@ function wrapPcmAsWav(audioBytes, format) {
   return Buffer.concat([header, data]);
 }
 
-async function transcribeWithOpenAi(filePath, model) {
-  const client = getOpenAiClient();
+async function transcribeWithOpenAi(filePath, model, options = {}) {
+  const client = getOpenAiClient({
+    apiKey: typeof options.apiKey === 'string' ? options.apiKey.trim() : '',
+    baseUrl: typeof options.baseUrl === 'string' ? options.baseUrl.trim() : '',
+  });
   if (!client) {
     throw new Error('OpenAI STT is selected but OPENAI_API_KEY is not configured.');
   }
@@ -221,8 +224,10 @@ async function transcribeWithDeepgram(filePath, mimeType) {
   return String(transcript || '').trim();
 }
 
-async function transcribeWithGemini(filePath, model, mimeType) {
-  const apiKey = requireApiKey('Gemini STT', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
+async function transcribeWithGemini(filePath, model, mimeType, options = {}) {
+  const apiKey =
+    (typeof options.apiKey === 'string' ? options.apiKey.trim() : '') ||
+    requireApiKey('Gemini STT', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
 
   const audioBytes = await fs.promises.readFile(filePath);
   const payload = await fetchJsonOrThrow(
@@ -267,16 +272,19 @@ async function transcribeVoiceInput(filePath, options = {}) {
   const model = resolveSttModel(provider, options.model);
 
   if (provider === 'openai') {
-    return transcribeWithOpenAi(filePath, model);
+    return transcribeWithOpenAi(filePath, model, options);
   }
   if (provider === 'deepgram') {
     return transcribeWithDeepgram(filePath, options.mimeType);
   }
-  return transcribeWithGemini(filePath, model, options.mimeType);
+  return transcribeWithGemini(filePath, model, options.mimeType, options);
 }
 
-async function synthesizeWithOpenAi(text, model, voice) {
-  const client = getOpenAiClient();
+async function synthesizeWithOpenAi(text, model, voice, options = {}) {
+  const client = getOpenAiClient({
+    apiKey: typeof options.apiKey === 'string' ? options.apiKey.trim() : '',
+    baseUrl: typeof options.baseUrl === 'string' ? options.baseUrl.trim() : '',
+  });
   if (!client) {
     throw new Error('OpenAI TTS is selected but OPENAI_API_KEY is not configured.');
   }
@@ -304,8 +312,10 @@ async function synthesizeWithDeepgram(text, model) {
   );
 }
 
-async function synthesizeWithGemini(text, model, voice) {
-  const apiKey = requireApiKey('Gemini TTS', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
+async function synthesizeWithGemini(text, model, voice, options = {}) {
+  const apiKey =
+    (typeof options.apiKey === 'string' ? options.apiKey.trim() : '') ||
+    requireApiKey('Gemini TTS', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
 
   const payload = await fetchJsonOrThrow(
     `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -375,12 +385,12 @@ async function synthesizeVoiceReply(text, options = {}) {
   const { provider, model, voice } = normalizeVoiceSynthesisOptions(options);
 
   if (provider === 'openai') {
-    return synthesizeWithOpenAi(content, model, voice);
+    return synthesizeWithOpenAi(content, model, voice, options);
   }
   if (provider === 'deepgram') {
     return synthesizeWithDeepgram(content, model);
   }
-  return synthesizeWithGemini(content, model, voice);
+  return synthesizeWithGemini(content, model, voice, options);
 }
 
 module.exports = {

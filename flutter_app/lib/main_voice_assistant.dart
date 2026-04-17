@@ -14,14 +14,14 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   Timer? _elapsedTimer;
   bool _elapsedTickerActive = false;
   bool _pttPressed = false;
-  bool _isRunningAssistant = false;
   bool _isAssistantPlaying = false;
   String _assistantReply = '';
   String _assistantTranscript = '';
   String? _voiceError;
   Uint8List? _assistantAudioBytes;
   String? _assistantAudioMimeType;
-  String? _lastCapturedSessionId;
+  String _lastLiveAudioFingerprint = '';
+  String? _lastLiveError;
 
   @override
   void initState() {
@@ -49,10 +49,13 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
 
   void _handleControllerChanged() {
     _syncElapsedTicker();
+    _syncLiveVoiceState();
   }
 
   void _syncElapsedTicker() {
-    final shouldRun = widget.controller.recordingRuntime.active;
+    final shouldRun =
+        widget.controller.isLiveVoiceCaptureActive ||
+        widget.controller.isLiveVoiceCaptureStarting;
     if (shouldRun == _elapsedTickerActive) {
       return;
     }
@@ -71,26 +74,69 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     });
   }
 
-  Future<void> _startPttCapture() async {
-    final runtime = widget.controller.recordingRuntime;
-    if (runtime.active || widget.controller.isStartingRecording) {
-      return;
+  void _syncLiveVoiceState() {
+    final liveState = widget.controller.voiceAssistantLiveState;
+    _assistantReply = liveState.assistantText;
+    _assistantTranscript = liveState.finalTranscript.ifEmpty(
+      liveState.partialTranscript,
+    );
+    _assistantAudioBytes = liveState.audioBytes;
+    _assistantAudioMimeType = liveState.audioMimeType;
+    _voiceError = liveState.error;
+
+    final currentError = liveState.error?.trim();
+    if ((currentError?.isNotEmpty ?? false) && currentError != _lastLiveError) {
+      _lastLiveError = currentError;
+      unawaited(_stopAssistantAudio());
+    } else if (currentError == null || currentError.isEmpty) {
+      _lastLiveError = null;
     }
 
+    final bytes = liveState.audioBytes;
+    final fingerprint = bytes.isEmpty
+        ? ''
+        : '${bytes.length}:${bytes.take(8).join(',')}';
+    if (fingerprint.isEmpty) {
+      _lastLiveAudioFingerprint = '';
+    }
+    if (fingerprint.isNotEmpty && fingerprint != _lastLiveAudioFingerprint) {
+      _lastLiveAudioFingerprint = fingerprint;
+      unawaited(_playAssistantAudio());
+    }
+  }
+
+  bool _hasActivePttCapture() {
+    final controller = widget.controller;
+    return controller.isLiveVoiceCaptureActive ||
+        controller.isLiveVoiceCaptureStarting;
+  }
+
+  void _handlePrimaryPointerDown(PointerDownEvent event) {
+    if (event.kind == PointerDeviceKind.mouse &&
+        event.buttons != kPrimaryMouseButton) {
+      return;
+    }
+    if (_hasActivePttCapture()) {
+      return;
+    }
+    unawaited(_startPttCapture());
+  }
+
+  void _handlePrimaryPointerUp(PointerEvent event) {
+    if (!_hasActivePttCapture() && !_pttPressed) {
+      return;
+    }
+    unawaited(_stopPttCapture());
+  }
+
+  Future<void> _startPttCapture() async {
     setState(() {
       _pttPressed = true;
       _voiceError = null;
     });
 
     try {
-      if (kIsWeb) {
-        await widget.controller.startWebMicrophoneRecording();
-      } else if (runtime.supportsBackgroundMic) {
-        await widget.controller.startBackgroundRecording();
-      } else if (runtime.supportsScreenAndMic) {
-        await widget.controller.startWebRecording();
-      }
-      _lastCapturedSessionId = widget.controller.recordingRuntime.sessionId;
+      await widget.controller.startLiveVoiceCapture();
     } catch (error) {
       if (!mounted) {
         return;
@@ -108,68 +154,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   }
 
   Future<void> _stopPttCapture() async {
-    final runtime = widget.controller.recordingRuntime;
-    if (!runtime.active || widget.controller.isStoppingRecording) {
-      return;
-    }
-
-    final capturedSessionId = runtime.sessionId;
-    await widget.controller.stopRecording(stopReason: 'voice_assistant');
-
-    final targetSessionId = capturedSessionId ?? _lastCapturedSessionId;
-    if (targetSessionId != null && targetSessionId.trim().isNotEmpty) {
-      await _runAssistantTurn(targetSessionId.trim());
-    }
-  }
-
-  Future<void> _runAssistantTurn(String sessionId) async {
-    if (_isRunningAssistant) {
-      return;
-    }
-
-    setState(() {
-      _isRunningAssistant = true;
-      _voiceError = null;
-    });
-
-    try {
-      final result = await widget.controller.runVoiceAssistantTurn(
-        sessionId: sessionId,
-      );
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _assistantReply = result.replyText;
-        _assistantTranscript = result.transcript;
-        _assistantAudioBytes = result.audioBytes;
-        _assistantAudioMimeType = result.audioMimeType;
-        _voiceError = null;
-        if ((_assistantAudioBytes?.isEmpty ?? true) &&
-            (result.ttsError?.trim().isNotEmpty ?? false)) {
-          _voiceError =
-              'Speech playback unavailable (${result.ttsProvider ?? 'tts'}): ${result.ttsError}';
-        }
-      });
-
-      if (_assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty) {
-        await _playAssistantAudio();
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _voiceError = widget.controller._friendlyErrorMessage(error);
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRunningAssistant = false;
-        });
-      }
-    }
+    await widget.controller.stopLiveVoiceCapture();
   }
 
   Future<void> _playAssistantAudio() async {
@@ -201,18 +186,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     });
   }
 
-  RecordingSessionItem? _latestVoiceSession() {
-    for (final session in widget.controller.recordingSessions) {
-      final hasAudioSource = session.sources.any(
-        (source) => source.mediaKind == 'audio' && source.chunkCount > 0,
-      );
-      if (hasAudioSource) {
-        return session;
-      }
-    }
-    return null;
-  }
-
   String _activeCallElapsedLabel(RecordingRuntimeStatus runtime) {
     final startedAt = runtime.startedAt;
     if (startedAt == null) {
@@ -229,100 +202,64 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  String _captureStateLabel(RecordingRuntimeStatus runtime) {
-    if (runtime.active) {
-      return runtime.paused ? 'Capture paused' : 'Listening live';
-    }
-    return 'Ready for next turn';
-  }
-
-  String _captureStateSubtitle(
-    RecordingRuntimeStatus runtime,
-    RecordingSessionItem? latestSession,
-  ) {
-    if (runtime.active) {
-      return 'Release the mic to transcribe and run the assistant.';
-    }
-    if (latestSession == null) {
-      return 'Hold to talk, then NeoOS will answer in text and optional speech.';
-    }
-    return '${latestSession.statusLabel} • ${latestSession.startedAtLabel}';
-  }
-
-  Widget _buildLatestSessionCard(
-    NeoAgentController controller,
-    RecordingSessionItem? latestSession,
-  ) {
-    final preview = latestSession?.transcriptText.trim() ?? '';
-    final helperText = latestSession == null
-        ? 'No voice capture yet. Start a push-to-talk session to create one.'
-        : '${latestSession.platformLabel} • ${latestSession.durationLabel} • ${latestSession.statusLabel}';
+  Widget _buildLiveSessionCard(NeoAgentController controller) {
+    final liveState = controller.voiceAssistantLiveState;
+    final preview = liveState.finalTranscript.ifEmpty(
+      liveState.partialTranscript,
+    );
+    final helperText = liveState.hasActiveSession
+        ? '${liveState.provider.toUpperCase()} • ${liveState.model} • ${liveState.state}'
+        : 'Open a push-to-talk session to start live voice.';
     return _VoiceAssistantSectionCard(
-      icon: Icons.fiber_smart_record_outlined,
-      title: 'Latest Capture',
+      icon: Icons.graphic_eq_outlined,
+      title: 'Live Session',
       subtitle: helperText,
-      child: latestSession == null
-          ? Text(
-              'Recent microphone captures will appear here so you can inspect them before rerunning the reply.',
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    _StatusPill(
-                      label: latestSession.statusLabel,
-                      color: latestSession.statusColor,
-                    ),
-                    const SizedBox(width: 8),
-                    if (latestSession.lastError?.trim().isNotEmpty ?? false)
-                      Expanded(
-                        child: Text(
-                          latestSession.lastError!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: _danger),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  preview.isEmpty ? 'Transcript not ready yet.' : preview,
-                  maxLines: 6,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: preview.isEmpty ? _textMuted : _textPrimary,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    OutlinedButton.icon(
-                      onPressed: controller.refreshRecordings,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Refresh sessions'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed:
-                          latestSession.status == 'completed' &&
-                              !_isRunningAssistant &&
-                              !controller.recordingRuntime.active
-                          ? () => _runAssistantTurn(latestSession.id)
-                          : null,
-                      icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-                      label: Text(
-                        _isRunningAssistant ? 'Generating reply' : 'Run reply',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            preview.trim().isEmpty
+                ? 'Partial and final transcript text will appear here while the turn is in progress.'
+                : preview,
+            maxLines: 6,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: preview.trim().isEmpty ? _textMuted : _textPrimary,
+              height: 1.5,
             ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: controller.voiceAssistantLiveState.hasActiveSession
+                    ? controller.interruptLiveVoiceAssistant
+                    : controller.ensureLiveVoiceSession,
+                icon: Icon(
+                  controller.voiceAssistantLiveState.hasActiveSession
+                      ? Icons.stop_circle_outlined
+                      : Icons.power_settings_new_outlined,
+                  size: 18,
+                ),
+                label: Text(
+                  controller.voiceAssistantLiveState.hasActiveSession
+                      ? 'Interrupt output'
+                      : 'Open live session',
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: controller.voiceAssistantLiveState.hasActiveSession
+                    ? controller.closeLiveVoiceSession
+                    : null,
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('Close session'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -330,23 +267,18 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final runtime = controller.recordingRuntime;
-    final hasCaptureCapability =
-        kIsWeb || runtime.supportsBackgroundMic || runtime.supportsScreenAndMic;
-    final isBusy =
-        controller.isStartingRecording || controller.isStoppingRecording;
-    final canStart = hasCaptureCapability && !isBusy && !runtime.active;
-    final canStop = runtime.active && !controller.isStoppingRecording;
-    final latestSession = _latestVoiceSession();
-    final canGenerate =
-        !_isRunningAssistant &&
-        latestSession != null &&
-        latestSession.status == 'completed' &&
-        !runtime.active;
+    final liveState = controller.voiceAssistantLiveState;
+    final liveCaptureEngaged =
+        controller.isLiveVoiceCaptureActive ||
+        controller.isLiveVoiceCaptureStarting;
+    final isBusy = _pttPressed || liveCaptureEngaged;
+    final canStart = !isBusy;
+    final canStop = liveCaptureEngaged;
     final hasAssistantAudio =
         _assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty;
-    final captureLabel = runtime.active
+    final captureLabel = liveCaptureEngaged
         ? _activeCallElapsedLabel(runtime)
-        : latestSession?.durationLabel ?? 'Push to talk';
+        : 'Ready';
 
     return ListView(
       padding: _pagePadding(context),
@@ -360,14 +292,12 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
             runSpacing: 10,
             children: <Widget>[
               _DotStatus(
-                label: runtime.active
-                    ? (runtime.paused ? 'Paused' : 'Listening')
-                    : 'Standby',
-                color: runtime.active ? _danger : _success,
+                label: liveState.state.isEmpty ? 'Standby' : liveState.state,
+                color: liveState.isBusy ? _danger : _success,
               ),
               _StatusPill(
                 label:
-                    '${controller.voiceTtsProvider.toUpperCase()} · ${controller.voiceTtsVoice}',
+                    '${controller.voiceLiveProvider.toUpperCase()} · ${controller.voiceLiveVoice}',
                 color: _accent,
               ),
             ],
@@ -429,7 +359,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                 ),
                                 alignment: Alignment.center,
                                 child: Icon(
-                                  runtime.active
+                                  liveCaptureEngaged
                                       ? Icons.hearing
                                       : Icons.support_agent,
                                   color: Colors.white,
@@ -450,7 +380,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    _captureStateLabel(runtime),
+                                    liveCaptureEngaged
+                                        ? 'Listening live'
+                                        : 'Ready for next turn',
                                     style: TextStyle(
                                       color: _textSecondary,
                                       fontWeight: FontWeight.w600,
@@ -458,10 +390,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _captureStateSubtitle(
-                                      runtime,
-                                      latestSession,
-                                    ),
+                                    liveState.hasActiveSession
+                                        ? 'Release the mic to commit audio and let NeoOS respond with live voice updates.'
+                                        : 'Hold to talk. The live session stays separate from the recording workflow.',
                                     style: TextStyle(
                                       color: _textMuted,
                                       height: 1.4,
@@ -481,12 +412,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                               ),
                               _VoiceAssistantMetricChip(
                                 label: 'Source',
-                                value: kIsWeb
-                                    ? 'Web mic'
-                                    : runtime.platformLabel?.ifEmpty(
-                                            'Device',
-                                          ) ??
-                                          'Device',
+                                value: 'Direct mic',
                               ),
                             ],
                           ),
@@ -496,35 +422,39 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: <Widget>[
-                          GestureDetector(
-                            onLongPressStart: canStart
-                                ? (_) => unawaited(_startPttCapture())
+                          Listener(
+                            behavior: HitTestBehavior.opaque,
+                            onPointerDown: canStart
+                                ? _handlePrimaryPointerDown
                                 : null,
-                            onLongPressEnd: canStop
-                                ? (_) => unawaited(_stopPttCapture())
+                            onPointerUp: (canStop || canStart)
+                                ? _handlePrimaryPointerUp
                                 : null,
-                            onLongPressCancel: canStop
-                                ? () => unawaited(_stopPttCapture())
+                            onPointerCancel: (canStop || canStart)
+                                ? _handlePrimaryPointerUp
                                 : null,
                             child: _VoiceAssistantPrimaryAction(
-                              icon: runtime.active ? Icons.mic_off : Icons.mic,
-                              label: runtime.active
+                              icon: liveCaptureEngaged
+                                  ? Icons.mic_off
+                                  : Icons.mic,
+                              label: liveCaptureEngaged
                                   ? 'Release to send'
                                   : 'Hold to talk',
-                              caption: runtime.active
+                              caption: liveCaptureEngaged
                                   ? 'Stop capture and submit'
                                   : 'Press and hold for quick capture',
-                              color: (runtime.active || _pttPressed)
+                              color:
+                                  (liveCaptureEngaged || _pttPressed)
                                   ? _warning
                                   : _success,
-                              onTap: canStart ? _startPttCapture : null,
+                              onTap: null,
                             ),
                           ),
                           const SizedBox(width: 22),
                           _VoiceAssistantPrimaryAction(
                             icon: Icons.call_end,
                             label: 'End turn',
-                            caption: 'Stop the active recording',
+                            caption: 'Commit the active live capture',
                             color: _danger,
                             onTap: canStop ? _stopPttCapture : null,
                           ),
@@ -536,15 +466,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                         runSpacing: 14,
                         alignment: WrapAlignment.center,
                         children: <Widget>[
-                          _VoiceAssistantActionButton(
-                            icon: Icons.auto_awesome_outlined,
-                            label: _isRunningAssistant
-                                ? 'Generating'
-                                : 'Generate reply',
-                            onTap: canGenerate
-                                ? () => _runAssistantTurn(latestSession.id)
-                                : null,
-                          ),
                           _VoiceAssistantActionButton(
                             icon: _isAssistantPlaying
                                 ? Icons.stop_circle_outlined
@@ -561,7 +482,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                           _VoiceAssistantActionButton(
                             icon: Icons.refresh,
                             label: 'Refresh',
-                            onTap: controller.refreshRecordings,
+                            onTap: controller.ensureLiveVoiceSession,
                           ),
                         ],
                       ),
@@ -574,13 +495,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                         const SizedBox(height: 10),
                         _InlineError(message: _voiceError!),
                       ],
-                      if (!hasCaptureCapability) ...<Widget>[
-                        const SizedBox(height: 10),
-                        _InlineError(
-                          message:
-                              'This device does not expose a supported microphone capture mode.',
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -589,12 +503,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                   builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 820;
                     final cards = <Widget>[
-                      Expanded(
-                        child: _buildLatestSessionCard(
-                          controller,
-                          latestSession,
-                        ),
-                      ),
+                      Expanded(child: _buildLiveSessionCard(controller)),
                       Expanded(
                         child: _VoiceAssistantSectionCard(
                           icon: Icons.record_voice_over_outlined,
@@ -639,11 +548,10 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                 _VoiceAssistantSectionCard(
                   icon: Icons.subject_outlined,
                   title: 'Transcript',
-                  subtitle:
-                      'The exact text used for the latest assistant turn.',
+                  subtitle: 'Partial and final transcript text for the live turn.',
                   child: Text(
                     _assistantTranscript.trim().isEmpty
-                        ? 'Transcript will appear after you finish a voice turn.'
+                        ? 'Transcript will appear while or after you finish the live turn.'
                         : _assistantTranscript,
                     style: TextStyle(
                       color: _assistantTranscript.trim().isEmpty

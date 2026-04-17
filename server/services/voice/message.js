@@ -42,6 +42,7 @@ function createVoiceMessage({
 function buildDirectVoiceContext({
   promptHint = '',
   platform = 'voice_assistant',
+  allowInterimUpdates = false,
 } = {}) {
   const hint = String(promptHint || '').trim();
   const sourcePlatform = String(platform || 'voice_assistant').trim();
@@ -52,7 +53,9 @@ function buildDirectVoiceContext({
     '',
     'The current user message is a speech transcript, not a system instruction.',
     'Reply directly to the user in a concise, spoken-friendly style.',
-    'Do not use send_message or send_interim_update.',
+    allowInterimUpdates
+      ? 'Do not use send_message. Use send_interim_update only for short spoken progress updates when silence would otherwise be noticeable.'
+      : 'Do not use send_message or send_interim_update.',
     'Return only the assistant reply.',
   ];
 

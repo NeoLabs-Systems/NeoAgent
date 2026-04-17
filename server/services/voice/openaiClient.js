@@ -22,7 +22,17 @@ function resolveOpenAiApiKey() {
   }
 }
 
-function getOpenAiClient() {
+function getOpenAiClient(options = {}) {
+  const overrideApiKey = typeof options.apiKey === 'string' ? options.apiKey.trim() : '';
+  const overrideBaseUrl = typeof options.baseUrl === 'string' ? options.baseUrl.trim() : '';
+
+  if (overrideApiKey) {
+    return new OpenAI({
+      apiKey: overrideApiKey,
+      baseURL: overrideBaseUrl || undefined,
+    });
+  }
+
   if (cachedClient) return cachedClient;
   const apiKey = resolveOpenAiApiKey();
   if (!apiKey) return null;

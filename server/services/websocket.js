@@ -3,7 +3,7 @@ const { sanitizeError } = require('../utils/security');
 const { resolveAgentId } = require('./agents/manager');
 
 function setupWebSocket(io, services) {
-  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager } = services;
+  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, wearableManager, voiceRuntimeManager } = services;
   const integrationManager =
     services.integrationManager || services.app?.locals?.integrationManager || null;
   io.on('connection', (socket) => {
@@ -210,6 +210,90 @@ function setupWebSocket(io, services) {
       } catch (err) {
         console.error(`[WS] messaging:status failed for user ${userId}:`, err);
         socket.emit('messaging:error', { error: sanitizeError(err) });
+      }
+    });
+
+    // ── Live Voice ──
+
+    socket.on('voice:session_open', async (data) => {
+      try {
+        const agentId = resolveAgentId(userId, data?.agentId || data?.agent_id || null);
+        await voiceRuntimeManager.openFlutterSession({
+          userId,
+          agentId,
+          socket,
+          sessionId: data?.sessionId || null,
+        });
+      } catch (err) {
+        socket.emit('voice:error', { error: sanitizeError(err) });
+      }
+    });
+
+    socket.on('voice:input_start', async (data) => {
+      try {
+        await voiceRuntimeManager.beginInput(data?.sessionId, {
+          mimeType: data?.mimeType,
+        });
+      } catch (err) {
+        console.error(`[WS] voice:input_start failed for user ${userId}:`, err);
+        socket.emit('voice:error', {
+          sessionId: data?.sessionId || null,
+          error: sanitizeError(err),
+        });
+      }
+    });
+
+    socket.on('voice:audio_chunk', async (data) => {
+      try {
+        const audioBase64 = data?.audioBase64?.toString() || '';
+        const audioBytes = Buffer.from(audioBase64, 'base64');
+        await voiceRuntimeManager.appendInputAudio(data?.sessionId, audioBytes, {
+          mimeType: data?.mimeType,
+        });
+      } catch (err) {
+        console.error(`[WS] voice:audio_chunk failed for user ${userId}:`, err);
+        socket.emit('voice:error', {
+          sessionId: data?.sessionId || null,
+          error: sanitizeError(err),
+        });
+      }
+    });
+
+    socket.on('voice:input_commit', async (data) => {
+      try {
+        await voiceRuntimeManager.commitInput(data?.sessionId, {
+          promptHint: data?.promptHint,
+        });
+      } catch (err) {
+        console.error(`[WS] voice:input_commit failed for user ${userId}:`, err);
+        socket.emit('voice:error', {
+          sessionId: data?.sessionId || null,
+          error: sanitizeError(err),
+        });
+      }
+    });
+
+    socket.on('voice:interrupt', async (data) => {
+      try {
+        await voiceRuntimeManager.interruptSession(data?.sessionId);
+      } catch (err) {
+        console.error(`[WS] voice:interrupt failed for user ${userId}:`, err);
+        socket.emit('voice:error', {
+          sessionId: data?.sessionId || null,
+          error: sanitizeError(err),
+        });
+      }
+    });
+
+    socket.on('voice:session_close', async (data) => {
+      try {
+        await voiceRuntimeManager.closeSession(data?.sessionId, 'client_closed');
+      } catch (err) {
+        console.error(`[WS] voice:session_close failed for user ${userId}:`, err);
+        socket.emit('voice:error', {
+          sessionId: data?.sessionId || null,
+          error: sanitizeError(err),
+        });
       }
     });
 

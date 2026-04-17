@@ -931,6 +931,73 @@ class VoiceAssistantTurnResult {
   final String? ttsError;
 }
 
+class VoiceAssistantLiveState {
+  VoiceAssistantLiveState({
+    this.sessionId = '',
+    this.runtimeMode = 'legacy',
+    this.provider = 'openai',
+    this.model = '',
+    this.voice = '',
+    this.state = 'idle',
+    this.partialTranscript = '',
+    this.finalTranscript = '',
+    this.assistantText = '',
+    this.audioMimeType = 'audio/mpeg',
+    Uint8List? audioBytes,
+    this.error,
+  }) : audioBytes = audioBytes ?? Uint8List(0);
+
+  final String sessionId;
+  final String runtimeMode;
+  final String provider;
+  final String model;
+  final String voice;
+  final String state;
+  final String partialTranscript;
+  final String finalTranscript;
+  final String assistantText;
+  final String audioMimeType;
+  final Uint8List audioBytes;
+  final String? error;
+
+  bool get hasActiveSession => sessionId.trim().isNotEmpty;
+  bool get isLive => runtimeMode == 'live';
+  bool get isListening => state == 'listening';
+  bool get isBusy =>
+      state == 'transcribing' || state == 'thinking' || state == 'speaking';
+
+  VoiceAssistantLiveState copyWith({
+    String? sessionId,
+    String? runtimeMode,
+    String? provider,
+    String? model,
+    String? voice,
+    String? state,
+    String? partialTranscript,
+    String? finalTranscript,
+    String? assistantText,
+    String? audioMimeType,
+    Uint8List? audioBytes,
+    String? error,
+    bool clearError = false,
+  }) {
+    return VoiceAssistantLiveState(
+      sessionId: sessionId ?? this.sessionId,
+      runtimeMode: runtimeMode ?? this.runtimeMode,
+      provider: provider ?? this.provider,
+      model: model ?? this.model,
+      voice: voice ?? this.voice,
+      state: state ?? this.state,
+      partialTranscript: partialTranscript ?? this.partialTranscript,
+      finalTranscript: finalTranscript ?? this.finalTranscript,
+      assistantText: assistantText ?? this.assistantText,
+      audioMimeType: audioMimeType ?? this.audioMimeType,
+      audioBytes: audioBytes ?? this.audioBytes,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
 class RunDetailSnapshot {
   const RunDetailSnapshot({
     required this.run,

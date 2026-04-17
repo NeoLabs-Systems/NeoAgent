@@ -950,7 +950,7 @@ function getAvailableTools(app, options = {}) {
     ];
 
     const allowInterimUpdates = (
-        (options.triggerSource === 'web' || options.triggerSource === 'messaging')
+        (options.triggerSource === 'web' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
         && options.triggerType !== 'subagent'
         && options.triggerSource !== 'agent_delegation'
     );

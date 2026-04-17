@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const { DATA_DIR } = require('../../../runtime/paths');
+const { getProviderRuntimeConfig } = require('../ai/models');
 const {
   DEFAULT_STT_PROVIDER,
   DEFAULT_TTS_PROVIDER,
@@ -19,6 +20,7 @@ const {
 } = require('../voice/providers');
 const { createVoiceMessage } = require('../voice/message');
 const { createVoiceTurnSessionState } = require('../voice/turnState');
+const { normalizeRuntimeMode, normalizeLiveProvider, resolveLiveModel, resolveLiveVoice } = require('../voice/liveSettings');
 
 const AUDIO_DIR = path.join(DATA_DIR, 'telnyx-audio');
 const RECORDING_TURN_LIMIT_MS = 4000;
@@ -41,6 +43,13 @@ class TelnyxVoicePlatform extends BasePlatform {
       ? config.allowedNumbers
       : [];
     this.voiceSecret = String(config.voiceSecret || '').replace(/\D/g, '');
+    this.voiceRuntimeManager = config.voiceRuntimeManager || null;
+    this.userId = config.userId || null;
+    this.agentId = config.agentId || null;
+    this.voiceRuntimeMode = normalizeRuntimeMode(config.runtimeMode || config.voiceRuntimeMode || 'live');
+    this.liveProvider = normalizeLiveProvider(config.liveProvider || config.voiceLiveProvider || 'openai');
+    this.liveModel = resolveLiveModel(this.liveProvider, config.liveModel || config.voiceLiveModel || '');
+    this.liveVoice = resolveLiveVoice(this.liveProvider, config.liveVoice || config.voiceLiveVoice || '');
 
     this._sessions = new Map();
     this._recordingTimers = new Map();
@@ -64,7 +73,8 @@ class TelnyxVoicePlatform extends BasePlatform {
 
     console.log(
       `[TelnyxVoice] Voice providers: STT=${this.sttProvider}/${this.sttModel}, ` +
-      `TTS=${this.ttsProvider}/${this.ttsModel}${this.ttsVoice ? ` (${this.ttsVoice})` : ''}`,
+      `TTS=${this.ttsProvider}/${this.ttsModel}${this.ttsVoice ? ` (${this.ttsVoice})` : ''} ` +
+      `runtime=${this.voiceRuntimeMode}/${this.liveProvider}/${this.liveModel}`,
     );
 
     const token = process.env.TELNYX_WEBHOOK_TOKEN;
@@ -122,11 +132,31 @@ class TelnyxVoicePlatform extends BasePlatform {
     this.sttModel = resolveSttModel(this.sttProvider, config.sttModel ?? this.sttModel);
     this.ttsModel = resolveTtsModel(this.ttsProvider, config.ttsModel ?? this.ttsModel);
     this.ttsVoice = resolveTtsVoice(this.ttsProvider, config.ttsVoice ?? this.ttsVoice);
+    this.voiceRuntimeMode = normalizeRuntimeMode(config.runtimeMode ?? config.voiceRuntimeMode ?? this.voiceRuntimeMode);
+    this.liveProvider = normalizeLiveProvider(config.liveProvider ?? config.voiceLiveProvider ?? this.liveProvider);
+    this.liveModel = resolveLiveModel(this.liveProvider, config.liveModel ?? config.voiceLiveModel ?? this.liveModel);
+    this.liveVoice = resolveLiveVoice(this.liveProvider, config.liveVoice ?? config.voiceLiveVoice ?? this.liveVoice);
 
     console.log(
       `[TelnyxVoice] Voice config updated: STT=${this.sttProvider}/${this.sttModel}, ` +
-      `TTS=${this.ttsProvider}/${this.ttsModel}${this.ttsVoice ? ` (${this.ttsVoice})` : ''}`,
+      `TTS=${this.ttsProvider}/${this.ttsModel}${this.ttsVoice ? ` (${this.ttsVoice})` : ''} ` +
+      `runtime=${this.voiceRuntimeMode}/${this.liveProvider}/${this.liveModel}`,
     );
+  }
+
+  _useLiveRuntime() {
+    return this.voiceRuntimeMode === 'live' && this.voiceRuntimeManager && this.userId;
+  }
+
+  async interruptOutput(ccId) {
+    if (!this._hasSession(ccId)) return;
+    const sess = this._session(ccId);
+    sess.audioQueue = [];
+    sess.isPlayingInterim = false;
+    sess.isThinking = false;
+    try {
+      await this._stopAudio(ccId);
+    } catch {}
   }
 
   _isAllowed(number) {
@@ -280,10 +310,17 @@ class TelnyxVoicePlatform extends BasePlatform {
 
   async _sayText(ccId, text) {
     try {
+      const ttsProviderId = this.ttsProvider === 'gemini' ? 'google' : this.ttsProvider;
+      const ttsRuntime =
+        ttsProviderId === 'deepgram'
+          ? { apiKey: '', baseUrl: '' }
+          : this.#getProviderRuntime(ttsProviderId);
       const synthesized = await synthesizeVoiceReply(text, {
         provider: this.ttsProvider,
         model: this.ttsModel,
         voice: this.ttsVoice,
+        apiKey: ttsRuntime.apiKey,
+        baseUrl: ttsRuntime.baseUrl,
       });
       const ext = guessExtFromMimeType(synthesized.mimeType);
       const file = this._tmpFile('say', ccId, ext);
@@ -314,10 +351,17 @@ class TelnyxVoicePlatform extends BasePlatform {
 
   async _stt(filePath) {
     try {
+      const sttProviderId = this.sttProvider === 'gemini' ? 'google' : this.sttProvider;
+      const sttRuntime =
+        sttProviderId === 'deepgram'
+          ? { apiKey: '', baseUrl: '' }
+          : this.#getProviderRuntime(sttProviderId);
       return await transcribeVoiceInput(filePath, {
         provider: this.sttProvider,
         model: this.sttModel,
         mimeType: 'audio/mpeg',
+        apiKey: sttRuntime.apiKey,
+        baseUrl: sttRuntime.baseUrl,
       });
     } catch (err) {
       console.error('[TelnyxVoice] STT error:', err.message);
@@ -547,6 +591,40 @@ class TelnyxVoicePlatform extends BasePlatform {
           sess.isThinking = true;
           sess.replySent  = false;
 
+          if (this._useLiveRuntime()) {
+            try {
+              await this.voiceRuntimeManager.startTelnyxTurn({
+                userId: this.userId,
+                agentId: this.agentId,
+                callId: ccId,
+                transcript,
+                metadata: {
+                  platform: 'telnyx',
+                  callerNumber: sess.callerNumber || '',
+                },
+                sink: {
+                  setState: async () => {},
+                  publishTranscriptFinal: async () => {},
+                  publishAssistantOutput: async (_session, content, options = {}) => {
+                    await this.sendMessage(ccId, content, {
+                      deliveryKind: options.kind === 'final' ? 'final' : 'interim',
+                    });
+                  },
+                  interruptOutput: async () => {
+                    await this.interruptOutput(ccId);
+                  },
+                  publishError: async (_session, message) => {
+                    console.error('[TelnyxVoice] Live runtime error:', message);
+                  },
+                  close: async () => {},
+                },
+              });
+              break;
+            } catch (error) {
+              console.warn('[TelnyxVoice] Live runtime failed, falling back to legacy turn flow:', error.message);
+            }
+          }
+
           // Emit message event — MessagingManager routes it to the AI engine.
           // The agent will call sendMessage(ccId, response) when it has a reply.
           this.emit('message', createVoiceMessage({
@@ -564,6 +642,9 @@ class TelnyxVoicePlatform extends BasePlatform {
 
         // ── Hangup — clean up session ───────────────────────────────────────
         case 'call.hangup': {
+          if (this.voiceRuntimeManager) {
+            await this.voiceRuntimeManager.closeSession(`telnyx:${this.userId}:${ccId}`, 'call_hangup');
+          }
           this._endSession(ccId);
           console.log(`[TelnyxVoice] Call ended (${ccId.slice(-8)})`);
           break;
@@ -635,6 +716,21 @@ class TelnyxVoicePlatform extends BasePlatform {
     }
 
     return { success: true };
+  }
+
+  #getProviderRuntime(providerId) {
+    try {
+      const runtime = getProviderRuntimeConfig(this.userId, providerId, this.agentId);
+      return {
+        apiKey: typeof runtime.apiKey === 'string' ? runtime.apiKey.trim() : '',
+        baseUrl: typeof runtime.baseUrl === 'string' ? runtime.baseUrl.trim() : '',
+      };
+    } catch {
+      return {
+        apiKey: '',
+        baseUrl: '',
+      };
+    }
   }
 
   // ── Initiate outbound call (optional, for agent-triggered calls) ────────────

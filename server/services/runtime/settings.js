@@ -68,6 +68,17 @@ function normalizeRuntimeSettings(raw = {}) {
   };
 }
 
+function deriveCloudBrowserBackend(raw = {}) {
+  const settings = normalizeRuntimeSettings(raw);
+  if (settings.browser_backend === 'host' || settings.browser_backend === 'vm') {
+    return settings.browser_backend;
+  }
+  if (settings.runtime_profile === 'secure-vm' || settings.runtime_backend === 'vm') {
+    return 'vm';
+  }
+  return 'host';
+}
+
 function parseStoredRuntimeValue(key, value) {
   if (typeof value !== 'string') {
     return value;
@@ -154,6 +165,7 @@ function getRuntimeSettings(userId) {
 module.exports = {
   DEFAULT_RUNTIME_SETTINGS,
   RUNTIME_SETTING_KEYS,
+  deriveCloudBrowserBackend,
   ensureDefaultRuntimeSettings,
   getRuntimeSettings,
   normalizeRuntimeSettings,

@@ -1,6 +1,7 @@
 const db = require('../../db/database');
 const { getProviderHealthCatalog } = require('./models');
 const { resolveBrowserExecutablePath } = require('../browser/controller');
+const { deriveCloudBrowserBackend } = require('../runtime/settings');
 
 function capabilityEntry(overrides = {}) {
   return {
@@ -41,29 +42,29 @@ async function getBrowserHealth(userId, app, engine) {
   const runtimeSettings = typeof runtimeManager?.getSettings === 'function'
     ? runtimeManager.getSettings(userId)
     : null;
+  const extensionStatus = runtimeSettings?.browser_backend === 'extension'
+    ? app?.locals?.browserExtensionRegistry?.getStatus(userId)
+    : null;
   if (runtimeSettings?.browser_backend === 'extension') {
-    const extensionStatus = app?.locals?.browserExtensionRegistry?.getStatus(userId);
     const activeTokens = Array.isArray(extensionStatus?.tokens)
       ? extensionStatus.tokens.filter((token) => token.status === 'active')
       : [];
     const connected = extensionStatus?.connected === true;
     const configured = connected || activeTokens.length > 0;
-    return capabilityEntry({
-      connected,
-      configured,
-      healthy: connected,
-      degraded: configured && !connected,
-      summary: connected
-        ? 'Browser extension is connected.'
-        : configured
-          ? 'Browser extension is paired but not connected.'
-          : 'Browser extension backend is selected but no extension is paired.',
-      details: {
-        backend: 'extension',
-        activeTokenCount: activeTokens.length,
-        activeTokenId: extensionStatus?.activeTokenId || null,
-      },
-    });
+    if (connected) {
+      return capabilityEntry({
+        connected,
+        configured,
+        healthy: connected,
+        degraded: false,
+        summary: 'Browser extension is connected.',
+        details: {
+          backend: 'extension',
+          activeTokenCount: activeTokens.length,
+          activeTokenId: extensionStatus?.activeTokenId || null,
+        },
+      });
+    }
   }
   let controller = null;
   let resolutionError = null;
@@ -118,14 +119,26 @@ async function getBrowserHealth(userId, app, engine) {
     connected: launched,
     configured: Boolean(executablePath),
     healthy: Boolean(executablePath) && !error,
-    degraded: Boolean(error),
+    degraded: Boolean(error) || runtimeSettings?.browser_backend === 'extension',
     summary: error
       ? `Browser runtime error: ${error}`
-      : executablePath
-        ? (launched ? 'Browser runtime is ready.' : 'Browser executable is available but not launched.')
-        : 'No browser executable was found for Puppeteer.',
+      : runtimeSettings?.browser_backend === 'extension'
+        ? executablePath
+          ? `No extension device is active. Falling back to the ${deriveCloudBrowserBackend(runtimeSettings)} browser runtime.`
+          : 'No extension device is active and no browser executable was found for Puppeteer.'
+        : executablePath
+          ? (launched ? 'Browser runtime is ready.' : 'Browser executable is available but not launched.')
+          : 'No browser executable was found for Puppeteer.',
     details: {
       executablePath: executablePath || null,
+      preferredBackend: runtimeSettings?.browser_backend || null,
+      backend: runtimeSettings?.browser_backend === 'extension'
+        ? deriveCloudBrowserBackend(runtimeSettings)
+        : runtimeSettings?.browser_backend || null,
+      extensionConnected: extensionStatus?.connected === true,
+      activeTokenCount: Array.isArray(extensionStatus?.tokens)
+        ? extensionStatus.tokens.filter((token) => token.status === 'active').length
+        : 0,
       launched,
       pageInfo,
     },

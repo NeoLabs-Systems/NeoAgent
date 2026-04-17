@@ -642,6 +642,7 @@ class AgentEngine {
     this.skillRunner = services.skillRunner || null;
     this.scheduler = services.scheduler || null;
     this.memoryManager = services.memoryManager || null;
+    this.voiceRuntimeManager = services.voiceRuntimeManager || null;
   }
 
   async buildSystemPrompt(userId, context = {}) {
@@ -719,6 +720,18 @@ class AgentEngine {
         persistConversation: true,
         metadata,
         deliveryKind: 'interim',
+      });
+    } else if (triggerSource === 'voice_live') {
+      const voiceSessionId = runMeta.voiceSessionId || null;
+      const manager = this.voiceRuntimeManager || this.app?.locals?.voiceRuntimeManager || null;
+      if (!voiceSessionId || !manager || typeof manager.publishInterimUpdate !== 'function') {
+        return { sent: false, skipped: true, reason: 'Voice session context is not available.' };
+      }
+      await manager.publishInterimUpdate({
+        sessionId: voiceSessionId,
+        content: normalizedContent,
+        kind: normalizedKind,
+        expectsReply,
       });
     } else {
       db.prepare(
@@ -1488,6 +1501,7 @@ class AgentEngine {
       interimMessages: [],
       interimSignatures: new Set(),
       terminalInterim: null,
+      voiceSessionId: options.voiceSessionId || null,
       steeringQueue: [],
       toolPids: new Set(),
     });

@@ -66,9 +66,10 @@ class IMessageMessagingPlatform extends BlueBubblesPlatform {
 }
 
 class MessagingManager extends EventEmitter {
-  constructor(io) {
+  constructor(io, options = {}) {
     super();
     this.io = io;
+    this.voiceRuntimeManager = options.voiceRuntimeManager || null;
     this.platforms = new Map();
     this.messageHandlers = [];
     this.isShuttingDown = false;
@@ -195,6 +196,8 @@ class MessagingManager extends EventEmitter {
   async connectPlatform(userId, platformName, config = {}, options = {}) {
     const agentId = this._agentId(userId, options);
     config = { ...(config || {}) };
+    config.userId = userId;
+    config.agentId = agentId;
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
 
@@ -244,6 +247,7 @@ class MessagingManager extends EventEmitter {
       if (typeof voiceTtsVoice === 'string' && voiceTtsVoice.trim()) {
         config.ttsVoice = voiceTtsVoice.trim();
       }
+      config.voiceRuntimeManager = this.voiceRuntimeManager || null;
     }
 
     // Inject saved allowlists for platforms that enforce access in the adapter.

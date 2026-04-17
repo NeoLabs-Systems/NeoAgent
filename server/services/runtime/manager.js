@@ -1,11 +1,12 @@
 const { HostExecutionBackend } = require('./backends/host');
 const { LocalVmExecutionBackend } = require('./backends/local-vm');
 const { QemuVmManager } = require('./qemu');
-const { getRuntimeSettings } = require('./settings');
+const { deriveCloudBrowserBackend, getRuntimeSettings } = require('./settings');
 const { ExtensionBrowserProvider } = require('../browser/extension/provider');
 
 class RuntimeManager {
   constructor(options = {}) {
+    this.browserExtensionRegistry = options.browserExtensionRegistry || null;
     this.hostBackend = new HostExecutionBackend({
       cliExecutor: options.cliExecutor,
       getBrowserProvider: options.getHostBrowserProvider,
@@ -26,6 +27,14 @@ class RuntimeManager {
     return getRuntimeSettings(userId);
   }
 
+  hasActiveExtensionBrowser(userId) {
+    return Boolean(
+      this.browserExtensionRegistry
+      && typeof this.browserExtensionRegistry.isConnected === 'function'
+      && this.browserExtensionRegistry.isConnected(userId)
+    );
+  }
+
   resolveBackend(userId, requested) {
     const settings = this.getSettings(userId);
     const effective = requested || settings.runtime_backend;
@@ -40,10 +49,13 @@ class RuntimeManager {
 
   async getBrowserProviderForUser(userId) {
     const settings = this.getSettings(userId);
-    if (settings.browser_backend === 'extension') {
+    if (settings.browser_backend === 'extension' && this.hasActiveExtensionBrowser(userId)) {
       return this.getExtensionBrowserProvider(userId);
     }
-    const backend = this.resolveBackend(userId, settings.browser_backend === 'host' ? 'host' : settings.browser_backend);
+    const browserBackend = settings.browser_backend === 'extension'
+      ? deriveCloudBrowserBackend(settings)
+      : settings.browser_backend;
+    const backend = this.resolveBackend(userId, browserBackend === 'host' ? 'host' : browserBackend);
     return backend.getBrowserProviderForUser(userId);
   }
 

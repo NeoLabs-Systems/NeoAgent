@@ -1,6 +1,7 @@
 'use strict';
 
 const db = require('../../db/database');
+const { getProviderRuntimeConfig } = require('../ai/models');
 const { buildAgentRunContext } = require('../ai/runContext');
 const { buildDirectVoiceContext } = require('./message');
 const { synthesizeVoiceReply, normalizeVoiceSynthesisOptions } = require('./providers');
@@ -21,6 +22,10 @@ async function runVoiceTranscriptTurn({
   ttsProvider = 'openai',
   ttsModel = 'gpt-4o-mini-tts',
   ttsVoice = 'alloy',
+  synthesize = true,
+  allowInterimUpdates = false,
+  voiceSessionId = null,
+  runId = null,
 }) {
   if (!agentEngine || !memoryManager) {
     throw new Error('Voice turn service is not initialized.');
@@ -36,12 +41,28 @@ async function runVoiceTranscriptTurn({
     model: ttsModel,
     voice: ttsVoice,
   });
+  const ttsProviderId = voiceOptions.provider === 'gemini'
+    ? 'google'
+    : voiceOptions.provider;
+  let ttsRuntime = { apiKey: '', baseUrl: '' };
+  if (ttsProviderId !== 'deepgram') {
+    try {
+      const runtime = getProviderRuntimeConfig(userId, ttsProviderId, agentId);
+      ttsRuntime = {
+        apiKey: typeof runtime.apiKey === 'string' ? runtime.apiKey.trim() : '',
+        baseUrl: typeof runtime.baseUrl === 'string' ? runtime.baseUrl.trim() : '',
+      };
+    } catch {
+      ttsRuntime = { apiKey: '', baseUrl: '' };
+    }
+  }
 
   const storedUserContent = transcriptText;
   const normalizedMetadata = metadata && typeof metadata === 'object' ? metadata : {};
   const directVoiceContext = buildDirectVoiceContext({
     promptHint,
     platform,
+    allowInterimUpdates,
   });
 
   db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
@@ -66,9 +87,11 @@ async function runVoiceTranscriptTurn({
   });
 
   const runResult = await agentEngine.run(userId, storedUserContent, {
+    runId,
     ...runOptions,
     priorMessages,
     priorSummary,
+    voiceSessionId,
     context: {
       rawUserMessage: storedUserContent,
       additionalContext: directVoiceContext,
@@ -97,10 +120,21 @@ async function runVoiceTranscriptTurn({
 
   let synthesized;
   let ttsError = null;
-  try {
-    synthesized = await synthesizeVoiceReply(replyText, voiceOptions);
-  } catch (error) {
-    ttsError = String(error?.message || error || 'Speech synthesis failed.');
+  if (synthesize !== false) {
+    try {
+      synthesized = await synthesizeVoiceReply(replyText, {
+        ...voiceOptions,
+        apiKey: ttsRuntime.apiKey,
+        baseUrl: ttsRuntime.baseUrl,
+      });
+    } catch (error) {
+      ttsError = String(error?.message || error || 'Speech synthesis failed.');
+      synthesized = {
+        mimeType: 'audio/mpeg',
+        audioBytes: Buffer.alloc(0),
+      };
+    }
+  } else {
     synthesized = {
       mimeType: 'audio/mpeg',
       audioBytes: Buffer.alloc(0),

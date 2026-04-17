@@ -15,6 +15,7 @@ const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
 const WearableManager = require('./wearables/manager');
+const { VoiceRuntimeManager } = require('./voice/runtimeManager');
 const { CLIExecutor } = require('./cli/executor');
 const { AuthProviderManager } = require('./account/auth_provider_manager');
 const { IntegrationManager } = require('./integrations/manager');
@@ -357,11 +358,28 @@ function createMessagingManager(app, io, agentEngine) {
   const messagingManager = registerLocal(
     app,
     'messagingManager',
-    new MessagingManager(io),
+    new MessagingManager(io, {
+      voiceRuntimeManager: app.locals.voiceRuntimeManager || null,
+    }),
   );
   agentEngine.messagingManager = messagingManager;
   logServiceReady('Messaging manager ready');
   return messagingManager;
+}
+
+function createVoiceRuntimeManager(app, io, { agentEngine, memoryManager }) {
+  const voiceRuntimeManager = registerLocal(
+    app,
+    'voiceRuntimeManager',
+    new VoiceRuntimeManager({
+      io,
+      agentEngine,
+      memoryManager,
+    }),
+  );
+  agentEngine.voiceRuntimeManager = voiceRuntimeManager;
+  logServiceReady('Voice runtime manager ready');
+  return voiceRuntimeManager;
 }
 
 function createRecordingManager(app, io) {
@@ -420,6 +438,7 @@ function configureRealtime(app, io, services) {
     recordingManager: services.recordingManager,
     memoryManager: services.memoryManager,
     wearableManager: services.wearableManager,
+    voiceRuntimeManager: services.voiceRuntimeManager,
     app,
   });
   app.locals.io = io;
@@ -461,6 +480,10 @@ async function startServices(app, io) {
 
     createMultiStep(app, agentEngine, io);
     createCommandRouter(app);
+    const voiceRuntimeManager = createVoiceRuntimeManager(app, io, {
+      agentEngine,
+      memoryManager,
+    });
 
     const messagingManager = createMessagingManager(app, io, agentEngine);
     const recordingManager = createRecordingManager(app, io);
@@ -487,6 +510,7 @@ async function startServices(app, io) {
       recordingManager,
       memoryManager,
       wearableManager,
+      voiceRuntimeManager,
     });
 
     resumePendingRecordingSessions(recordingManager);

@@ -50,6 +50,10 @@ const AGENT_SETTING_KEYS = new Set([
   'voice_tts_provider',
   'voice_tts_model',
   'voice_tts_voice',
+  'voice_runtime_mode',
+  'voice_live_provider',
+  'voice_live_model',
+  'voice_live_voice',
   'last_platform',
   'last_chat_id',
 ]);
@@ -60,6 +64,10 @@ const VOICE_SETTING_KEYS = new Set([
   'voice_tts_provider',
   'voice_tts_model',
   'voice_tts_voice',
+  'voice_runtime_mode',
+  'voice_live_provider',
+  'voice_live_model',
+  'voice_live_voice',
 ]);
 
 function toOptionalTrimmedString(value) {
@@ -75,6 +83,10 @@ function extractVoiceSettings(payload = {}) {
     ttsProvider: toOptionalTrimmedString(payload.voice_tts_provider),
     ttsModel: toOptionalTrimmedString(payload.voice_tts_model),
     ttsVoice: toOptionalTrimmedString(payload.voice_tts_voice),
+    runtimeMode: toOptionalTrimmedString(payload.voice_runtime_mode),
+    liveProvider: toOptionalTrimmedString(payload.voice_live_provider),
+    liveModel: toOptionalTrimmedString(payload.voice_live_model),
+    liveVoice: toOptionalTrimmedString(payload.voice_live_voice),
   };
 }
 

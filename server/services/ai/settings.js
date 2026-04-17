@@ -1,6 +1,12 @@
 const db = require('../../db/database');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const {
+  normalizeRuntimeMode,
+  normalizeLiveProvider,
+  resolveLiveModel,
+  resolveLiveVoice,
+} = require('../voice/liveSettings');
 
 const AI_PROVIDER_DEFINITIONS = Object.freeze({
   openai: {
@@ -91,11 +97,17 @@ function createDefaultAiSettings() {
     enabled_models: [],
     default_chat_model: 'auto',
     default_subagent_model: 'auto',
-    ai_provider_configs: createDefaultProviderConfigs()
+    ai_provider_configs: createDefaultProviderConfigs(),
+    voice_runtime_mode: 'live',
+    voice_live_provider: 'openai',
+    voice_live_model: 'gpt-realtime-1.5',
+    voice_live_voice: 'alloy',
   };
 }
 
 const DEFAULT_AI_SETTINGS = Object.freeze(createDefaultAiSettings());
+const AI_SETTING_KEYS = Object.freeze(Object.keys(DEFAULT_AI_SETTINGS));
+const AI_SETTING_PLACEHOLDERS = AI_SETTING_KEYS.map(() => '?').join(', ');
 
 function parseSettingValue(value) {
   if (value == null) return null;
@@ -198,23 +210,11 @@ function ensureDefaultAiSettings(userId, agentId = null) {
   if (!scopedAgentId) return createDefaultAiSettings();
 
   const existing = db.prepare(
-    'SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    `SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key IN (${AI_SETTING_PLACEHOLDERS})`
   ).all(
     userId,
     scopedAgentId,
-    'cost_mode',
-    'chat_history_window',
-    'tool_replay_budget_chars',
-    'subagent_max_iterations',
-    'assistant_behavior_notes',
-    'auto_skill_learning',
-    'auto_recording_insights',
-    'fallback_model_id',
-    'smarter_model_selector',
-    'enabled_models',
-    'default_chat_model',
-    'default_subagent_model',
-    'ai_provider_configs'
+    ...AI_SETTING_KEYS
   );
 
   const seen = new Set(existing.map((row) => row.key));
@@ -241,23 +241,11 @@ function getAiSettings(userId, agentId = null) {
   if (!scopedAgentId) return createDefaultAiSettings();
 
   const rows = db.prepare(
-    'SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    `SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key IN (${AI_SETTING_PLACEHOLDERS})`
   ).all(
     userId,
     scopedAgentId,
-    'cost_mode',
-    'chat_history_window',
-    'tool_replay_budget_chars',
-    'subagent_max_iterations',
-    'assistant_behavior_notes',
-    'auto_skill_learning',
-    'auto_recording_insights',
-    'fallback_model_id',
-    'smarter_model_selector',
-    'enabled_models',
-    'default_chat_model',
-    'default_subagent_model',
-    'ai_provider_configs'
+    ...AI_SETTING_KEYS
   );
 
   const settings = createDefaultAiSettings();
@@ -292,6 +280,10 @@ function getAiSettings(userId, agentId = null) {
   settings.default_subagent_model = typeof settings.default_subagent_model === 'string' && settings.default_subagent_model.trim()
     ? settings.default_subagent_model
     : DEFAULT_AI_SETTINGS.default_subagent_model;
+  settings.voice_runtime_mode = normalizeRuntimeMode(settings.voice_runtime_mode);
+  settings.voice_live_provider = normalizeLiveProvider(settings.voice_live_provider);
+  settings.voice_live_model = resolveLiveModel(settings.voice_live_provider, settings.voice_live_model);
+  settings.voice_live_voice = resolveLiveVoice(settings.voice_live_provider, settings.voice_live_voice);
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
 
   return settings;

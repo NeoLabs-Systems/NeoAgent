@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -16,6 +17,7 @@ import 'src/android_apk_drop_zone.dart';
 import 'src/backend_client.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
+import 'src/live_voice_capture.dart';
 import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
 import 'src/theme/palette.dart';
@@ -306,6 +308,7 @@ class NeoAgentController extends ChangeNotifier {
   final RecordingBridge _recordingBridge;
   final WearableService _wearableService;
   final OAuthLauncher _oauthLauncher;
+  final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
@@ -315,6 +318,7 @@ class NeoAgentController extends ChangeNotifier {
   io.Socket? _socket;
   Timer? _updatePollTimer;
   final Set<String> _backgroundRunIds = <String>{};
+  final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   int _authCycle = 0;
 
@@ -404,6 +408,12 @@ class NeoAgentController extends ChangeNotifier {
   String streamingAssistant = '';
   bool isStartingRecording = false;
   bool isStoppingRecording = false;
+  bool _isStartingLiveVoice = false;
+  bool _isStoppingLiveVoice = false;
+  bool _liveVoiceCaptureActive = false;
+  bool _pendingLiveVoiceStop = false;
+  Completer<void>? _liveVoiceSessionOpenCompleter;
+  VoiceAssistantLiveState voiceAssistantLiveState = VoiceAssistantLiveState();
 
   WearableService get wearableService => _wearableService;
 
@@ -496,6 +506,7 @@ class NeoAgentController extends ChangeNotifier {
     _socket?.dispose();
     _recordingBridge.removeListener(_handleRecordingBridgeChanged);
     _recordingBridge.dispose();
+    unawaited(_liveVoiceCapture.dispose());
     _oauthLauncher.dispose();
     super.dispose();
   }
@@ -2380,6 +2391,176 @@ class NeoAgentController extends ChangeNotifier {
     return result;
   }
 
+  Future<bool> _ensureSocketReady({
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    _ensureSocketConnected();
+    if (socketConnected && _socket != null) {
+      return true;
+    }
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      if (socketConnected && _socket != null) {
+        return true;
+      }
+    }
+    return socketConnected && _socket != null;
+  }
+
+  Future<void> ensureLiveVoiceSession() async {
+    if (voiceAssistantLiveState.hasActiveSession) {
+      return;
+    }
+    if (_liveVoiceSessionOpenCompleter != null) {
+      return _liveVoiceSessionOpenCompleter!.future;
+    }
+    final ready = await _ensureSocketReady();
+    if (!ready || _socket == null) {
+      throw StateError('Live voice connection is not available.');
+    }
+    final completer = Completer<void>();
+    _liveVoiceSessionOpenCompleter = completer;
+    _socket!.emit('voice:session_open', <String, dynamic>{
+      'agentId': _scopedAgentId,
+    });
+    try {
+      await completer.future.timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          throw StateError('Live voice session did not initialize.');
+        },
+      );
+    } finally {
+      if (identical(_liveVoiceSessionOpenCompleter, completer)) {
+        _liveVoiceSessionOpenCompleter = null;
+      }
+    }
+  }
+
+  Future<void> startLiveVoiceCapture() async {
+    if (_isStartingLiveVoice) {
+      return;
+    }
+    _isStartingLiveVoice = true;
+    _pendingLiveVoiceStop = false;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await ensureLiveVoiceSession();
+      final sessionId = voiceAssistantLiveState.sessionId.trim();
+      if (sessionId.isEmpty || _socket == null) {
+        throw StateError('Live voice session did not initialize.');
+      }
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        state: 'listening',
+        partialTranscript: '',
+        finalTranscript: '',
+        assistantText: '',
+        audioBytes: Uint8List(0),
+        clearError: true,
+      );
+      notifyListeners();
+      _socket!.emit('voice:interrupt', <String, dynamic>{
+        'sessionId': sessionId,
+      });
+      _socket!.emit('voice:input_start', <String, dynamic>{
+        'sessionId': sessionId,
+        'mimeType': 'audio/pcm;rate=16000;channels=1',
+      });
+      await _liveVoiceCapture.start(
+        onChunk: (Uint8List chunk) {
+          final socket = _socket;
+          if (socket == null) return;
+          socket.emit('voice:audio_chunk', <String, dynamic>{
+            'sessionId': sessionId,
+            'mimeType': 'audio/pcm;rate=16000;channels=1',
+            'audioBase64': base64Encode(chunk),
+          });
+        },
+      );
+      _liveVoiceCaptureActive = true;
+      if (_pendingLiveVoiceStop) {
+        _pendingLiveVoiceStop = false;
+        await stopLiveVoiceCapture();
+        return;
+      }
+    } catch (error) {
+      _liveVoiceCaptureActive = false;
+      _pendingLiveVoiceStop = false;
+      rethrow;
+    } finally {
+      _isStartingLiveVoice = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopLiveVoiceCapture() async {
+    if (_isStoppingLiveVoice) {
+      return;
+    }
+    if (_isStartingLiveVoice && !_liveVoiceCaptureActive) {
+      _pendingLiveVoiceStop = true;
+      return;
+    }
+    if (!_liveVoiceCaptureActive) {
+      return;
+    }
+    _isStoppingLiveVoice = true;
+    try {
+      _liveVoiceCaptureActive = false;
+      await _liveVoiceCapture.stop();
+      final sessionId = voiceAssistantLiveState.sessionId.trim();
+      if (sessionId.isNotEmpty && _socket != null) {
+        _socket!.emit('voice:input_commit', <String, dynamic>{
+          'sessionId': sessionId,
+        });
+      }
+    } finally {
+      _isStoppingLiveVoice = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> interruptLiveVoiceAssistant() async {
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    if (sessionId.isEmpty || _socket == null) {
+      return;
+    }
+    _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
+    _liveVoiceCaptureActive = false;
+    _pendingLiveVoiceStop = false;
+    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(state: 'idle');
+    notifyListeners();
+  }
+
+  Future<void> closeLiveVoiceSession() async {
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    if (sessionId.isEmpty || _socket == null) {
+      return;
+    }
+    _socket!.emit('voice:session_close', <String, dynamic>{
+      'sessionId': sessionId,
+    });
+    _liveVoiceCaptureActive = false;
+    _pendingLiveVoiceStop = false;
+    voiceAssistantLiveState = VoiceAssistantLiveState();
+    notifyListeners();
+  }
+
+  bool _matchesLiveVoiceSessionPayload(Map<String, dynamic> payload) {
+    final payloadSessionId = payload['sessionId']?.toString().trim() ?? '';
+    final activeSessionId = voiceAssistantLiveState.sessionId.trim();
+    if (payloadSessionId.isEmpty) {
+      return activeSessionId.isEmpty;
+    }
+    if (activeSessionId.isEmpty) {
+      return true;
+    }
+    return payloadSessionId == activeSessionId;
+  }
+
   void _appendAssistantChatMessage(
     String content, {
     required String platform,
@@ -2528,6 +2709,10 @@ class NeoAgentController extends ChangeNotifier {
     required String voiceTtsProvider,
     required String voiceTtsModel,
     required String voiceTtsVoice,
+    required String voiceRuntimeMode,
+    required String voiceLiveProvider,
+    required String voiceLiveModel,
+    required String voiceLiveVoice,
     required Map<String, dynamic> aiProviderConfigs,
   }) async {
     isSavingSettings = true;
@@ -2547,6 +2732,10 @@ class NeoAgentController extends ChangeNotifier {
       'voice_tts_provider': voiceTtsProvider,
       'voice_tts_model': voiceTtsModel,
       'voice_tts_voice': voiceTtsVoice,
+      'voice_runtime_mode': voiceRuntimeMode,
+      'voice_live_provider': voiceLiveProvider,
+      'voice_live_model': voiceLiveModel,
+      'voice_live_voice': voiceLiveVoice,
       'ai_provider_configs': aiProviderConfigs,
     };
 
@@ -3776,6 +3965,20 @@ class NeoAgentController extends ChangeNotifier {
 
   String get voiceTtsVoice => _settingString('voice_tts_voice', 'alloy');
 
+  String get voiceRuntimeMode => 'live';
+
+  String get voiceLiveProvider =>
+      _settingString('voice_live_provider', 'openai', lowercase: true);
+
+  String get voiceLiveModel =>
+      _settingString('voice_live_model', 'gpt-realtime-1.5');
+
+  String get voiceLiveVoice => _settingString('voice_live_voice', 'alloy');
+
+  bool get isLiveVoiceCaptureStarting => _isStartingLiveVoice;
+
+  bool get isLiveVoiceCaptureActive => _liveVoiceCaptureActive;
+
   String get accountLabel =>
       user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
 
@@ -3843,6 +4046,13 @@ class NeoAgentController extends ChangeNotifier {
 
   void _disconnectSocket() {
     socketConnected = false;
+    if (_liveVoiceSessionOpenCompleter != null &&
+        !_liveVoiceSessionOpenCompleter!.isCompleted) {
+      _liveVoiceSessionOpenCompleter!.completeError(
+        StateError('Live voice connection was closed.'),
+      );
+    }
+    _liveVoiceSessionOpenCompleter = null;
     _socket?.dispose();
     _socket = null;
   }
@@ -3876,6 +4086,9 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.onDisconnect((_) {
       socketConnected = false;
+      _liveVoiceCaptureActive = false;
+      _pendingLiveVoiceStop = false;
+      voiceAssistantLiveState = VoiceAssistantLiveState();
       notifyListeners();
     });
     socket.onConnectError((dynamic _) {
@@ -3981,10 +4194,123 @@ class NeoAgentController extends ChangeNotifier {
       }
       unawaited(_refreshRecordingSessionById(sessionId));
     });
+    socket.on('voice:session_ready', (dynamic data) {
+      final payload = _jsonMap(data);
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        sessionId: payload['sessionId']?.toString() ?? '',
+        runtimeMode:
+            payload['runtimeMode']?.toString().ifEmpty('live') ?? 'live',
+        provider:
+            payload['provider']?.toString().ifEmpty(voiceLiveProvider) ??
+            voiceLiveProvider,
+        model:
+            payload['model']?.toString().ifEmpty(voiceLiveModel) ??
+            voiceLiveModel,
+        voice:
+            payload['voice']?.toString().ifEmpty(voiceLiveVoice) ??
+            voiceLiveVoice,
+        state: 'idle',
+        clearError: true,
+      );
+      if (_liveVoiceSessionOpenCompleter != null &&
+          !_liveVoiceSessionOpenCompleter!.isCompleted) {
+        _liveVoiceSessionOpenCompleter!.complete();
+      }
+      notifyListeners();
+    });
+    socket.on('voice:assistant_state', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        state: payload['state']?.toString().ifEmpty('idle') ?? 'idle',
+      );
+      notifyListeners();
+    });
+    socket.on('voice:transcript_partial', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        partialTranscript: payload['content']?.toString() ?? '',
+      );
+      notifyListeners();
+    });
+    socket.on('voice:transcript_final', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      final content = payload['content']?.toString() ?? '';
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        partialTranscript: content,
+        finalTranscript: content,
+      );
+      if (content.trim().isNotEmpty) {
+        _appendUserChatMessage(content, platform: 'voice_live');
+      }
+      notifyListeners();
+    });
+    socket.on('voice:assistant_text', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      final content = payload['content']?.toString() ?? '';
+      final kind = payload['kind']?.toString() ?? 'final';
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        assistantText: content,
+      );
+      if (kind == 'final' && content.trim().isNotEmpty) {
+        _appendAssistantChatMessage(content, platform: 'voice_live');
+      }
+      notifyListeners();
+    });
+    socket.on('voice:assistant_audio', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      final audioBase64 = payload['audioBase64']?.toString() ?? '';
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        audioMimeType: payload['mimeType']?.toString() ?? 'audio/mpeg',
+        audioBytes: audioBase64.trim().isEmpty
+            ? Uint8List(0)
+            : base64Decode(audioBase64),
+      );
+      notifyListeners();
+    });
+    socket.on('voice:error', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      final message = payload['error']?.toString() ?? 'Live voice failed.';
+      if (_liveVoiceSessionOpenCompleter != null &&
+          !_liveVoiceSessionOpenCompleter!.isCompleted) {
+        _liveVoiceSessionOpenCompleter!.completeError(StateError(message));
+      }
+      _liveVoiceSessionOpenCompleter = null;
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        error: message,
+        state: 'idle',
+        audioBytes: Uint8List(0),
+      );
+      _liveVoiceCaptureActive = false;
+      _pendingLiveVoiceStop = false;
+      errorMessage = message;
+      notifyListeners();
+    });
     socket.on('run:start', (dynamic data) {
       final payload = _jsonMap(data);
       final triggerSource = payload['triggerSource']?.toString() ?? '';
       final runId = payload['runId']?.toString() ?? '';
+      if (triggerSource == 'voice_live') {
+        _voiceRunIds.add(runId);
+        return;
+      }
       final pendingSteeringCount = activeRun?.pendingSteeringCount ?? 0;
       if (_isBackgroundRun(triggerSource)) {
         _backgroundRunIds.add(runId);
@@ -4009,6 +4335,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:thinking', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4023,6 +4352,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:analysis', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4049,6 +4381,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:plan', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4080,6 +4415,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:stopping', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4091,6 +4429,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:tool_start', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4117,6 +4458,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:verification', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4144,6 +4488,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:subagent', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4178,6 +4525,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:tool_end', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4226,6 +4576,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:steer_queued', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4250,6 +4603,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:steer_applied', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4276,6 +4632,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:interim', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       _appendToolNote(payload['message']?.toString() ?? '');
       if (runId.isNotEmpty && activeRun?.runId == runId) {
         final phase = payload['phase']?.toString().trim() ?? '';
@@ -4288,6 +4647,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:assistant_interim', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       final content = payload['content']?.toString() ?? '';
       final kind =
           payload['kind']?.toString().ifEmpty('progress') ?? 'progress';
@@ -4302,6 +4664,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:stream', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.contains(runId)) {
+        return;
+      }
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
@@ -4318,6 +4683,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:complete', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.remove(runId)) {
+        return;
+      }
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
         notifyListeners();
@@ -4341,6 +4709,9 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:stopped', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      if (_voiceRunIds.remove(runId)) {
+        return;
+      }
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
         notifyListeners();
@@ -4360,6 +4731,16 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:error', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString();
+      if (runId != null && _voiceRunIds.remove(runId)) {
+        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+          error:
+              payload['error']?.toString() ??
+              'I could not complete that voice request.',
+          state: 'idle',
+        );
+        notifyListeners();
+        return;
+      }
       if (runId != null) {
         if (_backgroundRunIds.remove(runId)) {
           unawaited(refreshRunsOnly());
@@ -4655,8 +5036,12 @@ class _DevicesPanelState extends State<DevicesPanel> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final browserStatus = controller.browserRuntime;
-    final usingExtension = controller.browserBackend == 'extension';
+    final prefersExtension = controller.browserBackend == 'extension';
     final extensionConnected = controller.browserExtensionConnected;
+    final usingExtension = prefersExtension && extensionConnected;
+    final browserFallbackLabel = controller.cloudBrowserBackend == 'vm'
+        ? 'cloud VM'
+        : 'local host';
     final browserPageInfo = browserStatus['pageInfo'] is Map<dynamic, dynamic>
         ? Map<String, dynamic>.from(browserStatus['pageInfo'] as Map)
         : const <String, dynamic>{};
@@ -4701,8 +5086,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       browserPageInfo: browserPageInfo,
                       androidRuntime: controller.androidRuntime,
                       androidOnline: _androidOnline,
-                      usingBrowserExtension: usingExtension,
-                      browserExtensionConnected: extensionConnected,
+                      browserExtensionPreferred: prefersExtension,
+                      browserExtensionActive: usingExtension,
+                      browserFallbackLabel: browserFallbackLabel,
                     ),
                     const SizedBox(height: 16),
                     _DeviceLaunchBar(
@@ -4726,8 +5112,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       busy: controller.isRunningDeviceAction,
                       wakingUp: !_isBrowser && _androidStarting,
                       enabled: _isBrowser || _androidOnline,
-                      connectRequired:
-                          _isBrowser && usingExtension && !extensionConnected,
+                      connectRequired: false,
                       onTapPoint: _handleTap,
                       onSwipe: _handleSwipe,
                       onWakeRequested: _openPrimary,
@@ -4807,8 +5192,9 @@ class _DeviceSurfaceHeader extends StatelessWidget {
     required this.browserPageInfo,
     required this.androidRuntime,
     required this.androidOnline,
-    required this.usingBrowserExtension,
-    required this.browserExtensionConnected,
+    required this.browserExtensionPreferred,
+    required this.browserExtensionActive,
+    required this.browserFallbackLabel,
   });
 
   final _DeviceSurface surface;
@@ -4816,8 +5202,9 @@ class _DeviceSurfaceHeader extends StatelessWidget {
   final Map<String, dynamic> browserPageInfo;
   final Map<String, dynamic> androidRuntime;
   final bool androidOnline;
-  final bool usingBrowserExtension;
-  final bool browserExtensionConnected;
+  final bool browserExtensionPreferred;
+  final bool browserExtensionActive;
+  final String browserFallbackLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -4829,8 +5216,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
               : 'Live Browser'
         : 'Android Phone';
     final subtitle = surface == _DeviceSurface.browser
-        ? usingBrowserExtension && !browserExtensionConnected
-              ? 'Chrome extension backend selected. Pair and connect the extension before using the live surface.'
+        ? browserExtensionPreferred && !browserExtensionActive
+              ? 'No extension device is active. Using the $browserFallbackLabel browser fallback.'
               : (browserPageInfo['url']?.toString() ?? 'Ready for navigation')
         : (androidOnline
               ? androidVersion == null
@@ -4883,8 +5270,10 @@ class _DeviceSurfaceHeader extends StatelessWidget {
         const SizedBox(width: 12),
         _DotStatus(
           label: surface == _DeviceSurface.browser
-              ? usingBrowserExtension
-                    ? (browserExtensionConnected ? 'Extension' : 'Pairing')
+              ? browserExtensionPreferred && !browserExtensionActive
+                    ? 'Fallback'
+                    : browserExtensionActive
+                    ? 'Extension'
                     : (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
               : (androidOnline
                     ? 'Live'
@@ -11481,37 +11870,20 @@ class SettingsPanel extends StatefulWidget {
   State<SettingsPanel> createState() => _SettingsPanelState();
 }
 
-const Map<String, List<String>> _voiceTtsModelsByProvider =
-    <String, List<String>>{
-      'openai': <String>['gpt-4o-mini-tts', 'tts-1-hd', 'tts-1'],
-      'deepgram': <String>[
-        'aura-2-thalia-en',
-        'aura-2-andromeda-en',
-        'aura-2-helena-en',
-      ],
-      'gemini': <String>[
-        'gemini-3.1-flash-tts-preview',
-        'gemini-2.5-flash-preview-tts',
-        'gemini-2.5-pro-preview-tts',
-      ],
-    };
-
-const Map<String, List<String>> _voiceSttModelsByProvider =
+const Map<String, List<String>> _voiceLiveModelsByProvider =
     <String, List<String>>{
       'openai': <String>[
-        'gpt-4o-transcribe',
-        'gpt-4o-mini-transcribe',
-        'whisper-1',
+        'gpt-realtime-1.5',
+        'gpt-realtime',
+        'gpt-realtime-mini',
       ],
-      'deepgram': <String>['nova-3'],
       'gemini': <String>[
-        'gemini-3-flash-preview',
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
+        'gemini-live-2.5-flash-preview',
+        'gemini-3.1-flash-live-preview',
       ],
     };
 
-const Map<String, List<String>> _voiceTtsVoicesByProvider =
+const Map<String, List<String>> _voiceLiveVoicesByProvider =
     <String, List<String>>{
       'openai': <String>[
         'alloy',
@@ -11539,11 +11911,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late String _defaultChatModel;
   late String _defaultSubagentModel;
   late String _fallbackModel;
-  late String _voiceSttProvider;
-  late String _voiceSttModel;
-  late String _voiceTtsProvider;
-  late String _voiceTtsModel;
-  late String _voiceTtsVoice;
+  late String _voiceLiveProvider;
+  late String _voiceLiveModel;
+  late String _voiceLiveVoice;
   final Map<String, bool> _providerEnabled = <String, bool>{};
   final Map<String, TextEditingController> _providerBaseUrlControllers =
       <String, TextEditingController>{};
@@ -11595,35 +11965,23 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _defaultChatModel = controller.defaultChatModel;
     _defaultSubagentModel = controller.defaultSubagentModel;
     _fallbackModel = controller.fallbackModel;
-    _voiceSttProvider = controller.voiceSttProvider;
-    _voiceSttModel = controller.voiceSttModel;
-    _voiceTtsProvider = controller.voiceTtsProvider;
-    _voiceTtsModel = controller.voiceTtsModel;
-    _voiceTtsVoice = controller.voiceTtsVoice;
-
-    if (!_voiceSttModelsByProvider.containsKey(_voiceSttProvider)) {
-      _voiceSttProvider = 'openai';
+    _voiceLiveProvider = controller.voiceLiveProvider;
+    _voiceLiveModel = controller.voiceLiveModel;
+    _voiceLiveVoice = controller.voiceLiveVoice;
+    if (!_voiceLiveModelsByProvider.containsKey(_voiceLiveProvider)) {
+      _voiceLiveProvider = 'openai';
     }
-    if (!_voiceTtsModelsByProvider.containsKey(_voiceTtsProvider)) {
-      _voiceTtsProvider = 'openai';
-    }
-    if (!(_voiceSttModelsByProvider[_voiceSttProvider]?.contains(
-          _voiceSttModel,
+    if (!(_voiceLiveModelsByProvider[_voiceLiveProvider]?.contains(
+          _voiceLiveModel,
         ) ??
         false)) {
-      _voiceSttModel = _voiceSttModelsByProvider[_voiceSttProvider]!.first;
+      _voiceLiveModel = _voiceLiveModelsByProvider[_voiceLiveProvider]!.first;
     }
-    if (!(_voiceTtsModelsByProvider[_voiceTtsProvider]?.contains(
-          _voiceTtsModel,
-        ) ??
-        false)) {
-      _voiceTtsModel = _voiceTtsModelsByProvider[_voiceTtsProvider]!.first;
-    }
-    final ttsVoiceOptions =
-        _voiceTtsVoicesByProvider[_voiceTtsProvider] ?? const <String>[];
-    if (ttsVoiceOptions.isNotEmpty &&
-        !ttsVoiceOptions.contains(_voiceTtsVoice)) {
-      _voiceTtsVoice = ttsVoiceOptions.first;
+    final liveVoiceOptions =
+        _voiceLiveVoicesByProvider[_voiceLiveProvider] ?? const <String>[];
+    if (liveVoiceOptions.isNotEmpty &&
+        !liveVoiceOptions.contains(_voiceLiveVoice)) {
+      _voiceLiveVoice = liveVoiceOptions.first;
     }
 
     final providerConfigs = controller.aiProviderConfigs;
@@ -11695,11 +12053,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     defaultChatModel: _defaultChatModel,
                     defaultSubagentModel: _defaultSubagentModel,
                     fallbackModel: _fallbackModel,
-                    voiceSttProvider: _voiceSttProvider,
-                    voiceSttModel: _voiceSttModel,
-                    voiceTtsProvider: _voiceTtsProvider,
-                    voiceTtsModel: _voiceTtsModel,
-                    voiceTtsVoice: _voiceTtsVoice,
+                    voiceSttProvider: controller.voiceSttProvider,
+                    voiceSttModel: controller.voiceSttModel,
+                    voiceTtsProvider: controller.voiceTtsProvider,
+                    voiceTtsModel: controller.voiceTtsModel,
+                    voiceTtsVoice: controller.voiceTtsVoice,
+                    voiceRuntimeMode: 'live',
+                    voiceLiveProvider: _voiceLiveProvider,
+                    voiceLiveModel: _voiceLiveModel,
+                    voiceLiveVoice: _voiceLiveVoice,
                     aiProviderConfigs: _buildProviderPayload(),
                   ),
             style: FilledButton.styleFrom(backgroundColor: _accent),
@@ -11804,8 +12166,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     final fieldWidth = compact
                         ? constraints.maxWidth
                         : (constraints.maxWidth - 24) / 3;
-                    final ttsVoiceOptions =
-                        _voiceTtsVoicesByProvider[_voiceTtsProvider] ??
+                    final liveVoiceOptions =
+                        _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
                         const <String>[];
                     return Wrap(
                       spacing: 12,
@@ -11814,91 +12176,35 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         SizedBox(
                           width: fieldWidth,
                           child: DropdownButtonFormField<String>(
-                            initialValue: _voiceSttProvider,
+                            initialValue: _voiceLiveProvider,
                             decoration: const InputDecoration(
-                              labelText: 'STT Provider',
+                              labelText: 'Live Provider',
                             ),
-                            items:
-                                const <String>['openai', 'deepgram', 'gemini']
-                                    .map(
-                                      (value) => DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value),
-                                      ),
-                                    )
-                                    .toList(),
+                            items: const <String>['openai', 'gemini']
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
                             onChanged: (value) {
                               if (value == null) return;
                               setState(() {
-                                _voiceSttProvider = value;
-                                final sttOptions =
-                                    _voiceSttModelsByProvider[_voiceSttProvider] ??
+                                _voiceLiveProvider = value;
+                                final modelOptions =
+                                    _voiceLiveModelsByProvider[_voiceLiveProvider] ??
                                     const <String>[];
-                                if (!sttOptions.contains(_voiceSttModel) &&
-                                    sttOptions.isNotEmpty) {
-                                  _voiceSttModel = sttOptions.first;
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                        SizedBox(
-                          width: fieldWidth,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _voiceSttModel,
-                            decoration: const InputDecoration(
-                              labelText: 'STT Model',
-                            ),
-                            items:
-                                (_voiceSttModelsByProvider[_voiceSttProvider] ??
-                                        const <String>[])
-                                    .map(
-                                      (value) => DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _voiceSttModel = value);
-                              }
-                            },
-                          ),
-                        ),
-                        SizedBox(
-                          width: fieldWidth,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _voiceTtsProvider,
-                            decoration: const InputDecoration(
-                              labelText: 'TTS Provider',
-                            ),
-                            items:
-                                const <String>['openai', 'deepgram', 'gemini']
-                                    .map(
-                                      (value) => DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                _voiceTtsProvider = value;
-                                final ttsOptions =
-                                    _voiceTtsModelsByProvider[_voiceTtsProvider] ??
-                                    const <String>[];
-                                if (!ttsOptions.contains(_voiceTtsModel) &&
-                                    ttsOptions.isNotEmpty) {
-                                  _voiceTtsModel = ttsOptions.first;
+                                if (!modelOptions.contains(_voiceLiveModel) &&
+                                    modelOptions.isNotEmpty) {
+                                  _voiceLiveModel = modelOptions.first;
                                 }
                                 final voiceOptions =
-                                    _voiceTtsVoicesByProvider[_voiceTtsProvider] ??
+                                    _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
                                     const <String>[];
                                 if (voiceOptions.isNotEmpty &&
-                                    !voiceOptions.contains(_voiceTtsVoice)) {
-                                  _voiceTtsVoice = voiceOptions.first;
+                                    !voiceOptions.contains(_voiceLiveVoice)) {
+                                  _voiceLiveVoice = voiceOptions.first;
                                 }
                               });
                             },
@@ -11907,12 +12213,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         SizedBox(
                           width: fieldWidth,
                           child: DropdownButtonFormField<String>(
-                            initialValue: _voiceTtsModel,
+                            initialValue: _voiceLiveModel,
                             decoration: const InputDecoration(
-                              labelText: 'TTS Model',
+                              labelText: 'Live Model',
                             ),
                             items:
-                                (_voiceTtsModelsByProvider[_voiceTtsProvider] ??
+                                (_voiceLiveModelsByProvider[_voiceLiveProvider] ??
                                         const <String>[])
                                     .map(
                                       (value) => DropdownMenuItem<String>(
@@ -11923,20 +12229,20 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                     .toList(),
                             onChanged: (value) {
                               if (value != null) {
-                                setState(() => _voiceTtsModel = value);
+                                setState(() => _voiceLiveModel = value);
                               }
                             },
                           ),
                         ),
-                        if (ttsVoiceOptions.isNotEmpty)
+                        if (liveVoiceOptions.isNotEmpty)
                           SizedBox(
                             width: fieldWidth,
                             child: DropdownButtonFormField<String>(
-                              initialValue: _voiceTtsVoice,
+                              initialValue: _voiceLiveVoice,
                               decoration: const InputDecoration(
-                                labelText: 'TTS Voice',
+                                labelText: 'Live Voice',
                               ),
-                              items: ttsVoiceOptions
+                              items: liveVoiceOptions
                                   .map(
                                     (value) => DropdownMenuItem<String>(
                                       value: value,
@@ -11946,7 +12252,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                   .toList(),
                               onChanged: (value) {
                                 if (value != null) {
-                                  setState(() => _voiceTtsVoice = value);
+                                  setState(() => _voiceLiveVoice = value);
                                 }
                               },
                             ),
@@ -11957,7 +12263,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Global voice defaults used by web voice and voice-capable integrations.',
+                  'Interactive voice uses the live provider, model, and voice shown here. The Flutter voice assistant now runs on the live path only.',
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
