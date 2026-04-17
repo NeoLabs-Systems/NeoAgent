@@ -1032,6 +1032,355 @@ class _InlineSuccess extends StatelessWidget {
   }
 }
 
+class _DesktopCloseDecision {
+  const _DesktopCloseDecision({
+    required this.keepRunning,
+    required this.rememberChoice,
+  });
+
+  final bool keepRunning;
+  final bool rememberChoice;
+}
+
+class _RecordingPermissionBadge extends StatelessWidget {
+  const _RecordingPermissionBadge({
+    required this.label,
+    required this.state,
+  });
+
+  final String label;
+  final RecordingPermissionState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, icon, text) = switch (state) {
+      RecordingPermissionState.granted => (_success, Icons.check_circle, 'Ready'),
+      RecordingPermissionState.denied => (_danger, Icons.lock_outline, 'Blocked'),
+      RecordingPermissionState.needsRestart => (
+        _warning,
+        Icons.restart_alt_rounded,
+        'Restart needed',
+      ),
+      RecordingPermissionState.unsupported => (
+        _textSecondary,
+        Icons.do_not_disturb_alt_outlined,
+        'Unsupported',
+      ),
+      RecordingPermissionState.unknown => (
+        _warning,
+        Icons.help_outline,
+        'Check access',
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Text(
+            '$label · $text',
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AudioLevelBar extends StatelessWidget {
+  const _AudioLevelBar({
+    required this.label,
+    required this.valueDb,
+    required this.color,
+    this.compact = false,
+  });
+
+  final String label;
+  final double valueDb;
+  final Color color;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = ((valueDb + 72) / 72).clamp(0.0, 1.0);
+    return SizedBox(
+      width: compact ? 148 : 220,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                label,
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: compact ? 11 : 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                valueDb <= -119 ? 'Silent' : '${valueDb.toStringAsFixed(0)} dB',
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: compact ? 11 : 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: compact ? 7 : 8,
+              color: color,
+              backgroundColor: _borderLight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopFloatingToolbar extends StatefulWidget {
+  const _DesktopFloatingToolbar({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<_DesktopFloatingToolbar> createState() => _DesktopFloatingToolbarState();
+}
+
+class _DesktopFloatingToolbarState extends State<_DesktopFloatingToolbar> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DesktopFloatingToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncTicker();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _syncTicker() {
+    final runtime = widget.controller.recordingRuntime;
+    final shouldTick =
+        runtime.active &&
+        runtime.startedAt != null &&
+        runtime.floatingToolbarVisible;
+    if (!shouldTick) {
+      _ticker?.cancel();
+      _ticker = null;
+      return;
+    }
+    _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final runtime = controller.recordingRuntime;
+    if (!runtime.supportsFloatingToolbar ||
+        !runtime.active ||
+        !runtime.floatingToolbarVisible) {
+      return const SizedBox.shrink();
+    }
+
+    final elapsed = runtime.startedAt == null
+        ? '00:00'
+        : _formatDuration(
+            DateTime.now().difference(runtime.startedAt!).inMilliseconds,
+          );
+
+    return Positioned(
+      top: 10,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: IgnorePointer(
+          ignoring: false,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 860),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      _bgCard.withValues(alpha: 0.98),
+                      _bgCard.withValues(alpha: 0.92),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: _borderLight),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.24),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Wrap(
+                  spacing: 14,
+                  runSpacing: 14,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (runtime.paused ? _warning : _danger).withValues(
+                          alpha: 0.10,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: (runtime.paused ? _warning : _danger).withValues(
+                            alpha: 0.20,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            runtime.paused
+                                ? Icons.pause_circle_outline
+                                : Icons.fiber_manual_record_rounded,
+                            color: runtime.paused ? _warning : _danger,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            runtime.paused ? 'Paused' : 'Recording',
+                            style: TextStyle(
+                              color: runtime.paused ? _warning : _danger,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            elapsed,
+                            style: TextStyle(
+                              color: _textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _AudioLevelBar(
+                      label: 'MIC',
+                      valueDb: runtime.microphoneLevelDb,
+                      color: _accent,
+                      compact: true,
+                    ),
+                    _AudioLevelBar(
+                      label: 'SYSTEM',
+                      valueDb: runtime.systemAudioLevelDb,
+                      color: _accentAlt,
+                      compact: true,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _bgSecondary.withValues(alpha: 0.78),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _borderLight),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(Icons.keyboard_command_key, size: 15, color: _accent),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Assistant later · $_desktopAssistantHotkeyLabel',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: runtime.paused ? 'Resume recording' : 'Pause recording',
+                      onPressed: runtime.paused
+                          ? controller.resumeDesktopRecording
+                          : controller.pauseDesktopRecording,
+                      style: IconButton.styleFrom(
+                        backgroundColor: _bgSecondary,
+                        foregroundColor: _textPrimary,
+                      ),
+                      icon: Icon(
+                        runtime.paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Stop recording',
+                      onPressed: controller.isStoppingRecording
+                          ? null
+                          : controller.stopRecording,
+                      style: IconButton.styleFrom(
+                        backgroundColor: _danger.withValues(alpha: 0.12),
+                        foregroundColor: _danger,
+                      ),
+                      icon: const Icon(Icons.stop_rounded),
+                    ),
+                    IconButton(
+                      tooltip: 'Hide floating bar',
+                      onPressed: controller.hideDesktopFloatingToolbar,
+                      style: IconButton.styleFrom(
+                        backgroundColor: _bgSecondary,
+                        foregroundColor: _textSecondary,
+                      ),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 String _ensureModelValue(
   String value,
   List<ModelMeta> models, {

@@ -1,5 +1,5 @@
 name: neoagent_flutter
-description: NeoAgent client for Flutter web and Android.
+description: NeoAgent client for Flutter web, Android, Windows, macOS, and Linux.
 publish_to: none
 version: 1.0.0+1
 
@@ -21,6 +21,11 @@ dependencies:
   audioplayers: ^6.1.0
   qr_flutter: ^4.1.0
   record: ^6.1.1
+  window_manager: ^0.5.1
+  tray_manager: ^0.5.2
+  hotkey_manager: ^0.2.3
+  desktop_audio_capture: 0.0.2
+  launch_at_startup: ^0.5.1
 
 dev_dependencies:
   flutter_test:

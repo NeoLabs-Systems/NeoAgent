@@ -328,6 +328,18 @@ class WebRecordingBridge extends RecordingBridge {
   }
 
   @override
+  Future<void> startDesktopAudioRecording({
+    required String baseUrl,
+    required String sessionCookie,
+    required String sessionId,
+    bool autoShowToolbar = true,
+  }) async {
+    throw const RecordingBridgeException(
+      'Native desktop audio recording is not available in the browser.',
+    );
+  }
+
+  @override
   Future<void> pauseBackgroundRecording() async {
     throw const RecordingBridgeException(
       'Pause is only available for Android background recording.',
@@ -335,9 +347,43 @@ class WebRecordingBridge extends RecordingBridge {
   }
 
   @override
+  Future<void> pauseDesktopRecording() async {
+    throw const RecordingBridgeException(
+      'Desktop recording controls are not available in the browser.',
+    );
+  }
+
+  @override
   Future<void> resumeBackgroundRecording() async {
     throw const RecordingBridgeException(
       'Resume is only available for Android background recording.',
+    );
+  }
+
+  @override
+  Future<void> resumeDesktopRecording() async {
+    throw const RecordingBridgeException(
+      'Desktop recording controls are not available in the browser.',
+    );
+  }
+
+  @override
+  Future<void> showFloatingToolbar() async {}
+
+  @override
+  Future<void> hideFloatingToolbar() async {}
+
+  @override
+  Future<void> openMicrophoneSettings() async {
+    throw const RecordingBridgeException(
+      'Open the browser site settings to manage microphone access.',
+    );
+  }
+
+  @override
+  Future<void> openSystemAudioSettings() async {
+    throw const RecordingBridgeException(
+      'Browser screen-share audio permissions are controlled by the browser.',
     );
   }
 

@@ -147,6 +147,8 @@ server/public/flutter_bootstrap.js
 server/public/flutter_service_worker.js
 server/public/main.dart.js
 /tmp
+flutter_app/neoagent_flutter.iml
+flutter_app/.idea/
 
 # ESP-IDF firmware generated artifacts
 firmware/**/build/

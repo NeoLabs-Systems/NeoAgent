@@ -32,6 +32,155 @@ class SplashView extends StatelessWidget {
   }
 }
 
+class BackendSetupView extends StatefulWidget {
+  const BackendSetupView({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<BackendSetupView> createState() => _BackendSetupViewState();
+}
+
+class _BackendSetupViewState extends State<BackendSetupView> {
+  late final TextEditingController _backendUrlController;
+
+  @override
+  void initState() {
+    super.initState();
+    _backendUrlController = TextEditingController(text: widget.controller.backendUrl);
+  }
+
+  @override
+  void dispose() {
+    _backendUrlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    await widget.controller.saveBackendUrl(_backendUrlController.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    return _AmbientBackdrop(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: _panelGradient,
+                    borderRadius: BorderRadius.circular(34),
+                    border: Border.all(color: _borderLight),
+                    boxShadow: _softPanelShadow,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(34, 32, 34, 30),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const _LogoBadge(size: 60),
+                        const SizedBox(height: 22),
+                        Text('FIRST-RUN SETUP', style: _sectionEyebrowStyle()),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Connect this build to your NeoAgent backend',
+                          style: _displayTitleStyle(34),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'This build was not bundled with a backend endpoint. Enter your NeoAgent server URL once and the app will store it locally for future launches.',
+                          style: TextStyle(color: _textSecondary, height: 1.55),
+                        ),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: _backendUrlController,
+                          keyboardType: TextInputType.url,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _submit(),
+                          decoration: const InputDecoration(
+                            labelText: 'Backend URL',
+                            hintText: 'https://neoagent.example.com',
+                            prefixIcon: Icon(Icons.cloud_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: _bgSecondary.withValues(alpha: 0.72),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: _borderLight),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Icon(
+                                Icons.privacy_tip_outlined,
+                                color: _accent,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Use your hosted NeoAgent URL. If you enter a hostname without a scheme, the app will infer `https://` for remote hosts and `http://` for local addresses.',
+                                  style: TextStyle(
+                                    color: _textSecondary,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (controller.errorMessage case final message?) ...<Widget>[
+                          const SizedBox(height: 16),
+                          _InlineError(message: message),
+                        ],
+                        const SizedBox(height: 22),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: controller.isSavingBackendUrl ? null : _submit,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _accent,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            icon: controller.isSavingBackendUrl
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.arrow_forward_rounded),
+                            label: Text(
+                              controller.isSavingBackendUrl
+                                  ? 'Connecting...'
+                                  : 'Connect Backend',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AuthView extends StatefulWidget {
   const AuthView({super.key, required this.controller});
 

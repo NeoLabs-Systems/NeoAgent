@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:audioplayers/audioplayers.dart';
+import 'package:tray_manager/tray_manager.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'src/android_apk_drop_zone.dart';
 import 'src/backend_client.dart';
@@ -20,6 +23,7 @@ import 'src/health_bridge.dart';
 import 'src/live_voice_capture.dart';
 import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
+import 'src/recording_payloads.dart';
 import 'src/theme/palette.dart';
 
 part 'main_theme.dart';
@@ -29,15 +33,25 @@ part 'main_models.dart';
 part 'main_shared.dart';
 part 'main_voice_assistant.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (_supportsDesktopShell) {
+    await windowManager.ensureInitialized();
+    await hotKeyManager.unregisterAll();
+  }
   runApp(const NeoAgentApp());
 }
 
-const String _androidEmulatorBackendUrl = 'http://10.0.2.2:3333';
 const String _browserUrlPlaceholder = 'https://example.com';
 const String _androidLaunchPlaceholder = 'com.android.settings';
 const String _packageOrUrlHint = 'Package name or URL';
+const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
+
+bool get _supportsDesktopShell =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux);
 
 enum AppSection {
   chat,
@@ -220,8 +234,14 @@ class NeoAgentApp extends StatefulWidget {
   State<NeoAgentApp> createState() => _NeoAgentAppState();
 }
 
-class _NeoAgentAppState extends State<NeoAgentApp> {
+class _NeoAgentAppState extends State<NeoAgentApp>
+    with WindowListener, TrayListener {
   late final NeoAgentController _controller;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  Menu? _trayMenu;
+  HotKey? _assistantHotKey;
+  bool _desktopShellInitialized = false;
+  bool _handlingDesktopClose = false;
 
   @override
   void initState() {
@@ -232,12 +252,182 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
       healthBridge: HealthBridge(),
       recordingBridge: createRecordingBridge(),
     )..bootstrap();
+    _controller.addListener(_handleControllerChanged);
+    if (_supportsDesktopShell) {
+      unawaited(_initializeDesktopShell());
+    }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_handleControllerChanged);
+    if (_supportsDesktopShell) {
+      trayManager.removeListener(this);
+      windowManager.removeListener(this);
+      if (_assistantHotKey != null) {
+        unawaited(hotKeyManager.unregister(_assistantHotKey!));
+      }
+      unawaited(trayManager.destroy());
+    }
     _controller.dispose();
     super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    if (!_supportsDesktopShell) {
+      return;
+    }
+    unawaited(_syncDesktopShell());
+  }
+
+  Future<void> _initializeDesktopShell() async {
+    if (_desktopShellInitialized) {
+      return;
+    }
+    var windowListenerAdded = false;
+    var trayListenerAdded = false;
+    try {
+      windowManager.addListener(this);
+      windowListenerAdded = true;
+      trayManager.addListener(this);
+      trayListenerAdded = true;
+      await windowManager.setPreventClose(true);
+      await trayManager.setIcon('web/icons/Icon-192.png');
+      await trayManager.setToolTip('NeoAgent');
+      await _syncTrayMenu();
+      await _syncAssistantHotkey();
+      _desktopShellInitialized = true;
+    } catch (error, stackTrace) {
+      _desktopShellInitialized = false;
+      if (trayListenerAdded) {
+        trayManager.removeListener(this);
+      }
+      if (windowListenerAdded) {
+        windowManager.removeListener(this);
+      }
+      AppDiagnostics.log(
+        'desktop.shell',
+        'initialize.failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _syncDesktopShell() async {
+    if (!_desktopShellInitialized) {
+      return;
+    }
+    await _syncTrayMenu();
+    await _syncAssistantHotkey();
+  }
+
+  Future<void> _syncTrayMenu() async {
+    final runtime = _controller.recordingRuntime;
+    final isRecordingActive = runtime.active;
+    final pauseLabel = runtime.paused ? 'Resume' : 'Pause';
+    final toolbarLabel = runtime.floatingToolbarVisible
+        ? 'Hide floating bar'
+        : 'Show floating bar';
+    _trayMenu = Menu(
+      items: <MenuItem>[
+        MenuItem(key: 'open', label: 'Open'),
+        MenuItem(
+          key: 'start_recording',
+          label: 'Start recording',
+          disabled: isRecordingActive || !_controller.canStartDesktopRecording,
+        ),
+        MenuItem(
+          key: 'pause_resume_recording',
+          label: pauseLabel,
+          disabled: !isRecordingActive,
+        ),
+        MenuItem(
+          key: 'stop_recording',
+          label: 'Stop',
+          disabled: !isRecordingActive,
+        ),
+        MenuItem.separator(),
+        MenuItem(
+          key: 'toggle_toolbar',
+          label: toolbarLabel,
+          disabled: !_controller.recordingRuntime.supportsFloatingToolbar,
+        ),
+        MenuItem(key: 'open_voice_assistant', label: 'Open voice assistant'),
+        MenuItem.separator(),
+        MenuItem(key: 'quit', label: 'Quit'),
+      ],
+    );
+    await trayManager.setContextMenu(_trayMenu!);
+  }
+
+  Future<void> _syncAssistantHotkey() async {
+    final shouldRegister =
+        _controller.desktopAssistantHotkeyEnabled &&
+        _controller.recordingRuntime.supportsGlobalHotkeys;
+    if (!shouldRegister) {
+      if (_assistantHotKey != null) {
+        await hotKeyManager.unregister(_assistantHotKey!);
+        _assistantHotKey = null;
+      }
+      return;
+    }
+
+    final hotKey = HotKey(
+      key: LogicalKeyboardKey.space,
+      modifiers: const <HotKeyModifier>[
+        HotKeyModifier.control,
+        HotKeyModifier.shift,
+      ],
+      scope: HotKeyScope.system,
+    );
+    if (_assistantHotKey != null &&
+        _hotKeysMatch(_assistantHotKey!, hotKey)) {
+      return;
+    }
+    if (_assistantHotKey != null) {
+      await hotKeyManager.unregister(_assistantHotKey!);
+    }
+    await hotKeyManager.register(
+      hotKey,
+      keyDownHandler: (_) async {
+        await _openMainWindow();
+        _controller.setSelectedSection(AppSection.voiceAssistant);
+      },
+    );
+    _assistantHotKey = hotKey;
+  }
+
+  bool _hotKeysMatch(HotKey first, HotKey second) {
+    final firstModifiers = Set<HotKeyModifier>.from(
+      first.modifiers ?? const <HotKeyModifier>[],
+    );
+    final secondModifiers = Set<HotKeyModifier>.from(
+      second.modifiers ?? const <HotKeyModifier>[],
+    );
+    return first.scope == second.scope &&
+        first.key == second.key &&
+        firstModifiers.length == secondModifiers.length &&
+        firstModifiers.containsAll(secondModifiers);
+  }
+
+  Future<void> _openMainWindow() async {
+    await windowManager.show();
+    await windowManager.focus();
+    final runtime = _controller.recordingRuntime;
+    if (runtime.active &&
+        runtime.supportsFloatingToolbar &&
+        _controller.desktopAutoShowFloatingToolbar &&
+        !runtime.floatingToolbarVisible) {
+      await _controller.showDesktopFloatingToolbar();
+    }
+  }
+
+  Future<void> _hideMainWindow() async {
+    if (_controller.recordingRuntime.floatingToolbarVisible) {
+      await _controller.hideDesktopFloatingToolbar();
+    }
+    await windowManager.hide();
   }
 
   @override
@@ -247,15 +437,183 @@ class _NeoAgentAppState extends State<NeoAgentApp> {
       builder: (context, _) {
         return MaterialApp(
           key: ValueKey<bool>(_controller.isAuthenticated),
+          navigatorKey: _navigatorKey,
           title: 'NeoOS',
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
           darkTheme: _buildNeoAgentTheme(_darkPalette, Brightness.dark),
           themeMode: ThemeMode.system,
+          builder: (context, child) {
+            return Stack(
+              children: <Widget>[
+                if (child != null) child,
+                if (_supportsDesktopShell)
+                  _DesktopFloatingToolbar(controller: _controller),
+              ],
+            );
+          },
           home: NeoAgentRoot(controller: _controller),
         );
       },
     );
+  }
+
+  @override
+  void onTrayIconMouseDown() {
+    trayManager.popUpContextMenu();
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) {
+    final key = menuItem.key;
+    if (key == null) {
+      return;
+    }
+    switch (key) {
+      case 'open':
+        unawaited(_openMainWindow());
+        break;
+      case 'start_recording':
+        if (_controller.canStartDesktopRecording) {
+          unawaited(_controller.startDesktopRecording());
+        }
+        break;
+      case 'pause_resume_recording':
+        if (_controller.recordingRuntime.paused) {
+          unawaited(_controller.resumeDesktopRecording());
+        } else {
+          unawaited(_controller.pauseDesktopRecording());
+        }
+        break;
+      case 'stop_recording':
+        unawaited(_controller.stopRecording());
+        break;
+      case 'toggle_toolbar':
+        if (_controller.recordingRuntime.floatingToolbarVisible) {
+          unawaited(_controller.hideDesktopFloatingToolbar());
+        } else {
+          unawaited(_controller.showDesktopFloatingToolbar());
+        }
+        break;
+      case 'open_voice_assistant':
+        unawaited(_openMainWindow());
+        _controller.setSelectedSection(AppSection.voiceAssistant);
+        break;
+      case 'quit':
+        unawaited(_quitDesktopShell());
+        break;
+    }
+  }
+
+  @override
+  void onWindowClose() {
+    if (!_supportsDesktopShell || _handlingDesktopClose) {
+      return;
+    }
+    _handlingDesktopClose = true;
+    unawaited(_handleDesktopWindowClose());
+  }
+
+  Future<void> _handleDesktopWindowClose() async {
+    try {
+      final navigatorContext = _navigatorKey.currentContext;
+      if (navigatorContext == null) {
+        await _quitDesktopShell();
+        return;
+      }
+
+      final shouldPrompt = _controller.desktopAskOnClose;
+      if (!shouldPrompt) {
+        if (_controller.desktopKeepRunningOnClose) {
+          await _hideMainWindow();
+        } else {
+          await _quitDesktopShell();
+        }
+        return;
+      }
+
+      final decision = await showDialog<_DesktopCloseDecision>(
+        context: navigatorContext,
+        builder: (context) {
+          var rememberChoice = false;
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                backgroundColor: _bgCard,
+                title: Text('Keep NeoAgent running?'),
+                content: SizedBox(
+                  width: 440,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Closing the window can either keep NeoAgent running in the background with tray access, or fully quit the desktop runtime.',
+                        style: TextStyle(color: _textSecondary, height: 1.45),
+                      ),
+                      const SizedBox(height: 16),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: rememberChoice,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            rememberChoice = value == true;
+                          });
+                        },
+                        title: Text('Remember this choice'),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(
+                      _DesktopCloseDecision(
+                        keepRunning: false,
+                        rememberChoice: rememberChoice,
+                      ),
+                    ),
+                    child: Text('Quit'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(
+                      _DesktopCloseDecision(
+                        keepRunning: true,
+                        rememberChoice: rememberChoice,
+                      ),
+                    ),
+                    child: Text('Keep running'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+
+      if (decision == null) {
+        return;
+      }
+      if (decision.rememberChoice) {
+        await _controller.setDesktopClosePreference(
+          askOnClose: false,
+          keepRunningOnClose: decision.keepRunning,
+        );
+      }
+      if (decision.keepRunning) {
+        await _hideMainWindow();
+      } else {
+        await _quitDesktopShell();
+      }
+    } finally {
+      _handlingDesktopClose = false;
+    }
+  }
+
+  Future<void> _quitDesktopShell() async {
+    await windowManager.setPreventClose(false);
+    await windowManager.destroy();
   }
 }
 
@@ -268,6 +626,9 @@ class NeoAgentRoot extends StatelessWidget {
   Widget build(BuildContext context) {
     if (controller.isBooting) {
       return const SplashView();
+    }
+    if (controller.requiresBackendUrlSetup) {
+      return BackendSetupView(controller: controller);
     }
     if (!controller.isAuthenticated) {
       return AuthView(controller: controller);
@@ -316,6 +677,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
+  bool isSavingBackendUrl = false;
   bool isLoadingAccountSettings = false;
   bool isSavingAccountSettings = false;
   bool isConfiguringTwoFactor = false;
@@ -400,6 +762,10 @@ class NeoAgentController extends ChangeNotifier {
   bool _pendingLiveVoiceStop = false;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   VoiceAssistantLiveState voiceAssistantLiveState = VoiceAssistantLiveState();
+  bool _desktopAskOnClose = true;
+  bool _desktopKeepRunningOnClose = true;
+  bool _desktopAutoShowFloatingToolbar = true;
+  bool _desktopAssistantHotkeyEnabled = true;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
 
@@ -422,6 +788,11 @@ class NeoAgentController extends ChangeNotifier {
   String get activeAgentLabel => activeAgent?.displayName ?? 'Main';
 
   String? get _scopedAgentId => selectedAgentId;
+
+  bool get requiresBackendUrlSetup =>
+      !kIsWeb &&
+      _configuredBackendUrl.trim().isEmpty &&
+      backendUrl.trim().isEmpty;
 
   String agentLabelFor(String? id) {
     if (id == null || id.isEmpty) return 'Main';
@@ -473,7 +844,7 @@ class NeoAgentController extends ChangeNotifier {
       return configured;
     }
 
-    return _androidEmulatorBackendUrl;
+    return '';
   }
 
   static bool _isLoopbackHost(String host) {
@@ -497,6 +868,24 @@ class NeoAgentController extends ChangeNotifier {
 
   RecordingRuntimeStatus get recordingRuntime => _recordingBridge.status;
 
+  bool get desktopAskOnClose => _desktopAskOnClose;
+
+  bool get desktopKeepRunningOnClose => _desktopKeepRunningOnClose;
+
+  bool get desktopAutoShowFloatingToolbar => _desktopAutoShowFloatingToolbar;
+
+  bool get desktopAssistantHotkeyEnabled => _desktopAssistantHotkeyEnabled;
+
+  bool get canStartDesktopRecording =>
+      _supportsDesktopShell &&
+      isAuthenticated &&
+      !isBooting &&
+      !requiresBackendUrlSetup &&
+      backendUrl.trim().isNotEmpty &&
+      !isStartingRecording &&
+      !recordingRuntime.active &&
+      recordingRuntime.supportsSystemAudio;
+
   Map<String, Object?> _recordingRuntimeSnapshot() {
     final runtime = recordingRuntime;
     return <String, Object?>{
@@ -505,6 +894,8 @@ class NeoAgentController extends ChangeNotifier {
       'runtimeSessionId': runtime.sessionId,
       'runtimeStartedAt': runtime.startedAt?.toIso8601String(),
       'runtimeError': runtime.errorMessage,
+      'runtimeSupportsSystemAudio': runtime.supportsSystemAudio,
+      'runtimeFloatingToolbarVisible': runtime.floatingToolbarVisible,
       'sessionsLoaded': recordingSessions.length,
     };
   }
@@ -732,11 +1123,27 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
-    backendUrl = _defaultBackendUrl;
+    final configured = _configuredBackendUrl.trim();
+    final savedBackendUrl = _prefs?.getString('backend_url')?.trim() ?? '';
+    backendUrl = configured.isNotEmpty ? _defaultBackendUrl : savedBackendUrl;
     username = _prefs?.getString('username') ?? '';
     password = '';
+    _desktopAskOnClose = _prefs?.getBool('desktop.askOnClose') ?? true;
+    _desktopKeepRunningOnClose =
+        _prefs?.getBool('desktop.keepRunningOnClose') ?? true;
+    _desktopAutoShowFloatingToolbar =
+        _prefs?.getBool('desktop.autoShowFloatingToolbar') ?? true;
+    _desktopAssistantHotkeyEnabled =
+        _prefs?.getBool('desktop.assistantHotkeyEnabled') ?? true;
     await _recordingBridge.refreshStatus();
     notifyListeners();
+
+    if (requiresBackendUrlSetup) {
+      isBooting = false;
+      errorMessage = null;
+      notifyListeners();
+      return;
+    }
 
     try {
       final status = await _backendClient.getAuthStatus(backendUrl);
@@ -766,6 +1173,61 @@ class NeoAgentController extends ChangeNotifier {
       isBooting = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> saveBackendUrl(String rawValue) async {
+    final normalized = _normalizeBackendUrl(rawValue);
+    if (normalized.isEmpty) {
+      errorMessage = 'Enter the NeoAgent backend URL.';
+      notifyListeners();
+      return false;
+    }
+
+    isSavingBackendUrl = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _backendClient.getAuthStatus(normalized);
+      await _prefs?.setString('backend_url', normalized);
+      backendUrl = normalized;
+      isBooting = true;
+      notifyListeners();
+      await bootstrap();
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      isSavingBackendUrl = false;
+      if (requiresBackendUrlSetup) {
+        isBooting = false;
+      }
+      notifyListeners();
+    }
+  }
+
+  String _normalizeBackendUrl(String rawValue) {
+    final trimmed = rawValue.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    if (trimmed.contains('://')) {
+      return trimmed.replaceFirst(RegExp(r'/$'), '');
+    }
+
+    final lower = trimmed.toLowerCase();
+    final is172Private = RegExp(
+      r'^172\.(1[6-9]|2[0-9]|3[0-1])\.',
+    ).hasMatch(lower);
+    final isLocal =
+        lower.startsWith('localhost') ||
+        lower.startsWith('127.0.0.1') ||
+        lower.startsWith('10.') ||
+        lower.startsWith('192.168.') ||
+        is172Private;
+    final scheme = isLocal ? 'http://' : 'https://';
+    return '$scheme${trimmed.replaceFirst(RegExp(r'/$'), '')}';
   }
 
   Future<void> login({
@@ -2148,28 +2610,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> startWebRecording() async {
     await _startRecordingCapture(
       logKey: 'start_web',
-      payload: <String, dynamic>{
-        'platform': 'web',
-        'screenAnalysisReady': true,
-        'sources': const <Map<String, dynamic>>[
-          <String, dynamic>{
-            'sourceKey': 'screen',
-            'sourceKind': 'screen-share',
-            'mediaKind': 'video',
-            'mimeType': 'video/webm',
-            'metadata': <String, dynamic>{
-              'analysisReady': true,
-              'transcribe': false,
-            },
-          },
-          <String, dynamic>{
-            'sourceKey': 'microphone',
-            'sourceKind': 'microphone',
-            'mediaKind': 'audio',
-            'mimeType': 'audio/webm',
-          },
-        ],
-      },
+      payload: buildWebScreenAndMicRecordingPayload(),
       startCapture: (sessionId) => _recordingBridge.startWebRecording(
         baseUrl: backendUrl,
         sessionId: sessionId,
@@ -2180,18 +2621,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> startWebMicrophoneRecording() async {
     await _startRecordingCapture(
       logKey: 'start_web_mic_only',
-      payload: <String, dynamic>{
-        'platform': 'web',
-        'screenAnalysisReady': false,
-        'sources': const <Map<String, dynamic>>[
-          <String, dynamic>{
-            'sourceKey': 'microphone',
-            'sourceKind': 'microphone',
-            'mediaKind': 'audio',
-            'mimeType': 'audio/webm',
-          },
-        ],
-      },
+      payload: buildWebMicrophoneRecordingPayload(),
       startCapture: (sessionId) => _recordingBridge.startWebMicrophoneRecording(
         baseUrl: backendUrl,
         sessionId: sessionId,
@@ -2202,23 +2632,32 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> startBackgroundRecording() async {
     await _startRecordingCapture(
       logKey: 'start_background',
-      payload: <String, dynamic>{
-        'platform': 'android',
-        'screenAnalysisReady': false,
-        'sources': const <Map<String, dynamic>>[
-          <String, dynamic>{
-            'sourceKey': 'microphone',
-            'sourceKind': 'microphone',
-            'mediaKind': 'audio',
-            'mimeType': 'audio/wav',
-            'metadata': <String, dynamic>{'backgroundCapable': true},
-          },
-        ],
-      },
+      payload: buildAndroidBackgroundRecordingPayload(),
       startCapture: (sessionId) => _recordingBridge.startBackgroundRecording(
         baseUrl: backendUrl,
         sessionCookie: _backendClient.sessionCookie ?? '',
         sessionId: sessionId,
+      ),
+    );
+  }
+
+  Future<void> startDesktopRecording() async {
+    if (!canStartDesktopRecording) {
+      if (!isAuthenticated || requiresBackendUrlSetup) {
+        errorMessage =
+            'Sign in and finish backend setup before starting desktop recording.';
+        notifyListeners();
+      }
+      return;
+    }
+    await _startRecordingCapture(
+      logKey: 'start_desktop',
+      payload: buildDesktopRecordingPayload(),
+      startCapture: (sessionId) => _recordingBridge.startDesktopAudioRecording(
+        baseUrl: backendUrl,
+        sessionCookie: _backendClient.sessionCookie ?? '',
+        sessionId: sessionId,
+        autoShowToolbar: _desktopAutoShowFloatingToolbar,
       ),
     );
   }
@@ -2245,6 +2684,89 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
+  }
+
+  Future<void> pauseDesktopRecording() async {
+    try {
+      _logRecording('pause_desktop.request');
+      await _recordingBridge.pauseDesktopRecording();
+      _logRecording('pause_desktop.done');
+    } catch (error) {
+      _logRecording('pause_desktop.failed', error: error);
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> resumeDesktopRecording() async {
+    try {
+      _logRecording('resume_desktop.request');
+      await _recordingBridge.resumeDesktopRecording();
+      _logRecording('resume_desktop.done');
+    } catch (error) {
+      _logRecording('resume_desktop.failed', error: error);
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> showDesktopFloatingToolbar() async {
+    try {
+      await _recordingBridge.showFloatingToolbar();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> hideDesktopFloatingToolbar() async {
+    try {
+      await _recordingBridge.hideFloatingToolbar();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> openDesktopMicrophoneSettings() async {
+    try {
+      await _recordingBridge.openMicrophoneSettings();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> openDesktopSystemAudioSettings() async {
+    try {
+      await _recordingBridge.openSystemAudioSettings();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> setDesktopClosePreference({
+    required bool askOnClose,
+    required bool keepRunningOnClose,
+  }) async {
+    _desktopAskOnClose = askOnClose;
+    _desktopKeepRunningOnClose = keepRunningOnClose;
+    await _prefs?.setBool('desktop.askOnClose', askOnClose);
+    await _prefs?.setBool('desktop.keepRunningOnClose', keepRunningOnClose);
+    notifyListeners();
+  }
+
+  Future<void> setDesktopAutoShowFloatingToolbar(bool value) async {
+    _desktopAutoShowFloatingToolbar = value;
+    await _prefs?.setBool('desktop.autoShowFloatingToolbar', value);
+    notifyListeners();
+  }
+
+  Future<void> setDesktopAssistantHotkeyEnabled(bool value) async {
+    _desktopAssistantHotkeyEnabled = value;
+    await _prefs?.setBool('desktop.assistantHotkeyEnabled', value);
+    notifyListeners();
   }
 
   Future<void> stopRecording({String stopReason = 'stopped'}) async {
@@ -6842,7 +7364,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
         const SizedBox(height: 12),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(22),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -6867,7 +7389,14 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
+                Text(
+                  runtime.supportsSystemAudio
+                      ? 'Desktop studio mode keeps microphone and system audio as separate live sources, supports background runtime, and exposes a floating control bar for long-running captures.'
+                      : 'Choose the best capture mode for the current platform. Existing web and Android flows remain available alongside the new desktop runtime.',
+                  style: TextStyle(color: _textSecondary, height: 1.5),
+                ),
+                const SizedBox(height: 18),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -6882,6 +7411,15 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                         icon: Icon(Icons.desktop_windows_outlined),
                         label: Text('Start screen + mic'),
                       ),
+                    if (runtime.supportsScreenAndMic)
+                      OutlinedButton.icon(
+                        onPressed:
+                            widget.controller.isStartingRecording || runtime.active
+                            ? null
+                            : widget.controller.startWebMicrophoneRecording,
+                        icon: Icon(Icons.graphic_eq_outlined),
+                        label: Text('Mic only'),
+                      ),
                     if (runtime.supportsBackgroundMic)
                       FilledButton.icon(
                         onPressed:
@@ -6892,11 +7430,33 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                         icon: Icon(Icons.mic_none_outlined),
                         label: Text('Start background mic'),
                       ),
+                    if (runtime.supportsSystemAudio)
+                      FilledButton.icon(
+                        onPressed: widget.controller.canStartDesktopRecording
+                            ? widget.controller.startDesktopRecording
+                            : null,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _accentAlt,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: Icon(Icons.surround_sound_outlined),
+                        label: Text('Start desktop studio'),
+                      ),
                     if (runtime.supportsBackgroundMic && runtime.active)
                       OutlinedButton.icon(
                         onPressed: runtime.paused
                             ? widget.controller.resumeBackgroundRecording
                             : widget.controller.pauseBackgroundRecording,
+                        icon: Icon(
+                          runtime.paused ? Icons.play_arrow : Icons.pause,
+                        ),
+                        label: Text(runtime.paused ? 'Resume' : 'Pause'),
+                      ),
+                    if (runtime.supportsSystemAudio && runtime.active)
+                      OutlinedButton.icon(
+                        onPressed: runtime.paused
+                            ? widget.controller.resumeDesktopRecording
+                            : widget.controller.pauseDesktopRecording,
                         icon: Icon(
                           runtime.paused ? Icons.play_arrow : Icons.pause,
                         ),
@@ -6910,6 +7470,22 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                         icon: Icon(Icons.stop_circle_outlined),
                         label: Text('Stop'),
                       ),
+                    if (runtime.supportsFloatingToolbar)
+                      OutlinedButton.icon(
+                        onPressed: runtime.floatingToolbarVisible
+                            ? widget.controller.hideDesktopFloatingToolbar
+                            : widget.controller.showDesktopFloatingToolbar,
+                        icon: Icon(
+                          runtime.floatingToolbarVisible
+                              ? Icons.visibility_off_outlined
+                              : Icons.open_in_new_rounded,
+                        ),
+                        label: Text(
+                          runtime.floatingToolbarVisible
+                              ? 'Hide floating bar'
+                              : 'Show floating bar',
+                        ),
+                      ),
                     OutlinedButton.icon(
                       onPressed: widget.controller.refreshRecordings,
                       icon: Icon(Icons.refresh),
@@ -6917,10 +7493,131 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                     ),
                   ],
                 ),
+                if (runtime.supportsSystemAudio) ...<Widget>[
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: _bgSecondary.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: _borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Desktop runtime diagnostics',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Permissions, live levels, and background runtime state stay visible here while the floating bar handles quick controls.',
+                          style: TextStyle(color: _textSecondary, height: 1.45),
+                        ),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: <Widget>[
+                            _RecordingPermissionBadge(
+                              label: 'Microphone',
+                              state: runtime.microphonePermission,
+                            ),
+                            _RecordingPermissionBadge(
+                              label: 'System audio',
+                              state: runtime.systemAudioPermission,
+                            ),
+                            _DotStatus(
+                              label: runtime.backgroundRuntimeActive
+                                  ? 'Background runtime ready'
+                                  : 'Foreground only',
+                              color: runtime.backgroundRuntimeActive
+                                  ? _success
+                                  : _warning,
+                            ),
+                            _DotStatus(
+                              label: runtime.supportsGlobalHotkeys
+                                  ? 'Hotkey-ready'
+                                  : 'No global hotkeys',
+                              color: runtime.supportsGlobalHotkeys
+                                  ? _success
+                                  : _warning,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 18,
+                          runSpacing: 18,
+                          children: <Widget>[
+                            _AudioLevelBar(
+                              label: 'Microphone',
+                              valueDb: runtime.microphoneLevelDb,
+                              color: _accent,
+                            ),
+                            _AudioLevelBar(
+                              label: 'System audio',
+                              valueDb: runtime.systemAudioLevelDb,
+                              color: _accentAlt,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: <Widget>[
+                            if ((runtime.selectedInputDeviceName ?? '')
+                                .trim()
+                                .isNotEmpty)
+                              _MetaPill(
+                                icon: Icons.mic_external_on_outlined,
+                                label:
+                                    'Input ${runtime.selectedInputDeviceName!}',
+                              ),
+                            _MetaPill(
+                              icon: Icons.tune_outlined,
+                              label:
+                                  '${runtime.availableInputDevices.length} input device${runtime.availableInputDevices.length == 1 ? '' : 's'}',
+                            ),
+                            if (runtime.activeSources.isNotEmpty)
+                              _MetaPill(
+                                icon: Icons.multitrack_audio_outlined,
+                                label: runtime.activeSources.join(' + '),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: <Widget>[
+                            OutlinedButton.icon(
+                              onPressed:
+                                  widget.controller.openDesktopMicrophoneSettings,
+                              icon: Icon(Icons.settings_voice_outlined),
+                              label: Text('Mic settings'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  widget.controller.openDesktopSystemAudioSettings,
+                              icon: Icon(Icons.speaker_group_outlined),
+                              label: Text('System audio settings'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (runtime.errorMessage != null &&
                     runtime.errorMessage!.trim().isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 14),
-                  Text(runtime.errorMessage!, style: TextStyle(color: _danger)),
+                  const SizedBox(height: 16),
+                  _InlineError(message: runtime.errorMessage!),
                 ],
               ],
             ),
@@ -11411,6 +12108,75 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _InlineError(message: controller.errorMessage!),
           const SizedBox(height: 16),
         ],
+        if (_supportsDesktopShell)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const _SectionTitle('Desktop Runtime'),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Keep desktop capture polished and predictable: tray behavior, floating controls, and the assistant hotkey live here so the desktop app can keep running without a second control stack later.',
+                    style: TextStyle(color: _textSecondary, height: 1.5),
+                  ),
+                  const SizedBox(height: 18),
+                  SwitchListTile.adaptive(
+                    value: controller.desktopAskOnClose,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Ask before closing to background'),
+                    subtitle: Text(
+                      'Prompt for whether NeoAgent should stay resident in the tray when the main window closes.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                    onChanged: (value) => controller.setDesktopClosePreference(
+                      askOnClose: value,
+                      keepRunningOnClose: controller.desktopKeepRunningOnClose,
+                    ),
+                  ),
+                  SwitchListTile.adaptive(
+                    value: controller.desktopAutoShowFloatingToolbar,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Auto-show floating toolbar'),
+                    subtitle: Text(
+                      'Open the compact recording bar automatically whenever a desktop studio session starts.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                    onChanged: controller.setDesktopAutoShowFloatingToolbar,
+                  ),
+                  SwitchListTile.adaptive(
+                    value: controller.desktopAssistantHotkeyEnabled,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Reserve assistant hotkey'),
+                    subtitle: Text(
+                      'Register $_desktopAssistantHotkeyLabel so the desktop shell is ready for the upcoming voice assistant summon flow.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                    onChanged: controller.recordingRuntime.supportsGlobalHotkeys
+                        ? controller.setDesktopAssistantHotkeyEnabled
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      _RecordingPermissionBadge(
+                        label: 'Microphone',
+                        state: controller.recordingRuntime.microphonePermission,
+                      ),
+                      _RecordingPermissionBadge(
+                        label: 'System audio',
+                        state: controller.recordingRuntime.systemAudioPermission,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (_supportsDesktopShell) const SizedBox(height: 16),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20),

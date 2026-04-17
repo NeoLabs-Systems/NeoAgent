@@ -87,7 +87,6 @@ jobs:
           New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 
           $scriptPath = Join-Path $env:RUNNER_TEMP "neoagent-installer.iss"
-          $guid = "{C5F1E5F6-1D17-4AC8-9E26-86AC8EC36B58}"
           $issLines = @(
             '#define MyAppName "NeoAgent"'
             ('#define MyAppVersion "' + '${{ steps.version.outputs.version }}' + '"')
@@ -95,7 +94,7 @@ jobs:
             ('#define MyAppExeName "' + $exe.Name + '"')
             ''
             '[Setup]'
-            "AppId=$guid"
+            'AppId={C5F1E5F6-1D17-4AC8-9E26-86AC8EC36B58}'
             'AppName={#MyAppName}'
             'AppVersion={#MyAppVersion}'
             'AppPublisher={#MyAppPublisher}'
@@ -224,7 +223,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev ruby-full build-essential libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev ruby-full build-essential libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libarchive-tools
           sudo gem install --no-document fpm
 
       - name: Set up Flutter
@@ -348,6 +347,82 @@ jobs:
             dist/neoagent-arch-x86_64-*.pkg.tar.zst
           if-no-files-found: error
 
+  build-android-apk:
+    name: Build Android APK (unsigned)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Ensure Android runner project exists
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create --platforms=android .
+          fi
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+
+      - name: Resolve app version
+        id: version
+        run: |
+          RAW_VERSION="${{ github.event.release.tag_name }}"
+          if [ -z "$RAW_VERSION" ]; then
+            RAW_VERSION="0.0.${{ github.run_number }}"
+          fi
+          VERSION="${RAW_VERSION#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build Android APK
+        run: |
+          flutter build apk --release
+
+      - name: Stage Android APK artifact
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p ../dist
+          apks=(build/app/outputs/flutter-apk/*.apk)
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "No APKs were produced at build/app/outputs/flutter-apk/*.apk"
+            exit 1
+          fi
+
+          if [ ${#apks[@]} -eq 1 ]; then
+            cp "${apks[0]}" "../dist/neoagent-android-${{ steps.version.outputs.version }}.apk"
+          else
+            for apk in "${apks[@]}"; do
+              base_name="$(basename "$apk")"
+              cp "$apk" "../dist/neoagent-android-${{ steps.version.outputs.version }}-${base_name}"
+            done
+          fi
+
+          ls -la ../dist
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-android-installer
+          path: dist/*.apk
+          if-no-files-found: error
+
   publish-release-assets:
     name: Attach desktop installers to release
     runs-on: ubuntu-latest
@@ -355,6 +430,7 @@ jobs:
       - build-windows-installer
       - build-macos-installer
       - build-linux-installer
+      - build-android-apk
     if: github.event_name == 'release'
 
     steps:
@@ -374,4 +450,5 @@ jobs:
             dist/*.dmg
             dist/*.deb
             dist/*.pkg.tar.zst
+            dist/*.apk
           fail_on_unmatched_files: true
