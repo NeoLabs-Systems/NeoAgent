@@ -1,0 +1,377 @@
+name: Flutter Desktop Build
+
+on:
+  push:
+    branches:
+      - main
+      - beta
+  pull_request:
+    branches:
+      - main
+      - beta
+  release:
+    types:
+      - published
+      - prereleased
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-installer:
+    name: Build Windows installer (unsigned)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable desktop platforms
+        shell: pwsh
+        run: |
+          flutter config --enable-windows-desktop
+
+      - name: Ensure Windows runner project exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "windows")) {
+            flutter create --platforms=windows .
+          }
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          flutter pub get
+
+      - name: Build Windows app
+        shell: pwsh
+        run: |
+          flutter build windows --release
+
+      - name: Resolve app version
+        shell: pwsh
+        id: version
+        run: |
+          $raw = "${{ github.event.release.tag_name }}"
+          if ([string]::IsNullOrWhiteSpace($raw)) {
+            $raw = "0.0.${{ github.run_number }}"
+          }
+          $version = $raw.TrimStart('v', 'V')
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Build Windows installer (.exe)
+        shell: pwsh
+        run: |
+          $releaseDir = Join-Path $PWD "build/windows/x64/runner/Release"
+          $exe = Get-ChildItem $releaseDir -Filter *.exe | Select-Object -First 1
+          if (-not $exe) {
+            throw "No executable found in $releaseDir"
+          }
+
+          $distDir = Join-Path $env:GITHUB_WORKSPACE "dist"
+          New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+
+          $scriptPath = Join-Path $env:RUNNER_TEMP "neoagent-installer.iss"
+          $guid = "{C5F1E5F6-1D17-4AC8-9E26-86AC8EC36B58}"
+          $iss = @"
+#define MyAppName "NeoAgent"
+#define MyAppVersion "${{ steps.version.outputs.version }}"
+#define MyAppPublisher "NeoAgent"
+#define MyAppExeName "$($exe.Name)"
+
+[Setup]
+AppId=$guid
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+DisableProgramGroupPage=yes
+OutputDir=$distDir
+OutputBaseFilename=neoagent-windows-x64-setup-{#MyAppVersion}
+Compression=lzma
+SolidCompression=yes
+WizardStyle=modern
+ArchitecturesInstallIn64BitMode=x64
+UninstallDisplayIcon={app}\{#MyAppExeName}
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
+
+[Files]
+Source: "$releaseDir\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{autoprograms}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"
+Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+"@
+          Set-Content -Path $scriptPath -Value $iss -Encoding UTF8
+
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" $scriptPath
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-windows-installer
+          path: dist/neoagent-windows-x64-setup-*.exe
+          if-no-files-found: error
+
+  build-macos-installer:
+    name: Build macOS installer (unsigned)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable desktop platforms
+        run: |
+          flutter config --enable-macos-desktop
+
+      - name: Ensure macOS runner project exists
+        run: |
+          if [ ! -d "macos" ]; then
+            flutter create --platforms=macos .
+          fi
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+
+      - name: Build macOS app
+        run: |
+          flutter build macos --release
+
+      - name: Resolve app version
+        id: version
+        run: |
+          RAW_VERSION="${{ github.event.release.tag_name }}"
+          if [ -z "$RAW_VERSION" ]; then
+            RAW_VERSION="0.0.${{ github.run_number }}"
+          fi
+          VERSION="${RAW_VERSION#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build macOS installer (.dmg)
+        run: |
+          APP_DIR="build/macos/Build/Products/Release"
+          APP_BUNDLE=$(find "$APP_DIR" -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_BUNDLE" ]; then
+            echo "No .app bundle found in $APP_DIR"
+            exit 1
+          fi
+
+          DIST_DIR="$GITHUB_WORKSPACE/dist"
+          STAGE_DIR="$RUNNER_TEMP/dmg-stage"
+          APP_NAME=$(basename "$APP_BUNDLE" .app)
+          DMG_PATH="$DIST_DIR/neoagent-macos-${{ steps.version.outputs.version }}.dmg"
+
+          mkdir -p "$DIST_DIR"
+          rm -rf "$STAGE_DIR"
+          mkdir -p "$STAGE_DIR"
+          cp -R "$APP_BUNDLE" "$STAGE_DIR/"
+
+          hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE_DIR" -ov -format UDZO "$DMG_PATH"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-macos-installer
+          path: dist/neoagent-macos-*.dmg
+          if-no-files-found: error
+
+  build-linux-installer:
+    name: Build Linux installer (.deb)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev ruby-full build-essential
+          sudo gem install --no-document fpm
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable desktop platforms
+        run: |
+          flutter config --enable-linux-desktop
+
+      - name: Ensure Linux runner project exists
+        run: |
+          if [ ! -d "linux" ]; then
+            flutter create --platforms=linux .
+          fi
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+
+      - name: Build Linux app
+        run: |
+          flutter build linux --release
+
+      - name: Resolve app version
+        id: version
+        run: |
+          RAW_VERSION="${{ github.event.release.tag_name }}"
+          if [ -z "$RAW_VERSION" ]; then
+            RAW_VERSION="0.0.${{ github.run_number }}"
+          fi
+          VERSION="${RAW_VERSION#v}"
+          DEB_VERSION="${VERSION//-/~}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "deb_version=$DEB_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build Linux installer (.deb)
+        run: |
+          DIST_DIR="$GITHUB_WORKSPACE/dist"
+          PKG_ROOT="$RUNNER_TEMP/neoagent-deb"
+          ARCH_ROOT="$RUNNER_TEMP/neoagent-arch"
+          BUNDLE_DIR="build/linux/x64/release/bundle"
+          APP_DIR="$PKG_ROOT/opt/neoagent"
+          DESKTOP_DIR="$PKG_ROOT/usr/share/applications"
+          BIN_LINK_DIR="$PKG_ROOT/usr/local/bin"
+
+          ARCH_APP_DIR="$ARCH_ROOT/opt/neoagent"
+          ARCH_DESKTOP_DIR="$ARCH_ROOT/usr/share/applications"
+          ARCH_BIN_LINK_DIR="$ARCH_ROOT/usr/bin"
+
+          APP_BIN=$(find "$BUNDLE_DIR" -maxdepth 1 -type f -executable | head -n 1)
+          if [ -z "$APP_BIN" ]; then
+            echo "No executable found in $BUNDLE_DIR"
+            exit 1
+          fi
+          APP_BIN_NAME=$(basename "$APP_BIN")
+
+          rm -rf "$PKG_ROOT"
+          rm -rf "$ARCH_ROOT"
+          mkdir -p "$PKG_ROOT/DEBIAN" "$APP_DIR" "$DESKTOP_DIR" "$BIN_LINK_DIR" "$DIST_DIR"
+          mkdir -p "$ARCH_APP_DIR" "$ARCH_DESKTOP_DIR" "$ARCH_BIN_LINK_DIR"
+
+          cp -R "$BUNDLE_DIR"/* "$APP_DIR/"
+          ln -sf "/opt/neoagent/$APP_BIN_NAME" "$BIN_LINK_DIR/neoagent"
+
+          cp -R "$BUNDLE_DIR"/* "$ARCH_APP_DIR/"
+          ln -sf "/opt/neoagent/$APP_BIN_NAME" "$ARCH_BIN_LINK_DIR/neoagent"
+
+          cat > "$PKG_ROOT/DEBIAN/control" <<EOF
+Package: neoagent
+Version: ${{ steps.version.outputs.deb_version }}
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: NeoAgent <support@neoagent.ai>
+Description: NeoAgent Flutter desktop app
+EOF
+
+          cat > "$DESKTOP_DIR/neoagent.desktop" <<EOF
+[Desktop Entry]
+Name=NeoAgent
+Exec=/opt/neoagent/$APP_BIN_NAME
+Terminal=false
+Type=Application
+Categories=Utility;
+EOF
+
+          cat > "$ARCH_DESKTOP_DIR/neoagent.desktop" <<EOF
+[Desktop Entry]
+Name=NeoAgent
+Exec=/opt/neoagent/$APP_BIN_NAME
+Terminal=false
+Type=Application
+Categories=Utility;
+EOF
+
+          chmod 0755 "$PKG_ROOT/DEBIAN"
+          chmod 0644 "$PKG_ROOT/DEBIAN/control"
+
+          dpkg-deb --build "$PKG_ROOT" "$DIST_DIR/neoagent-linux-amd64-${{ steps.version.outputs.deb_version }}.deb"
+
+          fpm -s dir -t pacman \
+            -n neoagent \
+            -v "${{ steps.version.outputs.deb_version }}" \
+            --iteration 1 \
+            --architecture x86_64 \
+            --maintainer "NeoAgent <support@neoagent.ai>" \
+            --description "NeoAgent Flutter desktop app" \
+            -C "$ARCH_ROOT" \
+            --package "$DIST_DIR/neoagent-arch-x86_64-${{ steps.version.outputs.deb_version }}-1.pkg.tar.zst" \
+            .
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-linux-installer
+          path: |
+            dist/neoagent-linux-amd64-*.deb
+            dist/neoagent-arch-x86_64-*.pkg.tar.zst
+          if-no-files-found: error
+
+  publish-release-assets:
+    name: Attach desktop installers to release
+    runs-on: ubuntu-latest
+    needs:
+      - build-windows-installer
+      - build-macos-installer
+      - build-linux-installer
+    if: github.event_name == 'release'
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: neoagent-*-installer
+          merge-multiple: true
+
+      - name: Upload artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.deb
+            dist/*.pkg.tar.zst
+          fail_on_unmatched_files: true
