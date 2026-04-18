@@ -193,7 +193,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ needs.release.outputs.release_sha }}
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -314,7 +314,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ needs.release.outputs.release_sha }}
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -388,7 +388,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ needs.release.outputs.release_sha }}
 
       - name: Install Linux build dependencies
         run: |
@@ -538,7 +538,7 @@ jobs:
           if-no-files-found: error
 
   build-android-apk:
-    name: Build Android APK (unsigned)
+    name: Build Android APK
     needs: release
     runs-on: ubuntu-latest
     defaults:
@@ -548,13 +548,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: beta
+          ref: ${{ needs.release.outputs.release_sha }}
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Prepare Android signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
+            echo "Missing Android signing secrets."
+            exit 1
+          fi
+          KEYSTORE_PATH="$RUNNER_TEMP/neoagent-release.jks"
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "$KEYSTORE_PATH"
+          echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -587,6 +607,17 @@ jobs:
       - name: Build Android APK
         run: |
           flutter build apk --release
+
+      - name: Verify Android APK signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "APK not found at $APK_PATH"
+            exit 1
+          fi
+          "${ANDROID_HOME}/build-tools/$(ls "${ANDROID_HOME}/build-tools" | sort -V | tail -n 1)/apksigner" verify --print-certs "$APK_PATH"
 
       - name: Stage Android APK artifact
         run: |
