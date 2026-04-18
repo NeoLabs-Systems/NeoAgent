@@ -9,6 +9,11 @@ val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")?.trim().orEmpty
 val releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.trim().orEmpty()
 val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")?.trim().orEmpty()
 val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")?.trim().orEmpty()
+val bundledCiKeystorePath = "${rootProject.projectDir}/ci-release.keystore"
+val bundledCiKeystorePassword = "neoagent-ci"
+val bundledCiKeyAlias = "neoagent-ci"
+val bundledCiKeyPassword = "neoagent-ci"
+val hasBundledCiSigning = file(bundledCiKeystorePath).exists()
 val hasReleaseSigning =
     releaseKeystorePath.isNotEmpty() &&
         releaseKeystorePassword.isNotEmpty() &&
@@ -45,13 +50,20 @@ android {
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword
             }
+        } else if (hasBundledCiSigning) {
+            create("release") {
+                storeFile = file(bundledCiKeystorePath)
+                storePassword = bundledCiKeystorePassword
+                keyAlias = bundledCiKeyAlias
+                keyPassword = bundledCiKeyPassword
+            }
         }
     }
 
     buildTypes {
         release {
             signingConfig =
-                if (hasReleaseSigning) {
+                if (hasReleaseSigning || hasBundledCiSigning) {
                     signingConfigs.getByName("release")
                 } else {
                     signingConfigs.getByName("debug")

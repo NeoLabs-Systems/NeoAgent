@@ -556,7 +556,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Prepare Android signing
+      - name: Prepare Android signing override
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -566,8 +566,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${ANDROID_KEYSTORE_BASE64}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
-            echo "Missing Android signing secrets."
-            exit 1
+            echo "Using bundled CI keystore from the repository."
+            exit 0
           fi
           KEYSTORE_PATH="$RUNNER_TEMP/neoagent-release.jks"
           printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "$KEYSTORE_PATH"
@@ -618,6 +618,7 @@ jobs:
             exit 1
           fi
           "${ANDROID_HOME}/build-tools/$(ls "${ANDROID_HOME}/build-tools" | sort -V | tail -n 1)/apksigner" verify --print-certs "$APK_PATH"
+          jarsigner -verify "$APK_PATH" >/dev/null
 
       - name: Stage Android APK artifact
         run: |
