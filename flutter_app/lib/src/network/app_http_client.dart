@@ -33,6 +33,8 @@ abstract class AppHttpClient {
 
   void clearSession();
 
+  void restoreSession(String? sessionCookie);
+
   String? get sessionCookie;
 }
 

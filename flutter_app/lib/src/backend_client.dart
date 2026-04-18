@@ -31,6 +31,14 @@ class BackendClient {
 
   String? get sessionCookie => _httpClient.sessionCookie;
 
+  void restoreSessionCookie(String? sessionCookie) {
+    _httpClient.restoreSession(sessionCookie);
+  }
+
+  void clearSessionCookie() {
+    _httpClient.clearSession();
+  }
+
   String? _normalizedAgentId(String? agentId) {
     final normalized = agentId?.trim() ?? '';
     return normalized.isEmpty ? null : normalized;

@@ -87,5 +87,8 @@ class WebAppHttpClient implements AppHttpClient {
   void clearSession() {}
 
   @override
+  void restoreSession(String? sessionCookie) {}
+
+  @override
   String? get sessionCookie => null;
 }

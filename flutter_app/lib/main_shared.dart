@@ -1314,17 +1314,296 @@ class _DetachedDesktopFloatingToolbarShellState
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(10),
-              child: DragToMoveArea(
-                child: _DesktopFloatingToolbarSurface(
-                  controller: widget.controller,
-                  elapsedLabel: elapsed,
-                  compactWindow: true,
-                  onOpenMainWindow: widget.onOpenMainWindow,
+              child: _DesktopFloatingToolbarSurface(
+                controller: widget.controller,
+                elapsedLabel: elapsed,
+                compactWindow: true,
+                onOpenMainWindow: widget.onOpenMainWindow,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopAssistantPopupShell extends StatelessWidget {
+  const _DesktopAssistantPopupShell({
+    required this.controller,
+    required this.blockedHintVisible,
+    required this.onCancel,
+  });
+
+  final NeoAgentController controller;
+  final bool blockedHintVisible;
+  final Future<void> Function() onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final liveState = controller.voiceAssistantLiveState;
+    final isCapturing =
+        controller.isLiveVoiceCaptureActive ||
+        controller.isLiveVoiceCaptureStarting;
+    final isBusy = liveState.isBusy;
+    final transcriptPreview = liveState.partialTranscript.trim().isEmpty
+        ? liveState.finalTranscript.trim()
+        : liveState.partialTranscript.trim();
+    final statusLabel = blockedHintVisible
+        ? 'Assistant unavailable while recording'
+        : (isCapturing
+          ? 'Listening. Release to send'
+              : _desktopAssistantStatusLabel(liveState.state));
+    final statusColor = blockedHintVisible
+        ? _warning
+        : (isCapturing ? _success : _accent);
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Colors.transparent),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: <Color>[
+                        _bgCard.withValues(alpha: 0.99),
+                        _bgSecondary.withValues(alpha: 0.97),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: _borderLight.withValues(alpha: 0.9)),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.max,
+                    children: <Widget>[
+                      _DesktopAssistantPulseDots(
+                        color: statusColor,
+                        active: isCapturing || isBusy,
+                      ),
+                      const SizedBox(width: 12),
+                      _DesktopAssistantWaveform(
+                        color: statusColor,
+                        active: isCapturing,
+                        busy: isBusy,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              statusLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            if (!blockedHintVisible)
+                              Text(
+                                transcriptPreview.isEmpty
+                                    ? 'Hold Ctrl+Shift+Space to talk'
+                                    : transcriptPreview,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: _textMuted,
+                                  fontSize: 11.5,
+                                  height: 1.35,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Cancel',
+                        onPressed: () {
+                          unawaited(onCancel());
+                        },
+                        style: IconButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(8),
+                          minimumSize: const Size(30, 30),
+                          backgroundColor: _bgSecondary.withValues(alpha: 0.9),
+                          foregroundColor: _textSecondary,
+                        ),
+                        icon: const Icon(Icons.close_rounded, size: 14),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+String _desktopAssistantStatusLabel(String state) {
+  switch (state.trim().toLowerCase()) {
+    case 'transcribing':
+      return 'Transcribing';
+    case 'thinking':
+      return 'Thinking';
+    case 'speaking':
+      return 'Speaking';
+    case 'listening':
+      return 'Listening';
+    case 'idle':
+    default:
+      return 'Ready';
+  }
+}
+
+class _DesktopAssistantPulseDots extends StatelessWidget {
+  const _DesktopAssistantPulseDots({
+    required this.color,
+    required this.active,
+  });
+
+  final Color color;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 26,
+      child: Wrap(
+        spacing: 3,
+        runSpacing: 3,
+        children: List<Widget>.generate(6, (index) {
+          final opacity = active ? 0.35 + (index % 3) * 0.2 : 0.28;
+          return Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: opacity),
+              shape: BoxShape.circle,
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _DesktopAssistantWaveform extends StatefulWidget {
+  const _DesktopAssistantWaveform({
+    required this.color,
+    required this.active,
+    required this.busy,
+  });
+
+  final Color color;
+  final bool active;
+  final bool busy;
+
+  @override
+  State<_DesktopAssistantWaveform> createState() =>
+      _DesktopAssistantWaveformState();
+}
+
+class _DesktopAssistantWaveformState extends State<_DesktopAssistantWaveform>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 980),
+    );
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DesktopAssistantWaveform oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncAnimation();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _syncAnimation() {
+    if (widget.active || widget.busy) {
+      if (!_controller.isAnimating) {
+        _controller.repeat();
+      }
+      return;
+    }
+    _controller.stop();
+    _controller.value = 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const barCount = 18;
+    return SizedBox(
+      width: 116,
+      height: 18,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Row(
+            children: List<Widget>.generate(barCount, (index) {
+              final phase = _controller.value * 2 * math.pi;
+              final wave = math.sin(phase + index * 0.55);
+              final minHeight = widget.busy ? 3.0 : 2.0;
+              final maxHeight = widget.active
+                  ? 12.0
+                  : (widget.busy ? 7.0 : 3.0);
+              final normalized = widget.active || widget.busy
+                  ? (wave + 1) / 2
+                  : 0.2;
+              final height = minHeight + (maxHeight - minHeight) * normalized;
+              return Padding(
+                padding: const EdgeInsets.only(right: 2),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    width: 3,
+                    height: height,
+                    decoration: BoxDecoration(
+                      color: widget.color.withValues(
+                        alpha: widget.active ? 0.9 : (widget.busy ? 0.65 : 0.4),
+                      ),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          );
+        },
       ),
     );
   }
@@ -1349,13 +1628,15 @@ class _DesktopFloatingToolbarSurface extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Container(
-        constraints: BoxConstraints(maxWidth: compactWindow ? double.infinity : 860),
+        constraints: BoxConstraints(
+          maxWidth: compactWindow ? double.infinity : 680,
+        ),
         margin: compactWindow
             ? EdgeInsets.zero
             : const EdgeInsets.symmetric(horizontal: 16),
         padding: EdgeInsets.symmetric(
-          horizontal: compactWindow ? 14 : 16,
-          vertical: compactWindow ? 12 : 14,
+          horizontal: compactWindow ? 10 : 14,
+          vertical: compactWindow ? 8 : 12,
         ),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -1375,13 +1656,32 @@ class _DesktopFloatingToolbarSurface extends StatelessWidget {
           ],
         ),
         child: Wrap(
-          spacing: 14,
-          runSpacing: 14,
+          spacing: 10,
+          runSpacing: 10,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: <Widget>[
             if (compactWindow) const _LogoBadge(size: 34),
+            if (compactWindow)
+              DragToMoveArea(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _bgSecondary.withValues(alpha: 0.78),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _borderLight),
+                  ),
+                  child: Icon(
+                    Icons.drag_indicator_rounded,
+                    size: 14,
+                    color: _textMuted,
+                  ),
+                ),
+              ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: (runtime.paused ? _warning : _danger).withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(16),
@@ -1404,6 +1704,7 @@ class _DesktopFloatingToolbarSurface extends StatelessWidget {
                     runtime.paused ? 'Paused' : 'Recording',
                     style: TextStyle(
                       color: runtime.paused ? _warning : _danger,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1412,6 +1713,7 @@ class _DesktopFloatingToolbarSurface extends StatelessWidget {
                     elapsedLabel,
                     style: TextStyle(
                       color: _textPrimary,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1429,29 +1731,6 @@ class _DesktopFloatingToolbarSurface extends StatelessWidget {
               valueDb: runtime.systemAudioLevelDb,
               color: _accentAlt,
               compact: true,
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: _bgSecondary.withValues(alpha: 0.78),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _borderLight),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(Icons.keyboard_command_key, size: 15, color: _accent),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Assistant later · $_desktopAssistantHotkeyLabel',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
             ),
             if (compactWindow && onOpenMainWindow != null)
               IconButton(

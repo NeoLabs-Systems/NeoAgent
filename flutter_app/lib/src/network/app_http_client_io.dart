@@ -122,5 +122,11 @@ class IoAppHttpClient implements AppHttpClient {
   }
 
   @override
+  void restoreSession(String? sessionCookie) {
+    final normalized = sessionCookie?.trim() ?? '';
+    _sessionCookie = normalized.isEmpty ? null : normalized;
+  }
+
+  @override
   String? get sessionCookie => _sessionCookie;
 }
