@@ -8615,7 +8615,10 @@ class _MessagingPanelState extends State<MessagingPanel> {
   ) async {
     switch (platform.id) {
       case 'whatsapp':
-        await widget.controller.connectMessagingPlatform(platform: 'whatsapp');
+        await _connectMessagingPlatform(
+          platform: 'whatsapp',
+          platformLabel: platform.label,
+        );
         return;
       case 'telnyx':
         return _openTelnyxConfig();
@@ -8623,6 +8626,33 @@ class _MessagingPanelState extends State<MessagingPanel> {
         return _openWaveshareWearableConfig();
       default:
         return _openGenericMessagingConfig(platform);
+    }
+  }
+
+  Future<bool> _connectMessagingPlatform({
+    required String platform,
+    required String platformLabel,
+    Map<String, dynamic>? config,
+    Map<String, dynamic>? configSnapshot,
+  }) async {
+    try {
+      await widget.controller.connectMessagingPlatform(
+        platform: platform,
+        config: config,
+        configSnapshot: configSnapshot,
+      );
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to connect $platformLabel: ${widget.controller._friendlyErrorMessage(error)}',
+          ),
+        ),
+      );
+      return false;
     }
   }
 
@@ -8713,14 +8743,15 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       final config = <String, dynamic>{
                         'deviceLabel': deviceLabel.text.trim(),
                       };
-                      await widget.controller.connectMessagingPlatform(
+                      final connected = await _connectMessagingPlatform(
                         platform: 'waveshare_wearable',
+                        platformLabel: 'NeoOS Wearable',
                         config: config,
                         configSnapshot: <String, dynamic>{
                           'waveshare_wearable_config': jsonEncode(config),
                         },
                       );
-                      if (context.mounted) {
+                      if (connected && context.mounted) {
                         Navigator.of(context).pop();
                       }
                     },
@@ -8818,14 +8849,15 @@ class _MessagingPanelState extends State<MessagingPanel> {
                       'connectionId': connectionId.text.trim(),
                       'webhookUrl': webhookUrl.text.trim(),
                     };
-                    await widget.controller.connectMessagingPlatform(
+                    final connected = await _connectMessagingPlatform(
                       platform: 'telnyx',
+                      platformLabel: 'Telnyx Voice',
                       config: config,
                       configSnapshot: <String, dynamic>{
                         'telnyx_config': jsonEncode(config),
                       },
                     );
-                    if (context.mounted) {
+                    if (connected && context.mounted) {
                       Navigator.of(context).pop();
                     }
                   },
@@ -8941,14 +8973,15 @@ class _MessagingPanelState extends State<MessagingPanel> {
                     for (final entry in boolValues.entries) {
                       config[entry.key] = entry.value;
                     }
-                    await widget.controller.connectMessagingPlatform(
+                    final connected = await _connectMessagingPlatform(
                       platform: platform.id,
+                      platformLabel: platform.label,
                       config: config,
                       configSnapshot: <String, dynamic>{
                         platform.settingsKey: jsonEncode(config),
                       },
                     );
-                    if (context.mounted) {
+                    if (connected && context.mounted) {
                       Navigator.of(context).pop();
                     }
                   },

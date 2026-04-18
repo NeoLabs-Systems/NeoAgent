@@ -34,6 +34,15 @@ function upsertAgentSetting(userId, agentId, key, value) {
   ).run(userId, agentId, key, JSON.stringify(value));
 }
 
+function logMessagingRouteError(action, err, details = {}) {
+  const context = Object.entries(details)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${value}`)
+    .join(' ');
+  const suffix = context ? ` (${context})` : '';
+  console.error(`[Messaging] ${action} failed${suffix}:`, err);
+}
+
 // Get all platform statuses
 router.get('/status', (req, res) => {
   const manager = req.app.locals.messagingManager;
@@ -52,6 +61,11 @@ router.post('/connect', async (req, res) => {
     const result = await manager.connectPlatform(req.session.userId, platform, config || {}, { agentId });
     res.json(result);
   } catch (err) {
+    logMessagingRouteError('connect', err, {
+      userId: req.session?.userId,
+      agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+      platform: req.body?.platform,
+    });
     res.status(500).json({ error: sanitizeError(err) });
   }
 });

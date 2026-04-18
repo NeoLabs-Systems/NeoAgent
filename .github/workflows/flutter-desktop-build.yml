@@ -223,7 +223,21 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev ruby-full build-essential libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libarchive-tools libpulse-dev libkeybinder-3.0-dev
+          sudo apt-get install -y \
+            clang \
+            cmake \
+            ninja-build \
+            pkg-config \
+            build-essential \
+            ruby-full \
+            libarchive-tools \
+            liblzma-dev \
+            libgtk-3-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libpulse-dev \
+            libkeybinder-3.0-dev \
+            libayatana-appindicator3-dev
           sudo gem install --no-document fpm
 
       - name: Set up Flutter
