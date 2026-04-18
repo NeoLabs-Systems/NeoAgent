@@ -17,6 +17,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'src/android_apk_drop_zone.dart';
+import 'src/app_release_updater.dart' as app_release_updater;
 import 'src/backend_client.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
@@ -449,8 +450,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       ],
       scope: HotKeyScope.system,
     );
-    if (_assistantHotKey != null &&
-        _hotKeysMatch(_assistantHotKey!, hotKey)) {
+    if (_assistantHotKey != null && _hotKeysMatch(_assistantHotKey!, hotKey)) {
       return;
     }
     if (_assistantHotKey != null) {
@@ -598,7 +598,8 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       return;
     }
     _desktopNormalWindowBounds ??= await windowManager.getBounds();
-    if (mounted && (!_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode)) {
+    if (mounted &&
+        (!_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode)) {
       setState(() {
         _desktopToolbarWindowMode = true;
         _desktopAssistantPopupWindowMode = false;
@@ -625,7 +626,8 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     bool hideAfterRestore = false,
     bool focusWindow = true,
   }) async {
-    if (mounted && (_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode)) {
+    if (mounted &&
+        (_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode)) {
       setState(() {
         _desktopToolbarWindowMode = false;
         _desktopAssistantPopupWindowMode = false;
@@ -657,7 +659,8 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     final isVisible = await windowManager.isVisible();
     _desktopAssistantReturnToHidden = !isVisible;
     _desktopNormalWindowBounds ??= await windowManager.getBounds();
-    if (mounted && (!_desktopAssistantPopupWindowMode || _desktopToolbarWindowMode)) {
+    if (mounted &&
+        (!_desktopAssistantPopupWindowMode || _desktopToolbarWindowMode)) {
       setState(() {
         _desktopToolbarWindowMode = false;
         _desktopAssistantPopupWindowMode = true;
@@ -715,11 +718,11 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             '|auth:${_controller.isAuthenticated}'
             '|refresh:${_controller.isRefreshing}'
             '|section:${_controller.selectedSection.name}'
-          '|toolbarMode:$_desktopToolbarWindowMode'
-          '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
-          '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'
-          '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}'
-          '|assistantBlockedHint:$_desktopAssistantBlockedHintVisible';
+            '|toolbarMode:$_desktopToolbarWindowMode'
+            '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
+            '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'
+            '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}'
+            '|assistantBlockedHint:$_desktopAssistantBlockedHintVisible';
         if (_navigatorScopeSignature != rootStateSignature) {
           _navigatorScopeSignature = rootStateSignature;
           _navigatorKey = GlobalKey<NavigatorState>();
@@ -957,6 +960,8 @@ class NeoAgentController extends ChangeNotifier {
   final HealthBridge _healthBridge;
   final RecordingBridge _recordingBridge;
   final OAuthLauncher _oauthLauncher;
+  final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
+      app_release_updater.AppReleaseUpdater();
   final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
 
   static const String _configuredBackendUrl = String.fromEnvironment(
@@ -988,6 +993,8 @@ class NeoAgentController extends ChangeNotifier {
   bool isSavingReleaseChannel = false;
   bool isSyncingHealth = false;
   bool isRunningDeviceAction = false;
+  bool isCheckingAppUpdate = false;
+  bool isOpeningAppUpdate = false;
   bool socketConnected = false;
 
   bool hasUser = true;
@@ -1001,6 +1008,12 @@ class NeoAgentController extends ChangeNotifier {
   String pendingTwoFactorUsername = '';
   String? errorMessage;
   String? authInfoMessage;
+  String appUpdateChannel = 'stable';
+  bool appUpdateAutoCheckEnabled = true;
+  String? installedAppVersion;
+  app_release_updater.AppReleaseInfo? availableAppUpdate;
+  String? appUpdateErrorMessage;
+  DateTime? appUpdateLastCheckedAt;
 
   AppSection selectedSection = AppSection.chat;
   Map<String, dynamic>? user;
@@ -1161,6 +1174,7 @@ class NeoAgentController extends ChangeNotifier {
   void dispose() {
     _updatePollTimer?.cancel();
     _socket?.dispose();
+    _appReleaseUpdater.dispose();
     _recordingBridge.removeListener(_handleRecordingBridgeChanged);
     _recordingBridge.dispose();
     unawaited(_liveVoiceCapture.dispose());
@@ -1177,6 +1191,23 @@ class NeoAgentController extends ChangeNotifier {
   bool get desktopAutoShowFloatingToolbar => _desktopAutoShowFloatingToolbar;
 
   bool get desktopAssistantHotkeyEnabled => _desktopAssistantHotkeyEnabled;
+
+  bool get appUpdaterConfigured => app_release_updater.appUpdaterConfigured;
+
+  bool get appUpdateAvailable => availableAppUpdate != null;
+
+  String get appUpdateChannelLabel =>
+      appUpdateChannel == 'beta' ? 'Beta' : 'Stable';
+
+  String get appUpdateLastCheckedLabel {
+    final checkedAt = appUpdateLastCheckedAt;
+    if (checkedAt == null) {
+      return 'Not checked yet';
+    }
+    final local = checkedAt.toLocal();
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:$minute';
+  }
 
   bool get canStartDesktopRecording =>
       _supportsDesktopShell &&
@@ -1439,6 +1470,13 @@ class NeoAgentController extends ChangeNotifier {
         _prefs?.getBool('desktop.autoShowFloatingToolbar') ?? true;
     _desktopAssistantHotkeyEnabled =
         _prefs?.getBool('desktop.assistantHotkeyEnabled') ?? true;
+    appUpdateChannel =
+        _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
+        ? 'beta'
+        : 'stable';
+    appUpdateAutoCheckEnabled =
+        _prefs?.getBool('app.update.autoCheckEnabled') ?? true;
+    installedAppVersion = await _safeLoadInstalledAppVersion();
 
     final savedCookieBackend =
         _prefs?.getString(_sessionCookieBackendPrefsKey)?.trim() ?? '';
@@ -1451,6 +1489,10 @@ class NeoAgentController extends ChangeNotifier {
 
     await _recordingBridge.refreshStatus();
     notifyListeners();
+
+    if (appUpdaterConfigured && appUpdateAutoCheckEnabled) {
+      unawaited(checkForAppUpdates(silent: true));
+    }
 
     if (requiresBackendUrlSetup) {
       isBooting = false;
@@ -1475,7 +1517,9 @@ class NeoAgentController extends ChangeNotifier {
 
       if (status['authenticated'] == true &&
           status['user'] is Map<String, dynamic>) {
-        user = Map<String, dynamic>.from(status['user'] as Map<String, dynamic>);
+        user = Map<String, dynamic>.from(
+          status['user'] as Map<String, dynamic>,
+        );
         isAuthenticated = true;
       }
       if (isAuthenticated) {
@@ -1485,6 +1529,89 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
       isBooting = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> _safeLoadInstalledAppVersion() async {
+    try {
+      return await _appReleaseUpdater.currentVersion();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setAppUpdateChannel(String channel) async {
+    final normalized = channel.trim().toLowerCase() == 'beta'
+        ? 'beta'
+        : 'stable';
+    if (appUpdateChannel == normalized) {
+      return;
+    }
+    appUpdateChannel = normalized;
+    availableAppUpdate = null;
+    appUpdateErrorMessage = null;
+    await _prefs?.setString('app.update.channel', normalized);
+    notifyListeners();
+  }
+
+  Future<void> setAppUpdateAutoCheckEnabled(bool enabled) async {
+    appUpdateAutoCheckEnabled = enabled;
+    await _prefs?.setBool('app.update.autoCheckEnabled', enabled);
+    notifyListeners();
+  }
+
+  Future<void> checkForAppUpdates({bool silent = false}) async {
+    if (isCheckingAppUpdate) {
+      return;
+    }
+    if (!appUpdaterConfigured) {
+      appUpdateErrorMessage = 'App updates are not configured for this build.';
+      if (!silent) {
+        notifyListeners();
+      }
+      return;
+    }
+
+    isCheckingAppUpdate = true;
+    if (!silent) {
+      appUpdateErrorMessage = null;
+    }
+    notifyListeners();
+
+    try {
+      final result = await _appReleaseUpdater.checkForUpdate(
+        channel: appUpdateChannel,
+      );
+      installedAppVersion = result.currentVersion;
+      appUpdateLastCheckedAt = DateTime.now();
+      appUpdateErrorMessage = result.errorMessage;
+      availableAppUpdate = result.updateAvailable ? result.release : null;
+    } finally {
+      isCheckingAppUpdate = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> openAppUpdate() async {
+    final release = availableAppUpdate;
+    if (release == null || isOpeningAppUpdate) {
+      return;
+    }
+    isOpeningAppUpdate = true;
+    appUpdateErrorMessage = null;
+    notifyListeners();
+    try {
+      final result = await _appReleaseUpdater.openReleaseAsset(
+        launcher: _oauthLauncher,
+        release: release,
+      );
+      if (!result.launched) {
+        appUpdateErrorMessage =
+            result.error ?? 'Could not open the release asset.';
+      }
+    } finally {
+      isOpeningAppUpdate = false;
       notifyListeners();
     }
   }
@@ -4830,25 +4957,22 @@ class NeoAgentController extends ChangeNotifier {
       settings['default_subagent_model']?.toString() ?? 'auto';
 
   String get defaultRecordingTranscriptionModel =>
-      settings['default_recording_transcription_model']?.toString() ??
-      'nova-3';
+      settings['default_recording_transcription_model']?.toString() ?? 'nova-3';
 
-  String get defaultRecordingTranscriptionProvider =>
-      _settingString(
-        'default_recording_transcription_provider',
-        'deepgram',
-        lowercase: true,
-      );
+  String get defaultRecordingTranscriptionProvider => _settingString(
+    'default_recording_transcription_provider',
+    'deepgram',
+    lowercase: true,
+  );
 
   String get defaultRecordingSummaryModel =>
       settings['default_recording_summary_model']?.toString() ?? 'auto';
 
-  String get defaultRecordingSummaryProvider =>
-      _settingString(
-        'default_recording_summary_provider',
-        'auto',
-        lowercase: true,
-      );
+  String get defaultRecordingSummaryProvider => _settingString(
+    'default_recording_summary_provider',
+    'auto',
+    lowercase: true,
+  );
 
   String get fallbackModel =>
       settings['fallback_model_id']?.toString() ??
@@ -7784,7 +7908,8 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                     if (runtime.supportsScreenAndMic)
                       OutlinedButton.icon(
                         onPressed:
-                            widget.controller.isStartingRecording || runtime.active
+                            widget.controller.isStartingRecording ||
+                                runtime.active
                             ? null
                             : widget.controller.startWebMicrophoneRecording,
                         icon: Icon(Icons.graphic_eq_outlined),
@@ -7967,14 +8092,16 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                           runSpacing: 12,
                           children: <Widget>[
                             OutlinedButton.icon(
-                              onPressed:
-                                  widget.controller.openDesktopMicrophoneSettings,
+                              onPressed: widget
+                                  .controller
+                                  .openDesktopMicrophoneSettings,
                               icon: Icon(Icons.settings_voice_outlined),
                               label: Text('Mic settings'),
                             ),
                             OutlinedButton.icon(
-                              onPressed:
-                                  widget.controller.openDesktopSystemAudioSettings,
+                              onPressed: widget
+                                  .controller
+                                  .openDesktopSystemAudioSettings,
                               icon: Icon(Icons.speaker_group_outlined),
                               label: Text('System audio settings'),
                             ),
@@ -12381,7 +12508,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _defaultChatModel = controller.defaultChatModel;
     _defaultSubagentModel = controller.defaultSubagentModel;
     _defaultRecordingTranscriptionModel =
-      controller.defaultRecordingTranscriptionModel;
+        controller.defaultRecordingTranscriptionModel;
     _defaultRecordingSummaryModel = controller.defaultRecordingSummaryModel;
     _fallbackModel = controller.fallbackModel;
     _voiceLiveProvider = controller.voiceLiveProvider;
@@ -12471,17 +12598,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     enabledModels: _enabledModels.toList(),
                     defaultChatModel: _defaultChatModel,
                     defaultSubagentModel: _defaultSubagentModel,
-                    defaultRecordingTranscriptionProvider:
-                        'deepgram',
+                    defaultRecordingTranscriptionProvider: 'deepgram',
                     defaultRecordingTranscriptionModel:
-                      _defaultRecordingTranscriptionModel,
-                    defaultRecordingSummaryProvider:
-                        _providerForSelectedModel(
-                          _defaultRecordingSummaryModel,
-                          controller.supportedModels,
-                        ),
-                    defaultRecordingSummaryModel:
+                        _defaultRecordingTranscriptionModel,
+                    defaultRecordingSummaryProvider: _providerForSelectedModel(
                       _defaultRecordingSummaryModel,
+                      controller.supportedModels,
+                    ),
+                    defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
                     fallbackModel: _fallbackModel,
                     voiceSttProvider: controller.voiceSttProvider,
                     voiceSttModel: controller.voiceSttModel,
@@ -12571,7 +12695,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ),
                       _RecordingPermissionBadge(
                         label: 'System audio',
-                        state: controller.recordingRuntime.systemAudioPermission,
+                        state:
+                            controller.recordingRuntime.systemAudioPermission,
                       ),
                     ],
                   ),
@@ -12646,6 +12771,231 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       );
                     },
                   ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(child: const _SectionTitle('App Updates')),
+                    FilledButton.icon(
+                      onPressed: controller.isCheckingAppUpdate
+                          ? null
+                          : () => controller.checkForAppUpdates(),
+                      style: FilledButton.styleFrom(backgroundColor: _accent),
+                      icon: controller.isCheckingAppUpdate
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.sync),
+                      label: Text(
+                        controller.isCheckingAppUpdate
+                            ? 'Checking...'
+                            : 'Check now',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (!controller.appUpdaterConfigured)
+                  Text(
+                    'Client app updates are not configured for this build.',
+                    style: TextStyle(color: _textSecondary, height: 1.5),
+                  )
+                else ...<Widget>[
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 780;
+                      final channelPicker = DropdownButtonFormField<String>(
+                        initialValue: controller.appUpdateChannel,
+                        decoration: const InputDecoration(
+                          labelText: 'App Release Channel',
+                        ),
+                        items: const <DropdownMenuItem<String>>[
+                          DropdownMenuItem<String>(
+                            value: 'stable',
+                            child: Text('Stable'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'beta',
+                            child: Text('Beta'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            unawaited(controller.setAppUpdateChannel(value));
+                          }
+                        },
+                      );
+                      final autoCheck = SwitchListTile.adaptive(
+                        value: controller.appUpdateAutoCheckEnabled,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Check automatically on launch'),
+                        subtitle: Text(
+                          'This only checks GitHub Releases on startup. Installation still requires your confirmation.',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                        onChanged: controller.setAppUpdateAutoCheckEnabled,
+                      );
+
+                      if (compact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            channelPicker,
+                            const SizedBox(height: 10),
+                            autoCheck,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(child: channelPicker),
+                          const SizedBox(width: 16),
+                          Expanded(child: autoCheck),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Installed: ${controller.installedAppVersion ?? 'Unknown'} | Channel: ${controller.appUpdateChannelLabel} | Last checked: ${controller.appUpdateLastCheckedLabel}',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Source: ${app_release_updater.appUpdaterGithubOwner}/${app_release_updater.appUpdaterGithubRepo}${app_release_updater.appUpdaterGithubToken.trim().isNotEmpty ? ' (override active)' : ' (default or build override)'}',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  if (controller.appUpdateErrorMessage
+                      case final message?) ...<Widget>[
+                    const SizedBox(height: 12),
+                    _InlineError(message: message),
+                  ],
+                  if (controller.availableAppUpdate
+                      case final release?) ...<Widget>[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _bgSecondary,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: _border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: <Widget>[
+                              _StatusPill(
+                                label: 'Update ${release.version}',
+                                color: release.channel == 'beta'
+                                    ? _warning
+                                    : _accent,
+                              ),
+                              _StatusPill(
+                                label: release.asset.name,
+                                color: _textSecondary,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '${release.title} · ${release.publishedLabel} · ${release.asset.sizeLabel}',
+                            style: TextStyle(color: _textSecondary),
+                          ),
+                          if (release.body.trim().isNotEmpty) ...<Widget>[
+                            const SizedBox(height: 14),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 220),
+                              child: SingleChildScrollView(
+                                child: MarkdownBody(
+                                  data: release.body,
+                                  selectable: true,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: TextStyle(
+                                      color: _textSecondary,
+                                      height: 1.45,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: <Widget>[
+                              FilledButton.icon(
+                                onPressed: controller.isOpeningAppUpdate
+                                    ? null
+                                    : controller.openAppUpdate,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: _accent,
+                                ),
+                                icon: controller.isOpeningAppUpdate
+                                    ? const SizedBox.square(
+                                        dimension: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.system_update_alt),
+                                label: Text(
+                                  controller.isOpeningAppUpdate
+                                      ? 'Opening...'
+                                      : 'Download update',
+                                ),
+                              ),
+                              if (release.htmlUrl.trim().isNotEmpty)
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    unawaited(
+                                      widget.controller._oauthLauncher
+                                          .openExternal(
+                                            url: release.htmlUrl,
+                                            label: 'release_notes',
+                                          ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.open_in_new),
+                                  label: Text('View release'),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...<Widget>[
+                    const SizedBox(height: 12),
+                    Text(
+                      controller.isCheckingAppUpdate
+                          ? 'Checking GitHub releases for this platform...'
+                          : controller.appUpdateLastCheckedAt == null
+                          ? 'Choose a channel and check GitHub releases for this platform.'
+                          : 'No newer app release is available for this platform on the selected channel.',
+                      style: TextStyle(color: _textSecondary, height: 1.45),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -12791,9 +13141,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             onChanged: (value) {
                               if (value != null) {
                                 setState(
-                                  () =>
-                                      _defaultRecordingTranscriptionModel =
-                                          value,
+                                  () => _defaultRecordingTranscriptionModel =
+                                      value,
                                 );
                               }
                             },
@@ -13310,10 +13659,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
     return values
         .map(
-          (value) => DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          ),
+          (value) => DropdownMenuItem<String>(value: value, child: Text(value)),
         )
         .toList();
   }
