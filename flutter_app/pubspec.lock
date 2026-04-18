@@ -140,10 +140,9 @@ packages:
   desktop_audio_capture:
     dependency: "direct main"
     description:
-      name: desktop_audio_capture
-      sha256: fb7ee0e4068fc1b14984ae7bb059e72d14c1daa1ce1580d1106eda876241493c
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/desktop_audio_capture"
+      relative: true
+    source: path
     version: "0.0.2"
   fake_async:
     dependency: transitive

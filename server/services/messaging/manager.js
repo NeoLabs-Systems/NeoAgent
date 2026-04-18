@@ -193,6 +193,48 @@ class MessagingManager extends EventEmitter {
     }
   }
 
+  _persistableConfig(value, seen = new WeakSet()) {
+    if (value == null) return value;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'bigint' || typeof value === 'function' || typeof value === 'symbol') {
+      return undefined;
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => this._persistableConfig(item, seen))
+        .filter((item) => item !== undefined);
+    }
+    if (typeof value === 'object') {
+      if (seen.has(value)) {
+        return undefined;
+      }
+      seen.add(value);
+
+      const proto = Object.getPrototypeOf(value);
+      const isPlainObject = proto === Object.prototype || proto === null;
+      if (!isPlainObject) {
+        seen.delete(value);
+        return undefined;
+      }
+
+      const result = {};
+      for (const [key, entryValue] of Object.entries(value)) {
+        const normalized = this._persistableConfig(entryValue, seen);
+        if (normalized !== undefined) {
+          result[key] = normalized;
+        }
+      }
+      seen.delete(value);
+      return result;
+    }
+    return undefined;
+  }
+
   async connectPlatform(userId, platformName, config = {}, options = {}) {
     const agentId = this._agentId(userId, options);
     config = { ...(config || {}) };
@@ -276,6 +318,8 @@ class MessagingManager extends EventEmitter {
       }
     }
 
+    const storedConfig = JSON.stringify(this._persistableConfig(config) || {});
+
     const key = this._key(userId, agentId, platformName);
     let platform = this.platforms.get(key);
 
@@ -291,7 +335,7 @@ class MessagingManager extends EventEmitter {
       if (!currentPlatform()) return;
       this.io.to(`user:${userId}`).emit('messaging:qr', { agentId, platform: platformName, qr });
       db.prepare('UPDATE platform_connections SET status = ?, config = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
-        .run('awaiting_qr', JSON.stringify(config), userId, agentId, platformName);
+        .run('awaiting_qr', storedConfig, userId, agentId, platformName);
     });
 
     platform.on('connected', () => {
@@ -347,10 +391,10 @@ class MessagingManager extends EventEmitter {
     const existing = db.prepare('SELECT id FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?').get(userId, agentId, platformName);
     if (!existing) {
       db.prepare('INSERT INTO platform_connections (user_id, agent_id, platform, config, status) VALUES (?, ?, ?, ?, ?)')
-        .run(userId, agentId, platformName, JSON.stringify(config), 'connecting');
+        .run(userId, agentId, platformName, storedConfig, 'connecting');
     } else {
       db.prepare('UPDATE platform_connections SET config = ?, status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
-        .run(JSON.stringify(config), 'connecting', userId, agentId, platformName);
+        .run(storedConfig, 'connecting', userId, agentId, platformName);
     }
 
     await platform.connect();
