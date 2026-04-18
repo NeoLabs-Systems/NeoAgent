@@ -384,7 +384,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
           runtime.active &&
           runtime.supportsFloatingToolbar &&
           runtime.floatingToolbarVisible) {
-        await _showDetachedToolbarWindow(focusWindow: false);
+        await _showDetachedToolbarWindow(focusWindow: true);
       }
     } finally {
       _syncingDesktopPresentation = false;
@@ -597,7 +597,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     if (!runtime.active || !runtime.supportsFloatingToolbar) {
       return;
     }
-    _desktopNormalWindowBounds ??= await windowManager.getBounds();
+    if (!_desktopToolbarWindowMode && !_desktopAssistantPopupWindowMode) {
+      _desktopNormalWindowBounds = await windowManager.getBounds();
+    }
     if (mounted &&
         (!_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode)) {
       setState(() {
@@ -658,7 +660,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   Future<void> _showAssistantPopupWindow() async {
     final isVisible = await windowManager.isVisible();
     _desktopAssistantReturnToHidden = !isVisible;
-    _desktopNormalWindowBounds ??= await windowManager.getBounds();
+    if (!_desktopToolbarWindowMode && !_desktopAssistantPopupWindowMode) {
+      _desktopNormalWindowBounds = await windowManager.getBounds();
+    }
     if (mounted &&
         (!_desktopAssistantPopupWindowMode || _desktopToolbarWindowMode)) {
       setState(() {
@@ -677,7 +681,8 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     await windowManager.setSkipTaskbar(true);
     await windowManager.setSize(_desktopAssistantPopupWindowSize);
     await windowManager.setAlignment(const Alignment(0, 0.92));
-    await windowManager.show(inactive: true);
+    await windowManager.show(inactive: false);
+    await windowManager.focus();
   }
 
   Future<void> _hideAssistantPopupWindow() async {
@@ -3474,6 +3479,39 @@ class NeoAgentController extends ChangeNotifier {
             'mimeType': 'audio/pcm;rate=16000;channels=1',
             'audioBase64': base64Encode(chunk),
           });
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          AppDiagnostics.log(
+            'desktop.assistant',
+            'ptt.capture_error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          if (!_liveVoiceCaptureActive && !_isStartingLiveVoice) {
+            return;
+          }
+          _liveVoiceCaptureActive = false;
+          voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+            state: 'error',
+            error: _friendlyErrorMessage(error),
+          );
+          notifyListeners();
+        },
+        onStoppedUnexpectedly: () {
+          AppDiagnostics.log(
+            'desktop.assistant',
+            'ptt.capture_stopped_unexpectedly',
+          );
+          if (!_liveVoiceCaptureActive && !_isStartingLiveVoice) {
+            return;
+          }
+          _liveVoiceCaptureActive = false;
+          voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+            state: 'error',
+            error:
+                'Microphone capture stopped unexpectedly. Re-open the assistant and try again.',
+          );
+          notifyListeners();
         },
       );
       _liveVoiceCaptureActive = true;

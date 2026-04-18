@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,20 +7,29 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")?.trim().orEmpty()
-val releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.trim().orEmpty()
-val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")?.trim().orEmpty()
-val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")?.trim().orEmpty()
-val bundledCiKeystorePath = "${rootProject.projectDir}/ci-release.keystore"
-val bundledCiKeystorePassword = "neoagent-ci"
-val bundledCiKeyAlias = "neoagent-ci"
-val bundledCiKeyPassword = "neoagent-ci"
-val hasBundledCiSigning = file(bundledCiKeystorePath).exists()
-val hasReleaseSigning =
-    releaseKeystorePath.isNotEmpty() &&
-        releaseKeystorePassword.isNotEmpty() &&
-        releaseKeyAlias.isNotEmpty() &&
-        releaseKeyPassword.isNotEmpty()
+val envReleaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")?.trim().orEmpty()
+val envReleaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.trim().orEmpty()
+val envReleaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")?.trim().orEmpty()
+val envReleaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")?.trim().orEmpty()
+val keyPropertiesFile = rootProject.file("key.properties")
+val keyProperties = Properties()
+if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.inputStream().use(keyProperties::load)
+}
+val repoReleaseKeystorePath = keyProperties.getProperty("storeFile", "").trim()
+val repoReleaseKeystorePassword = keyProperties.getProperty("storePassword", "").trim()
+val repoReleaseKeyAlias = keyProperties.getProperty("keyAlias", "").trim()
+val repoReleaseKeyPassword = keyProperties.getProperty("keyPassword", "").trim()
+val hasEnvReleaseSigning =
+    envReleaseKeystorePath.isNotEmpty() &&
+        envReleaseKeystorePassword.isNotEmpty() &&
+        envReleaseKeyAlias.isNotEmpty() &&
+        envReleaseKeyPassword.isNotEmpty()
+val hasRepoReleaseSigning =
+    repoReleaseKeystorePath.isNotEmpty() &&
+        repoReleaseKeystorePassword.isNotEmpty() &&
+        repoReleaseKeyAlias.isNotEmpty() &&
+        repoReleaseKeyPassword.isNotEmpty()
 
 android {
     namespace = "com.neoagent.flutter_app"
@@ -43,19 +54,19 @@ android {
     }
 
     signingConfigs {
-        if (hasReleaseSigning) {
+        if (hasEnvReleaseSigning) {
             create("release") {
-                storeFile = file(releaseKeystorePath)
-                storePassword = releaseKeystorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
+                storeFile = file(envReleaseKeystorePath)
+                storePassword = envReleaseKeystorePassword
+                keyAlias = envReleaseKeyAlias
+                keyPassword = envReleaseKeyPassword
             }
-        } else if (hasBundledCiSigning) {
+        } else if (hasRepoReleaseSigning) {
             create("release") {
-                storeFile = file(bundledCiKeystorePath)
-                storePassword = bundledCiKeystorePassword
-                keyAlias = bundledCiKeyAlias
-                keyPassword = bundledCiKeyPassword
+                storeFile = rootProject.file(repoReleaseKeystorePath)
+                storePassword = repoReleaseKeystorePassword
+                keyAlias = repoReleaseKeyAlias
+                keyPassword = repoReleaseKeyPassword
             }
         }
     }
@@ -63,7 +74,7 @@ android {
     buildTypes {
         release {
             signingConfig =
-                if (hasReleaseSigning || hasBundledCiSigning) {
+                if (hasEnvReleaseSigning || hasRepoReleaseSigning) {
                     signingConfigs.getByName("release")
                 } else {
                     signingConfigs.getByName("debug")
