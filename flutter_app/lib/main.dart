@@ -1159,9 +1159,9 @@ class NeoAgentController extends ChangeNotifier {
               .map(AuthProviderCatalogItem.fromJson)
               .toList();
 
-      final me = await _backendClient.getCurrentUser(backendUrl);
-      if (me != null && me['user'] is Map<String, dynamic>) {
-        user = Map<String, dynamic>.from(me['user'] as Map<String, dynamic>);
+      if (status['authenticated'] == true &&
+          status['user'] is Map<String, dynamic>) {
+        user = Map<String, dynamic>.from(status['user'] as Map<String, dynamic>);
         isAuthenticated = true;
       }
       if (isAuthenticated) {
@@ -1791,11 +1791,12 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final me = await _backendClient.getCurrentUser(backendUrl);
+      final authStatus = await _backendClient.getAuthStatus(backendUrl);
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
-      if (me == null || me['user'] is! Map<String, dynamic>) {
+      if (authStatus['authenticated'] != true ||
+          authStatus['user'] is! Map<String, dynamic>) {
         final hadAuthenticatedSession = isAuthenticated;
         _authCycle += 1;
         _clearAuthenticatedState();
@@ -1807,7 +1808,9 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
 
-      user = Map<String, dynamic>.from(me['user'] as Map<String, dynamic>);
+      user = Map<String, dynamic>.from(
+        authStatus['user'] as Map<String, dynamic>,
+      );
 
       final profilesResponse = await _backendClient.fetchAgentProfiles(
         backendUrl,

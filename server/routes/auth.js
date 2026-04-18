@@ -79,6 +79,24 @@ function establishSession(req, res, user) {
   });
 }
 
+function readAuthenticatedUser(req) {
+  if (!req.session || !req.session.userId) {
+    return null;
+  }
+  const user = db.prepare(
+    `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
+     FROM users
+     WHERE id = ?`,
+  ).get(req.session.userId);
+  if (!user) {
+    try {
+      req.session.destroy(() => {});
+    } catch (_) {}
+    return null;
+  }
+  return user;
+}
+
 function sendEmailConfirmationPage(res, { ok, title, message }) {
   const safeTitle = String(title || '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;',
@@ -202,10 +220,13 @@ router.get('/api/auth/status', (req, res) => {
   const policy = getDeploymentPolicy();
   const emailConfig = getEmailConfig();
   const authProviderManager = getAuthProviderManager(req);
+  const currentUser = readAuthenticatedUser(req);
   res.json({
     hasUser: count.count > 0,
     registrationOpen: policy.registrationOpen || count.count === 0,
     deploymentProfile: policy.profile,
+    authenticated: Boolean(currentUser),
+    user: currentUser ? toUserPayload(currentUser) : null,
     email: {
       enabled: emailConfig.enabled,
       configured: emailConfig.configured,
@@ -587,15 +608,10 @@ router.post('/api/auth/logout', (req, res) => {
 });
 
 router.get('/api/auth/me', (req, res) => {
-  if (!req.session || !req.session.userId) {
+  const user = readAuthenticatedUser(req);
+  if (!user) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  const user = db.prepare(
-    `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
-     FROM users
-     WHERE id = ?`,
-  ).get(req.session.userId);
-  if (!user) return res.status(401).json({ error: 'User not found' });
   res.json({ user: toUserPayload(user) });
 });
 
