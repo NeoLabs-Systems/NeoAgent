@@ -46,6 +46,14 @@ const String _browserUrlPlaceholder = 'https://example.com';
 const String _androidLaunchPlaceholder = 'com.android.settings';
 const String _packageOrUrlHint = 'Package name or URL';
 const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
+const String _desktopWindowIconAsset = 'assets/branding/app_icon_256.png';
+const String _desktopTrayTemplateIconAsset =
+    'assets/branding/tray_icon_template.png';
+
+String get _desktopTrayIconAsset =>
+    defaultTargetPlatform == TargetPlatform.macOS
+    ? _desktopTrayTemplateIconAsset
+    : _desktopWindowIconAsset;
 
 bool get _supportsDesktopShell =>
     !kIsWeb &&
@@ -243,6 +251,11 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   HotKey? _assistantHotKey;
   bool _desktopShellInitialized = false;
   bool _handlingDesktopClose = false;
+  bool _desktopToolbarWindowMode = false;
+  bool _syncingDesktopPresentation = false;
+  Rect? _desktopNormalWindowBounds;
+
+  static const Size _desktopToolbarWindowSize = Size(920, 120);
 
   @override
   void initState() {
@@ -293,7 +306,14 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       trayManager.addListener(this);
       trayListenerAdded = true;
       await windowManager.setPreventClose(true);
-      await trayManager.setIcon('web/icons/Icon-192.png');
+      await windowManager.setTitle('NeoAgent');
+      if (defaultTargetPlatform == TargetPlatform.windows) {
+        await windowManager.setIcon(_desktopWindowIconAsset);
+      }
+      await trayManager.setIcon(
+        _desktopTrayIconAsset,
+        isTemplate: defaultTargetPlatform == TargetPlatform.macOS,
+      );
       await trayManager.setToolTip('NeoAgent');
       await _syncTrayMenu();
       await _syncAssistantHotkey();
@@ -321,6 +341,35 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     }
     await _syncTrayMenu();
     await _syncAssistantHotkey();
+    await _syncDesktopPresentation();
+  }
+
+  Future<void> _syncDesktopPresentation() async {
+    if (_syncingDesktopPresentation) {
+      return;
+    }
+    _syncingDesktopPresentation = true;
+    try {
+      final runtime = _controller.recordingRuntime;
+      final windowVisible = await windowManager.isVisible();
+      if (_desktopToolbarWindowMode &&
+          (!runtime.active || !runtime.floatingToolbarVisible)) {
+        await _restoreMainWindowPresentation(
+          hideAfterRestore: true,
+          focusWindow: false,
+        );
+        return;
+      }
+      if (!_desktopToolbarWindowMode &&
+          runtime.active &&
+          runtime.supportsFloatingToolbar &&
+          runtime.floatingToolbarVisible &&
+          !windowVisible) {
+        await _showDetachedToolbarWindow(focusWindow: false);
+      }
+    } finally {
+      _syncingDesktopPresentation = false;
+    }
   }
 
   Future<void> _syncTrayMenu() async {
@@ -413,6 +462,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   }
 
   Future<void> _openMainWindow() async {
+    if (_desktopToolbarWindowMode) {
+      await _restoreMainWindowPresentation();
+    }
     await windowManager.show();
     await windowManager.focus();
     final runtime = _controller.recordingRuntime;
@@ -425,10 +477,76 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   }
 
   Future<void> _hideMainWindow() async {
-    if (_controller.recordingRuntime.floatingToolbarVisible) {
-      await _controller.hideDesktopFloatingToolbar();
+    final runtime = _controller.recordingRuntime;
+    if (runtime.active &&
+        runtime.supportsFloatingToolbar &&
+        runtime.floatingToolbarVisible) {
+      await _showDetachedToolbarWindow(focusWindow: false);
+      return;
+    }
+    if (_desktopToolbarWindowMode) {
+      await _restoreMainWindowPresentation(
+        hideAfterRestore: true,
+        focusWindow: false,
+      );
+      return;
     }
     await windowManager.hide();
+  }
+
+  Future<void> _showDetachedToolbarWindow({required bool focusWindow}) async {
+    final runtime = _controller.recordingRuntime;
+    if (!runtime.active || !runtime.supportsFloatingToolbar) {
+      return;
+    }
+    _desktopNormalWindowBounds ??= await windowManager.getBounds();
+    if (mounted && !_desktopToolbarWindowMode) {
+      setState(() => _desktopToolbarWindowMode = true);
+    }
+    await windowManager.setTitle('NeoAgent');
+    await windowManager.setBackgroundColor(Colors.transparent);
+    await windowManager.setTitleBarStyle(
+      TitleBarStyle.hidden,
+      windowButtonVisibility: false,
+    );
+    await windowManager.setResizable(false);
+    await windowManager.setAlwaysOnTop(true);
+    await windowManager.setSkipTaskbar(false);
+    await windowManager.setSize(_desktopToolbarWindowSize);
+    await windowManager.center();
+    await windowManager.show();
+    if (focusWindow) {
+      await windowManager.focus();
+    }
+  }
+
+  Future<void> _restoreMainWindowPresentation({
+    bool hideAfterRestore = false,
+    bool focusWindow = true,
+  }) async {
+    if (mounted && _desktopToolbarWindowMode) {
+      setState(() => _desktopToolbarWindowMode = false);
+    }
+    await windowManager.setAlwaysOnTop(false);
+    await windowManager.setResizable(true);
+    await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+    await windowManager.setSkipTaskbar(false);
+    await windowManager.setTitle('NeoAgent');
+    final restoreBounds = _desktopNormalWindowBounds;
+    if (restoreBounds != null) {
+      await windowManager.setBounds(restoreBounds);
+    } else {
+      await windowManager.setSize(const Size(1280, 720));
+      await windowManager.center();
+    }
+    if (hideAfterRestore) {
+      await windowManager.hide();
+      return;
+    }
+    await windowManager.show();
+    if (focusWindow) {
+      await windowManager.focus();
+    }
   }
 
   @override
@@ -441,7 +559,8 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             '|backend:${_controller.requiresBackendUrlSetup}'
             '|auth:${_controller.isAuthenticated}'
             '|refresh:${_controller.isRefreshing}'
-            '|section:${_controller.selectedSection.name}';
+            '|section:${_controller.selectedSection.name}'
+            '|toolbarMode:$_desktopToolbarWindowMode';
         if (_navigatorScopeSignature != rootStateSignature) {
           _navigatorScopeSignature = rootStateSignature;
           _navigatorKey = GlobalKey<NavigatorState>();
@@ -449,7 +568,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         return MaterialApp(
           key: ValueKey<String>(rootStateSignature),
           navigatorKey: _navigatorKey,
-          title: 'NeoOS',
+          title: 'NeoAgent',
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
           darkTheme: _buildNeoAgentTheme(_darkPalette, Brightness.dark),
@@ -458,12 +577,17 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             return Stack(
               children: <Widget>[
                 if (child != null) child,
-                if (_supportsDesktopShell)
+                if (_supportsDesktopShell && !_desktopToolbarWindowMode)
                   _DesktopFloatingToolbar(controller: _controller),
               ],
             );
           },
-          home: NeoAgentRoot(controller: _controller),
+          home: _desktopToolbarWindowMode
+              ? _DetachedDesktopFloatingToolbarShell(
+                  controller: _controller,
+                  onOpenMainWindow: _openMainWindow,
+                )
+              : NeoAgentRoot(controller: _controller),
         );
       },
     );
@@ -11898,7 +12022,7 @@ class _AccountSessionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Icon(
-            session.current ? Icons.devices_outlined : Icons.public_outlined,
+            session.deviceIcon,
             color: session.current ? _success : _textSecondary,
           ),
           const SizedBox(width: 12),
@@ -11908,14 +12032,14 @@ class _AccountSessionCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   session.current
-                      ? '${session.location} · Current session'
-                      : session.location,
+                      ? '${session.clientLabel} · Current session'
+                      : session.clientLabel,
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   [
-                    if (session.ipAddress.isNotEmpty) session.ipAddress,
+                    session.locationSummary,
                     'Last seen ${session.lastSeenLabel}',
                   ].join(' · '),
                   style: TextStyle(color: _textSecondary),
@@ -11923,7 +12047,7 @@ class _AccountSessionCard extends StatelessWidget {
                 if (session.userAgent.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 4),
                   Text(
-                    session.userAgent,
+                    '${session.clientInfo.platformLabel} · ${session.clientInfo.browserLabel} · Created ${session.createdLabel}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: _textMuted, fontSize: 12),

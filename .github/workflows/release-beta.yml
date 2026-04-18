@@ -352,6 +352,9 @@ jobs:
           VERSION="${RAW_VERSION#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Install DMG builder
+        run: brew install create-dmg
+
       - name: Build macOS installer (.dmg)
         run: |
           APP_DIR="build/macos/Build/Products/Release"
@@ -362,16 +365,10 @@ jobs:
           fi
 
           DIST_DIR="$GITHUB_WORKSPACE/dist"
-          STAGE_DIR="$RUNNER_TEMP/dmg-stage"
-          APP_NAME=$(basename "$APP_BUNDLE" .app)
           DMG_PATH="$DIST_DIR/neoagent-macos-${{ steps.version.outputs.version }}.dmg"
 
           mkdir -p "$DIST_DIR"
-          rm -rf "$STAGE_DIR"
-          mkdir -p "$STAGE_DIR"
-          cp -R "$APP_BUNDLE" "$STAGE_DIR/"
-
-          hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE_DIR" -ov -format UDZO "$DMG_PATH"
+          bash ../scripts/build_macos_dmg.sh "$APP_BUNDLE" "$DMG_PATH"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -478,9 +475,11 @@ jobs:
           mkdir -p "$ARCH_APP_DIR" "$ARCH_DESKTOP_DIR" "$ARCH_BIN_LINK_DIR"
 
           cp -R "$BUNDLE_DIR"/* "$APP_DIR/"
+          cp "linux/runner/resources/app_icon.png" "$APP_DIR/app_icon.png"
           ln -sf "/opt/neoagent/$APP_BIN_NAME" "$BIN_LINK_DIR/neoagent"
 
           cp -R "$BUNDLE_DIR"/* "$ARCH_APP_DIR/"
+          cp "linux/runner/resources/app_icon.png" "$ARCH_APP_DIR/app_icon.png"
           ln -sf "/opt/neoagent/$APP_BIN_NAME" "$ARCH_BIN_LINK_DIR/neoagent"
 
           printf '%s\n' \
@@ -497,6 +496,7 @@ jobs:
             '[Desktop Entry]' \
             'Name=NeoAgent' \
             "Exec=/opt/neoagent/$APP_BIN_NAME" \
+            'Icon=/opt/neoagent/app_icon.png' \
             'Terminal=false' \
             'Type=Application' \
             'Categories=Utility;' \
@@ -506,6 +506,7 @@ jobs:
             '[Desktop Entry]' \
             'Name=NeoAgent' \
             "Exec=/opt/neoagent/$APP_BIN_NAME" \
+            'Icon=/opt/neoagent/app_icon.png' \
             'Terminal=false' \
             'Type=Application' \
             'Categories=Utility;' \

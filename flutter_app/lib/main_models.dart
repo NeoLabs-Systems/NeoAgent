@@ -2217,12 +2217,120 @@ class AccountSessionItem {
   final DateTime? lastSeenAt;
   final DateTime? expiresAt;
 
+  _SessionClientInfo get clientInfo => _SessionClientInfo.parse(userAgent);
+
+  IconData get deviceIcon => switch (clientInfo.deviceClass) {
+    _SessionDeviceClass.mobile => Icons.smartphone_rounded,
+    _SessionDeviceClass.tablet => Icons.tablet_mac_rounded,
+    _SessionDeviceClass.desktop => Icons.laptop_mac_rounded,
+    _SessionDeviceClass.server => Icons.dns_outlined,
+    _SessionDeviceClass.unknown => Icons.devices_other_rounded,
+  };
+
+  String get clientLabel {
+    final parts = <String>[
+      clientInfo.platformLabel,
+      if (clientInfo.browserLabel.isNotEmpty &&
+          clientInfo.browserLabel != 'Unknown browser')
+        clientInfo.browserLabel,
+    ];
+    return parts.join(' · ').ifEmpty('Unknown device') ?? 'Unknown device';
+  }
+
+  String get locationSummary {
+    final parts = <String>[
+      if (location.trim().isNotEmpty) location.trim(),
+      if (ipAddress.trim().isNotEmpty) ipAddress.trim(),
+    ];
+    return parts.join(' · ').ifEmpty('Unknown location') ?? 'Unknown location';
+  }
+
   String get lastSeenLabel =>
       lastSeenAt == null ? 'Not recorded' : _formatTimestamp(lastSeenAt!);
   String get createdLabel =>
       createdAt == null ? 'Not recorded' : _formatTimestamp(createdAt!);
   String get expiresLabel =>
       expiresAt == null ? 'Session cookie' : _formatTimestamp(expiresAt!);
+}
+
+enum _SessionDeviceClass { desktop, mobile, tablet, server, unknown }
+
+class _SessionClientInfo {
+  const _SessionClientInfo({
+    required this.platformLabel,
+    required this.browserLabel,
+    required this.deviceClass,
+  });
+
+  factory _SessionClientInfo.parse(String userAgent) {
+    final raw = userAgent.trim();
+    if (raw.isEmpty) {
+      return const _SessionClientInfo(
+        platformLabel: 'Unknown device',
+        browserLabel: 'Unknown browser',
+        deviceClass: _SessionDeviceClass.unknown,
+      );
+    }
+
+    final lower = raw.toLowerCase();
+    final isTablet = lower.contains('ipad') || lower.contains('tablet');
+    final isMobile =
+        !isTablet &&
+        (lower.contains('iphone') ||
+            lower.contains('android') && lower.contains('mobile'));
+
+    final platformLabel = switch (true) {
+      _ when lower.contains('iphone') => 'iPhone',
+      _ when lower.contains('ipad') => 'iPad',
+      _ when lower.contains('android') => 'Android',
+      _ when lower.contains('mac os x') || lower.contains('macintosh') => 'macOS',
+      _ when lower.contains('windows nt') => 'Windows',
+      _ when lower.contains('linux') => 'Linux',
+      _ when lower.contains('x11') => 'Linux',
+      _ when lower.contains('curl/') ||
+          lower.contains('wget/') ||
+          lower.contains('httpie/') =>
+        'CLI session',
+      _ => 'Unknown device',
+    };
+
+    final browserLabel = switch (true) {
+      _ when lower.contains('edg/') => 'Edge',
+      _ when lower.contains('opr/') || lower.contains('opera/') => 'Opera',
+      _ when lower.contains('brave/') => 'Brave',
+      _ when lower.contains('firefox/') => 'Firefox',
+      _ when lower.contains('chrome/') ||
+          lower.contains('crios/') ||
+          lower.contains('chromium/') =>
+        'Chrome',
+      _ when lower.contains('safari/') && lower.contains('version/') => 'Safari',
+      _ when lower.contains('curl/') => 'curl',
+      _ when lower.contains('wget/') => 'wget',
+      _ when lower.contains('httpie/') => 'HTTPie',
+      _ => 'Unknown browser',
+    };
+
+    final deviceClass = switch (true) {
+      _ when platformLabel == 'CLI session' => _SessionDeviceClass.server,
+      _ when isTablet => _SessionDeviceClass.tablet,
+      _ when isMobile => _SessionDeviceClass.mobile,
+      _ when platformLabel == 'macOS' ||
+          platformLabel == 'Windows' ||
+          platformLabel == 'Linux' =>
+        _SessionDeviceClass.desktop,
+      _ => _SessionDeviceClass.unknown,
+    };
+
+    return _SessionClientInfo(
+      platformLabel: platformLabel,
+      browserLabel: browserLabel,
+      deviceClass: deviceClass,
+    );
+  }
+
+  final String platformLabel;
+  final String browserLabel;
+  final _SessionDeviceClass deviceClass;
 }
 
 class AuthProviderCatalogItem {

@@ -1226,155 +1226,277 @@ class _DesktopFloatingToolbarState extends State<_DesktopFloatingToolbar> {
           ignoring: false,
           child: Align(
             alignment: Alignment.topCenter,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 860),
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: <Color>[
-                      _bgCard.withValues(alpha: 0.98),
-                      _bgCard.withValues(alpha: 0.92),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: _borderLight),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.24),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Wrap(
-                  spacing: 14,
-                  runSpacing: 14,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: (runtime.paused ? _warning : _danger).withValues(
-                          alpha: 0.10,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: (runtime.paused ? _warning : _danger).withValues(
-                            alpha: 0.20,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(
-                            runtime.paused
-                                ? Icons.pause_circle_outline
-                                : Icons.fiber_manual_record_rounded,
-                            color: runtime.paused ? _warning : _danger,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            runtime.paused ? 'Paused' : 'Recording',
-                            style: TextStyle(
-                              color: runtime.paused ? _warning : _danger,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            elapsed,
-                            style: TextStyle(
-                              color: _textPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _AudioLevelBar(
-                      label: 'MIC',
-                      valueDb: runtime.microphoneLevelDb,
-                      color: _accent,
-                      compact: true,
-                    ),
-                    _AudioLevelBar(
-                      label: 'SYSTEM',
-                      valueDb: runtime.systemAudioLevelDb,
-                      color: _accentAlt,
-                      compact: true,
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _bgSecondary.withValues(alpha: 0.78),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: _borderLight),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(Icons.keyboard_command_key, size: 15, color: _accent),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Assistant later · $_desktopAssistantHotkeyLabel',
-                            style: TextStyle(
-                              color: _textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: runtime.paused ? 'Resume recording' : 'Pause recording',
-                      onPressed: runtime.paused
-                          ? controller.resumeDesktopRecording
-                          : controller.pauseDesktopRecording,
-                      style: IconButton.styleFrom(
-                        backgroundColor: _bgSecondary,
-                        foregroundColor: _textPrimary,
-                      ),
-                      icon: Icon(
-                        runtime.paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Stop recording',
-                      onPressed: controller.isStoppingRecording
-                          ? null
-                          : controller.stopRecording,
-                      style: IconButton.styleFrom(
-                        backgroundColor: _danger.withValues(alpha: 0.12),
-                        foregroundColor: _danger,
-                      ),
-                      icon: const Icon(Icons.stop_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Hide floating bar',
-                      onPressed: controller.hideDesktopFloatingToolbar,
-                      style: IconButton.styleFrom(
-                        backgroundColor: _bgSecondary,
-                        foregroundColor: _textSecondary,
-                      ),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
+            child: _DesktopFloatingToolbarSurface(
+              controller: controller,
+              elapsedLabel: elapsed,
+              compactWindow: false,
+              onOpenMainWindow: null,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetachedDesktopFloatingToolbarShell extends StatefulWidget {
+  const _DetachedDesktopFloatingToolbarShell({
+    required this.controller,
+    required this.onOpenMainWindow,
+  });
+
+  final NeoAgentController controller;
+  final Future<void> Function() onOpenMainWindow;
+
+  @override
+  State<_DetachedDesktopFloatingToolbarShell> createState() =>
+      _DetachedDesktopFloatingToolbarShellState();
+}
+
+class _DetachedDesktopFloatingToolbarShellState
+    extends State<_DetachedDesktopFloatingToolbarShell> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DetachedDesktopFloatingToolbarShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncTicker();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _syncTicker() {
+    final runtime = widget.controller.recordingRuntime;
+    final shouldTick =
+        runtime.active &&
+        runtime.startedAt != null &&
+        runtime.floatingToolbarVisible;
+    if (!shouldTick) {
+      _ticker?.cancel();
+      _ticker = null;
+      return;
+    }
+    _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final runtime = widget.controller.recordingRuntime;
+    if (!runtime.active || !runtime.floatingToolbarVisible) {
+      return const SizedBox.shrink();
+    }
+
+    final elapsed = runtime.startedAt == null
+        ? '00:00'
+        : _formatDuration(
+            DateTime.now().difference(runtime.startedAt!).inMilliseconds,
+          );
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Colors.transparent),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: DragToMoveArea(
+                child: _DesktopFloatingToolbarSurface(
+                  controller: widget.controller,
+                  elapsedLabel: elapsed,
+                  compactWindow: true,
+                  onOpenMainWindow: widget.onOpenMainWindow,
                 ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopFloatingToolbarSurface extends StatelessWidget {
+  const _DesktopFloatingToolbarSurface({
+    required this.controller,
+    required this.elapsedLabel,
+    required this.compactWindow,
+    required this.onOpenMainWindow,
+  });
+
+  final NeoAgentController controller;
+  final String elapsedLabel;
+  final bool compactWindow;
+  final Future<void> Function()? onOpenMainWindow;
+
+  @override
+  Widget build(BuildContext context) {
+    final runtime = controller.recordingRuntime;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: compactWindow ? double.infinity : 860),
+        margin: compactWindow
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(
+          horizontal: compactWindow ? 14 : 16,
+          vertical: compactWindow ? 12 : 14,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: <Color>[
+              _bgCard.withValues(alpha: 0.98),
+              _bgCard.withValues(alpha: 0.92),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(compactWindow ? 22 : 24),
+          border: Border.all(color: _borderLight),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.24),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Wrap(
+          spacing: 14,
+          runSpacing: 14,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            if (compactWindow) const _LogoBadge(size: 34),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: (runtime.paused ? _warning : _danger).withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: (runtime.paused ? _warning : _danger).withValues(alpha: 0.20),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    runtime.paused
+                        ? Icons.pause_circle_outline
+                        : Icons.fiber_manual_record_rounded,
+                    color: runtime.paused ? _warning : _danger,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    runtime.paused ? 'Paused' : 'Recording',
+                    style: TextStyle(
+                      color: runtime.paused ? _warning : _danger,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    elapsedLabel,
+                    style: TextStyle(
+                      color: _textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _AudioLevelBar(
+              label: 'MIC',
+              valueDb: runtime.microphoneLevelDb,
+              color: _accent,
+              compact: true,
+            ),
+            _AudioLevelBar(
+              label: 'SYSTEM',
+              valueDb: runtime.systemAudioLevelDb,
+              color: _accentAlt,
+              compact: true,
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: _bgSecondary.withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _borderLight),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(Icons.keyboard_command_key, size: 15, color: _accent),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Assistant later · $_desktopAssistantHotkeyLabel',
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (compactWindow && onOpenMainWindow != null)
+              IconButton(
+                tooltip: 'Open NeoAgent',
+                onPressed: onOpenMainWindow,
+                style: IconButton.styleFrom(
+                  backgroundColor: _bgSecondary,
+                  foregroundColor: _textPrimary,
+                ),
+                icon: const Icon(Icons.open_in_full_rounded),
+              ),
+            IconButton(
+              tooltip: runtime.paused ? 'Resume recording' : 'Pause recording',
+              onPressed: runtime.paused
+                  ? controller.resumeDesktopRecording
+                  : controller.pauseDesktopRecording,
+              style: IconButton.styleFrom(
+                backgroundColor: _bgSecondary,
+                foregroundColor: _textPrimary,
+              ),
+              icon: Icon(
+                runtime.paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Stop recording',
+              onPressed: controller.isStoppingRecording
+                  ? null
+                  : controller.stopRecording,
+              style: IconButton.styleFrom(
+                backgroundColor: _danger.withValues(alpha: 0.12),
+                foregroundColor: _danger,
+              ),
+              icon: const Icon(Icons.stop_rounded),
+            ),
+            IconButton(
+              tooltip: 'Hide floating bar',
+              onPressed: controller.hideDesktopFloatingToolbar,
+              style: IconButton.styleFrom(
+                backgroundColor: _bgSecondary,
+                foregroundColor: _textSecondary,
+              ),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
         ),
       ),
     );

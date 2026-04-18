@@ -37,3 +37,5 @@ flutter:
   uses-material-design: true
   assets:
     - web/icons/Icon-192.png
+    - assets/branding/app_icon_256.png
+    - assets/branding/tray_icon_template.png
