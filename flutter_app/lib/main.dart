@@ -237,7 +237,8 @@ class NeoAgentApp extends StatefulWidget {
 class _NeoAgentAppState extends State<NeoAgentApp>
     with WindowListener, TrayListener {
   late final NeoAgentController _controller;
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  String? _navigatorScopeSignature;
   Menu? _trayMenu;
   HotKey? _assistantHotKey;
   bool _desktopShellInitialized = false;
@@ -435,8 +436,18 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
+        final rootStateSignature =
+            'boot:${_controller.isBooting}'
+            '|backend:${_controller.requiresBackendUrlSetup}'
+            '|auth:${_controller.isAuthenticated}'
+            '|refresh:${_controller.isRefreshing}'
+            '|section:${_controller.selectedSection.name}';
+        if (_navigatorScopeSignature != rootStateSignature) {
+          _navigatorScopeSignature = rootStateSignature;
+          _navigatorKey = GlobalKey<NavigatorState>();
+        }
         return MaterialApp(
-          key: ValueKey<bool>(_controller.isAuthenticated),
+          key: ValueKey<String>(rootStateSignature),
           navigatorKey: _navigatorKey,
           title: 'NeoOS',
           debugShowCheckedModeBanner: false,
