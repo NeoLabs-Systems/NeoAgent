@@ -14,6 +14,8 @@ jobs:
     name: Promote beta and publish release
     if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.capture_release_tag.outputs.release_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,3 +70,21 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx -p semantic-release -p @semantic-release/commit-analyzer -p @semantic-release/release-notes-generator -p @semantic-release/npm -p @semantic-release/github semantic-release
+
+      - name: Capture release tag
+        id: capture_release_tag
+        run: |
+          RELEASE_TAG="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "No release tag found after semantic-release."
+            exit 1
+          fi
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+  release-assets:
+    needs: release
+    uses: ./.github/workflows/flutter-desktop-build.yml
+    with:
+      release_tag: ${{ needs.release.outputs.release_tag }}
+      attach_to_release: true
+    secrets: inherit

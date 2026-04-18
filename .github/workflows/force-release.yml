@@ -23,6 +23,8 @@ jobs:
   force-release:
     name: Bump version and publish release
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.bump.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -108,3 +110,11 @@ jobs:
             --title "Release ${{ env.NEW_VERSION }}" \
             --generate-notes \
             --latest
+
+  release-assets:
+    needs: force-release
+    uses: ./.github/workflows/flutter-desktop-build.yml
+    with:
+      release_tag: ${{ needs.force-release.outputs.release_tag }}
+      attach_to_release: true
+    secrets: inherit

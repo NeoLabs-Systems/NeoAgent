@@ -9,11 +9,26 @@ on:
     branches:
       - main
       - beta
-  release:
-    types:
-      - published
-      - prereleased
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to attach assets to, for example v1.2.3 or v1.2.3-beta.0
+        required: false
+        type: string
+      attach_to_release:
+        description: Upload built installers as assets on the specified GitHub release
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      release_tag:
+        required: false
+        type: string
+      attach_to_release:
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -61,8 +76,10 @@ jobs:
       - name: Resolve app version
         shell: pwsh
         id: version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.inputs.release_tag }}
         run: |
-          $raw = "${{ github.event.release.tag_name }}"
+          $raw = $env:RELEASE_TAG
           if ([string]::IsNullOrWhiteSpace($raw)) {
             $raw = "0.0.${{ github.run_number }}"
           }
@@ -173,8 +190,10 @@ jobs:
 
       - name: Resolve app version
         id: version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.inputs.release_tag }}
         run: |
-          RAW_VERSION="${{ github.event.release.tag_name }}"
+          RAW_VERSION="${RELEASE_TAG}"
           if [ -z "$RAW_VERSION" ]; then
             RAW_VERSION="0.0.${{ github.run_number }}"
           fi
@@ -266,8 +285,10 @@ jobs:
 
       - name: Resolve app version
         id: version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.inputs.release_tag }}
         run: |
-          RAW_VERSION="${{ github.event.release.tag_name }}"
+          RAW_VERSION="${RELEASE_TAG}"
           if [ -z "$RAW_VERSION" ]; then
             RAW_VERSION="0.0.${{ github.run_number }}"
           fi
@@ -396,8 +417,10 @@ jobs:
 
       - name: Resolve app version
         id: version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.inputs.release_tag }}
         run: |
-          RAW_VERSION="${{ github.event.release.tag_name }}"
+          RAW_VERSION="${RELEASE_TAG}"
           if [ -z "$RAW_VERSION" ]; then
             RAW_VERSION="0.0.${{ github.run_number }}"
           fi
@@ -445,7 +468,7 @@ jobs:
       - build-macos-installer
       - build-linux-installer
       - build-android-apk
-    if: github.event_name == 'release'
+    if: ${{ inputs.attach_to_release || github.event.inputs.attach_to_release == 'true' }}
 
     steps:
       - name: Download build artifacts
@@ -458,7 +481,7 @@ jobs:
       - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name }}
+          tag_name: ${{ inputs.release_tag || github.event.inputs.release_tag }}
           files: |
             dist/*.exe
             dist/*.dmg

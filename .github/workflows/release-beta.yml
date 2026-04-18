@@ -17,6 +17,8 @@ jobs:
     name: Create and publish beta release
     if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.beta_version.outputs.release_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -123,6 +125,7 @@ jobs:
           const nextVersion = `${baseLabel}-beta.${nextBetaNumber}`;
 
           fs.appendFileSync(process.env.GITHUB_ENV, `NEW_VERSION=v${nextVersion}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `release_tag=v${nextVersion}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${nextVersion}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `base_version=${baseLabel}\n`);
           EOF
@@ -172,3 +175,11 @@ jobs:
             --title "Beta ${{ env.NEW_VERSION }}" \
             --generate-notes \
             --prerelease
+
+  release-assets:
+    needs: release
+    uses: ./.github/workflows/flutter-desktop-build.yml
+    with:
+      release_tag: ${{ needs.release.outputs.release_tag }}
+      attach_to_release: true
+    secrets: inherit
