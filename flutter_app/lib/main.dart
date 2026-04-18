@@ -1165,7 +1165,7 @@ class NeoAgentController extends ChangeNotifier {
         isAuthenticated = true;
       }
       if (isAuthenticated) {
-        await refresh();
+        unawaited(refresh());
       }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -1855,14 +1855,18 @@ class NeoAgentController extends ChangeNotifier {
       );
       final schedulerFuture = _backendClient.fetchSchedulerTasks(backendUrl);
       final mcpFuture = _backendClient.fetchMcpServers(backendUrl);
-      final recordingsFuture = _backendClient.fetchRecordingSessions(
-        backendUrl,
-      );
-      final browserFuture = _backendClient.fetchBrowserStatus(backendUrl);
-      final browserExtensionFuture = _backendClient.fetchBrowserExtensionStatus(
-        backendUrl,
-      );
-      final androidFuture = _backendClient.fetchAndroidStatus(backendUrl);
+      final recordingsFuture = _backendClient
+          .fetchRecordingSessions(backendUrl)
+          .catchError((_) => const <Map<String, dynamic>>[]);
+      final browserFuture = _backendClient
+          .fetchBrowserStatus(backendUrl)
+          .catchError((_) => const <String, dynamic>{});
+      final browserExtensionFuture = _backendClient
+          .fetchBrowserExtensionStatus(backendUrl)
+          .catchError((_) => const <String, dynamic>{});
+      final androidFuture = _backendClient
+          .fetchAndroidStatus(backendUrl)
+          .catchError((_) => const <String, dynamic>{});
 
       Map<String, dynamic>? healthResponse;
       try {

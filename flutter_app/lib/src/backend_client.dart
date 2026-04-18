@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -8,6 +9,8 @@ import 'network/app_http_client_factory.dart';
 class BackendClient {
   BackendClient({AppHttpClient? httpClient})
     : _httpClient = httpClient ?? createAppHttpClient();
+
+  static const Duration _requestTimeout = Duration(seconds: 20);
 
   final AppHttpClient _httpClient;
 
@@ -1323,7 +1326,9 @@ class BackendClient {
       _resolveUri(baseUrl, path);
 
   Future<Uint8List> fetchBinary(String baseUrl, String path) async {
-    final response = await _httpClient.get(_resolveUri(baseUrl, path));
+    final response = await _httpClient
+        .get(_resolveUri(baseUrl, path))
+        .timeout(_requestTimeout);
     _throwIfError(response);
     return response.bodyBytes;
   }
@@ -1333,20 +1338,39 @@ class BackendClient {
     Uri uri, {
     Map<String, dynamic>? body,
     bool allowUnauthorized = false,
-  }) {
+  }) async {
     final headers = <String, String>{'Content-Type': 'application/json'};
     final encodedBody = body == null ? null : jsonEncode(body);
+    late final Future<HttpResponseData> request;
     switch (method) {
       case 'GET':
-        return _httpClient.get(uri, headers: headers);
+        request = _httpClient.get(uri, headers: headers);
       case 'POST':
-        return _httpClient.post(uri, headers: headers, body: encodedBody);
+        request = _httpClient.post(uri, headers: headers, body: encodedBody);
       case 'PUT':
-        return _httpClient.put(uri, headers: headers, body: encodedBody);
+        request = _httpClient.put(uri, headers: headers, body: encodedBody);
       case 'DELETE':
-        return _httpClient.delete(uri, headers: headers, body: encodedBody);
+        request = _httpClient.delete(uri, headers: headers, body: encodedBody);
       default:
         throw BackendException('Unsupported method: $method');
+    }
+    try {
+      return await request.timeout(_requestTimeout);
+    } on TimeoutException catch (error, stackTrace) {
+      _log(
+        'request.timeout',
+        data: <String, Object?>{
+          'method': method,
+          'uri': uri.toString(),
+          'allowUnauthorized': allowUnauthorized,
+          'timeoutMs': _requestTimeout.inMilliseconds,
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw BackendException(
+        'The NeoAgent backend took too long to respond for ${uri.path}.',
+      );
     }
   }
 
