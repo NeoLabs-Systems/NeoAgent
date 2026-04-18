@@ -94,6 +94,30 @@ function extractVoiceSettings(payload = {}) {
   };
 }
 
+router.get('/update/status', (req, res) => {
+  const status = readUpdateStatus();
+  const version = getVersionInfo();
+  res.json({
+    ...status,
+    backendVersion: version.version,
+    installedVersion: version.installedVersion,
+    packageVersion: version.packageVersion,
+    gitVersion: version.gitVersion,
+    gitSha: version.gitSha,
+    gitBranch: version.gitBranch,
+    releaseChannel: status.releaseChannel || version.releaseChannel,
+    targetBranch: status.targetBranch || version.targetBranch,
+    npmDistTag: status.npmDistTag || version.npmDistTag,
+    deploymentMode: version.deploymentMode,
+    deploymentProfile: version.deploymentProfile,
+    managedDeployment: version.managedDeployment,
+    allowSelfUpdate: version.allowSelfUpdate,
+    runtimeDefaults: version.runtimeDefaults,
+    allowHostRuntime: version.allowHostRuntime,
+    runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
+  });
+});
+
 router.use(requireAuth);
 
 function isAgentScopedSettingKey(key) {
@@ -527,30 +551,6 @@ router.put('/update/channel', (req, res) => {
     releaseChannel,
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
     npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
-  });
-});
-
-router.get('/update/status', (req, res) => {
-  const status = readUpdateStatus();
-  const version = getVersionInfo();
-  res.json({
-    ...status,
-    backendVersion: version.version,
-    installedVersion: version.installedVersion,
-    packageVersion: version.packageVersion,
-    gitVersion: version.gitVersion,
-    gitSha: version.gitSha,
-    gitBranch: version.gitBranch,
-    releaseChannel: status.releaseChannel || version.releaseChannel,
-    targetBranch: status.targetBranch || version.targetBranch,
-    npmDistTag: status.npmDistTag || version.npmDistTag,
-    deploymentMode: version.deploymentMode,
-    deploymentProfile: version.deploymentProfile,
-    managedDeployment: version.managedDeployment,
-    allowSelfUpdate: version.allowSelfUpdate,
-    runtimeDefaults: version.runtimeDefaults,
-    allowHostRuntime: version.allowHostRuntime,
-    runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
   });
 });
 

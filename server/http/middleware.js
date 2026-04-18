@@ -98,7 +98,7 @@ function buildHelmetOptions({ secureCookies }) {
   };
 }
 
-function createSessionMiddleware({ secureCookies }) {
+function createSessionMiddleware({ secureCookies, trustProxy }) {
   return session({
     store: new SQLiteStore({
       client: sessionsDb,
@@ -109,6 +109,7 @@ function createSessionMiddleware({ secureCookies }) {
     }),
     secret: getSessionSecret(),
     name: 'neoagent.sid',
+    proxy: trustProxy,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -120,7 +121,7 @@ function createSessionMiddleware({ secureCookies }) {
   });
 }
 
-function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOrigin }) {
+function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware, validateOrigin }) {
   const rawRecordingChunkBody = require('express').raw({ limit: '50mb', type: '*/*' });
   const jsonBody = require('express').json({
     limit: '10mb',
@@ -147,9 +148,9 @@ function applyHttpMiddleware(app, { secureCookies, sessionMiddleware, validateOr
     isRecordingChunkPath(requestPath(req)) ? next() : handler(req, res, next)
   );
 
-  if (secureCookies) {
+  if (trustProxy) {
     app.set('trust proxy', 1);
-    console.log('[HTTP] trust proxy enabled because secure cookies are active');
+    console.log('[HTTP] trust proxy enabled for proxied deployment handling');
   }
 
   app.use(helmet(buildHelmetOptions({ secureCookies })));

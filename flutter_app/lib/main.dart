@@ -1301,6 +1301,10 @@ class NeoAgentController extends ChangeNotifier {
       password = '';
       await _persistCredentials();
       await refresh();
+      if (!isAuthenticated) {
+        errorMessage =
+            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, check backend session cookie settings.';
+      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       isAuthenticated = false;
@@ -1332,6 +1336,10 @@ class NeoAgentController extends ChangeNotifier {
       password = '';
       await _persistCredentials();
       await refresh();
+      if (!isAuthenticated) {
+        errorMessage =
+            'Two-factor sign-in completed, but NeoAgent could not keep the browser session. Please sign in again.';
+      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       isAuthenticated = false;
@@ -1426,6 +1434,10 @@ class NeoAgentController extends ChangeNotifier {
       password = '';
       await _persistCredentials();
       await refresh();
+      if (!isAuthenticated) {
+        errorMessage =
+            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, the backend session cookie is likely not being retained.';
+      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       isAuthenticated = false;
@@ -1784,8 +1796,14 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       if (me == null || me['user'] is! Map<String, dynamic>) {
+        final hadAuthenticatedSession = isAuthenticated;
         _authCycle += 1;
         _clearAuthenticatedState();
+        if (hadAuthenticatedSession) {
+          errorMessage =
+              'Your session expired or was not retained by the browser. Please sign in again.';
+          notifyListeners();
+        }
         return;
       }
 
@@ -1828,7 +1846,9 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         agentId: agentId,
       );
-      final updateFuture = _backendClient.fetchUpdateStatus(backendUrl);
+      final updateFuture = _backendClient
+          .fetchUpdateStatus(backendUrl)
+          .catchError((_) => const <String, dynamic>{});
       final messagingFuture = _backendClient.fetchMessagingStatus(
         backendUrl,
         agentId: agentId,

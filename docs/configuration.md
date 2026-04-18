@@ -13,6 +13,7 @@ AI provider credentials, OAuth client secrets, and deployment controls are not c
 | `SESSION_SECRET` | required | Random string for session signing. Generate one with `openssl rand -hex 32`. |
 | `NODE_ENV` | `production` | Set to `development` to enable verbose logs. |
 | `SECURE_COOKIES` | `false` | Set `true` when NeoAgent is behind a TLS-terminating proxy. |
+| `TRUST_PROXY` | inferred from `PUBLIC_URL`/`SECURE_COOKIES` | Set `true` when NeoAgent runs behind Nginx, Caddy, Cloudflare, Fly, or another reverse proxy that sends `X-Forwarded-*` headers. |
 | `ALLOWED_ORIGINS` | none | Comma-separated CORS origins, for example `https://example.com`. |
 | `NEOAGENT_DEPLOYMENT_MODE` | `self_hosted` | `self_hosted` enables in-app update controls; `managed` hides operator-only controls for SaaS deployments. |
 | `NEOAGENT_RELEASE_CHANNEL` | `stable` | Release track used by the self-hosted updater. |

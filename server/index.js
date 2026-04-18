@@ -35,8 +35,24 @@ const { registerErrorHandler } = require('./http/errors');
 const { startServices, stopServices } = require('./services/manager');
 const { bindBrowserExtensionGateway } = require('./services/browser/extension/gateway');
 
+function parseBooleanFlag(value, fallback = false) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
 const PORT = Number(process.env.PORT) || 3333;
-const SECURE_COOKIES = process.env.SECURE_COOKIES === 'true';
+const PUBLIC_URL = String(process.env.PUBLIC_URL || '').trim();
+const PUBLIC_URL_IS_HTTPS = PUBLIC_URL.startsWith('https://');
+const SECURE_COOKIES = parseBooleanFlag(
+  process.env.SECURE_COOKIES,
+  PUBLIC_URL_IS_HTTPS,
+);
+const TRUST_PROXY = parseBooleanFlag(
+  process.env.TRUST_PROXY,
+  SECURE_COOKIES || PUBLIC_URL_IS_HTTPS,
+);
 
 function logStartupConfig() {
   const flags = {
@@ -60,6 +76,11 @@ function logStartupConfig() {
     console.log(`[Startup] Legacy env fallback: ${LEGACY_ENV_FILE}`);
   }
   console.log('[Startup] Key availability:', flags);
+  console.log('[Startup] HTTP runtime:', {
+    publicUrl: PUBLIC_URL || null,
+    secureCookies: SECURE_COOKIES,
+    trustProxy: TRUST_PROXY,
+  });
 }
 
 logStartupConfig();
@@ -77,12 +98,21 @@ if (!configuredSessionSecret()) {
 const app = express();
 const httpServer = createServer(app);
 const io = createSocketServer(httpServer, { validateOrigin });
-const sessionMiddleware = createSessionMiddleware({ secureCookies: SECURE_COOKIES });
+app.locals.httpRuntimeConfig = {
+  secureCookies: SECURE_COOKIES,
+  trustProxy: TRUST_PROXY,
+  publicUrl: PUBLIC_URL || null,
+};
+const sessionMiddleware = createSessionMiddleware({
+  secureCookies: SECURE_COOKIES,
+  trustProxy: TRUST_PROXY,
+});
 const activeSockets = new Set();
 
 setupConsoleInterceptor(io);
 applyHttpMiddleware(app, {
   secureCookies: SECURE_COOKIES,
+  trustProxy: TRUST_PROXY,
   sessionMiddleware,
   validateOrigin
 });
