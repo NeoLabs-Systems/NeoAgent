@@ -173,10 +173,13 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
         origin(origin, originCallback) {
           const allowBrowserExtensionOrigin = isBrowserExtensionCorsPath(requestPath);
           const allowSocketIoMissingOrigin = isSocketIoCorsPath(requestPath);
-          return validateOrigin(origin, originCallback, {
+          const originOptions = {
             allowChromeExtension: allowBrowserExtensionOrigin,
-            allowMissingOrigin: allowBrowserExtensionOrigin || allowSocketIoMissingOrigin,
-          });
+          };
+          if (allowBrowserExtensionOrigin || allowSocketIoMissingOrigin) {
+            originOptions.allowMissingOrigin = true;
+          }
+          return validateOrigin(origin, originCallback, originOptions);
         },
         credentials: true,
       });
