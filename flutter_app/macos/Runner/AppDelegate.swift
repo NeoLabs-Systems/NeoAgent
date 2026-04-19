@@ -24,6 +24,8 @@ class AppDelegate: FlutterAppDelegate {
 
 final class DesktopCompanionNativePlugin: NSObject {
   private static let channelName = "neoagent/desktop_companion_native"
+  private static var channelAssociationKey: UInt8 = 0
+  private static var instanceAssociationKey: UInt8 = 0
 
   static func register(with controller: FlutterViewController) {
     let channel = FlutterMethodChannel(
@@ -38,13 +40,13 @@ final class DesktopCompanionNativePlugin: NSObject {
 
     objc_setAssociatedObject(
       controller,
-      NSString(string: channelName),
+      &channelAssociationKey,
       channel,
       .OBJC_ASSOCIATION_RETAIN_NONATOMIC
     )
     objc_setAssociatedObject(
       controller,
-      NSString(string: "\(channelName).instance"),
+      &instanceAssociationKey,
       instance,
       .OBJC_ASSOCIATION_RETAIN_NONATOMIC
     )
@@ -326,9 +328,10 @@ final class DesktopCompanionNativePlugin: NSObject {
       kAXFocusedWindowAttribute as CFString,
       &focusedWindow
     )
-    guard focusedStatus == .success, let windowElement = focusedWindow as? AXUIElement else {
+    guard focusedStatus == .success, let focusedWindow else {
       return nil
     }
+    let windowElement = unsafeBitCast(focusedWindow, to: AXUIElement.self)
 
     var titleValue: CFTypeRef?
     let titleStatus = AXUIElementCopyAttributeValue(
