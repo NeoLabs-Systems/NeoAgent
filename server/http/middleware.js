@@ -68,12 +68,14 @@ ensureSessionStoreSchema(sessionsDb);
 
 function buildHelmetOptions({ secureCookies }) {
   const wsConnectSrc = secureCookies ? ['wss:'] : ['ws:', 'wss:'];
-  const allowUnsafeEval = boolEnv('NEOAGENT_CSP_ALLOW_UNSAFE_EVAL', false);
-  const allowExternalScriptCdn = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_SCRIPT_CDN', false);
-  const allowExternalConnect = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_CONNECT', false);
+  const allowUnsafeEval = boolEnv('NEOAGENT_CSP_ALLOW_UNSAFE_EVAL', true);
+  const allowExternalScriptCdn = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_SCRIPT_CDN', true);
+  const allowExternalConnect = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_CONNECT', true);
 
   const scriptSrc = ["'self'", "'unsafe-inline'", 'blob:'];
-  if (allowUnsafeEval) scriptSrc.push("'unsafe-eval'");
+  if (allowUnsafeEval) {
+    scriptSrc.push("'unsafe-eval'", "'wasm-unsafe-eval'");
+  }
   if (allowExternalScriptCdn) {
     scriptSrc.push('https://cdn.jsdelivr.net', 'https://www.gstatic.com');
   }
