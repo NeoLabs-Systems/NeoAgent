@@ -148,6 +148,10 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
       || path === '/api/browser-extension/pairing/request'
       || /^\/api\/browser-extension\/pairing\/[^/]+\/claim$/i.test(path);
   };
+  const isSocketIoCorsPath = (value = '') => {
+    const path = `${value}`.split('?')[0];
+    return path === '/socket.io/' || path === '/socket.io' || path.startsWith('/socket.io/');
+  };
   const requestPath = (req) => req.originalUrl || req.url || req.path || '';
   const applyOnlyToRecordingChunk = (handler) => (req, res, next) => (
     isRecordingChunkPath(requestPath(req)) ? handler(req, res, next) : next()
@@ -168,9 +172,10 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
       callback(null, {
         origin(origin, originCallback) {
           const allowBrowserExtensionOrigin = isBrowserExtensionCorsPath(requestPath);
+          const allowSocketIoMissingOrigin = isSocketIoCorsPath(requestPath);
           return validateOrigin(origin, originCallback, {
             allowChromeExtension: allowBrowserExtensionOrigin,
-            allowMissingOrigin: allowBrowserExtensionOrigin,
+            allowMissingOrigin: allowBrowserExtensionOrigin || allowSocketIoMissingOrigin,
           });
         },
         credentials: true,
