@@ -279,6 +279,34 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS desktop_companion_devices (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    device_id TEXT NOT NULL,
+    activation_id TEXT,
+    label TEXT NOT NULL,
+    hostname TEXT,
+    platform TEXT,
+    platform_version TEXT,
+    app_version TEXT,
+    companion_enabled INTEGER DEFAULT 0,
+    paused INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'offline',
+    display_count INTEGER DEFAULT 0,
+    active_display_id TEXT,
+    permissions_json TEXT DEFAULT '{}',
+    capabilities_json TEXT DEFAULT '{}',
+    metadata_json TEXT DEFAULT '{}',
+    session_id INTEGER,
+    last_connected_at TEXT,
+    last_seen_at TEXT,
+    revoked_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, device_id)
+  );
+
   CREATE TABLE IF NOT EXISTS scheduled_tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -360,6 +388,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_expires ON integration_oauth_states(expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_user ON browser_extension_tokens(user_id, status, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
   CREATE INDEX IF NOT EXISTS idx_conv_messages ON conversation_messages(conversation_id, created_at);
@@ -732,6 +761,21 @@ for (const col of [
   "ALTER TABLE recording_sessions ADD COLUMN duration_ms INTEGER DEFAULT 0",
   "ALTER TABLE recording_sessions ADD COLUMN structured_content_json TEXT",
   "ALTER TABLE artifacts ADD COLUMN metadata_json TEXT DEFAULT '{}'",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN activation_id TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN app_version TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN companion_enabled INTEGER DEFAULT 0",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN paused INTEGER DEFAULT 0",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN status TEXT DEFAULT 'offline'",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN display_count INTEGER DEFAULT 0",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN active_display_id TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN permissions_json TEXT DEFAULT '{}'",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN capabilities_json TEXT DEFAULT '{}'",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN metadata_json TEXT DEFAULT '{}'",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN session_id INTEGER",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN last_connected_at TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN last_seen_at TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN revoked_at TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }

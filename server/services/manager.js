@@ -21,6 +21,8 @@ const { IntegrationManager } = require('./integrations/manager');
 const { ArtifactStore } = require('./artifacts/store');
 const { RuntimeManager } = require('./runtime/manager');
 const { BrowserExtensionRegistry } = require('./browser/extension/registry');
+const { DesktopCompanionRegistry } = require('./desktop/registry');
+const { DesktopProvider } = require('./desktop/provider');
 const { assertRuntimeValidation, getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
@@ -52,6 +54,30 @@ function createArtifactStore(app) {
 function createBrowserExtensionRegistry(app) {
   const registry = registerLocal(app, 'browserExtensionRegistry', new BrowserExtensionRegistry());
   logServiceReady('Browser extension registry ready');
+  return registry;
+}
+
+function createDesktopCompanionRegistry(app) {
+  const registry = registerLocal(app, 'desktopCompanionRegistry', new DesktopCompanionRegistry());
+  registerLocal(
+    app,
+    'getDesktopProviderForUser',
+    (userId) => new DesktopProvider({
+      registry,
+      artifactStore: app.locals.artifactStore,
+      userId,
+    }),
+  );
+  registerLocal(
+    app,
+    'desktopProvider',
+    new DesktopProvider({
+      registry,
+      artifactStore: app.locals.artifactStore,
+      userId: null,
+    }),
+  );
+  logServiceReady('Desktop companion registry ready');
   return registry;
 }
 
@@ -445,6 +471,7 @@ async function startServices(app, io) {
     const cliExecutor = createCliExecutor(app);
     const artifactStore = createArtifactStore(app);
     createBrowserExtensionRegistry(app);
+    createDesktopCompanionRegistry(app);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
     createAuthProviderManager(app);
@@ -587,6 +614,15 @@ async function stopServices(app) {
       logServiceReady('Browser extension connections closed');
     } catch (err) {
       console.error('[BrowserExtension] Shutdown error:', getErrorMessage(err));
+    }
+  }
+
+  if (app.locals.desktopCompanionRegistry) {
+    try {
+      app.locals.desktopCompanionRegistry.closeAll();
+      logServiceReady('Desktop companion connections closed');
+    } catch (err) {
+      console.error('[DesktopCompanion] Shutdown error:', getErrorMessage(err));
     }
   }
 

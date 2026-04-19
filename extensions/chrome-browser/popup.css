@@ -19,7 +19,9 @@
 
 body {
   margin: 0;
-  width: 380px;
+  width: min(380px, 100vw);
+  min-width: 320px;
+  max-width: 380px;
   background: var(--bg);
   color: var(--text);
   font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -215,7 +217,7 @@ button.danger:hover {
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.62;
+  opacity: 0.82;
 }
 
 .link-button {

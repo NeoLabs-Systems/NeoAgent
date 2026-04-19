@@ -1100,6 +1100,50 @@ class _RecordingPermissionBadge extends StatelessWidget {
   }
 }
 
+class _CompanionPermissionBadge extends StatelessWidget {
+  const _CompanionPermissionBadge({
+    required this.label,
+    required this.state,
+  });
+
+  final String label;
+  final String state;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = state.trim().toLowerCase();
+    final (color, icon, text) = switch (normalized) {
+      'available' => (_success, Icons.check_circle, 'Granted'),
+      'required' => (_warning, Icons.lock_outline, 'Needs access'),
+      'unsupported' => (
+        _textSecondary,
+        Icons.do_not_disturb_alt_outlined,
+        'Unsupported',
+      ),
+      _ => (_warning, Icons.help_outline, 'Unknown'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Text(
+            '$label · $text',
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AudioLevelBar extends StatelessWidget {
   const _AudioLevelBar({
     required this.label,

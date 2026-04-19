@@ -232,6 +232,122 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'desktop_list_devices',
+            description: 'List logged-in desktop companion devices available for local PC control.',
+            parameters: { type: 'object', properties: {} }
+        },
+        {
+            name: 'desktop_select_device',
+            description: 'Select the active desktop companion device when multiple desktop PCs are online.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Desktop companion device ID to make active.' }
+                },
+                required: ['device_id']
+            }
+        },
+        {
+            name: 'desktop_observe',
+            description: 'Capture the current desktop screen plus optional accessibility tree for the selected desktop companion.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
+                    includeTree: { type: 'boolean', description: 'Include accessibility tree or semantic nodes when available.' }
+                }
+            }
+        },
+        {
+            name: 'desktop_click',
+            description: 'Click at an absolute desktop coordinate on the selected desktop companion.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
+                    x: { type: 'number', description: 'Absolute X coordinate in desktop pixels.' },
+                    y: { type: 'number', description: 'Absolute Y coordinate in desktop pixels.' },
+                    button: { type: 'string', description: 'Optional mouse button name, default left.' }
+                },
+                required: ['x', 'y']
+            }
+        },
+        {
+            name: 'desktop_drag',
+            description: 'Drag the mouse from one absolute point to another on the selected desktop companion.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
+                    x1: { type: 'number', description: 'Start X coordinate.' },
+                    y1: { type: 'number', description: 'Start Y coordinate.' },
+                    x2: { type: 'number', description: 'End X coordinate.' },
+                    y2: { type: 'number', description: 'End Y coordinate.' },
+                    durationMs: { type: 'number', description: 'Optional drag duration in milliseconds.' }
+                },
+                required: ['x1', 'y1', 'x2', 'y2']
+            }
+        },
+        {
+            name: 'desktop_scroll',
+            description: 'Scroll on the selected desktop companion.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
+                    deltaX: { type: 'number', description: 'Horizontal scroll delta.' },
+                    deltaY: { type: 'number', description: 'Vertical scroll delta.' }
+                }
+            }
+        },
+        {
+            name: 'desktop_type',
+            description: 'Type text on the selected desktop companion using the currently focused element.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
+                    text: { type: 'string', description: 'Text to type.' },
+                    pressEnter: { type: 'boolean', description: 'Press Enter after typing.' }
+                },
+                required: ['text']
+            }
+        },
+        {
+            name: 'desktop_press_key',
+            description: 'Press a named key on the selected desktop companion.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
+                    key: { type: 'string', description: 'Key to press, for example Enter, Escape, Meta, or Tab.' }
+                },
+                required: ['key']
+            }
+        },
+        {
+            name: 'desktop_launch_app',
+            description: 'Ask the selected desktop companion to launch an application by bundle identifier, executable, or app name.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
+                    app: { type: 'string', description: 'Application identifier, executable, or app name.' }
+                },
+                required: ['app']
+            }
+        },
+        {
+            name: 'desktop_get_tree',
+            description: 'Return the accessibility tree or semantic node snapshot from the selected desktop companion when available.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' }
+                }
+            }
+        },
+        {
             name: 'android_start_emulator',
             description: 'Bootstrap Android tools if needed and start the managed Android emulator.',
             parameters: {
@@ -1047,6 +1163,13 @@ async function executeTool(toolName, args, context, engine) {
         }
         return app?.locals?.androidController || engine.androidController;
     };
+    const dc = () => {
+        const scoped = app?.locals?.getDesktopProviderForUser;
+        if (typeof scoped === 'function') {
+            return scoped(userId);
+        }
+        return app?.locals?.desktopProvider || null;
+    };
     const msg = () => app?.locals?.messagingManager || engine.messagingManager;
     const mcp = () => app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
     const integrations = () => app?.locals?.integrationManager || null;
@@ -1156,6 +1279,99 @@ async function executeTool(toolName, args, context, engine) {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
             return await controller.startEmulator(args || {});
+        }
+
+        case 'desktop_list_devices': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            const selectedDeviceId = controller.registry
+                ? controller.registry.getSelectedDeviceId(userId)
+                : null;
+            return {
+                selectedDeviceId,
+                devices: controller.listDevices(),
+            };
+        }
+
+        case 'desktop_select_device': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.selectDevice(args.device_id);
+        }
+
+        case 'desktop_observe': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.observe({
+                deviceId: args.device_id,
+                includeTree: args.includeTree === true,
+            });
+        }
+
+        case 'desktop_click': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.clickPoint(args.x, args.y, {
+                deviceId: args.device_id,
+                button: args.button,
+            });
+        }
+
+        case 'desktop_drag': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.drag({
+                deviceId: args.device_id,
+                x1: args.x1,
+                y1: args.y1,
+                x2: args.x2,
+                y2: args.y2,
+                durationMs: args.durationMs,
+            });
+        }
+
+        case 'desktop_scroll': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.scroll({
+                deviceId: args.device_id,
+                deltaX: args.deltaX,
+                deltaY: args.deltaY,
+            });
+        }
+
+        case 'desktop_type': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.typeText(args.text, {
+                deviceId: args.device_id,
+                pressEnter: args.pressEnter === true,
+            });
+        }
+
+        case 'desktop_press_key': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.pressKey(args.key, {
+                deviceId: args.device_id,
+            });
+        }
+
+        case 'desktop_launch_app': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.launchApp({
+                deviceId: args.device_id,
+                app: args.app,
+            });
+        }
+
+        case 'desktop_get_tree': {
+            const controller = await dc();
+            if (!controller) return { error: 'Desktop provider not available' };
+            return await controller.getAccessibilityTree({
+                deviceId: args.device_id,
+            });
         }
 
         case 'android_stop_emulator': {

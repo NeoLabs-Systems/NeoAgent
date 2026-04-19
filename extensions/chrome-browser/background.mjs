@@ -6,6 +6,7 @@ const protocol = createBrowserProtocol(chrome);
 let socket = null;
 let reconnectTimer = null;
 let suppressSocketClose = false;
+const DEFAULT_FETCH_TIMEOUT_MS = 10000;
 
 function getStorage(keys = STORAGE_KEYS) {
   return chrome.storage.local.get(keys);
@@ -39,6 +40,19 @@ function websocketUrl(serverUrl, token) {
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.searchParams.set('token', token);
   return url.toString();
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function compareVersions(a, b) {
@@ -150,7 +164,7 @@ async function handleSocketMessage(raw) {
 async function startPairing(serverUrl) {
   const normalized = await resolveServerUrl(serverUrl);
   if (!normalized) throw new Error('NeoAgent server URL required.');
-  const response = await fetch(`${normalized}/api/browser-extension/pairing/request`, {
+  const response = await fetchWithTimeout(`${normalized}/api/browser-extension/pairing/request`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ extensionName: 'NeoAgent Browser' }),
@@ -173,7 +187,7 @@ async function claimPairing() {
   if (!serverUrl || !pairingId || !pairingSecret) {
     throw new Error('No pending pairing request.');
   }
-  const response = await fetch(`${serverUrl}/api/browser-extension/pairing/${encodeURIComponent(pairingId)}/claim`, {
+  const response = await fetchWithTimeout(`${serverUrl}/api/browser-extension/pairing/${encodeURIComponent(pairingId)}/claim`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ pairingSecret, extensionName: 'NeoAgent Browser' }),
@@ -204,7 +218,7 @@ async function disconnect() {
 async function checkForUpdates(preferredServerUrl) {
   const serverUrl = await resolveServerUrl(preferredServerUrl);
   if (!serverUrl) throw new Error('NeoAgent server URL required.');
-  const response = await fetch(`${serverUrl}/api/browser-extension/latest`);
+  const response = await fetchWithTimeout(`${serverUrl}/api/browser-extension/latest`);
   const latest = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(latest.error || `Update check failed: ${response.status}`);
   const currentVersion = chrome.runtime.getManifest().version;

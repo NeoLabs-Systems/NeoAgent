@@ -8,6 +8,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
 import 'package:qr_flutter/qr_flutter.dart';
@@ -20,6 +21,7 @@ import 'package:window_manager/window_manager.dart';
 import 'src/android_apk_drop_zone.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
 import 'src/backend_client.dart';
+import 'src/desktop_companion.dart';
 import 'src/desktop_screen_capture.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
@@ -54,6 +56,7 @@ const String _desktopTrayTemplateIconAsset =
     'assets/branding/tray_icon_template.png';
 const String _sessionCookiePrefsKey = 'auth.sessionCookie';
 const String _sessionCookieBackendPrefsKey = 'auth.sessionCookieBackend';
+const String _sessionCookieSecureStorageKey = 'auth.sessionCookie.secure';
 const int _voiceAssistantScreenshotMaxDimension = 1600;
 const int _voiceAssistantScreenshotMaxBytes = 900 * 1024;
 
@@ -1011,6 +1014,7 @@ class NeoAgentController extends ChangeNotifier {
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher() {
     _recordingBridge.onRecordingStopped = _handleRecordingStopped;
     _recordingBridge.addListener(_handleRecordingBridgeChanged);
+    _desktopCompanion.addListener(notifyListeners);
     _clientLogs = AppDiagnostics.recentEntries
         .map(_logEntryFromDiagnostic)
         .toList(growable: false);
@@ -1029,6 +1033,9 @@ class NeoAgentController extends ChangeNotifier {
   final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
   final DesktopScreenCapture _desktopScreenCapture =
       createDesktopScreenCapture();
+  final DesktopCompanionManager _desktopCompanion = DesktopCompanionManager(
+    screenCapture: createDesktopScreenCapture(),
+  );
   StreamSubscription<AppDiagnosticEntry>? _diagnosticLogSubscription;
   static const int _maxVisibleLogs = 400;
 
@@ -1037,6 +1044,7 @@ class NeoAgentController extends ChangeNotifier {
   );
 
   SharedPreferences? _prefs;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   io.Socket? _socket;
   Timer? _updatePollTimer;
   final Set<String> _backgroundRunIds = <String>{};
@@ -1128,12 +1136,19 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic> browserRuntime = const <String, dynamic>{};
   Map<String, dynamic> browserExtensionStatus = const <String, dynamic>{};
   Map<String, dynamic> androidRuntime = const <String, dynamic>{};
+  Map<String, dynamic> desktopRuntime = const <String, dynamic>{};
   List<String> androidInstalledApps = const <String>[];
   List<Map<String, dynamic>> androidUiPreview = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> desktopDevices = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> desktopDisplays = const <Map<String, dynamic>>[];
+  Map<String, dynamic> desktopPermissions = const <String, dynamic>{};
+  String? selectedDesktopDeviceId;
   String? browserScreenshotPath;
   String? androidScreenshotPath;
+  String? desktopScreenshotPath;
   String? browserLastResult;
   String? androidLastResult;
+  String? desktopLastResult;
   String? androidUiDumpPath;
   final Map<String, RunDetailSnapshot> _runDetailsCache =
       <String, RunDetailSnapshot>{};
@@ -1153,6 +1168,14 @@ class NeoAgentController extends ChangeNotifier {
   bool _desktopKeepRunningOnClose = true;
   bool _desktopAutoShowFloatingToolbar = true;
   bool _desktopAssistantHotkeyEnabled = true;
+
+  bool get desktopCompanionEnabled => _desktopCompanion.enabled;
+  bool get desktopCompanionConnected => _desktopCompanion.connected;
+  bool get desktopCompanionConnecting => _desktopCompanion.connecting;
+  bool get desktopCompanionPaused => _desktopCompanion.paused;
+  String get desktopCompanionLabel => _desktopCompanion.label;
+  String? get desktopCompanionErrorMessage => _desktopCompanion.errorMessage;
+  Map<String, Object?> get desktopCompanionStatus => _desktopCompanion.status;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
 
@@ -1248,6 +1271,8 @@ class NeoAgentController extends ChangeNotifier {
     _socket?.dispose();
     _diagnosticLogSubscription?.cancel();
     _appReleaseUpdater.dispose();
+    _desktopCompanion.removeListener(notifyListeners);
+    unawaited(_desktopCompanion.disconnect());
     _recordingBridge.removeListener(_handleRecordingBridgeChanged);
     _recordingBridge.dispose();
     unawaited(_liveVoiceCapture.dispose());
@@ -1594,6 +1619,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
+    await _desktopCompanion.bootstrap(_prefs!);
     final configured = _configuredBackendUrl.trim();
     final savedBackendUrl = _prefs?.getString('backend_url')?.trim() ?? '';
     backendUrl = configured.isNotEmpty ? _defaultBackendUrl : savedBackendUrl;
@@ -1619,7 +1645,28 @@ class NeoAgentController extends ChangeNotifier {
 
     final savedCookieBackend =
         _prefs?.getString(_sessionCookieBackendPrefsKey)?.trim() ?? '';
-    final savedCookie = _prefs?.getString(_sessionCookiePrefsKey)?.trim() ?? '';
+    String savedCookie = '';
+    try {
+      savedCookie =
+              (await _secureStorage.read(key: _sessionCookieSecureStorageKey))
+                  ?.trim() ??
+          '';
+    } catch (_) {
+      savedCookie = '';
+    }
+    if (savedCookie.isEmpty) {
+      // Legacy fallback for older builds; migrate immediately to secure storage.
+      savedCookie = _prefs?.getString(_sessionCookiePrefsKey)?.trim() ?? '';
+      if (savedCookie.isNotEmpty) {
+        try {
+          await _secureStorage.write(
+            key: _sessionCookieSecureStorageKey,
+            value: savedCookie,
+          );
+          await _prefs?.remove(_sessionCookiePrefsKey);
+        } catch (_) {}
+      }
+    }
     if (savedCookieBackend == backendUrl && savedCookie.isNotEmpty) {
       _backendClient.restoreSessionCookie(savedCookie);
     } else {
@@ -1774,6 +1821,9 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.clearSessionCookie();
         await _prefs?.remove(_sessionCookiePrefsKey);
         await _prefs?.remove(_sessionCookieBackendPrefsKey);
+        try {
+          await _secureStorage.delete(key: _sessionCookieSecureStorageKey);
+        } catch (_) {}
       }
       backendUrl = normalized;
       isBooting = true;
@@ -2102,12 +2152,19 @@ class NeoAgentController extends ChangeNotifier {
     browserRuntime = const <String, dynamic>{};
     browserExtensionStatus = const <String, dynamic>{};
     androidRuntime = const <String, dynamic>{};
+    desktopRuntime = const <String, dynamic>{};
     androidInstalledApps = const <String>[];
     androidUiPreview = const <Map<String, dynamic>>[];
+    desktopDevices = const <Map<String, dynamic>>[];
+    desktopDisplays = const <Map<String, dynamic>>[];
+    desktopPermissions = const <String, dynamic>{};
+    selectedDesktopDeviceId = null;
     browserScreenshotPath = null;
     androidScreenshotPath = null;
+    desktopScreenshotPath = null;
     browserLastResult = null;
     androidLastResult = null;
+    desktopLastResult = null;
     androidUiDumpPath = null;
     versionInfo = null;
     backendHealthStatus = null;
@@ -2124,6 +2181,7 @@ class NeoAgentController extends ChangeNotifier {
         sessionCookie: '',
       ),
     );
+    unawaited(_syncDesktopCompanionSession());
   }
 
   Future<void> _persistCredentials() async {
@@ -2132,12 +2190,31 @@ class NeoAgentController extends ChangeNotifier {
     final sessionCookie = _backendClient.sessionCookie?.trim() ?? '';
     final shouldPersistSession = isAuthenticated && sessionCookie.isNotEmpty;
     if (shouldPersistSession) {
-      await _prefs?.setString(_sessionCookiePrefsKey, sessionCookie);
+      try {
+        await _secureStorage.write(
+          key: _sessionCookieSecureStorageKey,
+          value: sessionCookie,
+        );
+      } catch (_) {}
+      await _prefs?.remove(_sessionCookiePrefsKey);
       await _prefs?.setString(_sessionCookieBackendPrefsKey, backendUrl);
+      await _syncDesktopCompanionSession();
       return;
     }
     await _prefs?.remove(_sessionCookiePrefsKey);
     await _prefs?.remove(_sessionCookieBackendPrefsKey);
+    try {
+      await _secureStorage.delete(key: _sessionCookieSecureStorageKey);
+    } catch (_) {}
+    await _syncDesktopCompanionSession();
+  }
+
+  Future<void> _syncDesktopCompanionSession() {
+    return _desktopCompanion.updateSession(
+      backendUrl: backendUrl,
+      sessionCookie: _backendClient.sessionCookie ?? '',
+      authenticated: isAuthenticated,
+    );
   }
 
   void setSelectedSection(AppSection section) {
@@ -2489,6 +2566,9 @@ class NeoAgentController extends ChangeNotifier {
       final androidFuture = _backendClient
           .fetchAndroidStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
+      final desktopFuture = _backendClient
+          .fetchDesktopStatus(backendUrl)
+          .catchError((_) => const <String, dynamic>{});
 
       Map<String, dynamic>? healthResponse;
       try {
@@ -2532,6 +2612,7 @@ class NeoAgentController extends ChangeNotifier {
       final browserResponse = await browserFuture;
       final browserExtensionResponse = await browserExtensionFuture;
       final androidResponse = await androidFuture;
+      final desktopResponse = await desktopFuture;
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
@@ -2595,6 +2676,19 @@ class NeoAgentController extends ChangeNotifier {
         browserExtensionResponse,
       );
       androidRuntime = Map<String, dynamic>.from(androidResponse);
+      desktopRuntime = Map<String, dynamic>.from(desktopResponse);
+      selectedDesktopDeviceId =
+          desktopRuntime['selectedDeviceId']?.toString().trim().isEmpty ?? true
+          ? null
+          : desktopRuntime['selectedDeviceId']?.toString();
+      desktopDevices =
+          (desktopRuntime['devices'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map(
+                (item) =>
+                    item.map((key, value) => MapEntry(key.toString(), value)),
+              )
+              .toList();
       await _recordingBridge.refreshStatus();
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
@@ -2604,6 +2698,10 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       await _syncBackgroundHealthConfig();
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
+      await _syncDesktopCompanionSession();
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
@@ -2793,11 +2891,27 @@ class NeoAgentController extends ChangeNotifier {
       final androidResponse = await _backendClient.fetchAndroidStatus(
         backendUrl,
       );
+      final desktopResponse = await _backendClient.fetchDesktopStatus(
+        backendUrl,
+      );
       browserRuntime = Map<String, dynamic>.from(browserResponse);
       browserExtensionStatus = Map<String, dynamic>.from(
         browserExtensionResponse,
       );
       androidRuntime = Map<String, dynamic>.from(androidResponse);
+      desktopRuntime = Map<String, dynamic>.from(desktopResponse);
+      selectedDesktopDeviceId =
+          desktopRuntime['selectedDeviceId']?.toString().trim().isEmpty ?? true
+          ? null
+          : desktopRuntime['selectedDeviceId']?.toString();
+      desktopDevices =
+          (desktopRuntime['devices'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map(
+                (item) =>
+                    item.map((key, value) => MapEntry(key.toString(), value)),
+              )
+              .toList();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -3190,6 +3304,222 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
+  Future<void> _runDesktopDeviceAction(
+    Future<Map<String, dynamic>> Function() action, {
+    bool refreshDevicesAfter = true,
+  }) async {
+    if (isRunningDeviceAction) {
+      return;
+    }
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await action();
+      desktopLastResult = const JsonEncoder.withIndent('  ').convert(result);
+      final screenshot = result['screenshotPath']?.toString();
+      if (screenshot != null && screenshot.isNotEmpty) {
+        desktopScreenshotPath = screenshot;
+      }
+      final displays =
+          (result['displays'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map(
+                (item) =>
+                    item.map((key, value) => MapEntry(key.toString(), value)),
+              )
+              .toList();
+      if (displays.isNotEmpty) {
+        desktopDisplays = displays;
+      }
+      final permissions = result['permissions'];
+      if (permissions is Map) {
+        desktopPermissions = permissions.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+      }
+      if (refreshDevicesAfter) {
+        await refreshDevices();
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> selectDesktopDeviceRuntime(String deviceId) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.selectDesktopDevice(backendUrl, deviceId: deviceId),
+    );
+    desktopScreenshotPath = null;
+    await refreshDesktopFrameRuntime();
+  }
+
+  Future<void> openDesktopSelectionRuntime() async {
+    await refreshDevices();
+    errorMessage = 'Select a desktop companion from the Desktop device dropdown.';
+    notifyListeners();
+  }
+
+  Future<void> screenshotDesktopRuntime() async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.screenshotDesktop(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+      ),
+      refreshDevicesAfter: false,
+    );
+  }
+
+  Future<void> observeDesktopRuntime() async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.observeDesktop(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+        includeTree: true,
+      ),
+      refreshDevicesAfter: false,
+    );
+  }
+
+  Future<void> refreshDesktopFrameRuntime() async {
+    if (isRunningDeviceAction) {
+      return;
+    }
+    final onlineDesktop = desktopDevices.firstWhere(
+      (device) => device['online'] == true,
+      orElse: () => const <String, dynamic>{},
+    );
+    if (onlineDesktop.isEmpty) {
+      return;
+    }
+    final selectedId = selectedDesktopDeviceId;
+    final selectedOnline = (selectedId ?? '').isNotEmpty
+        ? desktopDevices.any(
+            (device) =>
+                device['online'] == true &&
+                device['deviceId']?.toString() == selectedId,
+          )
+        : false;
+    final targetDeviceId = selectedOnline
+        ? selectedId
+        : onlineDesktop['deviceId']?.toString();
+    if ((targetDeviceId ?? '').isEmpty) {
+      return;
+    }
+    try {
+      final result = await _backendClient.screenshotDesktop(
+        backendUrl,
+        deviceId: targetDeviceId,
+      );
+      final screenshot = result['screenshotPath']?.toString();
+      if (screenshot != null && screenshot.isNotEmpty) {
+        desktopScreenshotPath = screenshot;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> clickDesktopRuntime({required int x, required int y}) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.clickDesktop(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+        x: x,
+        y: y,
+      ),
+      refreshDevicesAfter: false,
+    );
+  }
+
+  Future<void> dragDesktopRuntime({
+    required int x1,
+    required int y1,
+    required int x2,
+    required int y2,
+  }) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.dragDesktop(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+        x1: x1,
+        y1: y1,
+        x2: x2,
+        y2: y2,
+      ),
+      refreshDevicesAfter: false,
+    );
+  }
+
+  Future<void> scrollDesktopRuntime({int deltaY = 0}) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.scrollDesktop(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+        deltaY: deltaY,
+      ),
+      refreshDevicesAfter: false,
+    );
+  }
+
+  Future<void> typeDesktopRuntime(
+    String text, {
+    bool pressEnter = false,
+  }) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.typeDesktopText(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+        text: text,
+        pressEnter: pressEnter,
+      ),
+      refreshDevicesAfter: false,
+    );
+  }
+
+  Future<void> pressDesktopKeyRuntime(String key) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.pressDesktopKey(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+        key: key,
+      ),
+      refreshDevicesAfter: false,
+    );
+  }
+
+  Future<void> launchDesktopAppRuntime(String app) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.launchDesktopApp(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+        app: app,
+      ),
+      refreshDevicesAfter: false,
+    );
+  }
+
+  Future<void> revokeDesktopDeviceRuntime(String deviceId) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.revokeDesktopDevice(backendUrl, deviceId: deviceId),
+    );
+  }
+
+  Future<void> pauseDesktopDeviceRuntime(
+    String deviceId, {
+    bool paused = true,
+  }) async {
+    await _runDesktopDeviceAction(
+      () => _backendClient.pauseDesktopDevice(
+        backendUrl,
+        deviceId: deviceId,
+        paused: paused,
+      ),
+    );
+  }
+
   Uri resolveRuntimeAsset(String path) {
     final separator = path.contains('?') ? '&' : '?';
     return _backendClient.resolveAssetUri(
@@ -3403,6 +3733,78 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setDesktopCompanionEnabled(bool value) async {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return;
+    }
+    try {
+      await _desktopCompanion.setEnabled(value, prefs);
+      await _syncDesktopCompanionSession();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> setDesktopCompanionLabel(String value) async {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return;
+    }
+    try {
+      await _desktopCompanion.setLabel(value, prefs);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> setDesktopCompanionPaused(bool value) async {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return;
+    }
+    try {
+      await _desktopCompanion.setPaused(value, prefs);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> rotateDesktopCompanionIdentity() async {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return;
+    }
+    try {
+      await _desktopCompanion.rotateIdentity(prefs);
+      await _syncDesktopCompanionSession();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshDesktopCompanionStatus() async {
+    try {
+      await _desktopCompanion.refreshLocalStatus();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> openDesktopCompanionPermissionSettings(String permissionKey) async {
+    try {
+      await _desktopCompanion.openPermissionSettings(permissionKey);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
   Future<void> setVoiceAssistantIncludeScreenContext(bool value) async {
     _voiceAssistantIncludeScreenContext =
         value && canCaptureVoiceAssistantScreenContext;
@@ -3511,7 +3913,8 @@ class NeoAgentController extends ChangeNotifier {
       transformed = true;
     }
 
-    if (!transformed && sourceBytes.length <= _voiceAssistantScreenshotMaxBytes) {
+    if (!transformed &&
+        sourceBytes.length <= _voiceAssistantScreenshotMaxBytes) {
       return _OptimizedScreenshotPayload(
         bytes: sourceBytes,
         mimeType: sourceMime,
@@ -3538,7 +3941,8 @@ class NeoAgentController extends ChangeNotifier {
       if (pass % 2 == 1) {
         final nextWidth = math.max(1, (workingImage.width * 0.85).round());
         final nextHeight = math.max(1, (workingImage.height * 0.85).round());
-        if (nextWidth == workingImage.width && nextHeight == workingImage.height) {
+        if (nextWidth == workingImage.width &&
+            nextHeight == workingImage.height) {
           continue;
         }
         workingImage = img.copyResize(
@@ -6216,6 +6620,7 @@ class DevicesPanel extends StatefulWidget {
 class _DevicesPanelState extends State<DevicesPanel> {
   late final TextEditingController _browserUrlController;
   late final TextEditingController _androidLaunchController;
+  late final TextEditingController _desktopLaunchController;
   late final TextEditingController _textEntryController;
   Timer? _surfaceFrameTimer;
   _DeviceSurface _surface = _DeviceSurface.browser;
@@ -6227,6 +6632,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
     _androidLaunchController = TextEditingController(
       text: _androidLaunchPlaceholder,
     );
+    _desktopLaunchController = TextEditingController();
     _textEntryController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
@@ -6244,6 +6650,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
     for (final controller in <TextEditingController>[
       _browserUrlController,
       _androidLaunchController,
+      _desktopLaunchController,
       _textEntryController,
     ]) {
       controller.dispose();
@@ -6253,6 +6660,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
   }
 
   bool get _isBrowser => _surface == _DeviceSurface.browser;
+  bool get _isDesktop => _surface == _DeviceSurface.desktop;
 
   bool get _androidOnline {
     final status = widget.controller.androidRuntime;
@@ -6264,9 +6672,28 @@ class _DevicesPanelState extends State<DevicesPanel> {
   bool get _androidStarting =>
       widget.controller.androidRuntime['starting'] == true;
 
-  String? get _activeScreenshotPath => _isBrowser
-      ? widget.controller.browserScreenshotPath
-      : widget.controller.androidScreenshotPath;
+  List<Map<String, dynamic>> get _onlineDesktopDevices => widget
+      .controller
+      .desktopDevices
+      .where((device) => device['online'] == true)
+      .toList(growable: false);
+
+  bool get _desktopOnline => _onlineDesktopDevices.isNotEmpty;
+
+  bool get _desktopRequiresSelection =>
+      _isDesktop &&
+      _onlineDesktopDevices.length > 1 &&
+      (widget.controller.selectedDesktopDeviceId ?? '').isEmpty;
+
+  String? get _activeScreenshotPath {
+    if (_isBrowser) {
+      return widget.controller.browserScreenshotPath;
+    }
+    if (_isDesktop) {
+      return widget.controller.desktopScreenshotPath;
+    }
+    return widget.controller.androidScreenshotPath;
+  }
 
   Future<void> _bootstrapSurface() async {
     await widget.controller.refreshDevices();
@@ -6293,6 +6720,16 @@ class _DevicesPanelState extends State<DevicesPanel> {
       return;
     }
 
+    if (_isDesktop) {
+      if (_desktopRequiresSelection || !_desktopOnline) {
+        return;
+      }
+      if ((controller.desktopScreenshotPath ?? '').isEmpty) {
+        await controller.screenshotDesktopRuntime();
+      }
+      return;
+    }
+
     if (_androidOnline && (controller.androidScreenshotPath ?? '').isEmpty) {
       await controller.screenshotAndroidRuntime();
     }
@@ -6307,6 +6744,10 @@ class _DevicesPanelState extends State<DevicesPanel> {
     }
     if (_isBrowser) {
       await widget.controller.refreshBrowserFrameRuntime();
+      return;
+    }
+    if (_isDesktop) {
+      await widget.controller.refreshDesktopFrameRuntime();
       return;
     }
     if (_androidStarting) {
@@ -6337,6 +6778,36 @@ class _DevicesPanelState extends State<DevicesPanel> {
       await controller.navigateBrowserRuntime(
         url: _browserUrlController.text.trim(),
       );
+      return;
+    }
+
+    if (_isDesktop) {
+      if (_desktopRequiresSelection) {
+        final selectedId = widget.controller.selectedDesktopDeviceId;
+        if ((selectedId ?? '').isEmpty && _onlineDesktopDevices.length == 1) {
+          await controller.selectDesktopDeviceRuntime(
+            _onlineDesktopDevices.first['deviceId']?.toString() ?? '',
+          );
+        } else {
+          await controller.openDesktopSelectionRuntime();
+        }
+        return;
+      }
+      if (!_desktopOnline) {
+        return;
+      }
+      final selectedId = widget.controller.selectedDesktopDeviceId;
+      if ((selectedId ?? '').isEmpty && _onlineDesktopDevices.length == 1) {
+        await controller.selectDesktopDeviceRuntime(
+          _onlineDesktopDevices.first['deviceId']?.toString() ?? '',
+        );
+      }
+      final raw = _desktopLaunchController.text.trim();
+      if (raw.isNotEmpty) {
+        await controller.launchDesktopAppRuntime(raw);
+        return;
+      }
+      await controller.observeDesktopRuntime();
       return;
     }
 
@@ -6372,6 +6843,13 @@ class _DevicesPanelState extends State<DevicesPanel> {
       await controller.closeBrowserRuntime();
       return;
     }
+    if (_isDesktop) {
+      final selectedId = widget.controller.selectedDesktopDeviceId;
+      if ((selectedId ?? '').isNotEmpty) {
+        await controller.pauseDesktopDeviceRuntime(selectedId!);
+      }
+      return;
+    }
     if (!_androidOnline) {
       return;
     }
@@ -6385,6 +6863,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
     }
     if (_isBrowser) {
       await widget.controller.typeBrowserTextRuntime(text, pressEnter: true);
+    } else if (_isDesktop) {
+      await widget.controller.typeDesktopRuntime(text, pressEnter: true);
     } else {
       await widget.controller.typeAndroidRuntime(<String, dynamic>{
         'text': text,
@@ -6396,6 +6876,16 @@ class _DevicesPanelState extends State<DevicesPanel> {
   Future<void> _handleTap(Offset point) async {
     if (_isBrowser) {
       await widget.controller.clickBrowserPointRuntime(
+        x: point.dx.round(),
+        y: point.dy.round(),
+      );
+      return;
+    }
+    if (_isDesktop) {
+      if (_desktopRequiresSelection) {
+        return;
+      }
+      await widget.controller.clickDesktopRuntime(
         x: point.dx.round(),
         y: point.dy.round(),
       );
@@ -6415,6 +6905,18 @@ class _DevicesPanelState extends State<DevicesPanel> {
     if (_isBrowser) {
       await widget.controller.scrollBrowserRuntime(
         deltaY: (start.dy - end.dy).round(),
+      );
+      return;
+    }
+    if (_isDesktop) {
+      if (_desktopRequiresSelection) {
+        return;
+      }
+      await widget.controller.dragDesktopRuntime(
+        x1: start.dx.round(),
+        y1: start.dy.round(),
+        x2: end.dx.round(),
+        y2: end.dy.round(),
       );
       return;
     }
@@ -6445,6 +6947,12 @@ class _DevicesPanelState extends State<DevicesPanel> {
       case 'browser_enter':
         await controller.pressBrowserKeyRuntime('Enter');
         break;
+      case 'desktop_enter':
+        await controller.pressDesktopKeyRuntime('Return');
+        break;
+      case 'desktop_escape':
+        await controller.pressDesktopKeyRuntime('Escape');
+        break;
       case 'android_back':
         await controller.pressAndroidKeyRuntime('back');
         break;
@@ -6473,13 +6981,19 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final browserPageInfo = browserStatus['pageInfo'] is Map<dynamic, dynamic>
         ? Map<String, dynamic>.from(browserStatus['pageInfo'] as Map)
         : const <String, dynamic>{};
+    final selectedDesktopDevice = controller.desktopDevices
+        .where(
+          (device) => device['deviceId'] == controller.selectedDesktopDeviceId,
+        )
+        .cast<Map<String, dynamic>?>()
+        .firstWhere((device) => device != null, orElse: () => null);
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
           title: 'Remote Device',
           subtitle:
-              'Tap, swipe, and type directly on the live surface. Use the arrows below to switch between browser and phone.',
+              'Tap, swipe, and type directly on the live surface. Use the arrows below to switch between browser, phone, and desktop.',
           trailing: OutlinedButton.icon(
             onPressed:
                 controller.isRefreshingDevices ||
@@ -6514,20 +7028,99 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       browserPageInfo: browserPageInfo,
                       androidRuntime: controller.androidRuntime,
                       androidOnline: _androidOnline,
+                      desktopRuntime: controller.desktopRuntime,
+                      desktopDevices: controller.desktopDevices,
+                      selectedDesktopDeviceId:
+                          controller.selectedDesktopDeviceId,
                       browserExtensionPreferred: prefersExtension,
                       browserExtensionActive: usingExtension,
                       browserFallbackLabel: browserFallbackLabel,
                     ),
+                    if (_isDesktop) ...<Widget>[
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedDesktopDevice?['deviceId']
+                            ?.toString(),
+                        decoration: const InputDecoration(
+                          labelText: 'Desktop device',
+                          prefixIcon: Icon(Icons.computer_outlined),
+                        ),
+                        hint: const Text('Select a companion desktop'),
+                        items: controller.desktopDevices.map((device) {
+                          final deviceId = device['deviceId']?.toString() ?? '';
+                          final label =
+                              device['label']?.toString().trim().isNotEmpty ==
+                                  true
+                              ? device['label'].toString()
+                              : (device['hostname']?.toString() ?? deviceId);
+                          final os =
+                              device['platform']?.toString() ?? 'desktop';
+                          final state = device['online'] == true
+                              ? (device['paused'] == true ? 'paused' : 'online')
+                              : 'offline';
+                          return DropdownMenuItem<String>(
+                            value: deviceId,
+                            child: Text('$label · $os · $state'),
+                          );
+                        }).toList(),
+                        onChanged: controller.isRunningDeviceAction
+                            ? null
+                            : (value) {
+                                if (value == null || value.isEmpty) {
+                                  return;
+                                }
+                                unawaited(
+                                  controller.selectDesktopDeviceRuntime(value),
+                                );
+                              },
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          _DotStatus(
+                            label: controller.desktopCompanionConnected
+                                ? 'Companion live'
+                                : controller.desktopCompanionConnecting
+                                ? 'Connecting'
+                                : 'Companion idle',
+                            color: controller.desktopCompanionConnected
+                                ? _success
+                                : controller.desktopCompanionConnecting
+                                ? _accent
+                                : _warning,
+                          ),
+                          if (selectedDesktopDevice != null)
+                            _DotStatus(
+                              label: selectedDesktopDevice['paused'] == true
+                                  ? 'Paused'
+                                  : (selectedDesktopDevice['online'] == true
+                                        ? 'Ready'
+                                        : 'Offline'),
+                              color: selectedDesktopDevice['paused'] == true
+                                  ? _warning
+                                  : (selectedDesktopDevice['online'] == true
+                                        ? _success
+                                        : _textMuted),
+                            ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     _DeviceLaunchBar(
                       surface: _surface,
                       controller: _isBrowser
                           ? _browserUrlController
-                          : _androidLaunchController,
+                          : (_isDesktop
+                                ? _desktopLaunchController
+                                : _androidLaunchController),
                       active: _isBrowser
                           ? browserStatus['launched'] == true
-                          : _androidOnline || _androidStarting,
-                      starting: !_isBrowser && _androidStarting,
+                          : (_isDesktop
+                                ? _desktopOnline
+                                : _androidOnline || _androidStarting),
+                      starting: !_isBrowser && !_isDesktop && _androidStarting,
                       busy: controller.isRunningDeviceAction,
                       onSubmit: _openPrimary,
                       onSleep: _sleepPrimary,
@@ -6538,14 +7131,14 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       controller: controller,
                       screenshotPath: _activeScreenshotPath,
                       busy: controller.isRunningDeviceAction,
-                      wakingUp: !_isBrowser && _androidStarting,
-                      enabled: _isBrowser || _androidOnline,
-                      connectRequired: false,
+                      wakingUp: !_isBrowser && !_isDesktop && _androidStarting,
+                      enabled: _isBrowser || _isDesktop || _androidOnline,
+                      connectRequired: _desktopRequiresSelection,
                       onTapPoint: _handleTap,
                       onSwipe: _handleSwipe,
                       onWakeRequested: _openPrimary,
                     ),
-                    if (!_isBrowser) ...<Widget>[
+                    if (!_isBrowser && !_isDesktop) ...<Widget>[
                       const SizedBox(height: 12),
                       _AndroidNavDock(
                         busy: controller.isRunningDeviceAction,
@@ -6573,7 +7166,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       surface: _surface,
                       onSubmit: _sendText,
                     ),
-                    if (_isBrowser) ...<Widget>[
+                    if (_isBrowser || _isDesktop) ...<Widget>[
                       const SizedBox(height: 14),
                       _DeviceQuickActions(
                         surface: _surface,
@@ -6599,18 +7192,27 @@ class _DevicesPanelState extends State<DevicesPanel> {
   }
 }
 
-enum _DeviceSurface { browser, android }
+enum _DeviceSurface { browser, android, desktop }
 
 extension _DeviceSurfaceX on _DeviceSurface {
-  String get label => this == _DeviceSurface.browser ? 'Browser' : 'Phone';
+  String get label => switch (this) {
+    _DeviceSurface.browser => 'Browser',
+    _DeviceSurface.android => 'Phone',
+    _DeviceSurface.desktop => 'Desktop',
+  };
 
-  String get helper => this == _DeviceSurface.browser
-      ? 'Tap to click. Drag to scroll.'
-      : 'Tap to touch. Drag to swipe.';
+  String get helper => switch (this) {
+    _DeviceSurface.browser => 'Tap to click. Drag to scroll.',
+    _DeviceSurface.android => 'Tap to touch. Drag to swipe.',
+    _DeviceSurface.desktop =>
+      'Tap to click. Drag to drag windows or selections.',
+  };
 
-  IconData get icon => this == _DeviceSurface.browser
-      ? Icons.language_outlined
-      : Icons.smartphone_outlined;
+  IconData get icon => switch (this) {
+    _DeviceSurface.browser => Icons.language_outlined,
+    _DeviceSurface.android => Icons.smartphone_outlined,
+    _DeviceSurface.desktop => Icons.computer_outlined,
+  };
 }
 
 class _DeviceSurfaceHeader extends StatelessWidget {
@@ -6620,6 +7222,9 @@ class _DeviceSurfaceHeader extends StatelessWidget {
     required this.browserPageInfo,
     required this.androidRuntime,
     required this.androidOnline,
+    required this.desktopRuntime,
+    required this.desktopDevices,
+    required this.selectedDesktopDeviceId,
     required this.browserExtensionPreferred,
     required this.browserExtensionActive,
     required this.browserFallbackLabel,
@@ -6630,6 +7235,9 @@ class _DeviceSurfaceHeader extends StatelessWidget {
   final Map<String, dynamic> browserPageInfo;
   final Map<String, dynamic> androidRuntime;
   final bool androidOnline;
+  final Map<String, dynamic> desktopRuntime;
+  final List<Map<String, dynamic>> desktopDevices;
+  final String? selectedDesktopDeviceId;
   final bool browserExtensionPreferred;
   final bool browserExtensionActive;
   final String browserFallbackLabel;
@@ -6638,30 +7246,78 @@ class _DeviceSurfaceHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final androidStarting = androidRuntime['starting'] == true;
     final androidVersion = _androidRuntimeVersionLabel(androidRuntime);
-    final title = surface == _DeviceSurface.browser
-        ? (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
-              ? browserPageInfo['title'].toString()
-              : 'Live Browser'
-        : 'Android Phone';
-    final subtitle = surface == _DeviceSurface.browser
+    final selectedDesktop = desktopDevices
+        .where((device) => device['deviceId'] == selectedDesktopDeviceId)
+        .cast<Map<String, dynamic>?>()
+        .firstWhere((device) => device != null, orElse: () => null);
+    final desktopOnlineCount = desktopDevices
+        .where((device) => device['online'] == true)
+        .length;
+    final title = switch (surface) {
+      _DeviceSurface.browser =>
+        (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
+            ? browserPageInfo['title'].toString()
+            : 'Live Browser',
+      _DeviceSurface.android => 'Android Phone',
+      _DeviceSurface.desktop =>
+        selectedDesktop?['label']?.toString().trim().isNotEmpty == true
+            ? selectedDesktop!['label'].toString()
+            : 'Desktop Companion',
+    };
+    final subtitle = switch (surface) {
+      _DeviceSurface.browser =>
+        browserExtensionPreferred && !browserExtensionActive
+            ? 'No extension device is active. Using the $browserFallbackLabel browser fallback.'
+            : (browserPageInfo['url']?.toString() ?? 'Ready for navigation'),
+      _DeviceSurface.android =>
+        androidOnline
+            ? androidVersion == null
+                  ? 'Tap and swipe directly on the preview.'
+                  : '$androidVersion · Tap and swipe directly on the preview.'
+            : androidStarting
+            ? (androidRuntime['startupPhase']?.toString().trim().isNotEmpty ??
+                      false)
+                  ? androidRuntime['startupPhase'].toString()
+                  : 'Starting the phone. This can take a little while.'
+            : (androidRuntime['lastLogLine']?.toString().trim().isNotEmpty ??
+                  false)
+            ? androidRuntime['lastLogLine'].toString()
+            : androidVersion != null
+            ? '$androidVersion selected. Phone is offline.'
+            : 'Phone is offline. Open or start it from below.',
+      _DeviceSurface.desktop =>
+        selectedDesktop == null
+            ? desktopOnlineCount > 1
+                  ? 'Multiple desktop companions are online. Pick the machine you want to control.'
+                  : desktopOnlineCount == 1
+                  ? 'One desktop companion is online. Open the surface to fetch the latest frame.'
+                  : 'No desktop companion is online. Enable Companion Mode on a signed-in desktop app.'
+            : '${selectedDesktop['platform'] ?? 'desktop'} · ${selectedDesktop['hostname'] ?? 'unknown host'}',
+    };
+    final statusLabel = surface == _DeviceSurface.browser
         ? browserExtensionPreferred && !browserExtensionActive
-              ? 'No extension device is active. Using the $browserFallbackLabel browser fallback.'
-              : (browserPageInfo['url']?.toString() ?? 'Ready for navigation')
+              ? 'Fallback'
+              : browserExtensionActive
+              ? 'Extension'
+              : (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
+        : surface == _DeviceSurface.desktop
+        ? selectedDesktop == null
+              ? (desktopOnlineCount > 0 ? 'Select Device' : 'Offline')
+              : (selectedDesktop['paused'] == true
+                    ? 'Paused'
+                    : (selectedDesktop['online'] == true ? 'Live' : 'Offline'))
         : (androidOnline
-              ? androidVersion == null
-                    ? 'Tap and swipe directly on the preview.'
-                    : '$androidVersion · Tap and swipe directly on the preview.'
+              ? 'Live'
               : androidStarting
-              ? (androidRuntime['startupPhase']?.toString().trim().isNotEmpty ??
-                        false)
-                    ? androidRuntime['startupPhase'].toString()
-                    : 'Starting the phone. This can take a little while.'
-              : (androidRuntime['lastLogLine']?.toString().trim().isNotEmpty ??
-                    false)
-              ? androidRuntime['lastLogLine'].toString()
-              : androidVersion != null
-              ? '$androidVersion selected. Phone is offline.'
-              : 'Phone is offline. Open or start it from below.');
+              ? 'Starting'
+              : 'Offline');
+    final statusColor = surface == _DeviceSurface.browser
+        ? (browserStatus['launched'] == true ? _success : _warning)
+        : surface == _DeviceSurface.desktop
+        ? (selectedDesktop?['paused'] == true
+              ? _warning
+              : (selectedDesktop?['online'] == true ? _success : _warning))
+        : (androidOnline ? _success : (androidStarting ? _accent : _warning));
 
     return Row(
       children: <Widget>[
@@ -6696,27 +7352,7 @@ class _DeviceSurfaceHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        _DotStatus(
-          label: surface == _DeviceSurface.browser
-              ? browserExtensionPreferred && !browserExtensionActive
-                    ? 'Fallback'
-                    : browserExtensionActive
-                    ? 'Extension'
-                    : (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
-              : (androidOnline
-                    ? 'Live'
-                    : androidStarting
-                    ? 'Starting'
-                    : 'Offline'),
-          color:
-              (surface == _DeviceSurface.browser
-                  ? browserStatus['launched'] == true
-                  : androidOnline)
-              ? _success
-              : (surface == _DeviceSurface.android && androidStarting)
-              ? _accent
-              : _warning,
-        ),
+        _DotStatus(label: statusLabel, color: statusColor),
       ],
     );
   }
@@ -6743,17 +7379,22 @@ class _DeviceLaunchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hint = surface == _DeviceSurface.browser
-        ? _browserUrlPlaceholder
-        : _packageOrUrlHint;
-    final buttonLabel = surface == _DeviceSurface.browser
-        ? 'Open'
-        : starting
-        ? 'Starting...'
-        : 'Launch';
-    final sleepLabel = surface == _DeviceSurface.browser
-        ? 'Sleep Browser'
-        : 'Sleep Phone';
+    final hint = switch (surface) {
+      _DeviceSurface.browser => _browserUrlPlaceholder,
+      _DeviceSurface.android => _packageOrUrlHint,
+      _DeviceSurface.desktop =>
+        'Launch an app on the selected desktop (optional)',
+    };
+    final buttonLabel = switch (surface) {
+      _DeviceSurface.browser => 'Open',
+      _DeviceSurface.android => starting ? 'Starting...' : 'Launch',
+      _DeviceSurface.desktop => 'Refresh',
+    };
+    final sleepLabel = switch (surface) {
+      _DeviceSurface.browser => 'Sleep Browser',
+      _DeviceSurface.android => 'Sleep Phone',
+      _DeviceSurface.desktop => 'Pause Desktop',
+    };
     final narrow = MediaQuery.sizeOf(context).width < 720;
 
     final input = TextField(
@@ -6764,6 +7405,8 @@ class _DeviceLaunchBar extends StatelessWidget {
         prefixIcon: Icon(
           surface == _DeviceSurface.browser
               ? Icons.travel_explore
+              : surface == _DeviceSurface.desktop
+              ? Icons.apps_outlined
               : Icons.open_in_new,
         ),
       ),
@@ -6774,6 +7417,8 @@ class _DeviceLaunchBar extends StatelessWidget {
       icon: Icon(
         surface == _DeviceSurface.browser
             ? Icons.arrow_forward
+            : surface == _DeviceSurface.desktop
+            ? Icons.desktop_windows_outlined
             : Icons.play_arrow,
       ),
       label: Text(buttonLabel),
@@ -6827,9 +7472,11 @@ class _DeviceTypeDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hint = surface == _DeviceSurface.browser
-        ? 'Type into the currently focused field'
-        : 'Type into the current phone field';
+    final hint = switch (surface) {
+      _DeviceSurface.browser => 'Type into the currently focused field',
+      _DeviceSurface.android => 'Type into the current phone field',
+      _DeviceSurface.desktop => 'Type into the focused desktop field',
+    };
     final narrow = MediaQuery.sizeOf(context).width < 720;
 
     final input = TextField(
@@ -6882,14 +7529,27 @@ class _DeviceQuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions = const <MapEntry<String, IconData>>[
-      MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
-      MapEntry<String, IconData>('browser_refresh', Icons.replay_rounded),
-      MapEntry<String, IconData>(
-        'browser_enter',
-        Icons.keyboard_return_rounded,
-      ),
-    ];
+    final actions = switch (surface) {
+      _DeviceSurface.browser => const <MapEntry<String, IconData>>[
+        MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
+        MapEntry<String, IconData>('browser_refresh', Icons.replay_rounded),
+        MapEntry<String, IconData>(
+          'browser_enter',
+          Icons.keyboard_return_rounded,
+        ),
+      ],
+      _DeviceSurface.desktop => const <MapEntry<String, IconData>>[
+        MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
+        MapEntry<String, IconData>(
+          'desktop_enter',
+          Icons.keyboard_return_rounded,
+        ),
+        MapEntry<String, IconData>('desktop_escape', Icons.close_fullscreen),
+      ],
+      _DeviceSurface.android => const <MapEntry<String, IconData>>[
+        MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
+      ],
+    };
 
     return Wrap(
       spacing: 10,
@@ -6899,6 +7559,8 @@ class _DeviceQuickActions extends StatelessWidget {
             busy ||
             (surface != _DeviceSurface.browser &&
                 entry.key.startsWith('browser_')) ||
+            (surface != _DeviceSurface.desktop &&
+                entry.key.startsWith('desktop_')) ||
             (!androidOnline && entry.key.startsWith('android_'));
         return InkWell(
           onTap: disabled ? null : () => onAction(entry.key),
@@ -7167,9 +7829,11 @@ class _InteractiveSurfacePreviewState
   Widget build(BuildContext context) {
     final path = widget.screenshotPath;
     final hasImage = path != null && path.isNotEmpty;
-    final aspectRatio = widget.surface == _DeviceSurface.browser
-        ? 16 / 10
-        : 10 / 16;
+    final aspectRatio = switch (widget.surface) {
+      _DeviceSurface.browser => 16 / 10,
+      _DeviceSurface.android => 10 / 16,
+      _DeviceSurface.desktop => 16 / 10,
+    };
 
     return Container(
       decoration: BoxDecoration(
@@ -7186,7 +7850,7 @@ class _InteractiveSurfacePreviewState
         children: <Widget>[
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: widget.surface == _DeviceSurface.browser ? 560 : 640,
+              maxHeight: widget.surface == _DeviceSurface.android ? 640 : 560,
             ),
             child: AspectRatio(
               aspectRatio: aspectRatio,
@@ -7330,18 +7994,29 @@ class _EmptySurfaceState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = surface == _DeviceSurface.browser
-        ? connectRequired
-              ? 'Open Settings'
-              : (busy ? 'Opening Browser...' : 'Wake Browser')
-        : busy
-        ? 'Starting Phone...'
-        : (enabled ? 'Refresh Phone' : 'Start Phone');
+    final label = switch (surface) {
+      _DeviceSurface.browser =>
+        connectRequired
+            ? 'Open Settings'
+            : (busy ? 'Opening Browser...' : 'Wake Browser'),
+      _DeviceSurface.android =>
+        busy
+            ? 'Starting Phone...'
+            : (enabled ? 'Refresh Phone' : 'Start Phone'),
+      _DeviceSurface.desktop =>
+        connectRequired
+            ? 'Select Desktop'
+            : (busy ? 'Refreshing Desktop...' : 'Refresh Desktop'),
+    };
     final message = switch ((surface, busy, isLoadingPreview)) {
       (_DeviceSurface.browser, true, _) =>
         'Opening the browser and downloading the first preview...',
       (_DeviceSurface.browser, false, true) =>
         'Downloading the latest browser preview...',
+      (_DeviceSurface.desktop, true, _) =>
+        'Refreshing the selected desktop companion...',
+      (_DeviceSurface.desktop, false, true) =>
+        'Downloading the latest desktop preview...',
       (_DeviceSurface.android, true, _) =>
         'Waking the phone and downloading the first preview. This can take a little while.',
       (_DeviceSurface.android, false, true) =>
@@ -7351,6 +8026,12 @@ class _EmptySurfaceState extends StatelessWidget {
             ? connectRequired
                   ? 'Chrome extension is not connected. Use Settings to download, load, and pair the extension on the remote machine.'
                   : 'Browser is sleeping. Press Open to start it.'
+            : surface == _DeviceSurface.desktop
+            ? connectRequired
+                  ? 'Multiple desktop companions are online. Select a machine before sending clicks or keystrokes.'
+                  : (errorMessage != null && errorMessage!.trim().isNotEmpty)
+                  ? errorMessage!
+                  : 'No desktop frame is loaded yet. Refresh the selected machine to capture a frame.'
             : (errorMessage != null && errorMessage!.trim().isNotEmpty)
             ? errorMessage!
             : 'Phone is offline. Press Start Phone to boot it.',
@@ -13091,7 +13772,186 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ? controller.setDesktopAssistantHotkeyEnabled
                         : null,
                   ),
-                  const SizedBox(height: 8),
+                  const Divider(height: 28),
+                  SwitchListTile.adaptive(
+                    value: controller.desktopCompanionEnabled,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Enable Companion Mode on this computer'),
+                    subtitle: Text(
+                      'Expose this signed-in desktop app as a controllable companion device without a separate pairing flow.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                    onChanged: controller.setDesktopCompanionEnabled,
+                  ),
+                  SwitchListTile.adaptive(
+                    value: controller.desktopCompanionPaused,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Pause Companion Mode'),
+                    subtitle: Text(
+                      'Keep the device registered but reject remote control commands locally until resumed.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                    onChanged: controller.desktopCompanionEnabled
+                        ? controller.setDesktopCompanionPaused
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    initialValue: controller.desktopCompanionLabel,
+                    enabled: controller.desktopCompanionEnabled,
+                    decoration: const InputDecoration(
+                      labelText: 'Companion device label',
+                      hintText: 'My workstation',
+                      prefixIcon: Icon(Icons.edit_outlined),
+                    ),
+                    onFieldSubmitted: controller.setDesktopCompanionLabel,
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      _DotStatus(
+                        label: controller.desktopCompanionConnected
+                            ? 'Connected'
+                            : controller.desktopCompanionConnecting
+                            ? 'Connecting'
+                            : 'Disconnected',
+                        color: controller.desktopCompanionConnected
+                            ? _success
+                            : controller.desktopCompanionConnecting
+                            ? _accent
+                            : _warning,
+                      ),
+                      _DotStatus(
+                        label: controller.desktopCompanionPaused
+                            ? 'Paused'
+                            : 'Ready',
+                        color: controller.desktopCompanionPaused
+                            ? _warning
+                            : _success,
+                      ),
+                    ],
+                  ),
+                  if (controller.desktopCompanionErrorMessage !=
+                      null) ...<Widget>[
+                    const SizedBox(height: 12),
+                    _InlineError(
+                      message: controller.desktopCompanionErrorMessage!,
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Builder(
+                    builder: (context) {
+                      final status = controller.desktopCompanionStatus;
+                      final permissionsRaw = status['permissions'];
+                      final permissions = permissionsRaw is Map
+                          ? permissionsRaw.map(
+                              (key, value) => MapEntry(
+                                key.toString(),
+                                value?.toString() ?? 'unknown',
+                              ),
+                            )
+                          : const <String, String>{};
+                      final screenCaptureState =
+                          permissions['screenCapture'] ?? 'unknown';
+                      final inputControlState =
+                          permissions['inputControl'] ?? 'unknown';
+                      final accessibilityState =
+                          permissions['accessibility'] ?? 'unknown';
+                      final grantHelp = switch (defaultTargetPlatform) {
+                        TargetPlatform.macOS =>
+                          'Grant Screen Recording and Accessibility in System Settings, then press Re-check.',
+                        TargetPlatform.windows =>
+                          'Grant capture and accessibility/input permissions in Windows Settings, then press Re-check.',
+                        TargetPlatform.linux =>
+                          'Approve portal capture/input prompts and desktop accessibility access, then press Re-check.',
+                        TargetPlatform.android ||
+                        TargetPlatform.iOS ||
+                        TargetPlatform.fuchsia =>
+                          'Desktop companion permission controls are unavailable on this platform.',
+                      };
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Companion permissions',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: _textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            grantHelp,
+                            style: TextStyle(color: _textSecondary, height: 1.4),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: <Widget>[
+                              _CompanionPermissionBadge(
+                                label: 'Screen capture',
+                                state: screenCaptureState,
+                              ),
+                              _CompanionPermissionBadge(
+                                label: 'Input control',
+                                state: inputControlState,
+                              ),
+                              _CompanionPermissionBadge(
+                                label: 'Accessibility',
+                                state: accessibilityState,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: <Widget>[
+                              OutlinedButton.icon(
+                                onPressed: controller.desktopCompanionEnabled
+                                    ? controller
+                                          .refreshDesktopCompanionStatus
+                                    : null,
+                                icon: Icon(Icons.sync_outlined),
+                                label: Text('Re-check permissions'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: controller.desktopCompanionEnabled
+                                    ? () => controller
+                                          .openDesktopCompanionPermissionSettings(
+                                            'screenCapture',
+                                          )
+                                    : null,
+                                icon: Icon(Icons.monitor_outlined),
+                                label: Text('Open capture settings'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: controller.desktopCompanionEnabled
+                                    ? () => controller
+                                          .openDesktopCompanionPermissionSettings(
+                                            'accessibility',
+                                          )
+                                    : null,
+                                icon: Icon(Icons.keyboard_command_key_outlined),
+                                label: Text('Open input/access settings'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: controller.desktopCompanionEnabled
+                                    ? controller.rotateDesktopCompanionIdentity
+                                    : null,
+                                icon: Icon(Icons.refresh_outlined),
+                                label: Text('Reset Device Identity'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
