@@ -45,17 +45,50 @@ function migrateLegacyRuntime(logger = () => {}) {
   ensureRuntimeDirs();
   let changed = false;
 
+  const log = (message) => {
+    if (typeof logger === 'function') {
+      logger(message);
+      return;
+    }
+    if (logger && typeof logger.info === 'function') {
+      logger.info(message);
+    }
+  };
+
+  const logError = (message) => {
+    if (logger && typeof logger.error === 'function') {
+      logger.error(message);
+      return;
+    }
+    if (typeof logger === 'function') {
+      logger(`error: ${message}`);
+      return;
+    }
+    try { console.error(message); } catch {}
+  };
+
   if (copyFileIfMissing(LEGACY_ENV_FILE, ENV_FILE)) {
-    try { fs.chmodSync(ENV_FILE, 0o600); } catch {}
-    logger(`migrated ${LEGACY_ENV_FILE} -> ${ENV_FILE}`);
+    try {
+      fs.chmodSync(ENV_FILE, 0o600);
+    } catch (error) {
+      try {
+        fs.rmSync(ENV_FILE, { force: true });
+      } catch {}
+      logError(
+        `failed to migrate ${LEGACY_ENV_FILE} -> ${ENV_FILE}: chmod(0600) failed (${error.message}). ` +
+        `Migration was reverted. Note: chmod behavior can differ on Windows filesystems.`
+      );
+      return changed;
+    }
+    log(`migrated ${LEGACY_ENV_FILE} -> ${ENV_FILE}`);
     changed = true;
   }
   if (copyDirMerge(LEGACY_DATA_DIR, DATA_DIR)) {
-    logger(`migrated ${LEGACY_DATA_DIR} -> ${DATA_DIR}`);
+    log(`migrated ${LEGACY_DATA_DIR} -> ${DATA_DIR}`);
     changed = true;
   }
   if (copyDirMerge(LEGACY_AGENT_DATA_DIR, AGENT_DATA_DIR)) {
-    logger(`migrated ${LEGACY_AGENT_DATA_DIR} -> ${AGENT_DATA_DIR}`);
+    log(`migrated ${LEGACY_AGENT_DATA_DIR} -> ${AGENT_DATA_DIR}`);
     changed = true;
   }
 

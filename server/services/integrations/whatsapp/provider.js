@@ -106,7 +106,12 @@ function safeJsonParse(value, fallback = {}) {
 }
 
 function ensureDir(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
+  fs.mkdirSync(dirPath, { recursive: true, mode: 0o700 });
+  try {
+    fs.chmodSync(dirPath, 0o700);
+  } catch (error) {
+    console.warn(`[WhatsApp] Failed to enforce secure directory permissions for ${dirPath}: ${error?.message || error}`);
+  }
 }
 
 function createSilentLogger() {
@@ -212,7 +217,46 @@ class WhatsAppPersonalProvider {
       'Link your personal WhatsApp account here to give the AI private read tools, send tools, or both. This connection is isolated from the separate messaging-platform WhatsApp bridge.';
     this.sessions = new Map();
     this.clients = new Map();
+    this.reconnectTimers = new Map();
     this.io = options.io || null;
+  }
+
+  _clearReconnectTimer(connectionId) {
+    const timer = this.reconnectTimers.get(connectionId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(connectionId);
+    }
+  }
+
+  _scheduleReconnect(client, attempt = 1) {
+    if (!client?.connectionId || client.manualDisconnect) {
+      return;
+    }
+    this._clearReconnectTimer(client.connectionId);
+    const delayMs = Math.min(30000, 1000 * Math.pow(2, Math.max(0, attempt - 1)));
+    const timer = setTimeout(async () => {
+      this.reconnectTimers.delete(client.connectionId);
+      const current = this.clients.get(client.connectionId);
+      if (!current || current.manualDisconnect) {
+        return;
+      }
+      if (current.connectPromise) {
+        return;
+      }
+      try {
+        current.connectPromise = this._connectClient(current);
+        await current.connectPromise;
+      } catch (error) {
+        console.warn(`[WhatsApp] Reconnect attempt ${attempt} failed for connection ${current.connectionId}: ${error?.message || error}`);
+        this._scheduleReconnect(current, attempt + 1);
+      } finally {
+        if (this.clients.get(current.connectionId) === current) {
+          current.connectPromise = null;
+        }
+      }
+    }, delayMs);
+    this.reconnectTimers.set(client.connectionId, timer);
   }
 
   getApp(appId) {
@@ -430,14 +474,21 @@ class WhatsAppPersonalProvider {
     const authDir = String(credentials.authDir || '').trim();
     const client = this.clients.get(connection.id);
     if (client?.socket) {
+      client.manualDisconnect = true;
+      this._clearReconnectTimer(client.connectionId);
       try {
         await client.socket.logout();
-      } catch {}
+      } catch (error) {
+        console.warn(`[WhatsApp] Logout failed during disconnect (connection ${connection?.id || 'unknown'}): ${error?.message || error}`);
+      }
       try {
         client.socket.end(new Error('manual_disconnect'));
-      } catch {}
+      } catch (error) {
+        console.warn(`[WhatsApp] Socket close failed during disconnect (connection ${connection?.id || 'unknown'}): ${error?.message || error}`);
+      }
     }
     this.clients.delete(connection.id);
+    this._clearReconnectTimer(connection.id);
     if (authDir) {
       fs.rmSync(authDir, { recursive: true, force: true });
     }
@@ -805,7 +856,14 @@ class WhatsAppPersonalProvider {
     };
     client.connectPromise = this._connectClient(client);
     this.clients.set(connection.id, client);
-    await client.connectPromise;
+    try {
+      await client.connectPromise;
+    } finally {
+      const current = this.clients.get(connection.id);
+      if (current) {
+        current.connectPromise = null;
+      }
+    }
     const ready = this.clients.get(connection.id);
     if (!ready?.socket || ready.status !== 'connected') {
       throw new Error('WhatsApp personal account is not connected.');
@@ -815,12 +873,14 @@ class WhatsAppPersonalProvider {
 
   async _connectClient(client) {
     ensureDir(client.authDir);
+    client.manualDisconnect = false;
     const {
       default: makeWASocket,
       useMultiFileAuthState,
       makeCacheableSignalKeyStore,
       fetchLatestBaileysVersion,
       Browsers,
+      DisconnectReason,
     } = require('baileys');
 
     const { version } = await fetchLatestBaileysVersion();
@@ -853,11 +913,19 @@ class WhatsAppPersonalProvider {
           clearTimeout(timeout);
           client.status = 'connected';
           client.accountEmail = normalizeWhatsAppId(sock.user?.id) || client.accountEmail;
+          this._clearReconnectTimer(client.connectionId);
           resolve();
         } else if (update.connection === 'close') {
           clearTimeout(timeout);
           client.status = 'disconnected';
-          reject(new Error('WhatsApp personal account is disconnected.'));
+          const statusCode = update?.lastDisconnect?.error?.output?.statusCode;
+          const loggedOut = statusCode === DisconnectReason.loggedOut;
+          if (loggedOut || client.manualDisconnect) {
+            reject(new Error('WhatsApp personal account is disconnected.'));
+            return;
+          }
+          this._scheduleReconnect(client, 1);
+          reject(new Error('WhatsApp personal account disconnected. Reconnect scheduled.'));
         }
       });
     });

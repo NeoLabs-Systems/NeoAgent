@@ -24,6 +24,7 @@ const STATUS_LABELS = {
 };
 
 let currentState = {};
+let pendingActions = 0;
 
 function send(type, payload = {}) {
   return chrome.runtime.sendMessage({ type, ...payload }).then((response) => {
@@ -47,6 +48,40 @@ function setMessage(text, tone = '') {
     messageEl.dataset.tone = tone;
   } else {
     delete messageEl.dataset.tone;
+  }
+}
+
+function setBusy(isBusy, label = 'Working...') {
+  if (isBusy) {
+    pendingActions += 1;
+  } else {
+    pendingActions = Math.max(0, pendingActions - 1);
+  }
+  const busy = pendingActions > 0;
+
+  [primaryActionEl, secondaryActionEl, openAppEl, disconnectEl, checkUpdateEl, downloadEl].forEach((button) => {
+    if (!button || button.hidden) return;
+    if (busy) {
+      if (!Object.prototype.hasOwnProperty.call(button.dataset, 'wasDisabled')) {
+        button.dataset.wasDisabled = button.disabled ? 'true' : 'false';
+      }
+      button.disabled = true;
+    } else if (button.dataset.wasDisabled) {
+      button.disabled = button.dataset.wasDisabled === 'true';
+      delete button.dataset.wasDisabled;
+    }
+  });
+
+  if (busy) {
+    document.body.dataset.busy = 'true';
+    if (!messageEl.textContent) {
+      setMessage(label, 'success');
+    }
+  } else {
+    delete document.body.dataset.busy;
+    if (messageEl.dataset.tone === 'success' && messageEl.textContent === label) {
+      setMessage('');
+    }
   }
 }
 
@@ -193,9 +228,13 @@ function bindAsyncClick(element, handler) {
   element.addEventListener('click', async () => {
     try {
       setMessage('');
+      setBusy(true);
       await handler();
     } catch (error) {
       setMessage(error.message, 'error');
+    } finally {
+      setBusy(false);
+      updateFlow();
     }
   });
 }

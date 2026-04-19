@@ -37,9 +37,9 @@ function jsString(value) {
 
 function buildIsolatedEvaluationExpression(script) {
   const source = String(script ?? 'undefined');
-  // Match the host browser controller: keep each arbitrary snippet inside its
-  // own scope so repeated browser_evaluate calls cannot collide on const/let.
-  return `(() => eval(${JSON.stringify(source)}))()`;
+  // Keep each snippet inside its own function scope so repeated browser_evaluate
+  // calls cannot collide on const/let declarations.
+  return `(() => {\nreturn (${source});\n})()`;
 }
 
 function keyCodeFor(key) {

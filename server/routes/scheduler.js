@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const cron = require('node-cron');
 
 router.use(requireAuth);
 
@@ -20,6 +21,9 @@ router.post('/', (req, res) => {
     if (!name || !cronExpression || !prompt) {
       return res.status(400).json({ error: 'name, cronExpression, and prompt required' });
     }
+    if (!cron.validate(String(cronExpression))) {
+      return res.status(400).json({ error: 'Invalid cron expression' });
+    }
 
     const scheduler = req.app.locals.scheduler;
     const task = scheduler.createTask(req.session.userId, { name, cronExpression, prompt, enabled, model, agentId });
@@ -32,8 +36,15 @@ router.post('/', (req, res) => {
 // Update a scheduled task
 router.put('/:id', (req, res) => {
   try {
+    const taskId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(taskId) || taskId <= 0) {
+      return res.status(400).json({ error: 'Invalid task id' });
+    }
+    if (req.body?.cronExpression !== undefined && !cron.validate(String(req.body.cronExpression))) {
+      return res.status(400).json({ error: 'Invalid cron expression' });
+    }
     const scheduler = req.app.locals.scheduler;
-    const task = scheduler.updateTask(parseInt(req.params.id), req.session.userId, req.body);
+    const task = scheduler.updateTask(taskId, req.session.userId, req.body);
     res.json(task);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
@@ -43,8 +54,12 @@ router.put('/:id', (req, res) => {
 // Delete a scheduled task
 router.delete('/:id', (req, res) => {
   try {
+    const taskId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(taskId) || taskId <= 0) {
+      return res.status(400).json({ error: 'Invalid task id' });
+    }
     const scheduler = req.app.locals.scheduler;
-    scheduler.deleteTask(parseInt(req.params.id), req.session.userId);
+    scheduler.deleteTask(taskId, req.session.userId);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
@@ -54,8 +69,12 @@ router.delete('/:id', (req, res) => {
 // Run a task immediately
 router.post('/:id/run', (req, res) => {
   try {
+    const taskId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(taskId) || taskId <= 0) {
+      return res.status(400).json({ error: 'Invalid task id' });
+    }
     const scheduler = req.app.locals.scheduler;
-    const result = scheduler.runTaskNow(parseInt(req.params.id), req.session.userId);
+    const result = scheduler.runTaskNow(taskId, req.session.userId);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });

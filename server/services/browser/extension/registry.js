@@ -47,7 +47,7 @@ class BrowserExtensionRegistry {
 
   createPairingRequest(options = {}) {
     const pairingId = crypto.randomUUID();
-    const pairingSecret = randomSecret(32);
+    const pairingSecret = randomSecret(48);
     const expiresAt = isoDate(this.pairingTtlMs);
     this.db.prepare(
       `INSERT INTO browser_extension_pairing_requests (

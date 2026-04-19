@@ -135,6 +135,10 @@ async function slackApi(credentials, methodName, { httpMethod = 'POST', query, b
   if (!/^[a-zA-Z0-9_.]+$/.test(normalizedMethod)) {
     throw new Error('method_name must be a Slack Web API method name.');
   }
+  const normalizedHttpMethod = String(httpMethod || 'POST').toUpperCase();
+  if (!['GET', 'POST'].includes(normalizedHttpMethod)) {
+    throw new Error('http_method must be GET or POST.');
+  }
   const url = new URL(`https://slack.com/api/${normalizedMethod}`);
   for (const [key, value] of Object.entries(query || {})) {
     if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
@@ -142,7 +146,7 @@ async function slackApi(credentials, methodName, { httpMethod = 'POST', query, b
   return fetchJson(
     url.toString(),
     {
-      method: String(httpMethod || 'POST').toUpperCase(),
+      method: normalizedHttpMethod,
       headers: { Authorization: `Bearer ${credentials.access_token}` },
       ...(body === undefined ? {} : { json: body }),
     },
@@ -200,6 +204,9 @@ async function executeSlackTool(toolName, args, { credentials }) {
         }),
       };
     case 'slack_api_request':
+      if (process.env.NEOAGENT_ENABLE_SLACK_DYNAMIC_API_REQUEST !== 'true') {
+        throw new Error('slack_api_request is disabled by default. Set NEOAGENT_ENABLE_SLACK_DYNAMIC_API_REQUEST=true to enable it.');
+      }
       return {
         result: await slackApi(credentials, requireText(args.method_name, 'method_name'), {
           httpMethod: args.http_method || 'POST',

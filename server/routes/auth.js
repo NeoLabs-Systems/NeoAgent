@@ -33,6 +33,14 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  message: { error: 'Too many password reset attempts, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 function getAuthProviderManager(req) {
   return req.app?.locals?.authProviderManager;
 }
@@ -98,20 +106,8 @@ function readAuthenticatedUser(req) {
 }
 
 function sendEmailConfirmationPage(res, { ok, title, message }) {
-  const safeTitle = String(title || '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }[ch]));
-  const safeMessage = String(message || '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }[ch]));
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
   const accent = ok ? '#0f766e' : '#b45309';
   res.status(ok ? 200 : 400).send(`<!doctype html>
 <html>
@@ -216,11 +212,18 @@ function updateLastLogin(userId) {
 }
 
 router.get('/api/auth/status', (req, res) => {
+  const currentUser = readAuthenticatedUser(req);
+  if (!currentUser) {
+    return res.json({
+      authenticated: false,
+      user: null,
+    });
+  }
+
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get();
   const policy = getDeploymentPolicy();
   const emailConfig = getEmailConfig();
   const authProviderManager = getAuthProviderManager(req);
-  const currentUser = readAuthenticatedUser(req);
   res.json({
     hasUser: count.count > 0,
     registrationOpen: policy.registrationOpen || count.count === 0,
@@ -511,9 +514,20 @@ router.get('/api/auth/email/confirm', async (req, res) => {
 
 router.post('/api/auth/password/forgot', authLimiter, async (req, res) => {
   const message = 'If that account has a confirmed email, NeoAgent will send a password reset link.';
+  const startedAt = Date.now();
+  const minimumLatencyMs = 350;
+
+  async function finish() {
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < minimumLatencyMs) {
+      await new Promise((resolve) => setTimeout(resolve, minimumLatencyMs - elapsed));
+    }
+    return res.json({ success: true, message });
+  }
+
   try {
     if (!isServiceEmailConfigured()) {
-      return res.status(404).json({ error: 'Password reset email is not configured' });
+      return finish();
     }
     const account = String(req.body?.account || '').trim().toLowerCase();
     if (account) {
@@ -529,10 +543,10 @@ router.post('/api/auth/password/forgot', authLimiter, async (req, res) => {
         await sendPasswordResetEmail(user, token);
       }
     }
-    return res.json({ success: true, message });
+    return finish();
   } catch (err) {
     console.error('Forgot password error:', err);
-    return res.json({ success: true, message });
+    return finish();
   }
 });
 
@@ -547,7 +561,7 @@ router.get('/api/auth/password/reset', (req, res) => {
   return sendPasswordResetPage(res, { token });
 });
 
-router.post('/api/auth/password/reset', authLimiter, async (req, res) => {
+router.post('/api/auth/password/reset', passwordResetLimiter, async (req, res) => {
   const token = String(req.body?.token || '').trim();
   const password = String(req.body?.password || '');
   const confirmPassword = String(req.body?.confirmPassword || '');

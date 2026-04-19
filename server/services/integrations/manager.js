@@ -11,6 +11,8 @@ const {
   withConnectionAccessMode,
 } = require('./access');
 
+const OAUTH_STATE_PATTERN = /^[a-f0-9]{32,128}$/i;
+
 class IntegrationManager {
   constructor(options = {}) {
     this.app = options.app || null;
@@ -185,12 +187,20 @@ class IntegrationManager {
 
   async finishOAuth(state, code) {
     this.cleanupExpiredOauthStates();
+    const normalizedState = String(state || '').trim();
+    if (!OAUTH_STATE_PATTERN.test(normalizedState)) {
+      throw new Error('OAuth state is invalid or malformed.');
+    }
+    const normalizedCode = String(code || '').trim();
+    if (!normalizedCode) {
+      throw new Error('OAuth authorization code is required.');
+    }
     const stateRow = db
       .prepare(
         `SELECT * FROM integration_oauth_states
          WHERE state = ? AND datetime(expires_at) > datetime('now')`,
       )
-      .get(state);
+      .get(normalizedState);
     if (!stateRow) {
       throw new Error('OAuth state is missing or expired.');
     }
@@ -203,7 +213,7 @@ class IntegrationManager {
     const result = await provider.finishOAuth({
       userId: stateRow.user_id,
       state: stateRow.state,
-      code,
+      code: normalizedCode,
       codeVerifier: decryptValue(stateRow.code_verifier),
       appKey: stateRow.app_key,
     });

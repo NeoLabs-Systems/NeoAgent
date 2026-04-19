@@ -29,6 +29,7 @@ const {
   readUpdateStatus,
   writeUpdateStatusFile: writeStatus,
 } = require('../server/utils/update_status');
+const { createGitHelpers } = require('../runtime/git_helpers');
 
 const MAX_LOG_LINES = 220;
 const FLUTTER_APP_DIR = path.join(APP_DIR, 'flutter_app');
@@ -104,28 +105,12 @@ function parseJsonObject(value) {
   }
 }
 
-function latestGitTagVersion(pattern) {
-  const res = run('git', ['tag', '--list', pattern, '--sort=-v:refname']);
-  if (res.status !== 0) return null;
-  const tag = (res.stdout || '')
-    .split('\n')
-    .map((value) => value.trim())
-    .find(Boolean);
-  return tag ? tag.replace(/^v/, '') : null;
-}
-
-function gitWorkingTreeDirty() {
-  const res = run('git', ['status', '--porcelain']);
-  return res.status === 0 && Boolean((res.stdout || '').trim());
-}
-
-function gitLocalBranchExists(branch) {
-  return run('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]).status === 0;
-}
-
-function gitRemoteBranchExists(branch) {
-  return run('git', ['ls-remote', '--exit-code', '--heads', 'origin', branch]).status === 0;
-}
+const {
+  latestGitTagVersion,
+  gitWorkingTreeDirty,
+  gitLocalBranchExists,
+  gitRemoteBranchExists,
+} = createGitHelpers((cmd, args) => run(cmd, args));
 
 function resolvePreferredGitBranch(channel) {
   if (channel === 'stable') {

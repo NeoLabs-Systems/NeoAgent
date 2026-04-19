@@ -5,6 +5,9 @@ const { sanitizeError } = require('../utils/security');
 const { resolvePublicBaseUrl } = require('../services/integrations/env');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
+const INTEGRATION_STATE_RE = /^[a-f0-9]{48}$/;
+const AUTH_PROVIDER_STATE_RE = /^auth_[a-f0-9]{48}$/;
+
 function getIntegrationManager(req) {
   return req.app?.locals?.integrationManager;
 }
@@ -38,6 +41,15 @@ router.get('/oauth/callback', async (req, res) => {
   const isAuthProviderState = state.startsWith('auth_');
 
   if (!state) return res.status(400).send('Missing state parameter');
+  if (isAuthProviderState && !AUTH_PROVIDER_STATE_RE.test(state)) {
+    return res.status(400).send('Invalid OAuth state parameter');
+  }
+  if (!isAuthProviderState && !INTEGRATION_STATE_RE.test(state)) {
+    return res.status(400).send('Invalid OAuth state parameter');
+  }
+  if (!error && !code) {
+    return res.status(400).send('Missing code parameter');
+  }
   if (error) {
     if (isAuthProviderState) {
       getAuthProviderManager(req)?.failAuthorization(state, error);

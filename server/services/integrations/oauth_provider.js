@@ -3,6 +3,9 @@
 const { decryptValue } = require('./secrets');
 const { getConnectionAccessMode } = require('./access');
 
+const DEFAULT_OAUTH_HTTP_TIMEOUT_MS = 15000;
+const OAUTH_STATE_PATTERN = /^[a-f0-9]{32,128}$/i;
+
 function escapeScope(scopes) {
   return Array.from(new Set((scopes || []).filter(Boolean))).join(' ');
 }
@@ -39,11 +42,29 @@ async function fetchJson(url, options = {}, context = {}) {
     ).toString();
   }
 
-  const response = await fetch(url, {
-    method: options.method || 'GET',
-    headers,
-    body,
-  });
+  const controller = new AbortController();
+  const timeoutMs = Number(options.timeoutMs) > 0
+    ? Number(options.timeoutMs)
+    : DEFAULT_OAUTH_HTTP_TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: options.method || 'GET',
+      headers,
+      body,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const label = String(context.serviceName || 'OAuth provider').trim() || 'OAuth provider';
+      throw new Error(`${label} request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 
   const text = await response.text();
   let data = null;
@@ -207,6 +228,14 @@ function createOAuthProvider(options = {}) {
     return appById.get(String(appId || '').trim()) || null;
   }
 
+  function assertValidOAuthState(state) {
+    const normalized = String(state || '').trim();
+    if (!OAUTH_STATE_PATTERN.test(normalized)) {
+      throw new Error('Invalid OAuth state format. Please restart the connection flow.');
+    }
+    return normalized;
+  }
+
   const provider = {
     key: options.key,
     label: options.label,
@@ -289,12 +318,13 @@ function createOAuthProvider(options = {}) {
       if (!app) {
         throw new Error(`Unknown ${this.label} app: ${appKey}`);
       }
+      const normalizedState = assertValidOAuthState(state);
       const env = this.getEnvStatus();
       if (!env.configured) {
         throw new Error(env.summary);
       }
       return options.beginOAuth({
-        state,
+        state: normalizedState,
         codeVerifier,
         userId,
         app,
@@ -306,11 +336,12 @@ function createOAuthProvider(options = {}) {
       if (!app) {
         throw new Error(`Unknown ${this.label} app: ${appKey}`);
       }
+      const normalizedState = assertValidOAuthState(state);
       return options.finishOAuth({
         code,
         codeVerifier,
         userId,
-        state,
+        state: normalizedState,
         app,
         env: this.getEnvStatus(),
       });

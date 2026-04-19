@@ -19,12 +19,20 @@
 
 body {
   margin: 0;
-  width: min(380px, 100vw);
+  width: min(420px, 100vw);
   min-width: 320px;
-  max-width: 380px;
+  max-width: 420px;
   background: var(--bg);
   color: var(--text);
   font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body[data-busy="true"] {
+  cursor: progress;
+}
+
+body[data-busy="true"] .status-dot {
+  animation: pulse 1s ease-in-out infinite;
 }
 
 main {
@@ -217,7 +225,7 @@ button.danger:hover {
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.82;
+  opacity: 0.88;
 }
 
 .link-button {
@@ -262,4 +270,19 @@ button:disabled {
 
 .message[data-tone="success"] {
   color: #86efac;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+  50% {
+    transform: scale(1.08);
+    filter: saturate(1.2);
+  }
+  100% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
 }

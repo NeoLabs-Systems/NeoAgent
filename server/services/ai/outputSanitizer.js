@@ -6,13 +6,25 @@ const LETTER_CHAR_REGEX = /\p{L}/gu;
 const HAN_RUN_REGEX = /[\p{Script=Han}\u3000-\u303F]+/gu;
 const MARKDOWN_CODE_SPAN_REGEX = /(```[\s\S]*?```|`[^`\n]+`)/g;
 
+function shouldApplyIncidentalHanSanitizer(model) {
+  const normalized = String(model || '').trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized.includes('minimax-m2.7')) return true;
+
+  const configured = String(process.env.NEOAGENT_INCIDENTAL_HAN_SANITIZER_MODELS || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  return configured.includes(normalized);
+}
+
 function countMatches(text, regex) {
   const matches = text.match(regex);
   return matches ? matches.length : 0;
 }
 
 function shouldStripIncidentalHan(text, model) {
-  if (model !== 'MiniMax-M2.7') return false;
+  if (!shouldApplyIncidentalHanSanitizer(model)) return false;
 
   const hanCount = countMatches(text, HAN_CHAR_REGEX);
   if (hanCount === 0) return false;
@@ -54,7 +66,7 @@ function sanitizeModelOutput(text, options = {}) {
 
   let sanitized = text;
 
-  if (options.model === 'MiniMax-M2.7' && (sanitized.includes('<invoke') || sanitized.includes(':tool_call'))) {
+  if (shouldApplyIncidentalHanSanitizer(options.model) && (sanitized.includes('<invoke') || sanitized.includes(':tool_call'))) {
     sanitized = sanitizeStreamingToolCallText(sanitized);
   }
 

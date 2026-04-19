@@ -5819,7 +5819,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _syncBackgroundHealthConfig() async {
     final cookie = _backendClient.sessionCookie ?? '';
     await _prefs?.setString('health_sync_backend_url', backendUrl);
-    await _prefs?.setString('health_sync_session_cookie', cookie);
+    await _prefs?.remove('health_sync_session_cookie');
     final enabled =
         isAuthenticated &&
         showHealthSection &&

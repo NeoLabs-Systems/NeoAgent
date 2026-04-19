@@ -28,6 +28,13 @@ async function getGeminiEmbedding(text) {
   const truncated = text.slice(0, 25000);
 
   return new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
     const body = JSON.stringify({
       model: `models/${GOOGLE_MODEL}`,
       content: { parts: [{ text: truncated }] }
@@ -51,16 +58,19 @@ async function getGeminiEmbedding(text) {
         try {
           const parsed = JSON.parse(data);
           const vec = parsed.embedding?.values;
-          if (!vec) return resolve(null);
-          resolve(new Float32Array(vec));
+          if (!vec) return done(null);
+          done(new Float32Array(vec));
         } catch {
-          resolve(null);
+          done(null);
         }
       });
     });
 
-    req.on('error', () => resolve(null));
-    req.setTimeout(15000, () => { req.destroy(); resolve(null); });
+    req.on('error', () => done(null));
+    req.setTimeout(15000, () => {
+      req.destroy();
+      done(null);
+    });
     req.write(body);
     req.end();
   });
@@ -74,6 +84,13 @@ async function getOpenAIEmbedding(text) {
   const truncated = text.slice(0, 25000);
 
   return new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
     const body = JSON.stringify({
       model: OPENAI_MODEL,
       input: truncated,
@@ -97,18 +114,21 @@ async function getOpenAIEmbedding(text) {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
-          if (parsed.error) return resolve(null);
+          if (parsed.error) return done(null);
           const vec = parsed.data?.[0]?.embedding;
-          if (!vec) return resolve(null);
-          resolve(new Float32Array(vec));
+          if (!vec) return done(null);
+          done(new Float32Array(vec));
         } catch {
-          resolve(null);
+          done(null);
         }
       });
     });
 
-    req.on('error', () => resolve(null));
-    req.setTimeout(15000, () => { req.destroy(); resolve(null); });
+    req.on('error', () => done(null));
+    req.setTimeout(15000, () => {
+      req.destroy();
+      done(null);
+    });
     req.write(body);
     req.end();
   });

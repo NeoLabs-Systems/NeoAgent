@@ -22,6 +22,13 @@ function isInsecureSessionSecret(value = configuredSessionSecret()) {
 function getSessionSecret() {
   const configured = configuredSessionSecret();
   if (configured && !isInsecureSessionSecret(configured)) return configured;
+
+  const isProduction = String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
+  const allowFallback = String(process.env.NEOAGENT_ALLOW_SESSION_SECRET_FALLBACK || '').trim().toLowerCase() === 'true';
+  if (isProduction && !allowFallback) {
+    throw new Error('SESSION_SECRET must be configured with a secure value in production.');
+  }
+
   if (!fallbackSecret) fallbackSecret = crypto.randomBytes(32).toString('hex');
   return fallbackSecret;
 }

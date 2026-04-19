@@ -1,9 +1,10 @@
 'use strict';
 
 async function readChunkBody(req, options = {}) {
+  const defaultMaxSize = Number(process.env.NEOAGENT_READ_CHUNK_BODY_MAX_BYTES || 10 * 1024 * 1024);
   const maxSize = Number.isFinite(Number(options.maxSize)) && Number(options.maxSize) > 0
     ? Number(options.maxSize)
-    : null;
+    : (Number.isFinite(defaultMaxSize) && defaultMaxSize > 0 ? defaultMaxSize : null);
   const timeout = Number.isFinite(Number(options.timeout)) && Number(options.timeout) > 0
     ? Number(options.timeout)
     : null;

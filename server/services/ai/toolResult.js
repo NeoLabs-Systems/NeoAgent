@@ -36,6 +36,21 @@ function clampEnvelope(envelope, hardLimit) {
   return clampText(fallback, hardLimit);
 }
 
+function buildSimpleStatusEnvelope(toolName, toolResult, softLimit) {
+  return trimObject({
+    tool: toolName,
+    status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',
+    message: clampText(toolResult?.message || toolResult?.error || '', Math.floor(softLimit * 0.45)),
+    result: clampText(JSON.stringify(trimObject({
+      id: toolResult?.id,
+      key: toolResult?.key,
+      deleted: toolResult?.deleted,
+      sent: toolResult?.sent,
+      count: Array.isArray(toolResult?.results) ? toolResult.results.length : undefined
+    })), Math.floor(softLimit * 0.35))
+  });
+}
+
 function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
   const softLimit = Math.max(500, Math.min(Number(options.softLimit) || 1800, 3000));
   const hardLimit = Math.max(softLimit, Math.min(Number(options.hardLimit) || 3200, 4500));
@@ -206,18 +221,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'schedule_run':
     case 'delete_scheduled_task':
     case 'update_scheduled_task':
-      envelope = trimObject({
-        tool: toolName,
-        status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',
-        message: clampText(toolResult?.message || toolResult?.error || '', Math.floor(softLimit * 0.45)),
-        result: clampText(JSON.stringify(trimObject({
-          id: toolResult?.id,
-          key: toolResult?.key,
-          deleted: toolResult?.deleted,
-          sent: toolResult?.sent,
-          count: Array.isArray(toolResult?.results) ? toolResult.results.length : undefined
-        })), Math.floor(softLimit * 0.35))
-      });
+      envelope = buildSimpleStatusEnvelope(toolName, toolResult, softLimit);
       break;
 
     case 'spawn_subagent':

@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { ENV_FILE } = require('./paths');
+const { parseEnv } = require('./env');
 
 const DEFAULT_RELEASE_CHANNEL = 'stable';
 const RELEASE_CHANNEL_ENV_KEY = 'NEOAGENT_RELEASE_CHANNEL';
@@ -22,18 +23,6 @@ const RELEASE_CHANNEL_NPM_POLICIES = Object.freeze({
   stable: 'latest only',
   beta: 'newest of beta or latest',
 });
-
-function parseEnv(raw) {
-  const map = new Map();
-  for (const line of String(raw || '').split('\n')) {
-    if (!line || line.startsWith('#') || !line.includes('=')) continue;
-    const idx = line.indexOf('=');
-    const key = line.slice(0, idx).trim();
-    const value = line.slice(idx + 1);
-    if (key) map.set(key, value);
-  }
-  return map;
-}
 
 function parseReleaseChannel(value) {
   const normalized = String(value || '').trim().toLowerCase();

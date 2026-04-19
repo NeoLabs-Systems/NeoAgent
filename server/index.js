@@ -237,7 +237,8 @@ async function shutdown(exitCode = 0) {
 }
 
 httpServer.listen(PORT, () => {
-  console.log(`NeoAgent running on http://localhost:${PORT}`);
+  const startupUrl = PUBLIC_URL || `http://localhost:${PORT}`;
+  console.log(`NeoAgent running on ${startupUrl}`);
   startServices(app, io).catch(async (err) => {
     console.error('[Startup] Service initialization failed:', err);
     await shutdown(1);

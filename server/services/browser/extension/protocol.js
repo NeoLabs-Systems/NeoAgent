@@ -1,4 +1,5 @@
 const BROWSER_EXTENSION_WS_PATH = '/api/browser-extension/ws';
+const EXTENSION_PROTOCOL_VERSION = 1;
 
 const EXTENSION_COMMANDS = Object.freeze({
   LAUNCH: 'launch',
@@ -27,6 +28,7 @@ class ExtensionBrowserUnavailableError extends Error {
 function createCommandMessage(id, command, payload = {}) {
   return {
     type: 'command',
+    version: EXTENSION_PROTOCOL_VERSION,
     id,
     command,
     payload,
@@ -42,6 +44,7 @@ function parseExtensionMessage(data) {
 
 module.exports = {
   BROWSER_EXTENSION_WS_PATH,
+  EXTENSION_PROTOCOL_VERSION,
   EXTENSION_COMMANDS,
   ExtensionBrowserUnavailableError,
   createCommandMessage,

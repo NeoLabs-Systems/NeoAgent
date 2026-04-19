@@ -12,6 +12,7 @@ const { RUNTIME_HOME } = require('../runtime/paths');
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
 const AUTH_TOKEN = String(process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim();
 const FILE_ROOT = path.join(RUNTIME_HOME, 'guest-agent-files');
+const MAX_APK_STREAM_BYTES = Number(process.env.NEOAGENT_GUEST_MAX_APK_STREAM_BYTES || 512 * 1024 * 1024);
 
 fs.mkdirSync(FILE_ROOT, { recursive: true });
 
@@ -22,9 +23,30 @@ const cliExecutor = new CLIExecutor();
 const browserController = new BrowserController({ runtimeBackend: 'vm' });
 const androidController = new AndroidController({ runtimeBackend: 'vm' });
 
+const ALLOWED_READABLE_ROOTS = [
+  FILE_ROOT,
+  path.join(RUNTIME_HOME, 'data'),
+  path.join(RUNTIME_HOME, 'android'),
+  os.tmpdir(),
+].map((value) => path.resolve(value));
+
+const ALLOWED_READABLE_ROOTS_REAL = ALLOWED_READABLE_ROOTS
+  .map((value) => {
+    try {
+      return fs.realpathSync.native(value);
+    } catch {
+      return null;
+    }
+  })
+  .filter(Boolean);
+
+function isInsideAllowedRoots(targetPath) {
+  return ALLOWED_READABLE_ROOTS_REAL.some((root) => targetPath === root || targetPath.startsWith(`${root}${path.sep}`));
+}
+
 function requireToken(req, res, next) {
   if (!AUTH_TOKEN) {
-    return next();
+    return res.status(503).json({ error: 'Guest agent auth token is not configured.' });
   }
   const header = String(req.headers.authorization || '').trim();
   if (header !== `Bearer ${AUTH_TOKEN}`) {
@@ -37,15 +59,14 @@ function sanitizeError(err) {
   return err instanceof Error ? err.message : String(err);
 }
 
-function isReadablePath(filePath) {
-  const resolved = path.resolve(String(filePath || ''));
-  const allowedRoots = [
-    FILE_ROOT,
-    path.join(RUNTIME_HOME, 'data'),
-    path.join(RUNTIME_HOME, 'android'),
-    os.tmpdir(),
-  ].map((value) => path.resolve(value));
-  return allowedRoots.some((root) => resolved === root || resolved.startsWith(`${root}${path.sep}`));
+function resolveReadablePath(filePath) {
+  try {
+    const resolved = path.resolve(String(filePath || ''));
+    const realTarget = fs.realpathSync.native(resolved);
+    return isInsideAllowedRoots(realTarget) ? realTarget : null;
+  } catch {
+    return null;
+  }
 }
 
 async function handle(res, work) {
@@ -94,13 +115,13 @@ app.post('/files/read', async (req, res) => {
     if (!filePath) {
       return { error: 'path is required' };
     }
-    if (!isReadablePath(filePath)) {
+    const realTarget = resolveReadablePath(filePath);
+    if (!realTarget) {
       return { error: 'path is outside guest-agent readable roots' };
     }
-    const resolved = path.resolve(filePath);
-    const data = fs.readFileSync(resolved);
+    const data = fs.readFileSync(realTarget);
     return {
-      path: resolved,
+      path: realTarget,
       encoding,
       content: encoding === 'utf8' ? data.toString('utf8') : data.toString('base64'),
       byteSize: data.length,
@@ -174,6 +195,7 @@ app.post('/android/install-apk-stream', async (req, res) => {
   const tempPath = path.join(uploadDir, `${Date.now()}-${path.basename(filename)}`);
   const output = fs.createWriteStream(tempPath);
   let finished = false;
+  let receivedBytes = 0;
 
   const cleanup = async () => {
     await fs.promises.unlink(tempPath).catch(() => {});
@@ -192,6 +214,16 @@ app.post('/android/install-apk-stream', async (req, res) => {
 
   req.on('error', (err) => {
     void fail(500, err);
+  });
+  req.on('data', (chunk) => {
+    if (finished) {
+      return;
+    }
+    receivedBytes += chunk.length;
+    if (receivedBytes > MAX_APK_STREAM_BYTES) {
+      void fail(413, `APK stream exceeds limit of ${MAX_APK_STREAM_BYTES} bytes.`);
+      req.destroy();
+    }
   });
   output.on('error', (err) => {
     void fail(500, err);

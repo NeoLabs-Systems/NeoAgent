@@ -12,6 +12,12 @@ const { getSessionSecret } = require('../services/account/session_secret');
 const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
 const LEGACY_SESSION_EXPIRE_FALLBACK = 0;
 
+function boolEnv(name, fallback = false) {
+  const raw = String(process.env[name] || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(raw);
+}
+
 function ensureSessionStoreSchema(db) {
   const table = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'").get();
   if (!table) {
@@ -60,6 +66,20 @@ ensureSessionStoreSchema(sessionsDb);
 
 function buildHelmetOptions({ secureCookies }) {
   const wsConnectSrc = secureCookies ? ['wss:'] : ['ws:', 'wss:'];
+  const allowUnsafeEval = boolEnv('NEOAGENT_CSP_ALLOW_UNSAFE_EVAL', false);
+  const allowExternalScriptCdn = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_SCRIPT_CDN', false);
+  const allowExternalConnect = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_CONNECT', false);
+
+  const scriptSrc = ["'self'", "'unsafe-inline'", 'blob:'];
+  if (allowUnsafeEval) scriptSrc.push("'unsafe-eval'");
+  if (allowExternalScriptCdn) {
+    scriptSrc.push('https://cdn.jsdelivr.net', 'https://www.gstatic.com');
+  }
+
+  const connectSrc = ["'self'", ...wsConnectSrc];
+  if (allowExternalConnect) {
+    connectSrc.push('https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://www.gstatic.com', 'https://api.qrserver.com');
+  }
 
   return {
     strictTransportSecurity: false,
@@ -68,26 +88,12 @@ function buildHelmetOptions({ secureCookies }) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "'unsafe-eval'",
-          'blob:',
-          'https://cdn.jsdelivr.net',
-          'https://www.gstatic.com'
-        ],
+        scriptSrc,
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'blob:', 'https://api.qrserver.com'],
         mediaSrc: ["'self'", 'data:', 'blob:'],
-        connectSrc: [
-          "'self'",
-          'https://fonts.googleapis.com',
-          'https://fonts.gstatic.com',
-          'https://www.gstatic.com',
-          'https://api.qrserver.com',
-          ...wsConnectSrc
-        ],
+        connectSrc,
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
         workerSrc: ["'self'", 'blob:'],
         formAction: ["'self'"],
@@ -160,11 +166,9 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
       callback(null, {
         origin(origin, originCallback) {
           const allowBrowserExtensionOrigin = isBrowserExtensionCorsPath(requestPath);
-          if (origin === 'null' && allowBrowserExtensionOrigin) {
-            return originCallback(null, true);
-          }
           return validateOrigin(origin, originCallback, {
             allowChromeExtension: allowBrowserExtensionOrigin,
+            allowMissingOrigin: allowBrowserExtensionOrigin,
           });
         },
         credentials: true,

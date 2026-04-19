@@ -179,8 +179,16 @@ router.post('/extract', async (req, res) => {
 // Execute JavaScript
 router.post('/execute', async (req, res) => {
   try {
+    const executeEnabled = String(process.env.NEOAGENT_ENABLE_BROWSER_EXECUTE_ENDPOINT || '').trim().toLowerCase() === 'true';
+    if (!executeEnabled) {
+      return res.status(403).json({ error: 'Browser execute endpoint is disabled by default.' });
+    }
+
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: 'code required' });
+    if (String(code).length > 10000) {
+      return res.status(400).json({ error: 'code exceeds maximum length (10000)' });
+    }
 
     const bc = await getBrowserController(req);
     const result = await bc.executeJS(code);

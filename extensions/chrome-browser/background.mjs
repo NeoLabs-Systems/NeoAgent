@@ -7,6 +7,8 @@ let socket = null;
 let reconnectTimer = null;
 let suppressSocketClose = false;
 const DEFAULT_FETCH_TIMEOUT_MS = 10000;
+const DEFAULT_WS_CONNECT_TIMEOUT_MS = 10000;
+const EXTENSION_PROTOCOL_VERSION = 1;
 
 function getStorage(keys = STORAGE_KEYS) {
   return chrome.storage.local.get(keys);
@@ -114,17 +116,25 @@ async function connect() {
   const ws = new WebSocket(websocketUrl(serverUrl, token));
   socket = ws;
   await updateStatus('connecting');
+  const connectTimeout = setTimeout(() => {
+    if (socket === ws && ws.readyState !== WebSocket.OPEN) {
+      try { ws.close(); } catch {}
+    }
+  }, DEFAULT_WS_CONNECT_TIMEOUT_MS);
 
   ws.addEventListener('open', () => {
     if (socket !== ws) return;
+    clearTimeout(connectTimeout);
     updateStatus('connected');
   });
   ws.addEventListener('close', () => {
+    clearTimeout(connectTimeout);
     handleSocketDisconnected(ws).catch((error) => {
       console.error('NeoAgent disconnect handling failed', error);
     });
   });
   ws.addEventListener('error', () => {
+    clearTimeout(connectTimeout);
     handleSocketDisconnected(ws).catch((error) => {
       console.error('NeoAgent socket error handling failed', error);
     });
@@ -148,12 +158,23 @@ async function handleSocketMessage(raw) {
   if (!message || message.type !== 'command' || !message.id) {
     return;
   }
+  if (message.version != null && Number(message.version) !== EXTENSION_PROTOCOL_VERSION) {
+    socket?.send(JSON.stringify({
+      type: 'result',
+      version: EXTENSION_PROTOCOL_VERSION,
+      id: message.id,
+      ok: false,
+      error: `Unsupported protocol version: ${message.version}`,
+    }));
+    return;
+  }
   try {
     const result = await protocol.run(message.command, message.payload || {});
-    socket?.send(JSON.stringify({ type: 'result', id: message.id, ok: true, result }));
+    socket?.send(JSON.stringify({ type: 'result', version: EXTENSION_PROTOCOL_VERSION, id: message.id, ok: true, result }));
   } catch (error) {
     socket?.send(JSON.stringify({
       type: 'result',
+      version: EXTENSION_PROTOCOL_VERSION,
       id: message.id,
       ok: false,
       error: error?.message || String(error),
@@ -263,7 +284,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   };
   run()
     .then((result) => sendResponse({ ok: true, result }))
-    .catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
+    .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
   return true;
 });
 

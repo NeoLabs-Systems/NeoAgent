@@ -323,6 +323,9 @@ async function executeMicrosoftTool(toolName, args, { credentials }) {
       };
     default:
       if (/^microsoft_365_.*_graph_request$/.test(toolName)) {
+        if (process.env.NEOAGENT_ENABLE_MICROSOFT_DYNAMIC_GRAPH_REQUEST !== 'true') {
+          throw new Error('microsoft_365_*_graph_request tools are disabled by default. Set NEOAGENT_ENABLE_MICROSOFT_DYNAMIC_GRAPH_REQUEST=true to enable them.');
+        }
         return {
           result: await graphRequest(credentials, {
             method: args.method,

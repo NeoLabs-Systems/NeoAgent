@@ -75,6 +75,7 @@ function logRequestSummary(level, req, message, extra = null) {
 function setupConsoleInterceptor(io) {
     const logHistory = [];
     const MAX_LOG_HISTORY = 200;
+    const allowLogHistoryRequests = String(process.env.NEOAGENT_ENABLE_LOG_HISTORY_REQUESTS || '').trim().toLowerCase() === 'true';
 
     function broadcastLog(type, args) {
         const msg = formatLogArgs(args);
@@ -103,6 +104,7 @@ function setupConsoleInterceptor(io) {
 
     io.on('connection', (socket) => {
         socket.on('client:request_logs', () => {
+            if (!allowLogHistoryRequests) return;
             if (!socket.request?.session?.userId) return;
             socket.emit('server:log_history', logHistory);
         });

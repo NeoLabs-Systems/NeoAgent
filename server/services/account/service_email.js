@@ -7,6 +7,34 @@ const { resolvePublicBaseUrl } = require('../integrations/env');
 
 const TOKEN_BYTES = 32;
 const DEFAULT_TOKEN_TTL_HOURS = 24;
+const PASSWORD_RESET_WINDOW_MS = 15 * 60 * 1000;
+const PASSWORD_RESET_MAX_ATTEMPTS = 12;
+const passwordResetAttemptState = new Map();
+
+function registerPasswordResetAttempt(hash) {
+  const now = Date.now();
+  const current = passwordResetAttemptState.get(hash);
+  if (!current || (now - current.windowStartedAt) > PASSWORD_RESET_WINDOW_MS) {
+    passwordResetAttemptState.set(hash, { windowStartedAt: now, attempts: 1 });
+    return;
+  }
+  current.attempts += 1;
+}
+
+function assertPasswordResetAttemptAllowed(hash) {
+  const now = Date.now();
+  const current = passwordResetAttemptState.get(hash);
+  if (!current) return;
+  if ((now - current.windowStartedAt) > PASSWORD_RESET_WINDOW_MS) {
+    passwordResetAttemptState.delete(hash);
+    return;
+  }
+  if (current.attempts >= PASSWORD_RESET_MAX_ATTEMPTS) {
+    const error = new Error('Too many password reset attempts. Try again later.');
+    error.statusCode = 429;
+    throw error;
+  }
+}
 
 function trimEnv(name) {
   return String(process.env[name] || '').trim();
@@ -292,6 +320,7 @@ function consumeEmailToken(token) {
 
 function consumePasswordResetToken(token, passwordHash) {
   const hash = tokenHash(token);
+  assertPasswordResetAttemptAllowed(hash);
   const row = db.prepare(`
     SELECT t.*, u.username, u.email AS current_email
     FROM user_email_tokens t
@@ -302,6 +331,7 @@ function consumePasswordResetToken(token, passwordHash) {
       AND datetime(t.expires_at) > datetime('now')
   `).get(hash);
   if (!row) {
+    registerPasswordResetAttempt(hash);
     const error = new Error('Password reset link is invalid or expired');
     error.statusCode = 400;
     throw error;
@@ -316,6 +346,8 @@ function consumePasswordResetToken(token, passwordHash) {
       WHERE user_id = ? AND type = 'password_reset' AND consumed_at IS NULL
     `).run(row.user_id);
   })();
+
+  passwordResetAttemptState.delete(hash);
 
   return {
     email: row.email,

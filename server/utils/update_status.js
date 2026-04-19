@@ -27,7 +27,13 @@ function isProcessAlive(pid) {
   try {
     process.kill(numericPid, 0);
     return true;
-  } catch {
+  } catch (error) {
+    if (error && (error.code === 'EPERM' || error.code === 'EACCES')) {
+      return true;
+    }
+    if (error && error.code === 'ESRCH') {
+      return false;
+    }
     return false;
   }
 }

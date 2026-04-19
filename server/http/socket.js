@@ -5,8 +5,14 @@ const { Server: SocketIO } = require('socket.io');
 function createSocketServer(httpServer, { validateOrigin }) {
   console.log('[WS] Creating Socket.IO server');
   return new SocketIO(httpServer, {
+    pingInterval: Number(process.env.NEOAGENT_SOCKET_PING_INTERVAL_MS || 25000),
+    pingTimeout: Number(process.env.NEOAGENT_SOCKET_PING_TIMEOUT_MS || 20000),
+    connectTimeout: Number(process.env.NEOAGENT_SOCKET_CONNECT_TIMEOUT_MS || 10000),
+    maxHttpBufferSize: Number(process.env.NEOAGENT_SOCKET_MAX_HTTP_BUFFER_BYTES || 1_000_000),
     cors: {
-      origin: validateOrigin,
+      origin(origin, callback) {
+        return validateOrigin(origin, callback, { allowMissingOrigin: true });
+      },
       credentials: true
     }
   });

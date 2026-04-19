@@ -5,6 +5,17 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { validateRemoteMcpEndpoint } = require('../services/runtime/mcp');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { resolvePublicBaseUrl } = require('../services/integrations/env');
+
+const MCP_OAUTH_STATE_RE = /^(\d+)::[a-f0-9]{32}$/;
+
+function getTrustedPostMessageOrigin(req) {
+  try {
+    return new URL(resolvePublicBaseUrl()).origin;
+  } catch {
+    return `${req.protocol}://${req.get('host')}`;
+  }
+}
 
 router.use(requireAuth);
 
@@ -129,13 +140,22 @@ router.get('/:id/tools', async (req, res) => {
 router.get('/oauth/callback', async (req, res) => {
   const { code, state, error } = req.query;
   if (!state) return res.status(400).send('Missing state parameter');
+  if (!error && !code) return res.status(400).send('Missing code parameter');
   if (error) return res.status(400).send(`OAuth Error: ${error}`);
 
-  const [serverIdStr] = state.split('::');
-  if (!serverIdStr) return res.status(400).send('Invalid state format');
+  const stateMatch = String(state).match(MCP_OAUTH_STATE_RE);
+  if (!stateMatch) return res.status(400).send('Invalid state format');
 
-  const serverId = parseInt(serverIdStr, 10);
+  const serverId = Number.parseInt(stateMatch[1], 10);
+  if (!Number.isInteger(serverId) || serverId <= 0) {
+    return res.status(400).send('Invalid state format');
+  }
+
+  const server = db.prepare('SELECT id FROM mcp_servers WHERE id = ? AND user_id = ?').get(serverId, req.session.userId);
+  if (!server) return res.status(404).send('Server not found');
+
   const mcpClient = req.app.locals.mcpClient;
+  const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));
 
   try {
     await mcpClient.finishOAuth(serverId, code);
@@ -144,7 +164,7 @@ router.get('/oauth/callback', async (req, res) => {
       <html><body>
       <script>
         if (window.opener) {
-          window.opener.postMessage({ type: 'mcp_oauth_success', serverId: ${serverId} }, '*');
+          window.opener.postMessage({ type: 'mcp_oauth_success', serverId: ${serverId} }, ${trustedOrigin});
           window.close();
         } else {
           window.location.href = '/?page=mcp';

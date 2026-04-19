@@ -388,6 +388,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_expires ON integration_oauth_states(expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_user ON browser_extension_tokens(user_id, status, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_hash_status ON browser_extension_tokens(token_hash, status);
   CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
@@ -1278,8 +1279,6 @@ rebuildPlatformConnectionsForAgents();
 rebuildCoreMemoryForAgents();
 migrateIntegrationConnectionsTable();
 migrateIntegrationOauthStatesTable();
-backfillAgentIds();
-backfillAgentPolicies();
 createAgentScopedIndexes();
 migrateIntegrationSecretStorage();
 backfillVerifiedAccountEmails();

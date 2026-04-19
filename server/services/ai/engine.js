@@ -38,6 +38,8 @@ const {
   normalizeInterimKind,
 } = require('./interim');
 
+const MAX_CONSECUTIVE_TOOL_FAILURES = 3;
+
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
   const msgMatch = task.match(/received a (?:message|media|image|video|file|audio)[^:]*:\s*(.+)/is);
@@ -1697,6 +1699,7 @@ class AgentEngine {
       while (!directAnswerEligible && iteration < maxIterations) {
         if (this.isRunStopped(runId)) break;
         iteration++;
+        let consecutiveToolFailures = 0;
 
         const steeringAtLoopStart = this.applyQueuedSteering(runId, messages, {
           userId,
@@ -2017,6 +2020,7 @@ class AgentEngine {
           messages.push(toolMessage);
 
           if (toolErrorMessage) {
+            consecutiveToolFailures += 1;
             const alternativeTools = summarizeAvailableTools(tools, { exclude: toolName });
             messages.push({
               role: 'system',
@@ -2028,6 +2032,16 @@ class AgentEngine {
                 'Only stop and tell the user you are blocked if the remaining issue truly requires an external dependency or user action outside this run.'
               ].filter(Boolean).join(' ')
             });
+
+            if (consecutiveToolFailures >= MAX_CONSECUTIVE_TOOL_FAILURES) {
+              messages.push({
+                role: 'system',
+                content: `There were ${consecutiveToolFailures} consecutive tool failures. Stop calling tools now and return a clear blocker response that summarizes attempted actions and concrete errors.`
+              });
+              break;
+            }
+          } else {
+            consecutiveToolFailures = 0;
           }
 
           if (toolName === 'send_interim_update') {

@@ -421,9 +421,17 @@ function createGoogleWorkspaceProvider() {
       const refreshToken = auth.credentials.refresh_token;
       const accessToken = auth.credentials.access_token;
       if (refreshToken) {
-        await auth.revokeToken(refreshToken).catch(() => {});
+        await auth.revokeToken(refreshToken).catch((error) => {
+          console.warn(
+            `[Google Workspace] Failed to revoke refresh token for disconnect (connection ${connectionRow?.id || 'unknown'}): ${error?.message || error}`,
+          );
+        });
       } else if (accessToken) {
-        await auth.revokeToken(accessToken).catch(() => {});
+        await auth.revokeToken(accessToken).catch((error) => {
+          console.warn(
+            `[Google Workspace] Failed to revoke access token for disconnect (connection ${connectionRow?.id || 'unknown'}): ${error?.message || error}`,
+          );
+        });
       }
     },
     async executeTool(toolName, args, connectionRow) {

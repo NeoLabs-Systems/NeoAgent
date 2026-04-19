@@ -26,14 +26,18 @@ function sanitizeError(err) {
     msg = msg.split(PROJECT_ROOT).join('[app]');
   }
 
-  // Strip node_modules paths
-  msg = msg.replace(/[^\s'"]+node_modules[^\s'"]+/g, '[module]');
+  // Strip node_modules paths with either slash style.
+  msg = msg.replace(/(?:^|[\s'"(\[])\S*?[\\/]node_modules(?:[\\/]\S*)?/g, (match) => {
+    const prefixMatch = match.match(/^[\s'"(\[]/);
+    const prefix = prefixMatch ? prefixMatch[0] : '';
+    return `${prefix}[module]`;
+  });
 
-  // Strip remaining absolute Unix paths (leave relative paths intact)
-  msg = msg.replace(/\/[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+){2,}/g, '[path]');
+  // Strip remaining absolute Unix paths (leave short relative paths intact).
+  msg = msg.replace(/(^|[\s'"(\[])\/(?:[^\s'"\])]+\/){2,}[^\s'"\])]+/g, '$1[path]');
 
-  // Strip Windows absolute paths
-  msg = msg.replace(/[A-Za-z]:\\[^\s'"]+/g, '[path]');
+  // Strip Windows absolute paths and UNC paths with either slash style.
+  msg = msg.replace(/(^|[\s'"(\[])(?:[A-Za-z]:[\\/](?:[^\s'"\])]+[\\/])+[^\s'"\])]+|[\\/]{2}[^\s'"\\/\])]+[\\/][^\s'"\])]+(?:[\\/][^\s'"\])]+)+)/g, '$1[path]');
 
   return msg.trim() || 'An unexpected error occurred';
 }

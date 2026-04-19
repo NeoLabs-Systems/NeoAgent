@@ -23,7 +23,10 @@ function isChromeExtensionOrigin(origin) {
 }
 
 function isAllowedOrigin(origin, options = {}) {
-  if (!origin) return true;
+  if (origin == null || origin === '') {
+    return options.allowMissingOrigin === true;
+  }
+  if (origin === 'null') return false;
   if (configuredOrigins.includes(origin)) return true;
   if (isLoopbackOrigin(origin)) return true;
   if (options.allowChromeExtension && isChromeExtensionOrigin(origin)) return true;

@@ -64,7 +64,13 @@ async function fetchJson(url, options = {}, serviceName = 'Messaging platform') 
     try { body = JSON.parse(text); } catch { body = text; }
   }
   if (!response.ok) {
-    const detail = typeof body === 'string' ? body.slice(0, 300) : JSON.stringify(body);
+    const rawDetail = typeof body === 'string'
+      ? body.slice(0, 300)
+      : JSON.stringify(body || '').slice(0, 300);
+    const detail = String(rawDetail || '')
+      .replace(/https?:\/\/[^\s"'<>]+/gi, '[redacted-url]')
+      .replace(/\b(token|access_token|refresh_token|authorization)\b\s*[:=]\s*"[^"]*"/gi, '$1=[redacted]')
+      .replace(/\b(token|access_token|refresh_token|authorization)\b\s*[:=]\s*[^,\s;"'}\]]+/gi, '$1=[redacted]');
     throw new Error(`${serviceName} request failed (${response.status}): ${detail || response.statusText}`);
   }
   return body;
@@ -74,6 +80,7 @@ function inboundAllowed(config, req) {
   const secret = String(config.inboundSecret || config.webhookSecret || '').trim();
   if (!secret) return false;
   const supplied = req.query?.token
+    || req.body?.token
     || req.headers?.['x-neoagent-token']
     || req.headers?.['x-webhook-token']
     || '';

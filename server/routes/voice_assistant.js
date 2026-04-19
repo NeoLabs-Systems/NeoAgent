@@ -56,57 +56,39 @@ router.post('/respond', async (req, res) => {
     const promptHint = String(req.body?.promptHint || '').trim();
     const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
 
-    const responsePayload = await turnCoordinator.run(sessionId, async () => {
-      const session = await resolveCompletedVoiceSession(
-        recordingManager,
-        userId,
-        sessionId,
-      );
-
-      const transcript = String(session.transcriptText || '').trim();
-      if (!transcript) {
-        throw new Error('Recording transcript is empty. Please retry transcription or record again.');
-      }
-
-      const turnResult = await runVoiceTranscriptTurn({
-        userId,
-        agentId,
-        transcript,
-        promptHint,
-        platform: 'voice_assistant',
-        metadata: {
-          recordingSessionId: sessionId,
-    const promptHint = String(req.body?.promptHint || '').trim();
-    const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
-
-    // Validate screenshot data if provided
     let screenshotData = {};
     if (req.body?.screenshotBase64 || req.body?.screenshotMimeType) {
       if (!req.body?.screenshotBase64 || !req.body?.screenshotMimeType) {
-        return res.status(400).json({ error: 'Both screenshotBase64 and screenshotMimeType must be provided together.' });
+        return res.status(400).json({
+          error: 'Both screenshotBase64 and screenshotMimeType must be provided together.',
+        });
       }
-      
-      const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-      if (!allowedMimeTypes.includes(req.body.screenshotMimeType)) {
-        return res.status(400).json({ error: 'Invalid screenshot MIME type. Allowed types: ' + allowedMimeTypes.join(', ') });
+
+      const mimeType = String(req.body.screenshotMimeType || '').trim().toLowerCase();
+      const allowedMimeTypes = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
+      if (!allowedMimeTypes.has(mimeType)) {
+        return res.status(400).json({
+          error: `Invalid screenshot MIME type. Allowed types: ${Array.from(allowedMimeTypes).join(', ')}`,
+        });
       }
-      
-      // Validate base64 format
+
+      const screenshotBase64 = String(req.body.screenshotBase64 || '').trim();
       const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/;
-      if (!base64Regex.test(req.body.screenshotBase64)) {
+      if (!base64Regex.test(screenshotBase64)) {
         return res.status(400).json({ error: 'Invalid base64 format for screenshot.' });
       }
-      
-      // Enforce size limit (e.g., 5MB)
+
       const maxSizeBytes = 5 * 1024 * 1024;
-      const approximateSize = (req.body.screenshotBase64.length * 3) / 4;
+      const approximateSize = (screenshotBase64.length * 3) / 4;
       if (approximateSize > maxSizeBytes) {
-        return res.status(400).json({ error: 'Screenshot size exceeds maximum allowed size of 5MB.' });
+        return res.status(400).json({
+          error: 'Screenshot size exceeds maximum allowed size of 5MB.',
+        });
       }
-      
+
       screenshotData = {
-        screenshotBase64: req.body.screenshotBase64,
-        screenshotMimeType: req.body.screenshotMimeType,
+        screenshotBase64,
+        screenshotMimeType: mimeType,
       };
     }
 
@@ -131,7 +113,6 @@ router.post('/respond', async (req, res) => {
         metadata: {
           recordingSessionId: sessionId,
           ...screenshotData,
-        },
         },
         agentEngine,
         memoryManager,

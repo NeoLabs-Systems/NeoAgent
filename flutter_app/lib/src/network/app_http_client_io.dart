@@ -104,34 +104,17 @@ class IoAppHttpClient implements AppHttpClient {
     if (rawCookie == null || rawCookie.isEmpty) {
       return;
     }
-    final cookies = <String>[];
-    final matches = RegExp(
-      r'(^|,\s*)([^=;, \t]+)=([^;,\r\n]*)',
-      multiLine: false,
-    ).allMatches(rawCookie);
-    for (final match in matches) {
-      final name = match.group(2)?.trim() ?? '';
-      final value = match.group(3)?.trim() ?? '';
-      if (name.isEmpty) {
-        continue;
-      }
-      final lowerName = name.toLowerCase();
-      if (lowerName == 'expires' ||
-          lowerName == 'path' ||
-          lowerName == 'domain' ||
-          lowerName == 'max-age' ||
-          lowerName == 'samesite' ||
-          lowerName == 'secure' ||
-          lowerName == 'httponly' ||
-          lowerName == 'priority' ||
-          lowerName == 'partitioned') {
-        continue;
-      }
-      cookies.add('$name=$value');
+    final firstCookieField = rawCookie.split(';').first.trim();
+    final separatorIndex = firstCookieField.indexOf('=');
+    if (separatorIndex <= 0) {
+      return;
     }
-    if (cookies.isNotEmpty) {
-      _sessionCookie = cookies.join('; ');
+    final name = firstCookieField.substring(0, separatorIndex).trim();
+    final value = firstCookieField.substring(separatorIndex + 1).trim();
+    if (name.isEmpty || value.isEmpty) {
+      return;
     }
+    _sessionCookie = '$name=$value';
   }
 
   @override
