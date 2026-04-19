@@ -24,7 +24,7 @@ function isChromeExtensionOrigin(origin) {
 
 function isAllowedOrigin(origin, options = {}) {
   if (origin == null || origin === '') {
-    return options.allowMissingOrigin === true;
+    return options.allowMissingOrigin !== false;
   }
   if (origin === 'null') return false;
   if (configuredOrigins.includes(origin)) return true;
