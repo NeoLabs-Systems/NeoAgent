@@ -31,6 +31,10 @@ dependencies:
     path: third_party/desktop_audio_capture
   launch_at_startup: ^0.5.1
 
+dependency_overrides:
+  flutter_secure_storage_linux:
+    path: third_party/flutter_secure_storage_linux
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
