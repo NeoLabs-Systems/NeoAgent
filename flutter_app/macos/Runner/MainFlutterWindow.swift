@@ -12,6 +12,7 @@ class MainFlutterWindow: NSWindow {
     self.backgroundColor = .clear
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    DesktopCompanionNativePlugin.register(with: flutterViewController)
 
     super.awakeFromNib()
   }
