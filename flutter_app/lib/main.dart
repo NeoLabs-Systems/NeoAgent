@@ -1648,8 +1648,9 @@ class NeoAgentController extends ChangeNotifier {
     String savedCookie = '';
     try {
       savedCookie =
-              (await _secureStorage.read(key: _sessionCookieSecureStorageKey))
-                  ?.trim() ??
+          (await _secureStorage.read(
+            key: _sessionCookieSecureStorageKey,
+          ))?.trim() ??
           '';
     } catch (_) {
       savedCookie = '';
@@ -3359,7 +3360,8 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> openDesktopSelectionRuntime() async {
     await refreshDevices();
-    errorMessage = 'Select a desktop companion from the Desktop device dropdown.';
+    errorMessage =
+        'Select a desktop companion from the Desktop device dropdown.';
     notifyListeners();
   }
 
@@ -3796,7 +3798,9 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> openDesktopCompanionPermissionSettings(String permissionKey) async {
+  Future<void> openDesktopCompanionPermissionSettings(
+    String permissionKey,
+  ) async {
     try {
       await _desktopCompanion.openPermissionSettings(permissionKey);
     } catch (error) {
@@ -13673,7 +13677,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         _PageTitle(
           title: 'Settings',
           subtitle:
-              'Configure model access, routing, and runtime behavior from one place.',
+              'Platform-aware workspace, model, recording, update, and diagnostics controls.',
           trailing: FilledButton.icon(
             onPressed: controller.isSavingSettings
                 ? null
@@ -13723,736 +13727,559 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _InlineError(message: controller.errorMessage!),
           const SizedBox(height: 16),
         ],
-        if (_supportsDesktopShell)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const _SectionTitle('Desktop Runtime'),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Keep desktop capture polished and predictable: tray behavior, floating controls, and the assistant hotkey live here so the desktop app can keep running without a second control stack later.',
-                    style: TextStyle(color: _textSecondary, height: 1.5),
+        _buildSettingsOverview(controller, availableModels.length),
+        const SizedBox(height: 16),
+        _buildWorkspaceSection(controller),
+        const SizedBox(height: 16),
+        _buildModelsSection(
+          controller: controller,
+          modelChoices: modelChoices,
+          routingModels: routingModels,
+          availableModels: availableModels,
+          enabledSmartModels: enabledSmartModels,
+        ),
+        const SizedBox(height: 16),
+        _buildVoiceAndRecordingSection(
+          controller: controller,
+          modelChoices: modelChoices,
+          routingModels: routingModels,
+        ),
+        const SizedBox(height: 16),
+        if (_supportsDesktopShell) ...<Widget>[
+          _buildDesktopSection(controller),
+          const SizedBox(height: 16),
+        ],
+        _buildUpdatesSection(controller),
+        const SizedBox(height: 16),
+        _buildDiagnosticsSection(controller),
+      ],
+    );
+  }
+
+  Widget _buildSettingsOverview(
+    NeoAgentController controller,
+    int availableModelCount,
+  ) {
+    final platformLabel = kIsWeb ? 'Web' : defaultTargetPlatform.name;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Overview'),
+            const SizedBox(height: 10),
+            Text(
+              'Start with workspace behavior, then configure models, recording defaults, and updates for this platform.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _MetaPill(
+                  icon: Icons.devices_outlined,
+                  label:
+                      'Platform ${platformLabel[0].toUpperCase()}${platformLabel.substring(1)}',
+                ),
+                _MetaPill(
+                  icon: Icons.memory_outlined,
+                  label: '$availableModelCount models ready',
+                ),
+                _MetaPill(
+                  icon: Icons.hub_outlined,
+                  label: '${controller.aiProviders.length} providers',
+                ),
+                _MetaPill(
+                  icon: Icons.auto_awesome_outlined,
+                  label: _smarterSelector
+                      ? 'Smart selector on'
+                      : 'Manual routing',
+                ),
+                if (_supportsDesktopShell)
+                  _MetaPill(
+                    icon: Icons.desktop_windows_outlined,
+                    label: controller.desktopCompanionEnabled
+                        ? 'Desktop companion enabled'
+                        : 'Desktop-only controls available',
                   ),
-                  const SizedBox(height: 18),
-                  SwitchListTile.adaptive(
-                    value: controller.desktopAskOnClose,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('Ask before closing to background'),
-                    subtitle: Text(
-                      'Prompt for whether NeoAgent should stay resident in the tray when the main window closes.',
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                    onChanged: (value) => controller.setDesktopClosePreference(
-                      askOnClose: value,
-                      keepRunningOnClose: controller.desktopKeepRunningOnClose,
-                    ),
-                  ),
-                  SwitchListTile.adaptive(
-                    value: controller.desktopAutoShowFloatingToolbar,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('Auto-show floating toolbar'),
-                    subtitle: Text(
-                      'Open the compact recording bar automatically whenever a desktop studio session starts.',
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                    onChanged: controller.setDesktopAutoShowFloatingToolbar,
-                  ),
-                  SwitchListTile.adaptive(
-                    value: controller.desktopAssistantHotkeyEnabled,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('Reserve assistant hotkey'),
-                    subtitle: Text(
-                      'Register $_desktopAssistantHotkeyLabel so the desktop shell is ready for the upcoming voice assistant summon flow.',
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                    onChanged: controller.recordingRuntime.supportsGlobalHotkeys
-                        ? controller.setDesktopAssistantHotkeyEnabled
-                        : null,
-                  ),
-                  const Divider(height: 28),
-                  SwitchListTile.adaptive(
-                    value: controller.desktopCompanionEnabled,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('Enable Companion Mode on this computer'),
-                    subtitle: Text(
-                      'Expose this signed-in desktop app as a controllable companion device without a separate pairing flow.',
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                    onChanged: controller.setDesktopCompanionEnabled,
-                  ),
-                  SwitchListTile.adaptive(
-                    value: controller.desktopCompanionPaused,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('Pause Companion Mode'),
-                    subtitle: Text(
-                      'Keep the device registered but reject remote control commands locally until resumed.',
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                    onChanged: controller.desktopCompanionEnabled
-                        ? controller.setDesktopCompanionPaused
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    initialValue: controller.desktopCompanionLabel,
-                    enabled: controller.desktopCompanionEnabled,
-                    decoration: const InputDecoration(
-                      labelText: 'Companion device label',
-                      hintText: 'My workstation',
-                      prefixIcon: Icon(Icons.edit_outlined),
-                    ),
-                    onFieldSubmitted: controller.setDesktopCompanionLabel,
-                  ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: <Widget>[
-                      _DotStatus(
-                        label: controller.desktopCompanionConnected
-                            ? 'Connected'
-                            : controller.desktopCompanionConnecting
-                            ? 'Connecting'
-                            : 'Disconnected',
-                        color: controller.desktopCompanionConnected
-                            ? _success
-                            : controller.desktopCompanionConnecting
-                            ? _accent
-                            : _warning,
-                      ),
-                      _DotStatus(
-                        label: controller.desktopCompanionPaused
-                            ? 'Paused'
-                            : 'Ready',
-                        color: controller.desktopCompanionPaused
-                            ? _warning
-                            : _success,
-                      ),
-                    ],
-                  ),
-                  if (controller.desktopCompanionErrorMessage !=
-                      null) ...<Widget>[
-                    const SizedBox(height: 12),
-                    _InlineError(
-                      message: controller.desktopCompanionErrorMessage!,
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  Builder(
-                    builder: (context) {
-                      final status = controller.desktopCompanionStatus;
-                      final permissionsRaw = status['permissions'];
-                      final permissions = permissionsRaw is Map
-                          ? permissionsRaw.map(
-                              (key, value) => MapEntry(
-                                key.toString(),
-                                value?.toString() ?? 'unknown',
-                              ),
-                            )
-                          : const <String, String>{};
-                      final screenCaptureState =
-                          permissions['screenCapture'] ?? 'unknown';
-                      final inputControlState =
-                          permissions['inputControl'] ?? 'unknown';
-                      final accessibilityState =
-                          permissions['accessibility'] ?? 'unknown';
-                      final grantHelp = switch (defaultTargetPlatform) {
-                        TargetPlatform.macOS =>
-                          'Grant Screen Recording and Accessibility in System Settings, then press Re-check.',
-                        TargetPlatform.windows =>
-                          'Grant capture and accessibility/input permissions in Windows Settings, then press Re-check.',
-                        TargetPlatform.linux =>
-                          'Approve portal capture/input prompts and desktop accessibility access, then press Re-check.',
-                        TargetPlatform.android ||
-                        TargetPlatform.iOS ||
-                        TargetPlatform.fuchsia =>
-                          'Desktop companion permission controls are unavailable on this platform.',
-                      };
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Companion permissions',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: _textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            grantHelp,
-                            style: TextStyle(color: _textSecondary, height: 1.4),
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: <Widget>[
-                              _CompanionPermissionBadge(
-                                label: 'Screen capture',
-                                state: screenCaptureState,
-                              ),
-                              _CompanionPermissionBadge(
-                                label: 'Input control',
-                                state: inputControlState,
-                              ),
-                              _CompanionPermissionBadge(
-                                label: 'Accessibility',
-                                state: accessibilityState,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: <Widget>[
-                              OutlinedButton.icon(
-                                onPressed: controller.desktopCompanionEnabled
-                                    ? controller
-                                          .refreshDesktopCompanionStatus
-                                    : null,
-                                icon: Icon(Icons.sync_outlined),
-                                label: Text('Re-check permissions'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: controller.desktopCompanionEnabled
-                                    ? () => controller
-                                          .openDesktopCompanionPermissionSettings(
-                                            'screenCapture',
-                                          )
-                                    : null,
-                                icon: Icon(Icons.monitor_outlined),
-                                label: Text('Open capture settings'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: controller.desktopCompanionEnabled
-                                    ? () => controller
-                                          .openDesktopCompanionPermissionSettings(
-                                            'accessibility',
-                                          )
-                                    : null,
-                                icon: Icon(Icons.keyboard_command_key_outlined),
-                                label: Text('Open input/access settings'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: controller.desktopCompanionEnabled
-                                    ? controller.rotateDesktopCompanionIdentity
-                                    : null,
-                                icon: Icon(Icons.refresh_outlined),
-                                label: Text('Reset Device Identity'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: <Widget>[
-                      _RecordingPermissionBadge(
-                        label: 'Microphone',
-                        state: controller.recordingRuntime.microphonePermission,
-                      ),
-                      _RecordingPermissionBadge(
-                        label: 'System audio',
-                        state:
-                            controller.recordingRuntime.systemAudioPermission,
-                      ),
-                    ],
-                  ),
-                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkspaceSection(NeoAgentController controller) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Workspace'),
+            const SizedBox(height: 10),
+            Text(
+              'Controls that affect how the app executes work on this device or through the paired browser runtime.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Browser Runtime',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
               ),
             ),
-          ),
-        if (_supportsDesktopShell) const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 12),
+            _SettingToggle(
+              title: 'Run browser headless',
+              subtitle:
+                  'Keep browser automation off-screen when visible windows are not needed.',
+              value: _headlessBrowser,
+              onChanged: (value) => setState(() => _headlessBrowser = value),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _browserBackend,
+              decoration: const InputDecoration(
+                labelText: 'Browser backend',
+                helperText:
+                    'Cloud uses this deployment. Extension uses a paired Chrome browser.',
+              ),
+              items: const <DropdownMenuItem<String>>[
+                DropdownMenuItem<String>(
+                  value: 'cloud',
+                  child: Text('Cloud (local)'),
+                ),
+                DropdownMenuItem<String>(
+                  value: 'extension',
+                  child: Text('Chrome extension'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _browserBackend = value);
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _browserBackend == 'extension'
+                  ? (controller.browserExtensionConnected
+                        ? 'Chrome extension connected.'
+                        : 'Chrome extension selected. Download it here, load it unpacked in Chrome on the remote machine, then pair after login.')
+                  : controller.cloudBrowserBackend == 'vm'
+                  ? "Cloud uses this deployment's isolated VM browser runtime."
+                  : "Cloud uses this deployment's local host browser runtime.",
+              style: TextStyle(color: _textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: <Widget>[
-                const _SectionTitle('AI Providers'),
-                const SizedBox(height: 14),
-                if (controller.aiProviders.isEmpty)
-                  Text(
-                    'Provider metadata is unavailable on this server version.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 960;
-                      final cardWidth = compact
-                          ? constraints.maxWidth
-                          : (constraints.maxWidth - 16) / 2;
-                      return Wrap(
-                        spacing: 16,
-                        runSpacing: 16,
-                        children: controller.aiProviders.map((provider) {
-                          return SizedBox(
-                            width: cardWidth,
-                            child: _AiProviderCard(
-                              provider: provider,
-                              enabled:
-                                  _providerEnabled[provider.id] ??
-                                  controller
-                                      .aiProviderConfigs[provider.id]
-                                      ?.enabled ??
-                                  true,
-                              models: controller.supportedModels
-                                  .where(
-                                    (model) => model.provider == provider.id,
-                                  )
-                                  .toList(),
-                              baseUrlController:
-                                  _providerBaseUrlControllers[provider.id]!,
-                              expanded: _expandedProviderIds.contains(
-                                provider.id,
-                              ),
-                              onEnabledChanged: (value) {
-                                setState(() {
-                                  _providerEnabled[provider.id] = value;
-                                });
-                              },
-                              onExpandToggle: () {
-                                setState(() {
-                                  if (_expandedProviderIds.contains(
-                                    provider.id,
-                                  )) {
-                                    _expandedProviderIds.remove(provider.id);
-                                  } else {
-                                    _expandedProviderIds.add(provider.id);
-                                  }
-                                });
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      );
-                    },
-                  ),
+                OutlinedButton.icon(
+                  onPressed: controller.downloadBrowserExtension,
+                  icon: Icon(Icons.download_outlined),
+                  label: Text('Download extension'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: controller.refreshBrowserExtensionStatus,
+                  icon: Icon(Icons.sync),
+                  label: Text('Refresh status'),
+                ),
               ],
             ),
-          ),
+            const Divider(height: 32),
+            Text(
+              'Routing Behavior',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SettingToggle(
+              title: 'Smart model selection',
+              subtitle:
+                  'Automatically choose the best enabled model for each task type.',
+              value: _smarterSelector,
+              onChanged: (value) => setState(() => _smarterSelector = value),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(child: const _SectionTitle('App Updates')),
-                    FilledButton.icon(
-                      onPressed: controller.isCheckingAppUpdate
-                          ? null
-                          : () => controller.checkForAppUpdates(),
-                      style: FilledButton.styleFrom(backgroundColor: _accent),
-                      icon: controller.isCheckingAppUpdate
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.sync),
-                      label: Text(
-                        controller.isCheckingAppUpdate
-                            ? 'Checking...'
-                            : 'Check now',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (!controller.appUpdaterConfigured)
-                  Text(
-                    'Client app updates are not configured for this build.',
-                    style: TextStyle(color: _textSecondary, height: 1.5),
-                  )
-                else ...<Widget>[
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 780;
-                      final channelPicker = DropdownButtonFormField<String>(
-                        initialValue: controller.appUpdateChannel,
-                        decoration: const InputDecoration(
-                          labelText: 'App Release Channel',
+      ),
+    );
+  }
+
+  Widget _buildModelsSection({
+    required NeoAgentController controller,
+    required List<DropdownMenuItem<String>> modelChoices,
+    required List<ModelMeta> routingModels,
+    required List<ModelMeta> availableModels,
+    required int enabledSmartModels,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Models'),
+            const SizedBox(height: 10),
+            Text(
+              'Enable providers first, then pick defaults for chat, agents, fallback behavior, and smart routing.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Providers',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (controller.aiProviders.isEmpty)
+              Text(
+                'Provider metadata is unavailable on this server version.',
+                style: TextStyle(color: _textSecondary),
+              )
+            else
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 960;
+                  final cardWidth = compact
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 16) / 2;
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: controller.aiProviders.map((provider) {
+                      return SizedBox(
+                        width: cardWidth,
+                        child: _AiProviderCard(
+                          provider: provider,
+                          enabled:
+                              _providerEnabled[provider.id] ??
+                              controller
+                                  .aiProviderConfigs[provider.id]
+                                  ?.enabled ??
+                              true,
+                          models: controller.supportedModels
+                              .where((model) => model.provider == provider.id)
+                              .toList(),
+                          baseUrlController:
+                              _providerBaseUrlControllers[provider.id]!,
+                          expanded: _expandedProviderIds.contains(provider.id),
+                          onEnabledChanged: (value) {
+                            setState(() {
+                              _providerEnabled[provider.id] = value;
+                            });
+                          },
+                          onExpandToggle: () {
+                            setState(() {
+                              if (_expandedProviderIds.contains(provider.id)) {
+                                _expandedProviderIds.remove(provider.id);
+                              } else {
+                                _expandedProviderIds.add(provider.id);
+                              }
+                            });
+                          },
                         ),
-                        items: const <DropdownMenuItem<String>>[
-                          DropdownMenuItem<String>(
-                            value: 'stable',
-                            child: Text('Stable'),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            const Divider(height: 32),
+            Text(
+              'Default Routing',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (routingModels.isNotEmpty)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 940;
+                  final cardWidth = compact
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 24) / 3;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: <Widget>[
+                      SizedBox(
+                        width: cardWidth,
+                        child: _RoutingSelectCard(
+                          label: 'Chat',
+                          icon: Icons.chat_bubble_outline,
+                          value: _ensureModelValue(
+                            _defaultChatModel,
+                            routingModels,
+                            allowAuto: true,
                           ),
-                          DropdownMenuItem<String>(
-                            value: 'beta',
-                            child: Text('Beta'),
+                          items: modelChoices,
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _defaultChatModel = value);
+                            }
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _RoutingSelectCard(
+                          label: 'Sub-agent',
+                          icon: Icons.bolt_outlined,
+                          value: _ensureModelValue(
+                            _defaultSubagentModel,
+                            routingModels,
+                            allowAuto: true,
                           ),
-                        ],
+                          items: modelChoices,
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _defaultSubagentModel = value);
+                            }
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _RoutingSelectCard(
+                          label: 'Fallback',
+                          icon: Icons.shield_outlined,
+                          value: _ensureModelValue(
+                            _fallbackModel,
+                            routingModels,
+                            allowAuto: false,
+                          ),
+                          items: routingModels
+                              .map(
+                                (model) => DropdownMenuItem<String>(
+                                  value: model.id,
+                                  child: Text(model.label),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _fallbackModel = value);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            const Divider(height: 32),
+            Text(
+              'Smart Selector Pool',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: controller.supportedModels.map((model) {
+                final selected = _enabledModels.contains(model.id);
+                return FilterChip(
+                  label: Text(
+                    model.available
+                        ? model.label
+                        : '${model.label} (${model.providerStatusLabel})',
+                  ),
+                  selected: selected,
+                  selectedColor: _accentMuted,
+                  checkmarkColor: _accent,
+                  backgroundColor: _bgSecondary,
+                  side: BorderSide(
+                    color: model.available
+                        ? _border
+                        : _warning.withValues(alpha: 0.35),
+                  ),
+                  onSelected: model.available
+                      ? (value) {
+                          setState(() {
+                            if (value) {
+                              _enabledModels.add(model.id);
+                            } else if (_enabledModels.length > 1) {
+                              _enabledModels.remove(model.id);
+                            }
+                          });
+                        }
+                      : null,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              availableModels.isEmpty
+                  ? 'Enable a ready provider above to unlock model routing.'
+                  : '$enabledSmartModels models are currently eligible for smart routing.',
+              style: TextStyle(color: _textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceAndRecordingSection({
+    required NeoAgentController controller,
+    required List<DropdownMenuItem<String>> modelChoices,
+    required List<ModelMeta> routingModels,
+  }) {
+    final liveVoiceOptions =
+        _voiceLiveVoicesByProvider[_voiceLiveProvider] ?? const <String>[];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Voice & Recording'),
+            const SizedBox(height: 10),
+            Text(
+              'Defaults for transcription, summary generation, and live voice sessions.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Recording Defaults',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 940;
+                final cardWidth = compact
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 12) / 2;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: <Widget>[
+                    SizedBox(
+                      width: cardWidth,
+                      child: _RoutingSelectCard(
+                        label: 'Recording Summary',
+                        icon: Icons.summarize_outlined,
+                        value: _ensureModelValue(
+                          _defaultRecordingSummaryModel,
+                          routingModels,
+                          allowAuto: true,
+                        ),
+                        items: modelChoices,
                         onChanged: (value) {
                           if (value != null) {
-                            unawaited(controller.setAppUpdateChannel(value));
+                            setState(
+                              () => _defaultRecordingSummaryModel = value,
+                            );
                           }
                         },
-                      );
-                      final autoCheck = SwitchListTile.adaptive(
-                        value: controller.appUpdateAutoCheckEnabled,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('Check automatically on launch'),
-                        subtitle: Text(
-                          'This only checks GitHub Releases on startup. Installation still requires your confirmation.',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                        onChanged: controller.setAppUpdateAutoCheckEnabled,
-                      );
-
-                      if (compact) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            channelPicker,
-                            const SizedBox(height: 10),
-                            autoCheck,
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(child: channelPicker),
-                          const SizedBox(width: 16),
-                          Expanded(child: autoCheck),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Installed: ${controller.installedAppVersion ?? 'Unknown'} | Channel: ${controller.appUpdateChannelLabel} | Last checked: ${controller.appUpdateLastCheckedLabel}',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Source: ${app_release_updater.appUpdaterGithubOwner}/${app_release_updater.appUpdaterGithubRepo}${app_release_updater.appUpdaterGithubToken.trim().isNotEmpty ? ' (override active)' : ' (default or build override)'}',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                  if (controller.appUpdateErrorMessage
-                      case final message?) ...<Widget>[
-                    const SizedBox(height: 12),
-                    _InlineError(message: message),
-                  ],
-                  if (controller.availableAppUpdate
-                      case final release?) ...<Widget>[
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: _bgSecondary,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: _border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: <Widget>[
-                              _StatusPill(
-                                label: 'Update ${release.version}',
-                                color: release.channel == 'beta'
-                                    ? _warning
-                                    : _accent,
-                              ),
-                              _StatusPill(
-                                label: release.asset.name,
-                                color: _textSecondary,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            '${release.title} · ${release.publishedLabel} · ${release.asset.sizeLabel}',
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                          if (release.body.trim().isNotEmpty) ...<Widget>[
-                            const SizedBox(height: 14),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxHeight: 220),
-                              child: SingleChildScrollView(
-                                child: MarkdownBody(
-                                  data: release.body,
-                                  selectable: true,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: TextStyle(
-                                      color: _textSecondary,
-                                      height: 1.45,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 14),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: <Widget>[
-                              FilledButton.icon(
-                                onPressed: controller.isOpeningAppUpdate
-                                    ? null
-                                    : controller.openAppUpdate,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: _accent,
-                                ),
-                                icon: controller.isOpeningAppUpdate
-                                    ? const SizedBox.square(
-                                        dimension: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Icon(Icons.system_update_alt),
-                                label: Text(
-                                  controller.isOpeningAppUpdate
-                                      ? 'Opening...'
-                                      : 'Download update',
-                                ),
-                              ),
-                              if (release.htmlUrl.trim().isNotEmpty)
-                                OutlinedButton.icon(
-                                  onPressed: () {
-                                    unawaited(
-                                      widget.controller._oauthLauncher
-                                          .openExternal(
-                                            url: release.htmlUrl,
-                                            label: 'release_notes',
-                                          ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.open_in_new),
-                                  label: Text('View release'),
-                                ),
-                            ],
-                          ),
-                        ],
                       ),
                     ),
-                  ] else ...<Widget>[
-                    const SizedBox(height: 12),
-                    Text(
-                      controller.isCheckingAppUpdate
-                          ? 'Checking GitHub releases for this platform...'
-                          : controller.appUpdateLastCheckedAt == null
-                          ? 'Choose a channel and check GitHub releases for this platform.'
-                          : 'No newer app release is available for this platform on the selected channel.',
-                      style: TextStyle(color: _textSecondary, height: 1.45),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _RoutingSelectCard(
+                        label: 'Recording Transcription',
+                        icon: Icons.hearing_outlined,
+                        value: _defaultRecordingTranscriptionModel,
+                        items: _recordingTranscriptionModelChoices(
+                          _defaultRecordingTranscriptionModel,
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _defaultRecordingTranscriptionModel = value;
+                            });
+                          }
+                        },
+                      ),
                     ),
                   ],
-                ],
-              ],
+                );
+              },
             ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Model Routing'),
-                const SizedBox(height: 14),
-                if (routingModels.isNotEmpty) ...<Widget>[
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 940;
-                      final cardWidth = compact
-                          ? constraints.maxWidth
-                          : (constraints.maxWidth - 24) / 3;
-                      return Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: <Widget>[
-                          SizedBox(
-                            width: cardWidth,
-                            child: _RoutingSelectCard(
-                              label: 'Chat',
-                              icon: Icons.chat_bubble_outline,
-                              value: _ensureModelValue(
-                                _defaultChatModel,
-                                routingModels,
-                                allowAuto: true,
-                              ),
-                              items: modelChoices,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _defaultChatModel = value);
-                                }
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: cardWidth,
-                            child: _RoutingSelectCard(
-                              label: 'Sub-agent',
-                              icon: Icons.bolt_outlined,
-                              value: _ensureModelValue(
-                                _defaultSubagentModel,
-                                routingModels,
-                                allowAuto: true,
-                              ),
-                              items: modelChoices,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _defaultSubagentModel = value);
-                                }
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: cardWidth,
-                            child: _RoutingSelectCard(
-                              label: 'Fallback',
-                              icon: Icons.shield_outlined,
-                              value: _ensureModelValue(
-                                _fallbackModel,
-                                routingModels,
-                                allowAuto: false,
-                              ),
-                              items: routingModels
-                                  .map(
-                                    (model) => DropdownMenuItem<String>(
-                                      value: model.id,
-                                      child: Text(model.label),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _fallbackModel = value);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ],
+            const Divider(height: 32),
+            Text(
+              'Live Voice',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
             ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Recording Defaults'),
-                const SizedBox(height: 12),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 940;
-                    final cardWidth = compact
-                        ? constraints.maxWidth
-                        : (constraints.maxWidth - 12) / 2;
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: <Widget>[
-                        SizedBox(
-                          width: cardWidth,
-                          child: _RoutingSelectCard(
-                            label: 'Recording Summary',
-                            icon: Icons.summarize_outlined,
-                            value: _ensureModelValue(
-                              _defaultRecordingSummaryModel,
-                              routingModels,
-                              allowAuto: true,
-                            ),
-                            items: modelChoices,
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(
-                                  () => _defaultRecordingSummaryModel = value,
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: _RoutingSelectCard(
-                            label: 'Recording Transcription',
-                            icon: Icons.hearing_outlined,
-                            value: _defaultRecordingTranscriptionModel,
-                            items: _recordingTranscriptionModelChoices(
-                              _defaultRecordingTranscriptionModel,
-                            ),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(
-                                  () => _defaultRecordingTranscriptionModel =
-                                      value,
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Live Call'),
-                const SizedBox(height: 12),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 940;
-                    final cardWidth = compact
-                        ? constraints.maxWidth
-                        : (constraints.maxWidth - 24) / 3;
-                    final liveVoiceOptions =
-                        _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
-                        const <String>[];
-
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: <Widget>[
-                        SizedBox(
-                          width: cardWidth,
-                          child: _RoutingSelectCard(
-                            label: 'Live Provider',
-                            icon: Icons.call_outlined,
-                            value: _voiceLiveProvider,
-                            items: const <String>['openai', 'gemini']
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 940;
+                final cardWidth = compact
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 24) / 3;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: <Widget>[
+                    SizedBox(
+                      width: cardWidth,
+                      child: _RoutingSelectCard(
+                        label: 'Live Provider',
+                        icon: Icons.call_outlined,
+                        value: _voiceLiveProvider,
+                        items: const <String>['openai', 'gemini']
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _voiceLiveProvider = value;
+                            final modelOptions =
+                                _voiceLiveModelsByProvider[_voiceLiveProvider] ??
+                                const <String>[];
+                            if (!modelOptions.contains(_voiceLiveModel) &&
+                                modelOptions.isNotEmpty) {
+                              _voiceLiveModel = modelOptions.first;
+                            }
+                            final voiceOptions =
+                                _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
+                                const <String>[];
+                            if (voiceOptions.isNotEmpty &&
+                                !voiceOptions.contains(_voiceLiveVoice)) {
+                              _voiceLiveVoice = voiceOptions.first;
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _RoutingSelectCard(
+                        label: 'Live Model',
+                        icon: Icons.speed_outlined,
+                        value: _voiceLiveModel,
+                        items:
+                            (_voiceLiveModelsByProvider[_voiceLiveProvider] ??
+                                    const <String>[])
                                 .map(
                                   (value) => DropdownMenuItem<String>(
                                     value: value,
@@ -14460,402 +14287,737 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                   ),
                                 )
                                 .toList(),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                _voiceLiveProvider = value;
-                                final modelOptions =
-                                    _voiceLiveModelsByProvider[_voiceLiveProvider] ??
-                                    const <String>[];
-                                if (!modelOptions.contains(_voiceLiveModel) &&
-                                    modelOptions.isNotEmpty) {
-                                  _voiceLiveModel = modelOptions.first;
-                                }
-                                final voiceOptions =
-                                    _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
-                                    const <String>[];
-                                if (voiceOptions.isNotEmpty &&
-                                    !voiceOptions.contains(_voiceLiveVoice)) {
-                                  _voiceLiveVoice = voiceOptions.first;
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: _RoutingSelectCard(
-                            label: 'Live Model',
-                            icon: Icons.speed_outlined,
-                            value: _voiceLiveModel,
-                            items:
-                                (_voiceLiveModelsByProvider[_voiceLiveProvider] ??
-                                        const <String>[])
-                                    .map(
-                                      (value) => DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _voiceLiveModel = value);
-                              }
-                            },
-                          ),
-                        ),
-                        if (liveVoiceOptions.isNotEmpty)
-                          SizedBox(
-                            width: cardWidth,
-                            child: _RoutingSelectCard(
-                              label: 'Live Voice',
-                              icon: Icons.graphic_eq_outlined,
-                              value: _voiceLiveVoice,
-                              items: liveVoiceOptions
-                                  .map(
-                                    (value) => DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _voiceLiveVoice = value);
-                                }
-                              },
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Smart Selector Allowed Models'),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: controller.supportedModels.map((model) {
-                    final selected = _enabledModels.contains(model.id);
-                    return FilterChip(
-                      label: Text(
-                        model.available
-                            ? model.label
-                            : '${model.label} (${model.providerStatusLabel})',
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _voiceLiveModel = value);
+                          }
+                        },
                       ),
-                      selected: selected,
-                      selectedColor: _accentMuted,
-                      checkmarkColor: _accent,
-                      backgroundColor: _bgSecondary,
-                      side: BorderSide(
-                        color: model.available
-                            ? _border
-                            : _warning.withValues(alpha: 0.35),
-                      ),
-                      onSelected: model.available
-                          ? (value) {
-                              setState(() {
-                                if (value) {
-                                  _enabledModels.add(model.id);
-                                } else if (_enabledModels.length > 1) {
-                                  _enabledModels.remove(model.id);
-                                }
-                              });
-                            }
-                          : null,
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  availableModels.isEmpty
-                      ? 'Enable a ready provider above to unlock model routing.'
-                      : '$enabledSmartModels models are currently eligible for smart routing.',
-                  style: TextStyle(color: _textSecondary),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Automation'),
-                const SizedBox(height: 12),
-                _SettingToggle(
-                  title: 'Browser',
-                  subtitle: 'Run browser headless (no visible window)',
-                  value: _headlessBrowser,
-                  onChanged: (value) =>
-                      setState(() => _headlessBrowser = value),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _browserBackend,
-                  decoration: const InputDecoration(
-                    labelText: 'Browser backend',
-                    helperText:
-                        'Cloud uses this deployment. Extension uses a paired Chrome browser.',
-                  ),
-                  items: const <DropdownMenuItem<String>>[
-                    DropdownMenuItem<String>(
-                      value: 'cloud',
-                      child: Text('Cloud (local)'),
                     ),
-                    DropdownMenuItem<String>(
-                      value: 'extension',
-                      child: Text('Chrome extension'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _browserBackend = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _browserBackend == 'extension'
-                      ? (controller.browserExtensionConnected
-                            ? 'Chrome extension connected.'
-                            : 'Chrome extension selected. Download it here, load it unpacked in Chrome on the remote machine, then pair after login.')
-                      : controller.cloudBrowserBackend == 'vm'
-                      ? "Cloud uses this deployment's isolated VM browser runtime."
-                      : "Cloud uses this deployment's local host browser runtime.",
-                  style: TextStyle(color: _textSecondary, height: 1.4),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    OutlinedButton.icon(
-                      onPressed: controller.downloadBrowserExtension,
-                      icon: Icon(Icons.download_outlined),
-                      label: Text('Download extension'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: controller.refreshBrowserExtensionStatus,
-                      icon: Icon(Icons.sync),
-                      label: Text('Refresh status'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _SettingToggle(
-                  title: 'Smart Selection',
-                  subtitle:
-                      'Automatically select the best model based on task type',
-                  value: _smarterSelector,
-                  onChanged: (value) =>
-                      setState(() => _smarterSelector = value),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    _SectionTitle('Token Usage'),
-                    SizedBox(width: 8),
-                    Icon(Icons.info_outline, size: 16, color: _textSecondary),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (controller.tokenUsage == null)
-                  Text(
-                    'Token usage unavailable on this server version.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Total: ${controller.tokenUsage!.totalTokensLabel} tokens across ${controller.tokenUsage!.totalRunsLabel} runs',
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Last 7 days: ${controller.tokenUsage!.last7DaysTokensLabel} tokens in ${controller.tokenUsage!.last7DaysRunsLabel} runs',
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Avg/run: ${controller.tokenUsage!.avgTokensPerRunLabel} tokens',
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                if (controller.updateStatus.allowSelfUpdate) ...<Widget>[
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 780;
-                      final channelPicker = DropdownButtonFormField<String>(
-                        initialValue: controller.updateStatus.releaseChannel,
-                        decoration: const InputDecoration(
-                          labelText: 'Release Channel',
-                        ),
-                        items: const <DropdownMenuItem<String>>[
-                          DropdownMenuItem<String>(
-                            value: 'stable',
-                            child: Text('Stable'),
-                          ),
-                          DropdownMenuItem<String>(
-                            value: 'beta',
-                            child: Text('Beta'),
-                          ),
-                        ],
-                        onChanged:
-                            controller.isSavingReleaseChannel ||
-                                controller.isTriggeringUpdate ||
-                                controller.updateStatus.state == 'running'
-                            ? null
-                            : (value) {
-                                if (value != null) {
-                                  unawaited(
-                                    controller.setReleaseChannel(value),
-                                  );
-                                }
-                              },
-                      );
-
-                      final channelHelper = Text(
-                        controller.updateStatus.releaseChannel == 'beta'
-                            ? 'Beta follows the preview release stream.'
-                            : 'Stable follows the production release stream.',
-                        style: TextStyle(color: _textSecondary),
-                      );
-
-                      if (compact) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            channelPicker,
-                            const SizedBox(height: 8),
-                            channelHelper,
-                            const SizedBox(height: 16),
-                          ],
-                        );
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Expanded(child: channelPicker),
-                            const SizedBox(width: 12),
-                            Expanded(child: channelHelper),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  Row(
-                    children: <Widget>[
-                      Expanded(child: _SectionTitle('Runtime Updates')),
-                      FilledButton.icon(
-                        onPressed:
-                            controller.isSavingReleaseChannel ||
-                                controller.isTriggeringUpdate ||
-                                controller.updateStatus.state == 'running'
-                            ? null
-                            : controller.triggerUpdate,
-                        style: FilledButton.styleFrom(backgroundColor: _accent),
-                        icon: controller.isTriggeringUpdate
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
+                    if (liveVoiceOptions.isNotEmpty)
+                      SizedBox(
+                        width: cardWidth,
+                        child: _RoutingSelectCard(
+                          label: 'Live Voice',
+                          icon: Icons.graphic_eq_outlined,
+                          value: _voiceLiveVoice,
+                          items: liveVoiceOptions
+                              .map(
+                                (value) => DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
                                 ),
                               )
-                            : Icon(Icons.system_update),
-                        label: Text('Update'),
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _voiceLiveVoice = value);
+                            }
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopSection(NeoAgentController controller) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Desktop'),
+            const SizedBox(height: 10),
+            Text(
+              'Controls that only apply to the desktop shell on this computer, including local recording UX and Companion Mode.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Local App Behavior',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile.adaptive(
+              value: controller.desktopAskOnClose,
+              contentPadding: EdgeInsets.zero,
+              title: Text('Ask before closing to background'),
+              subtitle: Text(
+                'Prompt for whether NeoAgent should stay resident in the tray when the main window closes.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              onChanged: (value) => controller.setDesktopClosePreference(
+                askOnClose: value,
+                keepRunningOnClose: controller.desktopKeepRunningOnClose,
+              ),
+            ),
+            SwitchListTile.adaptive(
+              value: controller.desktopAutoShowFloatingToolbar,
+              contentPadding: EdgeInsets.zero,
+              title: Text('Auto-show floating toolbar'),
+              subtitle: Text(
+                'Open the compact recording bar automatically whenever a desktop studio session starts.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              onChanged: controller.setDesktopAutoShowFloatingToolbar,
+            ),
+            SwitchListTile.adaptive(
+              value: controller.desktopAssistantHotkeyEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: Text('Reserve assistant hotkey'),
+              subtitle: Text(
+                'Register $_desktopAssistantHotkeyLabel so the desktop shell is ready for the upcoming voice assistant summon flow.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              onChanged: controller.recordingRuntime.supportsGlobalHotkeys
+                  ? controller.setDesktopAssistantHotkeyEnabled
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _RecordingPermissionBadge(
+                  label: 'Microphone',
+                  state: controller.recordingRuntime.microphonePermission,
+                ),
+                _RecordingPermissionBadge(
+                  label: 'System audio',
+                  state: controller.recordingRuntime.systemAudioPermission,
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            Text(
+              'Companion Mode',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile.adaptive(
+              value: controller.desktopCompanionEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: Text('Enable Companion Mode on this computer'),
+              subtitle: Text(
+                'Expose this signed-in desktop app as a controllable companion device without a separate pairing flow.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              onChanged: controller.setDesktopCompanionEnabled,
+            ),
+            SwitchListTile.adaptive(
+              value: controller.desktopCompanionPaused,
+              contentPadding: EdgeInsets.zero,
+              title: Text('Pause Companion Mode'),
+              subtitle: Text(
+                'Keep the device registered but reject remote control commands locally until resumed.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              onChanged: controller.desktopCompanionEnabled
+                  ? controller.setDesktopCompanionPaused
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: controller.desktopCompanionLabel,
+              enabled: controller.desktopCompanionEnabled,
+              decoration: const InputDecoration(
+                labelText: 'Companion device label',
+                hintText: 'My workstation',
+                prefixIcon: Icon(Icons.edit_outlined),
+              ),
+              onFieldSubmitted: controller.setDesktopCompanionLabel,
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _DotStatus(
+                  label: controller.desktopCompanionConnected
+                      ? 'Connected'
+                      : controller.desktopCompanionConnecting
+                      ? 'Connecting'
+                      : 'Disconnected',
+                  color: controller.desktopCompanionConnected
+                      ? _success
+                      : controller.desktopCompanionConnecting
+                      ? _accent
+                      : _warning,
+                ),
+                _DotStatus(
+                  label: controller.desktopCompanionPaused ? 'Paused' : 'Ready',
+                  color: controller.desktopCompanionPaused
+                      ? _warning
+                      : _success,
+                ),
+              ],
+            ),
+            if (controller.desktopCompanionErrorMessage
+                case final message?) ...<Widget>[
+              const SizedBox(height: 12),
+              _InlineError(message: message),
+            ],
+            const SizedBox(height: 14),
+            Builder(
+              builder: (context) {
+                final status = controller.desktopCompanionStatus;
+                final permissionsRaw = status['permissions'];
+                final permissions = permissionsRaw is Map
+                    ? permissionsRaw.map(
+                        (key, value) => MapEntry(
+                          key.toString(),
+                          value?.toString() ?? 'unknown',
+                        ),
+                      )
+                    : const <String, String>{};
+                final screenCaptureState =
+                    permissions['screenCapture'] ?? 'unknown';
+                final inputControlState =
+                    permissions['inputControl'] ?? 'unknown';
+                final accessibilityState =
+                    permissions['accessibility'] ?? 'unknown';
+                final grantHelp = switch (defaultTargetPlatform) {
+                  TargetPlatform.macOS =>
+                    'Grant Screen Recording and Accessibility in System Settings, then press Re-check.',
+                  TargetPlatform.windows =>
+                    'Grant capture and accessibility/input permissions in Windows Settings, then press Re-check.',
+                  TargetPlatform.linux =>
+                    'Approve portal capture/input prompts and desktop accessibility access, then press Re-check.',
+                  TargetPlatform.android ||
+                  TargetPlatform.iOS ||
+                  TargetPlatform.fuchsia =>
+                    'Desktop companion permission controls are unavailable on this platform.',
+                };
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Permissions',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: _textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      grantHelp,
+                      style: TextStyle(color: _textSecondary, height: 1.4),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: <Widget>[
+                        _CompanionPermissionBadge(
+                          label: 'Screen capture',
+                          state: screenCaptureState,
+                        ),
+                        _CompanionPermissionBadge(
+                          label: 'Input control',
+                          state: inputControlState,
+                        ),
+                        _CompanionPermissionBadge(
+                          label: 'Accessibility',
+                          state: accessibilityState,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: <Widget>[
+                        OutlinedButton.icon(
+                          onPressed: controller.desktopCompanionEnabled
+                              ? controller.refreshDesktopCompanionStatus
+                              : null,
+                          icon: Icon(Icons.sync_outlined),
+                          label: Text('Re-check permissions'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: controller.desktopCompanionEnabled
+                              ? () => controller
+                                    .openDesktopCompanionPermissionSettings(
+                                      'screenCapture',
+                                    )
+                              : null,
+                          icon: Icon(Icons.monitor_outlined),
+                          label: Text('Open capture settings'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: controller.desktopCompanionEnabled
+                              ? () => controller
+                                    .openDesktopCompanionPermissionSettings(
+                                      'accessibility',
+                                    )
+                              : null,
+                          icon: Icon(Icons.keyboard_command_key_outlined),
+                          label: Text('Open input/access settings'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: controller.desktopCompanionEnabled
+                              ? controller.rotateDesktopCompanionIdentity
+                              : null,
+                          icon: Icon(Icons.refresh_outlined),
+                          label: Text('Reset Device Identity'),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpdatesSection(NeoAgentController controller) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Updates'),
+            const SizedBox(height: 10),
+            Text(
+              'Client and runtime update controls are grouped here so release management lives in one place.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Client App',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: _textPrimary,
+                    ),
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: controller.isCheckingAppUpdate
+                      ? null
+                      : () => controller.checkForAppUpdates(),
+                  style: FilledButton.styleFrom(backgroundColor: _accent),
+                  icon: controller.isCheckingAppUpdate
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.sync),
+                  label: Text(
+                    controller.isCheckingAppUpdate
+                        ? 'Checking...'
+                        : 'Check now',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (!controller.appUpdaterConfigured)
+              Text(
+                'Client app updates are not configured for this build.',
+                style: TextStyle(color: _textSecondary, height: 1.5),
+              )
+            else ...<Widget>[
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 780;
+                  final channelPicker = DropdownButtonFormField<String>(
+                    initialValue: controller.appUpdateChannel,
+                    decoration: const InputDecoration(
+                      labelText: 'App release channel',
+                    ),
+                    items: const <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(
+                        value: 'stable',
+                        child: Text('Stable'),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: 'beta',
+                        child: Text('Beta'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        unawaited(controller.setAppUpdateChannel(value));
+                      }
+                    },
+                  );
+                  final autoCheck = SwitchListTile.adaptive(
+                    value: controller.appUpdateAutoCheckEnabled,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Check automatically on launch'),
+                    subtitle: Text(
+                      'This only checks GitHub Releases on startup. Installation still requires your confirmation.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                    onChanged: controller.setAppUpdateAutoCheckEnabled,
+                  );
+
+                  if (compact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        channelPicker,
+                        const SizedBox(height: 10),
+                        autoCheck,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Expanded(child: channelPicker),
+                      const SizedBox(width: 16),
+                      Expanded(child: autoCheck),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Installed: ${controller.installedAppVersion ?? 'Unknown'} | Channel: ${controller.appUpdateChannelLabel} | Last checked: ${controller.appUpdateLastCheckedLabel}',
+                style: TextStyle(color: _textSecondary),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Source: ${app_release_updater.appUpdaterGithubOwner}/${app_release_updater.appUpdaterGithubRepo}${app_release_updater.appUpdaterGithubToken.trim().isNotEmpty ? ' (override active)' : ' (default or build override)'}',
+                style: TextStyle(color: _textSecondary),
+              ),
+              if (controller.appUpdateErrorMessage
+                  case final message?) ...<Widget>[
+                const SizedBox(height: 12),
+                _InlineError(message: message),
+              ],
+              if (controller.availableAppUpdate
+                  case final release?) ...<Widget>[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _bgSecondary,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          _StatusPill(
+                            label: 'Update ${release.version}',
+                            color: release.channel == 'beta'
+                                ? _warning
+                                : _accent,
+                          ),
+                          _StatusPill(
+                            label: release.asset.name,
+                            color: _textSecondary,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${release.title} · ${release.publishedLabel} · ${release.asset.sizeLabel}',
+                        style: TextStyle(color: _textSecondary),
+                      ),
+                      if (release.body.trim().isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 14),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 220),
+                          child: SingleChildScrollView(
+                            child: MarkdownBody(
+                              data: release.body,
+                              selectable: true,
+                              styleSheet: MarkdownStyleSheet(
+                                p: TextStyle(
+                                  color: _textSecondary,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          FilledButton.icon(
+                            onPressed: controller.isOpeningAppUpdate
+                                ? null
+                                : controller.openAppUpdate,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _accent,
+                            ),
+                            icon: controller.isOpeningAppUpdate
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.system_update_alt),
+                            label: Text(
+                              controller.isOpeningAppUpdate
+                                  ? 'Opening...'
+                                  : 'Download update',
+                            ),
+                          ),
+                          if (release.htmlUrl.trim().isNotEmpty)
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                unawaited(
+                                  widget.controller._oauthLauncher.openExternal(
+                                    url: release.htmlUrl,
+                                    label: 'release_notes',
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.open_in_new),
+                              label: Text('View release'),
+                            ),
+                        ],
                       ),
                     ],
                   ),
-                ] else ...<Widget>[
-                  const _SectionTitle('Runtime Updates'),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Updates and release tracks are managed for this deployment.',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                ],
+                ),
+              ] else ...<Widget>[
                 const SizedBox(height: 12),
-                Row(
-                  children: <Widget>[
-                    _StatusPill(
-                      label: controller.updateStatus.badgeLabel,
-                      color: controller.updateStatus.badgeColor,
+                Text(
+                  controller.isCheckingAppUpdate
+                      ? 'Checking GitHub releases for this platform...'
+                      : controller.appUpdateLastCheckedAt == null
+                      ? 'Choose a channel and check GitHub releases for this platform.'
+                      : 'No newer app release is available for this platform on the selected channel.',
+                  style: TextStyle(color: _textSecondary, height: 1.45),
+                ),
+              ],
+            ],
+            const Divider(height: 32),
+            if (controller.updateStatus.allowSelfUpdate) ...<Widget>[
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 780;
+                  final channelPicker = DropdownButtonFormField<String>(
+                    initialValue: controller.updateStatus.releaseChannel,
+                    decoration: const InputDecoration(
+                      labelText: 'Runtime release channel',
                     ),
-                    const SizedBox(width: 10),
-                    _StatusPill(
-                      label: controller.updateStatus.releaseChannelLabel,
-                      color: controller.updateStatus.releaseChannel == 'beta'
-                          ? _warning
-                          : _accent,
+                    items: const <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(
+                        value: 'stable',
+                        child: Text('Stable'),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: 'beta',
+                        child: Text('Beta'),
+                      ),
+                    ],
+                    onChanged:
+                        controller.isSavingReleaseChannel ||
+                            controller.isTriggeringUpdate ||
+                            controller.updateStatus.state == 'running'
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              unawaited(controller.setReleaseChannel(value));
+                            }
+                          },
+                  );
+
+                  final channelHelper = Text(
+                    controller.updateStatus.releaseChannel == 'beta'
+                        ? 'Beta follows the preview release stream.'
+                        : 'Stable follows the production release stream.',
+                    style: TextStyle(color: _textSecondary),
+                  );
+
+                  if (compact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        channelPicker,
+                        const SizedBox(height: 8),
+                        channelHelper,
+                        const SizedBox(height: 16),
+                      ],
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Expanded(child: channelPicker),
+                        const SizedBox(width: 12),
+                        Expanded(child: channelHelper),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        controller.updateStatus.message,
-                        style: TextStyle(color: _textSecondary),
+                  );
+                },
+              ),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Runtime',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: _textPrimary,
                       ),
                     ),
-                    Text('${controller.updateStatus.progress}%'),
-                  ],
+                  ),
+                  FilledButton.icon(
+                    onPressed:
+                        controller.isSavingReleaseChannel ||
+                            controller.isTriggeringUpdate ||
+                            controller.updateStatus.state == 'running'
+                        ? null
+                        : controller.triggerUpdate,
+                    style: FilledButton.styleFrom(backgroundColor: _accent),
+                    icon: controller.isTriggeringUpdate
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Icon(Icons.system_update),
+                    label: Text('Update'),
+                  ),
+                ],
+              ),
+            ] else ...<Widget>[
+              Text(
+                'Runtime',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: _textPrimary,
                 ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    minHeight: 8,
-                    value: controller.updateStatus.progress / 100,
-                    backgroundColor: _bgSecondary,
-                    color: _accent,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Updates and release tracks are managed for this deployment.',
+                style: TextStyle(color: _textSecondary),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                _StatusPill(
+                  label: controller.updateStatus.badgeLabel,
+                  color: controller.updateStatus.badgeColor,
+                ),
+                const SizedBox(width: 10),
+                _StatusPill(
+                  label: controller.updateStatus.releaseChannelLabel,
+                  color: controller.updateStatus.releaseChannel == 'beta'
+                      ? _warning
+                      : _accent,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    controller.updateStatus.message,
+                    style: TextStyle(color: _textSecondary),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(controller.updateStatus.versionLine),
+                Text('${controller.updateStatus.progress}%'),
               ],
             ),
-          ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                minHeight: 8,
+                value: controller.updateStatus.progress / 100,
+                backgroundColor: _bgSecondary,
+                color: _accent,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(controller.updateStatus.versionLine),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticsSection(NeoAgentController controller) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const _SectionTitle('Diagnostics'),
+                const SizedBox(width: 8),
+                Icon(Icons.info_outline, size: 16, color: _textSecondary),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Usage and health signals that help explain current runtime behavior without digging through logs first.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 14),
+            if (controller.tokenUsage == null)
+              Text(
+                'Token usage unavailable on this server version.',
+                style: TextStyle(color: _textSecondary),
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Total: ${controller.tokenUsage!.totalTokensLabel} tokens across ${controller.tokenUsage!.totalRunsLabel} runs',
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Last 7 days: ${controller.tokenUsage!.last7DaysTokensLabel} tokens in ${controller.tokenUsage!.last7DaysRunsLabel} runs',
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Avg/run: ${controller.tokenUsage!.avgTokensPerRunLabel} tokens',
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
     );
   }
 

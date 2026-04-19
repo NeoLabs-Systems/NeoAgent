@@ -416,7 +416,7 @@ bool FlutterWindow::OnCreate() {
           GetInt(*arguments, "x2", &x2);
           GetInt(*arguments, "y2", &y2);
           GetInt(*arguments, "durationMs", &duration_ms);
-          const int steps = max(4, min(90, duration_ms / 16));
+          const int steps = std::max(4, std::min(90, duration_ms / 16));
           SetCursorPos(x1, y1);
           SendMouseButton(MOUSEEVENTF_LEFTDOWN);
           for (int step = 1; step <= steps; ++step) {
@@ -424,7 +424,7 @@ bool FlutterWindow::OnCreate() {
             const int nx = static_cast<int>(std::lround(x1 + ((x2 - x1) * t)));
             const int ny = static_cast<int>(std::lround(y1 + ((y2 - y1) * t)));
             SetCursorPos(nx, ny);
-            Sleep(max(1, duration_ms / max(1, steps)));
+            Sleep(std::max(1, duration_ms / std::max(1, steps)));
           }
           SendMouseButton(MOUSEEVENTF_LEFTUP);
           result->Success(EncodableValue());
