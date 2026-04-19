@@ -43,10 +43,13 @@ class DesktopCompanionActions {
     required bool paused,
     String? activeDisplayId,
   }) async {
-    final snapshot = await captureSnapshot(activeDisplayId: activeDisplayId);
-    final packageInfo = await PackageInfo.fromPlatform();
     final platformStatus = await _platformStatus();
     final capabilities = await _capabilities(platformStatus: platformStatus);
+    final snapshot = await _safeSnapshotForStatus(
+      activeDisplayId: activeDisplayId,
+      platformStatus: platformStatus,
+    );
+    final packageInfo = await PackageInfo.fromPlatform();
     return <String, Object?>{
       'deviceId': deviceId,
       'activationId': activationId,
@@ -133,9 +136,12 @@ class DesktopCompanionActions {
     required bool paused,
     String? activeDisplayId,
   }) async {
-    final snapshot = await captureSnapshot(activeDisplayId: activeDisplayId);
     final platformStatus = await _platformStatus();
     final capabilities = await _capabilities(platformStatus: platformStatus);
+    final snapshot = await _safeSnapshotForStatus(
+      activeDisplayId: activeDisplayId,
+      platformStatus: platformStatus,
+    );
     return <String, Object?>{
       'paused': paused,
       'label': label,
@@ -470,6 +476,27 @@ class DesktopCompanionActions {
       throw Exception(
         '$action is not available on ${defaultTargetPlatform.name} (missing runtime permission or dependency).',
       );
+    }
+  }
+
+  Future<DesktopCompanionSnapshot?> _safeSnapshotForStatus({
+    required String? activeDisplayId,
+    required Map<String, Object?> platformStatus,
+  }) async {
+    final permissions = _permissions(
+      const <String, Object?>{},
+      platformStatus: platformStatus,
+    );
+    final screenCaptureState =
+        permissions['screenCapture']?.toString().toLowerCase() ?? 'unknown';
+    if (screenCaptureState == 'required' ||
+        screenCaptureState == 'unsupported') {
+      return null;
+    }
+    try {
+      return await captureSnapshot(activeDisplayId: activeDisplayId);
+    } catch (_) {
+      return null;
     }
   }
 
