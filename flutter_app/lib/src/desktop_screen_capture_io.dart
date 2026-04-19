@@ -2,12 +2,15 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'desktop_native_bridge.dart';
 import 'desktop_screen_capture.dart';
 
 DesktopScreenCapture createPlatformDesktopScreenCapture() =>
     _DesktopScreenCaptureIo();
 
 class _DesktopScreenCaptureIo implements DesktopScreenCapture {
+  final DesktopNativeBridge _nativeBridge = DesktopNativeBridge();
+
   @override
   bool get isSupported =>
       !kIsWeb &&
@@ -36,71 +39,23 @@ class _DesktopScreenCaptureIo implements DesktopScreenCapture {
   }
 
   Future<DesktopScreenCaptureResult?> _captureMacos() async {
-    final file = await _temporaryFile('jpg');
-    try {
-      final result = await Process.run('screencapture', <String>[
-        '-x',
-        '-t',
-        'jpg',
-        file.path,
-      ]);
-      if (result.exitCode != 0 || !await file.exists()) {
-        throw ProcessException(
-          'screencapture',
-          <String>['-x', '-t', 'jpg', file.path],
-          '${result.stderr}',
-          result.exitCode,
-        );
-      }
-      return DesktopScreenCaptureResult(
-        bytes: await file.readAsBytes(),
-        mimeType: 'image/jpeg',
-      );
-    } finally {
-      await _deleteIfExists(file);
+    final result = await _nativeBridge.captureFrame();
+    final bytes = result['bytes'];
+    final mimeType = result['mimeType']?.toString() ?? 'image/png';
+    if (bytes is! Uint8List || bytes.isEmpty) {
+      return null;
     }
+    return DesktopScreenCaptureResult(bytes: bytes, mimeType: mimeType);
   }
 
   Future<DesktopScreenCaptureResult?> _captureWindows() async {
-    final file = await _temporaryFile('jpg');
-    const script = r'''
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
-$bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
-$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-$graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bitmap.Size)
-$codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' } | Select-Object -First 1
-$encoder = [System.Drawing.Imaging.Encoder]::Quality
-$parameters = New-Object System.Drawing.Imaging.EncoderParameters 1
-$parameters.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter($encoder, 72L)
-$bitmap.Save($args[0], $codec, $parameters)
-$graphics.Dispose()
-$bitmap.Dispose()
-''';
-    try {
-      final result = await Process.run('powershell', <String>[
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        script,
-        file.path,
-      ]);
-      if (result.exitCode != 0 || !await file.exists()) {
-        throw ProcessException(
-          'powershell',
-          const <String>['-NoProfile', '-NonInteractive', '-Command', script],
-          '${result.stderr}',
-          result.exitCode,
-        );
-      }
-      return DesktopScreenCaptureResult(
-        bytes: await file.readAsBytes(),
-        mimeType: 'image/jpeg',
-      );
-    } finally {
-      await _deleteIfExists(file);
+    final result = await _nativeBridge.captureFrame();
+    final bytes = result['bytes'];
+    final mimeType = result['mimeType']?.toString() ?? 'image/png';
+    if (bytes is! Uint8List || bytes.isEmpty) {
+      return null;
     }
+    return DesktopScreenCaptureResult(bytes: bytes, mimeType: mimeType);
   }
 
   Future<DesktopScreenCaptureResult?> _captureLinux() async {

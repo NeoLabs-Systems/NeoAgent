@@ -16,7 +16,7 @@ const String desktopCompanionActivationIdPrefsKey =
     'desktop.companion.activationId';
 const String desktopCompanionPausedPrefsKey = 'desktop.companion.paused';
 const String desktopCompanionActiveDisplayPrefsKey =
-  'desktop.companion.activeDisplayId';
+    'desktop.companion.activeDisplayId';
 
 class DesktopCompanionManager extends ChangeNotifier {
   DesktopCompanionManager({required DesktopScreenCapture screenCapture})
@@ -63,8 +63,8 @@ class DesktopCompanionManager extends ChangeNotifier {
         prefs.getString(desktopCompanionActivationIdPrefsKey)?.trim() ??
         _randomId();
     _activeDisplayId =
-      prefs.getString(desktopCompanionActiveDisplayPrefsKey)?.trim() ??
-      'primary';
+        prefs.getString(desktopCompanionActiveDisplayPrefsKey)?.trim() ??
+        'primary';
     await prefs.setString(desktopCompanionDeviceIdPrefsKey, _deviceId);
     await prefs.setString(desktopCompanionActivationIdPrefsKey, _activationId);
   }
@@ -147,7 +147,11 @@ class DesktopCompanionManager extends ChangeNotifier {
   }
 
   Future<Map<String, Object?>> refreshLocalStatus() async {
-    final status = await _actions.getStatus(label: _label, paused: _paused);
+    final status = await _actions.getStatus(
+      label: _label,
+      paused: _paused,
+      activeDisplayId: _activeDisplayId,
+    );
     _status = <String, Object?>{
       ..._status,
       ...status,
@@ -174,7 +178,9 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   Future<void> openPermissionSettings(String permissionKey) async {
     if (kIsWeb) {
-      throw UnsupportedError('Desktop companion permission settings are unavailable on web.');
+      throw UnsupportedError(
+        'Desktop companion permission settings are unavailable on web.',
+      );
     }
     final key = permissionKey.trim().toLowerCase();
     switch (defaultTargetPlatform) {
@@ -221,6 +227,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         label: _label,
         companionEnabled: _enabled,
         paused: _paused,
+        activeDisplayId: _activeDisplayId,
       );
       socket.add(
         jsonEncode(<String, Object?>{'type': 'hello', 'device': hello}),
@@ -256,8 +263,8 @@ class DesktopCompanionManager extends ChangeNotifier {
         _status = device is Map
             ? device.map((key, value) => MapEntry(key.toString(), value))
             : const <String, Object?>{};
-        _activeDisplayId = _status['activeDisplayId']?.toString() ??
-            _activeDisplayId;
+        _activeDisplayId =
+            _status['activeDisplayId']?.toString() ?? _activeDisplayId;
         notifyListeners();
         return;
       }
@@ -313,11 +320,18 @@ class DesktopCompanionManager extends ChangeNotifier {
     }
     switch (command) {
       case 'getStatus':
-        return _actions.getStatus(label: _label, paused: _paused);
+        return _actions.getStatus(
+          label: _label,
+          paused: _paused,
+          activeDisplayId: _activeDisplayId,
+        );
       case 'captureFrame':
-        return _actions.captureFrame();
+        return _actions.captureFrame(activeDisplayId: _activeDisplayId);
       case 'observe':
-        return _actions.observe(includeTree: payload['includeTree'] == true);
+        return _actions.observe(
+          includeTree: payload['includeTree'] == true,
+          activeDisplayId: _activeDisplayId,
+        );
       case 'click':
         return _actions.click(
           x: (payload['x'] as num?)?.round() ?? 0,
@@ -347,7 +361,11 @@ class DesktopCompanionManager extends ChangeNotifier {
       case 'launchApp':
         return _actions.launchApp(app: payload['app']?.toString() ?? '');
       case 'listDisplays':
-        final status = await _actions.getStatus(label: _label, paused: _paused);
+        final status = await _actions.getStatus(
+          label: _label,
+          paused: _paused,
+          activeDisplayId: _activeDisplayId,
+        );
         return <String, Object?>{
           'displays': status['displays'] ?? const <Map<String, Object?>>[],
           'activeDisplayId': status['activeDisplayId'] ?? 'primary',
@@ -360,10 +378,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         _status = <String, Object?>{..._status, 'activeDisplayId': displayId};
         // TODO: Apply platform-specific active display switching when available.
         notifyListeners();
-        return <String, Object?>{
-          'success': true,
-          'activeDisplayId': displayId,
-        };
+        return <String, Object?>{'success': true, 'activeDisplayId': displayId};
       case 'getTree':
         return _actions.getTree();
       case 'pauseControl':
@@ -453,7 +468,9 @@ class DesktopCompanionManager extends ChangeNotifier {
             const _ShellCommand('xdg-open', <String>['settings://privacy']),
           ]
         : <_ShellCommand>[
-            const _ShellCommand('gnome-control-center', <String>['universal-access']),
+            const _ShellCommand('gnome-control-center', <String>[
+              'universal-access',
+            ]),
             const _ShellCommand('gnome-control-center', <String>['privacy']),
             const _ShellCommand('xdg-open', <String>['settings://']),
           ];
