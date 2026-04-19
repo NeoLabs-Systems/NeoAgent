@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image/image.dart' as img;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -19,6 +20,7 @@ import 'package:window_manager/window_manager.dart';
 import 'src/android_apk_drop_zone.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
 import 'src/backend_client.dart';
+import 'src/desktop_screen_capture.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
 import 'src/live_voice_capture.dart';
@@ -52,6 +54,8 @@ const String _desktopTrayTemplateIconAsset =
     'assets/branding/tray_icon_template.png';
 const String _sessionCookiePrefsKey = 'auth.sessionCookie';
 const String _sessionCookieBackendPrefsKey = 'auth.sessionCookieBackend';
+const int _voiceAssistantScreenshotMaxDimension = 1600;
+const int _voiceAssistantScreenshotMaxBytes = 900 * 1024;
 
 String get _desktopTrayIconAsset =>
     defaultTargetPlatform == TargetPlatform.macOS
@@ -740,15 +744,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     if (_desktopAssistantBlockedHintVisible) {
       return;
     }
-    if (_controller.isLiveVoiceCaptureActive ||
-        _controller.isLiveVoiceCaptureStarting) {
-      _assistantPttActive = false;
-      await _controller.stopLiveVoiceCapture();
-      return;
-    }
     try {
-      _assistantPttActive = true;
-      await _controller.startLiveVoiceCapture();
+      _assistantPttActive = !_controller.isLiveVoiceCaptureEngaged;
+      await _controller.toggleLiveVoiceCapture();
     } catch (error, stackTrace) {
       _assistantPttActive = false;
       AppDiagnostics.log(
@@ -1029,6 +1027,8 @@ class NeoAgentController extends ChangeNotifier {
   final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
       app_release_updater.AppReleaseUpdater();
   final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
+  final DesktopScreenCapture _desktopScreenCapture =
+      createDesktopScreenCapture();
   StreamSubscription<AppDiagnosticEntry>? _diagnosticLogSubscription;
   static const int _maxVisibleLogs = 400;
 
@@ -1067,6 +1067,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isOpeningAppUpdate = false;
   bool socketConnected = false;
   bool _desktopFloatingToolbarPopupRequested = false;
+  bool _voiceAssistantIncludeScreenContext = false;
 
   bool hasUser = true;
   bool registrationOpen = false;
@@ -1266,6 +1267,15 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get desktopFloatingToolbarPopupRequested =>
       _desktopFloatingToolbarPopupRequested;
+
+  bool get voiceAssistantIncludeScreenContext =>
+      _voiceAssistantIncludeScreenContext;
+
+  bool get canCaptureVoiceAssistantScreenContext =>
+      _desktopScreenCapture.isSupported;
+
+  bool get isLiveVoiceCaptureEngaged =>
+      _isStartingLiveVoice || _liveVoiceCaptureActive;
 
   bool get appUpdaterConfigured => app_release_updater.appUpdaterConfigured;
 
@@ -1596,6 +1606,9 @@ class NeoAgentController extends ChangeNotifier {
         _prefs?.getBool('desktop.autoShowFloatingToolbar') ?? true;
     _desktopAssistantHotkeyEnabled =
         _prefs?.getBool('desktop.assistantHotkeyEnabled') ?? true;
+    _voiceAssistantIncludeScreenContext =
+        (_prefs?.getBool('voiceAssistant.includeScreenContext') ?? false) &&
+        canCaptureVoiceAssistantScreenContext;
     appUpdateChannel =
         _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
         ? 'beta'
@@ -3390,8 +3403,170 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setVoiceAssistantIncludeScreenContext(bool value) async {
+    _voiceAssistantIncludeScreenContext =
+        value && canCaptureVoiceAssistantScreenContext;
+    await _prefs?.setBool(
+      'voiceAssistant.includeScreenContext',
+      _voiceAssistantIncludeScreenContext,
+    );
+    notifyListeners();
+  }
+
+  Future<void> toggleVoiceAssistantScreenContext() {
+    return setVoiceAssistantIncludeScreenContext(
+      !voiceAssistantIncludeScreenContext,
+    );
+  }
+
   void acknowledgeDesktopFloatingToolbarPopupRequest() {
     _desktopFloatingToolbarPopupRequested = false;
+  }
+
+  Future<Map<String, String>> _captureVoiceAssistantScreenshotPayload() async {
+    if (!_voiceAssistantIncludeScreenContext ||
+        !canCaptureVoiceAssistantScreenContext) {
+      return const <String, String>{};
+    }
+
+    try {
+      final capture = await _desktopScreenCapture.captureCurrentScreen();
+      if (capture == null || capture.bytes.isEmpty) {
+        return const <String, String>{};
+      }
+      final optimized = _optimizeVoiceAssistantScreenshotPayload(capture);
+      if (optimized == null) {
+        AppDiagnostics.log(
+          'desktop.assistant',
+          'screen_capture.optimize_failed',
+          data: <String, Object?>{
+            'mimeType': capture.mimeType,
+            'originalByteLength': capture.bytes.length,
+          },
+        );
+        return const <String, String>{};
+      }
+      AppDiagnostics.log(
+        'desktop.assistant',
+        'screen_capture.success',
+        data: <String, Object?>{
+          'mimeType': optimized.mimeType,
+          'byteLength': optimized.bytes.length,
+          'originalByteLength': capture.bytes.length,
+          'resizedOrReencoded': optimized.resizedOrReencoded,
+        },
+      );
+      return <String, String>{
+        'screenshotMimeType': optimized.mimeType,
+        'screenshotBase64': base64Encode(optimized.bytes),
+      };
+    } catch (error, stackTrace) {
+      AppDiagnostics.log(
+        'desktop.assistant',
+        'screen_capture.failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const <String, String>{};
+    }
+  }
+
+  Future<Map<String, String>> buildVoiceAssistantContextPayload() async {
+    return _captureVoiceAssistantScreenshotPayload();
+  }
+
+  _OptimizedScreenshotPayload? _optimizeVoiceAssistantScreenshotPayload(
+    DesktopScreenCaptureResult capture,
+  ) {
+    final sourceBytes = Uint8List.fromList(capture.bytes);
+    final sourceMime = _normalizeScreenshotMimeType(capture.mimeType);
+    final decoded = img.decodeImage(sourceBytes);
+    if (decoded == null) {
+      if (sourceBytes.length <= _voiceAssistantScreenshotMaxBytes) {
+        return _OptimizedScreenshotPayload(
+          bytes: sourceBytes,
+          mimeType: sourceMime,
+          resizedOrReencoded: false,
+        );
+      }
+      return null;
+    }
+
+    var workingImage = decoded;
+    var transformed = false;
+    if (workingImage.width > _voiceAssistantScreenshotMaxDimension ||
+        workingImage.height > _voiceAssistantScreenshotMaxDimension) {
+      final scale = math.min(
+        _voiceAssistantScreenshotMaxDimension / workingImage.width,
+        _voiceAssistantScreenshotMaxDimension / workingImage.height,
+      );
+      final nextWidth = math.max(1, (workingImage.width * scale).round());
+      final nextHeight = math.max(1, (workingImage.height * scale).round());
+      workingImage = img.copyResize(
+        workingImage,
+        width: nextWidth,
+        height: nextHeight,
+        interpolation: img.Interpolation.average,
+      );
+      transformed = true;
+    }
+
+    if (!transformed && sourceBytes.length <= _voiceAssistantScreenshotMaxBytes) {
+      return _OptimizedScreenshotPayload(
+        bytes: sourceBytes,
+        mimeType: sourceMime,
+        resizedOrReencoded: false,
+      );
+    }
+
+    final qualitySteps = <int>[84, 74, 64, 54, 46, 40];
+    var bestBytes = Uint8List(0);
+    for (var pass = 0; pass < qualitySteps.length; pass += 1) {
+      final encoded = Uint8List.fromList(
+        img.encodeJpg(workingImage, quality: qualitySteps[pass]),
+      );
+      if (bestBytes.isEmpty || encoded.length < bestBytes.length) {
+        bestBytes = encoded;
+      }
+      if (encoded.length <= _voiceAssistantScreenshotMaxBytes) {
+        return _OptimizedScreenshotPayload(
+          bytes: encoded,
+          mimeType: 'image/jpeg',
+          resizedOrReencoded: true,
+        );
+      }
+      if (pass % 2 == 1) {
+        final nextWidth = math.max(1, (workingImage.width * 0.85).round());
+        final nextHeight = math.max(1, (workingImage.height * 0.85).round());
+        if (nextWidth == workingImage.width && nextHeight == workingImage.height) {
+          continue;
+        }
+        workingImage = img.copyResize(
+          workingImage,
+          width: nextWidth,
+          height: nextHeight,
+          interpolation: img.Interpolation.average,
+        );
+      }
+    }
+
+    if (bestBytes.isNotEmpty &&
+        bestBytes.length <= _voiceAssistantScreenshotMaxBytes) {
+      return _OptimizedScreenshotPayload(
+        bytes: bestBytes,
+        mimeType: 'image/jpeg',
+        resizedOrReencoded: true,
+      );
+    }
+    return null;
+  }
+
+  String _normalizeScreenshotMimeType(String mimeType) {
+    final normalized = mimeType.trim().toLowerCase();
+    if (normalized.startsWith('image/')) {
+      return normalized;
+    }
+    return 'image/png';
   }
 
   Future<void> stopRecording({String stopReason = 'stopped'}) async {
@@ -3493,6 +3668,7 @@ class NeoAgentController extends ChangeNotifier {
     String? ttsVoice,
     String? ttsModel,
   }) async {
+    final screenshotPayload = await buildVoiceAssistantContextPayload();
     final response = await _backendClient.runVoiceAssistantTurn(
       backendUrl,
       sessionId: sessionId,
@@ -3501,6 +3677,8 @@ class NeoAgentController extends ChangeNotifier {
       ttsVoice: ttsVoice?.trim().ifEmpty(voiceTtsVoice) ?? voiceTtsVoice,
       ttsModel: ttsModel?.trim().ifEmpty(voiceTtsModel) ?? voiceTtsModel,
       agentId: _scopedAgentId,
+      screenshotBase64: screenshotPayload['screenshotBase64'],
+      screenshotMimeType: screenshotPayload['screenshotMimeType'],
     );
 
     final result = VoiceAssistantTurnResult.fromJson(response);
@@ -3675,6 +3853,14 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> toggleLiveVoiceCapture() async {
+    if (isLiveVoiceCaptureEngaged) {
+      await stopLiveVoiceCapture();
+      return;
+    }
+    await startLiveVoiceCapture();
+  }
+
   Future<void> stopLiveVoiceCapture() async {
     AppDiagnostics.log(
       'desktop.assistant',
@@ -3700,6 +3886,7 @@ class NeoAgentController extends ChangeNotifier {
       await _liveVoiceCapture.stop();
       final sessionId = voiceAssistantLiveState.sessionId.trim();
       if (sessionId.isNotEmpty && _socket != null) {
+        final screenshotPayload = await buildVoiceAssistantContextPayload();
         AppDiagnostics.log(
           'desktop.assistant',
           'ptt.capture_committing',
@@ -3710,6 +3897,10 @@ class NeoAgentController extends ChangeNotifier {
         );
         _socket!.emit('voice:input_commit', <String, dynamic>{
           'sessionId': sessionId,
+          if ((screenshotPayload['screenshotBase64'] ?? '').isNotEmpty)
+            'screenshotBase64': screenshotPayload['screenshotBase64'],
+          if ((screenshotPayload['screenshotMimeType'] ?? '').isNotEmpty)
+            'screenshotMimeType': screenshotPayload['screenshotMimeType'],
         });
       }
     } finally {
@@ -5999,6 +6190,18 @@ class NeoAgentController extends ChangeNotifier {
     final port = uri.hasPort ? ':${uri.port}' : '';
     return '${uri.scheme}://${uri.host}$port';
   }
+}
+
+class _OptimizedScreenshotPayload {
+  const _OptimizedScreenshotPayload({
+    required this.bytes,
+    required this.mimeType,
+    required this.resizedOrReencoded,
+  });
+
+  final Uint8List bytes;
+  final String mimeType;
+  final bool resizedOrReencoded;
 }
 
 class DevicesPanel extends StatefulWidget {

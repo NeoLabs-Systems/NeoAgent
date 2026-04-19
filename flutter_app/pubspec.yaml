@@ -12,6 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_markdown: ^0.7.4+1
   google_fonts: ^6.3.1
+  image: ^4.5.4
   http: ^1.5.0
   shared_preferences: ^2.5.3
   socket_io_client: ^3.1.2

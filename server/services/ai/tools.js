@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { analyzeImageForUser } = require('./imageAnalysis');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent } = require('../agents/manager');
@@ -2092,68 +2093,13 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'analyze_image': {
             try {
-                if (!fs.existsSync(args.image_path)) return { error: `File not found: ${args.image_path}` };
-                const ext = path.extname(args.image_path).toLowerCase();
-                const mimeMap = { '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
-                const mime = mimeMap[ext] || 'image/jpeg';
-                const question = args.question || 'Describe this image in detail.';
-                const { getProviderForUser } = require('./engine');
-                const { createProviderInstance, getProviderCatalog } = require('./models');
-
-                const attempted = [];
-                const candidates = [];
-
-                try {
-                    const preferred = await getProviderForUser(userId, '', false, null, { agentId });
-                    candidates.push({
-                        providerName: preferred.providerName,
-                        provider: preferred.provider,
-                    });
-                } catch (err) {
-                    attempted.push(`default-provider lookup failed: ${err.message}`);
-                }
-
-                for (const providerInfo of getProviderCatalog(userId, agentId)) {
-                    if (!providerInfo.available) continue;
-                    if (candidates.some((candidate) => candidate.providerName === providerInfo.id)) continue;
-                    if (!['grok', 'openai'].includes(providerInfo.id)) continue;
-                    try {
-                        candidates.push({
-                            providerName: providerInfo.id,
-                            provider: createProviderInstance(providerInfo.id, userId, { agentId }),
-                        });
-                    } catch (err) {
-                        attempted.push(`${providerInfo.id}: ${err.message}`);
-                    }
-                }
-
-                for (const candidate of candidates) {
-                    if (typeof candidate.provider.supportsVision !== 'function' || candidate.provider.supportsVision() !== true) {
-                        attempted.push(`${candidate.providerName}: image analysis is not supported by this provider integration`);
-                        continue;
-                    }
-
-                    try {
-                        const visionResponse = await candidate.provider.analyzeImage({
-                            imagePath: args.image_path,
-                            mimeType: mime,
-                            question,
-                        });
-                        return {
-                            description: visionResponse.content,
-                            model: visionResponse.model || null,
-                            provider: candidate.providerName,
-                        };
-                    } catch (err) {
-                        attempted.push(`${candidate.providerName}: ${err.message}`);
-                    }
-                }
-
-                return {
-                    error: attempted.length > 0
-                        ? `Image analysis failed. ${attempted.join(' | ')}`
-                        : 'No vision-capable provider is currently available. Configure OpenAI or xAI for image analysis.',
-                };
+                const result = await analyzeImageForUser({
+                    userId,
+                    agentId,
+                    imagePath: args.image_path,
+                    question: args.question || 'Describe this image in detail.',
+                });
+                return result;
             } catch (err) {
                 return { error: err.message };
             }

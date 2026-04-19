@@ -4,6 +4,7 @@ const db = require('../../db/database');
 const { getProviderRuntimeConfig } = require('../ai/models');
 const { buildAgentRunContext } = require('../ai/runContext');
 const { buildDirectVoiceContext } = require('./message');
+const { analyzeVoiceAssistantScreenshot } = require('./screenshotContext');
 const { synthesizeVoiceReply, normalizeVoiceSynthesisOptions } = require('./providers');
 const {
   VOICE_HISTORY_WINDOW,
@@ -59,10 +60,26 @@ async function runVoiceTranscriptTurn({
 
   const storedUserContent = transcriptText;
   const normalizedMetadata = metadata && typeof metadata === 'object' ? metadata : {};
+  const screenshotBase64 = String(normalizedMetadata.screenshotBase64 || '').trim();
+  const screenshotMimeType = String(
+    normalizedMetadata.screenshotMimeType || 'image/jpeg',
+  ).trim();
+  const persistedMetadata = { ...normalizedMetadata };
+  delete persistedMetadata.screenshotBase64;
+  let screenshotContext = null;
+  if (screenshotBase64) {
+    screenshotContext = await analyzeVoiceAssistantScreenshot({
+      userId,
+      agentId,
+      screenshotBase64,
+      screenshotMimeType,
+    });
+  }
   const directVoiceContext = buildDirectVoiceContext({
     promptHint,
     platform,
     allowInterimUpdates,
+    screenSummary: screenshotContext?.description || '',
   });
 
   db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
@@ -70,7 +87,10 @@ async function runVoiceTranscriptTurn({
       platform,
       transcript: transcriptText,
       promptHint,
-      ...normalizedMetadata,
+      screenshotIncluded: Boolean(screenshotContext),
+      screenshotVisionProvider: screenshotContext?.provider || null,
+      screenshotVisionModel: screenshotContext?.model || null,
+      ...persistedMetadata,
     }));
 
   const { priorMessages, priorSummary } = buildAgentRunContext({
@@ -112,9 +132,12 @@ async function runVoiceTranscriptTurn({
       'assistant',
       replyText,
       JSON.stringify({
+        ...persistedMetadata,
         platform,
         tokens: runResult?.totalTokens || 0,
-        ...normalizedMetadata,
+        screenshotIncluded: Boolean(screenshotContext),
+        screenshotVisionProvider: screenshotContext?.provider || null,
+        screenshotVisionModel: screenshotContext?.model || null,
       }),
     );
 

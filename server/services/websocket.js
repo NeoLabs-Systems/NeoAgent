@@ -2,6 +2,10 @@ const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
 const { resolveAgentId } = require('./agents/manager');
 
+const MAX_VOICE_SCREENSHOT_BYTES = 3 * 1024 * 1024;
+const MAX_VOICE_SCREENSHOT_BASE64_CHARS =
+  Math.ceil((MAX_VOICE_SCREENSHOT_BYTES * 4) / 3) + 8;
+
 function setupWebSocket(io, services) {
   const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, voiceRuntimeManager } = services;
   const integrationManager =
@@ -261,8 +265,46 @@ function setupWebSocket(io, services) {
 
     socket.on('voice:input_commit', async (data) => {
       try {
+        const metadata = {};
+        const screenshotBase64 = typeof data?.screenshotBase64 === 'string'
+          ? data.screenshotBase64.trim()
+          : '';
+        if (screenshotBase64) {
+          if (screenshotBase64.length > MAX_VOICE_SCREENSHOT_BASE64_CHARS) {
+            console.warn(
+              `[WS] voice:input_commit rejected oversized screenshot for user ${userId}: base64 length ${screenshotBase64.length}`
+            );
+            socket.emit('voice:error', {
+              sessionId: data?.sessionId || null,
+              error: 'Attached screenshot is too large (max 3 MB).',
+            });
+            return;
+          }
+
+          const screenshotBytes = Buffer.from(screenshotBase64, 'base64');
+          if (!screenshotBytes.length || screenshotBytes.length > MAX_VOICE_SCREENSHOT_BYTES) {
+            console.warn(
+              `[WS] voice:input_commit rejected oversized screenshot for user ${userId}: decoded bytes ${screenshotBytes.length}`
+            );
+            socket.emit('voice:error', {
+              sessionId: data?.sessionId || null,
+              error: 'Attached screenshot is too large (max 3 MB).',
+            });
+            return;
+          }
+
+          metadata.screenshotBase64 = screenshotBase64;
+          const screenshotMimeType = typeof data?.screenshotMimeType === 'string'
+            ? data.screenshotMimeType.trim()
+            : '';
+          if (screenshotMimeType) {
+            metadata.screenshotMimeType = screenshotMimeType;
+          }
+        }
+
         await voiceRuntimeManager.commitInput(data?.sessionId, {
           promptHint: data?.promptHint,
+          metadata,
         });
       } catch (err) {
         console.error(`[WS] voice:input_commit failed for user ${userId}:`, err);

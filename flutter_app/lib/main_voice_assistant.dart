@@ -277,9 +277,11 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final controller = widget.controller;
     final runtime = controller.recordingRuntime;
     final liveState = controller.voiceAssistantLiveState;
-    final liveCaptureEngaged =
-        controller.isLiveVoiceCaptureActive ||
-        controller.isLiveVoiceCaptureStarting;
+    final assistantUi = _DesktopAssistantControlState.fromController(
+      controller,
+      blockedHintVisible: false,
+    );
+    final liveCaptureEngaged = assistantUi.isCapturing;
     final isBusy = _pttPressed || liveCaptureEngaged;
     final canStart = !isBusy;
     final canStop = liveCaptureEngaged;
@@ -288,7 +290,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final captureLabel = liveCaptureEngaged
         ? _activeCallElapsedLabel(runtime)
         : 'Ready';
-    final useDesktopToggleCapture = _desktopAssistantUsesToggleControls();
+    final useDesktopToggleCapture = assistantUi.useToggleCapture;
 
     return ListView(
       padding: _pagePadding(context),
@@ -426,7 +428,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                               ),
                               _VoiceAssistantMetricChip(
                                 label: 'Source',
-                                value: 'Direct mic',
+                                value: assistantUi.sourceSummary,
                               ),
                             ],
                           ),
@@ -438,21 +440,15 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                         children: <Widget>[
                           useDesktopToggleCapture
                               ? _VoiceAssistantPrimaryAction(
-                                  icon: liveCaptureEngaged
-                                      ? Icons.stop_rounded
-                                      : Icons.mic,
-                                  label: _desktopAssistantPrimaryLabel(
-                                    liveCaptureEngaged,
-                                  ),
-                                  caption: _desktopAssistantPrimaryCaption(
-                                    liveCaptureEngaged,
-                                  ),
+                                  icon: assistantUi.primaryIcon,
+                                  label: assistantUi.primaryLabel,
+                                  caption: assistantUi.primaryCaption,
                                   color: (liveCaptureEngaged || _pttPressed)
                                       ? _warning
-                                      : _success,
-                                  onTap: liveCaptureEngaged
-                                      ? _stopPttCapture
-                                      : (canStart ? _startPttCapture : null),
+                                      : assistantUi.primaryColor,
+                                  onTap: canStart || canStop
+                                      ? controller.toggleLiveVoiceCapture
+                                      : null,
                                 )
                               : Listener(
                                   behavior: HitTestBehavior.opaque,
@@ -466,18 +462,12 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                       ? _handlePrimaryPointerUp
                                       : null,
                                   child: _VoiceAssistantPrimaryAction(
-                                    icon: liveCaptureEngaged
-                                        ? Icons.mic_off
-                                        : Icons.mic,
-                                    label: _desktopAssistantPrimaryLabel(
-                                      liveCaptureEngaged,
-                                    ),
-                                    caption: _desktopAssistantPrimaryCaption(
-                                      liveCaptureEngaged,
-                                    ),
+                                    icon: assistantUi.primaryIcon,
+                                    label: assistantUi.primaryLabel,
+                                    caption: assistantUi.primaryCaption,
                                     color: (liveCaptureEngaged || _pttPressed)
                                         ? _warning
-                                        : _success,
+                                        : assistantUi.primaryColor,
                                     onTap: null,
                                   ),
                                 ),
@@ -514,6 +504,10 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                             icon: Icons.refresh,
                             label: 'Refresh',
                             onTap: controller.ensureLiveVoiceSession,
+                          ),
+                          _VoiceAssistantScreenContextButton(
+                            controller: controller,
+                            compact: false,
                           ),
                         ],
                       ),

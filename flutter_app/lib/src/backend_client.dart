@@ -1199,12 +1199,18 @@ class BackendClient {
     String ttsVoice = 'alloy',
     String ttsModel = 'gpt-4o-mini-tts',
     String? agentId,
+    String? screenshotBase64,
+    String? screenshotMimeType,
   }) async {
     final payload = <String, dynamic>{
       'sessionId': sessionId,
       'ttsProvider': ttsProvider,
       'ttsVoice': ttsVoice,
       'ttsModel': ttsModel,
+      if ((screenshotBase64?.trim().isNotEmpty ?? false))
+        'screenshotBase64': screenshotBase64!.trim(),
+      if ((screenshotMimeType?.trim().isNotEmpty ?? false))
+        'screenshotMimeType': screenshotMimeType!.trim(),
     };
     return postMap(
       baseUrl,

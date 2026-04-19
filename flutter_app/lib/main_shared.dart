@@ -1376,6 +1376,130 @@ String _desktopAssistantIdleHint() {
       : 'Hold Ctrl+Shift+Space to talk';
 }
 
+String _desktopAssistantScreenContextHint(bool enabled) {
+  return enabled ? 'Current screen will be attached' : 'Audio only';
+}
+
+class _DesktopAssistantControlState {
+  const _DesktopAssistantControlState({
+    required this.isCapturing,
+    required this.isBusy,
+    required this.useToggleCapture,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.transcriptPreview,
+    required this.primaryLabel,
+    required this.primaryCaption,
+    required this.primaryIcon,
+    required this.primaryColor,
+    required this.idleHint,
+    required this.screenContextHint,
+    required this.sourceSummary,
+  });
+
+  factory _DesktopAssistantControlState.fromController(
+    NeoAgentController controller, {
+    required bool blockedHintVisible,
+  }) {
+    final liveState = controller.voiceAssistantLiveState;
+    final isCapturing = controller.isLiveVoiceCaptureEngaged;
+    final includeScreenContext = controller.voiceAssistantIncludeScreenContext;
+    final useToggleCapture = _desktopAssistantUsesToggleControls();
+    final transcriptPreview = liveState.partialTranscript.trim().isEmpty
+        ? liveState.finalTranscript.trim()
+        : liveState.partialTranscript.trim();
+    return _DesktopAssistantControlState(
+      isCapturing: isCapturing,
+      isBusy: liveState.isBusy,
+      useToggleCapture: useToggleCapture,
+      statusLabel: blockedHintVisible
+          ? 'Assistant unavailable while recording'
+          : (isCapturing
+                ? _desktopAssistantPrimaryLabel(true)
+                : _desktopAssistantStatusLabel(liveState.state)),
+      statusColor: blockedHintVisible
+          ? _warning
+          : (isCapturing ? _success : _accent),
+      transcriptPreview: transcriptPreview,
+      primaryLabel: _desktopAssistantPrimaryLabel(isCapturing),
+      primaryCaption: _desktopAssistantPrimaryCaption(isCapturing),
+      primaryIcon: isCapturing ? Icons.stop_rounded : Icons.mic,
+      primaryColor: isCapturing ? _warning : _success,
+      idleHint: _desktopAssistantIdleHint(),
+      screenContextHint: _desktopAssistantScreenContextHint(
+        includeScreenContext,
+      ),
+      sourceSummary: includeScreenContext ? 'Mic + screen' : 'Direct mic',
+    );
+  }
+
+  final bool isCapturing;
+  final bool isBusy;
+  final bool useToggleCapture;
+  final String statusLabel;
+  final Color statusColor;
+  final String transcriptPreview;
+  final String primaryLabel;
+  final String primaryCaption;
+  final IconData primaryIcon;
+  final Color primaryColor;
+  final String idleHint;
+  final String screenContextHint;
+  final String sourceSummary;
+}
+
+class _VoiceAssistantScreenContextButton extends StatelessWidget {
+  const _VoiceAssistantScreenContextButton({
+    required this.controller,
+    required this.compact,
+  });
+
+  final NeoAgentController controller;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = controller.voiceAssistantIncludeScreenContext;
+    final onPressed = controller.canCaptureVoiceAssistantScreenContext
+        ? () {
+            unawaited(controller.toggleVoiceAssistantScreenContext());
+          }
+        : null;
+
+    if (compact) {
+      return IconButton(
+        tooltip: enabled
+            ? 'Stop including the current screen'
+            : 'Include the current screen',
+        onPressed: onPressed,
+        style: IconButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.all(8),
+          minimumSize: const Size(30, 30),
+          backgroundColor: enabled
+              ? _accent.withValues(alpha: 0.14)
+              : _bgSecondary.withValues(alpha: 0.9),
+          foregroundColor: enabled ? _accent : _textSecondary,
+        ),
+        icon: Icon(
+          enabled
+              ? Icons.desktop_windows_rounded
+              : Icons.desktop_windows_outlined,
+          size: 15,
+        ),
+      );
+    }
+
+    return _VoiceAssistantActionButton(
+      icon: enabled
+          ? Icons.desktop_windows_rounded
+          : Icons.desktop_windows_outlined,
+      label: enabled ? 'Screen on' : 'Screen off',
+      onTap: onPressed,
+    );
+  }
+}
+
 class _DesktopAssistantPopupShell extends StatelessWidget {
   const _DesktopAssistantPopupShell({
     required this.controller,
@@ -1391,22 +1515,10 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final liveState = controller.voiceAssistantLiveState;
-    final isCapturing =
-        controller.isLiveVoiceCaptureActive ||
-        controller.isLiveVoiceCaptureStarting;
-    final isBusy = liveState.isBusy;
-    final transcriptPreview = liveState.partialTranscript.trim().isEmpty
-        ? liveState.finalTranscript.trim()
-        : liveState.partialTranscript.trim();
-    final statusLabel = blockedHintVisible
-        ? 'Assistant unavailable while recording'
-        : (isCapturing
-              ? _desktopAssistantPrimaryLabel(true)
-              : _desktopAssistantStatusLabel(liveState.state));
-    final statusColor = blockedHintVisible
-        ? _warning
-        : (isCapturing ? _success : _accent);
+    final assistantUi = _DesktopAssistantControlState.fromController(
+      controller,
+      blockedHintVisible: blockedHintVisible,
+    );
 
     return DecoratedBox(
       decoration: const BoxDecoration(color: Colors.transparent),
@@ -1448,14 +1560,14 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                     mainAxisSize: MainAxisSize.max,
                     children: <Widget>[
                       _DesktopAssistantPulseDots(
-                        color: statusColor,
-                        active: isCapturing || isBusy,
+                        color: assistantUi.statusColor,
+                        active: assistantUi.isCapturing || assistantUi.isBusy,
                       ),
                       const SizedBox(width: 12),
                       _DesktopAssistantWaveform(
-                        color: statusColor,
-                        active: isCapturing,
-                        busy: isBusy,
+                        color: assistantUi.statusColor,
+                        active: assistantUi.isCapturing,
+                        busy: assistantUi.isBusy,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1464,7 +1576,7 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              statusLabel,
+                              assistantUi.statusLabel,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1475,9 +1587,9 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                             ),
                             if (!blockedHintVisible)
                               Text(
-                                transcriptPreview.isEmpty
-                                    ? _desktopAssistantIdleHint()
-                                    : transcriptPreview,
+                                assistantUi.transcriptPreview.isEmpty
+                                    ? '${assistantUi.idleHint} • ${assistantUi.screenContextHint}'
+                                    : assistantUi.transcriptPreview,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -1490,6 +1602,11 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      _VoiceAssistantScreenContextButton(
+                        controller: controller,
+                        compact: true,
+                      ),
+                      const SizedBox(width: 4),
                       FilledButton.icon(
                         onPressed: blockedHintVisible
                             ? null
@@ -1503,15 +1620,17 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                             vertical: 10,
                           ),
                           minimumSize: const Size(0, 38),
-                          backgroundColor: statusColor,
+                          backgroundColor: assistantUi.statusColor,
                           foregroundColor: Colors.white,
                         ),
                         icon: Icon(
-                          isCapturing ? Icons.stop_rounded : Icons.mic_rounded,
+                          assistantUi.isCapturing
+                              ? Icons.stop_rounded
+                              : Icons.mic_rounded,
                           size: 16,
                         ),
                         label: Text(
-                          isCapturing ? 'Send' : 'Talk',
+                          assistantUi.isCapturing ? 'Send' : 'Talk',
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
