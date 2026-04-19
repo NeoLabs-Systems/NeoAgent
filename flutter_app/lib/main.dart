@@ -265,7 +265,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   bool _desktopAssistantReturnToHidden = false;
   Rect? _desktopNormalWindowBounds;
 
-  static const Size _desktopToolbarWindowSize = Size(760, 96);
+  static const Size _desktopToolbarWindowSize = Size(840, 128);
   static const Size _desktopAssistantPopupWindowSize = Size(460, 112);
   static const Duration _desktopAssistantHoldThreshold = Duration(
     milliseconds: 220,
@@ -372,6 +372,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       if (_desktopAssistantPopupWindowMode) {
         return;
       }
+      final isWindowVisible = await windowManager.isVisible();
       if (_desktopToolbarWindowMode &&
           (!runtime.active || !runtime.floatingToolbarVisible)) {
         await _restoreMainWindowPresentation(
@@ -383,8 +384,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       if (!_desktopToolbarWindowMode &&
           runtime.active &&
           runtime.supportsFloatingToolbar &&
-          runtime.floatingToolbarVisible) {
-        await _showDetachedToolbarWindow(focusWindow: true);
+          runtime.floatingToolbarVisible &&
+          !isWindowVisible) {
+        await _showDetachedToolbarWindow(focusWindow: false);
       }
     } finally {
       _syncingDesktopPresentation = false;
@@ -558,13 +560,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     }
     await windowManager.show();
     await windowManager.focus();
-    final runtime = _controller.recordingRuntime;
-    if (runtime.active &&
-        runtime.supportsFloatingToolbar &&
-        _controller.desktopAutoShowFloatingToolbar &&
-        !runtime.floatingToolbarVisible) {
-      await _controller.showDesktopFloatingToolbar();
-    }
   }
 
   Future<void> _hideMainWindow() async {
@@ -615,10 +610,10 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     );
     await windowManager.setResizable(false);
     await windowManager.setAlwaysOnTop(true);
-    await windowManager.setSkipTaskbar(false);
+    await windowManager.setSkipTaskbar(true);
     await windowManager.setSize(_desktopToolbarWindowSize);
     await windowManager.center();
-    await windowManager.show();
+    await windowManager.show(inactive: !focusWindow);
     if (focusWindow) {
       await windowManager.focus();
     }
@@ -959,6 +954,13 @@ class NeoAgentController extends ChangeNotifier {
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher() {
     _recordingBridge.onRecordingStopped = _handleRecordingStopped;
     _recordingBridge.addListener(_handleRecordingBridgeChanged);
+    _clientLogs = AppDiagnostics.recentEntries
+        .map(_logEntryFromDiagnostic)
+        .toList(growable: false);
+    _rebuildMergedLogs();
+    _diagnosticLogSubscription = AppDiagnostics.stream.listen(
+      _handleDiagnosticLogEntry,
+    );
   }
 
   final BackendClient _backendClient;
@@ -968,6 +970,8 @@ class NeoAgentController extends ChangeNotifier {
   final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
       app_release_updater.AppReleaseUpdater();
   final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
+  StreamSubscription<AppDiagnosticEntry>? _diagnosticLogSubscription;
+  static const int _maxVisibleLogs = 400;
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
@@ -980,6 +984,8 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   int _authCycle = 0;
+  List<LogEntry> _serverLogs = const <LogEntry>[];
+  List<LogEntry> _clientLogs = const <LogEntry>[];
 
   bool isBooting = true;
   bool isAuthenticated = false;
@@ -1179,6 +1185,7 @@ class NeoAgentController extends ChangeNotifier {
   void dispose() {
     _updatePollTimer?.cancel();
     _socket?.dispose();
+    _diagnosticLogSubscription?.cancel();
     _appReleaseUpdater.dispose();
     _recordingBridge.removeListener(_handleRecordingBridgeChanged);
     _recordingBridge.dispose();
@@ -1432,6 +1439,57 @@ class NeoAgentController extends ChangeNotifier {
   void _handleRecordingBridgeChanged() {
     _logRecording('bridge.changed');
     notifyListeners();
+  }
+
+  static LogEntry _logEntryFromDiagnostic(AppDiagnosticEntry entry) {
+    final buffer = StringBuffer('[${entry.area}] ${entry.event}');
+    if (entry.data.isNotEmpty) {
+      buffer.write(' ${jsonEncode(entry.data)}');
+    }
+    if (entry.error != null && entry.error!.trim().isNotEmpty) {
+      buffer.write('\nerror: ${entry.error}');
+    }
+    if (entry.stackTrace != null && entry.stackTrace!.trim().isNotEmpty) {
+      buffer.write('\n${entry.stackTrace}');
+    }
+    return LogEntry(
+      type: entry.error == null ? 'info' : 'error',
+      message: buffer.toString(),
+      timestamp: entry.timestamp,
+      source: 'flutter',
+    );
+  }
+
+  void _handleDiagnosticLogEntry(AppDiagnosticEntry entry) {
+    final next = <LogEntry>[..._clientLogs, _logEntryFromDiagnostic(entry)];
+    _clientLogs = next.length > _maxVisibleLogs
+        ? next.sublist(next.length - _maxVisibleLogs)
+        : next;
+    _rebuildMergedLogs();
+    notifyListeners();
+  }
+
+  void _setServerLogs(List<LogEntry> entries) {
+    _serverLogs = entries.length > _maxVisibleLogs
+        ? entries.sublist(entries.length - _maxVisibleLogs)
+        : List<LogEntry>.from(entries, growable: false);
+    _rebuildMergedLogs();
+  }
+
+  void _appendServerLog(LogEntry entry) {
+    final next = <LogEntry>[..._serverLogs, entry];
+    _serverLogs = next.length > _maxVisibleLogs
+        ? next.sublist(next.length - _maxVisibleLogs)
+        : next;
+    _rebuildMergedLogs();
+  }
+
+  void _rebuildMergedLogs() {
+    final merged = <LogEntry>[..._serverLogs, ..._clientLogs]
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    logs = merged.length > _maxVisibleLogs
+        ? merged.sublist(merged.length - _maxVisibleLogs)
+        : merged;
   }
 
   Future<void> _handleRecordingStopped(String sessionId) async {
@@ -1950,6 +2008,8 @@ class NeoAgentController extends ChangeNotifier {
     recentRuns = const <RunSummary>[];
     tokenUsage = null;
     updateStatus = const UpdateStatusSnapshot();
+    _serverLogs = const <LogEntry>[];
+    _clientLogs = const <LogEntry>[];
     logs = const <LogEntry>[];
     messagingStatuses = const <String, MessagingPlatformStatus>{};
     messagingMessages = const <MessagingMessage>[];
@@ -2146,6 +2206,8 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void clearLogs() {
+    _serverLogs = const <LogEntry>[];
+    _clientLogs = const <LogEntry>[];
     logs = const <LogEntry>[];
     notifyListeners();
   }
@@ -3446,6 +3508,14 @@ class NeoAgentController extends ChangeNotifier {
     _isStartingLiveVoice = true;
     _pendingLiveVoiceStop = false;
     errorMessage = null;
+    AppDiagnostics.log(
+      'desktop.assistant',
+      'ptt.start_request',
+      data: <String, Object?>{
+        'hasActiveSession': voiceAssistantLiveState.hasActiveSession,
+        'socketConnected': socketConnected,
+      },
+    );
     notifyListeners();
 
     try {
@@ -3515,6 +3585,11 @@ class NeoAgentController extends ChangeNotifier {
         },
       );
       _liveVoiceCaptureActive = true;
+      AppDiagnostics.log(
+        'desktop.assistant',
+        'ptt.capture_started',
+        data: <String, Object?>{'sessionId': sessionId},
+      );
       if (_pendingLiveVoiceStop) {
         _pendingLiveVoiceStop = false;
         await stopLiveVoiceCapture();
@@ -3531,6 +3606,14 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> stopLiveVoiceCapture() async {
+    AppDiagnostics.log(
+      'desktop.assistant',
+      'ptt.stop_request',
+      data: <String, Object?>{
+        'isStarting': _isStartingLiveVoice,
+        'isActive': _liveVoiceCaptureActive,
+      },
+    );
     if (_isStoppingLiveVoice) {
       return;
     }
@@ -3547,6 +3630,11 @@ class NeoAgentController extends ChangeNotifier {
       await _liveVoiceCapture.stop();
       final sessionId = voiceAssistantLiveState.sessionId.trim();
       if (sessionId.isNotEmpty && _socket != null) {
+        AppDiagnostics.log(
+          'desktop.assistant',
+          'ptt.capture_committing',
+          data: <String, Object?>{'sessionId': sessionId},
+        );
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
           state: 'transcribing',
         );
@@ -5170,12 +5258,11 @@ class NeoAgentController extends ChangeNotifier {
           next.add(LogEntry.fromJson(_jsonMap(item)));
         }
       }
-      logs = next;
+      _setServerLogs(next);
       notifyListeners();
     });
     socket.on('server:log', (dynamic data) {
-      final next = <LogEntry>[...logs, LogEntry.fromJson(_jsonMap(data))];
-      logs = next.length > 400 ? next.sublist(next.length - 400) : next;
+      _appendServerLog(LogEntry.fromJson(_jsonMap(data)));
       notifyListeners();
     });
     socket.on('messaging:qr', (dynamic data) {
@@ -14144,6 +14231,7 @@ class _LogsPanelState extends State<LogsPanel> {
             (log) => <String, dynamic>{
               'time': log.timeLabel,
               'type': log.type,
+              'source': log.source,
               'message': log.message,
             },
           )
@@ -14187,7 +14275,8 @@ class _LogsPanelState extends State<LogsPanel> {
       children: <Widget>[
         _PageTitle(
           title: 'Logs',
-          subtitle: 'Live backend console output from this server session.',
+          subtitle:
+              'Merged server and Flutter runtime logs for this app session.',
           trailing: Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -14215,7 +14304,7 @@ class _LogsPanelState extends State<LogsPanel> {
             padding: const EdgeInsets.all(16),
             child: widget.controller.logs.isEmpty
                 ? Text(
-                    'Waiting for log output…',
+                    'Waiting for server or Flutter log output…',
                     style: TextStyle(color: _textSecondary),
                   )
                 : Column(
@@ -14232,6 +14321,10 @@ class _LogsPanelState extends State<LogsPanel> {
                               TextSpan(
                                 text: '[${log.timeLabel}] ',
                                 style: TextStyle(color: _textMuted),
+                              ),
+                              TextSpan(
+                                text: '[${log.sourceLabel}] ',
+                                style: TextStyle(color: _textSecondary),
                               ),
                               TextSpan(
                                 text: log.message,

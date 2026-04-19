@@ -1681,6 +1681,7 @@ class LogEntry {
     required this.type,
     required this.message,
     required this.timestamp,
+    this.source = 'server',
   });
 
   factory LogEntry.fromJson(Map<dynamic, dynamic> json) {
@@ -1688,16 +1689,18 @@ class LogEntry {
       type: json['type']?.toString() ?? 'log',
       message: json['message']?.toString() ?? '',
       timestamp: _parseTimestamp(json['timestamp']?.toString()),
+      source: json['source']?.toString().ifEmpty('server') ?? 'server',
     );
   }
 
   final String type;
   final String message;
   final DateTime timestamp;
+  final String source;
 
   String get timeLabel => _formatTimeOnly(timestamp);
 
-  String get clipboardLine => '[$timeLabel] $message';
+  String get clipboardLine => '[$timeLabel][$source] $message';
 
   Color get color {
     switch (type) {
@@ -1709,6 +1712,16 @@ class LogEntry {
         return _info;
       default:
         return _textPrimary;
+    }
+  }
+
+  String get sourceLabel {
+    switch (source) {
+      case 'flutter':
+        return 'Flutter';
+      case 'server':
+      default:
+        return 'Server';
     }
   }
 }

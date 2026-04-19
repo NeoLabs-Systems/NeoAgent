@@ -129,7 +129,31 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     unawaited(_stopPttCapture());
   }
 
+  bool _useDesktopToggleCapture() {
+    if (kIsWeb) {
+      return false;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+        return true;
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.fuchsia:
+        return false;
+    }
+  }
+
   Future<void> _startPttCapture() async {
+    AppDiagnostics.log(
+      'voice.assistant.ui',
+      'capture_start.request',
+      data: <String, Object?>{
+        'hasActiveSession':
+            widget.controller.voiceAssistantLiveState.hasActiveSession,
+      },
+    );
     setState(() {
       _pttPressed = true;
       _voiceError = null;
@@ -154,6 +178,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   }
 
   Future<void> _stopPttCapture() async {
+    AppDiagnostics.log('voice.assistant.ui', 'capture_stop.request');
     await widget.controller.stopLiveVoiceCapture();
   }
 
@@ -279,6 +304,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final captureLabel = liveCaptureEngaged
         ? _activeCallElapsedLabel(runtime)
         : 'Ready';
+    final useDesktopToggleCapture = _useDesktopToggleCapture();
 
     return ListView(
       padding: _pagePadding(context),
@@ -391,8 +417,12 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                   const SizedBox(height: 4),
                                   Text(
                                     liveState.hasActiveSession
-                                        ? 'Release the mic to commit audio and let NeoOS respond with live voice updates.'
-                                        : 'Hold to talk. The live session stays separate from the recording workflow.',
+                                        ? (useDesktopToggleCapture
+                                              ? 'Tap again to commit audio and let NeoAgent respond with live voice updates.'
+                                              : 'Release the mic to commit audio and let NeoAgent respond with live voice updates.')
+                                        : (useDesktopToggleCapture
+                                              ? 'Tap to start speaking. The live session stays separate from the recording workflow.'
+                                              : 'Hold to talk. The live session stays separate from the recording workflow.'),
                                     style: TextStyle(
                                       color: _textMuted,
                                       height: 1.4,
@@ -422,34 +452,51 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: <Widget>[
-                          Listener(
-                            behavior: HitTestBehavior.opaque,
-                            onPointerDown: canStart
-                                ? _handlePrimaryPointerDown
-                                : null,
-                            onPointerUp: (canStop || canStart)
-                                ? _handlePrimaryPointerUp
-                                : null,
-                            onPointerCancel: (canStop || canStart)
-                                ? _handlePrimaryPointerUp
-                                : null,
-                            child: _VoiceAssistantPrimaryAction(
-                              icon: liveCaptureEngaged
-                                  ? Icons.mic_off
-                                  : Icons.mic,
-                              label: liveCaptureEngaged
-                                  ? 'Release to send'
-                                  : 'Hold to talk',
-                              caption: liveCaptureEngaged
-                                  ? 'Stop capture and submit'
-                                  : 'Press and hold for quick capture',
-                              color:
-                                  (liveCaptureEngaged || _pttPressed)
-                                  ? _warning
-                                  : _success,
-                              onTap: null,
-                            ),
-                          ),
+                          useDesktopToggleCapture
+                              ? _VoiceAssistantPrimaryAction(
+                                  icon: liveCaptureEngaged
+                                      ? Icons.stop_rounded
+                                      : Icons.mic,
+                                  label: liveCaptureEngaged
+                                      ? 'Stop and send'
+                                      : 'Start talking',
+                                  caption: liveCaptureEngaged
+                                      ? 'Commit the active live capture'
+                                      : 'Click once to begin capturing',
+                                  color: (liveCaptureEngaged || _pttPressed)
+                                      ? _warning
+                                      : _success,
+                                  onTap: liveCaptureEngaged
+                                      ? _stopPttCapture
+                                      : (canStart ? _startPttCapture : null),
+                                )
+                              : Listener(
+                                  behavior: HitTestBehavior.opaque,
+                                  onPointerDown: canStart
+                                      ? _handlePrimaryPointerDown
+                                      : null,
+                                  onPointerUp: (canStop || canStart)
+                                      ? _handlePrimaryPointerUp
+                                      : null,
+                                  onPointerCancel: (canStop || canStart)
+                                      ? _handlePrimaryPointerUp
+                                      : null,
+                                  child: _VoiceAssistantPrimaryAction(
+                                    icon: liveCaptureEngaged
+                                        ? Icons.mic_off
+                                        : Icons.mic,
+                                    label: liveCaptureEngaged
+                                        ? 'Release to send'
+                                        : 'Hold to talk',
+                                    caption: liveCaptureEngaged
+                                        ? 'Stop capture and submit'
+                                        : 'Press and hold for quick capture',
+                                    color: (liveCaptureEngaged || _pttPressed)
+                                        ? _warning
+                                        : _success,
+                                    onTap: null,
+                                  ),
+                                ),
                           const SizedBox(width: 22),
                           _VoiceAssistantPrimaryAction(
                             icon: Icons.call_end,
@@ -548,7 +595,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                 _VoiceAssistantSectionCard(
                   icon: Icons.subject_outlined,
                   title: 'Transcript',
-                  subtitle: 'Partial and final transcript text for the live turn.',
+                  subtitle:
+                      'Partial and final transcript text for the live turn.',
                   child: Text(
                     _assistantTranscript.trim().isEmpty
                         ? 'Transcript will appear while or after you finish the live turn.'
