@@ -1043,10 +1043,7 @@ class _DesktopCloseDecision {
 }
 
 class _RecordingPermissionBadge extends StatelessWidget {
-  const _RecordingPermissionBadge({
-    required this.label,
-    required this.state,
-  });
+  const _RecordingPermissionBadge({required this.label, required this.state});
 
   final String label;
   final RecordingPermissionState state;
@@ -1054,8 +1051,16 @@ class _RecordingPermissionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (color, icon, text) = switch (state) {
-      RecordingPermissionState.granted => (_success, Icons.check_circle, 'Ready'),
-      RecordingPermissionState.denied => (_danger, Icons.lock_outline, 'Blocked'),
+      RecordingPermissionState.granted => (
+        _success,
+        Icons.check_circle,
+        'Ready',
+      ),
+      RecordingPermissionState.denied => (
+        _danger,
+        Icons.lock_outline,
+        'Blocked',
+      ),
       RecordingPermissionState.needsRestart => (
         _warning,
         Icons.restart_alt_rounded,
@@ -1159,7 +1164,8 @@ class _DesktopFloatingToolbar extends StatefulWidget {
   final NeoAgentController controller;
 
   @override
-  State<_DesktopFloatingToolbar> createState() => _DesktopFloatingToolbarState();
+  State<_DesktopFloatingToolbar> createState() =>
+      _DesktopFloatingToolbarState();
 }
 
 class _DesktopFloatingToolbarState extends State<_DesktopFloatingToolbar> {
@@ -1264,7 +1270,9 @@ class _DetachedDesktopFloatingToolbarShellState
   }
 
   @override
-  void didUpdateWidget(covariant _DetachedDesktopFloatingToolbarShell oldWidget) {
+  void didUpdateWidget(
+    covariant _DetachedDesktopFloatingToolbarShell oldWidget,
+  ) {
     super.didUpdateWidget(oldWidget);
     _syncTicker();
   }
@@ -1328,15 +1336,57 @@ class _DetachedDesktopFloatingToolbarShellState
   }
 }
 
+bool _desktopAssistantUsesToggleControls() {
+  if (kIsWeb) {
+    return false;
+  }
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.macOS:
+    case TargetPlatform.windows:
+    case TargetPlatform.linux:
+      return true;
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.fuchsia:
+      return false;
+  }
+}
+
+String _desktopAssistantPrimaryLabel(bool isCapturing) {
+  if (_desktopAssistantUsesToggleControls()) {
+    return isCapturing ? 'Stop and send' : 'Start talking';
+  }
+  return isCapturing ? 'Release to send' : 'Hold to talk';
+}
+
+String _desktopAssistantPrimaryCaption(bool isCapturing) {
+  if (_desktopAssistantUsesToggleControls()) {
+    return isCapturing
+        ? 'Commit the active live capture'
+        : 'Click once to begin capturing';
+  }
+  return isCapturing
+      ? 'Stop capture and submit'
+      : 'Press and hold for quick capture';
+}
+
+String _desktopAssistantIdleHint() {
+  return _desktopAssistantUsesToggleControls()
+      ? 'Click the mic to start speaking'
+      : 'Hold Ctrl+Shift+Space to talk';
+}
+
 class _DesktopAssistantPopupShell extends StatelessWidget {
   const _DesktopAssistantPopupShell({
     required this.controller,
     required this.blockedHintVisible,
+    required this.onPrimaryAction,
     required this.onCancel,
   });
 
   final NeoAgentController controller;
   final bool blockedHintVisible;
+  final Future<void> Function() onPrimaryAction;
   final Future<void> Function() onCancel;
 
   @override
@@ -1352,7 +1402,7 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
     final statusLabel = blockedHintVisible
         ? 'Assistant unavailable while recording'
         : (isCapturing
-          ? 'Listening. Release to send'
+              ? _desktopAssistantPrimaryLabel(true)
               : _desktopAssistantStatusLabel(liveState.state));
     final statusColor = blockedHintVisible
         ? _warning
@@ -1383,7 +1433,9 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                       ],
                     ),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: _borderLight.withValues(alpha: 0.9)),
+                    border: Border.all(
+                      color: _borderLight.withValues(alpha: 0.9),
+                    ),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.2),
@@ -1424,7 +1476,7 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                             if (!blockedHintVisible)
                               Text(
                                 transcriptPreview.isEmpty
-                                    ? 'Hold Ctrl+Shift+Space to talk'
+                                    ? _desktopAssistantIdleHint()
                                     : transcriptPreview,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -1435,6 +1487,32 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                                 ),
                               ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: blockedHintVisible
+                            ? null
+                            : () {
+                                unawaited(onPrimaryAction());
+                              },
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          minimumSize: const Size(0, 38),
+                          backgroundColor: statusColor,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: Icon(
+                          isCapturing ? Icons.stop_rounded : Icons.mic_rounded,
+                          size: 16,
+                        ),
+                        label: Text(
+                          isCapturing ? 'Send' : 'Talk',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
                       IconButton(
@@ -1480,10 +1558,7 @@ String _desktopAssistantStatusLabel(String state) {
 }
 
 class _DesktopAssistantPulseDots extends StatelessWidget {
-  const _DesktopAssistantPulseDots({
-    required this.color,
-    required this.active,
-  });
+  const _DesktopAssistantPulseDots({required this.color, required this.active});
 
   final Color color;
   final bool active;
@@ -1683,10 +1758,14 @@ class _DesktopFloatingToolbarSurface extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: (runtime.paused ? _warning : _danger).withValues(alpha: 0.10),
+                color: (runtime.paused ? _warning : _danger).withValues(
+                  alpha: 0.10,
+                ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: (runtime.paused ? _warning : _danger).withValues(alpha: 0.20),
+                  color: (runtime.paused ? _warning : _danger).withValues(
+                    alpha: 0.20,
+                  ),
                 ),
               ),
               child: Row(

@@ -129,22 +129,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     unawaited(_stopPttCapture());
   }
 
-  bool _useDesktopToggleCapture() {
-    if (kIsWeb) {
-      return false;
-    }
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return true;
-      case TargetPlatform.android:
-      case TargetPlatform.iOS:
-      case TargetPlatform.fuchsia:
-        return false;
-    }
-  }
-
   Future<void> _startPttCapture() async {
     AppDiagnostics.log(
       'voice.assistant.ui',
@@ -304,7 +288,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final captureLabel = liveCaptureEngaged
         ? _activeCallElapsedLabel(runtime)
         : 'Ready';
-    final useDesktopToggleCapture = _useDesktopToggleCapture();
+    final useDesktopToggleCapture = _desktopAssistantUsesToggleControls();
 
     return ListView(
       padding: _pagePadding(context),
@@ -457,12 +441,12 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                   icon: liveCaptureEngaged
                                       ? Icons.stop_rounded
                                       : Icons.mic,
-                                  label: liveCaptureEngaged
-                                      ? 'Stop and send'
-                                      : 'Start talking',
-                                  caption: liveCaptureEngaged
-                                      ? 'Commit the active live capture'
-                                      : 'Click once to begin capturing',
+                                  label: _desktopAssistantPrimaryLabel(
+                                    liveCaptureEngaged,
+                                  ),
+                                  caption: _desktopAssistantPrimaryCaption(
+                                    liveCaptureEngaged,
+                                  ),
                                   color: (liveCaptureEngaged || _pttPressed)
                                       ? _warning
                                       : _success,
@@ -485,12 +469,12 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                     icon: liveCaptureEngaged
                                         ? Icons.mic_off
                                         : Icons.mic,
-                                    label: liveCaptureEngaged
-                                        ? 'Release to send'
-                                        : 'Hold to talk',
-                                    caption: liveCaptureEngaged
-                                        ? 'Stop capture and submit'
-                                        : 'Press and hold for quick capture',
+                                    label: _desktopAssistantPrimaryLabel(
+                                      liveCaptureEngaged,
+                                    ),
+                                    caption: _desktopAssistantPrimaryCaption(
+                                      liveCaptureEngaged,
+                                    ),
                                     color: (liveCaptureEngaged || _pttPressed)
                                         ? _warning
                                         : _success,

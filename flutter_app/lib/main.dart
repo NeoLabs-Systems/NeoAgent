@@ -263,6 +263,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   bool _assistantPttActive = false;
   bool _desktopAssistantBlockedHintVisible = false;
   bool _desktopAssistantReturnToHidden = false;
+  bool _desktopToolbarReturnToHidden = false;
   Rect? _desktopNormalWindowBounds;
 
   static const Size _desktopToolbarWindowSize = Size(840, 128);
@@ -376,17 +377,24 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       if (_desktopToolbarWindowMode &&
           (!runtime.active || !runtime.floatingToolbarVisible)) {
         await _restoreMainWindowPresentation(
-          hideAfterRestore: true,
+          hideAfterRestore: _desktopToolbarReturnToHidden,
           focusWindow: false,
         );
+        _desktopToolbarReturnToHidden = false;
         return;
       }
       if (!_desktopToolbarWindowMode &&
           runtime.active &&
           runtime.supportsFloatingToolbar &&
           runtime.floatingToolbarVisible &&
-          !isWindowVisible) {
-        await _showDetachedToolbarWindow(focusWindow: false);
+          (_controller.desktopFloatingToolbarPopupRequested ||
+              !isWindowVisible)) {
+        await _showDetachedToolbarWindow(
+          focusWindow:
+              _controller.desktopFloatingToolbarPopupRequested ||
+              isWindowVisible,
+        );
+        _controller.acknowledgeDesktopFloatingToolbarPopupRequest();
       }
     } finally {
       _syncingDesktopPresentation = false;
@@ -422,7 +430,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         MenuItem(
           key: 'toggle_toolbar',
           label: toolbarLabel,
-          disabled: !_controller.recordingRuntime.supportsFloatingToolbar,
+          disabled:
+              !_controller.recordingRuntime.supportsFloatingToolbar ||
+              !isRecordingActive,
         ),
         MenuItem(key: 'open_voice_assistant', label: 'Open voice assistant'),
         MenuItem.separator(),
@@ -498,8 +508,11 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       await _hideAssistantPopupWindow();
       return;
     }
-    await _openMainWindow();
-    _controller.setSelectedSection(AppSection.voiceAssistant);
+    if (_desktopAssistantPopupWindowMode) {
+      await _hideAssistantPopupWindow();
+      return;
+    }
+    await _showAssistantPopupWindow();
   }
 
   Future<void> _activateAssistantPushToTalkMode() async {
@@ -558,6 +571,8 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     if (_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode) {
       await _restoreMainWindowPresentation();
     }
+    _controller.acknowledgeDesktopFloatingToolbarPopupRequest();
+    _desktopToolbarReturnToHidden = false;
     await windowManager.show();
     await windowManager.focus();
   }
@@ -592,6 +607,11 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     if (!runtime.active || !runtime.supportsFloatingToolbar) {
       return;
     }
+    final isVisible = await windowManager.isVisible();
+    _desktopToolbarReturnToHidden =
+        !isVisible &&
+        !_desktopToolbarWindowMode &&
+        !_desktopAssistantPopupWindowMode;
     if (!_desktopToolbarWindowMode && !_desktopAssistantPopupWindowMode) {
       _desktopNormalWindowBounds = await windowManager.getBounds();
     }
@@ -608,6 +628,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       TitleBarStyle.hidden,
       windowButtonVisibility: false,
     );
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      await windowManager.setHasShadow(false);
+    }
     await windowManager.setResizable(false);
     await windowManager.setAlwaysOnTop(true);
     await windowManager.setSkipTaskbar(true);
@@ -633,6 +656,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     await windowManager.setAlwaysOnTop(false);
     await windowManager.setResizable(true);
     await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      await windowManager.setHasShadow(true);
+    }
     await windowManager.setSkipTaskbar(false);
     await windowManager.setTitle('NeoAgent');
     final restoreBounds = _desktopNormalWindowBounds;
@@ -671,6 +697,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       TitleBarStyle.hidden,
       windowButtonVisibility: false,
     );
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      await windowManager.setHasShadow(false);
+    }
     await windowManager.setResizable(false);
     await windowManager.setAlwaysOnTop(true);
     await windowManager.setSkipTaskbar(true);
@@ -705,6 +734,35 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       } catch (_) {}
     }
     await _hideAssistantPopupWindow();
+  }
+
+  Future<void> _toggleAssistantPopupCaptureFromUi() async {
+    if (_desktopAssistantBlockedHintVisible) {
+      return;
+    }
+    if (_controller.isLiveVoiceCaptureActive ||
+        _controller.isLiveVoiceCaptureStarting) {
+      _assistantPttActive = false;
+      await _controller.stopLiveVoiceCapture();
+      return;
+    }
+    try {
+      _assistantPttActive = true;
+      await _controller.startLiveVoiceCapture();
+    } catch (error, stackTrace) {
+      _assistantPttActive = false;
+      AppDiagnostics.log(
+        'desktop.assistant',
+        'popup.start_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      if (!_controller.isLiveVoiceCaptureActive &&
+          !_controller.isLiveVoiceCaptureStarting) {
+        _assistantPttActive = false;
+      }
+    }
   }
 
   @override
@@ -750,6 +808,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
               ? _DesktopAssistantPopupShell(
                   controller: _controller,
                   blockedHintVisible: _desktopAssistantBlockedHintVisible,
+                  onPrimaryAction: _toggleAssistantPopupCaptureFromUi,
                   onCancel: _cancelAssistantPopupFromUi,
                 )
               : (_desktopToolbarWindowMode
@@ -1007,6 +1066,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isCheckingAppUpdate = false;
   bool isOpeningAppUpdate = false;
   bool socketConnected = false;
+  bool _desktopFloatingToolbarPopupRequested = false;
 
   bool hasUser = true;
   bool registrationOpen = false;
@@ -1203,6 +1263,9 @@ class NeoAgentController extends ChangeNotifier {
   bool get desktopAutoShowFloatingToolbar => _desktopAutoShowFloatingToolbar;
 
   bool get desktopAssistantHotkeyEnabled => _desktopAssistantHotkeyEnabled;
+
+  bool get desktopFloatingToolbarPopupRequested =>
+      _desktopFloatingToolbarPopupRequested;
 
   bool get appUpdaterConfigured => app_release_updater.appUpdaterConfigured;
 
@@ -3268,6 +3331,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> showDesktopFloatingToolbar() async {
     try {
+      _desktopFloatingToolbarPopupRequested = true;
       await _recordingBridge.showFloatingToolbar();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -3277,6 +3341,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> hideDesktopFloatingToolbar() async {
     try {
+      _desktopFloatingToolbarPopupRequested = false;
       await _recordingBridge.hideFloatingToolbar();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -3325,6 +3390,10 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void acknowledgeDesktopFloatingToolbarPopupRequest() {
+    _desktopFloatingToolbarPopupRequested = false;
+  }
+
   Future<void> stopRecording({String stopReason = 'stopped'}) async {
     final sessionId = recordingRuntime.sessionId;
     if (sessionId == null || isStoppingRecording) {
@@ -3344,6 +3413,7 @@ class NeoAgentController extends ChangeNotifier {
     );
     notifyListeners();
     try {
+      _desktopFloatingToolbarPopupRequested = false;
       await _recordingBridge.stopActiveRecording();
       if (isAndroidBackgroundStop) {
         await Future<void>.delayed(const Duration(milliseconds: 600));
@@ -8097,9 +8167,13 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                       ),
                     if (runtime.supportsFloatingToolbar)
                       OutlinedButton.icon(
-                        onPressed: runtime.floatingToolbarVisible
-                            ? widget.controller.hideDesktopFloatingToolbar
-                            : widget.controller.showDesktopFloatingToolbar,
+                        onPressed: !runtime.active
+                            ? null
+                            : (runtime.floatingToolbarVisible
+                                  ? widget.controller.hideDesktopFloatingToolbar
+                                  : widget
+                                        .controller
+                                        .showDesktopFloatingToolbar),
                         icon: Icon(
                           runtime.floatingToolbarVisible
                               ? Icons.visibility_off_outlined
