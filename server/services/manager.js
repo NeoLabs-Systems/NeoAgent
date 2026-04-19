@@ -71,7 +71,7 @@ function createIntegrationManager(app) {
   const integrationManager = registerLocal(
     app,
     'integrationManager',
-    new IntegrationManager(),
+    new IntegrationManager({ app }),
   );
   logServiceReady('Integration manager ready');
   return integrationManager;

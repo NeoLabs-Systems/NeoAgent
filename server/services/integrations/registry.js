@@ -5,14 +5,16 @@ const { createGoogleWorkspaceProvider } = require('./google/provider');
 const { createMicrosoftProvider } = require('./microsoft/provider');
 const { createNotionProvider } = require('./notion/provider');
 const { createSlackProvider } = require('./slack/provider');
+const { createWhatsAppPersonalProvider } = require('./whatsapp');
 
-function createIntegrationRegistry() {
+function createIntegrationRegistry(options = {}) {
   const providers = [
     createGoogleWorkspaceProvider(),
     createNotionProvider(),
     createMicrosoftProvider(),
     createSlackProvider(),
     createFigmaProvider(),
+    createWhatsAppPersonalProvider(options),
   ];
   const byKey = new Map(providers.map((provider) => [provider.key, provider]));
 

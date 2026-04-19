@@ -1,8 +1,8 @@
 # Integrations
 
-NeoAgent has two integration layers: official OAuth integrations for structured app tools, and messaging platforms for talking to the agent.
+NeoAgent has two integration layers: official integrations for structured app tools, and messaging platforms for talking to the agent.
 
-## Official OAuth Integrations
+## Official Integrations
 
 The built-in registry includes:
 
@@ -41,7 +41,7 @@ NeoAgent can talk through:
 
 | Platform | Notes |
 |---|---|
-| WhatsApp | QR-based linking through the app settings; text and media sends |
+| WhatsApp | Messaging-platform bridge in app settings for talking to the agent; separate official personal WhatsApp integration for structured read/send tools |
 | Telegram | Bot token plus approved chats |
 | Discord | Bot token plus server or channel access |
 | Slack | Bot token sends plus Events API callbacks |

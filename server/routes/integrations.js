@@ -131,6 +131,112 @@ router.get('/oauth/callback', async (req, res) => {
 
 router.use(requireAuth);
 
+router.get('/:provider/connect/:sessionId', (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const session = manager.getConnectionSession(
+      req.session.userId,
+      req.params.provider,
+      req.params.sessionId,
+      agentId,
+    );
+    if (!session) {
+      return res.status(404).send('Connection session not found.');
+    }
+    const statusUrl = `/api/integrations/${encodeURIComponent(req.params.provider)}/connect/${encodeURIComponent(req.params.sessionId)}/status?agentId=${encodeURIComponent(agentId)}`;
+    res.send(`
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Connect ${escapeHtml(req.params.provider)}</title>
+          <style>
+            body { font-family: ui-sans-serif, system-ui, sans-serif; background: #0b1220; color: #f8fafc; margin: 0; padding: 24px; }
+            .card { max-width: 560px; margin: 0 auto; background: #111827; border: 1px solid #1f2937; border-radius: 20px; padding: 24px; }
+            .muted { color: #94a3b8; }
+            .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #1f2937; font-size: 12px; }
+            img { display: block; margin: 24px auto; background: white; padding: 12px; border-radius: 16px; max-width: min(320px, 100%); }
+            code { background: #0f172a; padding: 2px 6px; border-radius: 6px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="pill">Official integration</div>
+            <h1>Connect WhatsApp</h1>
+            <p class="muted">This link is isolated from the separate messaging-platform WhatsApp bridge. Scan the QR code with your personal WhatsApp account to finish linking.</p>
+            <div id="status" class="muted">Starting connection…</div>
+            <img id="qr" alt="WhatsApp QR code" style="display:none;" />
+            <p class="muted">When the link finishes, this window will close automatically. If it does not, you can close it manually.</p>
+          </div>
+          <script>
+            const statusEl = document.getElementById('status');
+            const qrEl = document.getElementById('qr');
+            const statusUrl = ${JSON.stringify(statusUrl)};
+
+            async function refresh() {
+              const response = await fetch(statusUrl, { credentials: 'same-origin' });
+              if (!response.ok) {
+                statusEl.textContent = 'Connection session expired or is no longer available.';
+                return;
+              }
+              const data = await response.json();
+              const status = String(data.status || 'connecting');
+              if (status === 'awaiting_qr' && data.qr) {
+                statusEl.textContent = 'Scan this QR code with WhatsApp on your phone.';
+                qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?data=' + encodeURIComponent(data.qr) + '&size=320x320';
+                qrEl.style.display = 'block';
+              } else if (status === 'connected') {
+                qrEl.style.display = 'none';
+                statusEl.textContent = 'Connected as ' + (data.accountEmail || 'your WhatsApp account') + '. Closing…';
+                setTimeout(() => window.close(), 800);
+                return;
+              } else if (status === 'failed' || status === 'logged_out' || status === 'disconnected') {
+                qrEl.style.display = 'none';
+                statusEl.textContent = data.error || ('Connection ended with status: ' + status + '.');
+                return;
+              } else {
+                statusEl.textContent = 'Waiting for WhatsApp to generate a QR code…';
+              }
+              setTimeout(refresh, 1500);
+            }
+            refresh().catch((error) => {
+              statusEl.textContent = error?.message || 'Could not load connection status.';
+            });
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    res.status(500).send(escapeHtml(sanitizeError(err)));
+  }
+});
+
+router.get('/:provider/connect/:sessionId/status', (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const session = manager.getConnectionSession(
+      req.session.userId,
+      req.params.provider,
+      req.params.sessionId,
+      agentId,
+    );
+    if (!session) {
+      return res.status(404).json({ error: 'Connection session not found.' });
+    }
+    res.json(session);
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
 router.get('/', (req, res) => {
   try {
     const manager = getIntegrationManager(req);

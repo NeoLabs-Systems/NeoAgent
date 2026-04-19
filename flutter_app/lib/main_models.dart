@@ -2283,13 +2283,15 @@ class _SessionClientInfo {
       _ when lower.contains('iphone') => 'iPhone',
       _ when lower.contains('ipad') => 'iPad',
       _ when lower.contains('android') => 'Android',
-      _ when lower.contains('mac os x') || lower.contains('macintosh') => 'macOS',
+      _ when lower.contains('mac os x') || lower.contains('macintosh') =>
+        'macOS',
       _ when lower.contains('windows nt') => 'Windows',
       _ when lower.contains('linux') => 'Linux',
       _ when lower.contains('x11') => 'Linux',
-      _ when lower.contains('curl/') ||
-          lower.contains('wget/') ||
-          lower.contains('httpie/') =>
+      _
+          when lower.contains('curl/') ||
+              lower.contains('wget/') ||
+              lower.contains('httpie/') =>
         'CLI session',
       _ => 'Unknown device',
     };
@@ -2299,11 +2301,13 @@ class _SessionClientInfo {
       _ when lower.contains('opr/') || lower.contains('opera/') => 'Opera',
       _ when lower.contains('brave/') => 'Brave',
       _ when lower.contains('firefox/') => 'Firefox',
-      _ when lower.contains('chrome/') ||
-          lower.contains('crios/') ||
-          lower.contains('chromium/') =>
+      _
+          when lower.contains('chrome/') ||
+              lower.contains('crios/') ||
+              lower.contains('chromium/') =>
         'Chrome',
-      _ when lower.contains('safari/') && lower.contains('version/') => 'Safari',
+      _ when lower.contains('safari/') && lower.contains('version/') =>
+        'Safari',
       _ when lower.contains('curl/') => 'curl',
       _ when lower.contains('wget/') => 'wget',
       _ when lower.contains('httpie/') => 'HTTPie',
@@ -2314,9 +2318,10 @@ class _SessionClientInfo {
       _ when platformLabel == 'CLI session' => _SessionDeviceClass.server,
       _ when isTablet => _SessionDeviceClass.tablet,
       _ when isMobile => _SessionDeviceClass.mobile,
-      _ when platformLabel == 'macOS' ||
-          platformLabel == 'Windows' ||
-          platformLabel == 'Linux' =>
+      _
+          when platformLabel == 'macOS' ||
+              platformLabel == 'Windows' ||
+              platformLabel == 'Linux' =>
         _SessionDeviceClass.desktop,
       _ => _SessionDeviceClass.unknown,
     };

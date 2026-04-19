@@ -12,8 +12,11 @@ const {
 } = require('./access');
 
 class IntegrationManager {
-  constructor() {
-    this.registry = createIntegrationRegistry();
+  constructor(options = {}) {
+    this.app = options.app || null;
+    this.registry = createIntegrationRegistry({
+      io: this.app?.locals?.io || null,
+    });
   }
 
   parseCredentials(credentialsJson) {
@@ -111,6 +114,24 @@ class IntegrationManager {
       throw new Error(env.summary);
     }
 
+    if (typeof provider.beginConnection === 'function') {
+      const result = await provider.beginConnection({
+        userId,
+        agentId,
+        appKey,
+      });
+      const url = String(result?.url || '').trim();
+      const absoluteUrl = url.startsWith('http')
+        ? url
+        : `${require('./env').resolvePublicBaseUrl()}${url.startsWith('/') ? '' : '/'}${url}`;
+      return {
+        provider: provider.key,
+        appId: appKey,
+        ...result,
+        url: absoluteUrl,
+      };
+    }
+
     const state = crypto.randomBytes(24).toString('hex');
     const codeVerifier = crypto.randomBytes(48).toString('base64url');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -147,6 +168,19 @@ class IntegrationManager {
       status: 'oauth_redirect',
       url,
     };
+  }
+
+  getConnectionSession(userId, providerKey, sessionId, agentId = null) {
+    const provider = this.getProvider(providerKey);
+    if (!provider || typeof provider.getConnectionSession !== 'function') {
+      return null;
+    }
+    return provider.getConnectionSession(
+      userId,
+      providerKey,
+      sessionId,
+      resolveAgentId(userId, agentId),
+    );
   }
 
   async finishOAuth(state, code) {

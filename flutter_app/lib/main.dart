@@ -4213,8 +4213,13 @@ class NeoAgentController extends ChangeNotifier {
         agentId: _scopedAgentId,
       );
       final url = response['url']?.toString();
-      if (response['status']?.toString() != 'oauth_redirect' || url == null) {
-        throw Exception('Official integration did not return an OAuth URL.');
+      final status = response['status']?.toString() ?? '';
+      if ((status != 'oauth_redirect' && status != 'interactive_connect') ||
+          url == null ||
+          url.isEmpty) {
+        throw Exception(
+          'Official integration did not return a connection URL.',
+        );
       }
 
       final launchResult = await _oauthLauncher.launch(

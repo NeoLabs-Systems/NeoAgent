@@ -318,16 +318,17 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                             accessMode: value,
                           );
                         },
-                        itemBuilder: (context) => const <PopupMenuEntry<String>>[
-                          PopupMenuItem<String>(
-                            value: 'read_write',
-                            child: Text('Read / Write'),
-                          ),
-                          PopupMenuItem<String>(
-                            value: 'read_only',
-                            child: Text('Read Only'),
-                          ),
-                        ],
+                        itemBuilder: (context) =>
+                            const <PopupMenuEntry<String>>[
+                              PopupMenuItem<String>(
+                                value: 'read_write',
+                                child: Text('Read / Write'),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'read_only',
+                                child: Text('Read Only'),
+                              ),
+                            ],
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -347,7 +348,9 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                accessBusy ? 'Saving...' : account.accessModeLabel,
+                                accessBusy
+                                    ? 'Saving...'
+                                    : account.accessModeLabel,
                                 style: TextStyle(color: _textSecondary),
                               ),
                             ],

@@ -68,7 +68,7 @@ Recording insight generation is controlled in app AI settings with `auto_recordi
 
 ## Official Integrations
 
-Official integrations use OAuth and expose structured tools to the agent. The built-in registry currently covers Google Workspace, Notion, Microsoft 365, Slack, and Figma.
+Official integrations use OAuth or provider-native account linking and expose structured tools to the agent. The built-in registry currently covers Google Workspace, Notion, Microsoft 365, Slack, Figma, and personal WhatsApp.
 
 All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` unless you set a provider-specific redirect URI.
 
