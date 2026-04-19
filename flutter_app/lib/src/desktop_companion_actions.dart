@@ -192,11 +192,17 @@ class DesktopCompanionActions {
     required int x,
     required int y,
     String button = 'left',
+    String? displayId,
   }) async {
     await _assertInputSupported('click');
     final normalizedButton = _normalizeMouseButton(button);
     if (_usesNativeDesktopBridge) {
-      await _nativeBridge.click(x: x, y: y, button: normalizedButton);
+      await _nativeBridge.click(
+        x: x,
+        y: y,
+        button: normalizedButton,
+        displayId: displayId,
+      );
     } else if (defaultTargetPlatform == TargetPlatform.linux) {
       final buttonCode = normalizedButton == 'right'
           ? '3'
@@ -222,6 +228,7 @@ class DesktopCompanionActions {
     required int x2,
     required int y2,
     int durationMs = 280,
+    String? displayId,
   }) async {
     await _assertInputSupported('drag');
     if (_usesNativeDesktopBridge) {
@@ -231,6 +238,7 @@ class DesktopCompanionActions {
         x2: x2,
         y2: y2,
         durationMs: durationMs,
+        displayId: displayId,
       );
     } else if (defaultTargetPlatform == TargetPlatform.linux) {
       await _run(_ShellCommand('xdotool', <String>['mousemove', '$x1', '$y1']));

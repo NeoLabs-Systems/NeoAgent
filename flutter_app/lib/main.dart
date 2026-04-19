@@ -6991,6 +6991,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
         )
         .cast<Map<String, dynamic>?>()
         .firstWhere((device) => device != null, orElse: () => null);
+    final desktopDeviceOnline = selectedDesktopDevice?['online'] == true;
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
@@ -7084,12 +7085,16 @@ class _DevicesPanelState extends State<DevicesPanel> {
                         runSpacing: 10,
                         children: <Widget>[
                           _DotStatus(
-                            label: controller.desktopCompanionConnected
+                            label: desktopDeviceOnline
+                                ? 'Companion live'
+                                : controller.desktopCompanionConnected
                                 ? 'Companion live'
                                 : controller.desktopCompanionConnecting
                                 ? 'Connecting'
                                 : 'Companion idle',
-                            color: controller.desktopCompanionConnected
+                            color: desktopDeviceOnline
+                                ? _success
+                                : controller.desktopCompanionConnected
                                 ? _success
                                 : controller.desktopCompanionConnecting
                                 ? _accent

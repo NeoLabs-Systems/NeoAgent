@@ -337,6 +337,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           x: (payload['x'] as num?)?.round() ?? 0,
           y: (payload['y'] as num?)?.round() ?? 0,
           button: payload['button']?.toString() ?? 'left',
+          displayId: _activeDisplayId,
         );
       case 'drag':
         return _actions.drag(
@@ -345,6 +346,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           x2: (payload['x2'] as num?)?.round() ?? 0,
           y2: (payload['y2'] as num?)?.round() ?? 0,
           durationMs: (payload['durationMs'] as num?)?.round() ?? 280,
+          displayId: _activeDisplayId,
         );
       case 'scroll':
         return _actions.scroll(

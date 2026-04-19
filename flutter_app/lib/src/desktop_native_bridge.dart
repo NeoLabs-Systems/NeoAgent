@@ -29,11 +29,18 @@ class DesktopNativeBridge {
         .toList(growable: false);
   }
 
-  Future<void> click({required int x, required int y, required String button}) {
+  Future<void> click({
+    required int x,
+    required int y,
+    required String button,
+    String? displayId,
+  }) {
     return _channel.invokeMethod<void>('click', <String, Object?>{
       'x': x,
       'y': y,
       'button': button,
+      if (displayId != null && displayId.trim().isNotEmpty)
+        'displayId': displayId.trim(),
     });
   }
 
@@ -43,6 +50,7 @@ class DesktopNativeBridge {
     required int x2,
     required int y2,
     required int durationMs,
+    String? displayId,
   }) {
     return _channel.invokeMethod<void>('drag', <String, Object?>{
       'x1': x1,
@@ -50,6 +58,8 @@ class DesktopNativeBridge {
       'x2': x2,
       'y2': y2,
       'durationMs': durationMs,
+      if (displayId != null && displayId.trim().isNotEmpty)
+        'displayId': displayId.trim(),
     });
   }
 

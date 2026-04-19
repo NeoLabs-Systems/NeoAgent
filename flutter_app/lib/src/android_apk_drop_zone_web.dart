@@ -211,14 +211,38 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final activeColor = _dragActive
-        ? const Color(0xFF14B8A6)
-        : const Color(0x22FFFFFF);
+    final colorScheme = theme.colorScheme;
+    final cardColor = theme.cardTheme.color ?? colorScheme.surface;
+    final onSurface = colorScheme.onSurface;
+    final outline = colorScheme.outlineVariant;
+    final primary = colorScheme.primary;
+    final activeBorderColor = _dragActive ? primary : outline;
     final background = _dragActive
-        ? const Color(0x1F14B8A6)
+        ? primary.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.14 : 0.10,
+          )
         : widget.enabled
-        ? const Color(0xFF111827)
-        : const Color(0xFF0B1117);
+        ? cardColor
+        : colorScheme.surfaceContainerHighest.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.84 : 0.92,
+          );
+    final iconBackground = _dragActive
+        ? primary.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.18 : 0.14,
+          )
+        : colorScheme.surfaceContainerHighest.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.72 : 0.92,
+          );
+    final titleColor = onSurface;
+    final subtitleColor = colorScheme.onSurfaceVariant;
+    final dropZoneBorderColor = _dragActive ? primary : outline;
+    final dropZoneBackground = _dragActive
+        ? primary.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.10 : 0.08,
+          )
+        : colorScheme.surface.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.18 : 0.72,
+          );
     final subtitle = widget.busy
         ? 'Installing app package on the phone...'
         : widget.enabled
@@ -231,7 +255,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: activeColor),
+        border: Border.all(color: activeBorderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,14 +266,12 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: _dragActive
-                      ? const Color(0x2614B8A6)
-                      : const Color(0x12FFFFFF),
+                  color: iconBackground,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   Icons.install_mobile_outlined,
-                  color: Color(0xFFE6F1F5),
+                  color: _dragActive ? primary : titleColor,
                 ),
               ),
               const SizedBox(width: 12),
@@ -260,7 +282,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                     Text(
                       'Install APK / Bundle',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFFE6F1F5),
+                        color: titleColor,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -268,7 +290,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                     Text(
                       subtitle,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF8EA3AD),
+                        color: subtitleColor,
                         height: 1.4,
                       ),
                     ),
@@ -286,14 +308,8 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: _dragActive
-                            ? const Color(0xFF2DD4BF)
-                            : const Color(0x22FFFFFF),
-                      ),
-                      color: _dragActive
-                          ? const Color(0x1414B8A6)
-                          : const Color(0x07000000),
+                      border: Border.all(color: dropZoneBorderColor),
+                      color: dropZoneBackground,
                     ),
                     child: Center(
                       child: Text(
@@ -303,7 +319,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                             ? 'Release to install this package'
                             : 'Drop APK or .apks Here',
                         style: theme.textTheme.titleSmall?.copyWith(
-                          color: const Color(0xFFE6F1F5),
+                          color: titleColor,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.2,
                         ),

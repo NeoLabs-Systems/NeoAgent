@@ -106,7 +106,13 @@ final class DesktopCompanionNativePlugin: NSObject {
         return
       }
       let button = (arguments["button"] as? String) ?? "left"
-      performClick(x: x.doubleValue, y: y.doubleValue, button: button)
+      let displayId = arguments["displayId"] as? String
+      performClick(
+        x: x.doubleValue,
+        y: y.doubleValue,
+        button: button,
+        displayId: displayId
+      )
       result(nil)
     case "drag":
       guard isAccessibilityTrusted() else {
@@ -134,12 +140,14 @@ final class DesktopCompanionNativePlugin: NSObject {
         return
       }
       let durationMs = (arguments["durationMs"] as? NSNumber)?.intValue ?? 280
+      let displayId = arguments["displayId"] as? String
       performDrag(
         x1: x1.doubleValue,
         y1: y1.doubleValue,
         x2: x2.doubleValue,
         y2: y2.doubleValue,
-        durationMs: durationMs
+        durationMs: durationMs,
+        displayId: displayId
       )
       result(nil)
     case "scroll":
@@ -262,6 +270,8 @@ final class DesktopCompanionNativePlugin: NSObject {
       return [
         "id": String(displayId),
         "label": screen.localizedName,
+        "x": Int(frame.origin.x),
+        "y": Int(frame.origin.y),
         "width": Int(frame.width),
         "height": Int(frame.height),
         "scaleFactor": screen.backingScaleFactor,
@@ -345,8 +355,8 @@ final class DesktopCompanionNativePlugin: NSObject {
     return title
   }
 
-  private func performClick(x: Double, y: Double, button: String) {
-    let point = CGPoint(x: x, y: y)
+  private func performClick(x: Double, y: Double, button: String, displayId: String?) {
+    let point = nativePointForCapturedPixel(x: x, y: y, displayId: displayId)
     let mouseButton = cgMouseButton(button)
     guard let down = CGEvent(
       mouseEventSource: nil,
@@ -368,9 +378,16 @@ final class DesktopCompanionNativePlugin: NSObject {
     up.post(tap: .cghidEventTap)
   }
 
-  private func performDrag(x1: Double, y1: Double, x2: Double, y2: Double, durationMs: Int) {
-    let start = CGPoint(x: x1, y: y1)
-    let end = CGPoint(x: x2, y: y2)
+  private func performDrag(
+    x1: Double,
+    y1: Double,
+    x2: Double,
+    y2: Double,
+    durationMs: Int,
+    displayId: String?
+  ) {
+    let start = nativePointForCapturedPixel(x: x1, y: y1, displayId: displayId)
+    let end = nativePointForCapturedPixel(x: x2, y: y2, displayId: displayId)
     let steps = Swift.max(4, Swift.min(90, durationMs / 16))
 
     CGWarpMouseCursorPosition(start)
@@ -387,8 +404,8 @@ final class DesktopCompanionNativePlugin: NSObject {
     for step in 1...steps {
       let t = Double(step) / Double(steps)
       let point = CGPoint(
-        x: x1 + ((x2 - x1) * t),
-        y: y1 + ((y2 - y1) * t)
+        x: start.x + ((end.x - start.x) * t),
+        y: start.y + ((end.y - start.y) * t)
       )
       if let dragged = CGEvent(
         mouseEventSource: nil,
@@ -507,5 +524,23 @@ final class DesktopCompanionNativePlugin: NSObject {
     default:
       return .leftMouseUp
     }
+  }
+
+  private func nativePointForCapturedPixel(x: Double, y: Double, displayId: String?) -> CGPoint {
+    let resolvedDisplayId = resolveDisplayId(displayId)
+    let displayBounds = CGDisplayBounds(resolvedDisplayId)
+    let imageWidth = Double(CGDisplayPixelsWide(resolvedDisplayId))
+    let imageHeight = Double(CGDisplayPixelsHigh(resolvedDisplayId))
+
+    guard imageWidth > 0, imageHeight > 0 else {
+      return CGPoint(x: x, y: y)
+    }
+
+    let normalizedX = min(max(x / imageWidth, 0), 1)
+    let normalizedY = min(max(y / imageHeight, 0), 1)
+    return CGPoint(
+      x: displayBounds.origin.x + (displayBounds.width * normalizedX),
+      y: displayBounds.origin.y + (displayBounds.height * normalizedY)
+    )
   }
 }
