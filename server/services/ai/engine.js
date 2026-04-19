@@ -1373,7 +1373,9 @@ class AgentEngine {
             const mime = att.path.endsWith('.png') ? 'image/png' : att.path.endsWith('.gif') ? 'image/gif' : 'image/jpeg';
             contentArr.push({ type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } });
           }
-        } catch { }
+        } catch (err) {
+          console.warn(`[AgentEngine] Failed to read attachment at ${att.path}:`, err?.message);
+        }
       }
     }
 
@@ -2675,7 +2677,9 @@ class AgentEngine {
         try {
           record.engine?.abort(record.childRunId);
           record.status = 'cancelled';
-        } catch {}
+        } catch (err) {
+          console.warn(`[AgentEngine] Failed to abort subagent ${handle}:`, err?.message);
+        }
       }
       this.subagents.delete(handle);
     }

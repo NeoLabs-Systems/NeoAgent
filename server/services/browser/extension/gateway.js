@@ -11,8 +11,14 @@ function rejectUpgrade(socket, statusCode, message) {
       'Connection: close\r\n' +
       '\r\n',
     );
-  } catch {}
-  try { socket.destroy(); } catch {}
+  } catch (err) {
+    console.warn('[BrowserExtensionGateway] Failed to write rejection response:', err?.message);
+  }
+  try {
+    socket.destroy();
+  } catch (err) {
+    console.warn('[BrowserExtensionGateway] Failed to destroy socket:', err?.message);
+  }
 }
 
 function bindBrowserExtensionGateway(httpServer, app) {

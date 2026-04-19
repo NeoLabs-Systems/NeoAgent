@@ -57,7 +57,9 @@ function ensureSessionStoreSchema(db) {
   } catch (error) {
     try {
       db.exec('ROLLBACK');
-    } catch {}
+    } catch (rollbackErr) {
+      console.warn('[Session] Failed to rollback transaction:', rollbackErr?.message);
+    }
     throw error;
   }
 }

@@ -9,12 +9,17 @@ const MARKDOWN_CODE_SPAN_REGEX = /(```[\s\S]*?```|`[^`\n]+`)/g;
 function shouldApplyIncidentalHanSanitizer(model) {
   const normalized = String(model || '').trim().toLowerCase();
   if (!normalized) return false;
-  if (normalized.includes('minimax-m2.7')) return true;
 
   const configured = String(process.env.NEOAGENT_INCIDENTAL_HAN_SANITIZER_MODELS || '')
     .split(',')
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
+
+  // If configured list is empty, default to MiniMax models
+  if (configured.length === 0) {
+    return normalized.includes('minimax');
+  }
+
   return configured.includes(normalized);
 }
 

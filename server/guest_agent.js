@@ -253,10 +253,14 @@ const server = app.listen(PORT, () => {
 async function shutdown() {
   try {
     await browserController.closeBrowser();
-  } catch {}
+  } catch (err) {
+    console.warn('[GuestAgent] Failed to close browser:', err?.message);
+  }
   try {
     await androidController.close();
-  } catch {}
+  } catch (err) {
+    console.warn('[GuestAgent] Failed to close android controller:', err?.message);
+  }
   cliExecutor.killAll('shutdown');
   server.close(() => process.exit(0));
 }
