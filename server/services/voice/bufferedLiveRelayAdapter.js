@@ -49,11 +49,17 @@ class BufferedLiveRelayAdapter {
     if (!audioBytes.length) {
       return '';
     }
-    return this._transcribeAudioSnapshot(audioBytes, session.inputMimeType, {
-      model: session.voiceSettings?.liveSttModel,
-      userId: session.userId,
-      agentId: session.agentId,
-    });
+    try {
+      return await this._transcribeAudioSnapshot(audioBytes, session.inputMimeType, {
+        model: session.voiceSettings?.liveSttModel,
+        userId: session.userId,
+        agentId: session.agentId,
+      });
+    } finally {
+      // Release buffered audio immediately after commit so completed turns do
+      // not retain large input chunks until the next turn or explicit close.
+      session.resetInput(session.inputMimeType);
+    }
   }
 
   _schedulePartialTranscript(session) {

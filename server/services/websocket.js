@@ -485,12 +485,16 @@ function setupWebSocket(io, services) {
         const data = asObject(raw);
         const agentId = resolveAgentFromPayload(userId, data);
         const sessionId = toOptionalString(data?.sessionId, 128);
-        await voiceRuntimeManager.openFlutterSession({
+        const session = await voiceRuntimeManager.openFlutterSession({
           userId,
           agentId,
           socket,
           sessionId: sessionId || null,
         });
+        if (!socket.data.voiceSessionIds) {
+          socket.data.voiceSessionIds = new Set();
+        }
+        socket.data.voiceSessionIds.add(session.id);
       } catch (err) {
         socket.emit('voice:error', { error: sanitizeError(err) });
       }
@@ -665,6 +669,7 @@ function setupWebSocket(io, services) {
           return socket.emit('voice:error', { error: 'sessionId is required' });
         }
         await voiceRuntimeManager.closeSession(sessionId, 'client_closed');
+        socket.data.voiceSessionIds?.delete(sessionId);
       } catch (err) {
         console.error(`[WS] voice:session_close failed for user ${userId}:`, err);
         socket.emit('voice:error', {
@@ -802,6 +807,13 @@ function setupWebSocket(io, services) {
     // ── Disconnect ──
 
     socket.on('disconnect', () => {
+      const activeVoiceSessionIds = Array.from(socket.data.voiceSessionIds || []);
+      for (const sessionId of activeVoiceSessionIds) {
+        void voiceRuntimeManager.closeSession(sessionId, 'socket_disconnected').catch((err) => {
+          console.error(`[WS] Failed to close voice session ${sessionId} after socket disconnect:`, err);
+        });
+      }
+      socket.data.voiceSessionIds?.clear?.();
       console.log(`[WS] User ${userId} disconnected (${socket.id})`);
     });
   });

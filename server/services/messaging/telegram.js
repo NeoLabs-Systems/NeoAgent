@@ -18,6 +18,7 @@ class TelegramPlatform extends BasePlatform {
     this._botUser = null;
     this._contextBuffers = new Map();
     this._contextMaxSize = 25;
+    this._contextMaxChats = 200;
   }
 
   async connect() {
@@ -89,6 +90,7 @@ class TelegramPlatform extends BasePlatform {
     }
     this.status = 'disconnected';
     this._botUser = null;
+    this._contextBuffers.clear();
     this.emit('disconnected', { manual: true });
   }
 
@@ -158,6 +160,16 @@ class TelegramPlatform extends BasePlatform {
     const buf = this._contextBuffers.get(rawChatId);
     buf.push(entry);
     if (buf.length > this._contextMaxSize) buf.shift();
+
+    // Keep only the most recently active chat contexts so memory usage does not
+    // grow forever as the bot encounters new chats/groups over time.
+    this._contextBuffers.delete(rawChatId);
+    this._contextBuffers.set(rawChatId, buf);
+    while (this._contextBuffers.size > this._contextMaxChats) {
+      const oldestKey = this._contextBuffers.keys().next().value;
+      if (oldestKey == null) break;
+      this._contextBuffers.delete(oldestKey);
+    }
   }
 
   _getContext(rawChatId) {
