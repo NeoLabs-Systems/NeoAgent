@@ -529,6 +529,15 @@ jobs:
 
   publish-release-assets:
     name: Attach installers to release
+    if: |
+      always() &&
+      needs.release.result == 'success' &&
+      (
+        needs.build-windows-installer.result == 'success' ||
+        needs.build-macos-installer.result == 'success' ||
+        needs.build-linux-installer.result == 'success' ||
+        needs.build-android-apk.result == 'success'
+      )
     needs:
       - release
       - build-windows-installer
@@ -537,21 +546,62 @@ jobs:
       - build-android-apk
     runs-on: ubuntu-latest
     steps:
-      - name: Download build artifacts
+      - name: Download Windows artifact
+        if: needs.build-windows-installer.result == 'success'
         uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: neoagent-*-installer
+          name: neoagent-windows-installer
           merge-multiple: true
 
-      - name: Upload artifacts to GitHub release
-        uses: softprops/action-gh-release@v2
+      - name: Download macOS artifact
+        if: needs.build-macos-installer.result == 'success'
+        uses: actions/download-artifact@v4
         with:
-          tag_name: ${{ needs.release.outputs.release_tag }}
-          files: |
+          path: dist
+          name: neoagent-macos-installer
+          merge-multiple: true
+
+      - name: Download Linux artifact
+        if: needs.build-linux-installer.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: neoagent-linux-installer
+          merge-multiple: true
+
+      - name: Download Android artifact
+        if: needs.build-android-apk.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: neoagent-android-installer
+          merge-multiple: true
+
+      - name: Collect release files
+        id: release_files
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(
             dist/*.exe
             dist/*.dmg
             dist/*.deb
             dist/*.pkg.tar.zst
             dist/*.apk
-          fail_on_unmatched_files: true
+          )
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No release artifacts were downloaded."
+            exit 1
+          fi
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifacts to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release.outputs.release_tag }}
+          files: ${{ steps.release_files.outputs.files }}
