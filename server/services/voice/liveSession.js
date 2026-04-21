@@ -19,6 +19,7 @@ class VoiceLiveSession {
     this.outputMode = outputMode;
     this.state = 'idle';
     this.currentRunId = null;
+    this.interrupted = false;
     this.inputMimeType = 'audio/pcm;rate=16000;channels=1';
     this.inputChunks = [];
     this.inputBytes = 0;
@@ -41,6 +42,7 @@ class VoiceLiveSession {
     this.lastFinalTranscript = '';
     this.lastAssistantText = '';
     this.assistantMessageCount = 0;
+    this.interrupted = false;
   }
 
   appendInputChunk(chunk, mimeType = null) {
@@ -101,6 +103,7 @@ class VoiceLiveSession {
   }
 
   async interruptOutput() {
+    this.interrupted = true;
     if (typeof this.sink?.interruptOutput === 'function') {
       await this.sink.interruptOutput(this);
     }

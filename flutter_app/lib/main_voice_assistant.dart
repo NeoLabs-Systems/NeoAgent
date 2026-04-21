@@ -18,10 +18,12 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   String _assistantReply = '';
   String _assistantTranscript = '';
   String? _voiceError;
-  Uint8List? _assistantAudioBytes;
   String? _assistantAudioMimeType;
-  String _lastLiveAudioFingerprint = '';
   String? _lastLiveError;
+  final List<Uint8List> _audioQueue = <Uint8List>[];
+  bool _isDraining = false;
+  bool _audioInterrupted = false;
+  int _audioQueueConsumedCount = 0;
 
   @override
   void initState() {
@@ -80,28 +82,35 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     _assistantTranscript = liveState.finalTranscript.ifEmpty(
       liveState.partialTranscript,
     );
-    _assistantAudioBytes = liveState.audioBytes;
     _assistantAudioMimeType = liveState.audioMimeType;
     _voiceError = liveState.error;
 
     final currentError = liveState.error?.trim();
     if ((currentError?.isNotEmpty ?? false) && currentError != _lastLiveError) {
       _lastLiveError = currentError;
+      _audioInterrupted = true;
+      _audioQueue.clear();
+      _audioQueueConsumedCount = 0;
       unawaited(_stopAssistantAudio());
     } else if (currentError == null || currentError.isEmpty) {
       _lastLiveError = null;
     }
 
-    final bytes = liveState.audioBytes;
-    final fingerprint = bytes.isEmpty
-        ? ''
-        : '${bytes.length}:${bytes.take(8).join(',')}';
-    if (fingerprint.isEmpty) {
-      _lastLiveAudioFingerprint = '';
+    // If the state queue was cleared (e.g. on interrupt), reset cursor.
+    final incoming = liveState.audioQueue;
+    if (_audioQueueConsumedCount > incoming.length) {
+      _audioQueueConsumedCount = 0;
     }
-    if (fingerprint.isNotEmpty && fingerprint != _lastLiveAudioFingerprint) {
-      _lastLiveAudioFingerprint = fingerprint;
-      unawaited(_playAssistantAudio());
+
+    // Only enqueue chunks we haven't seen yet.
+    if (incoming.length > _audioQueueConsumedCount) {
+      _audioInterrupted = false;
+      final newChunks = incoming.sublist(_audioQueueConsumedCount);
+      _audioQueueConsumedCount = incoming.length;
+      for (final chunk in newChunks) {
+        if (chunk.isNotEmpty) _audioQueue.add(chunk);
+      }
+      unawaited(_drainAudioQueue());
     }
   }
 
@@ -166,26 +175,47 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     await widget.controller.stopLiveVoiceCapture();
   }
 
-  Future<void> _playAssistantAudio() async {
-    final bytes = _assistantAudioBytes;
-    if (bytes == null || bytes.isEmpty) {
-      return;
+  Future<void> _drainAudioQueue() async {
+    if (_isDraining) return;
+    _isDraining = true;
+    try {
+      while (_audioQueue.isNotEmpty && !_audioInterrupted) {
+        final chunk = _audioQueue.removeAt(0);
+        if (chunk.isEmpty) continue;
+        final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
+            ? _assistantAudioMimeType!.trim()
+            : null;
+        // Wait for the previous clip to finish before starting the next.
+        final completer = Completer<void>();
+        late StreamSubscription<void> sub;
+        sub = _assistantPlayer.onPlayerComplete.listen((_) {
+          sub.cancel();
+          completer.complete();
+        });
+        await _assistantPlayer.play(BytesSource(chunk, mimeType: mimeType));
+        if (!mounted || _audioInterrupted) {
+          sub.cancel();
+          break;
+        }
+        if (mounted) setState(() => _isAssistantPlaying = true);
+        await completer.future;
+        if (mounted) setState(() => _isAssistantPlaying = _audioQueue.isNotEmpty);
+      }
+    } finally {
+      _isDraining = false;
+      if (mounted && !_isAssistantPlaying) setState(() => _isAssistantPlaying = false);
     }
+  }
 
-    await _assistantPlayer.stop();
-    final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
-        ? _assistantAudioMimeType!.trim()
-        : null;
-    await _assistantPlayer.play(BytesSource(bytes, mimeType: mimeType));
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isAssistantPlaying = true;
-    });
+  Future<void> _playAssistantAudio() async {
+    // Legacy path — not used for live streaming but kept for any non-streaming callers.
+    _audioInterrupted = false;
+    unawaited(_drainAudioQueue());
   }
 
   Future<void> _stopAssistantAudio() async {
+    _audioInterrupted = true;
+    _audioQueue.clear();
     await _assistantPlayer.stop();
     if (!mounted) {
       return;
@@ -303,8 +333,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final isBusy = _pttPressed || liveCaptureEngaged;
     final canStart = !isBusy;
     final canStop = liveCaptureEngaged;
-    final hasAssistantAudio =
-        _assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty;
+    final hasAssistantAudio = _isAssistantPlaying || _audioQueue.isNotEmpty;
     final useDesktopToggleCapture = assistantUi.useToggleCapture;
     final heroHint = liveCaptureEngaged
         ? (useDesktopToggleCapture

@@ -954,9 +954,10 @@ class VoiceAssistantLiveState {
     this.finalTranscript = '',
     this.assistantText = '',
     this.audioMimeType = 'audio/mpeg',
-    Uint8List? audioBytes,
+    List<Uint8List>? audioQueue,
+    this.audioStreamDone = false,
     this.error,
-  }) : audioBytes = audioBytes ?? Uint8List(0);
+  }) : audioQueue = audioQueue ?? const <Uint8List>[];
 
   final String sessionId;
   final String runtimeMode;
@@ -968,7 +969,8 @@ class VoiceAssistantLiveState {
   final String finalTranscript;
   final String assistantText;
   final String audioMimeType;
-  final Uint8List audioBytes;
+  final List<Uint8List> audioQueue;
+  final bool audioStreamDone;
   final String? error;
 
   bool get hasActiveSession => sessionId.trim().isNotEmpty;
@@ -988,9 +990,11 @@ class VoiceAssistantLiveState {
     String? finalTranscript,
     String? assistantText,
     String? audioMimeType,
-    Uint8List? audioBytes,
+    List<Uint8List>? audioQueue,
+    bool? audioStreamDone,
     String? error,
     bool clearError = false,
+    bool clearAudio = false,
   }) {
     return VoiceAssistantLiveState(
       sessionId: sessionId ?? this.sessionId,
@@ -1003,7 +1007,8 @@ class VoiceAssistantLiveState {
       finalTranscript: finalTranscript ?? this.finalTranscript,
       assistantText: assistantText ?? this.assistantText,
       audioMimeType: audioMimeType ?? this.audioMimeType,
-      audioBytes: audioBytes ?? this.audioBytes,
+      audioQueue: clearAudio ? const <Uint8List>[] : (audioQueue ?? this.audioQueue),
+      audioStreamDone: clearAudio ? false : (audioStreamDone ?? this.audioStreamDone),
       error: clearError ? null : (error ?? this.error),
     );
   }

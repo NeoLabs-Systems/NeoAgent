@@ -7,7 +7,7 @@ const { getVoiceRuntimeSettings } = require('./liveSettings');
 const { VoiceLiveSession } = require('./liveSession');
 const { OpenAiLiveRelayAdapter } = require('./openaiLiveRelayAdapter');
 const { GeminiLiveRelayAdapter } = require('./geminiLiveRelayAdapter');
-const { synthesizeVoiceReply, normalizeVoiceSynthesisOptions } = require('./providers');
+const { synthesizeVoiceReply, normalizeVoiceSynthesisOptions, synthesizeVoiceReplyStream } = require('./providers');
 const { VoiceAgentBridge } = require('./agentBridge');
 
 class VoiceRuntimeManager {
@@ -288,26 +288,41 @@ class VoiceRuntimeManager {
       voice: session.voiceSettings?.liveVoice,
     });
 
+    let index = 0;
+    let streamError = null;
     try {
-      const synthesized = await synthesizeVoiceReply(content, {
-        ...voiceOptions,
-        apiKey: session.voiceSettings?.liveApiKey,
-        baseUrl: session.voiceSettings?.liveBaseUrl,
-      });
-      socket.emit('voice:assistant_audio', {
-        sessionId,
-        kind,
-        audioBase64: synthesized.audioBytes.toString('base64'),
-        mimeType: synthesized.mimeType,
-      });
+      await synthesizeVoiceReplyStream(
+        content,
+        {
+          ...voiceOptions,
+          apiKey: session.voiceSettings?.liveApiKey,
+          baseUrl: session.voiceSettings?.liveBaseUrl,
+        },
+        async ({ audioBytes, mimeType }) => {
+          if (session.closed || session.interrupted) return;
+          socket.emit('voice:audio_chunk', {
+            sessionId,
+            kind,
+            index,
+            audioBase64: audioBytes.toString('base64'),
+            mimeType,
+          });
+          index += 1;
+        },
+      );
     } catch (error) {
+      streamError = String(error?.message || error || 'Voice playback failed.');
       socket.emit('voice:error', {
         sessionId,
-        error: String(error?.message || error || 'Voice playback failed.'),
+        error: streamError,
       });
-    } finally {
-      await session.setState('idle');
     }
+
+    if (!streamError && !session.closed && !session.interrupted) {
+      socket.emit('voice:audio_done', { sessionId, kind, totalChunks: index });
+    }
+
+    await session.setState('idle');
   }
 }
 

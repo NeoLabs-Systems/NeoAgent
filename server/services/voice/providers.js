@@ -22,7 +22,7 @@ const DEFAULT_STT_MODELS = Object.freeze({
 const DEFAULT_TTS_MODELS = Object.freeze({
   openai: 'gpt-4o-mini-tts',
   deepgram: 'aura-2-thalia-en',
-  gemini: 'gemini-3.1-flash-tts-preview',
+  gemini: 'gemini-2.5-flash-preview-tts',
 });
 
 const DEFAULT_TTS_VOICES = Object.freeze({
@@ -137,6 +137,23 @@ async function fetchAudioOrThrow(url, init, errorPrefix, defaultMimeType = 'audi
     audioBytes: Buffer.from(await response.arrayBuffer()),
     mimeType: response.headers.get('content-type') || defaultMimeType,
   };
+}
+
+async function fetchAudioStreamOrThrow(url, init, errorPrefix, defaultMimeType = 'audio/mpeg', onChunk) {
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    await throwResponseError(response, errorPrefix);
+  }
+  const mimeType = response.headers.get('content-type') || defaultMimeType;
+  const reader = response.body.getReader();
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value?.length) chunks.push(Buffer.from(value));
+  }
+  const audioBytes = Buffer.concat(chunks);
+  await onChunk({ audioBytes, mimeType });
 }
 
 function guessExtFromMimeType(mimeType) {
@@ -295,6 +312,28 @@ async function synthesizeWithOpenAi(text, model, voice, options = {}) {
   };
 }
 
+async function streamWithOpenAi(text, model, voice, options = {}, onChunk) {
+  const client = getOpenAiClient({
+    apiKey: typeof options.apiKey === 'string' ? options.apiKey.trim() : '',
+    baseUrl: typeof options.baseUrl === 'string' ? options.baseUrl.trim() : '',
+  });
+  if (!client) {
+    throw new Error('OpenAI TTS is selected but OPENAI_API_KEY is not configured.');
+  }
+  const response = await client.audio.speech.create({
+    model: String(model || 'gpt-4o-mini-tts').trim() || 'gpt-4o-mini-tts',
+    voice: String(voice || 'alloy').trim() || 'alloy',
+    input: text,
+    response_format: 'mp3',
+  });
+  const chunks = [];
+  for await (const chunk of response.body) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const audioBytes = Buffer.concat(chunks);
+  await onChunk({ audioBytes, mimeType: 'audio/mpeg' });
+}
+
 async function synthesizeWithDeepgram(text, model) {
   const apiKey = requireApiKey('Deepgram TTS', ['DEEPGRAM_API_KEY']);
 
@@ -309,6 +348,24 @@ async function synthesizeWithDeepgram(text, model) {
       body: JSON.stringify({ text }),
     },
     'Deepgram TTS request failed',
+  );
+}
+
+async function streamWithDeepgram(text, model, onChunk) {
+  const apiKey = requireApiKey('Deepgram TTS', ['DEEPGRAM_API_KEY']);
+  await fetchAudioStreamOrThrow(
+    `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    },
+    'Deepgram TTS stream failed',
+    'audio/mpeg',
+    onChunk,
   );
 }
 
@@ -376,6 +433,111 @@ async function synthesizeWithGemini(text, model, voice, options = {}) {
   };
 }
 
+function extractGeminiAudioChunk(jsonObj) {
+  const parts = jsonObj?.candidates?.[0]?.content?.parts;
+  const audioPart = Array.isArray(parts)
+    ? parts.find((part) => part?.inlineData?.data || part?.inline_data?.data)
+    : null;
+  if (!audioPart) return null;
+
+  const data = audioPart?.inlineData?.data || audioPart?.inline_data?.data || '';
+  if (!data) return null;
+
+  const mimeType =
+    audioPart?.inlineData?.mimeType
+    || audioPart?.inlineData?.mime_type
+    || audioPart?.inline_data?.mimeType
+    || audioPart?.inline_data?.mime_type
+    || 'audio/l16;rate=24000;channels=1';
+
+  const pcmFormat = parsePcmMimeType(mimeType);
+  if (pcmFormat) {
+    return {
+      audioBytes: wrapPcmAsWav(Buffer.from(data, 'base64'), pcmFormat),
+      mimeType: 'audio/wav',
+    };
+  }
+  return {
+    audioBytes: Buffer.from(data, 'base64'),
+    mimeType,
+  };
+}
+
+async function streamWithGemini(text, model, voice, options = {}, onChunk) {
+  const apiKey =
+    (typeof options.apiKey === 'string' ? options.apiKey.trim() : '') ||
+    requireApiKey('Gemini TTS', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
+
+  const response = await fetch(
+    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: String(voice || '').trim() || 'Kore',
+              },
+            },
+          },
+          temperature: 0.6,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    await throwResponseError(response, 'Gemini TTS stream request failed');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE lines: each event is "data: {...}\n\n"
+    const lines = buffer.split('\n');
+    buffer = lines.pop(); // keep incomplete line
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const jsonStr = trimmed.slice(5).trim();
+      if (!jsonStr || jsonStr === '[DONE]') continue;
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch {
+        continue;
+      }
+      const chunk = extractGeminiAudioChunk(parsed);
+      if (chunk) await onChunk(chunk);
+    }
+  }
+
+  // Flush any remaining buffered data.
+  if (buffer.trim().startsWith('data:')) {
+    const jsonStr = buffer.trim().slice(5).trim();
+    if (jsonStr && jsonStr !== '[DONE]') {
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const chunk = extractGeminiAudioChunk(parsed);
+        if (chunk) await onChunk(chunk);
+      } catch {
+        // Ignore incomplete trailing chunk.
+      }
+    }
+  }
+}
+
 async function synthesizeVoiceReply(text, options = {}) {
   const content = String(text || '').trim();
   if (!content) {
@@ -393,6 +555,52 @@ async function synthesizeVoiceReply(text, options = {}) {
   return synthesizeWithGemini(content, model, voice, options);
 }
 
+// Minimum characters before flushing a sentence chunk to TTS to avoid tiny requests.
+const MIN_SENTENCE_CHUNK_CHARS = 80;
+
+function splitIntoSentenceChunks(text) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return [];
+
+  // Split on sentence-ending punctuation followed by whitespace or end-of-string.
+  const raw = normalized.split(/(?<=[.!?])(?=\s|$)/);
+  const chunks = [];
+  let pending = '';
+
+  for (const part of raw) {
+    const piece = part.trim();
+    if (!piece) continue;
+    pending = pending ? `${pending} ${piece}` : piece;
+    if (pending.length >= MIN_SENTENCE_CHUNK_CHARS) {
+      chunks.push(pending);
+      pending = '';
+    }
+  }
+
+  if (pending) chunks.push(pending);
+  return chunks.length ? chunks : [normalized];
+}
+
+async function synthesizeVoiceReplyStream(text, options = {}, onChunk) {
+  const content = String(text || '').trim();
+  if (!content) {
+    throw new Error('Voice reply text is empty; cannot synthesize speech.');
+  }
+
+  const { provider, model, voice } = normalizeVoiceSynthesisOptions(options);
+  const chunks = splitIntoSentenceChunks(content);
+
+  for (const chunk of chunks) {
+    if (provider === 'openai') {
+      await streamWithOpenAi(chunk, model, voice, options, onChunk);
+    } else if (provider === 'deepgram') {
+      await streamWithDeepgram(chunk, model, onChunk);
+    } else {
+      await streamWithGemini(chunk, model, voice, options, onChunk);
+    }
+  }
+}
+
 module.exports = {
   DEFAULT_STT_PROVIDER,
   DEFAULT_TTS_PROVIDER,
@@ -408,6 +616,8 @@ module.exports = {
   resolveTtsVoice,
   normalizeVoiceSynthesisOptions,
   guessExtFromMimeType,
+  splitIntoSentenceChunks,
   transcribeVoiceInput,
   synthesizeVoiceReply,
+  synthesizeVoiceReplyStream,
 };

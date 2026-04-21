@@ -4401,7 +4401,7 @@ class NeoAgentController extends ChangeNotifier {
         partialTranscript: '',
         finalTranscript: '',
         assistantText: '',
-        audioBytes: Uint8List(0),
+        clearAudio: true,
         clearError: true,
       );
       notifyListeners();
@@ -6336,17 +6336,30 @@ class NeoAgentController extends ChangeNotifier {
       }
       notifyListeners();
     });
-    socket.on('voice:assistant_audio', (dynamic data) {
+    socket.on('voice:audio_chunk', (dynamic data) {
       final payload = _jsonMap(data);
       if (!_matchesLiveVoiceSessionPayload(payload)) {
         return;
       }
       final audioBase64 = payload['audioBase64']?.toString() ?? '';
+      if (audioBase64.trim().isEmpty) return;
+      final chunk = base64Decode(audioBase64);
+      if (chunk.isEmpty) return;
+      final mimeType = payload['mimeType']?.toString() ?? 'audio/mpeg';
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        audioMimeType: payload['mimeType']?.toString() ?? 'audio/mpeg',
-        audioBytes: audioBase64.trim().isEmpty
-            ? Uint8List(0)
-            : base64Decode(audioBase64),
+        audioMimeType: mimeType,
+        audioQueue: <Uint8List>[...voiceAssistantLiveState.audioQueue, chunk],
+        audioStreamDone: false,
+      );
+      notifyListeners();
+    });
+    socket.on('voice:audio_done', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        audioStreamDone: true,
       );
       notifyListeners();
     });
@@ -6364,7 +6377,7 @@ class NeoAgentController extends ChangeNotifier {
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         error: message,
         state: 'idle',
-        audioBytes: Uint8List(0),
+        clearAudio: true,
       );
       _liveVoiceCaptureActive = false;
       _pendingLiveVoiceStop = false;
@@ -13755,12 +13768,10 @@ class SettingsPanel extends StatefulWidget {
 const Map<String, List<String>> _voiceLiveModelsByProvider =
     <String, List<String>>{
       'openai': <String>[
-        'gpt-realtime-1.5',
-        'gpt-realtime',
-        'gpt-realtime-mini',
+        'gpt-4o-realtime-preview',
+        'gpt-4o-mini-realtime-preview',
       ],
       'gemini': <String>[
-        'gemini-live-2.5-flash-preview',
         'gemini-3.1-flash-live-preview',
       ],
     };
@@ -13782,7 +13793,14 @@ const Map<String, List<String>> _voiceLiveVoicesByProvider =
         'marin',
         'cedar',
       ],
-      'gemini': <String>['Kore', 'Puck', 'Charon', 'Zephyr', 'Leda'],
+      'gemini': <String>[
+        'Kore', 'Puck', 'Charon', 'Zephyr', 'Leda', 'Aoede', 'Fenrir',
+        'Orus', 'Achernar', 'Achird', 'Algenib', 'Algieba', 'Alnilam',
+        'Autonoe', 'Callirrhoe', 'Despina', 'Enceladus', 'Erinome',
+        'Gacrux', 'Iocaste', 'Isonoe', 'Laomedeia', 'Larissa', 'Lysithea',
+        'Megaclite', 'Mimosa', 'Pulcherrima', 'Rasalgethi', 'Sadachbia',
+        'Sulafat',
+      ],
     };
 
 class _SettingsPanelState extends State<SettingsPanel> {
@@ -15333,7 +15351,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   List<DropdownMenuItem<String>> _recordingTranscriptionModelChoices(
     String current,
   ) {
-    const defaults = <String>['nova-3', 'nova-2', 'enhanced', 'base'];
+    const defaults = <String>['nova-3', 'nova-2-general'];
     final normalizedCurrent = current.trim();
     final values = <String>{...defaults};
     if (normalizedCurrent.isNotEmpty) {
