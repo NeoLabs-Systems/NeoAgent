@@ -134,7 +134,10 @@ class AppReleaseUpdater {
     return '$version+$build';
   }
 
-  Future<AppUpdateCheckResult> checkForUpdate({required String channel}) async {
+  Future<AppUpdateCheckResult> checkForUpdate({
+    required String channel,
+    bool launcherMode = false,
+  }) async {
     final normalizedChannel = channel.trim().toLowerCase() == 'beta'
         ? 'beta'
         : 'stable';
@@ -184,7 +187,11 @@ class AppReleaseUpdater {
         );
       }
 
-      final release = _selectRelease(decoded, normalizedChannel);
+      final release = _selectRelease(
+        decoded,
+        normalizedChannel,
+        launcherMode: launcherMode,
+      );
       if (release == null) {
         return AppUpdateCheckResult(
           currentVersion: installedVersion,
@@ -222,7 +229,11 @@ class AppReleaseUpdater {
     );
   }
 
-  AppReleaseInfo? _selectRelease(List<dynamic> releases, String channel) {
+  AppReleaseInfo? _selectRelease(
+    List<dynamic> releases,
+    String channel, {
+    required bool launcherMode,
+  }) {
     for (final candidate in releases) {
       if (candidate is! Map) {
         continue;
@@ -235,7 +246,10 @@ class AppReleaseUpdater {
       if (channel == 'stable' && prerelease) {
         continue;
       }
-      final release = _parseRelease(Map<dynamic, dynamic>.from(candidate));
+      final release = _parseRelease(
+        Map<dynamic, dynamic>.from(candidate),
+        launcherMode: launcherMode,
+      );
       if (release != null) {
         return release;
       }
@@ -243,12 +257,15 @@ class AppReleaseUpdater {
     return null;
   }
 
-  AppReleaseInfo? _parseRelease(Map<dynamic, dynamic> json) {
+  AppReleaseInfo? _parseRelease(
+    Map<dynamic, dynamic> json, {
+    required bool launcherMode,
+  }) {
     final assets = json['assets'];
     if (assets is! List) {
       return null;
     }
-    final asset = _pickAsset(assets);
+    final asset = _pickAsset(assets, launcherMode: launcherMode);
     if (asset == null) {
       return null;
     }
@@ -273,7 +290,10 @@ class AppReleaseUpdater {
     );
   }
 
-  AppUpdateAsset? _pickAsset(List<dynamic> assets) {
+  AppUpdateAsset? _pickAsset(
+    List<dynamic> assets, {
+    required bool launcherMode,
+  }) {
     final candidates = assets
         .whereType<Map<dynamic, dynamic>>()
         .map(
@@ -296,7 +316,9 @@ class AppReleaseUpdater {
       return null;
     }
 
-    final matchers = _assetMatchersForCurrentPlatform();
+    final matchers = _assetMatchersForCurrentPlatform(
+      launcherMode: launcherMode,
+    );
     for (final matcher in matchers) {
       for (final asset in candidates) {
         if (matcher(asset.name.toLowerCase())) {
@@ -307,13 +329,22 @@ class AppReleaseUpdater {
     return null;
   }
 
-  List<bool Function(String)> _assetMatchersForCurrentPlatform() {
+  List<bool Function(String)> _assetMatchersForCurrentPlatform({
+    required bool launcherMode,
+  }) {
     if (kIsWeb) {
       return const <bool Function(String)>[];
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return <bool Function(String)>[(name) => name.endsWith('.apk')];
+        return launcherMode
+            ? <bool Function(String)>[
+                (name) => name.endsWith('.apk') && name.contains('launcher'),
+              ]
+            : <bool Function(String)>[
+                (name) => name.endsWith('.apk') && !name.contains('launcher'),
+                (name) => name.endsWith('.apk'),
+              ];
       case TargetPlatform.macOS:
         return <bool Function(String)>[
           (name) => name.endsWith('.dmg'),

@@ -414,30 +414,26 @@ jobs:
           VERSION="${RAW_VERSION#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Build Android APK
+      - name: Build Android APKs
         run: |
+          set -euo pipefail
+          mkdir -p ../dist/android-build
           flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk ../dist/android-build/app-release-standard.apk
+          NEOAGENT_ANDROID_LAUNCHER_MODE=true \
+            flutter build apk --release -t lib/main_launcher_entry.dart
+          cp build/app/outputs/flutter-apk/app-release.apk ../dist/android-build/app-release-launcher.apk
 
       - name: Stage Android APK artifact
         run: |
           set -euo pipefail
-          shopt -s nullglob
           mkdir -p ../dist
-          apks=(build/app/outputs/flutter-apk/*.apk)
-          if [ ${#apks[@]} -eq 0 ]; then
-            echo "No APKs were produced at build/app/outputs/flutter-apk/*.apk"
+          if [ ! -f ../dist/android-build/app-release-standard.apk ] || [ ! -f ../dist/android-build/app-release-launcher.apk ]; then
+            echo "Expected staged Android APKs were not produced."
             exit 1
           fi
-
-          if [ ${#apks[@]} -eq 1 ]; then
-            cp "${apks[0]}" "../dist/neoagent-android-${{ steps.version.outputs.version }}.apk"
-          else
-            for apk in "${apks[@]}"; do
-              base_name="$(basename "$apk")"
-              cp "$apk" "../dist/neoagent-android-${{ steps.version.outputs.version }}-${base_name}"
-            done
-          fi
-
+          cp ../dist/android-build/app-release-standard.apk "../dist/neoagent-android-${{ steps.version.outputs.version }}.apk"
+          cp ../dist/android-build/app-release-launcher.apk "../dist/neoagent-android-launcher-${{ steps.version.outputs.version }}.apk"
           ls -la ../dist
 
       - name: Upload Android artifact

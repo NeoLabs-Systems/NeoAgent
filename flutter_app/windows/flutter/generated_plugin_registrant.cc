@@ -7,6 +7,7 @@
 #include "generated_plugin_registrant.h"
 
 #include <audioplayers_windows/audioplayers_windows_plugin.h>
+#include <connectivity_plus/connectivity_plus_windows_plugin.h>
 #include <desktop_audio_capture/audio_capture_plugin.h>
 #include <flutter_secure_storage_windows/flutter_secure_storage_windows_plugin.h>
 #include <hotkey_manager_windows/hotkey_manager_windows_plugin_c_api.h>
@@ -20,6 +21,8 @@
 void RegisterPlugins(flutter::PluginRegistry* registry) {
   AudioplayersWindowsPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("AudioplayersWindowsPlugin"));
+  ConnectivityPlusWindowsPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("ConnectivityPlusWindowsPlugin"));
   AudioCapturePluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("AudioCapturePlugin"));
   FlutterSecureStorageWindowsPluginRegisterWithRegistrar(

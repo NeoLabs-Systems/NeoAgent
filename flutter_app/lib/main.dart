@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -19,6 +20,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'src/android_apk_drop_zone.dart';
+import 'src/android_launcher_bridge.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
 import 'src/backend_client.dart';
 import 'src/desktop_companion.dart';
@@ -33,18 +35,25 @@ import 'src/theme/palette.dart';
 
 part 'main_theme.dart';
 part 'main_app_shell.dart';
+part 'main_launcher.dart';
 part 'main_integrations.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
 part 'main_voice_assistant.dart';
 
 Future<void> main() async {
+  await runNeoAgentApp(mode: _appModeFromEnvironment());
+}
+
+Future<void> runNeoAgentApp({
+  NeoAgentAppMode mode = NeoAgentAppMode.standard,
+}) async {
   WidgetsFlutterBinding.ensureInitialized();
   if (_supportsDesktopShell) {
     await windowManager.ensureInitialized();
     await hotKeyManager.unregisterAll();
   }
-  runApp(const NeoAgentApp());
+  runApp(NeoAgentApp(mode: mode));
 }
 
 const String _browserUrlPlaceholder = 'https://example.com';
@@ -70,6 +79,18 @@ bool get _supportsDesktopShell =>
     (defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux);
+
+enum NeoAgentAppMode { standard, launcher }
+
+NeoAgentAppMode _appModeFromEnvironment() {
+  const rawMode = String.fromEnvironment(
+    'NEOAGENT_APP_MODE',
+    defaultValue: 'standard',
+  );
+  return rawMode.toLowerCase() == 'launcher'
+      ? NeoAgentAppMode.launcher
+      : NeoAgentAppMode.standard;
+}
 
 enum AppSection {
   chat,
@@ -246,7 +267,9 @@ extension AppSectionX on AppSection {
 }
 
 class NeoAgentApp extends StatefulWidget {
-  const NeoAgentApp({super.key});
+  const NeoAgentApp({super.key, this.mode = NeoAgentAppMode.standard});
+
+  final NeoAgentAppMode mode;
 
   @override
   State<NeoAgentApp> createState() => _NeoAgentAppState();
@@ -287,6 +310,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     super.initState();
     final backendClient = BackendClient();
     _controller = NeoAgentController(
+      appMode: widget.mode,
       backendClient: backendClient,
       healthBridge: HealthBridge(),
       recordingBridge: createRecordingBridge(),
@@ -789,7 +813,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         return MaterialApp(
           key: ValueKey<String>(rootStateSignature),
           navigatorKey: _navigatorKey,
-          title: 'NeoAgent',
+          title: widget.mode == NeoAgentAppMode.launcher
+              ? 'NeoAgent Launcher'
+              : 'NeoAgent',
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
           darkTheme: _buildNeoAgentTheme(_darkPalette, Brightness.dark),
@@ -798,6 +824,28 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             return Stack(
               children: <Widget>[
                 if (child != null) child,
+                if (!_desktopToolbarWindowMode &&
+                    !_desktopAssistantPopupWindowMode &&
+                    _controller.showOfflineBanner)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 980),
+                            child: _GlobalNetworkBanner(
+                              controller: _controller,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (_supportsDesktopShell &&
                     !_desktopToolbarWindowMode &&
                     !_desktopAssistantPopupWindowMode)
@@ -998,12 +1046,16 @@ class NeoAgentRoot extends StatelessWidget {
     if (!controller.isAuthenticated) {
       return AuthView(controller: controller);
     }
+    if (controller.isLauncherMode) {
+      return LauncherHomeView(controller: controller);
+    }
     return HomeView(controller: controller);
   }
 }
 
 class NeoAgentController extends ChangeNotifier {
   NeoAgentController({
+    this.appMode = NeoAgentAppMode.standard,
     required BackendClient backendClient,
     required HealthBridge healthBridge,
     required RecordingBridge recordingBridge,
@@ -1024,6 +1076,7 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
+  final NeoAgentAppMode appMode;
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
   final RecordingBridge _recordingBridge;
@@ -1037,6 +1090,8 @@ class NeoAgentController extends ChangeNotifier {
     screenCapture: createDesktopScreenCapture(),
   );
   StreamSubscription<AppDiagnosticEntry>? _diagnosticLogSubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _connectivityPluginAvailable = true;
   static const int _maxVisibleLogs = 400;
 
   static const String _configuredBackendUrl = String.fromEnvironment(
@@ -1074,6 +1129,8 @@ class NeoAgentController extends ChangeNotifier {
   bool isCheckingAppUpdate = false;
   bool isOpeningAppUpdate = false;
   bool socketConnected = false;
+  bool hasNetworkConnection = true;
+  bool networkStatusKnown = false;
   bool _desktopFloatingToolbarPopupRequested = false;
   bool _voiceAssistantIncludeScreenContext = false;
 
@@ -1170,6 +1227,7 @@ class NeoAgentController extends ChangeNotifier {
   bool _desktopAssistantHotkeyEnabled = true;
 
   bool get desktopCompanionEnabled => _desktopCompanion.enabled;
+  bool get isLauncherMode => appMode == NeoAgentAppMode.launcher;
   bool get desktopCompanionConnected => _desktopCompanion.connected;
   bool get desktopCompanionConnecting => _desktopCompanion.connecting;
   bool get desktopCompanionPaused => _desktopCompanion.paused;
@@ -1270,6 +1328,7 @@ class NeoAgentController extends ChangeNotifier {
     _updatePollTimer?.cancel();
     _socket?.dispose();
     _diagnosticLogSubscription?.cancel();
+    _connectivitySubscription?.cancel();
     _appReleaseUpdater.dispose();
     _desktopCompanion.removeListener(notifyListeners);
     unawaited(_desktopCompanion.disconnect());
@@ -1306,6 +1365,12 @@ class NeoAgentController extends ChangeNotifier {
       !kIsWeb && app_release_updater.appUpdaterConfigured;
 
   bool get appUpdateAvailable => availableAppUpdate != null;
+
+  bool get showOfflineBanner => networkStatusKnown && !hasNetworkConnection;
+
+  String get offlineBannerMessage => isAuthenticated
+      ? 'No network connection. NeoAgent will reconnect when the device is back online.'
+      : 'No network connection. Connect to keep using NeoAgent.';
 
   String get appUpdateChannelLabel =>
       appUpdateChannel == 'beta' ? 'Beta' : 'Stable';
@@ -1644,6 +1709,23 @@ class NeoAgentController extends ChangeNotifier {
     appUpdateAutoCheckEnabled =
         _prefs?.getBool('app.update.autoCheckEnabled') ?? true;
     installedAppVersion = await _safeLoadInstalledAppVersion();
+    await refreshConnectivityStatus();
+    if (_connectivityPluginAvailable && _connectivitySubscription == null) {
+      try {
+        _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+          (results) {
+            _applyConnectivityResults(results);
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (error is MissingPluginException) {
+              _handleMissingConnectivityPlugin();
+            }
+          },
+        );
+      } on MissingPluginException {
+        _handleMissingConnectivityPlugin();
+      }
+    }
 
     final savedCookieBackend =
         _prefs?.getString(_sessionCookieBackendPrefsKey)?.trim() ?? '';
@@ -1679,7 +1761,9 @@ class NeoAgentController extends ChangeNotifier {
     await _recordingBridge.refreshStatus();
     notifyListeners();
 
-    if (appUpdaterConfigured && appUpdateAutoCheckEnabled) {
+    if (appUpdaterConfigured &&
+        appUpdateAutoCheckEnabled &&
+        hasNetworkConnection) {
       unawaited(checkForAppUpdates(silent: true));
     }
 
@@ -1698,8 +1782,14 @@ class NeoAgentController extends ChangeNotifier {
           (status['email'] is Map &&
           (status['email'] as Map)['configured'] == true);
       deploymentProfile = status['deploymentProfile']?.toString() ?? 'private';
+        final rawAuthProviders = status['providers'];
+        final authProviderRows = rawAuthProviders is List
+          ? rawAuthProviders
+          : rawAuthProviders is Map
+          ? rawAuthProviders.values.toList(growable: false)
+          : const <dynamic>[];
       authProviders =
-          (status['providers'] as List<dynamic>? ?? const <dynamic>[])
+          authProviderRows
               .whereType<Map<dynamic, dynamic>>()
               .map(AuthProviderCatalogItem.fromJson)
               .toList();
@@ -1727,6 +1817,57 @@ class NeoAgentController extends ChangeNotifier {
       return await _appReleaseUpdater.currentVersion();
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<void> refreshConnectivityStatus() async {
+    if (!_connectivityPluginAvailable) {
+      if (!networkStatusKnown || !hasNetworkConnection) {
+        networkStatusKnown = true;
+        hasNetworkConnection = true;
+        notifyListeners();
+      }
+      return;
+    }
+    try {
+      final results = await Connectivity().checkConnectivity();
+      _applyConnectivityResults(results);
+    } on MissingPluginException {
+      _handleMissingConnectivityPlugin();
+    } catch (_) {
+      if (!networkStatusKnown) {
+        networkStatusKnown = true;
+        hasNetworkConnection = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  void _applyConnectivityResults(List<ConnectivityResult> results) {
+    final connected = results.any(
+      (result) => result != ConnectivityResult.none,
+    );
+    final changed = !networkStatusKnown || connected != hasNetworkConnection;
+    networkStatusKnown = true;
+    hasNetworkConnection = connected;
+    if (connected &&
+        appUpdateErrorMessage ==
+            'No network connection. Reconnect to check for updates.') {
+      appUpdateErrorMessage = null;
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  void _handleMissingConnectivityPlugin() {
+    _connectivityPluginAvailable = false;
+    unawaited(_connectivitySubscription?.cancel());
+    _connectivitySubscription = null;
+    if (!networkStatusKnown || !hasNetworkConnection) {
+      networkStatusKnown = true;
+      hasNetworkConnection = true;
+      notifyListeners();
     }
   }
 
@@ -1763,6 +1904,14 @@ class NeoAgentController extends ChangeNotifier {
       }
       return;
     }
+    if (!hasNetworkConnection) {
+      appUpdateErrorMessage =
+          'No network connection. Reconnect to check for updates.';
+      if (!silent) {
+        notifyListeners();
+      }
+      return;
+    }
 
     isCheckingAppUpdate = true;
     if (!silent) {
@@ -1773,6 +1922,7 @@ class NeoAgentController extends ChangeNotifier {
     try {
       final result = await _appReleaseUpdater.checkForUpdate(
         channel: appUpdateChannel,
+        launcherMode: isLauncherMode,
       );
       installedAppVersion = result.currentVersion;
       appUpdateLastCheckedAt = DateTime.now();
@@ -1870,6 +2020,30 @@ class NeoAgentController extends ChangeNotifier {
     return '$scheme${trimmed.replaceFirst(RegExp(r'/$'), '')}';
   }
 
+  Future<void> _completeAuthenticatedResponse(
+    Map<String, dynamic> response, {
+    String? fallbackUsername,
+    String? retentionErrorMessage,
+  }) async {
+    user = Map<String, dynamic>.from(
+      response['user'] as Map<dynamic, dynamic>? ??
+          <String, dynamic>{
+            if (fallbackUsername != null && fallbackUsername.trim().isNotEmpty)
+              'username': fallbackUsername.trim(),
+          },
+    );
+    hasUser = true;
+    isAuthenticated = true;
+    isAwaitingTwoFactor = false;
+    pendingTwoFactorUsername = '';
+    password = '';
+    await _persistCredentials();
+    await refresh();
+    if (!isAuthenticated && retentionErrorMessage != null) {
+      errorMessage = retentionErrorMessage;
+    }
+  }
+
   Future<void> login({
     required String username,
     required String password,
@@ -1931,20 +2105,11 @@ class NeoAgentController extends ChangeNotifier {
         await _persistCredentials();
         return;
       }
-      user = Map<String, dynamic>.from(
-        response['user'] as Map<dynamic, dynamic>? ?? const <String, dynamic>{},
+      await _completeAuthenticatedResponse(
+        response,
+        retentionErrorMessage:
+            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, check backend session cookie settings.',
       );
-      hasUser = true;
-      isAuthenticated = true;
-      isAwaitingTwoFactor = false;
-      pendingTwoFactorUsername = '';
-      password = '';
-      await _persistCredentials();
-      await refresh();
-      if (!isAuthenticated) {
-        errorMessage =
-            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, check backend session cookie settings.';
-      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       isAuthenticated = false;
@@ -1965,21 +2130,12 @@ class NeoAgentController extends ChangeNotifier {
         baseUrl: backendUrl,
         code: code.trim(),
       );
-      user = Map<String, dynamic>.from(
-        response['user'] as Map<dynamic, dynamic>? ??
-            <String, dynamic>{'username': pendingTwoFactorUsername},
+      await _completeAuthenticatedResponse(
+        response,
+        fallbackUsername: pendingTwoFactorUsername,
+        retentionErrorMessage:
+            'Two-factor sign-in completed, but NeoAgent could not keep the browser session. Please sign in again.',
       );
-      hasUser = true;
-      isAuthenticated = true;
-      isAwaitingTwoFactor = false;
-      pendingTwoFactorUsername = '';
-      password = '';
-      await _persistCredentials();
-      await refresh();
-      if (!isAuthenticated) {
-        errorMessage =
-            'Two-factor sign-in completed, but NeoAgent could not keep the browser session. Please sign in again.';
-      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       isAuthenticated = false;
@@ -2063,21 +2219,12 @@ class NeoAgentController extends ChangeNotifier {
         await _persistCredentials();
         return;
       }
-      user = Map<String, dynamic>.from(
-        response['user'] as Map<dynamic, dynamic>? ??
-            <String, dynamic>{'username': username},
+      await _completeAuthenticatedResponse(
+        response,
+        fallbackUsername: username,
+        retentionErrorMessage:
+            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, the backend session cookie is likely not being retained.',
       );
-      hasUser = true;
-      isAuthenticated = true;
-      isAwaitingTwoFactor = false;
-      pendingTwoFactorUsername = '';
-      password = '';
-      await _persistCredentials();
-      await refresh();
-      if (!isAuthenticated) {
-        errorMessage =
-            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, the backend session cookie is likely not being retained.';
-      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       isAuthenticated = false;
@@ -2676,8 +2823,13 @@ class NeoAgentController extends ChangeNotifier {
               .toList();
 
       aiProviders =
-          (providersResponse['providers'] as List<dynamic>? ??
-                  const <dynamic>[])
+          ((providersResponse['providers'] is List)
+              ? providersResponse['providers'] as List<dynamic>
+              : (providersResponse['providers'] is Map)
+              ? (providersResponse['providers'] as Map)
+                .values
+                .toList(growable: false)
+              : const <dynamic>[])
               .whereType<Map<dynamic, dynamic>>()
               .map((item) => AiProviderMeta.fromJson(item))
               .toList();
@@ -5879,10 +6031,19 @@ class NeoAgentController extends ChangeNotifier {
   String get voiceLiveProvider =>
       _settingString('voice_live_provider', 'openai', lowercase: true);
 
-  String get voiceLiveModel =>
-      _settingString('voice_live_model', 'gpt-realtime-1.5');
+  String get voiceLiveModel => _settingString(
+    'voice_live_model',
+    (_voiceLiveModelsByProvider[voiceLiveProvider] ??
+            _voiceLiveModelsByProvider['openai']!)
+        .first,
+  );
 
-  String get voiceLiveVoice => _settingString('voice_live_voice', 'alloy');
+  String get voiceLiveVoice => _settingString(
+    'voice_live_voice',
+    (_voiceLiveVoicesByProvider[voiceLiveProvider] ??
+            _voiceLiveVoicesByProvider['openai']!)
+        .first,
+  );
 
   bool get isLiveVoiceCaptureStarting => _isStartingLiveVoice;
 

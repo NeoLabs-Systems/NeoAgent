@@ -726,6 +726,18 @@ class RecordingSessionItem {
   });
 
   factory RecordingSessionItem.fromJson(Map<dynamic, dynamic> json) {
+    final rawSources = json['sources'];
+    final sourceRows = rawSources is List
+      ? rawSources
+      : rawSources is Map
+      ? rawSources.values.toList(growable: false)
+      : const <dynamic>[];
+    final rawSegments = json['transcriptSegments'];
+    final transcriptSegmentRows = rawSegments is List
+      ? rawSegments
+      : rawSegments is Map
+      ? rawSegments.values.toList(growable: false)
+      : const <dynamic>[];
     return RecordingSessionItem(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString().ifEmpty('Recording') ?? 'Recording',
@@ -736,15 +748,14 @@ class RecordingSessionItem {
       durationMs: _asInt(json['durationMs']),
       transcriptText: json['transcriptText']?.toString() ?? '',
       lastError: json['lastError']?.toString(),
-      sources: (json['sources'] as List<dynamic>? ?? const <dynamic>[])
+        sources: sourceRows
           .whereType<Map<dynamic, dynamic>>()
           .map(RecordingSourceItem.fromJson)
           .toList(),
-      transcriptSegments:
-          (json['transcriptSegments'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<dynamic, dynamic>>()
-              .map(RecordingTranscriptSegment.fromJson)
-              .toList(),
+        transcriptSegments: transcriptSegmentRows
+          .whereType<Map<dynamic, dynamic>>()
+          .map(RecordingTranscriptSegment.fromJson)
+          .toList(),
       structuredContent: _jsonMap(json['structuredContent']),
     );
   }

@@ -30,6 +30,15 @@ val hasRepoReleaseSigning =
         repoReleaseKeystorePassword.isNotEmpty() &&
         repoReleaseKeyAlias.isNotEmpty() &&
         repoReleaseKeyPassword.isNotEmpty()
+val launcherBuild =
+    System.getenv("NEOAGENT_ANDROID_LAUNCHER_MODE")
+        ?.trim()
+        ?.lowercase() in setOf("1", "true", "yes", "on")
+val applicationIdValue =
+    if (launcherBuild) "com.neoagent.flutter_app.launcher" else "com.neoagent.flutter_app"
+val applicationLabelValue = if (launcherBuild) "NeoAgent Launcher" else "NeoAgent"
+val androidAppModeValue = if (launcherBuild) "launcher" else "standard"
+val launcherHomeEnabledValue = launcherBuild.toString()
 
 android {
     namespace = "com.neoagent.flutter_app"
@@ -46,11 +55,15 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.neoagent.flutter_app"
+        applicationId = applicationIdValue
         minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["neoagentAppLabel"] = applicationLabelValue
+        manifestPlaceholders["neoagentAppMode"] = androidAppModeValue
+        manifestPlaceholders["neoagentLauncherHomeEnabled"] =
+            launcherHomeEnabledValue
     }
 
     signingConfigs {

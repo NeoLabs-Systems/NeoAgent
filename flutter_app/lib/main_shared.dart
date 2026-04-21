@@ -1032,6 +1032,99 @@ class _InlineSuccess extends StatelessWidget {
   }
 }
 
+class _GlobalNetworkBanner extends StatelessWidget {
+  const _GlobalNetworkBanner({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        return Material(
+          color: Colors.transparent,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: _warning.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _warning.withValues(alpha: 0.32)),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Icon(
+                            Icons.cloud_off_outlined,
+                            color: _warning,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              controller.offlineBannerMessage,
+                              style: TextStyle(
+                                color: _textPrimary,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        onPressed: controller.refreshConnectivityStatus,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _textPrimary,
+                          side: BorderSide(
+                            color: _warning.withValues(alpha: 0.38),
+                          ),
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: <Widget>[
+                      Icon(Icons.cloud_off_outlined, color: _warning, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          controller.offlineBannerMessage,
+                          style: TextStyle(color: _textPrimary, height: 1.35),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton(
+                        onPressed: controller.refreshConnectivityStatus,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _textPrimary,
+                          side: BorderSide(
+                            color: _warning.withValues(alpha: 0.38),
+                          ),
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _DesktopCloseDecision {
   const _DesktopCloseDecision({
     required this.keepRunning,
@@ -1101,10 +1194,7 @@ class _RecordingPermissionBadge extends StatelessWidget {
 }
 
 class _CompanionPermissionBadge extends StatelessWidget {
-  const _CompanionPermissionBadge({
-    required this.label,
-    required this.state,
-  });
+  const _CompanionPermissionBadge({required this.label, required this.state});
 
   final String label;
   final String state;

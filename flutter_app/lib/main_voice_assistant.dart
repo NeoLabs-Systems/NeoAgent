@@ -226,6 +226,20 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          if (liveState.hasActiveSession) ...<Widget>[
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _StatusPill(
+                  label: liveState.provider.toUpperCase(),
+                  color: _accent,
+                ),
+                _StatusPill(label: liveState.model, color: _textSecondary),
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
           Text(
             preview.trim().isEmpty
                 ? 'Partial and final transcript text will appear here while the turn is in progress.'
@@ -277,6 +291,10 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final controller = widget.controller;
     final runtime = controller.recordingRuntime;
     final liveState = controller.voiceAssistantLiveState;
+    final viewportSize = MediaQuery.sizeOf(context);
+    final heroHeight = math
+      .min(760, math.max(360, viewportSize.height * 0.72))
+        .toDouble();
     final assistantUi = _DesktopAssistantControlState.fromController(
       controller,
       blockedHintVisible: false,
@@ -287,284 +305,202 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final canStop = liveCaptureEngaged;
     final hasAssistantAudio =
         _assistantAudioBytes != null && _assistantAudioBytes!.isNotEmpty;
-    final captureLabel = liveCaptureEngaged
-        ? _activeCallElapsedLabel(runtime)
-        : 'Ready';
     final useDesktopToggleCapture = assistantUi.useToggleCapture;
+    final heroHint = liveCaptureEngaged
+        ? (useDesktopToggleCapture
+              ? 'Tap again to finish.'
+              : 'Release to finish.')
+        : (useDesktopToggleCapture ? 'Tap to talk.' : 'Hold to talk.');
+    final heroButton = useDesktopToggleCapture
+        ? _VoiceAssistantHeroButton(
+            icon: liveCaptureEngaged ? Icons.stop_rounded : Icons.mic,
+            color: (liveCaptureEngaged || _pttPressed)
+                ? _warning
+                : assistantUi.primaryColor,
+            active: liveCaptureEngaged || _pttPressed,
+            onTap: canStart || canStop
+                ? controller.toggleLiveVoiceCapture
+                : null,
+          )
+        : Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: canStart ? _handlePrimaryPointerDown : null,
+            onPointerUp: (canStop || canStart) ? _handlePrimaryPointerUp : null,
+            onPointerCancel: (canStop || canStart)
+                ? _handlePrimaryPointerUp
+                : null,
+            child: _VoiceAssistantHeroButton(
+              icon: liveCaptureEngaged ? Icons.hearing : Icons.mic,
+              color: (liveCaptureEngaged || _pttPressed)
+                  ? _warning
+                  : assistantUi.primaryColor,
+              active: liveCaptureEngaged || _pttPressed,
+              onTap: null,
+            ),
+          );
 
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
-        _PageTitle(
-          title: 'Voice Assistant',
-          subtitle:
-              'Push to talk, optionally steer the reply, and play back the response.',
-          trailing: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              _DotStatus(
-                label: liveState.state.isEmpty ? 'Standby' : liveState.state,
-                color: liveState.isBusy ? _danger : _success,
-              ),
-              _StatusPill(
-                label:
-                    '${controller.voiceLiveProvider.toUpperCase()} · ${controller.voiceLiveVoice}',
-                color: _accent,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 980),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: <Color>[
-                        _bgSecondary.withValues(alpha: 0.98),
-                        _bgPrimary.withValues(alpha: 0.96),
+                SizedBox(
+                  height: heroHeight,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: <Color>[
+                          _bgSecondary.withValues(alpha: 0.98),
+                          _bgPrimary.withValues(alpha: 0.96),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: _borderLight),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.16),
+                          blurRadius: 26,
+                          offset: const Offset(0, 18),
+                        ),
                       ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: _borderLight),
-                    boxShadow: <BoxShadow>[
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.16),
-                        blurRadius: 26,
-                        offset: const Offset(0, 18),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Wrap(
-                        spacing: 18,
-                        runSpacing: 18,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        alignment: WrapAlignment.spaceBetween,
-                        children: <Widget>[
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            alignment: WrapAlignment.center,
                             children: <Widget>[
-                              Container(
-                                width: 82,
-                                height: 82,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    colors: <Color>[
-                                      _accent.withValues(alpha: 0.96),
-                                      _accentHover,
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                                alignment: Alignment.center,
-                                child: Icon(
-                                  liveCaptureEngaged
-                                      ? Icons.hearing
-                                      : Icons.support_agent,
-                                  color: Colors.white,
-                                  size: 34,
-                                ),
+                              _DotStatus(
+                                label: liveState.state.isEmpty
+                                    ? 'Standby'
+                                    : liveState.state,
+                                color: liveState.isBusy ? _danger : _success,
                               ),
-                              const SizedBox(width: 18),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    'Neo Assistant',
-                                    style: GoogleFonts.spaceGrotesk(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -0.4,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    liveCaptureEngaged
-                                        ? 'Listening live'
-                                        : 'Ready for next turn',
-                                    style: TextStyle(
-                                      color: _textSecondary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    liveState.hasActiveSession
-                                        ? (useDesktopToggleCapture
-                                              ? 'Tap again to commit audio and let NeoAgent respond with live voice updates.'
-                                              : 'Release the mic to commit audio and let NeoAgent respond with live voice updates.')
-                                        : (useDesktopToggleCapture
-                                              ? 'Tap to start speaking. The live session stays separate from the recording workflow.'
-                                              : 'Hold to talk. The live session stays separate from the recording workflow.'),
-                                    style: TextStyle(
-                                      color: _textMuted,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ],
+                              _StatusPill(
+                                label: _activeCallElapsedLabel(runtime),
+                                color: liveCaptureEngaged ? _warning : _accent,
                               ),
                             ],
                           ),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
+                        ),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: <Widget>[
-                              _VoiceAssistantMetricChip(
-                                label: 'Elapsed',
-                                value: captureLabel,
+                              heroButton,
+                              const SizedBox(height: 18),
+                              Text(
+                                heroHint,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              _VoiceAssistantMetricChip(
-                                label: 'Source',
-                                value: assistantUi.sourceSummary,
-                              ),
+                              if (controller.errorMessage?.trim().isNotEmpty ??
+                                  false) ...<Widget>[
+                                const SizedBox(height: 16),
+                                _InlineError(message: controller.errorMessage!),
+                              ],
+                              if (_voiceError?.trim().isNotEmpty ??
+                                  false) ...<Widget>[
+                                const SizedBox(height: 10),
+                                _InlineError(message: _voiceError!),
+                              ],
                             ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          useDesktopToggleCapture
-                              ? _VoiceAssistantPrimaryAction(
-                                  icon: assistantUi.primaryIcon,
-                                  label: assistantUi.primaryLabel,
-                                  caption: assistantUi.primaryCaption,
-                                  color: (liveCaptureEngaged || _pttPressed)
-                                      ? _warning
-                                      : assistantUi.primaryColor,
-                                  onTap: canStart || canStop
-                                      ? controller.toggleLiveVoiceCapture
-                                      : null,
-                                )
-                              : Listener(
-                                  behavior: HitTestBehavior.opaque,
-                                  onPointerDown: canStart
-                                      ? _handlePrimaryPointerDown
-                                      : null,
-                                  onPointerUp: (canStop || canStart)
-                                      ? _handlePrimaryPointerUp
-                                      : null,
-                                  onPointerCancel: (canStop || canStart)
-                                      ? _handlePrimaryPointerUp
-                                      : null,
-                                  child: _VoiceAssistantPrimaryAction(
-                                    icon: assistantUi.primaryIcon,
-                                    label: assistantUi.primaryLabel,
-                                    caption: assistantUi.primaryCaption,
-                                    color: (liveCaptureEngaged || _pttPressed)
-                                        ? _warning
-                                        : assistantUi.primaryColor,
-                                    onTap: null,
-                                  ),
-                                ),
-                          const SizedBox(width: 22),
-                          _VoiceAssistantPrimaryAction(
-                            icon: Icons.call_end,
-                            label: 'End turn',
-                            caption: 'Commit the active live capture',
-                            color: _danger,
-                            onTap: canStop ? _stopPttCapture : null,
+                        ),
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Text(
+                            'Scroll for details',
+                            style: TextStyle(color: _textMuted, height: 1.4),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-                      Wrap(
-                        spacing: 14,
-                        runSpacing: 14,
-                        alignment: WrapAlignment.center,
-                        children: <Widget>[
-                          _VoiceAssistantActionButton(
-                            icon: _isAssistantPlaying
-                                ? Icons.stop_circle_outlined
-                                : Icons.play_arrow,
-                            label: _isAssistantPlaying
-                                ? 'Stop playback'
-                                : 'Play reply',
-                            onTap: hasAssistantAudio
-                                ? (_isAssistantPlaying
-                                      ? _stopAssistantAudio
-                                      : _playAssistantAudio)
-                                : null,
-                          ),
-                          _VoiceAssistantActionButton(
-                            icon: Icons.refresh,
-                            label: 'Refresh',
-                            onTap: controller.ensureLiveVoiceSession,
-                          ),
-                          _VoiceAssistantScreenContextButton(
-                            controller: controller,
-                            compact: false,
-                          ),
-                        ],
-                      ),
-                      if (controller.errorMessage?.trim().isNotEmpty ??
-                          false) ...<Widget>[
-                        const SizedBox(height: 14),
-                        _InlineError(message: controller.errorMessage!),
+                        ),
                       ],
-                      if (_voiceError?.trim().isNotEmpty ?? false) ...<Widget>[
-                        const SizedBox(height: 10),
-                        _InlineError(message: _voiceError!),
-                      ],
-                    ],
+                    ),
                   ),
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 14,
+                  alignment: WrapAlignment.center,
+                  children: <Widget>[
+                    _VoiceAssistantActionButton(
+                      icon: _isAssistantPlaying
+                          ? Icons.stop_circle_outlined
+                          : Icons.play_arrow,
+                      label: _isAssistantPlaying
+                          ? 'Stop playback'
+                          : 'Play reply',
+                      onTap: hasAssistantAudio
+                          ? (_isAssistantPlaying
+                                ? _stopAssistantAudio
+                                : _playAssistantAudio)
+                          : null,
+                    ),
+                    _VoiceAssistantActionButton(
+                      icon: Icons.refresh,
+                      label: 'Refresh',
+                      onTap: controller.ensureLiveVoiceSession,
+                    ),
+                    _VoiceAssistantScreenContextButton(
+                      controller: controller,
+                      compact: false,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 18),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 820;
-                    final cards = <Widget>[
-                      Expanded(child: _buildLiveSessionCard(controller)),
-                      Expanded(
-                        child: _VoiceAssistantSectionCard(
-                          icon: Icons.record_voice_over_outlined,
-                          title: 'Assistant Reply',
-                          subtitle: hasAssistantAudio
-                              ? 'Audio reply ready for playback.'
-                              : 'Text reply and speech status.',
-                          child: Text(
-                            _assistantReply.trim().isEmpty
-                                ? 'No assistant reply yet.'
-                                : _assistantReply,
-                            style: TextStyle(
-                              color: _assistantReply.trim().isEmpty
-                                  ? _textMuted
-                                  : _textPrimary,
-                              height: 1.5,
-                            ),
-                          ),
+                    final liveSessionCard = _buildLiveSessionCard(controller);
+                    final assistantReplyCard = _VoiceAssistantSectionCard(
+                      icon: Icons.record_voice_over_outlined,
+                      title: 'Assistant Reply',
+                      subtitle: hasAssistantAudio
+                          ? 'Audio reply ready for playback.'
+                          : 'Text reply and speech status.',
+                      child: Text(
+                        _assistantReply.trim().isEmpty
+                            ? 'No assistant reply yet.'
+                            : _assistantReply,
+                        style: TextStyle(
+                          color: _assistantReply.trim().isEmpty
+                              ? _textMuted
+                              : _textPrimary,
+                          height: 1.5,
                         ),
                       ),
-                    ];
+                    );
                     if (wide) {
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          cards.first,
+                          Expanded(child: liveSessionCard),
                           const SizedBox(width: 18),
-                          cards.last,
+                          Expanded(child: assistantReplyCard),
                         ],
                       );
                     }
                     return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        cards.first,
+                        liveSessionCard,
                         const SizedBox(height: 18),
-                        cards.last,
+                        assistantReplyCard,
                       ],
                     );
                   },
@@ -718,86 +654,41 @@ class _VoiceAssistantActionButton extends StatelessWidget {
   }
 }
 
-class _VoiceAssistantPrimaryAction extends StatelessWidget {
-  const _VoiceAssistantPrimaryAction({
+class _VoiceAssistantHeroButton extends StatelessWidget {
+  const _VoiceAssistantHeroButton({
     required this.icon,
-    required this.label,
-    required this.caption,
     required this.color,
+    required this.active,
     required this.onTap,
   });
 
   final IconData icon;
-  final String label;
-  final String caption;
   final Color color;
+  final bool active;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.45 : 1,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Material(
-            color: color,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onTap,
-              child: SizedBox(
-                width: 94,
-                height: 94,
-                child: Icon(icon, size: 38, color: Colors.white),
-              ),
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      scale: active ? 1.03 : 1,
+      child: Opacity(
+        opacity: onTap == null ? 0.5 : 1,
+        child: Material(
+          color: color,
+          shape: const CircleBorder(),
+          elevation: active ? 10 : 4,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 140,
+              height: 140,
+              child: Icon(icon, size: 56, color: Colors.white),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(caption, style: TextStyle(color: _textSecondary)),
-        ],
-      ),
-    );
-  }
-}
-
-class _VoiceAssistantMetricChip extends StatelessWidget {
-  const _VoiceAssistantMetricChip({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: _bgCard.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            label,
-            style: TextStyle(
-              color: _textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w700),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -1,5 +1,12 @@
 package com.neoagent.flutter_app
 
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.os.BatteryManager
+import android.os.Build
+import android.provider.Settings
+import android.view.KeyEvent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -14,9 +21,10 @@ import com.neoagent.flutter_app.wearablebg.WearableBridgeConfig
 import com.neoagent.flutter_app.wearablebg.WearableBridgeStateStore
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugins.GeneratedPluginRegistrant
 import kotlinx.coroutines.launch
-import android.os.Build
 import java.time.Instant
 
 class MainActivity : FlutterFragmentActivity() {
@@ -33,9 +41,11 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingRecordingArgs: Map<*, *>? = null
     private var pendingWearableBridgeResult: MethodChannel.Result? = null
     private var pendingWearableBridgeArgs: Map<*, *>? = null
+    private var launcherButtonSink: EventChannel.EventSink? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        GeneratedPluginRegistrant.registerWith(flutterEngine)
 
         healthGateway = HealthConnectGateway(this)
         healthSyncScheduler = HealthSyncScheduler(this)
@@ -348,6 +358,176 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "neoagent/launcher_device",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getVolumeState" -> {
+                    val audioManager = getSystemService(AudioManager::class.java)
+                    if (audioManager == null) {
+                        result.error(
+                            "launcher_audio_unavailable",
+                            "Audio manager is unavailable on this device.",
+                            null,
+                        )
+                        return@setMethodCallHandler
+                    }
+                    result.success(buildVolumeState(audioManager))
+                }
+
+                "setVolume" -> {
+                    val audioManager = getSystemService(AudioManager::class.java)
+                    if (audioManager == null) {
+                        result.error(
+                            "launcher_audio_unavailable",
+                            "Audio manager is unavailable on this device.",
+                            null,
+                        )
+                        return@setMethodCallHandler
+                    }
+                    val args = call.arguments as? Map<*, *>
+                    val target = (args?.get("value") as? Number)?.toInt()
+                    if (target == null) {
+                        result.error(
+                            "launcher_volume_invalid_args",
+                            "value is required.",
+                            null,
+                        )
+                        return@setMethodCallHandler
+                    }
+                    val minVolume =
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            audioManager.getStreamMinVolume(AudioManager.STREAM_MUSIC)
+                        } else {
+                            0
+                        }
+                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    audioManager.setStreamVolume(
+                        AudioManager.STREAM_MUSIC,
+                        target.coerceIn(minVolume, maxVolume),
+                        0,
+                    )
+                    result.success(buildVolumeState(audioManager))
+                }
+
+                "adjustVolume" -> {
+                    val audioManager = getSystemService(AudioManager::class.java)
+                    if (audioManager == null) {
+                        result.error(
+                            "launcher_audio_unavailable",
+                            "Audio manager is unavailable on this device.",
+                            null,
+                        )
+                        return@setMethodCallHandler
+                    }
+                    val args = call.arguments as? Map<*, *>
+                    val delta = (args?.get("delta") as? Number)?.toInt() ?: 0
+                    val minVolume =
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            audioManager.getStreamMinVolume(AudioManager.STREAM_MUSIC)
+                        } else {
+                            0
+                        }
+                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    audioManager.setStreamVolume(
+                        AudioManager.STREAM_MUSIC,
+                        (currentVolume + delta).coerceIn(minVolume, maxVolume),
+                        0,
+                    )
+                    result.success(buildVolumeState(audioManager))
+                }
+
+                "openWifiSettings" -> {
+                    try {
+                        val intent = Intent(Settings.ACTION_WIFI_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        result.success(null)
+                    } catch (err: Exception) {
+                        result.error(
+                            "launcher_wifi_settings_failed",
+                            err.message ?: err.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
+
+                "openDateSettings", "openTimeSettings" -> {
+                    try {
+                        val intent = Intent(Settings.ACTION_DATE_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        if (intent.resolveActivity(packageManager) != null) {
+                            startActivity(intent)
+                        } else {
+                            startActivity(
+                                Intent(Settings.ACTION_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                        result.success(null)
+                    } catch (err: Exception) {
+                        result.error(
+                            "launcher_date_settings_failed",
+                            err.message ?: err.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
+
+                "openSystemSettings" -> {
+                    try {
+                        startActivity(
+                            Intent(Settings.ACTION_SETTINGS)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                        result.success(null)
+                    } catch (err: Exception) {
+                        result.error(
+                            "launcher_settings_failed",
+                            err.message ?: err.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
+
+                "getDeviceStatus", "getBatteryState" -> {
+                    result.success(buildDeviceStatusMap())
+                }
+
+                "getAppMode" -> result.success(currentAppMode())
+
+                else -> result.notImplemented()
+            }
+        }
+
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "neoagent/launcher_buttons",
+        ).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    launcherButtonSink = events
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    launcherButtonSink = null
+                }
+            },
+        )
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        emitLauncherButtonEvent(event, "down")
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        emitLauncherButtonEvent(event, "up")
+        return super.onKeyUp(keyCode, event)
     }
 
     private fun startRecordingService(args: Map<*, *>?) {
@@ -402,6 +582,92 @@ class MainActivity : FlutterFragmentActivity() {
             android.Manifest.permission.BLUETOOTH_SCAN,
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         return connectGranted && scanGranted
+    }
+
+    private fun currentAppMode(): String {
+        return try {
+            val appInfo = packageManager.getApplicationInfo(
+                packageName,
+                PackageManager.GET_META_DATA,
+            )
+            appInfo.metaData?.getString("com.neoagent.APP_MODE")?.trim().orEmpty()
+                .ifBlank { "standard" }
+        } catch (_: Exception) {
+            "standard"
+        }
+    }
+
+    private fun shouldEmitLauncherButtonEvent(keyCode: Int): Boolean {
+        if (currentAppMode() != "launcher") {
+            return false
+        }
+        return keyCode != KeyEvent.KEYCODE_BACK &&
+            keyCode != KeyEvent.KEYCODE_HOME &&
+            keyCode != KeyEvent.KEYCODE_VOLUME_DOWN &&
+            keyCode != KeyEvent.KEYCODE_VOLUME_UP &&
+            keyCode != KeyEvent.KEYCODE_VOLUME_MUTE &&
+            keyCode != KeyEvent.KEYCODE_APP_SWITCH &&
+            keyCode != KeyEvent.KEYCODE_MENU
+    }
+
+    private fun emitLauncherButtonEvent(event: KeyEvent, action: String) {
+        if (!shouldEmitLauncherButtonEvent(event.keyCode)) {
+            return
+        }
+        launcherButtonSink?.success(
+            mapOf(
+                "keyCode" to event.keyCode,
+                "scanCode" to event.scanCode,
+                "repeatCount" to event.repeatCount,
+                "action" to action,
+                "eventTimeMs" to event.eventTime,
+            ),
+        )
+    }
+
+    private fun buildVolumeState(audioManager: AudioManager): Map<String, Any> {
+        val minVolume =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                audioManager.getStreamMinVolume(AudioManager.STREAM_MUSIC)
+            } else {
+                0
+            }
+        return mapOf(
+            "current" to audioManager.getStreamVolume(AudioManager.STREAM_MUSIC),
+            "max" to audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
+            "min" to minVolume,
+            "muted" to audioManager.isStreamMute(AudioManager.STREAM_MUSIC),
+        )
+    }
+
+    private fun buildDeviceStatusMap(): Map<String, Any?> {
+        val batteryStateIntent = registerReceiver(
+            null,
+            android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+        )
+        val batteryLevel = batteryStateIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val batteryScale = batteryStateIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val batteryPercentFromIntent =
+            if (batteryLevel >= 0 && batteryScale > 0) {
+                ((batteryLevel * 100f) / batteryScale).toInt().coerceIn(0, 100)
+            } else {
+                null
+            }
+        val batteryManager = getSystemService(BatteryManager::class.java)
+        val batteryPercentFromManager = batteryManager
+            ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            ?.takeIf { it in 0..100 }
+        val batteryPercent = batteryPercentFromIntent ?: batteryPercentFromManager
+        val batteryStatus = batteryStateIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val plugged = batteryStateIntent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+        val charging =
+            batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING ||
+                batteryStatus == BatteryManager.BATTERY_STATUS_FULL ||
+                plugged != 0
+        return mapOf(
+            "batteryPercent" to batteryPercent,
+            "charging" to charging,
+        )
     }
 
     private suspend fun buildStatusMap(): Map<String, Any?> {

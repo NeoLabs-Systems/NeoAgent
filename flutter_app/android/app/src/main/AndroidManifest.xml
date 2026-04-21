@@ -26,7 +26,7 @@
     </queries>
 
     <application
-        android:label="NeoAgent"
+        android:label="${neoagentAppLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
@@ -52,6 +52,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity-alias
+            android:name=".LauncherHomeAlias"
+            android:enabled="${neoagentLauncherHomeEnabled}"
+            android:exported="true"
+            android:label="${neoagentAppLabel}"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
         <activity
             android:name=".health.PermissionsRationaleActivity"
             android:exported="false" />
@@ -94,6 +106,9 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <meta-data
+            android:name="com.neoagent.APP_MODE"
+            android:value="${neoagentAppMode}" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

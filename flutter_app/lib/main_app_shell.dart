@@ -47,7 +47,9 @@ class _BackendSetupViewState extends State<BackendSetupView> {
   @override
   void initState() {
     super.initState();
-    _backendUrlController = TextEditingController(text: widget.controller.backendUrl);
+    _backendUrlController = TextEditingController(
+      text: widget.controller.backendUrl,
+    );
   }
 
   @override
@@ -139,7 +141,8 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                             ],
                           ),
                         ),
-                        if (controller.errorMessage case final message?) ...<Widget>[
+                        if (controller.errorMessage
+                            case final message?) ...<Widget>[
                           const SizedBox(height: 16),
                           _InlineError(message: message),
                         ],
@@ -147,7 +150,9 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: controller.isSavingBackendUrl ? null : _submit,
+                            onPressed: controller.isSavingBackendUrl
+                                ? null
+                                : _submit,
                             style: FilledButton.styleFrom(
                               backgroundColor: _accent,
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -516,9 +521,9 @@ class _AuthViewState extends State<AuthView> {
                                       : Text(
                                           awaitingTwoFactor
                                               ? 'Verify'
-                                              : _registerMode
-                                              ? 'Create account'
-                                              : 'Sign in',
+                                              : (_registerMode
+                                                    ? 'Create account'
+                                                    : 'Sign in'),
                                         ),
                                 ),
                                 if (awaitingTwoFactor) ...<Widget>[
