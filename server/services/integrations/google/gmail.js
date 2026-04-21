@@ -6,6 +6,7 @@ const {
   executeGoogleApiRequest,
   extractMessageBody,
   getHeader,
+  normalizeDecodedText,
   stringToBase64Url,
 } = require('./common');
 
@@ -150,7 +151,7 @@ function summarizeMessage(message) {
     id: message.id,
     threadId: message.threadId,
     labelIds: Array.isArray(message.labelIds) ? message.labelIds : [],
-    snippet: message.snippet || '',
+    snippet: normalizeDecodedText(message.snippet || ''),
     internalDate: message.internalDate
       ? new Date(Number(message.internalDate)).toISOString()
       : null,
@@ -218,7 +219,7 @@ async function executeGmailTool(toolName, args, auth) {
               : null;
           return {
             id: thread.id || '',
-            snippet: thread.snippet || '',
+            snippet: normalizeDecodedText(thread.snippet || ''),
             historyId: thread.historyId || null,
             messageCount: Array.isArray(thread.messages)
               ? thread.messages.length
@@ -242,7 +243,7 @@ async function executeGmailTool(toolName, args, auth) {
       return {
         id: thread.id || '',
         historyId: thread.historyId || null,
-        snippet: thread.snippet || '',
+        snippet: normalizeDecodedText(thread.snippet || ''),
         messages: (Array.isArray(thread.messages) ? thread.messages : []).map(
           summarizeMessage,
         ),
