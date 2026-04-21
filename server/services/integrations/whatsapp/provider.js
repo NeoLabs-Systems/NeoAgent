@@ -218,6 +218,7 @@ class WhatsAppPersonalProvider {
     this.sessions = new Map();
     this.clients = new Map();
     this.reconnectTimers = new Map();
+    this.sessionReconnectTimers = new Map();
     this.io = options.io || null;
   }
 
@@ -226,6 +227,14 @@ class WhatsAppPersonalProvider {
     if (timer) {
       clearTimeout(timer);
       this.reconnectTimers.delete(connectionId);
+    }
+  }
+
+  _clearSessionReconnectTimer(sessionId) {
+    const timer = this.sessionReconnectTimers.get(sessionId);
+    if (timer) {
+      clearTimeout(timer);
+      this.sessionReconnectTimers.delete(sessionId);
     }
   }
 
@@ -257,6 +266,29 @@ class WhatsAppPersonalProvider {
       }
     }, delayMs);
     this.reconnectTimers.set(client.connectionId, timer);
+  }
+
+  _scheduleSessionReconnect(session, attempt = 1) {
+    if (!session?.id || session.status === 'connected' || session.status === 'logged_out') {
+      return;
+    }
+    this._clearSessionReconnectTimer(session.id);
+    const delayMs = Math.min(30000, 1000 * Math.pow(2, Math.max(0, attempt - 1)));
+    const timer = setTimeout(() => {
+      this.sessionReconnectTimers.delete(session.id);
+      const current = this.sessions.get(session.id);
+      if (!current || current.status === 'connected' || current.status === 'logged_out') {
+        return;
+      }
+      current.status = 'connecting';
+      current.error = null;
+      current.qr = null;
+      this._startSessionSocket(current, attempt + 1).catch((err) => {
+        current.status = 'failed';
+        current.error = err?.message || 'connection_failed';
+      });
+    }, delayMs);
+    this.sessionReconnectTimers.set(session.id, timer);
   }
 
   getApp(appId) {
@@ -438,7 +470,7 @@ class WhatsAppPersonalProvider {
       logger: createSilentLogger(),
     };
     this.sessions.set(sessionId, session);
-    this._startSessionSocket(session).catch((err) => {
+    this._startSessionSocket(session, 1).catch((err) => {
       session.status = 'failed';
       session.error = err?.message || 'connection_failed';
     });
@@ -489,6 +521,11 @@ class WhatsAppPersonalProvider {
     }
     this.clients.delete(connection.id);
     this._clearReconnectTimer(connection.id);
+    for (const session of this.sessions.values()) {
+      if (session.connectionId === connection.id) {
+        this._clearSessionReconnectTimer(session.id);
+      }
+    }
     if (authDir) {
       fs.rmSync(authDir, { recursive: true, force: true });
     }
@@ -556,7 +593,7 @@ class WhatsAppPersonalProvider {
     }
   }
 
-  async _startSessionSocket(session) {
+  async _startSessionSocket(session, attempt = 1) {
     ensureDir(session.authDir);
     const {
       default: makeWASocket,
@@ -567,11 +604,9 @@ class WhatsAppPersonalProvider {
       DisconnectReason,
     } = require('baileys');
 
-    const { version } = await fetchLatestBaileysVersion();
+    const version = await this._resolveBaileysVersion(fetchLatestBaileysVersion);
     const { state, saveCreds } = await useMultiFileAuthState(session.authDir);
-
-    const sock = makeWASocket({
-      version,
+    const socketConfig = {
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, session.logger),
@@ -582,7 +617,16 @@ class WhatsAppPersonalProvider {
       defaultQueryTimeoutMs: 60000,
       markOnlineOnConnect: false,
       syncFullHistory: true,
-    });
+    };
+    if (Array.isArray(version) && version.length > 0) {
+      socketConfig.version = version;
+    }
+
+    try {
+      session.socket?.end(new Error('session_restart'));
+    } catch {}
+
+    const sock = makeWASocket(socketConfig);
 
     session.socket = sock;
     sock.ev.on('creds.update', saveCreds);
@@ -593,12 +637,15 @@ class WhatsAppPersonalProvider {
       const { connection, qr, lastDisconnect } = update;
       if (qr) {
         session.qr = qr;
+        session.error = null;
         session.status = 'awaiting_qr';
       }
 
       if (connection === 'open') {
+        this._clearSessionReconnectTimer(session.id);
         session.status = 'connected';
         session.qr = null;
+        session.error = null;
         session.accountEmail = normalizeWhatsAppId(sock.user?.id) || sock.user?.id || null;
         const connectionId = this._upsertConnectedAccount(session);
         session.connectionId = connectionId;
@@ -619,6 +666,7 @@ class WhatsAppPersonalProvider {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const loggedOut = statusCode === DisconnectReason.loggedOut;
         if (loggedOut) {
+          this._clearSessionReconnectTimer(session.id);
           session.status = 'logged_out';
           const connectionId = session.connectionId;
           if (connectionId) {
@@ -627,6 +675,10 @@ class WhatsAppPersonalProvider {
           fs.rmSync(session.authDir, { recursive: true, force: true });
           return;
         }
+        const errorMessage =
+          lastDisconnect?.error?.message ||
+          lastDisconnect?.error?.data?.message ||
+          null;
 
         if (session.connectionId) {
           const client = this.clients.get(session.connectionId);
@@ -634,8 +686,11 @@ class WhatsAppPersonalProvider {
             client.status = 'disconnected';
           }
           session.status = 'disconnected';
+          session.error = errorMessage;
         } else if (session.status !== 'failed') {
-          session.status = 'disconnected';
+          session.status = 'connecting';
+          session.error = errorMessage;
+          this._scheduleSessionReconnect(session, attempt + 1);
         }
       }
     });
@@ -883,10 +938,9 @@ class WhatsAppPersonalProvider {
       DisconnectReason,
     } = require('baileys');
 
-    const { version } = await fetchLatestBaileysVersion();
+    const version = await this._resolveBaileysVersion(fetchLatestBaileysVersion);
     const { state, saveCreds } = await useMultiFileAuthState(client.authDir);
-    const sock = makeWASocket({
-      version,
+    const socketConfig = {
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, client.logger),
@@ -897,7 +951,11 @@ class WhatsAppPersonalProvider {
       defaultQueryTimeoutMs: 60000,
       markOnlineOnConnect: false,
       syncFullHistory: true,
-    });
+    };
+    if (Array.isArray(version) && version.length > 0) {
+      socketConfig.version = version;
+    }
+    const sock = makeWASocket(socketConfig);
 
     client.socket = sock;
     sock.ev.on('creds.update', saveCreds);
@@ -929,6 +987,18 @@ class WhatsAppPersonalProvider {
         }
       });
     });
+  }
+
+  async _resolveBaileysVersion(fetchLatestBaileysVersion) {
+    try {
+      const result = await fetchLatestBaileysVersion();
+      if (Array.isArray(result?.version) && result.version.length > 0) {
+        return result.version;
+      }
+    } catch (error) {
+      console.warn(`[WhatsApp] Failed to fetch latest Baileys version, using library default: ${error?.message || error}`);
+    }
+    return null;
   }
 }
 

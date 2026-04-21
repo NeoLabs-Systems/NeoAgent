@@ -1,8 +1,4 @@
 const ANALYSIS_MODES = ['direct_answer', 'execute', 'plan_execute'];
-const REPLY_MODES = ['chat', 'task', 'status', 'silent'];
-const FRESHNESS_RISKS = ['none', 'possible', 'high'];
-const VERIFICATION_NEEDS = ['none', 'light', 'required'];
-const PLANNING_DEPTHS = ['none', 'light', 'deep'];
 const VERIFICATION_STATUSES = ['verified', 'needs_revision', 'insufficient_evidence'];
 const TASK_ANALYSIS_SUGGESTED_TOOLS_LIMIT = 12;
 const TASK_ANALYSIS_SUCCESS_CRITERIA_LIMIT = 8;
@@ -19,16 +15,11 @@ const VERIFICATION_CONFIDENCE_DEFAULT = 0.5;
 const JSON_ONLY_RESPONSE_RULE = 'Return JSON only. No markdown, no prose, no code fences.';
 const ANALYSIS_SCHEMA_EXAMPLE = {
   mode: 'execute',
-  reply_mode: 'task',
-  freshness_risk: 'possible',
-  verification_need: 'light',
-  planning_depth: 'light',
-  confidence: 0.62,
-  suggested_tools: ['web_search', 'browser_navigate'],
-  needs_subagents: false,
+  needs_verification: true,
   draft_reply: '',
   goal: 'Answer the user accurately.',
   success_criteria: ['Final reply is correct and specific.'],
+  suggested_tools: ['web_search', 'browser_navigate'],
 };
 const PLAN_SCHEMA_EXAMPLE = {
   steps: [
@@ -43,23 +34,13 @@ const PLAN_SCHEMA_EXAMPLE = {
   verification_focus: ['Confirm the most time-sensitive claim before replying.'],
 };
 const ANALYSIS_PROMPT_INSTRUCTIONS = [
-  'Decide how much execution depth this task needs before the main run continues.',
-  'Use mode="direct_answer" only if you can fully answer right now without tools and without further verification.',
-  'Use mode="execute" when tool work is needed but a formal plan is not necessary.',
-  'Use mode="plan_execute" when the task likely needs multiple coordinated steps, retries, or delegated subtasks.',
-  'If the request is from a live voice call, favor tool actions and planning to allow intermediate progress updates to play rather than fully executing an opaque plan, but answer right away if trivial.',
-  'Use plan_execute for broad personal searches, cross-source questions, code changes, debugging, scheduled-task changes, or anything that touches external/shared state.',
-  'freshness_risk must be "possible" or "high" for anything that may depend on current external facts, status, timelines, or ambiguous relative dates.',
-  'verification_need must be "required" whenever fresh evidence is needed, tool output materially determines the answer, confidence is low, or actions changed external state.',
-  'verification_need must be "required" for outbound messages/calls/emails, scheduled-task mutations, file edits, installs, service restarts, or code changes.',
-  'reply_mode should reflect the intended final reply style: chat, task, status, or silent.',
-  'reply_mode="silent" is only appropriate when the user explicitly asked for silence or the trigger is background-only and has no useful user-facing result.',
-  'suggested_tools should name the specific tools or capabilities that are most relevant, but they are advisory only.',
-  'Prefer official integration tools and structured tools over browser automation, shell scraping, or web search when they can answer the task.',
-  'For broad searches, suggest multiple source-specific tools when available so the executor can run them in parallel.',
-  'needs_subagents should be true only when independent subtasks can progress in parallel without blocking the next local step.',
-  'success_criteria should be concrete and user-visible.',
-  'If the task requires a missing required value that cannot be inferred safely, set mode="direct_answer" with a concise draft_reply asking only for that value.',
+  'Choose the lightest routing mode that still handles the task well.',
+  'Use mode="direct_answer" only when a final user-facing reply can be given immediately without tool work.',
+  'Use mode="execute" for normal tool-driven work without a separate planning step.',
+  'Use mode="plan_execute" only when the task is genuinely multi-step, broad, or coordination-heavy.',
+  'Set needs_verification=true when the final answer should be checked against tool evidence before it is sent.',
+  'Keep goal and success_criteria short and practical.',
+  'suggested_tools are optional hints, not a required plan.',
 ];
 const PLAN_PROMPT_INSTRUCTIONS = [
   'Create a concise execution plan for the current task.',
@@ -140,10 +121,6 @@ function resolveAliasedText(raw, fallback, snakeKey, camelKey, defaultValue = ''
   return String(resolveAliasedValue(raw, fallback, snakeKey, camelKey, defaultValue)).trim();
 }
 
-function resolveAliasedEnum(raw, fallback, snakeKey, camelKey, allowed, defaultValue) {
-  return pickEnum(resolveAliasedValue(raw, fallback, snakeKey, camelKey), allowed, defaultValue);
-}
-
 function composeJsonPrompt(lines, schema) {
   return [
     ...lines,
@@ -191,11 +168,31 @@ function formatSuggestedToolsFromAnalysisLine(suggestedTools) {
     : '';
 }
 
-function resolveAliasedBoolean(raw, fallback, snakeKey, camelKey) {
-  return raw?.[snakeKey] === true
-    || raw?.[camelKey] === true
-    || fallback?.[snakeKey] === true
-    || fallback?.[camelKey] === true;
+function resolveAliasedBoolean(raw, fallback, snakeKey, camelKey, defaultValue = false) {
+  const value = resolveAliasedValue(raw, fallback, snakeKey, camelKey, defaultValue);
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  return Boolean(value);
+}
+
+function planningDepthForMode(mode) {
+  return mode === 'plan_execute' ? 'deep' : mode === 'direct_answer' ? 'none' : 'light';
+}
+
+function verificationNeedFor({ mode, needsVerification, hasDraftReply }) {
+  if (needsVerification === true) return 'light';
+  if (needsVerification === false) {
+    return mode === 'direct_answer' && hasDraftReply ? 'none' : 'light';
+  }
+  return mode === 'direct_answer' && hasDraftReply ? 'none' : 'light';
+}
+
+function freshnessRiskFor({ verificationNeed }) {
+  return verificationNeed === 'required' ? 'possible' : 'none';
 }
 
 function promoteAnalysisMode(initialMode, { verificationNeed, freshnessRisk, draftReply, planningDepth }) {
@@ -274,15 +271,45 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
     ANALYSIS_MODES,
     draftReply ? 'direct_answer' : 'execute'
   );
-  const freshnessRisk = resolveAliasedEnum(raw, fallback, 'freshness_risk', 'freshnessRisk', FRESHNESS_RISKS, 'none');
-  const verificationNeed = resolveAliasedEnum(raw, fallback, 'verification_need', 'verificationNeed', VERIFICATION_NEEDS, 'none');
-  const planningDepth = resolveAliasedEnum(
+  const explicitNeedsVerification = resolveAliasedValue(
     raw,
     fallback,
-    'planning_depth',
-    'planningDepth',
-    PLANNING_DEPTHS,
-    initialMode === 'plan_execute' ? 'deep' : 'light'
+    'needs_verification',
+    'needsVerification',
+    undefined
+  );
+  const hasExplicitVerificationNeed = explicitNeedsVerification !== undefined
+    || raw?.verification_need !== undefined
+    || raw?.verificationNeed !== undefined
+    || fallback?.verification_need !== undefined
+    || fallback?.verificationNeed !== undefined;
+  const explicitVerificationNeed = pickEnum(
+    resolveAliasedValue(raw, fallback, 'verification_need', 'verificationNeed', ''),
+    ['none', 'light', 'required'],
+    ''
+  );
+  const needsVerification = explicitNeedsVerification !== undefined
+    ? resolveAliasedBoolean(raw, fallback, 'needs_verification', 'needsVerification')
+    : explicitVerificationNeed
+      ? explicitVerificationNeed !== 'none'
+      : initialMode !== 'direct_answer';
+
+  const planningDepth = planningDepthForMode(initialMode);
+  const verificationNeed = hasExplicitVerificationNeed
+    ? (explicitVerificationNeed || verificationNeedFor({
+      mode: initialMode,
+      needsVerification,
+      hasDraftReply: Boolean(draftReply),
+    }))
+    : verificationNeedFor({
+      mode: initialMode,
+      needsVerification,
+      hasDraftReply: Boolean(draftReply),
+    });
+  const freshnessRisk = pickEnum(
+    resolveAliasedValue(raw, fallback, 'freshness_risk', 'freshnessRisk', ''),
+    ['none', 'possible', 'high'],
+    freshnessRiskFor({ verificationNeed })
   );
 
   const mode = promoteAnalysisMode(initialMode, {
@@ -294,7 +321,6 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
 
   return {
     mode,
-    reply_mode: resolveAliasedEnum(raw, fallback, 'reply_mode', 'replyMode', REPLY_MODES, 'task'),
     freshness_risk: freshnessRisk,
     verification_need: verificationNeed,
     planning_depth: planningDepth,
@@ -304,6 +330,7 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
     ),
     suggested_tools: suggestedTools,
     needs_subagents: resolveAliasedBoolean(raw, fallback, 'needs_subagents', 'needsSubagents'),
+    needs_verification: verificationNeed !== 'none',
     draft_reply: draftReply,
     goal: resolveAliasedText(raw, fallback, 'goal', 'goal', ''),
     success_criteria: successCriteria,
@@ -416,8 +443,6 @@ function getMeaningfulToolExecutions(toolExecutions = []) {
 function requiresVerifierWithoutEvidence(analysis, finalReply) {
   if (!analysis) return false;
   if (analysis.verification_need === 'required') return true;
-  if (analysis.freshness_risk !== 'none') return true;
-  if (analysis.confidence < 0.7) return true;
   if (!String(finalReply || '').trim()) return true;
   return false;
 }

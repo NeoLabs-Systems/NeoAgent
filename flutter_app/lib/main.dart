@@ -1388,6 +1388,7 @@ class NeoAgentController extends ChangeNotifier {
     chatMessages = <ChatEntry>[
       ...chatMessages,
       ChatEntry(
+        id: '',
         role: role,
         content: trimmed,
         platform: platform,
@@ -4433,6 +4434,7 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     final optimistic = ChatEntry(
+      id: '',
       role: 'user',
       content: trimmed,
       platform: 'flutter',
@@ -4473,6 +4475,7 @@ class NeoAgentController extends ChangeNotifier {
       chatMessages = <ChatEntry>[
         ...chatMessages,
         ChatEntry(
+          id: '',
           role: 'assistant',
           content:
               'I could not complete that request right now. Please try again in a moment.',
@@ -5841,6 +5844,7 @@ class NeoAgentController extends ChangeNotifier {
     if (streamingAssistant.trim().isNotEmpty) {
       entries.add(
         ChatEntry(
+          id: '',
           role: 'assistant',
           content: streamingAssistant,
           platform: 'live',
@@ -15395,11 +15399,136 @@ class LogsPanel extends StatefulWidget {
 
 class _LogsPanelState extends State<LogsPanel> {
   static const JsonEncoder _debugJsonEncoder = JsonEncoder.withIndent('  ');
+  bool _isExportingRecentMessages = false;
 
   String _recentLogsText() =>
       widget.controller.logs.map((log) => log.clipboardLine).join('\n');
 
   String _prettyJson(Object? value) => _debugJsonEncoder.convert(value);
+
+  Future<Map<String, dynamic>?> _buildRunExport(
+    String runId,
+    Map<String, Map<String, dynamic>> cache,
+  ) async {
+    if (runId.trim().isEmpty) {
+      return null;
+    }
+    if (cache.containsKey(runId)) {
+      return cache[runId];
+    }
+    try {
+      final detail = await widget.controller.fetchRunDetail(runId);
+      final payload = <String, dynamic>{
+        'run': <String, dynamic>{
+          'id': detail.run.id,
+          'title': detail.run.title,
+          'status': detail.run.status,
+          'statusLabel': detail.run.statusLabel,
+          'triggerSource': detail.run.triggerSource,
+          'triggerLabel': detail.run.triggerLabel,
+          'model': detail.run.model,
+          'createdAt': detail.run.createdAt.toIso8601String(),
+          'completedAt': detail.run.completedAt?.toIso8601String(),
+          'durationLabel': detail.run.durationLabel,
+          'totalTokens': detail.run.totalTokens,
+          'error': detail.run.error,
+        },
+        'response': detail.response,
+        'steps': detail.steps
+            .map(
+              (step) => <String, dynamic>{
+                'id': step.id,
+                'index': step.index,
+                'displayIndex': step.displayIndex,
+                'type': step.type,
+                'status': step.status,
+                'description': step.description,
+                'toolName': step.toolName,
+                'toolInput': step.toolInput,
+                'result': step.result,
+                'error': step.error,
+                'tokensUsed': step.tokensUsed,
+                'startedAt': step.startedAt?.toIso8601String(),
+                'completedAt': step.completedAt?.toIso8601String(),
+              },
+            )
+            .toList(),
+      };
+      cache[runId] = payload;
+      return payload;
+    } catch (error) {
+      final payload = <String, dynamic>{
+        'runId': runId,
+        'error': error.toString(),
+      };
+      cache[runId] = payload;
+      return payload;
+    }
+  }
+
+  Future<String> _buildRecentMessagesExport() async {
+    final controller = widget.controller;
+    final recentMessages = controller.visibleChatMessages.reversed
+        .take(5)
+        .toList()
+        .reversed
+        .toList();
+    final runCache = <String, Map<String, dynamic>>{};
+
+    final messages = <Map<String, dynamic>>[];
+    for (final entry in recentMessages) {
+      final runId = entry.runId?.trim() ?? '';
+      messages.add(<String, dynamic>{
+        'id': entry.id,
+        'role': entry.role,
+        'content': entry.content,
+        'platform': entry.platform,
+        'senderName': entry.senderName,
+        'createdAt': entry.createdAt.toIso8601String(),
+        'transient': entry.transient,
+        'runId': runId.isEmpty ? null : runId,
+        'metadata': entry.metadata,
+        'toolCalls': entry.toolCalls,
+        if (runId.isNotEmpty)
+          'runDetail': await _buildRunExport(runId, runCache),
+      });
+    }
+
+    final export = <String, dynamic>{
+      'generatedAt': DateTime.now().toIso8601String(),
+      'kind': 'recent_chat_export',
+      'messageCount': messages.length,
+      'agent': <String, dynamic>{
+        'id': controller.selectedAgentId,
+        'label': controller.activeAgentLabel,
+      },
+      'liveRun': controller.activeRun == null
+          ? null
+          : <String, dynamic>{
+              'runId': controller.activeRun!.runId,
+              'title': controller.activeRun!.title,
+              'model': controller.activeRun!.model,
+              'phase': controller.activeRun!.phase,
+              'iteration': controller.activeRun!.iteration,
+              'pendingSteeringCount':
+                  controller.activeRun!.pendingSteeringCount,
+              'triggerSource': controller.activeRun!.triggerSource,
+            },
+      'liveToolEvents': controller.toolEvents
+          .map(
+            (event) => <String, dynamic>{
+              'id': event.id,
+              'toolName': event.toolName,
+              'type': event.type,
+              'status': event.status,
+              'summary': event.summary,
+            },
+          )
+          .toList(),
+      'messages': messages,
+    };
+    return _prettyJson(export);
+  }
 
   String _buildDebugInfo() {
     final controller = widget.controller;
@@ -15572,6 +15701,38 @@ class _LogsPanelState extends State<LogsPanel> {
     ).showSnackBar(const SnackBar(content: Text('Copied debug info')));
   }
 
+  Future<void> _exportRecentMessages() async {
+    if (_isExportingRecentMessages) {
+      return;
+    }
+    setState(() => _isExportingRecentMessages = true);
+    try {
+      final exportText = await _buildRecentMessagesExport();
+      await Clipboard.setData(ClipboardData(text: exportText));
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Copied export for the last 5 messages')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Export failed: ${widget.controller._friendlyErrorMessage(error)}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isExportingRecentMessages = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -15585,6 +15746,18 @@ class _LogsPanelState extends State<LogsPanel> {
             spacing: 12,
             runSpacing: 12,
             children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: _isExportingRecentMessages
+                    ? null
+                    : _exportRecentMessages,
+                icon: _isExportingRecentMessages
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.ios_share_outlined),
+                label: Text('Export last 5 messages'),
+              ),
               OutlinedButton.icon(
                 onPressed: _copyDebugInfo,
                 icon: Icon(Icons.bug_report_outlined),

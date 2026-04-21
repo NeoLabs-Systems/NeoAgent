@@ -34,8 +34,9 @@ enabled: true
 
 Run these commands and summarise the results:
 - \`uptime\` — load average and uptime
-- \`free -m\` (Linux) or \`vm_stat\` (macOS) — memory usage
-- \`nproc\` or \`sysctl -n hw.logicalcpu\` — CPU count
+- On Linux, run \`free -m\` for memory and \`nproc\` for CPU count
+- On macOS, run \`vm_stat\` for memory and \`sysctl -n hw.logicalcpu\` for CPU count
+- Use the runtime platform details in the prompt instead of guessing the OS from the user's wording
 
 Combine into a short dashboard-style summary.`
   },

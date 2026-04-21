@@ -143,7 +143,7 @@ function getAvailableTools(app, options = {}) {
     const tools = [
         {
             name: 'execute_command',
-            description: 'Execute a terminal/shell command. Waits for the process to exit, supports PTY for interactive programs, and returns stdout, stderr, exit code, timeout state, and duration.',
+            description: 'Execute a terminal/shell command as a normal recoverable agent step. Waits for the process to exit, supports PTY for interactive programs, and returns stdout, stderr, exit code, timeout state, and duration so later reasoning can inspect failures, install missing dependencies, and retry when needed.',
             parameters: {
                 type: 'object',
                 properties: {

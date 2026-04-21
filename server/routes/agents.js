@@ -27,13 +27,30 @@ router.get('/chat-history', (req, res) => {
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
 
   const webMsgs = db.prepare(`
-    SELECT id, role, content, 'web' AS platform, NULL AS sender_name, created_at, agent_run_id AS run_id
+    SELECT
+      id,
+      role,
+      content,
+      COALESCE(json_extract(metadata, '$.platform'), 'web') AS platform,
+      NULL AS sender_name,
+      created_at,
+      agent_run_id AS run_id,
+      metadata,
+      NULL AS tool_calls
     FROM conversation_history WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC LIMIT ?
   `).all(userId, agentId, limit);
 
   const socialMsgs = db.prepare(`
-    SELECT id, role, content, platform,
-      json_extract(metadata, '$.senderName') AS sender_name, created_at, run_id
+    SELECT
+      id,
+      role,
+      content,
+      platform,
+      json_extract(metadata, '$.senderName') AS sender_name,
+      created_at,
+      run_id,
+      metadata,
+      tool_calls
     FROM messages WHERE user_id = ? AND agent_id = ? AND platform != 'web'
     ORDER BY created_at DESC LIMIT ?
   `).all(userId, agentId, limit);

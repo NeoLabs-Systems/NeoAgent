@@ -520,7 +520,7 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
   if (!normalizedError && name === 'execute_command' && result && typeof result === 'object') {
     if (result.timedOut) {
       normalizedError = `Command timed out after ${result.durationMs || 'unknown'} ms`;
-    } else if (result.killed) {
+    } else if (result.killed || result.signal) {
       normalizedError = 'Command was killed before it finished';
     } else if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
       normalizedError = summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
@@ -589,7 +589,7 @@ function inferToolFailureMessage(toolName, result) {
     if (result.timedOut) {
       return `Command timed out after ${result.durationMs || 'unknown'} ms`;
     }
-    if (result.killed) {
+    if (result.killed || result.signal) {
       return 'Command was killed before it finished';
     }
     if (typeof result.exitCode === 'number' && result.exitCode !== 0) {

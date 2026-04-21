@@ -1147,28 +1147,48 @@ Map<String, dynamic> _decodeMaybeJson(dynamic value) {
 
 class ChatEntry {
   const ChatEntry({
+    required this.id,
     required this.role,
     required this.content,
     required this.platform,
     required this.createdAt,
+    this.runId,
     this.senderName,
+    this.metadata = const <String, dynamic>{},
+    this.toolCalls = const <Map<String, dynamic>>[],
     this.transient = false,
   });
 
   factory ChatEntry.fromJson(Map<dynamic, dynamic> json) {
     return ChatEntry(
+      id: json['id']?.toString() ?? '',
       role: json['role']?.toString() ?? 'assistant',
       content: json['content']?.toString() ?? '',
       platform: json['platform']?.toString() ?? 'web',
+      runId: json['run_id']?.toString(),
       senderName: json['sender_name']?.toString(),
+      metadata: _jsonMap(_decodeMaybeJson(json['metadata'])),
+      toolCalls:
+          (_decodeMaybeJson(json['tool_calls']) as List<dynamic>? ??
+                  const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .map(
+                (item) =>
+                    item.map((key, value) => MapEntry(key.toString(), value)),
+              )
+              .toList(),
       createdAt: _parseTimestamp(json['created_at']?.toString()),
     );
   }
 
+  final String id;
   final String role;
   final String content;
   final String platform;
+  final String? runId;
   final String? senderName;
+  final Map<String, dynamic> metadata;
+  final List<Map<String, dynamic>> toolCalls;
   final DateTime createdAt;
   final bool transient;
 
