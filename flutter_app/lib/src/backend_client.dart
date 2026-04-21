@@ -1533,7 +1533,17 @@ class BackendClient {
         throw BackendException('Unsupported method: $method');
     }
     try {
-      return await request.timeout(_requestTimeout);
+      final response = await request.timeout(_requestTimeout);
+      _log(
+        'request.response',
+        data: <String, Object?>{
+          'method': method,
+          'uri': uri.toString(),
+          'statusCode': response.statusCode,
+          'allowUnauthorized': allowUnauthorized,
+        },
+      );
+      return response;
     } on TimeoutException catch (error, stackTrace) {
       _log(
         'request.timeout',
@@ -1549,7 +1559,35 @@ class BackendClient {
       throw BackendException(
         'The NeoAgent backend took too long to respond for ${uri.path}.',
       );
+    } catch (error, stackTrace) {
+      _log(
+        'request.failed',
+        data: <String, Object?>{
+          'method': method,
+          'uri': uri.toString(),
+          'allowUnauthorized': allowUnauthorized,
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw BackendException(_describeTransportError(error, uri));
     }
+  }
+
+  String _describeTransportError(Object error, Uri uri) {
+    final text = error.toString().trim();
+    final lower = text.toLowerCase();
+    if (lower.contains('xmlhttprequest error') ||
+        lower.contains('failed to fetch') ||
+        lower.contains('networkerror') ||
+        lower.contains('load failed')) {
+      return 'The web app could not reach the NeoAgent backend at ${uri.path}. Check the browser console and reverse-proxy/network configuration.';
+    }
+    if (lower.contains('content security policy') ||
+        lower.contains('connect-src')) {
+      return 'The browser blocked a request to ${uri.path} because of Content Security Policy.';
+    }
+    return 'Request to ${uri.path} failed before the backend responded.';
   }
 
   dynamic _decodeJson(String body) {

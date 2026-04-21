@@ -2508,57 +2508,99 @@ class NeoAgentController extends ChangeNotifier {
       _ensureSelectedAgent();
       final agentId = _scopedAgentId;
 
-      final historyFuture = _backendClient.fetchChatHistory(
-        backendUrl,
-        agentId: agentId,
+      final historyFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'chat_history',
+        _backendClient.fetchChatHistory(backendUrl, agentId: agentId),
+        const <String, dynamic>{'messages': <dynamic>[]},
       );
-      final modelsFuture = _backendClient.fetchSupportedModels(
-        backendUrl,
-        agentId: agentId,
+      final modelsFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'supported_models',
+        _backendClient.fetchSupportedModels(backendUrl, agentId: agentId),
+        const <String, dynamic>{'models': <dynamic>[]},
       );
-      final providersFuture = _backendClient.fetchAiProviders(
-        backendUrl,
-        agentId: agentId,
+      final providersFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'ai_providers',
+        _backendClient.fetchAiProviders(backendUrl, agentId: agentId),
+        const <String, dynamic>{'providers': <dynamic>[]},
       );
-      final settingsFuture = _backendClient.fetchSettings(
-        backendUrl,
-        agentId: agentId,
+      final settingsFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'settings',
+        _backendClient.fetchSettings(backendUrl, agentId: agentId),
+        const <String, dynamic>{},
       );
-      final runsFuture = _backendClient.fetchRuns(backendUrl, agentId: agentId);
-      final versionFuture = _backendClient.fetchVersion(backendUrl);
-      final tokenFuture = _backendClient.fetchTokenUsageSummary(
-        backendUrl,
-        agentId: agentId,
+      final runsFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'runs',
+        _backendClient.fetchRuns(backendUrl, agentId: agentId),
+        const <String, dynamic>{'runs': <dynamic>[]},
+      );
+      final versionFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'version',
+        _backendClient.fetchVersion(backendUrl),
+        const <String, dynamic>{},
+      );
+      final tokenFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'token_usage',
+        _backendClient.fetchTokenUsageSummary(backendUrl, agentId: agentId),
+        const <String, dynamic>{},
       );
       final updateFuture = _backendClient
           .fetchUpdateStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
-      final messagingFuture = _backendClient.fetchMessagingStatus(
-        backendUrl,
-        agentId: agentId,
+      final messagingFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'messaging_status',
+        _backendClient.fetchMessagingStatus(backendUrl, agentId: agentId),
+        const <String, dynamic>{},
       );
-      final messagingMessagesFuture = _backendClient.fetchMessagingMessages(
-        backendUrl,
-        agentId: agentId,
+      final messagingMessagesFuture =
+          _softRefreshLoad<List<Map<String, dynamic>>>(
+            'messaging_messages',
+            _backendClient.fetchMessagingMessages(backendUrl, agentId: agentId),
+            const <Map<String, dynamic>>[],
+          );
+      final skillsFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
+        'skills',
+        _backendClient.fetchSkills(backendUrl),
+        const <Map<String, dynamic>>[],
       );
-      final skillsFuture = _backendClient.fetchSkills(backendUrl);
-      final storeSkillsFuture = _backendClient.fetchSkillStore(backendUrl);
-      final officialIntegrationsFuture = _backendClient
-          .fetchOfficialIntegrations(backendUrl, agentId: agentId);
-      final memoryFuture = _backendClient.fetchMemoryOverview(
-        backendUrl,
-        agentId: agentId,
+      final storeSkillsFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
+        'skill_store',
+        _backendClient.fetchSkillStore(backendUrl),
+        const <Map<String, dynamic>>[],
       );
-      final memoriesFuture = _backendClient.fetchMemories(
-        backendUrl,
-        agentId: agentId,
+      final officialIntegrationsFuture =
+          _softRefreshLoad<List<Map<String, dynamic>>>(
+            'official_integrations',
+            _backendClient.fetchOfficialIntegrations(
+              backendUrl,
+              agentId: agentId,
+            ),
+            const <Map<String, dynamic>>[],
+          );
+      final memoryFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'memory_overview',
+        _backendClient.fetchMemoryOverview(backendUrl, agentId: agentId),
+        const <String, dynamic>{},
       );
-      final conversationsFuture = _backendClient.fetchConversations(
-        backendUrl,
-        agentId: agentId,
+      final memoriesFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
+        'memories',
+        _backendClient.fetchMemories(backendUrl, agentId: agentId),
+        const <Map<String, dynamic>>[],
       );
-      final schedulerFuture = _backendClient.fetchSchedulerTasks(backendUrl);
-      final mcpFuture = _backendClient.fetchMcpServers(backendUrl);
+      final conversationsFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
+        'memory_conversations',
+        _backendClient.fetchConversations(backendUrl, agentId: agentId),
+        const <Map<String, dynamic>>[],
+      );
+      final schedulerFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
+        'scheduler_tasks',
+        _backendClient.fetchSchedulerTasks(backendUrl),
+        const <Map<String, dynamic>>[],
+      );
+      final mcpFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
+        'mcp_servers',
+        _backendClient.fetchMcpServers(backendUrl),
+        const <Map<String, dynamic>>[],
+      );
       final recordingsFuture = _backendClient
           .fetchRecordingSessions(backendUrl)
           .catchError((_) => const <Map<String, dynamic>>[]);
@@ -2577,7 +2619,11 @@ class NeoAgentController extends ChangeNotifier {
 
       Map<String, dynamic>? healthResponse;
       try {
-        healthResponse = await _backendClient.fetchHealthStatus(backendUrl);
+        healthResponse = await _softRefreshLoad<Map<String, dynamic>>(
+          'health_status',
+          _backendClient.fetchHealthStatus(backendUrl),
+          const <String, dynamic>{},
+        );
       } catch (_) {
         healthResponse = null;
       }
@@ -2585,13 +2631,9 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
 
-      try {
-        officialIntegrations = (await officialIntegrationsFuture)
-            .map(OfficialIntegrationItem.fromJson)
-            .toList();
-      } catch (_) {
-        officialIntegrations = const <OfficialIntegrationItem>[];
-      }
+      officialIntegrations = (await officialIntegrationsFuture)
+          .map(OfficialIntegrationItem.fromJson)
+          .toList();
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
@@ -2724,6 +2766,24 @@ class NeoAgentController extends ChangeNotifier {
 
   bool _isCurrentAuthCycle(int authCycle) =>
       isAuthenticated && _authCycle == authCycle;
+
+  Future<T> _softRefreshLoad<T>(
+    String label,
+    Future<T> future,
+    T fallback,
+  ) async {
+    try {
+      return await future;
+    } catch (error, stackTrace) {
+      AppDiagnostics.log(
+        'ui.refresh',
+        '$label.failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return fallback;
+    }
+  }
 
   Future<void> refreshRunsOnly() async {
     try {
@@ -5614,6 +5674,22 @@ class NeoAgentController extends ChangeNotifier {
     }
     if (lower.contains('health connect')) {
       return text;
+    }
+    if (lower.contains('xmlhttprequest error') ||
+        lower.contains('failed to fetch') ||
+        lower.contains('networkerror') ||
+        lower.contains('load failed')) {
+      final details = _extractMeaningfulErrorDetails(text);
+      return details.isNotEmpty
+          ? 'The web app could not reach the NeoAgent backend.\n\n$details'
+          : 'The web app could not reach the NeoAgent backend.';
+    }
+    if (lower.contains('content security policy') ||
+        lower.contains('connect-src')) {
+      final details = _extractMeaningfulErrorDetails(text);
+      return details.isNotEmpty
+          ? 'The browser blocked a required request because of Content Security Policy.\n\n$details'
+          : 'The browser blocked a required request because of Content Security Policy.';
     }
     if (_shouldExposeErrorText(text)) {
       return _extractMeaningfulErrorDetails(text);
