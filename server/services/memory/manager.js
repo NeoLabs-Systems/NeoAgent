@@ -256,8 +256,9 @@ class MemoryManager {
 
     // Update access counts
     if (results.length) {
-      const ids = results.map(r => `'${r.id}'`).join(',');
-      db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id IN (${ids})`).run();
+      const ids = results.map(r => r.id);
+      const placeholders = ids.map(() => '?').join(',');
+      db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id IN (${placeholders})`).run(...ids);
     }
 
     return results.map(({ id, category, content, importance, created_at }) => ({

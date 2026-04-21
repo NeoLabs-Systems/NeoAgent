@@ -33,11 +33,8 @@ function attachUser(req, res, next) {
     );
 
     if (cacheFresh) {
-      const alive = db.prepare('SELECT id FROM users WHERE id = ?').get(req.session.userId);
-      if (alive) {
-        req.user = { ...cachedUser };
-        return next();
-      }
+      req.user = { ...cachedUser };
+      return next();
     }
 
     const user = db.prepare('SELECT id, username, email, created_at FROM users WHERE id = ?').get(req.session.userId);
