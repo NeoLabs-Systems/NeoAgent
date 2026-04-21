@@ -1302,7 +1302,8 @@ class NeoAgentController extends ChangeNotifier {
   bool get isLiveVoiceCaptureEngaged =>
       _isStartingLiveVoice || _liveVoiceCaptureActive;
 
-  bool get appUpdaterConfigured => app_release_updater.appUpdaterConfigured;
+  bool get appUpdaterConfigured =>
+      !kIsWeb && app_release_updater.appUpdaterConfigured;
 
   bool get appUpdateAvailable => availableAppUpdate != null;
 
@@ -1754,7 +1755,9 @@ class NeoAgentController extends ChangeNotifier {
       return;
     }
     if (!appUpdaterConfigured) {
-      appUpdateErrorMessage = 'App updates are not configured for this build.';
+      appUpdateErrorMessage = kIsWeb
+          ? 'Client app update checks are unavailable in the web app.'
+          : 'App updates are not configured for this build.';
       if (!silent) {
         notifyListeners();
       }
@@ -14621,7 +14624,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ),
                 ),
                 FilledButton.icon(
-                  onPressed: controller.isCheckingAppUpdate
+                  onPressed:
+                      controller.isCheckingAppUpdate ||
+                          !controller.appUpdaterConfigured
                       ? null
                       : () => controller.checkForAppUpdates(),
                   style: FilledButton.styleFrom(backgroundColor: _accent),
@@ -14645,7 +14650,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 12),
             if (!controller.appUpdaterConfigured)
               Text(
-                'Client app updates are not configured for this build.',
+                kIsWeb
+                    ? 'Client app update checks are disabled in the web app to avoid blocked browser-side GitHub requests.'
+                    : 'Client app updates are not configured for this build.',
                 style: TextStyle(color: _textSecondary, height: 1.5),
               )
             else ...<Widget>[
