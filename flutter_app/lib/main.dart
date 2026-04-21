@@ -1790,17 +1790,16 @@ class NeoAgentController extends ChangeNotifier {
           (status['email'] is Map &&
           (status['email'] as Map)['configured'] == true);
       deploymentProfile = status['deploymentProfile']?.toString() ?? 'private';
-        final rawAuthProviders = status['providers'];
-        final authProviderRows = rawAuthProviders is List
+      final rawAuthProviders = status['providers'];
+      final authProviderRows = rawAuthProviders is List
           ? rawAuthProviders
           : rawAuthProviders is Map
           ? rawAuthProviders.values.toList(growable: false)
           : const <dynamic>[];
-      authProviders =
-          authProviderRows
-              .whereType<Map<dynamic, dynamic>>()
-              .map(AuthProviderCatalogItem.fromJson)
-              .toList();
+      authProviders = authProviderRows
+          .whereType<Map<dynamic, dynamic>>()
+          .map(AuthProviderCatalogItem.fromJson)
+          .toList();
 
       if (status['authenticated'] == true &&
           status['user'] is Map<String, dynamic>) {
@@ -2040,10 +2039,12 @@ class NeoAgentController extends ChangeNotifier {
     };
     final deviceClass = switch (true) {
       _ when kIsWeb => 'desktop',
-      _ when defaultTargetPlatform == TargetPlatform.android ||
+      _
+          when defaultTargetPlatform == TargetPlatform.android ||
               defaultTargetPlatform == TargetPlatform.iOS =>
         'mobile',
-      _ when defaultTargetPlatform == TargetPlatform.macOS ||
+      _
+          when defaultTargetPlatform == TargetPlatform.macOS ||
               defaultTargetPlatform == TargetPlatform.windows ||
               defaultTargetPlatform == TargetPlatform.linux =>
         'desktop',
@@ -2838,8 +2839,7 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       agentProfiles =
-          (profilesResponse['agents'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<dynamic, dynamic>>()
+          _jsonMapList(profilesResponse['agents'], fallbackToMapValues: true)
               .map(AgentProfile.fromJson)
               .where((agent) => agent.id.isNotEmpty)
               .toList();
@@ -3002,34 +3002,26 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
 
-      chatMessages = (history['messages'] as List<dynamic>? ?? const [])
-          .whereType<Map<dynamic, dynamic>>()
-          .map((item) => ChatEntry.fromJson(item))
-          .toList();
+      chatMessages = _jsonMapList(
+        history['messages'],
+        fallbackToMapValues: true,
+      ).map(ChatEntry.fromJson).toList();
 
-      supportedModels =
-          (modelsResponse['models'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<dynamic, dynamic>>()
-              .map((item) => ModelMeta.fromJson(item))
-              .toList();
+      supportedModels = _jsonMapList(
+        modelsResponse['models'],
+        fallbackToMapValues: true,
+      ).map(ModelMeta.fromJson).toList();
 
-      aiProviders =
-          ((providersResponse['providers'] is List)
-              ? providersResponse['providers'] as List<dynamic>
-              : (providersResponse['providers'] is Map)
-              ? (providersResponse['providers'] as Map)
-                .values
-                .toList(growable: false)
-              : const <dynamic>[])
-              .whereType<Map<dynamic, dynamic>>()
-              .map((item) => AiProviderMeta.fromJson(item))
-              .toList();
+      aiProviders = _jsonMapList(
+        providersResponse['providers'],
+        fallbackToMapValues: true,
+      ).map(AiProviderMeta.fromJson).toList();
 
       settings = Map<String, dynamic>.from(settingsResponse);
-      recentRuns = (runsResponse['runs'] as List<dynamic>? ?? const [])
-          .whereType<Map<dynamic, dynamic>>()
-          .map((item) => RunSummary.fromJson(item))
-          .toList();
+      recentRuns = _jsonMapList(
+        runsResponse['runs'],
+        fallbackToMapValues: true,
+      ).map(RunSummary.fromJson).toList();
       versionInfo = versionResponse;
       backendHealthStatus = healthResponse;
       tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
@@ -3071,14 +3063,10 @@ class NeoAgentController extends ChangeNotifier {
           desktopRuntime['selectedDeviceId']?.toString().trim().isEmpty ?? true
           ? null
           : desktopRuntime['selectedDeviceId']?.toString();
-      desktopDevices =
-          (desktopRuntime['devices'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<dynamic, dynamic>>()
-              .map(
-                (item) =>
-                    item.map((key, value) => MapEntry(key.toString(), value)),
-              )
-              .toList();
+      desktopDevices = _jsonMapList(
+        desktopRuntime['devices'],
+        fallbackToMapValues: true,
+      );
       await _recordingBridge.refreshStatus();
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
@@ -3134,10 +3122,10 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         agentId: _scopedAgentId,
       );
-      recentRuns = (runsResponse['runs'] as List<dynamic>? ?? const [])
-          .whereType<Map<dynamic, dynamic>>()
-          .map((item) => RunSummary.fromJson(item))
-          .toList();
+      recentRuns = _jsonMapList(
+        runsResponse['runs'],
+        fallbackToMapValues: true,
+      ).map(RunSummary.fromJson).toList();
       _runDetailsCache.clear();
       tokenUsage = TokenUsageSnapshot.fromJson(
         await _backendClient.fetchTokenUsageSummary(
@@ -3312,14 +3300,10 @@ class NeoAgentController extends ChangeNotifier {
           desktopRuntime['selectedDeviceId']?.toString().trim().isEmpty ?? true
           ? null
           : desktopRuntime['selectedDeviceId']?.toString();
-      desktopDevices =
-          (desktopRuntime['devices'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<dynamic, dynamic>>()
-              .map(
-                (item) =>
-                    item.map((key, value) => MapEntry(key.toString(), value)),
-              )
-              .toList();
+      desktopDevices = _jsonMapList(
+        desktopRuntime['devices'],
+        fallbackToMapValues: true,
+      );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -3362,11 +3346,19 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         includeSystem: includeSystem,
       );
-      androidInstalledApps =
-          (response['packages'] as List<dynamic>? ?? const [])
-              .map((item) => item.toString())
-              .where((item) => item.isNotEmpty)
-              .toList();
+      androidInstalledApps = _jsonStringList(
+        response['packages'],
+        nestedKeys: const <String>[
+          'items',
+          'data',
+          'results',
+          'rows',
+          'values',
+          'list',
+          'packages',
+        ],
+        fallbackToMapValues: true,
+      );
       notifyListeners();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -3575,9 +3567,10 @@ class NeoAgentController extends ChangeNotifier {
     if (isRunningDeviceAction) {
       return;
     }
-    final devices =
-        (androidRuntime['devices'] as List<dynamic>? ?? const <dynamic>[])
-            .whereType<Map<dynamic, dynamic>>();
+    final devices = _jsonMapList(
+      androidRuntime['devices'],
+      fallbackToMapValues: true,
+    );
     final online = devices.any(
       (device) => device['status']?.toString() == 'device',
     );
@@ -3729,14 +3722,10 @@ class NeoAgentController extends ChangeNotifier {
       if (screenshot != null && screenshot.isNotEmpty) {
         desktopScreenshotPath = screenshot;
       }
-      final displays =
-          (result['displays'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<dynamic, dynamic>>()
-              .map(
-                (item) =>
-                    item.map((key, value) => MapEntry(key.toString(), value)),
-              )
-              .toList();
+      final displays = _jsonMapList(
+        result['displays'],
+        fallbackToMapValues: true,
+      );
       if (displays.isNotEmpty) {
         desktopDisplays = displays;
       }
@@ -5150,9 +5139,20 @@ class NeoAgentController extends ChangeNotifier {
       if (response['status'] is Map) {
         accountTwoFactor = Map<String, dynamic>.from(response['status'] as Map);
       }
-      return (response['recoveryCodes'] as List<dynamic>? ?? const <dynamic>[])
-          .map((item) => item.toString())
-          .toList();
+      return _jsonStringList(
+        response['recoveryCodes'],
+        nestedKeys: const <String>[
+          'items',
+          'data',
+          'results',
+          'rows',
+          'values',
+          'list',
+          'recoveryCodes',
+          'codes',
+        ],
+        fallbackToMapValues: true,
+      );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       return const <String>[];
@@ -5202,9 +5202,20 @@ class NeoAgentController extends ChangeNotifier {
       if (response['status'] is Map) {
         accountTwoFactor = Map<String, dynamic>.from(response['status'] as Map);
       }
-      return (response['recoveryCodes'] as List<dynamic>? ?? const <dynamic>[])
-          .map((item) => item.toString())
-          .toList();
+      return _jsonStringList(
+        response['recoveryCodes'],
+        nestedKeys: const <String>[
+          'items',
+          'data',
+          'results',
+          'rows',
+          'values',
+          'list',
+          'recoveryCodes',
+          'codes',
+        ],
+        fallbackToMapValues: true,
+      );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       return const <String>[];
@@ -5897,8 +5908,7 @@ class NeoAgentController extends ChangeNotifier {
         );
       }
 
-      final lastRun =
-          backendHealthStatus?['lastRun'] as Map<String, dynamic>? ?? const {};
+      final lastRun = _jsonMap(backendHealthStatus?['lastRun']);
       final lastWindowEndRaw = lastRun['sync_window_end']?.toString();
       final windowEnd = DateTime.now().toUtc();
       final windowStart = lastWindowEndRaw == null
@@ -6670,7 +6680,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
-      final steps = (payload['steps'] as List<dynamic>? ?? const <dynamic>[])
+      final steps = _jsonList(payload['steps'], fallbackToMapValues: true)
           .map((item) {
             if (item is Map) {
               return item['title']?.toString() ?? '';
@@ -7127,8 +7137,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
 
   bool get _androidOnline {
     final status = widget.controller.androidRuntime;
-    final devices = (status['devices'] as List<dynamic>? ?? const <dynamic>[])
-        .whereType<Map<dynamic, dynamic>>();
+    final devices = _jsonMapList(status['devices'], fallbackToMapValues: true);
     return devices.any((device) => device['status']?.toString() == 'device');
   }
 
@@ -13279,7 +13288,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     final payload = QrLoginScanPayload.tryParse(scanned);
     if (payload == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('That QR code is not a NeoAgent login request.')),
+        const SnackBar(
+          content: Text('That QR code is not a NeoAgent login request.'),
+        ),
       );
       return;
     }
@@ -13320,17 +13331,16 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Approved login for ${preview.requestedDevice.label}.',
-          ),
+          content: Text('Approved login for ${preview.requestedDevice.label}.'),
         ),
       );
     } catch (_) {
       if (!mounted) return;
-      final message = widget.controller.errorMessage ?? 'Could not approve QR login.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      final message =
+          widget.controller.errorMessage ?? 'Could not approve QR login.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -13585,10 +13595,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           Row(
             children: <Widget>[
               const Expanded(child: _SectionTitle('Approve QR login')),
-              _StatusPill(
-                label: 'Android only',
-                color: _accent,
-              ),
+              _StatusPill(label: 'Android only', color: _accent),
             ],
           ),
           const SizedBox(height: 12),
@@ -14070,7 +14077,7 @@ class _AccountSessionCard extends StatelessWidget {
                 if (session.userAgent.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 4),
                   Text(
-                    '${session.clientInfo.platformLabel} · ${session.clientInfo.browserLabel} · Created ${session.createdLabel}',
+                    '${session.clientPlatformLabel} · ${session.clientBrowserLabel} · Created ${session.createdLabel}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: _textMuted, fontSize: 12),
@@ -14113,10 +14120,7 @@ class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
               if (_handled) return;
               final raw = capture.barcodes
                   .map((barcode) => barcode.rawValue?.trim() ?? '')
-                  .firstWhere(
-                    (value) => value.isNotEmpty,
-                    orElse: () => '',
-                  );
+                  .firstWhere((value) => value.isNotEmpty, orElse: () => '');
               if (raw.isEmpty) return;
               _handled = true;
               Navigator.of(context).pop(raw);
@@ -14146,7 +14150,10 @@ class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
                     alignment: Alignment.topRight,
                     child: IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   const Spacer(),
@@ -14189,10 +14196,7 @@ class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
 }
 
 class _QrLoginApprovalDialog extends StatelessWidget {
-  const _QrLoginApprovalDialog({
-    required this.preview,
-    required this.busy,
-  });
+  const _QrLoginApprovalDialog({required this.preview, required this.busy});
 
   final QrLoginApprovalPreview preview;
   final bool busy;
@@ -14207,7 +14211,8 @@ class _QrLoginApprovalDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canApprove = preview.canApprove && !preview.isExpired && !preview.isClaimed;
+    final canApprove =
+        preview.canApprove && !preview.isExpired && !preview.isClaimed;
     return AlertDialog(
       backgroundColor: _bgCard,
       title: const Text('Approve QR login'),
@@ -14322,9 +14327,7 @@ const Map<String, List<String>> _voiceLiveModelsByProvider =
         'gpt-4o-realtime-preview',
         'gpt-4o-mini-realtime-preview',
       ],
-      'gemini': <String>[
-        'gemini-3.1-flash-live-preview',
-      ],
+      'gemini': <String>['gemini-3.1-flash-live-preview'],
     };
 
 const Map<String, List<String>> _voiceLiveVoicesByProvider =
@@ -14345,11 +14348,35 @@ const Map<String, List<String>> _voiceLiveVoicesByProvider =
         'cedar',
       ],
       'gemini': <String>[
-        'Kore', 'Puck', 'Charon', 'Zephyr', 'Leda', 'Aoede', 'Fenrir',
-        'Orus', 'Achernar', 'Achird', 'Algenib', 'Algieba', 'Alnilam',
-        'Autonoe', 'Callirrhoe', 'Despina', 'Enceladus', 'Erinome',
-        'Gacrux', 'Iocaste', 'Isonoe', 'Laomedeia', 'Larissa', 'Lysithea',
-        'Megaclite', 'Mimosa', 'Pulcherrima', 'Rasalgethi', 'Sadachbia',
+        'Kore',
+        'Puck',
+        'Charon',
+        'Zephyr',
+        'Leda',
+        'Aoede',
+        'Fenrir',
+        'Orus',
+        'Achernar',
+        'Achird',
+        'Algenib',
+        'Algieba',
+        'Alnilam',
+        'Autonoe',
+        'Callirrhoe',
+        'Despina',
+        'Enceladus',
+        'Erinome',
+        'Gacrux',
+        'Iocaste',
+        'Isonoe',
+        'Laomedeia',
+        'Larissa',
+        'Lysithea',
+        'Megaclite',
+        'Mimosa',
+        'Pulcherrima',
+        'Rasalgethi',
+        'Sadachbia',
         'Sulafat',
       ],
     };
@@ -16451,8 +16478,10 @@ class _LogsPanelState extends State<LogsPanel> {
       'health': <String, dynamic>{
         'status': backendStatus?['status'],
         'timestamp': backendStatus?['timestamp'],
-        'metricsCount':
-            (backendStatus?['metrics'] as List<dynamic>?)?.length ?? 0,
+        'metricsCount': _jsonList(
+          backendStatus?['metrics'],
+          fallbackToMapValues: true,
+        ).length,
         'lastRun': lastRun.isEmpty
             ? null
             : <String, dynamic>{
@@ -19165,19 +19194,21 @@ class HealthPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final deviceStatus = controller.deviceHealthStatus;
     final backendStatus = controller.backendHealthStatus;
-    final metrics = backendStatus?['metrics'] as List<dynamic>? ?? const [];
-    final lastRun = backendStatus?['lastRun'] as Map<String, dynamic>?;
-    final lastNonEmptyRun =
-        backendStatus?['lastNonEmptyRun'] as Map<String, dynamic>?;
-    final lastSummary = _jsonMap(lastRun?['summary']);
-    final lastNonEmptySummary = _jsonMap(lastNonEmptyRun?['summary']);
-    final lastRunRecordCount = _asInt(lastRun?['record_count']);
-    final lastSyncEmpty = lastRun != null && lastRunRecordCount == 0;
+    final metrics = _jsonList(
+      backendStatus?['metrics'],
+      fallbackToMapValues: true,
+    );
+    final lastRun = _jsonMap(backendStatus?['lastRun']);
+    final lastNonEmptyRun = _jsonMap(backendStatus?['lastNonEmptyRun']);
+    final lastSummary = _jsonMap(lastRun['summary']);
+    final lastNonEmptySummary = _jsonMap(lastNonEmptyRun['summary']);
+    final lastRunRecordCount = _asInt(lastRun['record_count']);
+    final lastSyncEmpty = lastRun.isNotEmpty && lastRunRecordCount == 0;
     final lastWindowEnd = _parseOptionalTimestamp(
-      lastRun?['sync_window_end']?.toString(),
+      lastRun['sync_window_end']?.toString(),
     );
     final lastNonEmptyWindowEnd = _parseOptionalTimestamp(
-      lastNonEmptyRun?['sync_window_end']?.toString(),
+      lastNonEmptyRun['sync_window_end']?.toString(),
     );
 
     return ListView(
@@ -19212,12 +19243,12 @@ class HealthPanel extends StatelessWidget {
             Expanded(
               child: _OverviewCard(
                 title: 'Backend sync',
-                value: lastRun == null
+                value: lastRun.isEmpty
                     ? 'No sync yet'
                     : lastSyncEmpty
                     ? 'No new data'
                     : '$lastRunRecordCount records',
-                helper: lastRun == null
+                helper: lastRun.isEmpty
                     ? 'Sync once to seed your backend.'
                     : lastWindowEnd == null
                     ? 'Last window end is unknown.'

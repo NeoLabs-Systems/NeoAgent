@@ -728,16 +728,16 @@ class RecordingSessionItem {
   factory RecordingSessionItem.fromJson(Map<dynamic, dynamic> json) {
     final rawSources = json['sources'];
     final sourceRows = rawSources is List
-      ? rawSources
-      : rawSources is Map
-      ? rawSources.values.toList(growable: false)
-      : const <dynamic>[];
+        ? rawSources
+        : rawSources is Map
+        ? rawSources.values.toList(growable: false)
+        : const <dynamic>[];
     final rawSegments = json['transcriptSegments'];
     final transcriptSegmentRows = rawSegments is List
-      ? rawSegments
-      : rawSegments is Map
-      ? rawSegments.values.toList(growable: false)
-      : const <dynamic>[];
+        ? rawSegments
+        : rawSegments is Map
+        ? rawSegments.values.toList(growable: false)
+        : const <dynamic>[];
     return RecordingSessionItem(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString().ifEmpty('Recording') ?? 'Recording',
@@ -748,11 +748,11 @@ class RecordingSessionItem {
       durationMs: _asInt(json['durationMs']),
       transcriptText: json['transcriptText']?.toString() ?? '',
       lastError: json['lastError']?.toString(),
-        sources: sourceRows
+      sources: sourceRows
           .whereType<Map<dynamic, dynamic>>()
           .map(RecordingSourceItem.fromJson)
           .toList(),
-        transcriptSegments: transcriptSegmentRows
+      transcriptSegments: transcriptSegmentRows
           .whereType<Map<dynamic, dynamic>>()
           .map(RecordingTranscriptSegment.fromJson)
           .toList(),
@@ -1007,8 +1007,12 @@ class VoiceAssistantLiveState {
       finalTranscript: finalTranscript ?? this.finalTranscript,
       assistantText: assistantText ?? this.assistantText,
       audioMimeType: audioMimeType ?? this.audioMimeType,
-      audioQueue: clearAudio ? const <Uint8List>[] : (audioQueue ?? this.audioQueue),
-      audioStreamDone: clearAudio ? false : (audioStreamDone ?? this.audioStreamDone),
+      audioQueue: clearAudio
+          ? const <Uint8List>[]
+          : (audioQueue ?? this.audioQueue),
+      audioStreamDone: clearAudio
+          ? false
+          : (audioStreamDone ?? this.audioStreamDone),
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -1024,10 +1028,10 @@ class RunDetailSnapshot {
   factory RunDetailSnapshot.fromJson(Map<dynamic, dynamic> json) {
     return RunDetailSnapshot(
       run: RunSummary.fromJson(_jsonMap(json['run'])),
-      steps: (json['steps'] as List<dynamic>? ?? const <dynamic>[])
-          .whereType<Map<dynamic, dynamic>>()
-          .map(RunStepItem.fromJson)
-          .toList(),
+      steps: _jsonMapList(
+        json['steps'],
+        fallbackToMapValues: true,
+      ).map(RunStepItem.fromJson).toList(),
       response: json['response']?.toString() ?? '',
     );
   }
@@ -1140,25 +1144,19 @@ class RunStepItem {
   }
 }
 
-Map<String, dynamic> _decodeMaybeJson(dynamic value) {
+dynamic _decodeMaybeJson(dynamic value) {
   if (value == null) {
-    return const <String, dynamic>{};
+    return null;
   }
-  if (value is Map<String, dynamic>) {
+  if (value is Map || value is List) {
     return value;
-  }
-  if (value is Map) {
-    return Map<String, dynamic>.from(value);
   }
   if (value is String && value.trim().isNotEmpty) {
     try {
-      final decoded = jsonDecode(value);
-      if (decoded is Map) {
-        return Map<String, dynamic>.from(decoded);
-      }
+      return jsonDecode(value);
     } catch (_) {}
   }
-  return const <String, dynamic>{};
+  return value;
 }
 
 class ChatEntry {
@@ -1184,15 +1182,10 @@ class ChatEntry {
       runId: json['run_id']?.toString(),
       senderName: json['sender_name']?.toString(),
       metadata: _jsonMap(_decodeMaybeJson(json['metadata'])),
-      toolCalls:
-          (_decodeMaybeJson(json['tool_calls']) as List<dynamic>? ??
-                  const <dynamic>[])
-              .whereType<Map<dynamic, dynamic>>()
-              .map(
-                (item) =>
-                    item.map((key, value) => MapEntry(key.toString(), value)),
-              )
-              .toList(),
+      toolCalls: _jsonMapList(
+        _decodeMaybeJson(json['tool_calls']),
+        fallbackToMapValues: true,
+      ),
       createdAt: _parseTimestamp(json['created_at']?.toString()),
     );
   }
@@ -1268,13 +1261,10 @@ class AgentProfile {
           json['canBeDelegatedTo'] != 0 &&
           json['can_be_delegated_to'] != false &&
           json['can_be_delegated_to'] != 0,
-      delegateTargets:
-          (json['delegateTargets'] as List<dynamic>? ??
-                  json['delegate_targets'] as List<dynamic>? ??
-                  const <dynamic>[])
-              .map((item) => item.toString())
-              .where((id) => id.isNotEmpty)
-              .toList(),
+      delegateTargets: _jsonStringList(
+        json['delegateTargets'] ?? json['delegate_targets'],
+        fallbackToMapValues: true,
+      ),
     );
   }
 
@@ -1613,20 +1603,15 @@ class UpdateStatusSnapshot {
           json['packageVersion']?.toString(),
       runtimeValidationReady:
           _jsonMap(json['runtimeValidation'])['ready'] != false,
-      runtimeValidationIssues:
-          (_jsonMap(json['runtimeValidation'])['issues'] as List<dynamic>? ??
-                  const <dynamic>[])
-              .map((item) => item.toString())
-              .toList(),
+      runtimeValidationIssues: _jsonStringList(
+        _jsonMap(json['runtimeValidation'])['issues'],
+        fallbackToMapValues: true,
+      ),
       runtimeAcceleration: _jsonMap(
         _jsonMap(json['runtimeValidation'])['vm'],
       )['acceleration']?.toString(),
-      changelog: (json['changelog'] as List<dynamic>? ?? const [])
-          .map((item) => item.toString())
-          .toList(),
-      logs: (json['logs'] as List<dynamic>? ?? const [])
-          .map((item) => item.toString())
-          .toList(),
+      changelog: _jsonStringList(json['changelog'], fallbackToMapValues: true),
+      logs: _jsonStringList(json['logs'], fallbackToMapValues: true),
     );
   }
 
@@ -2046,9 +2031,7 @@ class MemoryOverview {
     final coreRaw = json['coreMemory'];
     return MemoryOverview(
       assistantBehaviorNotes: json['assistantBehaviorNotes']?.toString() ?? '',
-      dailyLogs: (json['dailyLogs'] as List<dynamic>? ?? const [])
-          .map((item) => item.toString())
-          .toList(),
+      dailyLogs: _jsonStringList(json['dailyLogs'], fallbackToMapValues: true),
       apiKeys: apiKeysRaw is Map
           ? Map<String, String>.from(
               apiKeysRaw.map(
@@ -2266,9 +2249,9 @@ class AccountSessionItem {
   final DateTime? lastSeenAt;
   final DateTime? expiresAt;
 
-  _SessionClientInfo get clientInfo => _SessionClientInfo.parse(userAgent);
+  _SessionClientInfo get _clientInfo => _SessionClientInfo.parse(userAgent);
 
-  IconData get deviceIcon => switch (clientInfo.deviceClass) {
+  IconData get deviceIcon => switch (_clientInfo.deviceClass) {
     _SessionDeviceClass.mobile => Icons.smartphone_rounded,
     _SessionDeviceClass.tablet => Icons.tablet_mac_rounded,
     _SessionDeviceClass.desktop => Icons.laptop_mac_rounded,
@@ -2276,14 +2259,18 @@ class AccountSessionItem {
     _SessionDeviceClass.unknown => Icons.devices_other_rounded,
   };
 
+  String get clientPlatformLabel => _clientInfo.platformLabel;
+
+  String get clientBrowserLabel => _clientInfo.browserLabel;
+
   String get clientLabel {
     final parts = <String>[
-      clientInfo.platformLabel,
-      if (clientInfo.browserLabel.isNotEmpty &&
-          clientInfo.browserLabel != 'Unknown browser')
-        clientInfo.browserLabel,
+      clientPlatformLabel,
+      if (clientBrowserLabel.isNotEmpty &&
+          clientBrowserLabel != 'Unknown browser')
+        clientBrowserLabel,
     ];
-    return parts.join(' · ').ifEmpty('Unknown device') ?? 'Unknown device';
+    return parts.join(' · ').ifEmpty('Unknown device');
   }
 
   String get locationSummary {
@@ -2291,7 +2278,7 @@ class AccountSessionItem {
       if (location.trim().isNotEmpty) location.trim(),
       if (ipAddress.trim().isNotEmpty) ipAddress.trim(),
     ];
-    return parts.join(' · ').ifEmpty('Unknown location') ?? 'Unknown location';
+    return parts.join(' · ').ifEmpty('Unknown location');
   }
 
   String get lastSeenLabel =>
@@ -2567,14 +2554,15 @@ class QrLoginRequestedDevice {
 
   factory QrLoginRequestedDevice.fromJson(Map<dynamic, dynamic> json) {
     return QrLoginRequestedDevice(
-      label: json['label']?.toString().ifEmpty('Unknown device') ??
+      label:
+          json['label']?.toString().ifEmpty('Unknown device') ??
           'Unknown device',
-      platformLabel: json['platformLabel']?.toString().ifEmpty('Unknown') ??
-          'Unknown',
-      browserLabel: json['browserLabel']?.toString().ifEmpty('Unknown') ??
-          'Unknown',
-      deviceClass: json['deviceClass']?.toString().ifEmpty('unknown') ??
-          'unknown',
+      platformLabel:
+          json['platformLabel']?.toString().ifEmpty('Unknown') ?? 'Unknown',
+      browserLabel:
+          json['browserLabel']?.toString().ifEmpty('Unknown') ?? 'Unknown',
+      deviceClass:
+          json['deviceClass']?.toString().ifEmpty('unknown') ?? 'unknown',
       userAgent: json['userAgent']?.toString() ?? '',
       metadata: json['metadata'] is Map
           ? Map<String, dynamic>.from(json['metadata'] as Map)

@@ -699,14 +699,14 @@ class _LogoBadge extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: <Color>[_accent, _accentAlt],
+          colors: <Color>[_brandAccent, _brandAccentAlt],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(size * 0.34),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: _accent.withValues(alpha: 0.32),
+            color: _brandAccent.withValues(alpha: 0.32),
             blurRadius: 36,
             offset: const Offset(0, 10),
           ),
@@ -2075,7 +2075,14 @@ class _DesktopFloatingToolbarSurface extends StatelessWidget {
           runSpacing: 10,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: <Widget>[
-            if (compactWindow) const _LogoBadge(size: 34),
+            if (compactWindow)
+              const _BrandLockup(
+                logoSize: 34,
+                titleFontSize: 16,
+                direction: Axis.horizontal,
+                spacing: 10,
+                alignment: CrossAxisAlignment.start,
+              ),
             if (compactWindow)
               DragToMoveArea(
                 child: Container(
@@ -2271,6 +2278,76 @@ Map<String, dynamic> _jsonMap(dynamic value) {
     return Map<String, dynamic>.from(value);
   }
   return const <String, dynamic>{};
+}
+
+List<dynamic> _jsonList(
+  dynamic value, {
+  List<String> nestedKeys = const <String>[
+    'items',
+    'data',
+    'results',
+    'rows',
+    'values',
+    'list',
+  ],
+  bool fallbackToMapValues = false,
+}) {
+  if (value is List) {
+    return value;
+  }
+  if (value is Map) {
+    for (final key in nestedKeys) {
+      final nested = value[key];
+      if (nested is List) {
+        return nested;
+      }
+    }
+    if (fallbackToMapValues) {
+      return value.values.toList(growable: false);
+    }
+  }
+  return const <dynamic>[];
+}
+
+List<Map<String, dynamic>> _jsonMapList(
+  dynamic value, {
+  List<String> nestedKeys = const <String>[
+    'items',
+    'data',
+    'results',
+    'rows',
+    'values',
+    'list',
+  ],
+  bool fallbackToMapValues = false,
+}) {
+  return _jsonList(
+    value,
+    nestedKeys: nestedKeys,
+    fallbackToMapValues: fallbackToMapValues,
+  ).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+}
+
+List<String> _jsonStringList(
+  dynamic value, {
+  List<String> nestedKeys = const <String>[
+    'items',
+    'data',
+    'results',
+    'rows',
+    'values',
+    'list',
+  ],
+  bool fallbackToMapValues = false,
+}) {
+  return _jsonList(
+        value,
+        nestedKeys: nestedKeys,
+        fallbackToMapValues: fallbackToMapValues,
+      )
+      .map((item) => item?.toString() ?? '')
+      .where((item) => item.isNotEmpty)
+      .toList();
 }
 
 String _normalizeSuggestedWhitelistEntry(String platform, String entry) {

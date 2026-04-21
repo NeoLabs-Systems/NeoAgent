@@ -28,14 +28,10 @@ class HealthBridge {
       available: result['available'] == true,
       permissionsGranted: result['permissionsGranted'] == true,
       message: result['message']?.toString(),
-      grantedPermissions:
-          (result['grantedPermissions'] as List<dynamic>? ?? const [])
-              .map((item) => item.toString())
-              .toList(),
-      requiredPermissions:
-          (result['requiredPermissions'] as List<dynamic>? ?? const [])
-              .map((item) => item.toString())
-              .toList(),
+      grantedPermissions: _stringListFromDynamic(result['grantedPermissions']),
+      requiredPermissions: _stringListFromDynamic(
+        result['requiredPermissions'],
+      ),
     );
   }
 
@@ -109,4 +105,32 @@ class HealthBridgeException implements Exception {
 
   @override
   String toString() => message;
+}
+
+List<String> _stringListFromDynamic(dynamic value) {
+  if (value is List) {
+    return value
+        .map((item) => item?.toString() ?? '')
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+  if (value is Map) {
+    for (final key in const <String>[
+      'items',
+      'data',
+      'results',
+      'rows',
+      'values',
+      'list',
+    ]) {
+      final nested = value[key];
+      if (nested is List) {
+        return nested
+            .map((item) => item?.toString() ?? '')
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+    }
+  }
+  return const <String>[];
 }

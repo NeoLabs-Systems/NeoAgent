@@ -19,7 +19,7 @@ class SplashView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              _LogoBadge(size: 52),
+              _BrandLockup(logoSize: 52),
               SizedBox(height: 18),
               CircularProgressIndicator(),
               SizedBox(height: 16),
@@ -86,7 +86,7 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        const _LogoBadge(size: 60),
+                        const _BrandLockup(logoSize: 60),
                         const SizedBox(height: 22),
                         Text('FIRST-RUN SETUP', style: _sectionEyebrowStyle()),
                         const SizedBox(height: 10),
