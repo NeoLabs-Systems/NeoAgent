@@ -11,9 +11,10 @@
 
 <p align="center">A self-hosted, proactive AI agent with a Flutter client for web and Android.</p>
 
-| | |
-| --- | --- |
-| <img alt="WebUI" src="https://github.com/user-attachments/assets/3c76d59a-b6e3-4698-929b-9c94741ccf1e" height="420"> | <img height="494" alt="Android" src="https://github.com/user-attachments/assets/e8a0af7a-6881-485d-ad52-f3bc6f2023ca"> | <img alt="Mobile Telegram" src="https://github.com/user-attachments/assets/1fd41a9b-5452-4aa4-9478-888c8ad7363a" height="420"> |
+| | | | |
+| --- | --- | --- | --- |
+| <img alt="WebUI" src="https://github.com/user-attachments/assets/3c76d59a-b6e3-4698-929b-9c94741ccf1e" height="420"> | <img height="494" alt="Android" src="https://github.com/user-attachments/assets/e8a0af7a-6881-485d-ad52-f3bc6f2023ca"> | <img alt="Mobile Telegram" src="https://github.com/user-attachments/assets/1fd41a9b-5452-4aa4-9478-888c8ad7363a" height="420"> | <img height="494" alt="image" src="https://github.com/user-attachments/assets/d5a57282-0851-4902-9588-d8de4b82d45c"> |
+
 
 
 ## Install
