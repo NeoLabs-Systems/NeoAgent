@@ -164,6 +164,43 @@ class BackendClient {
     }, allowUnauthorized: true);
   }
 
+  Future<Map<String, dynamic>> createQrLoginChallenge({
+    required String baseUrl,
+    required Map<String, dynamic> requestMetadata,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/auth/qr-login/challenge',
+      <String, dynamic>{'requestMetadata': requestMetadata},
+      allowUnauthorized: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> getQrLoginChallengeStatus({
+    required String baseUrl,
+    required String challengeId,
+    required String pollToken,
+  }) async {
+    return getMap(
+      baseUrl,
+      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/status?token=${Uri.encodeQueryComponent(pollToken)}',
+      allowUnauthorized: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> claimQrLoginChallenge({
+    required String baseUrl,
+    required String challengeId,
+    required String pollToken,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/claim',
+      <String, dynamic>{'token': pollToken},
+      allowUnauthorized: true,
+    );
+  }
+
   Future<void> logout(String baseUrl) async {
     try {
       await postMap(
@@ -250,6 +287,30 @@ class BackendClient {
 
   Future<Map<String, dynamic>> fetchAccountSessions(String baseUrl) async {
     return getMap(baseUrl, '/api/account/sessions');
+  }
+
+  Future<Map<String, dynamic>> resolveQrLoginChallenge({
+    required String baseUrl,
+    required String challengeId,
+    required String secret,
+  }) async {
+    return postMap(baseUrl, '/api/account/qr-login/resolve', <String, dynamic>{
+      'challengeId': challengeId,
+      'secret': secret,
+    });
+  }
+
+  Future<Map<String, dynamic>> approveQrLoginChallenge({
+    required String baseUrl,
+    required String challengeId,
+    required String secret,
+    required Map<String, dynamic> approvalMetadata,
+  }) async {
+    return postMap(baseUrl, '/api/account/qr-login/approve', <String, dynamic>{
+      'challengeId': challengeId,
+      'secret': secret,
+      'approvalMetadata': approvalMetadata,
+    });
   }
 
   Future<Map<String, dynamic>> unlinkAccountProvider({

@@ -12,6 +12,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -1102,10 +1103,12 @@ class NeoAgentController extends ChangeNotifier {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   io.Socket? _socket;
   Timer? _updatePollTimer;
+  Timer? _qrLoginPollTimer;
   final Set<String> _backgroundRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   int _authCycle = 0;
+  bool _isPollingQrLogin = false;
   List<LogEntry> _serverLogs = const <LogEntry>[];
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
@@ -1126,6 +1129,8 @@ class NeoAgentController extends ChangeNotifier {
   bool isSavingReleaseChannel = false;
   bool isSyncingHealth = false;
   bool isRunningDeviceAction = false;
+  bool isPreparingQrLogin = false;
+  bool isApprovingQrLogin = false;
   bool isCheckingAppUpdate = false;
   bool isOpeningAppUpdate = false;
   bool socketConnected = false;
@@ -1145,6 +1150,7 @@ class NeoAgentController extends ChangeNotifier {
   String pendingTwoFactorUsername = '';
   String? errorMessage;
   String? authInfoMessage;
+  String? qrLoginErrorMessage;
   String appUpdateChannel = 'stable';
   bool appUpdateAutoCheckEnabled = true;
   String? installedAppVersion;
@@ -1160,6 +1166,7 @@ class NeoAgentController extends ChangeNotifier {
       const <AuthProviderCatalogItem>[];
   List<LinkedAuthProviderItem> linkedAuthProviders =
       const <LinkedAuthProviderItem>[];
+  QrLoginChallenge? qrLoginChallenge;
   Map<String, dynamic> settings = const <String, dynamic>{};
   Map<String, dynamic>? versionInfo;
   Map<String, dynamic>? backendHealthStatus;
@@ -1326,6 +1333,7 @@ class NeoAgentController extends ChangeNotifier {
   @override
   void dispose() {
     _updatePollTimer?.cancel();
+    _qrLoginPollTimer?.cancel();
     _socket?.dispose();
     _diagnosticLogSubscription?.cancel();
     _connectivitySubscription?.cancel();
@@ -2020,6 +2028,187 @@ class NeoAgentController extends ChangeNotifier {
     return '$scheme${trimmed.replaceFirst(RegExp(r'/$'), '')}';
   }
 
+  Map<String, dynamic> _qrLoginClientMetadata() {
+    final platformLabel = switch (true) {
+      _ when kIsWeb => 'Web browser',
+      _ when defaultTargetPlatform == TargetPlatform.android => 'Android app',
+      _ when defaultTargetPlatform == TargetPlatform.iOS => 'iPhone app',
+      _ when defaultTargetPlatform == TargetPlatform.macOS => 'macOS app',
+      _ when defaultTargetPlatform == TargetPlatform.windows => 'Windows app',
+      _ when defaultTargetPlatform == TargetPlatform.linux => 'Linux app',
+      _ => 'NeoAgent app',
+    };
+    final deviceClass = switch (true) {
+      _ when kIsWeb => 'desktop',
+      _ when defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS =>
+        'mobile',
+      _ when defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.linux =>
+        'desktop',
+      _ => 'unknown',
+    };
+    return <String, dynamic>{
+      'deviceLabel': platformLabel,
+      'platformLabel': platformLabel,
+      'browserLabel': kIsWeb ? 'Browser' : 'Flutter app',
+      'deviceClass': deviceClass,
+      'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+      'appMode': appMode.name,
+    };
+  }
+
+  void _stopQrLoginPolling() {
+    _qrLoginPollTimer?.cancel();
+    _qrLoginPollTimer = null;
+  }
+
+  void _clearQrLoginChallenge() {
+    _stopQrLoginPolling();
+    qrLoginChallenge = null;
+    qrLoginErrorMessage = null;
+    _isPollingQrLogin = false;
+  }
+
+  void _ensureQrLoginPolling() {
+    _stopQrLoginPolling();
+    final challenge = qrLoginChallenge;
+    if (challenge == null || !challenge.isUsable || isAuthenticated) {
+      return;
+    }
+    _qrLoginPollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      unawaited(_pollQrLoginChallenge());
+    });
+  }
+
+  Future<void> prepareQrLoginChallenge({bool force = false}) async {
+    if (requiresBackendUrlSetup || isAuthenticated || isAwaitingTwoFactor) {
+      _clearQrLoginChallenge();
+      notifyListeners();
+      return;
+    }
+    if (isPreparingQrLogin) return;
+    if (!force && qrLoginChallenge?.isUsable == true) {
+      _ensureQrLoginPolling();
+      return;
+    }
+
+    isPreparingQrLogin = true;
+    qrLoginErrorMessage = null;
+    if (force) {
+      qrLoginChallenge = null;
+    }
+    notifyListeners();
+
+    try {
+      final response = await _backendClient.createQrLoginChallenge(
+        baseUrl: backendUrl,
+        requestMetadata: _qrLoginClientMetadata(),
+      );
+      final challenge = QrLoginChallenge.fromJson(response);
+      if (!challenge.isUsable) {
+        throw Exception('QR login could not be started.');
+      }
+      qrLoginChallenge = challenge;
+      qrLoginErrorMessage = null;
+      _ensureQrLoginPolling();
+    } catch (error) {
+      _clearQrLoginChallenge();
+      qrLoginErrorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isPreparingQrLogin = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _pollQrLoginChallenge() async {
+    final challenge = qrLoginChallenge;
+    if (_isPollingQrLogin || challenge == null || !challenge.isUsable) {
+      return;
+    }
+    _isPollingQrLogin = true;
+    try {
+      final status = await _backendClient.getQrLoginChallengeStatus(
+        baseUrl: backendUrl,
+        challengeId: challenge.challengeId,
+        pollToken: challenge.pollToken,
+      );
+      final nextStatus = status['status']?.toString() ?? 'pending';
+      if (nextStatus == 'approved') {
+        await _claimQrLoginChallenge(challenge);
+        return;
+      }
+      if (nextStatus == 'expired' || nextStatus == 'claimed') {
+        await prepareQrLoginChallenge(force: true);
+      }
+    } catch (error) {
+      qrLoginErrorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    } finally {
+      _isPollingQrLogin = false;
+    }
+  }
+
+  Future<void> _claimQrLoginChallenge(QrLoginChallenge challenge) async {
+    try {
+      final response = await _backendClient.claimQrLoginChallenge(
+        baseUrl: backendUrl,
+        challengeId: challenge.challengeId,
+        pollToken: challenge.pollToken,
+      );
+      _clearQrLoginChallenge();
+      await _completeAuthenticatedResponse(
+        response,
+        retentionErrorMessage:
+            'QR login completed, but NeoAgent could not keep the session. Please try again.',
+      );
+    } catch (error) {
+      final message = _friendlyErrorMessage(error);
+      qrLoginErrorMessage = message;
+      if (message.toLowerCase().contains('expired') ||
+          message.toLowerCase().contains('already used')) {
+        await prepareQrLoginChallenge(force: true);
+      } else {
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<QrLoginApprovalPreview> resolveQrLoginApproval(
+    QrLoginScanPayload payload,
+  ) async {
+    final response = await _backendClient.resolveQrLoginChallenge(
+      baseUrl: backendUrl,
+      challengeId: payload.challengeId,
+      secret: payload.secret,
+    );
+    return QrLoginApprovalPreview.fromJson(response);
+  }
+
+  Future<QrLoginApprovalPreview> approveQrLogin(
+    QrLoginScanPayload payload,
+  ) async {
+    isApprovingQrLogin = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.approveQrLoginChallenge(
+        baseUrl: backendUrl,
+        challengeId: payload.challengeId,
+        secret: payload.secret,
+        approvalMetadata: _qrLoginClientMetadata(),
+      );
+      return QrLoginApprovalPreview.fromJson(response);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    } finally {
+      isApprovingQrLogin = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> _completeAuthenticatedResponse(
     Map<String, dynamic> response, {
     String? fallbackUsername,
@@ -2037,6 +2226,7 @@ class NeoAgentController extends ChangeNotifier {
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
     password = '';
+    _clearQrLoginChallenge();
     await _persistCredentials();
     await refresh();
     if (!isAuthenticated && retentionErrorMessage != null) {
@@ -2267,6 +2457,7 @@ class NeoAgentController extends ChangeNotifier {
     _disconnectSocket();
     _updatePollTimer?.cancel();
     _updatePollTimer = null;
+    _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
     isAwaitingTwoFactor = false;
@@ -5744,6 +5935,17 @@ class NeoAgentController extends ChangeNotifier {
     }
     if (lower.contains('too many attempts')) {
       return 'Too many sign-in attempts. Please wait and try again.';
+    }
+    if (lower.contains('qr login request was not found') ||
+        lower.contains('qr login request has expired') ||
+        lower.contains('this qr login request has expired')) {
+      return 'This QR login request expired. Generate a new code and try again.';
+    }
+    if (lower.contains('already used')) {
+      return 'This QR login request was already used.';
+    }
+    if (lower.contains('not approved yet')) {
+      return 'This QR login request is still waiting for approval.';
     }
     if (lower.contains('valid email')) {
       return 'Enter a valid email address.';
@@ -13061,6 +13263,77 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     super.dispose();
   }
 
+  bool get _supportsQrLoginApproval =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<void> _startQrLoginApproval() async {
+    final scanned = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => const _QrLoginScannerDialog(),
+    );
+    if (!mounted || scanned == null || scanned.trim().isEmpty) {
+      return;
+    }
+
+    final payload = QrLoginScanPayload.tryParse(scanned);
+    if (payload == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That QR code is not a NeoAgent login request.')),
+      );
+      return;
+    }
+
+    final scannedBackend = widget.controller._normalizeBackendUrl(
+      payload.backendUrl,
+    );
+    final currentBackend = widget.controller._normalizeBackendUrl(
+      widget.controller.backendUrl,
+    );
+    if (scannedBackend != currentBackend) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'This code belongs to a different NeoAgent server: ${payload.backendUrl}',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final preview = await widget.controller.resolveQrLoginApproval(payload);
+      if (!mounted) return;
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return _QrLoginApprovalDialog(
+            preview: preview,
+            busy: widget.controller.isApprovingQrLogin,
+          );
+        },
+      );
+      if (approved != true || !mounted) {
+        return;
+      }
+      await widget.controller.approveQrLogin(payload);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Approved login for ${preview.requestedDevice.label}.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      final message = widget.controller.errorMessage ?? 'Could not approve QR login.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 860;
@@ -13308,6 +13581,67 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        if (_supportsQrLoginApproval) ...<Widget>[
+          Row(
+            children: <Widget>[
+              const Expanded(child: _SectionTitle('Approve QR login')),
+              _StatusPill(
+                label: 'Android only',
+                color: _accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Scan QR login requests from signed-out devices and approve them from this authenticated mobile session.',
+            style: TextStyle(color: _textSecondary, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  _accent.withValues(alpha: 0.16),
+                  _success.withValues(alpha: 0.10),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _borderLight),
+            ),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                const _MetaPill(
+                  label: 'Passwordless sign-in',
+                  icon: Icons.qr_code_scanner_outlined,
+                ),
+                const _MetaPill(
+                  label: 'One-time approval',
+                  icon: Icons.verified_user_outlined,
+                ),
+                FilledButton.icon(
+                  onPressed: controller.isApprovingQrLogin
+                      ? null
+                      : _startQrLoginApproval,
+                  icon: controller.isApprovingQrLogin
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.camera_alt_outlined),
+                  label: const Text('Scan login QR'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
         _buildPasswordPanel(),
         const SizedBox(height: 24),
         Row(
@@ -13752,6 +14086,223 @@ class _AccountSessionCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _QrLoginScannerDialog extends StatefulWidget {
+  const _QrLoginScannerDialog();
+
+  @override
+  State<_QrLoginScannerDialog> createState() => _QrLoginScannerDialogState();
+}
+
+class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
+  bool _handled = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          MobileScanner(
+            fit: BoxFit.cover,
+            onDetect: (capture) {
+              if (_handled) return;
+              final raw = capture.barcodes
+                  .map((barcode) => barcode.rawValue?.trim() ?? '')
+                  .firstWhere(
+                    (value) => value.isNotEmpty,
+                    orElse: () => '',
+                  );
+              if (raw.isEmpty) return;
+              _handled = true;
+              Navigator.of(context).pop(raw);
+            },
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: <Color>[
+                  Colors.black.withValues(alpha: 0.72),
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.78),
+                ],
+                stops: const <double>[0, 0.42, 1],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                    ),
+                  ),
+                  const Spacer(),
+                  Center(
+                    child: Container(
+                      width: 260,
+                      height: 260,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Scan a NeoAgent login QR',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Point the camera at the code shown on the signed-out device. Approval stays on this phone.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QrLoginApprovalDialog extends StatelessWidget {
+  const _QrLoginApprovalDialog({
+    required this.preview,
+    required this.busy,
+  });
+
+  final QrLoginApprovalPreview preview;
+  final bool busy;
+
+  IconData get _deviceIcon => switch (preview.requestedDevice.deviceClass) {
+    'mobile' => Icons.smartphone_rounded,
+    'tablet' => Icons.tablet_mac_rounded,
+    'desktop' => Icons.laptop_mac_rounded,
+    'server' => Icons.dns_outlined,
+    _ => Icons.devices_other_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final canApprove = preview.canApprove && !preview.isExpired && !preview.isClaimed;
+    return AlertDialog(
+      backgroundColor: _bgCard,
+      title: const Text('Approve QR login'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _bgSecondary,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _border),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(_deviceIcon, color: _accent),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          preview.requestedDevice.label,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          [
+                            preview.requestLocation.label,
+                            if (preview.requestedAt != null)
+                              'Requested ${_formatTimestamp(preview.requestedAt!)}',
+                          ].join(' · '),
+                          style: TextStyle(color: _textSecondary, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                _MetaPill(
+                  label: preview.requestedDevice.platformLabel,
+                  icon: Icons.devices_outlined,
+                ),
+                _MetaPill(
+                  label: preview.requestedDevice.browserLabel,
+                  icon: Icons.language_outlined,
+                ),
+                if (preview.expiresAt != null)
+                  _MetaPill(
+                    label: 'Expires ${_formatTimestamp(preview.expiresAt!)}',
+                    icon: Icons.timer_outlined,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              preview.isClaimed
+                  ? 'This request has already been used.'
+                  : preview.isExpired
+                  ? 'This request has expired. Ask the other device to generate a new code.'
+                  : 'Approve this only if you started the login on that device just now.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: busy ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: !canApprove || busy
+              ? null
+              : () => Navigator.of(context).pop(true),
+          icon: busy
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.verified_user_outlined),
+          label: const Text('Approve login'),
+        ),
+      ],
     );
   }
 }

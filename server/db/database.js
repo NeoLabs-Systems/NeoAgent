@@ -90,6 +90,26 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS user_qr_login_challenges (
+    id TEXT PRIMARY KEY,
+    poll_token_hash TEXT UNIQUE NOT NULL,
+    approve_secret_hash TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    request_user_agent TEXT,
+    request_ip_address TEXT,
+    request_location_label TEXT,
+    request_location_json TEXT DEFAULT '{}',
+    request_metadata_json TEXT DEFAULT '{}',
+    approved_by_user_id INTEGER,
+    approved_session_hash TEXT,
+    approved_metadata_json TEXT DEFAULT '{}',
+    expires_at TEXT NOT NULL,
+    approved_at TEXT,
+    claimed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (approved_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
   CREATE TABLE IF NOT EXISTS user_email_tokens (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -379,6 +399,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agents_user ON agents(user_id, status, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_user_recovery_codes_user ON user_recovery_codes(user_id, used_at);
   CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, revoked_at, last_seen_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_user_qr_login_challenges_status ON user_qr_login_challenges(status, expires_at);
+  CREATE INDEX IF NOT EXISTS idx_user_qr_login_challenges_approver ON user_qr_login_challenges(approved_by_user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_user_email_tokens_lookup ON user_email_tokens(token_hash, consumed_at, expires_at);
   CREATE INDEX IF NOT EXISTS idx_user_email_tokens_user ON user_email_tokens(user_id, type, consumed_at);
   CREATE INDEX IF NOT EXISTS idx_user_auth_providers_user ON user_auth_providers(user_id, provider_key, updated_at DESC);

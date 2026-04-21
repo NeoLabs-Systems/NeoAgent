@@ -955,13 +955,19 @@ class _StatusPill extends StatelessWidget {
 }
 
 class _MetaPill extends StatelessWidget {
-  const _MetaPill({required this.label, required this.icon});
+  const _MetaPill({
+    required this.label,
+    required this.icon,
+    this.color,
+  });
 
   final String label;
   final IconData icon;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = color ?? const Color(0xFF5EEAD4);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -972,9 +978,47 @@ class _MetaPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 14, color: const Color(0xFF5EEAD4)),
+          Icon(icon, size: 14, color: accentColor),
           const SizedBox(width: 8),
           Text(label),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, size: 16, color: Colors.white.withValues(alpha: 0.72)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82),
+                fontSize: 13,
+              ),
+            ),
+          ),
         ],
       ),
     );

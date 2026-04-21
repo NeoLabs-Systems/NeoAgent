@@ -24,6 +24,11 @@ const {
   sendSignupConfirmation,
   sendUnusualLoginNotice,
 } = require('../services/account/service_email');
+const {
+  claimApprovedChallenge,
+  createChallenge,
+  getChallengeStatusForPoll,
+} = require('../services/account/qr_login');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -85,6 +90,12 @@ function establishSession(req, res, user) {
       }
     });
   });
+}
+
+function baseUrlFor(req) {
+  const configured = req.app?.locals?.httpRuntimeConfig?.publicUrl || process.env.PUBLIC_URL || '';
+  if (configured) return String(configured).replace(/\/+$/, '');
+  return `${req.protocol}://${req.get('host')}`;
 }
 
 function readAuthenticatedUser(req) {
@@ -547,6 +558,70 @@ router.post('/api/auth/password/forgot', authLimiter, async (req, res) => {
   } catch (err) {
     console.error('Forgot password error:', err);
     return finish();
+  }
+});
+
+router.post('/api/auth/qr-login/challenge', authLimiter, (req, res) => {
+  try {
+    const challenge = createChallenge(req, {
+      requestMetadata: req.body?.requestMetadata,
+    });
+    const payload = new URL('neoagent://qr-login');
+    payload.searchParams.set('v', '1');
+    payload.searchParams.set('backend', baseUrlFor(req));
+    payload.searchParams.set('challenge', challenge.challengeId);
+    payload.searchParams.set('secret', challenge.approveSecret);
+    res.json({
+      challengeId: challenge.challengeId,
+      pollToken: challenge.pollToken,
+      expiresAt: challenge.expiresAt,
+      status: challenge.status,
+      qrPayload: payload.toString(),
+      backendUrl: baseUrlFor(req),
+    });
+  } catch (error) {
+    res.status(Number(error?.statusCode || 500)).json({
+      error: error?.message || 'Could not create QR login request.',
+    });
+  }
+});
+
+router.get('/api/auth/qr-login/challenge/:id/status', authLimiter, (req, res) => {
+  try {
+    const pollToken = String(req.query?.token || '').trim();
+    if (!pollToken) {
+      return res.status(400).json({ error: 'QR login poll token is required.' });
+    }
+    res.json(
+      getChallengeStatusForPoll({
+        challengeId: req.params.id,
+        pollToken,
+      }),
+    );
+  } catch (error) {
+    res.status(Number(error?.statusCode || 500)).json({
+      error: error?.message || 'Could not read QR login status.',
+    });
+  }
+});
+
+router.post('/api/auth/qr-login/challenge/:id/claim', authLimiter, (req, res) => {
+  try {
+    const pollToken = String(req.body?.token || '').trim();
+    if (!pollToken) {
+      return res.status(400).json({ error: 'QR login poll token is required.' });
+    }
+    const result = claimApprovedChallenge({
+      challengeId: req.params.id,
+      pollToken,
+    });
+    updateLastLogin(result.user.id);
+    return establishSession(req, res, result.user);
+  } catch (error) {
+    const statusCode = Number(error?.statusCode || 500);
+    return res.status(statusCode).json({
+      error: error?.message || 'Could not complete QR login.',
+    });
   }
 });
 

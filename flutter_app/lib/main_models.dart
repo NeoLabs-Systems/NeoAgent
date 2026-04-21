@@ -2460,6 +2460,224 @@ class LinkedAuthProviderItem {
       lastUsedAt == null ? 'Not used yet' : _formatTimestamp(lastUsedAt!);
 }
 
+class QrLoginChallenge {
+  const QrLoginChallenge({
+    required this.challengeId,
+    required this.pollToken,
+    required this.qrPayload,
+    required this.backendUrl,
+    required this.status,
+    required this.expiresAt,
+  });
+
+  factory QrLoginChallenge.fromJson(Map<dynamic, dynamic> json) {
+    return QrLoginChallenge(
+      challengeId: json['challengeId']?.toString() ?? '',
+      pollToken: json['pollToken']?.toString() ?? '',
+      qrPayload: json['qrPayload']?.toString() ?? '',
+      backendUrl: json['backendUrl']?.toString() ?? '',
+      status: json['status']?.toString().ifEmpty('pending') ?? 'pending',
+      expiresAt: _parseOptionalTimestamp(json['expiresAt']?.toString()),
+    );
+  }
+
+  final String challengeId;
+  final String pollToken;
+  final String qrPayload;
+  final String backendUrl;
+  final String status;
+  final DateTime? expiresAt;
+
+  bool get isUsable =>
+      challengeId.isNotEmpty &&
+      pollToken.isNotEmpty &&
+      qrPayload.isNotEmpty &&
+      status != 'expired';
+
+  bool get isExpired =>
+      status == 'expired' ||
+      (expiresAt != null && expiresAt!.isBefore(DateTime.now()));
+
+  int get secondsRemaining {
+    final expires = expiresAt;
+    if (expires == null) return 0;
+    final diff = expires.difference(DateTime.now()).inSeconds;
+    return diff < 0 ? 0 : diff;
+  }
+}
+
+class QrLoginApprovalPreview {
+  const QrLoginApprovalPreview({
+    required this.challengeId,
+    required this.status,
+    required this.requestedAt,
+    required this.expiresAt,
+    required this.approvedAt,
+    required this.claimedAt,
+    required this.requestedDevice,
+    required this.requestLocation,
+  });
+
+  factory QrLoginApprovalPreview.fromJson(Map<dynamic, dynamic> json) {
+    return QrLoginApprovalPreview(
+      challengeId: json['challengeId']?.toString() ?? '',
+      status: json['status']?.toString().ifEmpty('pending') ?? 'pending',
+      requestedAt: _parseOptionalTimestamp(json['requestedAt']?.toString()),
+      expiresAt: _parseOptionalTimestamp(json['expiresAt']?.toString()),
+      approvedAt: _parseOptionalTimestamp(json['approvedAt']?.toString()),
+      claimedAt: _parseOptionalTimestamp(json['claimedAt']?.toString()),
+      requestedDevice: QrLoginRequestedDevice.fromJson(
+        json['requestedDevice'] is Map
+            ? json['requestedDevice'] as Map
+            : const <String, dynamic>{},
+      ),
+      requestLocation: QrLoginRequestLocation.fromJson(
+        json['requestLocation'] is Map
+            ? json['requestLocation'] as Map
+            : const <String, dynamic>{},
+      ),
+    );
+  }
+
+  final String challengeId;
+  final String status;
+  final DateTime? requestedAt;
+  final DateTime? expiresAt;
+  final DateTime? approvedAt;
+  final DateTime? claimedAt;
+  final QrLoginRequestedDevice requestedDevice;
+  final QrLoginRequestLocation requestLocation;
+
+  bool get canApprove => status == 'pending' || status == 'approved';
+  bool get isClaimed => status == 'claimed';
+  bool get isExpired =>
+      status == 'expired' ||
+      (expiresAt != null && expiresAt!.isBefore(DateTime.now()));
+}
+
+class QrLoginRequestedDevice {
+  const QrLoginRequestedDevice({
+    required this.label,
+    required this.platformLabel,
+    required this.browserLabel,
+    required this.deviceClass,
+    required this.userAgent,
+    required this.metadata,
+  });
+
+  factory QrLoginRequestedDevice.fromJson(Map<dynamic, dynamic> json) {
+    return QrLoginRequestedDevice(
+      label: json['label']?.toString().ifEmpty('Unknown device') ??
+          'Unknown device',
+      platformLabel: json['platformLabel']?.toString().ifEmpty('Unknown') ??
+          'Unknown',
+      browserLabel: json['browserLabel']?.toString().ifEmpty('Unknown') ??
+          'Unknown',
+      deviceClass: json['deviceClass']?.toString().ifEmpty('unknown') ??
+          'unknown',
+      userAgent: json['userAgent']?.toString() ?? '',
+      metadata: json['metadata'] is Map
+          ? Map<String, dynamic>.from(json['metadata'] as Map)
+          : const <String, dynamic>{},
+    );
+  }
+
+  final String label;
+  final String platformLabel;
+  final String browserLabel;
+  final String deviceClass;
+  final String userAgent;
+  final Map<String, dynamic> metadata;
+}
+
+class QrLoginRequestLocation {
+  const QrLoginRequestLocation({
+    required this.label,
+    required this.ipAddress,
+    required this.city,
+    required this.region,
+    required this.country,
+    required this.timezone,
+  });
+
+  factory QrLoginRequestLocation.fromJson(Map<dynamic, dynamic> json) {
+    return QrLoginRequestLocation(
+      label: json['label']?.toString().ifEmpty('Unknown') ?? 'Unknown',
+      ipAddress: json['ipAddress']?.toString(),
+      city: json['city']?.toString(),
+      region: json['region']?.toString(),
+      country: json['country']?.toString(),
+      timezone: json['timezone']?.toString(),
+    );
+  }
+
+  final String label;
+  final String? ipAddress;
+  final String? city;
+  final String? region;
+  final String? country;
+  final String? timezone;
+}
+
+class QrLoginScanPayload {
+  const QrLoginScanPayload({
+    required this.backendUrl,
+    required this.challengeId,
+    required this.secret,
+    required this.version,
+  });
+
+  static QrLoginScanPayload? tryParse(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+
+    try {
+      final uri = Uri.parse(trimmed);
+      if (uri.scheme == 'neoagent' && uri.host == 'qr-login') {
+        final backendUrl = uri.queryParameters['backend']?.trim() ?? '';
+        final challengeId = uri.queryParameters['challenge']?.trim() ?? '';
+        final secret = uri.queryParameters['secret']?.trim() ?? '';
+        final version = uri.queryParameters['v']?.trim() ?? '1';
+        if (backendUrl.isNotEmpty &&
+            challengeId.isNotEmpty &&
+            secret.isNotEmpty) {
+          return QrLoginScanPayload(
+            backendUrl: backendUrl,
+            challengeId: challengeId,
+            secret: secret,
+            version: version,
+          );
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is! Map) return null;
+      final backendUrl = decoded['backendUrl']?.toString().trim() ?? '';
+      final challengeId = decoded['challengeId']?.toString().trim() ?? '';
+      final secret = decoded['secret']?.toString().trim() ?? '';
+      final version = decoded['version']?.toString().trim() ?? '1';
+      if (backendUrl.isEmpty || challengeId.isEmpty || secret.isEmpty) {
+        return null;
+      }
+      return QrLoginScanPayload(
+        backendUrl: backendUrl,
+        challengeId: challengeId,
+        secret: secret,
+        version: version,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final String backendUrl;
+  final String challengeId;
+  final String secret;
+  final String version;
+}
+
 class ActiveRunState {
   const ActiveRunState({
     required this.runId,

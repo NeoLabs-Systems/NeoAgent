@@ -34,6 +34,10 @@ const {
   sendEmailChangeRequestedNotice,
   sendPasswordChangedNotice,
 } = require('../services/account/service_email');
+const {
+  approveChallenge,
+  resolveChallengeForApproval,
+} = require('../services/account/qr_login');
 
 const accountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -216,6 +220,38 @@ router.post('/2fa/recovery-codes', accountLimiter, async (req, res) => {
     res.json(await regenerateRecoveryCodes(req.session.userId, {
       currentPassword: req.body?.currentPassword,
       code: req.body?.code,
+    }));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.post('/qr-login/resolve', accountLimiter, (req, res) => {
+  try {
+    const challengeId = String(req.body?.challengeId || '').trim();
+    const secret = String(req.body?.secret || '').trim();
+    if (!challengeId || !secret) {
+      return res.status(400).json({ error: 'Challenge id and QR secret are required.' });
+    }
+    res.json(resolveChallengeForApproval({ challengeId, secret }));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.post('/qr-login/approve', accountLimiter, (req, res) => {
+  try {
+    const challengeId = String(req.body?.challengeId || '').trim();
+    const secret = String(req.body?.secret || '').trim();
+    if (!challengeId || !secret) {
+      return res.status(400).json({ error: 'Challenge id and QR secret are required.' });
+    }
+    res.json(approveChallenge({
+      challengeId,
+      secret,
+      userId: req.session.userId,
+      approverSessionId: req.sessionID,
+      approvalMetadata: req.body?.approvalMetadata,
     }));
   } catch (err) {
     sendRouteError(res, err);

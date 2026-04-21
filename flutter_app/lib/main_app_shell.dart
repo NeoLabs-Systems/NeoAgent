@@ -310,6 +310,462 @@ class _AuthViewState extends State<AuthView> {
     }
   }
 
+  void _ensureQrLoginChallenge({bool force = false}) {
+    if (!mounted) return;
+    unawaited(widget.controller.prepareQrLoginChallenge(force: force));
+  }
+
+  Widget _buildAuthFormPane({
+    required NeoAgentController controller,
+    required List<AuthProviderCatalogItem> availableProviders,
+    required bool awaitingTwoFactor,
+    required bool showRegisterToggle,
+    required String title,
+    required String subtitle,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Column(
+          children: <Widget>[
+            const _LogoBadge(size: 58),
+            const SizedBox(height: 18),
+            Text(
+              'NeoOS',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 26),
+        Text(
+          awaitingTwoFactor ? 'Verification' : title.toUpperCase(),
+          style: _sectionEyebrowStyle(),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          awaitingTwoFactor ? 'Enter 2FA code' : title,
+          style: _displayTitleStyle(30),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          awaitingTwoFactor
+              ? 'Open your authenticator app and enter the current NeoOS code.'
+              : subtitle,
+          style: TextStyle(color: _textSecondary, height: 1.5),
+        ),
+        const SizedBox(height: 20),
+        if (controller.errorMessage != null) ...<Widget>[
+          _InlineError(message: controller.errorMessage!),
+          const SizedBox(height: 16),
+        ],
+        if (controller.authInfoMessage != null) ...<Widget>[
+          _InlineSuccess(message: controller.authInfoMessage!),
+          const SizedBox(height: 24),
+        ],
+        if (awaitingTwoFactor) ...<Widget>[
+          TextField(
+            controller: _twoFactorController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '2FA or recovery code',
+            ),
+          ),
+        ] else ...<Widget>[
+          TextField(
+            controller: _usernameController,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(labelText: 'Username'),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _passwordController,
+            onChanged: (_) => setState(() {}),
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Password'),
+          ),
+          if (_registerMode) ...<Widget>[
+            const SizedBox(height: 10),
+            _PasswordStrengthIndicator(
+              info: _passwordStrengthInfo(
+                password: _passwordController.text,
+                username: _usernameController.text,
+                email: _emailController.text,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _emailController,
+              onChanged: (_) => setState(() {}),
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const <String>[AutofillHints.email],
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _confirmPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Confirm Password'),
+            ),
+          ],
+        ],
+        const SizedBox(height: 22),
+        FilledButton(
+          onPressed: controller.isAuthenticating
+              ? null
+              : () async {
+                  if (awaitingTwoFactor) {
+                    await controller.completeTwoFactorLogin(
+                      code: _twoFactorController.text,
+                    );
+                    return;
+                  }
+                  if (_registerMode &&
+                      _passwordController.text !=
+                          _confirmPasswordController.text) {
+                    widget.controller.showInlineError(
+                      'Passwords do not match.',
+                    );
+                    return;
+                  }
+                  if (_registerMode) {
+                    await controller.register(
+                      username: _usernameController.text,
+                      email: _emailController.text,
+                      password: _passwordController.text,
+                    );
+                  } else {
+                    await controller.login(
+                      username: _usernameController.text,
+                      password: _passwordController.text,
+                    );
+                  }
+                },
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(58),
+          ),
+          child: controller.isAuthenticating
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  awaitingTwoFactor
+                      ? 'Verify'
+                      : (_registerMode ? 'Create account' : 'Sign in'),
+                ),
+        ),
+        if (awaitingTwoFactor) ...<Widget>[
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: controller.isAuthenticating
+                ? null
+                : controller.cancelTwoFactorLogin,
+            child: const Text('Back to sign in'),
+          ),
+        ] else ...<Widget>[
+          if (availableProviders.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 16),
+            Row(
+              children: <Widget>[
+                Expanded(child: Divider(color: _borderLight)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    'or continue with',
+                    style: TextStyle(color: _textSecondary, fontSize: 12),
+                  ),
+                ),
+                Expanded(child: Divider(color: _borderLight)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...availableProviders.map(
+              (provider) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: OutlinedButton.icon(
+                  onPressed: controller.isAuthenticating
+                      ? null
+                      : () => controller.authenticateWithProvider(
+                            provider: provider.id,
+                            register: _registerMode,
+                          ),
+                  icon: provider.icon == 'google'
+                      ? const Text(
+                          'G',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF4285F4),
+                          ),
+                        )
+                      : const Icon(Icons.link),
+                  label: Text(
+                    _registerMode
+                        ? 'Register with ${provider.label}'
+                        : 'Sign in with ${provider.label}',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(54),
+                    backgroundColor: _bgPrimary.withValues(alpha: 0.18),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (!_registerMode && controller.serviceEmailConfigured) ...<Widget>[
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: controller.isAuthenticating
+                  ? null
+                  : _showForgotPasswordDialog,
+              child: const Text('Forgot password?'),
+            ),
+            if (!showRegisterToggle) const SizedBox(height: 12),
+          ],
+          if (showRegisterToggle) ...<Widget>[
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: controller.isAuthenticating
+                  ? null
+                  : () {
+                      setState(() {
+                        _registerMode = !_registerMode;
+                      });
+                      if (!_registerMode) {
+                        _ensureQrLoginChallenge(force: true);
+                      }
+                    },
+              child: Text(
+                _registerMode
+                    ? 'Already have an account? Sign in'
+                    : 'Need a new account? Register',
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildQrLoginPane(NeoAgentController controller) {
+    final challenge = controller.qrLoginChallenge;
+    final countdown = challenge?.secondsRemaining ?? 0;
+    final canShowQr = challenge?.isUsable == true && !(challenge?.isExpired ?? true);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            const Color(0xFF0A1D2E),
+            _bgSecondary.withValues(alpha: 0.96),
+            const Color(0xFF112B43),
+          ],
+        ),
+        border: Border.all(color: _borderLight.withValues(alpha: 0.45)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFF6EDBFF).withValues(alpha: 0.12),
+            blurRadius: 36,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: -24,
+            right: -12,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF6EDBFF).withValues(alpha: 0.12),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -36,
+            left: -18,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF58E0A2).withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    _MetaPill(
+                      label: 'Instant Login',
+                      icon: Icons.bolt_rounded,
+                      color: const Color(0xFF6EDBFF),
+                    ),
+                    _MetaPill(
+                      label: 'Mobile approval',
+                      icon: Icons.verified_user_outlined,
+                      color: const Color(0xFF58E0A2),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Scan with NeoOS on your phone',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Open Account settings on a signed-in Android device, scan this code, and approve the login without typing your password here.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Column(
+                    children: <Widget>[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 26,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: Center(
+                            child: canShowQr
+                                ? QrImageView(
+                                    data: challenge!.qrPayload,
+                                    version: QrVersions.auto,
+                                    eyeStyle: const QrEyeStyle(
+                                      eyeShape: QrEyeShape.square,
+                                      color: Color(0xFF04111D),
+                                    ),
+                                    dataModuleStyle: const QrDataModuleStyle(
+                                      dataModuleShape: QrDataModuleShape.square,
+                                      color: Color(0xFF04111D),
+                                    ),
+                                  )
+                                : controller.isPreparingQrLogin
+                                ? const SizedBox.square(
+                                    dimension: 40,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.qr_code_2_rounded,
+                                    size: 84,
+                                    color: _textMuted,
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: _InfoChip(
+                              icon: Icons.timer_outlined,
+                              label: canShowQr
+                                  ? 'Refreshes in ${countdown}s'
+                                  : 'Waiting for code',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: _InfoChip(
+                              icon: Icons.security_outlined,
+                              label: 'One-time approval only',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (controller.qrLoginErrorMessage != null) ...<Widget>[
+                  const SizedBox(height: 14),
+                  _InlineError(message: controller.qrLoginErrorMessage!),
+                ],
+                const SizedBox(height: 16),
+                Text(
+                  'The approval happens inside your authenticated mobile session, and this code expires automatically after a short window.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: controller.isPreparingQrLogin
+                      ? null
+                      : () => _ensureQrLoginChallenge(force: true),
+                  icon: controller.isPreparingQrLogin
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                  label: const Text('Refresh code'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -331,6 +787,16 @@ class _AuthViewState extends State<AuthView> {
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle =
         controller.registrationOpen && controller.hasUser;
+    final showQrLogin = !awaitingTwoFactor && !_registerMode;
+
+    if (showQrLogin &&
+        controller.qrLoginChallenge == null &&
+        !controller.isPreparingQrLogin &&
+        !controller.isAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _ensureQrLoginChallenge();
+      });
+    }
 
     return _AmbientBackdrop(
       child: Scaffold(
@@ -347,7 +813,9 @@ class _AuthViewState extends State<AuthView> {
                     padding: const EdgeInsets.all(24),
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 468),
+                        constraints: BoxConstraints(
+                          maxWidth: showQrLogin ? 980 : 468,
+                        ),
                         child: Container(
                           decoration: BoxDecoration(
                             gradient: _panelGradient,
@@ -357,281 +825,47 @@ class _AuthViewState extends State<AuthView> {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(34, 30, 34, 30),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: <Widget>[
-                                Column(
+                            child: LayoutBuilder(
+                              builder: (context, panelConstraints) {
+                                final useWideQrLayout =
+                                    showQrLogin &&
+                                    panelConstraints.maxWidth >= 820;
+                                final formPane = _buildAuthFormPane(
+                                  controller: controller,
+                                  availableProviders: availableProviders,
+                                  awaitingTwoFactor: awaitingTwoFactor,
+                                  showRegisterToggle: showRegisterToggle,
+                                  title: title,
+                                  subtitle: subtitle,
+                                );
+                                if (!showQrLogin) {
+                                  return formPane;
+                                }
+                                if (useWideQrLayout) {
+                                  return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Expanded(flex: 11, child: formPane),
+                                      const SizedBox(width: 24),
+                                      Expanded(
+                                        flex: 10,
+                                        child: _buildQrLoginPane(controller),
+                                      ),
+                                    ],
+                                  );
+                                }
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: <Widget>[
-                                    const _LogoBadge(size: 58),
-                                    const SizedBox(height: 18),
-                                    Text(
-                                      'NeoOS',
-                                      style: GoogleFonts.spaceGrotesk(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.4,
-                                      ),
-                                    ),
+                                    formPane,
+                                    const SizedBox(height: 22),
+                                    _buildQrLoginPane(controller),
                                   ],
-                                ),
-                                const SizedBox(height: 26),
-                                Text(
-                                  awaitingTwoFactor
-                                      ? 'Verification'
-                                      : title.toUpperCase(),
-                                  style: _sectionEyebrowStyle(),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  awaitingTwoFactor ? 'Enter 2FA code' : title,
-                                  style: _displayTitleStyle(30),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  awaitingTwoFactor
-                                      ? 'Open your authenticator app and enter the current NeoOS code.'
-                                      : subtitle,
-                                  style: TextStyle(
-                                    color: _textSecondary,
-                                    height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                if (controller.errorMessage !=
-                                    null) ...<Widget>[
-                                  _InlineError(
-                                    message: controller.errorMessage!,
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                                if (controller.authInfoMessage !=
-                                    null) ...<Widget>[
-                                  _InlineSuccess(
-                                    message: controller.authInfoMessage!,
-                                  ),
-                                  const SizedBox(height: 24),
-                                ],
-                                if (awaitingTwoFactor) ...<Widget>[
-                                  TextField(
-                                    controller: _twoFactorController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      labelText: '2FA or recovery code',
-                                    ),
-                                  ),
-                                ] else ...<Widget>[
-                                  TextField(
-                                    controller: _usernameController,
-                                    onChanged: (_) => setState(() {}),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Username',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  TextField(
-                                    controller: _passwordController,
-                                    onChanged: (_) => setState(() {}),
-                                    obscureText: true,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Password',
-                                    ),
-                                  ),
-                                  if (_registerMode) ...<Widget>[
-                                    const SizedBox(height: 10),
-                                    _PasswordStrengthIndicator(
-                                      info: _passwordStrengthInfo(
-                                        password: _passwordController.text,
-                                        username: _usernameController.text,
-                                        email: _emailController.text,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 14),
-                                    TextField(
-                                      controller: _emailController,
-                                      onChanged: (_) => setState(() {}),
-                                      keyboardType: TextInputType.emailAddress,
-                                      autofillHints: const <String>[
-                                        AutofillHints.email,
-                                      ],
-                                      decoration: const InputDecoration(
-                                        labelText: 'Email',
-                                      ),
-                                    ),
-                                    const SizedBox(height: 14),
-                                    TextField(
-                                      controller: _confirmPasswordController,
-                                      obscureText: true,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Confirm Password',
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                                const SizedBox(height: 22),
-                                FilledButton(
-                                  onPressed: controller.isAuthenticating
-                                      ? null
-                                      : () async {
-                                          if (awaitingTwoFactor) {
-                                            await controller
-                                                .completeTwoFactorLogin(
-                                                  code:
-                                                      _twoFactorController.text,
-                                                );
-                                            return;
-                                          }
-                                          if (_registerMode &&
-                                              _passwordController.text !=
-                                                  _confirmPasswordController
-                                                      .text) {
-                                            widget.controller.showInlineError(
-                                              'Passwords do not match.',
-                                            );
-                                            return;
-                                          }
-                                          if (_registerMode) {
-                                            await controller.register(
-                                              username:
-                                                  _usernameController.text,
-                                              email: _emailController.text,
-                                              password:
-                                                  _passwordController.text,
-                                            );
-                                          } else {
-                                            await controller.login(
-                                              username:
-                                                  _usernameController.text,
-                                              password:
-                                                  _passwordController.text,
-                                            );
-                                          }
-                                        },
-                                  style: FilledButton.styleFrom(
-                                    minimumSize: const Size.fromHeight(58),
-                                  ),
-                                  child: controller.isAuthenticating
-                                      ? const SizedBox.square(
-                                          dimension: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : Text(
-                                          awaitingTwoFactor
-                                              ? 'Verify'
-                                              : (_registerMode
-                                                    ? 'Create account'
-                                                    : 'Sign in'),
-                                        ),
-                                ),
-                                if (awaitingTwoFactor) ...<Widget>[
-                                  const SizedBox(height: 12),
-                                  TextButton(
-                                    onPressed: controller.isAuthenticating
-                                        ? null
-                                        : controller.cancelTwoFactorLogin,
-                                    child: const Text('Back to sign in'),
-                                  ),
-                                ] else ...<Widget>[
-                                  if (availableProviders
-                                      .isNotEmpty) ...<Widget>[
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: Divider(color: _borderLight),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                          ),
-                                          child: Text(
-                                            'or continue with',
-                                            style: TextStyle(
-                                              color: _textSecondary,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Divider(color: _borderLight),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 14),
-                                    ...availableProviders.map(
-                                      (provider) => Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 10,
-                                        ),
-                                        child: OutlinedButton.icon(
-                                          onPressed: controller.isAuthenticating
-                                              ? null
-                                              : () => controller
-                                                    .authenticateWithProvider(
-                                                      provider: provider.id,
-                                                      register: _registerMode,
-                                                    ),
-                                          icon: provider.icon == 'google'
-                                              ? const Text(
-                                                  'G',
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF4285F4),
-                                                  ),
-                                                )
-                                              : const Icon(Icons.link),
-                                          label: Text(
-                                            _registerMode
-                                                ? 'Register with ${provider.label}'
-                                                : 'Sign in with ${provider.label}',
-                                          ),
-                                          style: OutlinedButton.styleFrom(
-                                            minimumSize: const Size.fromHeight(
-                                              54,
-                                            ),
-                                            backgroundColor: _bgPrimary
-                                                .withValues(alpha: 0.18),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  if (!_registerMode &&
-                                      controller
-                                          .serviceEmailConfigured) ...<Widget>[
-                                    const SizedBox(height: 12),
-                                    TextButton(
-                                      onPressed: controller.isAuthenticating
-                                          ? null
-                                          : _showForgotPasswordDialog,
-                                      child: const Text('Forgot password?'),
-                                    ),
-                                    if (!showRegisterToggle)
-                                      const SizedBox(height: 12),
-                                  ],
-                                  if (showRegisterToggle) ...<Widget>[
-                                    const SizedBox(height: 12),
-                                    TextButton(
-                                      onPressed: controller.isAuthenticating
-                                          ? null
-                                          : () {
-                                              setState(() {
-                                                _registerMode = !_registerMode;
-                                              });
-                                            },
-                                      child: Text(
-                                        _registerMode
-                                            ? 'Already have an account? Sign in'
-                                            : 'Need a new account? Register',
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ],
+                                );
+                              },
                             ),
                           ),
                         ),
