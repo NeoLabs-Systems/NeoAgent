@@ -1,0 +1,77 @@
+name: Reusable Release Assets
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Release tag to upload assets to
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish-release-assets:
+    name: Attach Installers to Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: neoagent-windows-installer
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: neoagent-macos-installer
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: neoagent-linux-installer
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: neoagent-android-installer
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Collect release files
+        id: release_files
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(
+            dist/*.exe
+            dist/*.dmg
+            dist/*.deb
+            dist/*.pkg.tar.zst
+            dist/*.apk
+          )
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No release artifacts were downloaded."
+            exit 1
+          fi
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifacts to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: ${{ steps.release_files.outputs.files }}

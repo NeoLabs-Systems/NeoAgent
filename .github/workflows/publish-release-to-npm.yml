@@ -65,7 +65,7 @@ jobs:
         run: npm ci
 
       - name: Build bundled web client
-        run: NEOAGENT_BACKEND_URL= npm run flutter:build:web
+        run: NEOAGENT_BACKEND_URL='' npm run flutter:build:web
 
       - name: Verify production web bundle
         run: |

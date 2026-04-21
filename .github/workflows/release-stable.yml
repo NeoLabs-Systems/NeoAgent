@@ -51,7 +51,7 @@ jobs:
         run: npm ci
 
       - name: Build bundled web client
-        run: NEOAGENT_BACKEND_URL= npm run flutter:build:web
+        run: NEOAGENT_BACKEND_URL='' npm run flutter:build:web
 
       - name: Verify production web bundle
         run: |
@@ -95,4 +95,12 @@ jobs:
     with:
       ref: ${{ needs.release.outputs.release_sha }}
       release_tag: ${{ needs.release.outputs.release_tag }}
-      upload_to_release: true
+
+  publish-release-assets:
+    name: Publish Release Assets
+    needs:
+      - release
+      - build-installers
+    uses: ./.github/workflows/_publish-release-assets.yml
+    with:
+      release_tag: ${{ needs.release.outputs.release_tag }}

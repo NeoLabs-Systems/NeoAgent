@@ -12,11 +12,6 @@ on:
         required: false
         default: ''
         type: string
-      upload_to_release:
-        description: Attach built installers to the GitHub release identified by release_tag
-        required: false
-        default: false
-        type: boolean
     secrets:
       ANDROID_KEYSTORE_BASE64:
         required: false
@@ -391,10 +386,12 @@ jobs:
           fi
           KEYSTORE_PATH="$RUNNER_TEMP/neoagent-release.jks"
           printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "$KEYSTORE_PATH"
-          echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+          {
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH"
+            echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+            echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS"
+            echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -437,6 +434,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          BUILD_TOOLS_DIR=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          if [ -z "$BUILD_TOOLS_DIR" ]; then
+            echo "No Android build-tools directory found."
+            exit 1
+          fi
           APKS=(
             "../dist/android-build/app-release-standard.apk"
             "../dist/android-build/app-release-launcher.apk"
@@ -446,7 +448,7 @@ jobs:
               echo "APK not found at $APK_PATH"
               exit 1
             fi
-            "${ANDROID_HOME}/build-tools/$(ls "${ANDROID_HOME}/build-tools" | sort -V | tail -n 1)/apksigner" verify --print-certs "$APK_PATH"
+            "${BUILD_TOOLS_DIR}/apksigner" verify --print-certs "$APK_PATH"
             jarsigner -verify "$APK_PATH" >/dev/null
           done
 
@@ -468,83 +470,3 @@ jobs:
           name: neoagent-android-installer
           path: dist/*.apk
           if-no-files-found: error
-
-  publish-release-assets:
-    name: Attach Installers to Release
-    if: |
-      inputs.upload_to_release &&
-      inputs.release_tag != '' &&
-      (
-        needs.build-windows-installer.result == 'success' ||
-        needs.build-macos-installer.result == 'success' ||
-        needs.build-linux-installer.result == 'success' ||
-        needs.build-android-apks.result == 'success'
-      )
-    needs:
-      - build-windows-installer
-      - build-macos-installer
-      - build-linux-installer
-      - build-android-apks
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download Windows artifact
-        if: needs.build-windows-installer.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          name: neoagent-windows-installer
-          merge-multiple: true
-
-      - name: Download macOS artifact
-        if: needs.build-macos-installer.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          name: neoagent-macos-installer
-          merge-multiple: true
-
-      - name: Download Linux artifact
-        if: needs.build-linux-installer.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          name: neoagent-linux-installer
-          merge-multiple: true
-
-      - name: Download Android artifact
-        if: needs.build-android-apks.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          name: neoagent-android-installer
-          merge-multiple: true
-
-      - name: Collect release files
-        id: release_files
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          files=(
-            dist/*.exe
-            dist/*.dmg
-            dist/*.deb
-            dist/*.pkg.tar.zst
-            dist/*.apk
-          )
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "No release artifacts were downloaded."
-            exit 1
-          fi
-          {
-            echo 'files<<EOF'
-            printf '%s\n' "${files[@]}"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Upload artifacts to GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.release_tag }}
-          files: ${{ steps.release_files.outputs.files }}
