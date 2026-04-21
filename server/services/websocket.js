@@ -807,6 +807,11 @@ function setupWebSocket(io, services) {
     // ── Disconnect ──
 
     socket.on('disconnect', () => {
+      if (!voiceRuntimeManager || typeof voiceRuntimeManager.closeSession !== 'function') {
+        socket.data.voiceSessionIds?.clear?.();
+        console.log(`[WS] User ${userId} disconnected (${socket.id})`);
+        return;
+      }
       const activeVoiceSessionIds = Array.from(socket.data.voiceSessionIds || []);
       for (const sessionId of activeVoiceSessionIds) {
         void voiceRuntimeManager.closeSession(sessionId, 'socket_disconnected').catch((err) => {
