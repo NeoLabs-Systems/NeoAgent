@@ -7,6 +7,7 @@ const { clientIpFromRequest, lookupIpLocation } = require('./geoip');
 const { sessionHash } = require('./sessions');
 
 const QR_LOGIN_TTL_MS = 2 * 60 * 1000;
+const QR_LOGIN_TERMINAL_RETENTION_MS = 60 * 60 * 1000;
 
 function sqliteDateFromMs(ms) {
   return new Date(ms).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
@@ -135,6 +136,14 @@ function pruneExpiredChallenges() {
     WHERE status IN ('pending', 'approved')
       AND datetime(expires_at) <= datetime('now')
   `).run();
+  const retentionCutoff = sqliteDateFromMs(
+    Date.now() - QR_LOGIN_TERMINAL_RETENTION_MS,
+  );
+  db.prepare(`
+    DELETE FROM user_qr_login_challenges
+    WHERE status IN ('expired', 'claimed')
+      AND datetime(COALESCE(claimed_at, expires_at, created_at)) <= datetime(?)
+  `).run(retentionCutoff);
 }
 
 function getChallengeRowByApproveSecret(challengeId, secret) {

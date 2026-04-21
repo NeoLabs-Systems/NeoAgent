@@ -181,9 +181,10 @@ class BackendClient {
     required String challengeId,
     required String pollToken,
   }) async {
-    return getMap(
+    return postMap(
       baseUrl,
-      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/status?token=${Uri.encodeQueryComponent(pollToken)}',
+      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/status',
+      <String, dynamic>{'token': pollToken},
       allowUnauthorized: true,
     );
   }

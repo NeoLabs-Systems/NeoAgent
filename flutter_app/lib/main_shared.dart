@@ -721,6 +721,56 @@ class _LogoBadge extends StatelessWidget {
   }
 }
 
+class _BrandLockup extends StatelessWidget {
+  const _BrandLockup({
+    required this.logoSize,
+    this.titleFontSize = 28,
+    this.direction = Axis.vertical,
+    this.spacing = 18,
+    this.alignment = CrossAxisAlignment.center,
+  });
+
+  final double logoSize;
+  final double titleFontSize;
+  final Axis direction;
+  final double spacing;
+  final CrossAxisAlignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = Text(
+      'NeoOS',
+      style: GoogleFonts.spaceGrotesk(
+        fontSize: titleFontSize,
+        fontWeight: FontWeight.w700,
+        color: _textPrimary,
+        letterSpacing: -0.4,
+      ),
+    );
+
+    if (direction == Axis.horizontal) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _LogoBadge(size: logoSize),
+          SizedBox(width: spacing),
+          Flexible(child: title),
+        ],
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: alignment,
+      children: <Widget>[
+        _LogoBadge(size: logoSize),
+        SizedBox(height: spacing),
+        title,
+      ],
+    );
+  }
+}
+
 class _NeoAgentLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -955,11 +1005,7 @@ class _StatusPill extends StatelessWidget {
 }
 
 class _MetaPill extends StatelessWidget {
-  const _MetaPill({
-    required this.label,
-    required this.icon,
-    this.color,
-  });
+  const _MetaPill({required this.label, required this.icon, this.color});
 
   final String label;
   final IconData icon;
@@ -988,10 +1034,7 @@ class _MetaPill extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-  });
+  const _InfoChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;

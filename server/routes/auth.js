@@ -38,6 +38,22 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const qrLoginPollLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 180,
+  message: { error: 'Too many QR login status checks, try again shortly' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const qrLoginClaimLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: { error: 'Too many QR login completion attempts, try again shortly' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const passwordResetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 8,
@@ -586,9 +602,9 @@ router.post('/api/auth/qr-login/challenge', authLimiter, (req, res) => {
   }
 });
 
-router.get('/api/auth/qr-login/challenge/:id/status', authLimiter, (req, res) => {
+router.post('/api/auth/qr-login/challenge/:id/status', qrLoginPollLimiter, (req, res) => {
   try {
-    const pollToken = String(req.query?.token || '').trim();
+    const pollToken = String(req.body?.token || '').trim();
     if (!pollToken) {
       return res.status(400).json({ error: 'QR login poll token is required.' });
     }
@@ -605,7 +621,7 @@ router.get('/api/auth/qr-login/challenge/:id/status', authLimiter, (req, res) =>
   }
 });
 
-router.post('/api/auth/qr-login/challenge/:id/claim', authLimiter, (req, res) => {
+router.post('/api/auth/qr-login/challenge/:id/claim', qrLoginClaimLimiter, (req, res) => {
   try {
     const pollToken = String(req.body?.token || '').trim();
     if (!pollToken) {

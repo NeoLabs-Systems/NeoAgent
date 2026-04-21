@@ -202,6 +202,7 @@ class _AuthViewState extends State<AuthView> {
   late final TextEditingController _confirmPasswordController;
   late final TextEditingController _twoFactorController;
   bool _registerMode = false;
+  bool _qrAutoRequestedForVisibleMode = false;
 
   @override
   void initState() {
@@ -312,6 +313,9 @@ class _AuthViewState extends State<AuthView> {
 
   void _ensureQrLoginChallenge({bool force = false}) {
     if (!mounted) return;
+    if (force) {
+      _qrAutoRequestedForVisibleMode = true;
+    }
     unawaited(widget.controller.prepareQrLoginChallenge(force: force));
   }
 
@@ -327,20 +331,7 @@ class _AuthViewState extends State<AuthView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Column(
-          children: <Widget>[
-            const _LogoBadge(size: 58),
-            const SizedBox(height: 18),
-            Text(
-              'NeoOS',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
-              ),
-            ),
-          ],
-        ),
+        Column(children: <Widget>[const _BrandLockup(logoSize: 58)]),
         const SizedBox(height: 26),
         Text(
           awaitingTwoFactor ? 'Verification' : title.toUpperCase(),
@@ -445,9 +436,7 @@ class _AuthViewState extends State<AuthView> {
                     );
                   }
                 },
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(58),
-          ),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
           child: controller.isAuthenticating
               ? const SizedBox.square(
                   dimension: 20,
@@ -494,9 +483,9 @@ class _AuthViewState extends State<AuthView> {
                   onPressed: controller.isAuthenticating
                       ? null
                       : () => controller.authenticateWithProvider(
-                            provider: provider.id,
-                            register: _registerMode,
-                          ),
+                          provider: provider.id,
+                          register: _registerMode,
+                        ),
                   icon: provider.icon == 'google'
                       ? const Text(
                           'G',
@@ -540,6 +529,7 @@ class _AuthViewState extends State<AuthView> {
                         _registerMode = !_registerMode;
                       });
                       if (!_registerMode) {
+                        _qrAutoRequestedForVisibleMode = false;
                         _ensureQrLoginChallenge(force: true);
                       }
                     },
@@ -558,7 +548,8 @@ class _AuthViewState extends State<AuthView> {
   Widget _buildQrLoginPane(NeoAgentController controller) {
     final challenge = controller.qrLoginChallenge;
     final countdown = challenge?.secondsRemaining ?? 0;
-    final canShowQr = challenge?.isUsable == true && !(challenge?.isExpired ?? true);
+    final canShowQr =
+        challenge?.isUsable == true && !(challenge?.isExpired ?? true);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
@@ -790,12 +781,16 @@ class _AuthViewState extends State<AuthView> {
     final showQrLogin = !awaitingTwoFactor && !_registerMode;
 
     if (showQrLogin &&
-        controller.qrLoginChallenge == null &&
         !controller.isPreparingQrLogin &&
-        !controller.isAuthenticated) {
+        !controller.isAuthenticated &&
+        !_qrAutoRequestedForVisibleMode) {
+      _qrAutoRequestedForVisibleMode = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _ensureQrLoginChallenge();
       });
+    }
+    if (!showQrLogin) {
+      _qrAutoRequestedForVisibleMode = false;
     }
 
     return _AmbientBackdrop(
@@ -1203,31 +1198,13 @@ class _Sidebar extends StatelessWidget {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    const _LogoBadge(size: 34),
-                    const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'NeoOS',
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: _textPrimary,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'by NeoLabs',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _textSecondary,
-                              letterSpacing: 0.1,
-                            ),
-                          ),
-                        ],
+                      child: const _BrandLockup(
+                        logoSize: 34,
+                        titleFontSize: 18,
+                        direction: Axis.horizontal,
+                        spacing: 12,
+                        alignment: CrossAxisAlignment.start,
                       ),
                     ),
                   ],
@@ -1417,29 +1394,13 @@ class _MobileDrawer extends StatelessWidget {
                 children: <Widget>[
                   Row(
                     children: <Widget>[
-                      const _LogoBadge(size: 30),
-                      const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              'NeoOS',
-                              style: GoogleFonts.spaceGrotesk(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 18,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'by NeoLabs',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: _textSecondary,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                          ],
+                        child: const _BrandLockup(
+                          logoSize: 30,
+                          titleFontSize: 18,
+                          direction: Axis.horizontal,
+                          spacing: 10,
+                          alignment: CrossAxisAlignment.start,
                         ),
                       ),
                     ],

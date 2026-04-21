@@ -52,7 +52,7 @@ const sidebars = {
         'operations',
         {
           type: 'doc',
-          id: 'firmware-hygiene',
+          id: 'hardware',
           label: 'Waveshare 1.8inch AMOLED Setup',
         },
       ],
