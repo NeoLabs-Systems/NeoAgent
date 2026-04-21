@@ -1,4 +1,4 @@
-name: Publish Latest Release to NPM
+name: Publish Release to npm
 
 on:
   workflow_dispatch:
@@ -7,12 +7,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-latest-release-to-npm
+  group: publish-release-to-npm
   cancel-in-progress: false
 
 jobs:
   publish:
-    name: Publish latest GitHub release to NPM
+    name: Publish latest GitHub release to npm
     runs-on: ubuntu-latest
     steps:
       - name: Checkout default branch

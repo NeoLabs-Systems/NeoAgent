@@ -1,17 +1,17 @@
-name: Docs
+name: Deploy Docs
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'docs/**'
-      - 'README.md'
-      - 'docusaurus.config.js'
-      - 'sidebars.js'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/docs.yml'
+      - docs/**
+      - README.md
+      - docusaurus.config.js
+      - sidebars.js
+      - package.json
+      - package-lock.json
+      - .github/workflows/deploy-docs.yml
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build docs
+    name: Build docs site
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -54,7 +54,7 @@ jobs:
           path: build
 
   deploy:
-    name: Deploy docs
+    name: Deploy docs site
     needs: build
     runs-on: ubuntu-latest
     environment:

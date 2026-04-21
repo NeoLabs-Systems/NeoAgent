@@ -1,12 +1,12 @@
-name: Force Release
+name: Release Manual
 
 on:
   workflow_dispatch:
     inputs:
       version_bump:
-        description: 'Version bump type'
+        description: Version bump type
         required: true
-        default: 'patch'
+        default: patch
         type: choice
         options:
           - patch
@@ -20,8 +20,8 @@ permissions:
   id-token: write
 
 jobs:
-  force-release:
-    name: Bump version and publish release
+  release:
+    name: Bump version and publish manual release
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.bump.outputs.version }}
@@ -51,39 +51,32 @@ jobs:
       - name: Resolve latest tag and bump version
         id: bump
         run: |
-          # Fetch all tags so we know the latest release version
           git fetch --tags --force
-          
-          # Find the highest semantic version tag (fallback to v1.0.0)
+
           LATEST_TAG=$(git tag --list "v*" --sort=-v:refname | head -n 1)
           if [ -z "$LATEST_TAG" ]; then
             LATEST_TAG="v1.0.0"
           fi
-          
+
           LATEST_VERSION=${LATEST_TAG#v}
           echo "Syncing package.json to latest known release ($LATEST_VERSION)..."
-          
-          # Force package.json to match the latest tag without making a git tag
-          npm version $LATEST_VERSION --no-git-tag-version --allow-same-version
-          
-          # Now run the actual bump without committing yet
-          npm version ${{ github.event.inputs.version_bump }} --no-git-tag-version
-          
-          # Read the final bumped version
+
+          npm version "$LATEST_VERSION" --no-git-tag-version --allow-same-version
+          npm version "${{ github.event.inputs.version_bump }}" --no-git-tag-version
+
           NEW_VERSION=$(node -p "require('./package.json').version")
-          
-          # Manually commit and tag to bypass npm's strict working directory warnings
+
           git add package.json package-lock.json || true
           git commit -m "chore(release): v${NEW_VERSION} [skip ci]"
           git tag "v${NEW_VERSION}" -m "chore(release): v${NEW_VERSION}"
-          
-          echo "NEW_VERSION=v${NEW_VERSION}" >> $GITHUB_ENV
-          echo "version=v${NEW_VERSION}" >> $GITHUB_OUTPUT
+
+          echo "NEW_VERSION=v${NEW_VERSION}" >> "$GITHUB_ENV"
+          echo "version=v${NEW_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Push version bump
         run: |
           git push origin HEAD
-          git push origin ${{ env.NEW_VERSION }}
+          git push origin "${{ env.NEW_VERSION }}"
 
       - name: Install dependencies
         run: npm ci
@@ -98,7 +91,7 @@ jobs:
             exit 1
           fi
 
-      - name: Publish package to NPM
+      - name: Publish package to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish
@@ -107,7 +100,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create ${{ env.NEW_VERSION }} \
+          gh release create "${{ env.NEW_VERSION }}" \
             --title "Release ${{ env.NEW_VERSION }}" \
             --generate-notes \
             --latest
@@ -117,523 +110,12 @@ jobs:
         run: |
           echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-  build-windows-installer:
-    name: Build Windows installer (unsigned)
-    needs: force-release
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: flutter_app
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.force-release.outputs.release_sha }}
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Enable desktop platforms
-        shell: pwsh
-        run: flutter config --enable-windows-desktop
-
-      - name: Ensure Windows runner project exists
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "windows")) {
-            flutter create --platforms=windows .
-          }
-
-      - name: Install dependencies
-        shell: pwsh
-        run: flutter pub get
-
-      - name: Build Windows app
-        shell: pwsh
-        run: flutter build windows --release
-
-      - name: Resolve app version
-        shell: pwsh
-        id: version
-        env:
-          RELEASE_TAG: ${{ needs.force-release.outputs.release_tag }}
-        run: |
-          $raw = $env:RELEASE_TAG
-          if ([string]::IsNullOrWhiteSpace($raw)) {
-            $raw = "0.0.${{ github.run_number }}"
-          }
-          $version = $raw.TrimStart('v', 'V')
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup -y --no-progress
-
-      - name: Build Windows installer (.exe)
-        shell: pwsh
-        run: |
-          $releaseDir = Join-Path $PWD "build/windows/x64/runner/Release"
-          $exe = Get-ChildItem $releaseDir -Filter *.exe | Select-Object -First 1
-          if (-not $exe) {
-            throw "No executable found in $releaseDir"
-          }
-
-          $distDir = Join-Path $env:GITHUB_WORKSPACE "dist"
-          New-Item -ItemType Directory -Path $distDir -Force | Out-Null
-
-          $scriptPath = Join-Path $env:RUNNER_TEMP "neoagent-installer.iss"
-          $issLines = @(
-            '#define MyAppName "NeoAgent"'
-            ('#define MyAppVersion "' + '${{ steps.version.outputs.version }}' + '"')
-            '#define MyAppPublisher "NeoAgent"'
-            ('#define MyAppExeName "' + $exe.Name + '"')
-            ''
-            '[Setup]'
-            'AppId={{C5F1E5F6-1D17-4AC8-9E26-86AC8EC36B58}'
-            'AppName={#MyAppName}'
-            'AppVersion={#MyAppVersion}'
-            'AppPublisher={#MyAppPublisher}'
-            'DefaultDirName={autopf}\{#MyAppName}'
-            'DefaultGroupName={#MyAppName}'
-            'DisableProgramGroupPage=yes'
-            "OutputDir=$distDir"
-            'OutputBaseFilename=neoagent-windows-x64-setup-{#MyAppVersion}'
-            'Compression=lzma'
-            'SolidCompression=yes'
-            'WizardStyle=modern'
-            'ArchitecturesInstallIn64BitMode=x64'
-            'UninstallDisplayIcon={app}\{#MyAppExeName}'
-            ''
-            '[Languages]'
-            'Name: "english"; MessagesFile: "compiler:Default.isl"'
-            ''
-            '[Tasks]'
-            'Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"'
-            ''
-            '[Files]'
-            ('Source: "' + $releaseDir + '\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs')
-            ''
-            '[Icons]'
-            'Name: "{autoprograms}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"'
-            'Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; Tasks: desktopicon'
-            ''
-            '[Run]'
-            'Filename: "{app}\\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent'
-          )
-          Set-Content -Path $scriptPath -Value ($issLines -join "`r`n") -Encoding UTF8
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" $scriptPath
-
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: neoagent-windows-installer
-          path: dist/neoagent-windows-x64-setup-*.exe
-          if-no-files-found: error
-
-  build-macos-installer:
-    name: Build macOS installer (unsigned)
-    needs: force-release
-    runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: flutter_app
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.force-release.outputs.release_sha }}
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Enable desktop platforms
-        run: flutter config --enable-macos-desktop
-
-      - name: Ensure macOS runner project exists
-        run: |
-          if [ ! -d "macos" ]; then
-            flutter create --platforms=macos .
-          fi
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build macOS app
-        run: flutter build macos --release
-
-      - name: Resolve app version
-        id: version
-        env:
-          RELEASE_TAG: ${{ needs.force-release.outputs.release_tag }}
-        run: |
-          RAW_VERSION="${RELEASE_TAG}"
-          if [ -z "$RAW_VERSION" ]; then
-            RAW_VERSION="0.0.${{ github.run_number }}"
-          fi
-          VERSION="${RAW_VERSION#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Install DMG builder
-        run: brew install create-dmg
-
-      - name: Build macOS installer (.dmg)
-        run: |
-          APP_DIR="build/macos/Build/Products/Release"
-          APP_BUNDLE=$(find "$APP_DIR" -maxdepth 1 -name "*.app" | head -n 1)
-          if [ -z "$APP_BUNDLE" ]; then
-            echo "No .app bundle found in $APP_DIR"
-            exit 1
-          fi
-          DIST_DIR="$GITHUB_WORKSPACE/dist"
-          DMG_PATH="$DIST_DIR/neoagent-macos-${{ steps.version.outputs.version }}.dmg"
-          mkdir -p "$DIST_DIR"
-          bash ../scripts/build_macos_dmg.sh "$APP_BUNDLE" "$DMG_PATH"
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: neoagent-macos-installer
-          path: dist/neoagent-macos-*.dmg
-          if-no-files-found: error
-
-  build-linux-installer:
-    name: Build Linux installer (.deb)
-    needs: force-release
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: flutter_app
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.force-release.outputs.release_sha }}
-
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            clang \
-            cmake \
-            ninja-build \
-            pkg-config \
-            build-essential \
-            ruby-full \
-            libarchive-tools \
-            liblzma-dev \
-            libgtk-3-dev \
-            libgstreamer1.0-dev \
-            libgstreamer-plugins-base1.0-dev \
-            libpulse-dev \
-            libkeybinder-3.0-dev \
-            libayatana-appindicator3-dev
-          sudo gem install --no-document fpm
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Enable desktop platforms
-        run: flutter config --enable-linux-desktop
-
-      - name: Ensure Linux runner project exists
-        run: |
-          if [ ! -d "linux" ]; then
-            flutter create --platforms=linux .
-          fi
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Linux app
-        run: flutter build linux --release
-
-      - name: Resolve app version
-        id: version
-        env:
-          RELEASE_TAG: ${{ needs.force-release.outputs.release_tag }}
-        run: |
-          RAW_VERSION="${RELEASE_TAG}"
-          if [ -z "$RAW_VERSION" ]; then
-            RAW_VERSION="0.0.${{ github.run_number }}"
-          fi
-          VERSION="${RAW_VERSION#v}"
-          DEB_VERSION="$(printf '%s' "$VERSION" | sed 's/-/~/g')"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "deb_version=$DEB_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Build Linux installer (.deb)
-        run: |
-          DIST_DIR="$GITHUB_WORKSPACE/dist"
-          PKG_ROOT="$RUNNER_TEMP/neoagent-deb"
-          ARCH_ROOT="$RUNNER_TEMP/neoagent-arch"
-          BUNDLE_DIR="build/linux/x64/release/bundle"
-          APP_DIR="$PKG_ROOT/opt/neoagent"
-          DESKTOP_DIR="$PKG_ROOT/usr/share/applications"
-          BIN_LINK_DIR="$PKG_ROOT/usr/local/bin"
-          ARCH_APP_DIR="$ARCH_ROOT/opt/neoagent"
-          ARCH_DESKTOP_DIR="$ARCH_ROOT/usr/share/applications"
-          ARCH_BIN_LINK_DIR="$ARCH_ROOT/usr/bin"
-          APP_BIN=$(find "$BUNDLE_DIR" -maxdepth 1 -type f -executable | head -n 1)
-          if [ -z "$APP_BIN" ]; then
-            echo "No executable found in $BUNDLE_DIR"
-            exit 1
-          fi
-          APP_BIN_NAME=$(basename "$APP_BIN")
-          rm -rf "$PKG_ROOT" "$ARCH_ROOT"
-          mkdir -p "$PKG_ROOT/DEBIAN" "$APP_DIR" "$DESKTOP_DIR" "$BIN_LINK_DIR" "$DIST_DIR"
-          mkdir -p "$ARCH_APP_DIR" "$ARCH_DESKTOP_DIR" "$ARCH_BIN_LINK_DIR"
-          cp -R "$BUNDLE_DIR"/* "$APP_DIR/"
-          cp "linux/runner/resources/app_icon.png" "$APP_DIR/app_icon.png"
-          ln -sf "/opt/neoagent/$APP_BIN_NAME" "$BIN_LINK_DIR/neoagent"
-          cp -R "$BUNDLE_DIR"/* "$ARCH_APP_DIR/"
-          cp "linux/runner/resources/app_icon.png" "$ARCH_APP_DIR/app_icon.png"
-          ln -sf "/opt/neoagent/$APP_BIN_NAME" "$ARCH_BIN_LINK_DIR/neoagent"
-          printf '%s\n' \
-            'Package: neoagent' \
-            'Version: ${{ steps.version.outputs.deb_version }}' \
-            'Section: utils' \
-            'Priority: optional' \
-            'Architecture: amd64' \
-            'Maintainer: NeoAgent <support@neoagent.ai>' \
-            'Description: NeoAgent Flutter desktop app' \
-            > "$PKG_ROOT/DEBIAN/control"
-          printf '%s\n' \
-            '[Desktop Entry]' \
-            'Name=NeoAgent' \
-            "Exec=/opt/neoagent/$APP_BIN_NAME" \
-            'Icon=/opt/neoagent/app_icon.png' \
-            'Terminal=false' \
-            'Type=Application' \
-            'Categories=Utility;' \
-            > "$DESKTOP_DIR/neoagent.desktop"
-          printf '%s\n' \
-            '[Desktop Entry]' \
-            'Name=NeoAgent' \
-            "Exec=/opt/neoagent/$APP_BIN_NAME" \
-            'Icon=/opt/neoagent/app_icon.png' \
-            'Terminal=false' \
-            'Type=Application' \
-            'Categories=Utility;' \
-            > "$ARCH_DESKTOP_DIR/neoagent.desktop"
-          chmod 0755 "$PKG_ROOT/DEBIAN"
-          chmod 0644 "$PKG_ROOT/DEBIAN/control"
-          dpkg-deb --build "$PKG_ROOT" "$DIST_DIR/neoagent-linux-amd64-${{ steps.version.outputs.deb_version }}.deb"
-          fpm -s dir -t pacman \
-            -n neoagent \
-            -v "${{ steps.version.outputs.deb_version }}" \
-            --iteration 1 \
-            --architecture x86_64 \
-            --maintainer "NeoAgent <support@neoagent.ai>" \
-            --description "NeoAgent Flutter desktop app" \
-            -C "$ARCH_ROOT" \
-            --package "$DIST_DIR/neoagent-arch-x86_64-${{ steps.version.outputs.deb_version }}-1.pkg.tar.zst" \
-            .
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: neoagent-linux-installer
-          path: |
-            dist/neoagent-linux-amd64-*.deb
-            dist/neoagent-arch-x86_64-*.pkg.tar.zst
-          if-no-files-found: error
-
-  build-android-apk:
-    name: Build Android APK
-    needs: force-release
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: flutter_app
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.force-release.outputs.release_sha }}
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Prepare Android signing override
-        shell: bash
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          if [ -z "${ANDROID_KEYSTORE_BASE64}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
-            echo "Using bundled CI keystore from the repository."
-            exit 0
-          fi
-          KEYSTORE_PATH="$RUNNER_TEMP/neoagent-release.jks"
-          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "$KEYSTORE_PATH"
-          echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Ensure Android runner project exists
-        run: |
-          if [ ! -d "android" ]; then
-            flutter create --platforms=android .
-          fi
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Resolve app version
-        id: version
-        env:
-          RELEASE_TAG: ${{ needs.force-release.outputs.release_tag }}
-        run: |
-          RAW_VERSION="${RELEASE_TAG}"
-          if [ -z "$RAW_VERSION" ]; then
-            RAW_VERSION="0.0.${{ github.run_number }}"
-          fi
-          VERSION="${RAW_VERSION#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Build Android APKs
-        run: |
-          set -euo pipefail
-          mkdir -p ../dist/android-build
-          flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk ../dist/android-build/app-release-standard.apk
-          NEOAGENT_ANDROID_LAUNCHER_MODE=true \
-            flutter build apk --release -t lib/main_launcher_entry.dart
-          cp build/app/outputs/flutter-apk/app-release.apk ../dist/android-build/app-release-launcher.apk
-
-      - name: Verify Android APK signing
-        shell: bash
-        run: |
-          set -euo pipefail
-          APKS=(
-            "../dist/android-build/app-release-standard.apk"
-            "../dist/android-build/app-release-launcher.apk"
-          )
-          for APK_PATH in "${APKS[@]}"; do
-            if [ ! -f "$APK_PATH" ]; then
-              echo "APK not found at $APK_PATH"
-              exit 1
-            fi
-            "${ANDROID_HOME}/build-tools/$(ls "${ANDROID_HOME}/build-tools" | sort -V | tail -n 1)/apksigner" verify --print-certs "$APK_PATH"
-            jarsigner -verify "$APK_PATH" >/dev/null
-          done
-
-      - name: Stage Android APK artifact
-        run: |
-          set -euo pipefail
-          mkdir -p ../dist
-          if [ ! -f ../dist/android-build/app-release-standard.apk ] || [ ! -f ../dist/android-build/app-release-launcher.apk ]; then
-            echo "Expected staged Android APKs were not produced."
-            exit 1
-          fi
-          cp ../dist/android-build/app-release-standard.apk "../dist/neoagent-android-${{ steps.version.outputs.version }}.apk"
-          cp ../dist/android-build/app-release-launcher.apk "../dist/neoagent-android-launcher-${{ steps.version.outputs.version }}.apk"
-          ls -la ../dist
-
-      - name: Upload Android artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: neoagent-android-installer
-          path: dist/*.apk
-          if-no-files-found: error
-
-  publish-release-assets:
-    name: Attach installers to release
-    if: |
-      always() &&
-      needs.force-release.result == 'success' &&
-      (
-        needs.build-windows-installer.result == 'success' ||
-        needs.build-macos-installer.result == 'success' ||
-        needs.build-linux-installer.result == 'success' ||
-        needs.build-android-apk.result == 'success'
-      )
-    needs:
-      - force-release
-      - build-windows-installer
-      - build-macos-installer
-      - build-linux-installer
-      - build-android-apk
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Windows artifact
-        if: needs.build-windows-installer.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          name: neoagent-windows-installer
-          merge-multiple: true
-
-      - name: Download macOS artifact
-        if: needs.build-macos-installer.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          name: neoagent-macos-installer
-          merge-multiple: true
-
-      - name: Download Linux artifact
-        if: needs.build-linux-installer.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          name: neoagent-linux-installer
-          merge-multiple: true
-
-      - name: Download Android artifact
-        if: needs.build-android-apk.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          name: neoagent-android-installer
-          merge-multiple: true
-
-      - name: Collect release files
-        id: release_files
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          files=(
-            dist/*.exe
-            dist/*.dmg
-            dist/*.deb
-            dist/*.pkg.tar.zst
-            dist/*.apk
-          )
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "No release artifacts were downloaded."
-            exit 1
-          fi
-          {
-            echo 'files<<EOF'
-            printf '%s\n' "${files[@]}"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Upload artifacts to GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.force-release.outputs.release_tag }}
-          files: ${{ steps.release_files.outputs.files }}
+  build-installers:
+    name: Build Installers
+    needs: release
+    uses: ./.github/workflows/_build-installers.yml
+    secrets: inherit
+    with:
+      ref: ${{ needs.release.outputs.release_sha }}
+      release_tag: ${{ needs.release.outputs.release_tag }}
+      upload_to_release: true
