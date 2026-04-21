@@ -5,14 +5,6 @@ import CoreGraphics
 
 @main
 class AppDelegate: FlutterAppDelegate {
-  override func applicationDidFinishLaunching(_ notification: Notification) {
-    super.applicationDidFinishLaunching(notification)
-
-    if let controller = mainFlutterWindow?.contentViewController as? FlutterViewController {
-      DesktopCompanionNativePlugin.register(with: controller)
-    }
-  }
-
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return false
   }
@@ -173,7 +165,12 @@ final class DesktopCompanionNativePlugin: NSObject {
       }
       let deltaX = (arguments["deltaX"] as? NSNumber)?.int32Value ?? 0
       let deltaY = (arguments["deltaY"] as? NSNumber)?.int32Value ?? 0
-      performScroll(deltaX: deltaX, deltaY: deltaY)
+      let displayId = arguments["displayId"] as? String
+      performScroll(
+        deltaX: deltaX,
+        deltaY: deltaY,
+        displayId: displayId
+      )
       result(nil)
     case "typeText":
       guard isAccessibilityTrusted() else {
@@ -313,14 +310,35 @@ final class DesktopCompanionNativePlugin: NSObject {
   }
 
   private func resolveDisplayId(_ raw: String?) -> CGDirectDisplayID {
-    if let raw, let value = UInt32(raw) {
-      return CGDirectDisplayID(value)
+    if let raw,
+       let trimmed = optionalTrimmed(raw),
+       let screen = screenForDisplayId(trimmed),
+       let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
+      return CGDirectDisplayID(number.uint32Value)
     }
     if let main = NSScreen.main,
        let number = main.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
       return CGDirectDisplayID(number.uint32Value)
     }
     return CGMainDisplayID()
+  }
+
+  private func screenForDisplayId(_ raw: String?) -> NSScreen? {
+    guard let trimmed = optionalTrimmed(raw),
+          let value = UInt32(trimmed) else {
+      return nil
+    }
+    return NSScreen.screens.first { screen in
+      guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+        return false
+      }
+      return number.uint32Value == value
+    }
+  }
+
+  private func optionalTrimmed(_ value: String?) -> String? {
+    let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return trimmed.isEmpty ? nil : trimmed
   }
 
   private func defaultDisplayIdentifier() -> String {
@@ -428,7 +446,7 @@ final class DesktopCompanionNativePlugin: NSObject {
     }
   }
 
-  private func performScroll(deltaX: Int32, deltaY: Int32) {
+  private func performScroll(deltaX: Int32, deltaY: Int32, displayId: String?) {
     guard let event = CGEvent(
       scrollWheelEvent2Source: nil,
       units: .pixel,
@@ -438,6 +456,9 @@ final class DesktopCompanionNativePlugin: NSObject {
       wheel3: 0
     ) else {
       return
+    }
+    if displayId != nil {
+      event.location = anchorPointForDisplay(displayId)
     }
     event.post(tap: .cghidEventTap)
   }
@@ -541,6 +562,15 @@ final class DesktopCompanionNativePlugin: NSObject {
     return CGPoint(
       x: displayBounds.origin.x + (displayBounds.width * normalizedX),
       y: displayBounds.origin.y + (displayBounds.height * normalizedY)
+    )
+  }
+
+  private func anchorPointForDisplay(_ displayId: String?) -> CGPoint {
+    let resolvedDisplayId = resolveDisplayId(displayId)
+    let displayBounds = CGDisplayBounds(resolvedDisplayId)
+    return CGPoint(
+      x: displayBounds.midX,
+      y: displayBounds.midY
     )
   }
 }

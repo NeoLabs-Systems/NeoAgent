@@ -352,6 +352,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         return _actions.scroll(
           deltaX: (payload['deltaX'] as num?)?.round() ?? 0,
           deltaY: (payload['deltaY'] as num?)?.round() ?? 0,
+          displayId: _activeDisplayId,
         );
       case 'typeText':
         return _actions.typeText(

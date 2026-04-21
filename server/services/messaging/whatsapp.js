@@ -16,6 +16,8 @@ class WhatsAppPlatform extends BasePlatform {
     this.reconnectAttempts = 0;
     this.maxReconnect = 5;
     this.authDir = config.authDir || AUTH_DIR;
+    this._manualDisconnect = false;
+    this._reconnectTimer = null;
   }
 
   _ownIds() {
@@ -53,6 +55,11 @@ class WhatsAppPlatform extends BasePlatform {
   }
 
   async connect() {
+    this._manualDisconnect = false;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     if (!fs.existsSync(this.authDir)) fs.mkdirSync(this.authDir, { recursive: true });
 
     const {
@@ -108,15 +115,21 @@ class WhatsAppPlatform extends BasePlatform {
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        const shouldReconnect = !this._manualDisconnect && statusCode !== DisconnectReason.loggedOut;
 
         this.status = 'disconnected';
-        this.emit('disconnected', { statusCode, shouldReconnect });
+        this.emit('disconnected', { statusCode, shouldReconnect, manual: this._manualDisconnect });
 
         if (shouldReconnect && this.reconnectAttempts < this.maxReconnect) {
           this.reconnectAttempts++;
           const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-          setTimeout(() => this.connect(), delay);
+          this._reconnectTimer = setTimeout(() => {
+            this._reconnectTimer = null;
+            if (this._manualDisconnect) return;
+            this.connect().catch((err) => {
+              console.error('[WhatsApp] Reconnect failed:', err.message);
+            });
+          }, delay);
         } else if (statusCode === DisconnectReason.loggedOut) {
           fs.rmSync(this.authDir, { recursive: true, force: true });
           this.emit('logged_out');
@@ -234,6 +247,11 @@ class WhatsAppPlatform extends BasePlatform {
   }
 
   async disconnect() {
+    this._manualDisconnect = true;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     if (this.sock) {
       this.sock.end();
       this.sock = null;
@@ -328,6 +346,11 @@ class WhatsAppPlatform extends BasePlatform {
   }
 
   async logout() {
+    this._manualDisconnect = true;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     if (this.sock) {
       await this.sock.logout();
       this.sock = null;

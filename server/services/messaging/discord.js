@@ -32,6 +32,7 @@ class DiscordPlatform extends BasePlatform {
 
     this._client = null;
     this._botUser = null;
+    this._manualDisconnect = false;
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ class DiscordPlatform extends BasePlatform {
   async connect() {
     if (!this.token) throw new Error('Discord bot token is required');
 
+    this._manualDisconnect = false;
     if (this._client) { try { this._client.destroy(); } catch { } this._client = null; }
 
     this._client = new Client({
@@ -66,6 +68,7 @@ class DiscordPlatform extends BasePlatform {
       this._client.once('error', (err) => { clearTimeout(timeout); reject(err); });
       this._client.on('error', (err) => console.error('[Discord] Client error:', err.message));
       this._client.on('shardDisconnect', (event, shardId) => {
+        if (this._manualDisconnect) return;
         this.status = 'disconnected';
         console.warn(`[Discord] Shard ${shardId} disconnected (${event?.code || 'unknown'})`);
         this.emit('disconnected', {
@@ -76,15 +79,18 @@ class DiscordPlatform extends BasePlatform {
         });
       });
       this._client.on('shardReconnecting', (shardId) => {
+        if (this._manualDisconnect) return;
         this.status = 'connecting';
         console.log(`[Discord] Shard ${shardId} reconnecting`);
       });
       this._client.on('shardResume', (_replayedEvents, shardId) => {
+        if (this._manualDisconnect) return;
         this.status = 'connected';
         console.log(`[Discord] Shard ${shardId} resumed`);
         this.emit('connected');
       });
       this._client.on('invalidated', () => {
+        if (this._manualDisconnect) return;
         this.status = 'logged_out';
         console.warn('[Discord] Session invalidated');
         this.emit('logged_out');
@@ -96,6 +102,7 @@ class DiscordPlatform extends BasePlatform {
   }
 
   async disconnect() {
+    this._manualDisconnect = true;
     if (this._client) { try { this._client.destroy(); } catch { } this._client = null; }
     this.status = 'disconnected';
     this._botUser = null;

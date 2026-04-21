@@ -107,6 +107,10 @@ class MessagingManager extends EventEmitter {
   }
 
   async ingestMessage(userId, platformName, msg, options = {}) {
+    if (this.isShuttingDown) {
+      return null;
+    }
+
     const agentId = this._agentId(userId, {
       ...options,
       agentId: options?.agentId ?? msg?.agentId ?? null,
@@ -136,9 +140,16 @@ class MessagingManager extends EventEmitter {
 
     const enrichedMsg = { ...msg, agentId, platform: platformName };
 
+    if (this.isShuttingDown) {
+      return enrichedMsg;
+    }
+
     this.io.to(`user:${userId}`).emit('messaging:message', enrichedMsg);
 
     for (const handler of this.messageHandlers) {
+      if (this.isShuttingDown) {
+        break;
+      }
       try {
         await handler(userId, enrichedMsg);
       } catch (err) {
@@ -332,14 +343,14 @@ class MessagingManager extends EventEmitter {
     const currentPlatform = () => this.platforms.get(key) === platform;
 
     platform.on('qr', (qr) => {
-      if (!currentPlatform()) return;
+      if (!currentPlatform() || this.isShuttingDown) return;
       this.io.to(`user:${userId}`).emit('messaging:qr', { agentId, platform: platformName, qr });
       db.prepare('UPDATE platform_connections SET status = ?, config = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('awaiting_qr', storedConfig, userId, agentId, platformName);
     });
 
     platform.on('connected', () => {
-      if (!currentPlatform()) return;
+      if (!currentPlatform() || this.isShuttingDown) return;
       this.io.to(`user:${userId}`).emit('messaging:connected', { agentId, platform: platformName });
       db.prepare('UPDATE platform_connections SET status = ?, last_connected = datetime(\'now\') WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('connected', userId, agentId, platformName);
@@ -355,7 +366,7 @@ class MessagingManager extends EventEmitter {
     });
 
     platform.on('logged_out', () => {
-      if (!currentPlatform()) return;
+      if (!currentPlatform() || this.isShuttingDown) return;
       this.io.to(`user:${userId}`).emit('messaging:logged_out', { agentId, platform: platformName });
       db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('logged_out', userId, agentId, platformName);
@@ -385,6 +396,7 @@ class MessagingManager extends EventEmitter {
     });
 
     platform.on('message', async (msg) => {
+      if (this.isShuttingDown) return;
       await this.ingestMessage(userId, platformName, msg, { agentId });
     });
 

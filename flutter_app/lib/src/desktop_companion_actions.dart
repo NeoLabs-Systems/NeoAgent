@@ -261,7 +261,11 @@ class DesktopCompanionActions {
     };
   }
 
-  Future<Map<String, Object?>> scroll({int deltaX = 0, int deltaY = 0}) async {
+  Future<Map<String, Object?>> scroll({
+    int deltaX = 0,
+    int deltaY = 0,
+    String? displayId,
+  }) async {
     await _assertInputSupported('scroll');
     if (deltaY == 0 && deltaX == 0) {
       return <String, Object?>{
@@ -271,7 +275,11 @@ class DesktopCompanionActions {
       };
     }
     if (_usesNativeDesktopBridge) {
-      await _nativeBridge.scroll(deltaX: deltaX, deltaY: deltaY);
+      await _nativeBridge.scroll(
+        deltaX: deltaX,
+        deltaY: deltaY,
+        displayId: displayId,
+      );
     } else if (defaultTargetPlatform == TargetPlatform.linux) {
       if (deltaY != 0) {
         final clicks = (deltaY.abs() / 120).ceil().clamp(1, 12);

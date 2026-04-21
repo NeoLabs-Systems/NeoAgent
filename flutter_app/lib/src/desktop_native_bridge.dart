@@ -63,10 +63,16 @@ class DesktopNativeBridge {
     });
   }
 
-  Future<void> scroll({required int deltaX, required int deltaY}) {
+  Future<void> scroll({
+    required int deltaX,
+    required int deltaY,
+    String? displayId,
+  }) {
     return _channel.invokeMethod<void>('scroll', <String, Object?>{
       'deltaX': deltaX,
       'deltaY': deltaY,
+      if (displayId != null && displayId.trim().isNotEmpty)
+        'displayId': displayId.trim(),
     });
   }
 
