@@ -4,7 +4,7 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { validateRemoteMcpEndpoint } = require('../services/runtime/mcp');
-const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { resolvePublicBaseUrl } = require('../services/integrations/env');
 
 const MCP_OAUTH_STATE_RE = /^(\d+)::[a-f0-9]{32}$/;
@@ -21,9 +21,22 @@ router.use(requireAuth);
 
 // List configured MCP servers
 router.get('/', (req, res) => {
-  const servers = db.prepare('SELECT * FROM mcp_servers WHERE user_id = ? ORDER BY name ASC').all(req.session.userId);
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  const includeLegacyMainServers = isMainAgent(req.session.userId, agentId);
+  const servers = includeLegacyMainServers
+    ? db.prepare(
+      `SELECT * FROM mcp_servers
+       WHERE user_id = ?
+         AND (agent_id = ? OR agent_id IS NULL)
+       ORDER BY name ASC`
+    ).all(req.session.userId, agentId)
+    : db.prepare(
+      `SELECT * FROM mcp_servers
+       WHERE user_id = ? AND agent_id = ?
+       ORDER BY name ASC`
+    ).all(req.session.userId, agentId);
   const mcpClient = req.app.locals.mcpClient;
-  const liveStatuses = mcpClient.getStatus(req.session.userId);
+  const liveStatuses = mcpClient.getStatus(req.session.userId, { agentId });
 
   const result = servers.map(s => ({
     id: s.id,

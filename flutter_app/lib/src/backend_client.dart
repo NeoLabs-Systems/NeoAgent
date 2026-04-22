@@ -168,12 +168,9 @@ class BackendClient {
     required String baseUrl,
     required Map<String, dynamic> requestMetadata,
   }) async {
-    return postMap(
-      baseUrl,
-      '/api/auth/qr-login/challenge',
-      <String, dynamic>{'requestMetadata': requestMetadata},
-      allowUnauthorized: true,
-    );
+    return postMap(baseUrl, '/api/auth/qr-login/challenge', <String, dynamic>{
+      'requestMetadata': requestMetadata,
+    }, allowUnauthorized: true);
   }
 
   Future<Map<String, dynamic>> getQrLoginChallengeStatus({
@@ -1299,8 +1296,11 @@ class BackendClient {
     );
   }
 
-  Future<List<Map<String, dynamic>>> fetchSchedulerTasks(String baseUrl) async {
-    return getList(baseUrl, '/api/scheduler');
+  Future<List<Map<String, dynamic>>> fetchSchedulerTasks(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getList(baseUrl, _withAgentQuery('/api/scheduler', agentId));
   }
 
   Future<Map<String, dynamic>> saveSchedulerTask(
@@ -1339,8 +1339,11 @@ class BackendClient {
     await deleteMap(baseUrl, '/api/scheduler/$id');
   }
 
-  Future<List<Map<String, dynamic>>> fetchMcpServers(String baseUrl) async {
-    return getList(baseUrl, '/api/mcp');
+  Future<List<Map<String, dynamic>>> fetchMcpServers(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getList(baseUrl, _withAgentQuery('/api/mcp', agentId));
   }
 
   Future<List<Map<String, dynamic>>> fetchRecordingSessions(

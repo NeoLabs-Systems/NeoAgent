@@ -2932,12 +2932,12 @@ class NeoAgentController extends ChangeNotifier {
       );
       final schedulerFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
         'scheduler_tasks',
-        _backendClient.fetchSchedulerTasks(backendUrl),
+        _backendClient.fetchSchedulerTasks(backendUrl, agentId: agentId),
         const <Map<String, dynamic>>[],
       );
       final mcpFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
         'mcp_servers',
-        _backendClient.fetchMcpServers(backendUrl),
+        _backendClient.fetchMcpServers(backendUrl, agentId: agentId),
         const <Map<String, dynamic>>[],
       );
       final recordingsFuture = _backendClient
@@ -3205,31 +3205,36 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> refreshMessaging() async {
-    final statuses = await _backendClient.fetchMessagingStatus(
-      backendUrl,
-      agentId: _scopedAgentId,
-    );
-    messagingStatuses = statuses.map(
-      (key, value) => MapEntry(
-        key,
-        MessagingPlatformStatus.fromJson(
-          key,
-          value is Map
-              ? Map<String, dynamic>.from(value)
-              : const <String, dynamic>{},
-        ),
-      ),
-    );
-    pendingMessagingQr = _derivePendingMessagingQr(messagingStatuses);
-    messagingMessages = _decodeModelList(
-      'messaging_messages',
-      await _backendClient.fetchMessagingMessages(
+    try {
+      final statuses = await _backendClient.fetchMessagingStatus(
         backendUrl,
         agentId: _scopedAgentId,
-      ),
-      MessagingMessage.fromJson,
-    );
-    notifyListeners();
+      );
+      messagingStatuses = statuses.map(
+        (key, value) => MapEntry(
+          key,
+          MessagingPlatformStatus.fromJson(
+            key,
+            value is Map
+                ? Map<String, dynamic>.from(value)
+                : const <String, dynamic>{},
+          ),
+        ),
+      );
+      pendingMessagingQr = _derivePendingMessagingQr(messagingStatuses);
+      messagingMessages = _decodeModelList(
+        'messaging_messages',
+        await _backendClient.fetchMessagingMessages(
+          backendUrl,
+          agentId: _scopedAgentId,
+        ),
+        MessagingMessage.fromJson,
+      );
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
   }
 
   Future<void> refreshSkills() async {
@@ -3284,7 +3289,10 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> refreshScheduler() async {
     schedulerTasks = _decodeModelList(
       'scheduler_tasks',
-      await _backendClient.fetchSchedulerTasks(backendUrl),
+      await _backendClient.fetchSchedulerTasks(
+        backendUrl,
+        agentId: _scopedAgentId,
+      ),
       SchedulerTask.fromJson,
     );
     notifyListeners();
@@ -3293,7 +3301,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> refreshMcp() async {
     mcpServers = _decodeModelList(
       'mcp_servers',
-      await _backendClient.fetchMcpServers(backendUrl),
+      await _backendClient.fetchMcpServers(backendUrl, agentId: _scopedAgentId),
       McpServerItem.fromJson,
     );
     notifyListeners();
@@ -6501,17 +6509,11 @@ class NeoAgentController extends ChangeNotifier {
       unawaited(refreshMessaging());
     });
     socket.on('integrations:status', (dynamic data) {
-      if (data is! List) {
-        return;
-      }
-      officialIntegrations = data
-          .whereType<Map<dynamic, dynamic>>()
-          .map(
-            (item) => OfficialIntegrationItem.fromJson(
-              item.map((key, value) => MapEntry(key.toString(), value)),
-            ),
-          )
-          .toList();
+      officialIntegrations = _decodeModelList(
+        'official_integrations.socket',
+        data,
+        OfficialIntegrationItem.fromJson,
+      );
       notifyListeners();
     });
     socket.on('messaging:sent', (dynamic data) {

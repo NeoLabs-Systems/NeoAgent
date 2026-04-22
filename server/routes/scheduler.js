@@ -10,7 +10,8 @@ router.use(requireAuth);
 // List scheduled tasks
 router.get('/', (req, res) => {
   const scheduler = req.app.locals.scheduler;
-  res.json(scheduler.listTasks(req.session.userId));
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  res.json(scheduler.listTasks(req.session.userId, { agentId }));
 });
 
 // Create a new scheduled task

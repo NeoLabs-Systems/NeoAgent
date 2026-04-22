@@ -177,8 +177,21 @@ class Scheduler {
     return { deleted: true };
   }
 
-  listTasks(userId) {
-    const tasks = db.prepare('SELECT * FROM scheduled_tasks WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+  listTasks(userId, options = {}) {
+    const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
+    const includeLegacyMainTasks = isMainAgent(userId, agentId);
+    const tasks = includeLegacyMainTasks
+      ? db.prepare(
+        `SELECT * FROM scheduled_tasks
+         WHERE user_id = ?
+           AND (agent_id = ? OR agent_id IS NULL)
+         ORDER BY created_at DESC`
+      ).all(userId, agentId)
+      : db.prepare(
+        `SELECT * FROM scheduled_tasks
+         WHERE user_id = ? AND agent_id = ?
+         ORDER BY created_at DESC`
+      ).all(userId, agentId);
     return tasks.map(t => {
       const config = this._normalizeTaskConfig(t.task_config);
       return {
