@@ -17,6 +17,16 @@ function tokenHash(token) {
   return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
 
+function parseSqliteUtcMs(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return Number.NaN;
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const utcValue = /(?:Z|[+-]\d{2}:\d{2})$/.test(normalized)
+    ? normalized
+    : `${normalized}Z`;
+  return Date.parse(utcValue);
+}
+
 function randomToken(bytes = 24) {
   return crypto.randomBytes(bytes).toString('base64url');
 }
@@ -113,8 +123,9 @@ function parseClientDescriptor(userAgent, metadata = {}) {
   };
 }
 
-function challengeIsExpired(row) {
-  return !row?.expires_at || Date.parse(row.expires_at) <= Date.now();
+function challengeIsExpired(row, nowMs = Date.now()) {
+  const expiresAtMs = parseSqliteUtcMs(row?.expires_at);
+  return !Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs;
 }
 
 function challengeNotFoundError() {
@@ -370,4 +381,8 @@ module.exports = {
   claimApprovedChallenge,
   getChallengeStatusForPoll,
   resolveChallengeForApproval,
+  __test: {
+    challengeIsExpired,
+    parseSqliteUtcMs,
+  },
 };
