@@ -527,6 +527,7 @@ class WidgetService {
       '{"title":"","kicker":"","subtitle":"","body":"","metric":"","metricLabel":"","secondaryMetric":"","secondaryLabel":"","tertiaryMetric":"","tertiaryLabel":"","trend":{"label":"","direction":"flat"},"progress":{"value":0,"max":100,"label":""},"rows":[{"label":"","value":""}],"chips":[""],"iconToken":"","accentToken":"","backgroundToken":"","surfaceColor":"","updatedAt":"","deepLink":""}',
       'Rules:',
       '- Do not change the template or layout variant.',
+      '- Once you have enough accurate data, call save_widget_snapshot exactly once and stop. Do not keep exploring after saving.',
       '- Keep rows to at most 3 and chips to at most 3.',
       '- Prefer concrete data over generic prose. Use metric + supporting fields whenever live data exists.',
       '- Make the widget immediately useful at a glance. Avoid filler copy, duplicated labels, or repeating the widget name unless it helps identify the subject.',

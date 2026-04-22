@@ -39,6 +39,7 @@ const {
 } = require('./interim');
 
 const MAX_CONSECUTIVE_TOOL_FAILURES = 3;
+const WIDGET_REFRESH_MAX_ITERATIONS = 6;
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -1324,8 +1325,9 @@ class AgentEngine {
     runMeta.toolPids.delete(pid);
   }
 
-  getIterationLimit(triggerType, aiSettings) {
+  getIterationLimit(triggerType, aiSettings, options = {}) {
     if (triggerType === 'subagent') return aiSettings.subagent_max_iterations;
+    if (options.widgetId) return Math.min(this.maxIterations, WIDGET_REFRESH_MAX_ITERATIONS);
     return this.maxIterations;
   }
 
@@ -1467,7 +1469,7 @@ class AgentEngine {
       Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
     );
     const toolReplayBudget = aiSettings.tool_replay_budget_chars;
-    const maxIterations = this.getIterationLimit(triggerType, aiSettings);
+    const maxIterations = this.getIterationLimit(triggerType, aiSettings, options);
     const providerStatusConfig = {
       agentId,
       onStatus: (status) => {
@@ -1507,6 +1509,7 @@ class AgentEngine {
       explicitMessageSent: carriedExplicitMessageSent,
       lastSentMessage: carriedExplicitMessageSent ? carriedVisibleMessage : '',
       sentMessages: [],
+      widgetSnapshotSaved: false,
       triggerType,
       triggerSource,
       startedAt: Date.now(),
@@ -2092,6 +2095,14 @@ class AgentEngine {
           if (runMeta) {
             runMeta.lastToolName = toolName;
             runMeta.lastToolTarget = toolName === 'send_message' ? toolArgs.to : null;
+            if (toolName === 'save_widget_snapshot' && !toolErrorMessage) {
+              runMeta.widgetSnapshotSaved = true;
+            }
+          }
+
+          if (toolName === 'save_widget_snapshot' && !toolErrorMessage) {
+            lastContent = 'Widget snapshot updated.';
+            break;
           }
 
           if (runMeta?.terminalInterim) {
@@ -2101,6 +2112,7 @@ class AgentEngine {
 
         if (this.isRunStopped(runId)) break;
         if (this.getRunMeta(runId)?.terminalInterim) break;
+        if (this.getRunMeta(runId)?.widgetSnapshotSaved) break;
         if (!this.activeRuns.has(runId)) break;
       }
 
@@ -2118,6 +2130,9 @@ class AgentEngine {
       const runMeta = this.activeRuns.get(runId);
       if (runMeta?.terminalInterim) {
         lastContent = '';
+      }
+      if (runMeta?.widgetSnapshotSaved && !lastContent) {
+        lastContent = 'Widget snapshot updated.';
       }
       const messagingSent = runMeta?.messagingSent || false;
       const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
@@ -2147,7 +2162,11 @@ class AgentEngine {
         }
       }
 
-      if (!normalizeOutgoingMessage(lastContent, options?.source || null) && !messagingSent) {
+      if (
+        !normalizeOutgoingMessage(lastContent, options?.source || null)
+        && !messagingSent
+        && runMeta?.widgetSnapshotSaved !== true
+      ) {
         if (iteration >= maxIterations) {
           throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
         }
