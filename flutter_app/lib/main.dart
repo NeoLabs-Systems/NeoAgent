@@ -14291,14 +14291,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
-                const _MetaPill(
-                  label: 'Passwordless sign-in',
-                  icon: Icons.qr_code_scanner_outlined,
-                ),
-                const _MetaPill(
-                  label: 'One-time approval',
-                  icon: Icons.verified_user_outlined,
-                ),
                 FilledButton.icon(
                   onPressed: controller.isApprovingQrLogin
                       ? null

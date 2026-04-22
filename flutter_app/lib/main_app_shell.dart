@@ -311,6 +311,118 @@ class _AuthViewState extends State<AuthView> {
     }
   }
 
+  Future<void> _showQrLoginDialog() async {
+    _qrAutoRequestedForVisibleMode = true;
+    await widget.controller.prepareQrLoginChallenge();
+    if (!mounted) {
+      return;
+    }
+    final controller = widget.controller;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final challenge = controller.qrLoginChallenge;
+            final canShowQr =
+                challenge?.isUsable == true && !(challenge?.isExpired ?? true);
+            final countdown = challenge?.secondsRemaining ?? 0;
+
+            Widget buildQrSurface() {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Center(
+                    child: canShowQr
+                        ? QrImageView(
+                            data: challenge!.qrPayload,
+                            version: QrVersions.auto,
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: Color(0xFF04111D),
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: Color(0xFF04111D),
+                            ),
+                          )
+                        : controller.isPreparingQrLogin
+                        ? const SizedBox.square(
+                            dimension: 40,
+                            child: CircularProgressIndicator(strokeWidth: 3),
+                          )
+                        : Icon(
+                            Icons.qr_code_2_rounded,
+                            size: 84,
+                            color: _textMuted,
+                          ),
+                  ),
+                ),
+              );
+            }
+
+            return AlertDialog(
+              backgroundColor: _bgCard,
+              title: const Text('Pair with QR code'),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      'Open Account settings on a signed-in Android device, scan this code, and approve the login.',
+                      style: TextStyle(color: _textSecondary, height: 1.45),
+                    ),
+                    const SizedBox(height: 16),
+                    buildQrSurface(),
+                    const SizedBox(height: 14),
+                    _InfoChip(
+                      icon: Icons.timer_outlined,
+                      label: canShowQr
+                          ? 'Refreshes in ${countdown}s'
+                          : 'Waiting for code',
+                    ),
+                    if (controller.qrLoginErrorMessage != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      _InlineError(message: controller.qrLoginErrorMessage!),
+                    ],
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: controller.isPreparingQrLogin
+                      ? null
+                      : () async {
+                          _qrAutoRequestedForVisibleMode = true;
+                          await widget.controller.prepareQrLoginChallenge(
+                            force: true,
+                          );
+                          if (mounted) {
+                            setDialogState(() {});
+                          }
+                        },
+                  child: const Text('Refresh code'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _ensureQrLoginChallenge({bool force = false}) {
     if (!mounted) return;
     if (force) {
@@ -554,6 +666,7 @@ class _AuthViewState extends State<AuthView> {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 420;
         final narrow = constraints.maxWidth < 520;
+        final showInlineQr = !narrow;
         final panelPadding = compact ? 18.0 : 24.0;
         final qrShellPadding = compact ? 14.0 : 18.0;
         final qrCardPadding = compact ? 14.0 : 18.0;
@@ -564,33 +677,11 @@ class _AuthViewState extends State<AuthView> {
             : CrossAxisAlignment.start;
 
         Widget buildInfoSection() {
-          final timerChip = _InfoChip(
+          return _InfoChip(
             icon: Icons.timer_outlined,
             label: canShowQr
                 ? 'Refreshes in ${countdown}s'
                 : 'Waiting for code',
-          );
-          const securityChip = _InfoChip(
-            icon: Icons.security_outlined,
-            label: 'One-time approval only',
-          );
-
-          if (compact) {
-            return Column(
-              children: <Widget>[
-                timerChip,
-                const SizedBox(height: 10),
-                securityChip,
-              ],
-            );
-          }
-
-          return Row(
-            children: <Widget>[
-              Expanded(child: timerChip),
-              const SizedBox(width: 10),
-              const Expanded(child: securityChip),
-            ],
           );
         }
 
@@ -650,26 +741,6 @@ class _AuthViewState extends State<AuthView> {
                 child: Column(
                   crossAxisAlignment: contentAlignment,
                   children: <Widget>[
-                    Wrap(
-                      alignment: compact
-                          ? WrapAlignment.center
-                          : WrapAlignment.start,
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: <Widget>[
-                        _MetaPill(
-                          label: 'Instant Login',
-                          icon: Icons.bolt_rounded,
-                          color: const Color(0xFF6EDBFF),
-                        ),
-                        _MetaPill(
-                          label: 'Mobile approval',
-                          icon: Icons.verified_user_outlined,
-                          color: const Color(0xFF58E0A2),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: compact ? 16 : 18),
                     Text(
                       'Scan with NeoOS on your phone',
                       textAlign: titleAlignment,
@@ -706,55 +777,84 @@ class _AuthViewState extends State<AuthView> {
                       ),
                       child: Column(
                         children: <Widget>[
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.all(qrCardPadding),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(
-                                compact ? 18 : 22,
-                              ),
-                              boxShadow: <BoxShadow>[
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.12),
-                                  blurRadius: 26,
-                                  offset: const Offset(0, 10),
+                          if (showInlineQr)
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(qrCardPadding),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(
+                                  compact ? 18 : 22,
                                 ),
-                              ],
-                            ),
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: Center(
-                                child: canShowQr
-                                    ? QrImageView(
-                                        data: challenge!.qrPayload,
-                                        version: QrVersions.auto,
-                                        eyeStyle: const QrEyeStyle(
-                                          eyeShape: QrEyeShape.square,
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.12),
+                                    blurRadius: 26,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: AspectRatio(
+                                aspectRatio: 1,
+                                child: Center(
+                                  child: canShowQr
+                                      ? QrImageView(
+                                          data: challenge!.qrPayload,
+                                          version: QrVersions.auto,
+                                          eyeStyle: const QrEyeStyle(
+                                            eyeShape: QrEyeShape.square,
+                                            color: Color(0xFF04111D),
+                                          ),
+                                          dataModuleStyle:
+                                              const QrDataModuleStyle(
+                                                dataModuleShape:
+                                                    QrDataModuleShape.square,
+                                                color: Color(0xFF04111D),
+                                              ),
+                                        )
+                                      : controller.isPreparingQrLogin
+                                      ? const SizedBox.square(
+                                          dimension: 40,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 3,
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.qr_code_2_rounded,
+                                          size: narrow ? 72 : 84,
+                                          color: _textMuted,
+                                        ),
+                                ),
+                              ),
+                            )
+                          else
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: controller.isPreparingQrLogin
+                                    ? null
+                                    : _showQrLoginDialog,
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(56),
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: const Color(0xFF04111D),
+                                ),
+                                icon: controller.isPreparingQrLogin
+                                    ? const SizedBox.square(
+                                        dimension: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
                                           color: Color(0xFF04111D),
                                         ),
-                                        dataModuleStyle:
-                                            const QrDataModuleStyle(
-                                              dataModuleShape:
-                                                  QrDataModuleShape.square,
-                                              color: Color(0xFF04111D),
-                                            ),
                                       )
-                                    : controller.isPreparingQrLogin
-                                    ? const SizedBox.square(
-                                        dimension: 40,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 3,
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.qr_code_2_rounded,
-                                        size: narrow ? 72 : 84,
-                                        color: _textMuted,
-                                      ),
+                                    : const Icon(Icons.qr_code_2_rounded),
+                                label: Text(
+                                  canShowQr
+                                      ? 'Show QR code'
+                                      : 'Prepare QR code',
+                                ),
                               ),
                             ),
-                          ),
                           const SizedBox(height: 16),
                           buildInfoSection(),
                         ],
