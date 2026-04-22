@@ -252,7 +252,7 @@ function main() {
     const resolvedNpmTag = resolvePreferredNpmTag(releaseChannel);
     writeStatus({ npmDistTag: resolvedNpmTag, runnerPid: process.pid }, STATUS_FILE);
     info(45, 'updating', `Installing NeoAgent from the ${resolvedNpmTag} channel`);
-    const npmUpdate = run('npm', ['install', '-g', `neoagent@${resolvedNpmTag}`], {
+    const npmUpdate = run('npm', ['install', '-g', `neoagent@${resolvedNpmTag}`, '--force'], {
       env: withInstallEnv()
     });
     if (npmUpdate.status !== 0) {

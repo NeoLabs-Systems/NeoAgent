@@ -22,6 +22,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'src/android_apk_drop_zone.dart';
 import 'src/android_launcher_bridge.dart';
+import 'src/app_launch_bridge.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
 import 'src/backend_client.dart';
 import 'src/desktop_companion.dart';
@@ -286,6 +287,8 @@ class NeoAgentApp extends StatefulWidget {
 class _NeoAgentAppState extends State<NeoAgentApp>
     with WindowListener, TrayListener {
   late final NeoAgentController _controller;
+  final AppLaunchBridge _appLaunchBridge = AppLaunchBridge();
+  StreamSubscription<String>? _appLaunchSubscription;
   StreamSubscription<String>? _widgetOpenSubscription;
   GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _navigatorScopeSignature;
@@ -326,6 +329,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       recordingBridge: createRecordingBridge(),
     )..bootstrap();
     _controller.addListener(_handleControllerChanged);
+    _appLaunchSubscription = _appLaunchBridge.launchRequests.listen(
+      _handleAppLaunchRequest,
+    );
     _widgetOpenSubscription = _controller.widgetOpenRequests.listen(
       _controller.openWidgetSurface,
     );
@@ -336,6 +342,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
 
   @override
   void dispose() {
+    _appLaunchSubscription?.cancel();
     _widgetOpenSubscription?.cancel();
     _controller.removeListener(_handleControllerChanged);
     if (_supportsDesktopShell) {
@@ -356,6 +363,12 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       return;
     }
     unawaited(_syncDesktopShell());
+  }
+
+  void _handleAppLaunchRequest(String action) {
+    if (action == AppLaunchBridge.voiceAssistantAction) {
+      _controller.openVoiceAssistantSurface();
+    }
   }
 
   Future<void> _initializeDesktopShell() async {
@@ -1126,6 +1139,8 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
+  static const Duration _homeWidgetSyncCooldown = Duration(seconds: 5);
+  DateTime? _lastHomeWidgetSyncAt;
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
   List<LogEntry> _serverLogs = const <LogEntry>[];
@@ -3379,7 +3394,7 @@ class NeoAgentController extends ChangeNotifier {
         ? _selectedWidgetId
         : (widgets.isEmpty ? null : widgets.first.id);
     if (isAuthenticated) {
-      unawaited(_widgetBridge.syncNow());
+      unawaited(_maybeSyncHomeWidgets());
     }
     notifyListeners();
   }
@@ -6319,6 +6334,11 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void openVoiceAssistantSurface() {
+    selectedSection = AppSection.voiceAssistant;
+    notifyListeners();
+  }
+
   String? get selectedWidgetId => _selectedWidgetId;
 
   AiWidgetItem? get selectedWidget {
@@ -6822,8 +6842,25 @@ class NeoAgentController extends ChangeNotifier {
       sessionCookie: cookie,
     );
     if (enabled) {
-      await _widgetBridge.syncNow();
+      await _maybeSyncHomeWidgets();
     }
+  }
+
+  Future<void> _maybeSyncHomeWidgets({bool force = false}) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    if (!isAuthenticated) {
+      return;
+    }
+    final now = DateTime.now();
+    if (!force &&
+        _lastHomeWidgetSyncAt != null &&
+        now.difference(_lastHomeWidgetSyncAt!) < _homeWidgetSyncCooldown) {
+      return;
+    }
+    _lastHomeWidgetSyncAt = now;
+    await _widgetBridge.syncNow();
   }
 
   Stream<String> get widgetOpenRequests => _widgetBridge.openWidgetRequests;
@@ -19564,135 +19601,155 @@ class _AiWidgetPreviewStat extends StatelessWidget {
         .toList(growable: false);
     final hasMetric = metric.trim().isNotEmpty;
     final progressValue = _widgetProgressFraction(progress);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        if (subtitle.trim().isNotEmpty)
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: palette.muted, fontSize: compact ? 12 : 13),
-          ),
-        const SizedBox(height: 8),
-        Text(
-          title.trim().isNotEmpty ? title : 'Waiting for first update',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: palette.foreground,
-            fontSize: compact ? 16 : 18,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.35,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          hasMetric ? metric : 'Waiting for first update',
-          maxLines: hasMetric ? 1 : 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: palette.foreground,
-            fontSize: compact ? 30 : 34,
-            height: 0.96,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -1.1,
-          ),
-        ),
-        if (metricLabel.trim().isNotEmpty) ...<Widget>[
-          const SizedBox(height: 6),
-          Text(
-            metricLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: palette.muted, fontSize: compact ? 11 : 12),
-          ),
-        ],
-        if (secondaryMetric.isNotEmpty ||
-            tertiaryMetric.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              if (secondaryMetric.isNotEmpty)
-                _WidgetPreviewDataPill(
-                  label: secondaryLabel.ifEmpty('Secondary'),
-                  value: secondaryMetric,
-                  palette: palette,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dense = compact || constraints.maxHeight < 190;
+        final showSupportingPills =
+            !dense && (secondaryMetric.isNotEmpty || tertiaryMetric.isNotEmpty);
+        final showProgressValue = !dense ? progressValue : null;
+        final visibleRows = values.take(dense ? 1 : 3).toList(growable: false);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            if (subtitle.trim().isNotEmpty)
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.muted,
+                  fontSize: dense ? 11 : (compact ? 12 : 13),
                 ),
-              if (tertiaryMetric.isNotEmpty)
-                _WidgetPreviewDataPill(
-                  label: tertiaryLabel.ifEmpty('Detail'),
-                  value: tertiaryMetric,
-                  palette: palette,
-                ),
-            ],
-          ),
-        ],
-        if (progressValue != null) ...<Widget>[
-          const SizedBox(height: 12),
-          _WidgetPreviewProgress(
-            value: progressValue,
-            label: _widgetProgressLabel(progress),
-            palette: palette,
-          ),
-        ],
-        if (values.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 14),
-          ...values.map(
-            (row) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      _widgetSanitizedText(row['label']?.toString() ?? ''),
-                      style: TextStyle(
-                        color: palette.muted,
-                        fontSize: compact ? 11 : 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _widgetSanitizedText(row['value']?.toString() ?? ''),
-                    style: TextStyle(
-                      color: palette.foreground,
-                      fontSize: compact ? 12 : 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+              ),
+            SizedBox(height: dense ? 6 : 8),
+            Text(
+              title.trim().isNotEmpty ? title : 'Waiting for first update',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: palette.foreground,
+                fontSize: dense ? 15 : (compact ? 16 : 18),
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.35,
               ),
             ),
-          ),
-        ] else ...<Widget>[
-          const Spacer(),
-          Text(
-            'Waiting for first update',
-            style: TextStyle(color: palette.muted, fontSize: compact ? 12 : 13),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: List<Widget>.generate(8, (index) {
-              final factor = (8 - index) / 8;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Container(
-                  width: compact ? 8 : 10,
-                  height: (compact ? 20 : 26) * factor + 8,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.62 - (index * 0.05)),
-                    borderRadius: BorderRadius.circular(999),
+            SizedBox(height: dense ? 8 : 10),
+            Text(
+              hasMetric ? metric : 'Waiting for first update',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: palette.foreground,
+                fontSize: dense ? 25 : (compact ? 30 : 34),
+                height: 0.96,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -1.1,
+              ),
+            ),
+            if (metricLabel.trim().isNotEmpty) ...<Widget>[
+              SizedBox(height: dense ? 4 : 6),
+              Text(
+                metricLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.muted,
+                  fontSize: dense ? 10 : (compact ? 11 : 12),
+                ),
+              ),
+            ],
+            if (showSupportingPills) ...<Widget>[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  if (secondaryMetric.isNotEmpty)
+                    _WidgetPreviewDataPill(
+                      label: secondaryLabel.ifEmpty('Secondary'),
+                      value: secondaryMetric,
+                      palette: palette,
+                    ),
+                  if (tertiaryMetric.isNotEmpty)
+                    _WidgetPreviewDataPill(
+                      label: tertiaryLabel.ifEmpty('Detail'),
+                      value: tertiaryMetric,
+                      palette: palette,
+                    ),
+                ],
+              ),
+            ],
+            if (showProgressValue != null) ...<Widget>[
+              const SizedBox(height: 12),
+              _WidgetPreviewProgress(
+                value: showProgressValue,
+                label: _widgetProgressLabel(progress),
+                palette: palette,
+              ),
+            ],
+            if (visibleRows.isNotEmpty) ...<Widget>[
+              SizedBox(height: dense ? 10 : 14),
+              ...visibleRows.map(
+                (row) => Padding(
+                  padding: EdgeInsets.only(bottom: dense ? 6 : 8),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          _widgetSanitizedText(row['label']?.toString() ?? ''),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: palette.muted,
+                            fontSize: dense ? 10 : (compact ? 11 : 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _widgetSanitizedText(row['value']?.toString() ?? ''),
+                        style: TextStyle(
+                          color: palette.foreground,
+                          fontSize: dense ? 11 : (compact ? 12 : 13),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            }),
-          ),
-        ],
-      ],
+              ),
+            ] else ...<Widget>[
+              const Spacer(),
+              Text(
+                'Waiting for first update',
+                style: TextStyle(
+                  color: palette.muted,
+                  fontSize: dense ? 11 : (compact ? 12 : 13),
+                ),
+              ),
+              SizedBox(height: dense ? 8 : 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: List<Widget>.generate(dense ? 6 : 8, (index) {
+                  final count = dense ? 6 : 8;
+                  final factor = (count - index) / count;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Container(
+                      width: dense ? 7 : (compact ? 8 : 10),
+                      height: (dense ? 16 : (compact ? 20 : 26)) * factor + 8,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.62 - (index * 0.05)),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

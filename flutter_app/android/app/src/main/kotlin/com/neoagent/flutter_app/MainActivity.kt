@@ -18,6 +18,7 @@ import com.neoagent.flutter_app.recording.RecordingForegroundService
 import com.neoagent.flutter_app.recording.RecordingStateStore
 import com.neoagent.flutter_app.widgets.AiHomeWidgetProvider
 import com.neoagent.flutter_app.widgets.AiWidgetStore
+import com.neoagent.flutter_app.widgets.VoiceLaunchWidgetProvider
 import com.neoagent.flutter_app.widgets.WidgetSyncScheduler
 import com.neoagent.flutter_app.wearablebg.WearableBleForegroundService
 import com.neoagent.flutter_app.wearablebg.WearableBridgeConfig
@@ -47,6 +48,8 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingWearableBridgeArgs: Map<*, *>? = null
     private var launcherButtonSink: EventChannel.EventSink? = null
     private var widgetEventSink: EventChannel.EventSink? = null
+    private var appLaunchEventSink: EventChannel.EventSink? = null
+    private var pendingAppLaunchAction: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -565,13 +568,31 @@ class MainActivity : FlutterFragmentActivity() {
             },
         )
 
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "neoagent/app_launch/events",
+        ).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    appLaunchEventSink = events
+                    emitPendingAppLaunchIntent()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    appLaunchEventSink = null
+                }
+            },
+        )
+
         captureWidgetIntent(intent)
+        captureAppLaunchIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         captureWidgetIntent(intent)
+        captureAppLaunchIntent(intent)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -696,6 +717,21 @@ class MainActivity : FlutterFragmentActivity() {
         val sink = widgetEventSink ?: return
         val widgetId = AiWidgetStore(this).consumePendingOpenWidgetId() ?: return
         sink.success(mapOf("widgetId" to widgetId))
+    }
+
+    private fun captureAppLaunchIntent(intent: Intent?) {
+        if (intent?.action != VoiceLaunchWidgetProvider.ACTION_OPEN_VOICE_ASSISTANT) {
+            return
+        }
+        pendingAppLaunchAction = VoiceLaunchWidgetProvider.OPEN_TARGET_VOICE_ASSISTANT
+        emitPendingAppLaunchIntent()
+    }
+
+    private fun emitPendingAppLaunchIntent() {
+        val sink = appLaunchEventSink ?: return
+        val action = pendingAppLaunchAction ?: return
+        pendingAppLaunchAction = null
+        sink.success(mapOf("action" to action))
     }
 
     private fun buildVolumeState(audioManager: AudioManager): Map<String, Any> {

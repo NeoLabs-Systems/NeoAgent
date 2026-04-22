@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/voice_widget_description"
+    android:initialLayout="@layout/neoagent_voice_widget"
+    android:minHeight="72dp"
+    android:minWidth="180dp"
+    android:previewLayout="@layout/neoagent_voice_widget"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="1"
+    android:targetCellWidth="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

@@ -40,20 +40,10 @@ class WidgetSyncScheduler(private val context: Context) {
                 .setConstraints(constraints)
                 .build()
 
-        val immediateRequest =
-            OneTimeWorkRequestBuilder<WidgetSyncWorker>()
-                .setConstraints(constraints)
-                .build()
-
         workManager.enqueueUniquePeriodicWork(
             UNIQUE_PERIODIC_WORK,
             ExistingPeriodicWorkPolicy.UPDATE,
             periodicRequest,
-        )
-        workManager.enqueueUniqueWork(
-            UNIQUE_IMMEDIATE_WORK,
-            ExistingWorkPolicy.REPLACE,
-            immediateRequest,
         )
     }
 

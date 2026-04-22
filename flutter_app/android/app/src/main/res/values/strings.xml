@@ -4,4 +4,7 @@
     <string name="widget_description">NeoAgent AI Widget</string>
     <string name="widget_config_title">Choose AI Widget</string>
     <string name="widget_config_empty_state">No synced widgets are available yet. Open NeoAgent and refresh widgets first.</string>
+    <string name="voice_widget_description">NeoAgent voice assistant widget</string>
+    <string name="voice_widget_title">Voice Mode</string>
+    <string name="voice_widget_subtitle">Open the voice assistant</string>
 </resources>
