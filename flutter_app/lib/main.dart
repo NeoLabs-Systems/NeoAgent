@@ -5267,6 +5267,7 @@ class NeoAgentController extends ChangeNotifier {
     required List<String> enabledModels,
     required String defaultChatModel,
     required String defaultSubagentModel,
+    required String defaultSpeechModel,
     required String defaultRecordingTranscriptionProvider,
     required String defaultRecordingTranscriptionModel,
     required String defaultRecordingSummaryProvider,
@@ -5294,6 +5295,7 @@ class NeoAgentController extends ChangeNotifier {
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
+      'default_speech_model': defaultSpeechModel,
       'default_recording_transcription_provider':
           defaultRecordingTranscriptionProvider,
       'default_recording_transcription_model':
@@ -6737,6 +6739,9 @@ class NeoAgentController extends ChangeNotifier {
 
   String get defaultSubagentModel =>
       settings['default_subagent_model']?.toString() ?? 'auto';
+
+  String get defaultSpeechModel =>
+      settings['default_speech_model']?.toString() ?? 'auto';
 
   String get defaultRecordingTranscriptionModel =>
       settings['default_recording_transcription_model']?.toString() ?? 'nova-3';
@@ -15053,6 +15058,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late String _defaultRecordingTranscriptionModel;
   late String _defaultRecordingSummaryModel;
   late String _fallbackModel;
+  late String _defaultSpeechModel;
   late String _voiceLiveProvider;
   late String _voiceLiveModel;
   late String _voiceLiveVoice;
@@ -15110,6 +15116,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         controller.defaultRecordingTranscriptionModel;
     _defaultRecordingSummaryModel = controller.defaultRecordingSummaryModel;
     _fallbackModel = controller.fallbackModel;
+    _defaultSpeechModel = controller.defaultSpeechModel;
     _voiceLiveProvider = controller.voiceLiveProvider;
     _voiceLiveModel = controller.voiceLiveModel;
     _voiceLiveVoice = controller.voiceLiveVoice;
@@ -15206,6 +15213,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ),
                     defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
                     fallbackModel: _fallbackModel,
+                    defaultSpeechModel: _defaultSpeechModel,
                     voiceSttProvider: controller.voiceSttProvider,
                     voiceSttModel: controller.voiceSttModel,
                     voiceTtsProvider: controller.voiceTtsProvider,
@@ -15722,6 +15730,52 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ],
                 );
               },
+            ),
+            const Divider(height: 32),
+            Text(
+              'Speech Processing',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 940;
+                final cardWidth = compact
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 12) / 2;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: <Widget>[
+                    SizedBox(
+                      width: cardWidth,
+                      child: _RoutingSelectCard(
+                        label: 'Speech Model',
+                        icon: Icons.record_voice_over_outlined,
+                        value: _ensureModelValue(
+                          _defaultSpeechModel,
+                          routingModels,
+                          allowAuto: true,
+                        ),
+                        items: modelChoices,
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _defaultSpeechModel = value);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Used for the backend LLM that processes voice assistant and other speech-originated turns. This does not change the speech synthesis voice.',
+              style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const Divider(height: 32),
             Text(

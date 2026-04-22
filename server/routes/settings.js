@@ -48,6 +48,7 @@ const AGENT_SETTING_KEYS = new Set([
   'ai_provider_configs',
   'default_chat_model',
   'default_subagent_model',
+  'default_speech_model',
   'enabled_models',
   'voice_stt_provider',
   'voice_stt_model',

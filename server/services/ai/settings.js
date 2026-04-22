@@ -101,6 +101,7 @@ function createDefaultAiSettings() {
     enabled_models: [],
     default_chat_model: 'auto',
     default_subagent_model: 'auto',
+    default_speech_model: 'auto',
     ai_provider_configs: createDefaultProviderConfigs(),
     voice_runtime_mode: 'live',
     voice_live_provider: 'openai',
@@ -284,6 +285,9 @@ function getAiSettings(userId, agentId = null) {
   settings.default_subagent_model = typeof settings.default_subagent_model === 'string' && settings.default_subagent_model.trim()
     ? settings.default_subagent_model
     : DEFAULT_AI_SETTINGS.default_subagent_model;
+  settings.default_speech_model = typeof settings.default_speech_model === 'string' && settings.default_speech_model.trim()
+    ? settings.default_speech_model.trim()
+    : DEFAULT_AI_SETTINGS.default_speech_model;
   settings.voice_runtime_mode = normalizeRuntimeMode(settings.voice_runtime_mode);
   settings.voice_live_provider = normalizeLiveProvider(settings.voice_live_provider);
   settings.voice_live_model = resolveLiveModel(settings.voice_live_provider, settings.voice_live_model);

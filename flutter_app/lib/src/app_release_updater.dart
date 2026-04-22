@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'android_app_installer.dart';
 import 'oauth_launcher.dart';
 
 const String appUpdaterGithubOwner = String.fromEnvironment(
@@ -116,9 +117,12 @@ class AppUpdateCheckResult {
 }
 
 class AppReleaseUpdater {
-  AppReleaseUpdater({http.Client? client}) : _client = client ?? http.Client();
+  AppReleaseUpdater({http.Client? client})
+    : _client = client ?? http.Client(),
+      _androidAppInstaller = createAndroidAppInstaller();
 
   final http.Client _client;
+  final AndroidAppInstaller _androidAppInstaller;
 
   void dispose() {
     _client.close();
@@ -222,7 +226,34 @@ class AppReleaseUpdater {
   Future<OAuthLaunchResult> openReleaseAsset({
     required OAuthLauncher launcher,
     required AppReleaseInfo release,
-  }) {
+  }) async {
+    if (_androidAppInstaller.supported) {
+      try {
+        final installResult = await _androidAppInstaller.installApkFromUrl(
+          downloadUrl: release.asset.downloadUrl,
+          fileName: release.asset.name,
+          headers: <String, String>{
+            'User-Agent': 'NeoAgent Flutter Updater',
+            if (appUpdaterGithubToken.trim().isNotEmpty)
+              'Authorization': 'Bearer ${appUpdaterGithubToken.trim()}',
+          },
+        );
+        if (installResult.launched) {
+          return const OAuthLaunchResult(launched: true, completed: false);
+        }
+        return OAuthLaunchResult(
+          launched: false,
+          completed: false,
+          error: installResult.error,
+        );
+      } catch (error) {
+        return OAuthLaunchResult(
+          launched: false,
+          completed: false,
+          error: error.toString(),
+        );
+      }
+    }
     return launcher.openExternal(
       url: release.asset.downloadUrl,
       label: 'app_update_${release.channel}',

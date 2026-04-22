@@ -1441,7 +1441,14 @@ class AgentEngine {
   }
 
   async run(userId, userMessage, options = {}) {
-    return this.runWithModel(userId, userMessage, options, null);
+    return this.runWithModel(
+      userId,
+      userMessage,
+      options,
+      typeof options.model === 'string' && options.model.trim()
+        ? options.model.trim()
+        : null,
+    );
   }
 
   async runWithModel(userId, userMessage, options = {}, _modelOverride = null) {

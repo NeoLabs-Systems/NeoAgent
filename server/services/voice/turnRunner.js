@@ -90,6 +90,7 @@ async function runVoiceTranscriptTurn({
   });
   const conversationId = memoryManager.getDefaultWebConversationId(userId, { agentId });
   const runOptions = buildDirectVoiceRunOptions({
+    userId,
     agentId,
     conversationId,
     platform,

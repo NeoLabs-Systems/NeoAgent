@@ -1,6 +1,7 @@
 'use strict';
 
 const { buildPlatformFormattingGuide } = require('../messaging/formatting_guides');
+const { getAiSettings } = require('../ai/settings');
 
 const VOICE_HISTORY_WINDOW = 4;
 const VOICE_REASONING_EFFORT = 'low';
@@ -67,13 +68,17 @@ function buildVoiceMessagingPrompt(msg = {}) {
 
 function buildVoiceMessagingRunOptions({
   runId,
+  userId,
   agentId = null,
   conversationId,
   msg,
 }) {
+  const aiSettings = getAiSettings(userId, agentId);
+  const speechModel = String(aiSettings.default_speech_model || 'auto').trim();
   return {
     runId,
     agentId,
+    model: speechModel !== 'auto' ? speechModel : null,
     triggerSource: 'messaging',
     conversationId,
     source: msg.platform,
@@ -92,12 +97,16 @@ function buildVoiceMessagingRunOptions({
 }
 
 function buildDirectVoiceRunOptions({
+  userId,
   agentId = null,
   conversationId,
   platform = 'voice_assistant',
 }) {
+  const aiSettings = getAiSettings(userId, agentId);
+  const speechModel = String(aiSettings.default_speech_model || 'auto').trim();
   return {
     agentId,
+    model: speechModel !== 'auto' ? speechModel : null,
     conversationId,
     triggerSource: platform,
     skipConversationHistory: true,

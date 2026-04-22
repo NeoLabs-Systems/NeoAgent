@@ -1,8 +1,10 @@
 package com.neoagent.flutter_app
 
 import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
@@ -10,6 +12,7 @@ import android.view.KeyEvent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
 import com.neoagent.flutter_app.health.HealthConnectGateway
@@ -29,6 +32,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.Instant
 
 class MainActivity : FlutterFragmentActivity() {
@@ -370,6 +374,72 @@ class MainActivity : FlutterFragmentActivity() {
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
+            "neoagent/app_update",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "canRequestPackageInstalls" -> {
+                    result.success(canRequestPackageInstalls())
+                }
+
+                "openInstallUnknownAppsSettings" -> {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                        result.error(
+                            "app_update_unknown_sources_unsupported",
+                            "Install unknown apps settings require Android 8.0 or newer.",
+                            null,
+                        )
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:$packageName"),
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(intent)
+                        result.success(null)
+                    } catch (err: ActivityNotFoundException) {
+                        result.error(
+                            "app_update_unknown_sources_failed",
+                            err.message ?: err.javaClass.simpleName,
+                            null,
+                        )
+                    } catch (err: Exception) {
+                        result.error(
+                            "app_update_unknown_sources_failed",
+                            err.message ?: err.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
+
+                "installApk" -> {
+                    try {
+                        val args = call.arguments as? Map<*, *>
+                        val apkPath = args?.get("apkPath")?.toString().orEmpty()
+                        if (apkPath.isBlank()) {
+                            result.error(
+                                "app_update_invalid_args",
+                                "apkPath is required.",
+                                null,
+                            )
+                            return@setMethodCallHandler
+                        }
+                        result.success(launchApkInstaller(apkPath))
+                    } catch (err: Exception) {
+                        result.error(
+                            "app_update_install_failed",
+                            err.message ?: err.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
             "neoagent/launcher_device",
         ).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -670,6 +740,37 @@ class MainActivity : FlutterFragmentActivity() {
         } catch (_: Exception) {
             "standard"
         }
+    }
+
+    private fun canRequestPackageInstalls(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    private fun launchApkInstaller(apkPath: String): Boolean {
+        val apkFile = File(apkPath)
+        if (!apkFile.exists() || !apkFile.isFile) {
+            throw IllegalArgumentException("APK not found: $apkPath")
+        }
+        val contentUri = FileProvider.getUriForFile(
+            this,
+            "$packageName.fileprovider",
+            apkFile,
+        )
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(contentUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            putExtra(Intent.EXTRA_RETURN_RESULT, false)
+        }
+        if (installIntent.resolveActivity(packageManager) == null) {
+            throw IllegalStateException("No Android package installer is available.")
+        }
+        startActivity(installIntent)
+        return true
     }
 
     private fun shouldEmitLauncherButtonEvent(keyCode: Int): Boolean {

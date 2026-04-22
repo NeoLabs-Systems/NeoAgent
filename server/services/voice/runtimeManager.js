@@ -377,7 +377,7 @@ class VoiceRuntimeManager {
         ...normalized,
         apiKey: runtime.apiKey,
         baseUrl: runtime.baseUrl,
-        timeoutMs: 12000,
+        timeoutMs: 20000,
       });
     }
     return attempts;

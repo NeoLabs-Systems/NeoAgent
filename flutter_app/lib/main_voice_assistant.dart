@@ -11,16 +11,19 @@ class VoiceAssistantPanel extends StatefulWidget {
 
 class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   late final AudioPlayer _assistantPlayer;
+  late final AudioPlayer _thinkingPlayer;
   Timer? _elapsedTimer;
   bool _elapsedTickerActive = false;
   bool _pttPressed = false;
   bool _isAssistantPlaying = false;
+  bool _isThinkingAudioPlaying = false;
   String _assistantReply = '';
   String _assistantTranscript = '';
   String? _voiceError;
   String? _assistantAudioMimeType;
   String? _lastLiveError;
   final List<Uint8List> _audioQueue = <Uint8List>[];
+  late final Uint8List _thinkingAudioLoopBytes;
   bool _isDraining = false;
   bool _audioInterrupted = false;
   int _audioQueueConsumedCount = 0;
@@ -29,6 +32,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   void initState() {
     super.initState();
     _assistantPlayer = AudioPlayer();
+    _thinkingPlayer = AudioPlayer();
+    _thinkingAudioLoopBytes = _buildThinkingLoopWav();
     widget.controller.addListener(_handleControllerChanged);
     _assistantPlayer.onPlayerComplete.listen((_) {
       if (!mounted) {
@@ -37,6 +42,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       setState(() {
         _isAssistantPlaying = false;
       });
+      unawaited(_syncThinkingAudio());
     });
     _syncElapsedTicker();
   }
@@ -46,12 +52,14 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     widget.controller.removeListener(_handleControllerChanged);
     _elapsedTimer?.cancel();
     unawaited(_assistantPlayer.dispose());
+    unawaited(_thinkingPlayer.dispose());
     super.dispose();
   }
 
   void _handleControllerChanged() {
     _syncElapsedTicker();
     _syncLiveVoiceState();
+    unawaited(_syncThinkingAudio());
   }
 
   void _syncElapsedTicker() {
@@ -114,6 +122,41 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       }
       unawaited(_drainAudioQueue());
     }
+  }
+
+  Future<void> _syncThinkingAudio() async {
+    final state = widget.controller.voiceAssistantLiveState.state.trim();
+    final shouldPlay = state == 'thinking' && !_isAssistantPlaying;
+    if (shouldPlay == _isThinkingAudioPlaying) {
+      return;
+    }
+    if (shouldPlay) {
+      try {
+        await _thinkingPlayer.setReleaseMode(ReleaseMode.loop);
+        await _thinkingPlayer.setVolume(0.08);
+        await _thinkingPlayer.play(
+          BytesSource(_thinkingAudioLoopBytes, mimeType: 'audio/wav'),
+        );
+        _isThinkingAudioPlaying = true;
+      } catch (error, stackTrace) {
+        AppDiagnostics.log(
+          'voice.assistant.ui',
+          'thinking_audio.start_failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+      return;
+    }
+    await _stopThinkingAudio();
+  }
+
+  Future<void> _stopThinkingAudio() async {
+    if (!_isThinkingAudioPlaying) {
+      return;
+    }
+    await _thinkingPlayer.stop();
+    _isThinkingAudioPlaying = false;
   }
 
   bool _hasActivePttCapture() {
@@ -182,13 +225,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     _isDraining = true;
     try {
       while (_audioQueue.isNotEmpty && !_audioInterrupted) {
-        if (_audioQueue.length < 2 &&
-            !widget.controller.voiceAssistantLiveState.audioStreamDone) {
-          await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (_audioInterrupted || _audioQueue.isEmpty) {
-            break;
-          }
-        }
         final chunk = _audioQueue.removeAt(0);
         if (chunk.isEmpty) continue;
         final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
@@ -201,6 +237,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
           sub.cancel();
           completer.complete();
         });
+        await _stopThinkingAudio();
         await _assistantPlayer.play(BytesSource(chunk, mimeType: mimeType));
         if (!mounted || _audioInterrupted) {
           sub.cancel();
@@ -208,11 +245,13 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
         }
         if (mounted) setState(() => _isAssistantPlaying = true);
         await completer.future;
-        if (mounted) setState(() => _isAssistantPlaying = _audioQueue.isNotEmpty);
+        if (mounted)
+          setState(() => _isAssistantPlaying = _audioQueue.isNotEmpty);
       }
     } finally {
       _isDraining = false;
-      if (mounted && !_isAssistantPlaying) setState(() => _isAssistantPlaying = false);
+      if (mounted && !_isAssistantPlaying)
+        setState(() => _isAssistantPlaying = false);
     }
   }
 
@@ -225,6 +264,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   Future<void> _stopAssistantAudio() async {
     _audioInterrupted = true;
     _audioQueue.clear();
+    await _stopThinkingAudio();
     await _assistantPlayer.stop();
     if (!mounted) {
       return;
@@ -232,6 +272,63 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     setState(() {
       _isAssistantPlaying = false;
     });
+  }
+
+  Uint8List _buildThinkingLoopWav() {
+    const sampleRate = 24000;
+    const durationMs = 2400;
+    const channelCount = 1;
+    const bitsPerSample = 16;
+    final sampleCount = (sampleRate * durationMs) ~/ 1000;
+    final dataLength = sampleCount * 2;
+    final bytes = ByteData(44 + dataLength);
+
+    void writeString(int offset, String value) {
+      for (var i = 0; i < value.length; i += 1) {
+        bytes.setUint8(offset + i, value.codeUnitAt(i));
+      }
+    }
+
+    writeString(0, 'RIFF');
+    bytes.setUint32(4, 36 + dataLength, Endian.little);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    bytes.setUint32(16, 16, Endian.little);
+    bytes.setUint16(20, 1, Endian.little);
+    bytes.setUint16(22, channelCount, Endian.little);
+    bytes.setUint32(24, sampleRate, Endian.little);
+    bytes.setUint32(
+      28,
+      sampleRate * channelCount * (bitsPerSample ~/ 8),
+      Endian.little,
+    );
+    bytes.setUint16(32, channelCount * (bitsPerSample ~/ 8), Endian.little);
+    bytes.setUint16(34, bitsPerSample, Endian.little);
+    writeString(36, 'data');
+    bytes.setUint32(40, dataLength, Endian.little);
+
+    final twoPi = math.pi * 2;
+    for (var i = 0; i < sampleCount; i += 1) {
+      final time = i / sampleRate;
+      final progress = i / sampleCount;
+      final eased = math.sin(progress * math.pi);
+      final pad =
+          math.sin(twoPi * 196 * time) * 0.35 +
+          math.sin(twoPi * 246.94 * time) * 0.2 +
+          math.sin(twoPi * 293.66 * time) * 0.12;
+      final shimmer =
+          math.sin(twoPi * 523.25 * time + math.sin(twoPi * 0.23 * time)) *
+          0.05;
+      final tremolo = 0.58 + 0.42 * math.sin(twoPi * 0.45 * time);
+      final envelope = math.pow(eased, 1.6).toDouble() * tremolo;
+      final sample = ((pad + shimmer) * envelope * 1400).round().clamp(
+        -32768,
+        32767,
+      );
+      bytes.setInt16(44 + (i * 2), sample, Endian.little);
+    }
+
+    return bytes.buffer.asUint8List();
   }
 
   String _activeCallElapsedLabel(NeoAgentController controller) {
@@ -333,7 +430,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final liveState = controller.voiceAssistantLiveState;
     final viewportSize = MediaQuery.sizeOf(context);
     final heroHeight = math
-      .min(760, math.max(360, viewportSize.height * 0.72))
+        .min(760, math.max(360, viewportSize.height * 0.72))
         .toDouble();
     final assistantUi = _DesktopAssistantControlState.fromController(
       controller,

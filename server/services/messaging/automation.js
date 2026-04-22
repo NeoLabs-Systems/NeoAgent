@@ -154,6 +154,7 @@ async function processQueuedMessage({
     const runOptions = isVoiceLikeMessage(msg)
       ? buildVoiceMessagingRunOptions({
           runId,
+          userId,
           agentId,
           conversationId,
           msg,

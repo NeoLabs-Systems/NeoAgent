@@ -595,6 +595,41 @@ async function synthesizeVoiceReply(text, options = {}) {
 
 // Minimum characters before flushing a sentence chunk to TTS to avoid tiny requests.
 const MIN_SENTENCE_CHUNK_CHARS = 80;
+const MAX_TTS_CHUNK_CHARS = 220;
+
+function splitOversizeChunk(text, maxChars = MAX_TTS_CHUNK_CHARS) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return [];
+  if (normalized.length <= maxChars) return [normalized];
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  if (words.length <= 1) {
+    const slices = [];
+    for (let index = 0; index < normalized.length; index += maxChars) {
+      slices.push(normalized.slice(index, index + maxChars).trim());
+    }
+    return slices.filter(Boolean);
+  }
+
+  const chunks = [];
+  let pending = '';
+  for (const word of words) {
+    const candidate = pending ? `${pending} ${word}` : word;
+    if (pending && candidate.length > maxChars) {
+      chunks.push(pending);
+      pending = word;
+      continue;
+    }
+    if (!pending && candidate.length > maxChars) {
+      chunks.push(...splitOversizeChunk(word, maxChars));
+      pending = '';
+      continue;
+    }
+    pending = candidate;
+  }
+  if (pending) chunks.push(pending);
+  return chunks;
+}
 
 function splitIntoSentenceChunks(text) {
   const normalized = String(text || '').trim();
@@ -609,13 +644,13 @@ function splitIntoSentenceChunks(text) {
     const piece = part.trim();
     if (!piece) continue;
     pending = pending ? `${pending} ${piece}` : piece;
-    if (pending.length >= MIN_SENTENCE_CHUNK_CHARS) {
-      chunks.push(pending);
+    if (pending.length >= MIN_SENTENCE_CHUNK_CHARS || pending.length >= MAX_TTS_CHUNK_CHARS) {
+      chunks.push(...splitOversizeChunk(pending));
       pending = '';
     }
   }
 
-  if (pending) chunks.push(pending);
+  if (pending) chunks.push(...splitOversizeChunk(pending));
   return chunks.length ? chunks : [normalized];
 }
 
@@ -628,8 +663,8 @@ async function synthesizeVoiceReplyStream(text, options = {}, onChunk) {
   const { provider, model, voice } = normalizeVoiceSynthesisOptions(options);
   const chunks = splitIntoSentenceChunks(content);
 
-  const run = (async () => {
-    for (const chunk of chunks) {
+  for (const chunk of chunks) {
+    const run = (async () => {
       if (provider === 'openai') {
         await streamWithOpenAi(chunk, model, voice, options, onChunk);
       } else if (provider === 'deepgram') {
@@ -637,9 +672,9 @@ async function synthesizeVoiceReplyStream(text, options = {}, onChunk) {
       } else {
         await streamWithGemini(chunk, model, voice, options, onChunk);
       }
-    }
-  })();
-  await withTimeout(run, options.timeoutMs, `${provider} TTS stream`);
+    })();
+    await withTimeout(run, options.timeoutMs, `${provider} TTS stream`);
+  }
 }
 
 module.exports = {
