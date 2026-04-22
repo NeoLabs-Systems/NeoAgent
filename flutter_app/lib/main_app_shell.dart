@@ -550,210 +550,261 @@ class _AuthViewState extends State<AuthView> {
     final countdown = challenge?.secondsRemaining ?? 0;
     final canShowQr =
         challenge?.isUsable == true && !(challenge?.isExpired ?? true);
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            const Color(0xFF0A1D2E),
-            _bgSecondary.withValues(alpha: 0.96),
-            const Color(0xFF112B43),
-          ],
-        ),
-        border: Border.all(color: _borderLight.withValues(alpha: 0.45)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: const Color(0xFF6EDBFF).withValues(alpha: 0.12),
-            blurRadius: 36,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Stack(
-        children: <Widget>[
-          Positioned(
-            top: -24,
-            right: -12,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF6EDBFF).withValues(alpha: 0.12),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -36,
-            left: -18,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF58E0A2).withValues(alpha: 0.10),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+        final narrow = constraints.maxWidth < 520;
+        final panelPadding = compact ? 18.0 : 24.0;
+        final qrShellPadding = compact ? 14.0 : 18.0;
+        final qrCardPadding = compact ? 14.0 : 18.0;
+        final titleSize = compact ? 22.0 : 28.0;
+        final titleAlignment = compact ? TextAlign.center : TextAlign.left;
+        final contentAlignment = compact
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start;
+
+        Widget buildInfoSection() {
+          final timerChip = _InfoChip(
+            icon: Icons.timer_outlined,
+            label: canShowQr
+                ? 'Refreshes in ${countdown}s'
+                : 'Waiting for code',
+          );
+          const securityChip = _InfoChip(
+            icon: Icons.security_outlined,
+            label: 'One-time approval only',
+          );
+
+          if (compact) {
+            return Column(
               children: <Widget>[
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    _MetaPill(
-                      label: 'Instant Login',
-                      icon: Icons.bolt_rounded,
-                      color: const Color(0xFF6EDBFF),
+                timerChip,
+                const SizedBox(height: 10),
+                securityChip,
+              ],
+            );
+          }
+
+          return Row(
+            children: <Widget>[
+              Expanded(child: timerChip),
+              const SizedBox(width: 10),
+              const Expanded(child: securityChip),
+            ],
+          );
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(compact ? 24 : 28),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[
+                const Color(0xFF0A1D2E),
+                _bgSecondary.withValues(alpha: 0.96),
+                const Color(0xFF112B43),
+              ],
+            ),
+            border: Border.all(color: _borderLight.withValues(alpha: 0.45)),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: const Color(0xFF6EDBFF).withValues(alpha: 0.12),
+                blurRadius: 36,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Stack(
+            children: <Widget>[
+              Positioned(
+                top: compact ? -18 : -24,
+                right: compact ? -24 : -12,
+                child: IgnorePointer(
+                  child: Container(
+                    width: compact ? 86 : 120,
+                    height: compact ? 86 : 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF6EDBFF).withValues(alpha: 0.12),
                     ),
-                    _MetaPill(
-                      label: 'Mobile approval',
-                      icon: Icons.verified_user_outlined,
-                      color: const Color(0xFF58E0A2),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: compact ? -34 : -36,
+                left: compact ? -28 : -18,
+                child: IgnorePointer(
+                  child: Container(
+                    width: compact ? 110 : 140,
+                    height: compact ? 110 : 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF58E0A2).withValues(alpha: 0.10),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(panelPadding),
+                child: Column(
+                  crossAxisAlignment: contentAlignment,
+                  children: <Widget>[
+                    Wrap(
+                      alignment: compact
+                          ? WrapAlignment.center
+                          : WrapAlignment.start,
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: <Widget>[
+                        _MetaPill(
+                          label: 'Instant Login',
+                          icon: Icons.bolt_rounded,
+                          color: const Color(0xFF6EDBFF),
+                        ),
+                        _MetaPill(
+                          label: 'Mobile approval',
+                          icon: Icons.verified_user_outlined,
+                          color: const Color(0xFF58E0A2),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: compact ? 16 : 18),
+                    Text(
+                      'Scan with NeoOS on your phone',
+                      textAlign: titleAlignment,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: titleSize,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: compact ? -0.3 : -0.6,
+                        color: Colors.white,
+                        height: compact ? 1.05 : null,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: Text(
+                        'On a signed-in Android device, open Account settings, scan this code, and approve the login.',
+                        textAlign: titleAlignment,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: compact ? 18 : 22),
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(qrShellPadding),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(compact ? 20 : 24),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(qrCardPadding),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(
+                                compact ? 18 : 22,
+                              ),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 26,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: Center(
+                                child: canShowQr
+                                    ? QrImageView(
+                                        data: challenge!.qrPayload,
+                                        version: QrVersions.auto,
+                                        eyeStyle: const QrEyeStyle(
+                                          eyeShape: QrEyeShape.square,
+                                          color: Color(0xFF04111D),
+                                        ),
+                                        dataModuleStyle:
+                                            const QrDataModuleStyle(
+                                              dataModuleShape:
+                                                  QrDataModuleShape.square,
+                                              color: Color(0xFF04111D),
+                                            ),
+                                      )
+                                    : controller.isPreparingQrLogin
+                                    ? const SizedBox.square(
+                                        dimension: 40,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 3,
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.qr_code_2_rounded,
+                                        size: narrow ? 72 : 84,
+                                        color: _textMuted,
+                                      ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          buildInfoSection(),
+                        ],
+                      ),
+                    ),
+                    if (controller.qrLoginErrorMessage != null) ...<Widget>[
+                      const SizedBox(height: 14),
+                      _InlineError(message: controller.qrLoginErrorMessage!),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      'Approval stays inside your authenticated mobile session, and each code expires automatically after a short window.',
+                      textAlign: titleAlignment,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.68),
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: controller.isPreparingQrLogin
+                            ? null
+                            : () => _ensureQrLoginChallenge(force: true),
+                        icon: controller.isPreparingQrLogin
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh_rounded),
+                        label: const Text('Refresh code'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.18),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  'Scan with NeoOS on your phone',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.6,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Open Account settings on a signed-in Android device, scan this code, and approve the login without typing your password here.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 22),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
-                    ),
-                  ),
-                  child: Column(
-                    children: <Widget>[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: <BoxShadow>[
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 26,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: Center(
-                            child: canShowQr
-                                ? QrImageView(
-                                    data: challenge!.qrPayload,
-                                    version: QrVersions.auto,
-                                    eyeStyle: const QrEyeStyle(
-                                      eyeShape: QrEyeShape.square,
-                                      color: Color(0xFF04111D),
-                                    ),
-                                    dataModuleStyle: const QrDataModuleStyle(
-                                      dataModuleShape: QrDataModuleShape.square,
-                                      color: Color(0xFF04111D),
-                                    ),
-                                  )
-                                : controller.isPreparingQrLogin
-                                ? const SizedBox.square(
-                                    dimension: 40,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 3,
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.qr_code_2_rounded,
-                                    size: 84,
-                                    color: _textMuted,
-                                  ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: _InfoChip(
-                              icon: Icons.timer_outlined,
-                              label: canShowQr
-                                  ? 'Refreshes in ${countdown}s'
-                                  : 'Waiting for code',
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: _InfoChip(
-                              icon: Icons.security_outlined,
-                              label: 'One-time approval only',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                if (controller.qrLoginErrorMessage != null) ...<Widget>[
-                  const SizedBox(height: 14),
-                  _InlineError(message: controller.qrLoginErrorMessage!),
-                ],
-                const SizedBox(height: 16),
-                Text(
-                  'The approval happens inside your authenticated mobile session, and this code expires automatically after a short window.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.68),
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                OutlinedButton.icon(
-                  onPressed: controller.isPreparingQrLogin
-                      ? null
-                      : () => _ensureQrLoginChallenge(force: true),
-                  icon: controller.isPreparingQrLogin
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                  label: const Text('Refresh code'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.18),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -805,7 +856,9 @@ class _AuthViewState extends State<AuthView> {
                     minHeight: viewportConstraints.maxHeight,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(
+                      viewportConstraints.maxWidth < 480 ? 14 : 24,
+                    ),
                     child: Center(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
@@ -819,7 +872,12 @@ class _AuthViewState extends State<AuthView> {
                             boxShadow: _softPanelShadow,
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(34, 30, 34, 30),
+                            padding: EdgeInsets.fromLTRB(
+                              viewportConstraints.maxWidth < 480 ? 18 : 34,
+                              viewportConstraints.maxWidth < 480 ? 20 : 30,
+                              viewportConstraints.maxWidth < 480 ? 18 : 34,
+                              viewportConstraints.maxWidth < 480 ? 20 : 30,
+                            ),
                             child: LayoutBuilder(
                               builder: (context, panelConstraints) {
                                 final useWideQrLayout =

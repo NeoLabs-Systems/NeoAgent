@@ -392,11 +392,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
           title: 'Widgets',
           subtitle:
               'Pinned AI widgets refreshed by the server and rendered here at a glance.',
-          trailing: OutlinedButton.icon(
-            onPressed: controller.openWidgetCreateFlow,
-            icon: Icon(Icons.auto_awesome),
-            label: Text('Create With AI'),
-          ),
         ),
         if (controller.widgets.isEmpty)
           const _EmptyCard(

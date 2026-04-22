@@ -67,7 +67,6 @@ class _AmbientBackdrop extends StatelessWidget {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
-    AppSection.agents,
     AppSection.recordings,
     AppSection.runs,
     AppSection.logs,
@@ -80,6 +79,7 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
     AppSection.settings,
+    AppSection.agents,
     AppSection.messaging,
   ];
 }
@@ -1027,7 +1027,13 @@ class _MetaPill extends StatelessWidget {
         children: <Widget>[
           Icon(icon, size: 14, color: accentColor),
           const SizedBox(width: 8),
-          Text(label),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+            ),
+          ),
         ],
       ),
     );

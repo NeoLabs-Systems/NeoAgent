@@ -237,8 +237,6 @@ extension AppSectionX on AppSection {
       case AppSection.chat:
       case AppSection.voiceAssistant:
         return SidebarGroup.chat;
-      case AppSection.agents:
-        return SidebarGroup.agents;
       case AppSection.recordings:
         return SidebarGroup.recordings;
       case AppSection.runs:
@@ -253,6 +251,7 @@ extension AppSectionX on AppSection {
       case AppSection.mcp:
       case AppSection.health:
         return SidebarGroup.automation;
+      case AppSection.agents:
       case AppSection.settings:
       case AppSection.accountSettings:
       case AppSection.messaging:
