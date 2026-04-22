@@ -77,6 +77,84 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
     }
   }
 
+  bool get _supportsQrLoginApproval =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<void> _startQrLoginApproval() async {
+    final controller = widget.controller;
+    if (!controller.isAuthenticated) {
+      _showLauncherActionError(
+        'Sign in to this NeoAgent server before scanning a pairing QR code.',
+      );
+      return;
+    }
+
+    final scanned = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => const _QrLoginScannerDialog(),
+    );
+    if (!mounted || scanned == null || scanned.trim().isEmpty) {
+      return;
+    }
+
+    final payload = QrLoginScanPayload.tryParse(scanned);
+    if (payload == null) {
+      _showLauncherActionError(
+        'That QR code is not a NeoAgent pairing request.',
+      );
+      return;
+    }
+
+    final scannedBackend = controller._normalizeBackendUrl(payload.backendUrl);
+    final currentBackend = controller._normalizeBackendUrl(
+      controller.backendUrl,
+    );
+    if (scannedBackend != currentBackend) {
+      _showLauncherActionError(
+        'This code belongs to a different NeoAgent server: ${payload.backendUrl}',
+      );
+      return;
+    }
+
+    try {
+      final preview = await controller.resolveQrLoginApproval(payload);
+      if (!mounted) {
+        return;
+      }
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return _QrLoginApprovalDialog(
+            preview: preview,
+            busy: controller.isApprovingQrLogin,
+          );
+        },
+      );
+      if (approved != true || !mounted) {
+        return;
+      }
+      await controller.approveQrLogin(payload);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Approved pairing for ${preview.requestedDevice.label}.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _showLauncherActionError(
+        controller.errorMessage ?? 'Could not approve QR pairing.',
+      );
+    }
+  }
+
   Future<void> _refreshDeviceStatus({int retries = 0}) async {
     final status = await _launcherBridge.fetchDeviceStatus();
     if (!mounted) {
@@ -322,6 +400,57 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             ),
           ),
         ),
+        if (_supportsQrLoginApproval) ...<Widget>[
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const Expanded(child: _SectionTitle('QR Pairing')),
+                      _StatusPill(label: 'Android only', color: _accent),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Scan a NeoAgent pairing QR from another device and approve it from this launcher session.',
+                    style: TextStyle(color: _textSecondary, height: 1.45),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: controller.isApprovingQrLogin
+                        ? null
+                        : _startQrLoginApproval,
+                    icon: controller.isApprovingQrLogin
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.qr_code_scanner_outlined),
+                    label: Text(
+                      controller.isApprovingQrLogin
+                          ? 'Opening scanner...'
+                          : 'Scan pairing QR',
+                    ),
+                  ),
+                  if (!controller.isAuthenticated) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Text(
+                      'This requires an authenticated session on the same NeoAgent server.',
+                      style: TextStyle(color: _textMuted, height: 1.4),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Card(
           child: Padding(
