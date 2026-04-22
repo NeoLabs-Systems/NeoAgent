@@ -548,16 +548,29 @@ class MessagingMessage {
   });
 
   factory MessagingMessage.fromJson(Map<dynamic, dynamic> json) {
-    final metadata = _decodeMaybeJson(json['metadata']);
+    final metadata = _jsonMap(_decodeMaybeJson(json['metadata']));
+    final sender = (metadata['sender']?.toString() ?? '').trim();
+    final senderName =
+        (metadata['senderName']?.toString() ??
+                metadata['sender_name']?.toString() ??
+                json['sender_name']?.toString() ??
+                '')
+            .trim();
+    final chatId =
+        (json['platform_chat_id']?.toString() ??
+                metadata['chatId']?.toString() ??
+                metadata['chat_id']?.toString() ??
+                '')
+            .trim();
     return MessagingMessage(
       platform: json['platform']?.toString() ?? 'web',
       content: json['content']?.toString() ?? '',
       createdAt: _parseTimestamp(json['created_at']?.toString()),
       outgoing: json['role']?.toString() == 'assistant',
-      chatId: json['platform_chat_id']?.toString(),
-      sender: metadata['sender']?.toString(),
-      senderName: metadata['senderName']?.toString(),
-      target: json['platform_chat_id']?.toString(),
+      chatId: chatId.isEmpty ? null : chatId,
+      sender: sender.isEmpty ? null : sender,
+      senderName: senderName.isEmpty ? null : senderName,
+      target: chatId.isEmpty ? null : chatId,
     );
   }
 
