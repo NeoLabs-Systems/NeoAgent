@@ -1120,9 +1120,12 @@ class NeoAgentController extends ChangeNotifier {
   io.Socket? _socket;
   Timer? _updatePollTimer;
   Timer? _qrLoginPollTimer;
+  Timer? _manualRunCooldownTimer;
   final Set<String> _backgroundRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
+  final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
+  static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
   List<LogEntry> _serverLogs = const <LogEntry>[];
@@ -1364,6 +1367,7 @@ class NeoAgentController extends ChangeNotifier {
   void dispose() {
     _updatePollTimer?.cancel();
     _qrLoginPollTimer?.cancel();
+    _manualRunCooldownTimer?.cancel();
     _liveVoiceRecoveryTimer?.cancel();
     _socket?.dispose();
     _diagnosticLogSubscription?.cancel();
@@ -4806,9 +4810,7 @@ class NeoAgentController extends ChangeNotifier {
     if (socket == null) {
       return;
     }
-    socket.emit('voice:interrupt', <String, dynamic>{
-      'sessionId': sessionId,
-    });
+    socket.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
     socket.emit('voice:input_start', <String, dynamic>{
       'sessionId': sessionId,
       'turnId': turnId,
@@ -4820,7 +4822,10 @@ class NeoAgentController extends ChangeNotifier {
     final socket = _socket;
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     final turnId = (_liveVoiceTurnId ?? '').trim();
-    if (socket == null || !socketConnected || sessionId.isEmpty || turnId.isEmpty) {
+    if (socket == null ||
+        !socketConnected ||
+        sessionId.isEmpty ||
+        turnId.isEmpty) {
       return;
     }
     for (final chunk in _liveVoiceBufferedChunks) {
@@ -4865,7 +4870,9 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _restoreBufferedLiveVoiceTurnToActiveSession() async {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     final turnId = (_liveVoiceTurnId ?? '').trim();
-    if (sessionId.isEmpty || turnId.isEmpty || !_hasRecoverableLiveVoiceTurn()) {
+    if (sessionId.isEmpty ||
+        turnId.isEmpty ||
+        !_hasRecoverableLiveVoiceTurn()) {
       return;
     }
     _markLiveVoiceChunksForReplay();
@@ -6167,6 +6174,59 @@ class NeoAgentController extends ChangeNotifier {
     await refreshScheduler();
   }
 
+  String _manualRunCooldownKey(String scope, String id) => '$scope:$id';
+
+  void _pruneManualRunCooldowns() {
+    final now = DateTime.now();
+    _manualRunCooldowns.removeWhere((_, expiresAt) => !expiresAt.isAfter(now));
+  }
+
+  void _ensureManualRunCooldownTicker() {
+    if (_manualRunCooldowns.isEmpty) {
+      _manualRunCooldownTimer?.cancel();
+      _manualRunCooldownTimer = null;
+      return;
+    }
+    _manualRunCooldownTimer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      _pruneManualRunCooldowns();
+      if (_manualRunCooldowns.isEmpty) {
+        _manualRunCooldownTimer?.cancel();
+        _manualRunCooldownTimer = null;
+      }
+      notifyListeners();
+    });
+  }
+
+  void _startManualRunCooldown(String scope, String id) {
+    _manualRunCooldowns[_manualRunCooldownKey(scope, id)] = DateTime.now().add(
+      _manualRunCooldownDuration,
+    );
+    _ensureManualRunCooldownTicker();
+    notifyListeners();
+  }
+
+  int _manualRunCooldownSeconds(String scope, String id) {
+    _pruneManualRunCooldowns();
+    final expiresAt = _manualRunCooldowns[_manualRunCooldownKey(scope, id)];
+    if (expiresAt == null) {
+      return 0;
+    }
+    final remaining = expiresAt.difference(DateTime.now()).inSeconds;
+    return remaining <= 0 ? 0 : remaining + 1;
+  }
+
+  bool canRunSchedulerTaskNow(int id) =>
+      _manualRunCooldownSeconds('scheduler', '$id') == 0;
+
+  int schedulerRunCooldownSeconds(int id) =>
+      _manualRunCooldownSeconds('scheduler', '$id');
+
+  bool canRefreshWidgetNow(String id) =>
+      _manualRunCooldownSeconds('widget', id) == 0;
+
+  int widgetRunCooldownSeconds(String id) =>
+      _manualRunCooldownSeconds('widget', id);
+
   Future<void> toggleWidgetEnabled(AiWidgetItem item) async {
     await _backendClient.saveWidget(
       backendUrl,
@@ -6186,6 +6246,11 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> refreshWidgetNow(String id) async {
+    if (!canRefreshWidgetNow(id)) {
+      notifyListeners();
+      return;
+    }
+    _startManualRunCooldown('widget', id);
     await _backendClient.refreshWidget(backendUrl, id);
     await refreshWidgets();
     await refreshScheduler();
@@ -6274,6 +6339,11 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> runSchedulerTask(int id) async {
+    if (!canRunSchedulerTaskNow(id)) {
+      notifyListeners();
+      return;
+    }
+    _startManualRunCooldown('scheduler', '$id');
     await _backendClient.runSchedulerTask(backendUrl, id);
     await refreshScheduler();
     await refreshRunsOnly();
@@ -6827,14 +6897,16 @@ class NeoAgentController extends ChangeNotifier {
         clearError: _hasRecoverableLiveVoiceTurn(),
       );
       if (_hasRecoverableLiveVoiceTurn()) {
-        unawaited(ensureLiveVoiceSession().catchError((Object error) {
-          voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-            transportState: 'disconnected',
-            state: 'error',
-            error: _friendlyErrorMessage(error),
-          );
-          notifyListeners();
-        }));
+        unawaited(
+          ensureLiveVoiceSession().catchError((Object error) {
+            voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+              transportState: 'disconnected',
+              state: 'error',
+              error: _friendlyErrorMessage(error),
+            );
+            notifyListeners();
+          }),
+        );
       }
       notifyListeners();
     });
@@ -6844,14 +6916,20 @@ class NeoAgentController extends ChangeNotifier {
         _setLiveVoiceRecoveryWindow();
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
           sessionId: '',
-          transportState: hasNetworkConnection ? 'reconnecting' : 'disconnected',
-          state: _liveVoiceCaptureActive ? 'listening' : voiceAssistantLiveState.state,
+          transportState: hasNetworkConnection
+              ? 'reconnecting'
+              : 'disconnected',
+          state: _liveVoiceCaptureActive
+              ? 'listening'
+              : voiceAssistantLiveState.state,
         );
       } else {
         _liveVoiceCaptureActive = false;
         _pendingLiveVoiceStop = false;
         voiceAssistantLiveState = VoiceAssistantLiveState(
-          transportState: hasNetworkConnection ? 'disconnected' : 'disconnected',
+          transportState: hasNetworkConnection
+              ? 'disconnected'
+              : 'disconnected',
         );
       }
       notifyListeners();
@@ -7048,12 +7126,12 @@ class NeoAgentController extends ChangeNotifier {
       final content = payload['content']?.toString() ?? '';
       final kind = payload['kind']?.toString() ?? 'final';
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        interimAssistantText:
-            kind == 'final'
-                ? voiceAssistantLiveState.interimAssistantText
-                : content,
-        finalAssistantText:
-            kind == 'final' ? content : voiceAssistantLiveState.finalAssistantText,
+        interimAssistantText: kind == 'final'
+            ? voiceAssistantLiveState.interimAssistantText
+            : content,
+        finalAssistantText: kind == 'final'
+            ? content
+            : voiceAssistantLiveState.finalAssistantText,
         assistantText: content,
       );
       if (kind == 'final' && content.trim().isNotEmpty) {
@@ -7103,8 +7181,7 @@ class NeoAgentController extends ChangeNotifier {
       _liveVoiceSessionOpenCompleter = null;
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         error: message,
-        state:
-            payload['phase']?.toString() == 'tts' ? 'degraded' : 'idle',
+        state: payload['phase']?.toString() == 'tts' ? 'degraded' : 'idle',
         clearAudio: true,
         clearRecoverableUntil: true,
       );
@@ -18690,7 +18767,7 @@ class WidgetsPanel extends StatelessWidget {
         _PageTitle(
           title: 'Widgets',
           subtitle:
-              'Shared AI widgets with fixed templates, approved layout variants, and scheduled snapshot refreshes.',
+              'Beautiful, glanceable AI widgets that stay in sync across the app, launcher, and Android home screen.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -18715,43 +18792,70 @@ class WidgetsPanel extends StatelessWidget {
                 'Create a widget through the agent and it will appear here, in launcher mode, and in Android home widgets.',
           )
         else
-          ...controller.widgets.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: _AiWidgetCard(
-                item: item,
-                active: controller.selectedWidgetId == item.id,
-                onSelect: () => controller.selectWidget(item.id),
-                footer: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    OutlinedButton(
-                      onPressed: () => controller.openWidgetEditFlow(item),
-                      child: Text('Edit With AI'),
-                    ),
-                    OutlinedButton(
-                      onPressed: () => controller.toggleWidgetEnabled(item),
-                      child: Text(item.enabled ? 'Pause' : 'Enable'),
-                    ),
-                    FilledButton(
-                      onPressed: () => controller.refreshWidgetNow(item.id),
-                      child: Text('Run Now'),
-                    ),
-                    OutlinedButton(
-                      onPressed: () => _confirmDelete(
-                        context,
-                        title: 'Delete widget?',
-                        message:
-                            'This removes "${item.name}" and its refresh job.',
-                        onConfirm: () => controller.deleteWidget(item.id),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final spacing = constraints.maxWidth >= 1100 ? 18.0 : 0.0;
+              final columns = constraints.maxWidth >= 1400
+                  ? 2
+                  : (constraints.maxWidth >= 920 ? 2 : 1);
+              final width = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : MediaQuery.sizeOf(context).width;
+              final cardWidth = columns == 1
+                  ? width
+                  : (width - (spacing * (columns - 1))) / columns;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: 18,
+                children: controller.widgets.map((item) {
+                  final remaining = controller.widgetRunCooldownSeconds(
+                    item.id,
+                  );
+                  return SizedBox(
+                    width: cardWidth,
+                    child: _AiWidgetCard(
+                      item: item,
+                      active: controller.selectedWidgetId == item.id,
+                      onSelect: () => controller.selectWidget(item.id),
+                      footer: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          OutlinedButton(
+                            onPressed: () =>
+                                controller.openWidgetEditFlow(item),
+                            child: Text('Edit With AI'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () =>
+                                controller.toggleWidgetEnabled(item),
+                            child: Text(item.enabled ? 'Pause' : 'Enable'),
+                          ),
+                          FilledButton(
+                            onPressed: remaining > 0
+                                ? null
+                                : () => controller.refreshWidgetNow(item.id),
+                            child: Text(
+                              _manualRunButtonLabel('Run Now', remaining),
+                            ),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => _confirmDelete(
+                              context,
+                              title: 'Delete widget?',
+                              message:
+                                  'This removes "${item.name}" and its refresh job.',
+                              onConfirm: () => controller.deleteWidget(item.id),
+                            ),
+                            child: Text('Delete'),
+                          ),
+                        ],
                       ),
-                      child: Text('Delete'),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  );
+                }).toList(),
+              );
+            },
           ),
       ],
     );
@@ -18779,160 +18883,737 @@ class _AiWidgetCard extends StatelessWidget {
     final accent = _widgetAccentColor(snapshot?.accentToken ?? item.template);
     final icon = _widgetIconData(snapshot?.iconToken ?? item.template);
     final title = snapshot?.title ?? item.name;
-    final subtitle = snapshot?.subtitle ?? item.template.toUpperCase();
+    final subtitle =
+        snapshot?.subtitle ?? _widgetCadenceLabel(item.refreshCron);
     final metric = snapshot?.metric ?? '';
     final rows = snapshot?.rows ?? const <Map<String, dynamic>>[];
     final chips = snapshot?.chips ?? const <String>[];
-    final body = snapshot?.body ?? item.prompt;
+    final snapshotBody = snapshot?.body ?? '';
+    final body = snapshotBody.trim().isNotEmpty
+        ? snapshotBody
+        : ((item.definition['description']?.toString() ?? '').trim().isNotEmpty
+              ? item.definition['description']?.toString() ?? ''
+              : 'Keeps itself fresh automatically and stays consistent everywhere you use NeoAgent.');
+    final updatedLabel = snapshot?.generatedAtLabel ?? item.lastSnapshotLabel;
+    final cadenceLabel = _widgetCadenceLabel(item.refreshCron);
 
-    return Card(
-      color: active ? _bgSecondary.withValues(alpha: 0.92) : null,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onSelect,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(compact ? 28 : 32),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            Color.lerp(
+              _bgCard,
+              accent,
+              compact ? 0.14 : 0.18,
+            )!.withValues(alpha: 0.98),
+            _bgCard.withValues(alpha: 0.98),
+            _bgSecondary.withValues(alpha: 0.96),
+          ],
+        ),
+        border: Border.all(
+          color: active ? accent.withValues(alpha: 0.42) : _border,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: accent.withValues(alpha: compact ? 0.1 : 0.14),
+            blurRadius: compact ? 22 : 32,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(compact ? 28 : 32),
+          onTap: onSelect,
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 16 : 22),
+            child: compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _AiWidgetAndroidPreview(
+                        item: item,
+                        accent: accent,
+                        icon: icon,
+                        compact: true,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: _textSecondary),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: accent.withValues(alpha: 0.26),
+                              ),
+                            ),
+                            child: Icon(icon, color: accent),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  item.name,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: _textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    height: 1.06,
+                                    letterSpacing: -0.8,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _StatusPill(
+                            label: item.enabled ? 'Live' : 'Paused',
+                            color: item.enabled ? _success : _textSecondary,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final stacked = constraints.maxWidth < 860;
+                          final infoPane = _AiWidgetInfoPane(
+                            item: item,
+                            accent: accent,
+                            headline: subtitle,
+                            body: body,
+                            metric: metric,
+                            rows: rows,
+                            chips: chips,
+                            cadenceLabel: cadenceLabel,
+                            updatedLabel: updatedLabel,
+                          );
+                          final previewPane = Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                'Android Preview',
+                                style: TextStyle(
+                                  color: _textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              _AiWidgetAndroidPreview(
+                                item: item,
+                                accent: accent,
+                                icon: icon,
+                              ),
+                            ],
+                          );
+                          if (stacked) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                infoPane,
+                                const SizedBox(height: 20),
+                                previewPane,
+                              ],
+                            );
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Expanded(flex: 11, child: infoPane),
+                              const SizedBox(width: 20),
+                              Expanded(flex: 10, child: previewPane),
+                            ],
+                          );
+                        },
+                      ),
+                      if (item.hasError) ...<Widget>[
+                        const SizedBox(height: 16),
+                        _InlineError(message: item.lastError!),
+                      ],
+                      if (footer != null) ...<Widget>[
+                        const SizedBox(height: 18),
+                        footer!,
+                      ],
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiWidgetInfoPane extends StatelessWidget {
+  const _AiWidgetInfoPane({
+    required this.item,
+    required this.accent,
+    required this.headline,
+    required this.body,
+    required this.metric,
+    required this.rows,
+    required this.chips,
+    required this.cadenceLabel,
+    required this.updatedLabel,
+  });
+
+  final AiWidgetItem item;
+  final Color accent;
+  final String headline;
+  final String body;
+  final String metric;
+  final List<Map<String, dynamic>> rows;
+  final List<String> chips;
+  final String cadenceLabel;
+  final String updatedLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: <Widget>[
+            _WidgetGlassPill(
+              label: '${item.template} · ${item.layoutVariant}',
+              icon: Icons.widgets_outlined,
+            ),
+            _WidgetGlassPill(
+              label: cadenceLabel,
+              icon: Icons.schedule_outlined,
+            ),
+            _WidgetGlassPill(label: updatedLabel, icon: Icons.update_outlined),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Text(
+          headline,
+          style: TextStyle(fontSize: 15, color: _textSecondary, height: 1.35),
+        ),
+        if (metric.trim().isNotEmpty) ...<Widget>[
+          const SizedBox(height: 18),
+          Text(
+            metric,
+            style: _displayTitleStyle(
+              40,
+            ).copyWith(color: accent, letterSpacing: -1.2),
+          ),
+        ],
+        if (body.trim().isNotEmpty) ...<Widget>[
+          const SizedBox(height: 10),
+          Text(
+            body,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _textPrimary, height: 1.5, fontSize: 15),
+          ),
+        ],
+        if (rows.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Column(
+              children: rows.take(3).map((row) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          row['label']?.toString() ?? '',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        row['value']?.toString() ?? '',
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+        if (chips.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: chips.take(3).map((chip) {
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: accent.withValues(alpha: 0.18)),
+                ),
+                child: Text(
+                  chip,
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AiWidgetAndroidPreview extends StatelessWidget {
+  const _AiWidgetAndroidPreview({
+    required this.item,
+    required this.accent,
+    required this.icon,
+    this.compact = false,
+  });
+
+  final AiWidgetItem item;
+  final Color accent;
+  final IconData icon;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = item.latestSnapshot;
+    final title = snapshot?.title ?? item.name;
+    final subtitle = snapshot?.subtitle ?? '';
+    final body = snapshot?.body ?? '';
+    final metric = snapshot?.metric ?? '';
+    final rows = snapshot?.rows ?? const <Map<String, dynamic>>[];
+    final chips = snapshot?.chips ?? const <String>[];
+    final previewRatio = _widgetPreviewAspectRatio(item.template);
+    return AspectRatio(
+      aspectRatio: previewRatio,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(compact ? 30 : 34),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: _widgetPreviewColors(item.template, accent),
+          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 26,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
         child: Padding(
           padding: EdgeInsets.all(compact ? 16 : 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Container(
-                    width: compact ? 42 : 48,
-                    height: compact ? 42 : 48,
+                    width: compact ? 26 : 28,
+                    height: compact ? 26 : 28,
                     decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: accent.withValues(alpha: 0.25)),
+                      color: accent.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
                     ),
-                    child: Icon(icon, color: accent),
+                    child: Icon(icon, size: compact ? 16 : 17, color: accent),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: compact ? 16 : 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(subtitle, style: TextStyle(color: _textSecondary)),
-                      ],
+                    child: Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.96),
+                        fontWeight: FontWeight.w700,
+                        fontSize: compact ? 14 : 15,
+                        letterSpacing: -0.2,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  _StatusPill(
-                    label: item.enabled ? 'Live' : 'Paused',
-                    color: item.enabled ? _success : _textSecondary,
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_left_rounded,
+                    size: compact ? 18 : 20,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: compact ? 18 : 20,
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  _MetaPill(
-                    icon: Icons.view_quilt_outlined,
-                    label: '${item.template} · ${item.layoutVariant}',
+              const SizedBox(height: 16),
+              Expanded(
+                child: switch (item.template) {
+                  'list' => _AiWidgetPreviewList(
+                    rows: rows,
+                    chips: chips,
+                    accent: accent,
+                    compact: compact,
                   ),
-                  _MetaPill(
-                    icon: Icons.schedule_outlined,
-                    label: item.refreshCron,
+                  'summary' => _AiWidgetPreviewSummary(
+                    title: title,
+                    subtitle: subtitle,
+                    body: body,
+                    chips: chips,
+                    compact: compact,
                   ),
-                  _MetaPill(
-                    icon: Icons.update_outlined,
-                    label: snapshot?.generatedAtLabel ?? item.lastSnapshotLabel,
+                  _ => _AiWidgetPreviewStat(
+                    title: title,
+                    subtitle: subtitle,
+                    metric: metric,
+                    rows: rows,
+                    accent: accent,
+                    compact: compact,
                   ),
-                ],
+                },
               ),
-              if (metric.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 16),
-                Text(
-                  metric,
-                  style: _displayTitleStyle(
-                    compact ? 30 : 36,
-                  ).copyWith(color: accent),
-                ),
-              ],
-              if (body.trim().isNotEmpty) ...<Widget>[
-                const SizedBox(height: 10),
-                Text(body, style: TextStyle(color: _textPrimary, height: 1.45)),
-              ],
-              if (rows.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 14),
-                ...rows.map(
-                  (row) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            row['label']?.toString() ?? '',
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          row['value']?.toString() ?? '',
-                          style: TextStyle(
-                            color: _textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              if (chips.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: chips
-                      .map(
-                        (chip) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: accent.withValues(alpha: 0.18),
-                            ),
-                          ),
-                          child: Text(
-                            chip,
-                            style: TextStyle(
-                              color: _textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ],
-              if (item.hasError) ...<Widget>[
-                const SizedBox(height: 14),
-                _InlineError(message: item.lastError!),
-              ],
-              if (footer != null) ...<Widget>[
-                const SizedBox(height: 16),
-                footer!,
-              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AiWidgetPreviewStat extends StatelessWidget {
+  const _AiWidgetPreviewStat({
+    required this.title,
+    required this.subtitle,
+    required this.metric,
+    required this.rows,
+    required this.accent,
+    required this.compact,
+  });
+
+  final String title;
+  final String subtitle;
+  final String metric;
+  final List<Map<String, dynamic>> rows;
+  final Color accent;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = rows.isEmpty
+        ? const <Map<String, dynamic>>[]
+        : rows.take(3).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (subtitle.trim().isNotEmpty)
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: compact ? 12 : 13,
+            ),
+          ),
+        const SizedBox(height: 8),
+        Text(
+          metric.trim().isNotEmpty ? metric : title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 30 : 34,
+            height: 0.96,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -1.1,
+          ),
+        ),
+        if (values.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 14),
+          ...values.map(
+            (row) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      row['label']?.toString() ?? '',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontSize: compact ? 11 : 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    row['value']?.toString() ?? '',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: compact ? 12 : 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else ...<Widget>[
+          const Spacer(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: List<Widget>.generate(9, (index) {
+              final factor = (9 - index) / 9;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Container(
+                  width: compact ? 8 : 10,
+                  height: (compact ? 26 : 32) * factor + 10,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.75 - (index * 0.05)),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AiWidgetPreviewSummary extends StatelessWidget {
+  const _AiWidgetPreviewSummary({
+    required this.title,
+    required this.subtitle,
+    required this.body,
+    required this.chips,
+    required this.compact,
+  });
+
+  final String title;
+  final String subtitle;
+  final String body;
+  final List<String> chips;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final topLabel = subtitle.trim().isNotEmpty ? subtitle : title;
+    final copy = body.trim().isNotEmpty ? body : title;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          topLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.74),
+            fontSize: compact ? 11 : 12,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          copy,
+          maxLines: compact ? 4 : 5,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 20 : 24,
+            height: 1.12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.6,
+          ),
+        ),
+        if (chips.isNotEmpty) ...<Widget>[
+          const Spacer(),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: chips.take(2).map((chip) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  chip,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AiWidgetPreviewList extends StatelessWidget {
+  const _AiWidgetPreviewList({
+    required this.rows,
+    required this.chips,
+    required this.accent,
+    required this.compact,
+  });
+
+  final List<Map<String, dynamic>> rows;
+  final List<String> chips;
+  final Color accent;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = rows.isEmpty
+        ? chips
+              .map((chip) => <String, dynamic>{'label': chip, 'value': ''})
+              .toList(growable: false)
+        : rows.take(4).toList(growable: false);
+    return Column(
+      children: entries.map((row) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: compact ? 18 : 20,
+                height: compact ? 18 : 20,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.check_rounded,
+                  size: compact ? 12 : 14,
+                  color: accent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  row['label']?.toString() ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: compact ? 15 : 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if ((row['value']?.toString() ?? '')
+                  .trim()
+                  .isNotEmpty) ...<Widget>[
+                const SizedBox(width: 8),
+                Text(
+                  row['value']?.toString() ?? '',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontSize: compact ? 12 : 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _WidgetGlassPill extends StatelessWidget {
+  const _WidgetGlassPill({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: _textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: _textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -18974,6 +19655,85 @@ IconData _widgetIconData(String token) {
       return Icons.notes_outlined;
     default:
       return Icons.dashboard_customize_outlined;
+  }
+}
+
+String _manualRunButtonLabel(String label, int remainingSeconds) {
+  if (remainingSeconds <= 0) {
+    return label;
+  }
+  return '$label (${remainingSeconds}s)';
+}
+
+String _widgetCadenceLabel(String cron) {
+  final normalized = cron.trim();
+  final parts = normalized.split(RegExp(r'\s+'));
+  if (parts.length != 5) {
+    return normalized.isEmpty ? 'Refreshes on schedule' : normalized;
+  }
+  final minute = parts[0];
+  final hour = parts[1];
+  final dayOfWeek = parts[4];
+  if (minute == '0' && hour == '*' && parts[2] == '*' && parts[3] == '*') {
+    return 'Hourly';
+  }
+  if (minute == '0' &&
+      hour.startsWith('*/') &&
+      parts[2] == '*' &&
+      parts[3] == '*') {
+    final interval = int.tryParse(hour.substring(2));
+    if (interval != null && interval > 1) {
+      return 'Every $interval hours';
+    }
+  }
+  if (minute != '*' &&
+      hour != '*' &&
+      parts[2] == '*' &&
+      parts[3] == '*' &&
+      dayOfWeek == '*') {
+    final minuteValue = int.tryParse(minute);
+    final hourValue = int.tryParse(hour);
+    if (minuteValue != null && hourValue != null) {
+      final localizations = WidgetsBinding.instance.platformDispatcher.locale;
+      final formattedMinute = minuteValue.toString().padLeft(2, '0');
+      final formattedHour = hourValue.toString().padLeft(2, '0');
+      if (localizations.languageCode.toLowerCase() == 'en') {
+        return 'Daily at $formattedHour:$formattedMinute';
+      }
+      return 'Daily at $formattedHour:$formattedMinute';
+    }
+  }
+  return normalized;
+}
+
+double _widgetPreviewAspectRatio(String template) {
+  switch (template.trim().toLowerCase()) {
+    case 'summary':
+      return 1.9;
+    case 'list':
+      return 1.08;
+    default:
+      return 1.18;
+  }
+}
+
+List<Color> _widgetPreviewColors(String template, Color accent) {
+  switch (template.trim().toLowerCase()) {
+    case 'summary':
+      return <Color>[
+        Color.lerp(accent, const Color(0xFF18263A), 0.35)!,
+        const Color(0xFF10161F),
+      ];
+    case 'list':
+      return <Color>[
+        Color.lerp(accent, const Color(0xFF263148), 0.6)!,
+        const Color(0xFF1D2334),
+      ];
+    default:
+      return <Color>[
+        Color.lerp(accent, const Color(0xFF223041), 0.52)!,
+        const Color(0xFF151C25),
+      ];
   }
 }
 
@@ -19114,6 +19874,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
   }
 
   Widget _buildTaskCard(SchedulerTask task) {
+    final remaining = controller.schedulerRunCooldownSeconds(task.id);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Card(
@@ -19182,8 +19943,10 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                     child: Text(task.enabled ? 'Pause' : 'Enable'),
                   ),
                   FilledButton(
-                    onPressed: () => controller.runSchedulerTask(task.id),
-                    child: Text('Run Now'),
+                    onPressed: remaining > 0
+                        ? null
+                        : () => controller.runSchedulerTask(task.id),
+                    child: Text(_manualRunButtonLabel('Run Now', remaining)),
                   ),
                   OutlinedButton(
                     onPressed: () => _confirmDelete(
@@ -19211,6 +19974,9 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
         break;
       }
     }
+    final remaining = linkedWidget == null
+        ? controller.schedulerRunCooldownSeconds(task.id)
+        : controller.widgetRunCooldownSeconds(linkedWidget.id);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Card(
@@ -19286,10 +20052,16 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                     child: Text(task.enabled ? 'Pause' : 'Enable'),
                   ),
                   FilledButton(
-                    onPressed: linkedWidget == null
-                        ? () => controller.runSchedulerTask(task.id)
-                        : () => controller.refreshWidgetNow(linkedWidget!.id),
-                    child: Text('Refresh Now'),
+                    onPressed: remaining > 0
+                        ? null
+                        : (linkedWidget == null
+                              ? () => controller.runSchedulerTask(task.id)
+                              : () => controller.refreshWidgetNow(
+                                  linkedWidget!.id,
+                                )),
+                    child: Text(
+                      _manualRunButtonLabel('Refresh Now', remaining),
+                    ),
                   ),
                   OutlinedButton(
                     onPressed: linkedWidget == null

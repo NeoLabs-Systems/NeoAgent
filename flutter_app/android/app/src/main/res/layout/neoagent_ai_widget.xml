@@ -3,7 +3,7 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#122033"
+    android:background="@drawable/neoagent_ai_widget_bg"
     android:contentDescription="@string/widget_description"
     android:gravity="center_vertical"
     android:orientation="vertical"

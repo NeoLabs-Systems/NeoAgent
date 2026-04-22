@@ -46,7 +46,9 @@ class WidgetConfigActivity : Activity() {
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-            ),
+            ).apply {
+                bottomMargin = 20
+            },
         )
 
         if (widgets.isEmpty()) {
@@ -67,6 +69,9 @@ class WidgetConfigActivity : Activity() {
                 "${widget.name}\n${widget.template} · ${widget.layoutVariant} · $status"
             }
         val listView = ListView(this)
+        listView.setPadding(0, 12, 0, 12)
+        listView.clipToPadding = false
+        listView.dividerHeight = 10
         listView.adapter =
             ArrayAdapter(
                 this,
