@@ -10974,17 +10974,26 @@ class _ChatPanelState extends State<ChatPanel> {
               ),
               const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  Text(
-                    controller.chatStatusLabel,
-                    style: TextStyle(fontSize: 11, color: _textSecondary),
+                  Expanded(
+                    child: Text(
+                      controller.chatStatusLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: _textSecondary),
+                    ),
                   ),
-                  Text(
-                    controller.hasLiveRun
-                        ? 'Steering mode'
-                        : controller.modelIndicator,
-                    style: TextStyle(fontSize: 11, color: _textSecondary),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      controller.hasLiveRun
+                          ? 'Steering mode'
+                          : controller.modelIndicator,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(fontSize: 11, color: _textSecondary),
+                    ),
                   ),
                 ],
               ),
