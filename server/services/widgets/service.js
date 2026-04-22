@@ -33,6 +33,15 @@ function normalizeOptionalText(value, maxLength = 4000) {
   return normalized || null;
 }
 
+function normalizeSurfaceColor(value) {
+  const normalized = normalizeOptionalText(value, 16);
+  if (!normalized) return null;
+  const prefixed = normalized.startsWith('#') ? normalized : `#${normalized}`;
+  return /^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(prefixed)
+    ? prefixed.toUpperCase()
+    : null;
+}
+
 function buildWidgetRefreshTaskName(name) {
   return `Refresh widget: ${normalizeText(name, 120)}`;
 }
@@ -116,6 +125,28 @@ function normalizeTrend(input) {
   return { label, direction };
 }
 
+function normalizeOptionalNumber(input, { min = null, max = null } = {}) {
+  if (input == null || input === '') return null;
+  const value = Number(input);
+  if (!Number.isFinite(value)) return null;
+  if (min != null && value < min) return min;
+  if (max != null && value > max) return max;
+  return value;
+}
+
+function normalizeProgress(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const raw = parseJsonObject(input, {});
+  const value = normalizeOptionalNumber(raw.value, { min: 0 });
+  const max = normalizeOptionalNumber(raw.max, { min: 0 });
+  if (value == null || max == null || max <= 0) return null;
+  return {
+    value: Math.min(value, max),
+    max,
+    label: normalizeOptionalText(raw.label, 60),
+  };
+}
+
 function normalizeRows(input) {
   if (!Array.isArray(input)) return [];
   return input
@@ -170,14 +201,23 @@ function validateSnapshotPayload(widget, snapshot = {}) {
     template: widget.template,
     layoutVariant: widget.layoutVariant,
     title,
+    kicker: normalizeOptionalText(payload.kicker, 80),
     subtitle: normalizeOptionalText(payload.subtitle, 160),
     body: normalizeOptionalText(payload.body, 600),
     metric: normalizeOptionalText(payload.metric, 64),
+    metricLabel: normalizeOptionalText(payload.metricLabel, 80),
+    secondaryMetric: normalizeOptionalText(payload.secondaryMetric, 64),
+    secondaryLabel: normalizeOptionalText(payload.secondaryLabel, 80),
+    tertiaryMetric: normalizeOptionalText(payload.tertiaryMetric, 64),
+    tertiaryLabel: normalizeOptionalText(payload.tertiaryLabel, 80),
     trend: normalizeTrend(payload.trend),
+    progress: normalizeProgress(payload.progress),
     rows: normalizeRows(payload.rows),
     chips: normalizeChips(payload.chips),
     iconToken: normalizeOptionalText(payload.iconToken, 40),
     accentToken: normalizeOptionalText(payload.accentToken, 40),
+    backgroundToken: normalizeOptionalText(payload.backgroundToken, 40),
+    surfaceColor: normalizeSurfaceColor(payload.surfaceColor),
     updatedAt: normalizeOptionalText(payload.updatedAt, 80) || new Date().toISOString(),
     deepLink: normalizeOptionalText(payload.deepLink, 200) || `widget:${widget.id}`,
   };
@@ -484,10 +524,20 @@ class WidgetService {
       'You are updating a structured product widget. Keep the layout fixed. Refresh only the content snapshot.',
       'Use fresh tools for time-sensitive claims. Do not rely on stale memory for live data such as weather, markets, incidents, or schedules.',
       'After gathering the latest information, call save_widget_snapshot exactly once with a payload matching this schema:',
-      '{"title":"","subtitle":"","body":"","metric":"","trend":{"label":"","direction":"flat"},"rows":[{"label":"","value":""}],"chips":[""],"iconToken":"","accentToken":"","updatedAt":"","deepLink":""}',
+      '{"title":"","kicker":"","subtitle":"","body":"","metric":"","metricLabel":"","secondaryMetric":"","secondaryLabel":"","tertiaryMetric":"","tertiaryLabel":"","trend":{"label":"","direction":"flat"},"progress":{"value":0,"max":100,"label":""},"rows":[{"label":"","value":""}],"chips":[""],"iconToken":"","accentToken":"","backgroundToken":"","surfaceColor":"","updatedAt":"","deepLink":""}',
       'Rules:',
       '- Do not change the template or layout variant.',
       '- Keep rows to at most 3 and chips to at most 3.',
+      '- Prefer concrete data over generic prose. Use metric + supporting fields whenever live data exists.',
+      '- Make the widget immediately useful at a glance. Avoid filler copy, duplicated labels, or repeating the widget name unless it helps identify the subject.',
+      '- For stat widgets, use title to identify the subject, metric for the main live value, and secondary or tertiary metrics for the next most useful facts.',
+      '- For summary widgets, keep body concise and information-dense. Use kicker or subtitle for the context, not for repeated metadata.',
+      '- For list widgets, rows should be concrete current items with short labels and values. Do not use rows for vague prose.',
+      '- For weather-style widgets, include real temperature/condition/wind/precipitation when available and choose a fitting accent/background token such as sunny, rain, storm, night, or cloud.',
+      '- For vehicle-style widgets, include battery or fuel state, range, odometer or distance, and choose a color token or surfaceColor when the vehicle color is known.',
+      '- Use backgroundToken and accentToken to reflect the actual state of the data, not a default theme.',
+      '- If the subject exposes a progress-like state such as battery charge, tank level, or completion, populate progress with truthful values.',
+      '- Never output placeholders such as "null", "n/a", "---", or invented values.',
       '- If the data source fails, explain the problem briefly in body and still save a truthful degraded snapshot if possible.',
       '- If nothing useful can be produced safely, say so clearly instead of inventing content.',
       '',

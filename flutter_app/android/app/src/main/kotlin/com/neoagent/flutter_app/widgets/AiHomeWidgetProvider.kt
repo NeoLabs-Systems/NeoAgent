@@ -79,19 +79,50 @@ class AiHomeWidgetProvider : AppWidgetProvider() {
             }
 
             val snapshot = widget.latestSnapshot
-            val accent = accentColor(snapshot?.optString("accentToken").orEmpty())
-            val title = snapshot?.optString("title")?.ifBlank { widget.name } ?: widget.name
+            val accent = accentColor(
+                cleanText(snapshot?.optString("accentToken")),
+                cleanText(snapshot?.optString("surfaceColor")),
+            )
+            val displayName = displayName(widget.name)
+            val kicker = cleanText(snapshot?.optString("kicker"))
+            val metricLabel = cleanText(snapshot?.optString("metricLabel"))
+            val secondaryMetric = cleanText(snapshot?.optString("secondaryMetric"))
+            val secondaryLabel = cleanText(snapshot?.optString("secondaryLabel"))
+            val tertiaryMetric = cleanText(snapshot?.optString("tertiaryMetric"))
+            val tertiaryLabel = cleanText(snapshot?.optString("tertiaryLabel"))
+            val title =
+                cleanText(snapshot?.optString("title"))
+                    .ifBlank { displayName }
             val subtitle =
-                snapshot?.optString("subtitle")?.ifBlank {
-                    "${widget.template} · ${widget.layoutVariant}"
-                } ?: "${widget.template} · ${widget.layoutVariant}"
-            val metric = snapshot?.optString("metric").orEmpty()
-            val body = snapshot?.optString("body").orEmpty()
+                sequenceOf(
+                    listOf(kicker, cleanText(snapshot?.optString("subtitle"))).filter { it.isNotBlank() }
+                        .joinToString(" • ")
+                        .trim(),
+                    metricLabel,
+                    displayName,
+                ).firstOrNull { it.isNotBlank() }
+                    ?: cadenceLabel(widget.refreshCron)
+            val metric = cleanText(snapshot?.optString("metric"))
+            val body = cleanText(snapshot?.optString("body"))
             val chips = joinChips(snapshot)
-            val rows = rows(snapshot)
+            val rows = supportingRows(snapshot, secondaryLabel, secondaryMetric, tertiaryLabel, tertiaryMetric)
             val updated = snapshot?.optString("updatedAt").orEmpty().ifBlank {
                 formatUpdatedFallback(widget.refreshCron)
             }
+            val hasSnapshot = snapshot != null
+            val supportSummary =
+                listOf(
+                    labeledValue(secondaryLabel, secondaryMetric),
+                    labeledValue(tertiaryLabel, tertiaryMetric),
+                    chips,
+                ).firstOrNull { it.isNotBlank() }.orEmpty()
+            val bodyText =
+                when {
+                    body.isNotBlank() -> body
+                    supportSummary.isNotBlank() -> supportSummary
+                    !hasSnapshot -> "Waiting for first update"
+                    else -> "Open in NeoAgent for the full view"
+                }
 
             views.setTextViewText(R.id.widget_title, title)
             views.setTextColor(R.id.widget_title, Color.WHITE)
@@ -99,7 +130,7 @@ class AiHomeWidgetProvider : AppWidgetProvider() {
             views.setTextColor(R.id.widget_subtitle, 0xFFD1D8E6.toInt())
             views.setTextViewText(R.id.widget_metric, metric)
             views.setTextColor(R.id.widget_metric, accent)
-            views.setTextViewText(R.id.widget_body, if (body.isNotBlank()) body else chips)
+            views.setTextViewText(R.id.widget_body, bodyText)
             views.setTextColor(R.id.widget_body, 0xFFF4F6FA.toInt())
             views.setTextViewText(R.id.widget_meta, updated)
             views.setTextColor(R.id.widget_meta, 0xFF92A1BA.toInt())
@@ -108,15 +139,15 @@ class AiHomeWidgetProvider : AppWidgetProvider() {
             bindRow(views, R.id.widget_row_2, rows.getOrNull(1))
             bindRow(views, R.id.widget_row_3, rows.getOrNull(2))
 
-            val showMetric = metric.isNotBlank() && widget.template == "stat"
+            val showMetric = metric.isNotBlank()
             views.setViewVisibility(R.id.widget_metric, if (showMetric) View.VISIBLE else View.GONE)
             views.setViewVisibility(
                 R.id.widget_rows_group,
-                if (rows.isNotEmpty() || widget.template == "list") View.VISIBLE else View.GONE,
+                if (rows.isNotEmpty()) View.VISIBLE else View.GONE,
             )
 
             val statusText = widget.lastError?.takeIf { it.isNotBlank() }
-                ?: if (widget.enabled) "Live" else "Paused"
+                ?: if (widget.enabled) cadenceLabel(widget.refreshCron) else "Paused"
             val statusColor =
                 if (!widget.lastError.isNullOrBlank()) {
                     0xFFFFB3A9.toInt()
@@ -186,13 +217,102 @@ class AiHomeWidgetProvider : AppWidgetProvider() {
             return buildList {
                 for (index in 0 until minOf(array.length(), 3)) {
                     val row = array.optJSONObject(index) ?: continue
-                    val label = row.optString("label").trim()
-                    val value = row.optString("value").trim()
+                    val label = cleanText(row.optString("label"))
+                    val value = cleanText(row.optString("value"))
                     if (label.isNotBlank() || value.isNotBlank()) {
                         add(label to value)
                     }
                 }
             }
+        }
+
+        private fun supportingRows(
+            snapshot: JSONObject?,
+            secondaryLabel: String,
+            secondaryMetric: String,
+            tertiaryLabel: String,
+            tertiaryMetric: String,
+        ): List<Pair<String, String>> {
+            val explicitRows = rows(snapshot)
+            if (explicitRows.isNotEmpty()) {
+                return explicitRows
+            }
+            val progress = progressRow(snapshot)
+            return listOfNotNull(
+                rowOrNull(secondaryLabel, secondaryMetric),
+                rowOrNull(tertiaryLabel, tertiaryMetric),
+                progress,
+            ).take(3)
+        }
+
+        private fun rowOrNull(label: String, value: String): Pair<String, String>? {
+            val safeLabel = cleanText(label)
+            val safeValue = cleanText(value)
+            if (safeLabel.isBlank() && safeValue.isBlank()) {
+                return null
+            }
+            return safeLabel to safeValue
+        }
+
+        private fun labeledValue(label: String, value: String): String {
+            val safeLabel = cleanText(label)
+            val safeValue = cleanText(value)
+            return when {
+                safeLabel.isBlank() -> safeValue
+                safeValue.isBlank() -> safeLabel
+                else -> "$safeLabel $safeValue"
+            }
+        }
+
+        private fun progressRow(snapshot: JSONObject?): Pair<String, String>? {
+            val progress = snapshot?.optJSONObject("progress") ?: return null
+            val value = cleanText(progress.opt("value")?.toString())
+            val max = cleanText(progress.opt("max")?.toString())
+            val label = cleanText(progress.optString("label")).ifBlank { "Progress" }
+            if (value.isBlank() || max.isBlank()) {
+                return null
+            }
+            return label to "$value / $max"
+        }
+
+        private fun cleanText(value: String?): String {
+            val normalized = value?.trim().orEmpty()
+            return if (normalized.isBlank() || normalized.equals("null", ignoreCase = true)) {
+                ""
+            } else {
+                normalized
+            }
+        }
+
+        private fun displayName(raw: String): String {
+            val normalized =
+                raw.trim()
+                    .replace(Regex("[_-]+"), " ")
+                    .replace(Regex("\\s+"), " ")
+            if (normalized.isBlank()) {
+                return "AI Widget"
+            }
+            return normalized.split(" ")
+                .filter { it.isNotBlank() }
+                .joinToString(" ") { part ->
+                    if (part.length <= 2 && part.uppercase() == part) {
+                        part
+                    } else {
+                        part.substring(0, 1).uppercase() + part.substring(1)
+                    }
+                }
+        }
+
+        private fun cadenceLabel(refreshCron: String): String {
+            val normalized = refreshCron.trim()
+            if (normalized == "0 * * * *") {
+                return "Updates hourly"
+            }
+            val hours = Regex("\\*/(\\d+)").find(normalized)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (hours != null && hours > 1) {
+                return "Every $hours hours"
+            }
+            return "Refreshes automatically"
         }
 
         private fun formatUpdatedFallback(refreshCron: String): String {
@@ -229,13 +349,28 @@ class AiHomeWidgetProvider : AppWidgetProvider() {
             }.joinToString("  •  ")
         }
 
-        private fun accentColor(token: String): Int {
+        private fun accentColor(token: String, surfaceColor: String): Int {
+            parseColor(surfaceColor)?.let { return it }
             return when (token.trim().lowercase()) {
-                "warning", "sun", "weather" -> 0xFFFFC370.toInt()
-                "success", "health", "growth" -> 0xFF8EE0AF.toInt()
-                "alert", "error" -> 0xFFFF9A8A.toInt()
-                "sky", "ocean", "summary" -> 0xFF81C7F5.toInt()
+                "warning", "sun", "sunny", "weather" -> 0xFFFFC370.toInt()
+                "success", "health", "growth", "battery", "electric" -> 0xFF8EE0AF.toInt()
+                "alert", "error", "storm" -> 0xFFFF9A8A.toInt()
+                "sky", "ocean", "summary", "rain", "cloud" -> 0xFF81C7F5.toInt()
+                "night" -> 0xFFB7C9FF.toInt()
                 else -> 0xFF7BC4FF.toInt()
+            }
+        }
+
+        private fun parseColor(raw: String): Int? {
+            val normalized = cleanText(raw)
+            if (normalized.isBlank()) {
+                return null
+            }
+            val hex = if (normalized.startsWith("#")) normalized else "#$normalized"
+            return try {
+                Color.parseColor(hex)
+            } catch (_: IllegalArgumentException) {
+                null
             }
         }
 

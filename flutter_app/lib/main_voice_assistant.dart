@@ -234,8 +234,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     });
   }
 
-  String _activeCallElapsedLabel(RecordingRuntimeStatus runtime) {
-    final startedAt = runtime.startedAt;
+  String _activeCallElapsedLabel(NeoAgentController controller) {
+    final startedAt = controller.liveVoiceCaptureStartedAt;
     if (startedAt == null) {
       return '00:00';
     }
@@ -330,7 +330,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    final runtime = controller.recordingRuntime;
     final liveState = controller.voiceAssistantLiveState;
     final viewportSize = MediaQuery.sizeOf(context);
     final heroHeight = math
@@ -428,7 +427,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                 color: liveState.isBusy ? _danger : _success,
                               ),
                               _StatusPill(
-                                label: _activeCallElapsedLabel(runtime),
+                                label: _activeCallElapsedLabel(controller),
                                 color: liveCaptureEngaged ? _warning : _accent,
                               ),
                             ],

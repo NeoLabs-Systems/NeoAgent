@@ -1247,6 +1247,7 @@ class NeoAgentController extends ChangeNotifier {
   bool _isStartingLiveVoice = false;
   bool _isStoppingLiveVoice = false;
   bool _liveVoiceCaptureActive = false;
+  DateTime? _liveVoiceCaptureStartedAt;
   bool _pendingLiveVoiceStop = false;
   int _liveVoiceTurnCounter = 0;
   String? _liveVoiceTurnId;
@@ -4785,6 +4786,7 @@ class NeoAgentController extends ChangeNotifier {
     _liveVoiceCommitPending = false;
     _liveVoiceAwaitingResponse = false;
     _liveVoicePendingCommitPayload = null;
+    _liveVoiceCaptureStartedAt = null;
     if (clearRecovery) {
       _liveVoiceRecoveryTimer?.cancel();
       _liveVoiceRecoveryTimer = null;
@@ -4972,6 +4974,7 @@ class NeoAgentController extends ChangeNotifier {
         },
       );
       _liveVoiceCaptureActive = true;
+      _liveVoiceCaptureStartedAt = DateTime.now();
       AppDiagnostics.log(
         'desktop.assistant',
         'ptt.capture_started',
@@ -5022,6 +5025,7 @@ class NeoAgentController extends ChangeNotifier {
     _isStoppingLiveVoice = true;
     try {
       _liveVoiceCaptureActive = false;
+      _liveVoiceCaptureStartedAt = null;
       await _liveVoiceCapture.stop();
       if (_liveVoiceBufferedChunks.isEmpty) {
         _resetLiveVoiceTurnBuffer();
@@ -5067,6 +5071,7 @@ class NeoAgentController extends ChangeNotifier {
     }
     _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
     _liveVoiceCaptureActive = false;
+    _liveVoiceCaptureStartedAt = null;
     _pendingLiveVoiceStop = false;
     _resetLiveVoiceTurnBuffer();
     voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
@@ -5085,6 +5090,7 @@ class NeoAgentController extends ChangeNotifier {
       'sessionId': sessionId,
     });
     _liveVoiceCaptureActive = false;
+    _liveVoiceCaptureStartedAt = null;
     _pendingLiveVoiceStop = false;
     _resetLiveVoiceTurnBuffer();
     voiceAssistantLiveState = VoiceAssistantLiveState();
@@ -6771,6 +6777,8 @@ class NeoAgentController extends ChangeNotifier {
   bool get isLiveVoiceCaptureStarting => _isStartingLiveVoice;
 
   bool get isLiveVoiceCaptureActive => _liveVoiceCaptureActive;
+
+  DateTime? get liveVoiceCaptureStartedAt => _liveVoiceCaptureStartedAt;
 
   String get accountLabel =>
       user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
@@ -18889,20 +18897,18 @@ class _AiWidgetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final snapshot = item.latestSnapshot;
-    final accent = _widgetAccentColor(snapshot?.accentToken ?? item.template);
+    final accent = _widgetAccentColor(
+      snapshot?.accentToken ?? item.template,
+      surfaceColor: snapshot?.surfaceColor ?? '',
+    );
     final icon = _widgetIconData(snapshot?.iconToken ?? item.template);
-    final title = snapshot?.title ?? item.name;
-    final subtitle =
-        snapshot?.subtitle ?? _widgetCadenceLabel(item.refreshCron);
+    final displayName = _widgetDisplayName(item.name);
+    final title = _widgetPrimaryTitle(item, snapshot);
+    final subtitle = _widgetSecondaryTitle(item, snapshot);
     final metric = snapshot?.metric ?? '';
     final rows = snapshot?.rows ?? const <Map<String, dynamic>>[];
     final chips = snapshot?.chips ?? const <String>[];
-    final snapshotBody = snapshot?.body ?? '';
-    final body = snapshotBody.trim().isNotEmpty
-        ? snapshotBody
-        : ((item.definition['description']?.toString() ?? '').trim().isNotEmpty
-              ? item.definition['description']?.toString() ?? ''
-              : 'Keeps itself fresh automatically and stays consistent everywhere you use NeoAgent.');
+    final body = _widgetSummaryText(item, snapshot);
     final updatedLabel = snapshot?.generatedAtLabel ?? item.lastSnapshotLabel;
     final cadenceLabel = _widgetCadenceLabel(item.refreshCron);
 
@@ -18948,11 +18954,12 @@ class _AiWidgetCard extends StatelessWidget {
                         item: item,
                         accent: accent,
                         icon: icon,
+                        snapshot: snapshot,
                         compact: true,
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        title,
+                        displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -18963,8 +18970,8 @@ class _AiWidgetCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        subtitle,
-                        maxLines: 1,
+                        body,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: _textSecondary),
                       ),
@@ -18994,7 +19001,7 @@ class _AiWidgetCard extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  item.name,
+                                  displayName,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: _textSecondary,
@@ -19027,8 +19034,10 @@ class _AiWidgetCard extends StatelessWidget {
                           final stacked = constraints.maxWidth < 860;
                           final infoPane = _AiWidgetInfoPane(
                             item: item,
+                            snapshot: snapshot,
                             accent: accent,
-                            headline: subtitle,
+                            title: title,
+                            subtitle: subtitle,
                             body: body,
                             metric: metric,
                             rows: rows,
@@ -19040,7 +19049,7 @@ class _AiWidgetCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                'Android Preview',
+                                'Preview',
                                 style: TextStyle(
                                   color: _textSecondary,
                                   fontSize: 12,
@@ -19053,6 +19062,7 @@ class _AiWidgetCard extends StatelessWidget {
                                 item: item,
                                 accent: accent,
                                 icon: icon,
+                                snapshot: snapshot,
                               ),
                             ],
                           );
@@ -19096,8 +19106,10 @@ class _AiWidgetCard extends StatelessWidget {
 class _AiWidgetInfoPane extends StatelessWidget {
   const _AiWidgetInfoPane({
     required this.item,
+    required this.snapshot,
     required this.accent,
-    required this.headline,
+    required this.title,
+    required this.subtitle,
     required this.body,
     required this.metric,
     required this.rows,
@@ -19107,8 +19119,10 @@ class _AiWidgetInfoPane extends StatelessWidget {
   });
 
   final AiWidgetItem item;
+  final WidgetSnapshotItem? snapshot;
   final Color accent;
-  final String headline;
+  final String title;
+  final String subtitle;
   final String body;
   final String metric;
   final List<Map<String, dynamic>> rows;
@@ -19118,36 +19132,139 @@ class _AiWidgetInfoPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kicker = _widgetSanitizedText(snapshot?.kicker ?? '');
+    final metricLabel = _widgetSanitizedText(snapshot?.metricLabel ?? '');
+    final secondaryMetric = _widgetSanitizedText(
+      snapshot?.secondaryMetric ?? '',
+    );
+    final secondaryLabel = _widgetSanitizedText(snapshot?.secondaryLabel ?? '');
+    final tertiaryMetric = _widgetSanitizedText(snapshot?.tertiaryMetric ?? '');
+    final tertiaryLabel = _widgetSanitizedText(snapshot?.tertiaryLabel ?? '');
+    final progress = snapshot?.progress;
+    final progressValue = _widgetProgressFraction(progress);
+    final hasUsefulRows = rows.any(
+      (row) =>
+          (row['label']?.toString() ?? '').trim().isNotEmpty ||
+          (row['value']?.toString() ?? '').trim().isNotEmpty,
+    );
+    final hasSnapshotData =
+        metric.trim().isNotEmpty ||
+        secondaryMetric.isNotEmpty ||
+        tertiaryMetric.isNotEmpty ||
+        hasUsefulRows ||
+        chips.isNotEmpty ||
+        body.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: <Widget>[
-            _WidgetGlassPill(
-              label: '${item.template} · ${item.layoutVariant}',
-              icon: Icons.widgets_outlined,
-            ),
-            _WidgetGlassPill(
-              label: cadenceLabel,
-              icon: Icons.schedule_outlined,
-            ),
-            _WidgetGlassPill(label: updatedLabel, icon: Icons.update_outlined),
-          ],
-        ),
-        const SizedBox(height: 18),
-        Text(
-          headline,
-          style: TextStyle(fontSize: 15, color: _textSecondary, height: 1.35),
-        ),
-        if (metric.trim().isNotEmpty) ...<Widget>[
-          const SizedBox(height: 18),
+        if (kicker.isNotEmpty) ...<Widget>[
           Text(
-            metric,
-            style: _displayTitleStyle(
-              40,
-            ).copyWith(color: accent, letterSpacing: -1.2),
+            kicker.toUpperCase(),
+            style: TextStyle(
+              color: accent.withValues(alpha: 0.94),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.08,
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            height: 1.1,
+            letterSpacing: -0.4,
+          ),
+        ),
+        if (subtitle.trim().isNotEmpty) ...<Widget>[
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 15, color: _textSecondary, height: 1.35),
+          ),
+        ],
+        const SizedBox(height: 18),
+        if (metric.trim().isNotEmpty) ...<Widget>[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: accent.withValues(alpha: 0.16)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  metric,
+                  style: _displayTitleStyle(
+                    42,
+                  ).copyWith(color: accent, letterSpacing: -1.35),
+                ),
+                if (metricLabel.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 6),
+                  Text(
+                    metricLabel,
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (progress != null && progressValue != null) ...<Widget>[
+                  const SizedBox(height: 14),
+                  _WidgetProgressBar(
+                    accent: accent,
+                    value: progressValue,
+                    label: _widgetProgressLabel(progress),
+                  ),
+                ],
+                if (secondaryMetric.isNotEmpty ||
+                    tertiaryMetric.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      if (secondaryMetric.isNotEmpty)
+                        _WidgetSupportingMetricCard(
+                          label: secondaryLabel.ifEmpty('Secondary'),
+                          value: secondaryMetric,
+                          accent: accent,
+                        ),
+                      if (tertiaryMetric.isNotEmpty)
+                        _WidgetSupportingMetricCard(
+                          label: tertiaryLabel.ifEmpty('Detail'),
+                          value: tertiaryMetric,
+                          accent: accent,
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ] else if (!hasSnapshotData) ...<Widget>[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Text(
+              'Waiting for the first refresh. Once live data arrives, this widget will lead with the key number and keep the rest compact.',
+              style: TextStyle(
+                color: _textSecondary,
+                height: 1.5,
+                fontSize: 14,
+              ),
+            ),
           ),
         ],
         if (body.trim().isNotEmpty) ...<Widget>[
@@ -19159,7 +19276,7 @@ class _AiWidgetInfoPane extends StatelessWidget {
             style: TextStyle(color: _textPrimary, height: 1.5, fontSize: 15),
           ),
         ],
-        if (rows.isNotEmpty) ...<Widget>[
+        if (hasUsefulRows) ...<Widget>[
           const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.all(14),
@@ -19176,13 +19293,16 @@ class _AiWidgetInfoPane extends StatelessWidget {
                     children: <Widget>[
                       Expanded(
                         child: Text(
-                          row['label']?.toString() ?? '',
+                          _widgetSanitizedText(
+                            row['label']?.toString() ?? '',
+                            fallback: 'Detail',
+                          ),
                           style: TextStyle(color: _textSecondary),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        row['value']?.toString() ?? '',
+                        _widgetSanitizedText(row['value']?.toString() ?? ''),
                         style: TextStyle(
                           color: _textPrimary,
                           fontWeight: FontWeight.w600,
@@ -19223,6 +19343,20 @@ class _AiWidgetInfoPane extends StatelessWidget {
             }).toList(),
           ),
         ],
+        const SizedBox(height: 18),
+        Wrap(
+          spacing: 14,
+          runSpacing: 14,
+          children: <Widget>[
+            _WidgetMetricBlock(label: 'Refreshes', value: cadenceLabel),
+            _WidgetMetricBlock(label: 'Last update', value: updatedLabel),
+            _WidgetMetricBlock(
+              label: 'Status',
+              value: item.enabled ? 'Live' : 'Paused',
+              accent: item.enabled ? _success : _textSecondary,
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -19233,24 +19367,47 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
     required this.item,
     required this.accent,
     required this.icon,
+    this.snapshot,
     this.compact = false,
   });
 
   final AiWidgetItem item;
   final Color accent;
   final IconData icon;
+  final WidgetSnapshotItem? snapshot;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = item.latestSnapshot;
-    final title = snapshot?.title ?? item.name;
-    final subtitle = snapshot?.subtitle ?? '';
-    final body = snapshot?.body ?? '';
-    final metric = snapshot?.metric ?? '';
-    final rows = snapshot?.rows ?? const <Map<String, dynamic>>[];
-    final chips = snapshot?.chips ?? const <String>[];
+    final activeSnapshot = snapshot ?? item.latestSnapshot;
+    final displayName = _widgetDisplayName(item.name);
+    final title = _widgetPrimaryTitle(item, activeSnapshot);
+    final subtitle = _widgetSecondaryTitle(item, activeSnapshot);
+    final body = _widgetSummaryText(item, activeSnapshot);
+    final metric = _widgetSanitizedText(activeSnapshot?.metric ?? '');
+    final metricLabel = _widgetSanitizedText(activeSnapshot?.metricLabel ?? '');
+    final secondaryMetric = _widgetSanitizedText(
+      activeSnapshot?.secondaryMetric ?? '',
+    );
+    final secondaryLabel = _widgetSanitizedText(
+      activeSnapshot?.secondaryLabel ?? '',
+    );
+    final tertiaryMetric = _widgetSanitizedText(
+      activeSnapshot?.tertiaryMetric ?? '',
+    );
+    final tertiaryLabel = _widgetSanitizedText(
+      activeSnapshot?.tertiaryLabel ?? '',
+    );
+    final rows = activeSnapshot?.rows ?? const <Map<String, dynamic>>[];
+    final chips = activeSnapshot?.chips ?? const <String>[];
+    final progress = activeSnapshot?.progress;
     final previewRatio = _widgetPreviewAspectRatio(item.template);
+    final palette = _widgetPreviewPalette(
+      item.template,
+      accent,
+      backgroundToken: activeSnapshot?.backgroundToken ?? '',
+      surfaceColor: activeSnapshot?.surfaceColor ?? '',
+    );
     return AspectRatio(
       aspectRatio: previewRatio,
       child: Container(
@@ -19259,12 +19416,12 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: _widgetPreviewColors(item.template, accent),
+            colors: palette.colors,
           ),
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
+              color: palette.glow,
               blurRadius: 26,
               offset: const Offset(0, 16),
             ),
@@ -19281,19 +19438,23 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
                     width: compact ? 26 : 28,
                     height: compact ? 26 : 28,
                     decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.18),
+                      color: palette.accent.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(icon, size: compact ? 16 : 17, color: accent),
+                    child: Icon(
+                      icon,
+                      size: compact ? 16 : 17,
+                      color: palette.accent,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      item.name,
+                      displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.96),
+                        color: palette.foreground.withValues(alpha: 0.96),
                         fontWeight: FontWeight.w700,
                         fontSize: compact ? 14 : 15,
                         letterSpacing: -0.2,
@@ -19304,12 +19465,12 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
                   Icon(
                     Icons.chevron_left_rounded,
                     size: compact ? 18 : 20,
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: palette.foreground.withValues(alpha: 0.8),
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
                     size: compact ? 18 : 20,
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: palette.foreground.withValues(alpha: 0.8),
                   ),
                 ],
               ),
@@ -19317,24 +19478,37 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
               Expanded(
                 child: switch (item.template) {
                   'list' => _AiWidgetPreviewList(
+                    title: title,
+                    subtitle: subtitle,
                     rows: rows,
                     chips: chips,
-                    accent: accent,
+                    accent: palette.accent,
+                    palette: palette,
                     compact: compact,
                   ),
                   'summary' => _AiWidgetPreviewSummary(
                     title: title,
                     subtitle: subtitle,
                     body: body,
+                    metric: metric,
+                    metricLabel: metricLabel,
                     chips: chips,
+                    palette: palette,
                     compact: compact,
                   ),
                   _ => _AiWidgetPreviewStat(
                     title: title,
                     subtitle: subtitle,
                     metric: metric,
+                    metricLabel: metricLabel,
+                    secondaryMetric: secondaryMetric,
+                    secondaryLabel: secondaryLabel,
+                    tertiaryMetric: tertiaryMetric,
+                    tertiaryLabel: tertiaryLabel,
+                    progress: progress,
                     rows: rows,
-                    accent: accent,
+                    accent: palette.accent,
+                    palette: palette,
                     compact: compact,
                   ),
                 },
@@ -19352,23 +19526,44 @@ class _AiWidgetPreviewStat extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.metric,
+    required this.metricLabel,
+    required this.secondaryMetric,
+    required this.secondaryLabel,
+    required this.tertiaryMetric,
+    required this.tertiaryLabel,
+    required this.progress,
     required this.rows,
     required this.accent,
+    required this.palette,
     required this.compact,
   });
 
   final String title;
   final String subtitle;
   final String metric;
+  final String metricLabel;
+  final String secondaryMetric;
+  final String secondaryLabel;
+  final String tertiaryMetric;
+  final String tertiaryLabel;
+  final Map<String, dynamic>? progress;
   final List<Map<String, dynamic>> rows;
   final Color accent;
+  final _WidgetPreviewPalette palette;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final values = rows.isEmpty
-        ? const <Map<String, dynamic>>[]
-        : rows.take(3).toList(growable: false);
+    final values = rows
+        .where(
+          (row) =>
+              _widgetSanitizedText(row['label']?.toString() ?? '').isNotEmpty ||
+              _widgetSanitizedText(row['value']?.toString() ?? '').isNotEmpty,
+        )
+        .take(3)
+        .toList(growable: false);
+    final hasMetric = metric.trim().isNotEmpty;
+    final progressValue = _widgetProgressFraction(progress);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -19377,24 +19572,72 @@ class _AiWidgetPreviewStat extends StatelessWidget {
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
-              fontSize: compact ? 12 : 13,
-            ),
+            style: TextStyle(color: palette.muted, fontSize: compact ? 12 : 13),
           ),
         const SizedBox(height: 8),
         Text(
-          metric.trim().isNotEmpty ? metric : title,
-          maxLines: 2,
+          title.trim().isNotEmpty ? title : 'Waiting for first update',
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: Colors.white,
+            color: palette.foreground,
+            fontSize: compact ? 16 : 18,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.35,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          hasMetric ? metric : 'Waiting for first update',
+          maxLines: hasMetric ? 1 : 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: palette.foreground,
             fontSize: compact ? 30 : 34,
             height: 0.96,
             fontWeight: FontWeight.w700,
             letterSpacing: -1.1,
           ),
         ),
+        if (metricLabel.trim().isNotEmpty) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            metricLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: palette.muted, fontSize: compact ? 11 : 12),
+          ),
+        ],
+        if (secondaryMetric.isNotEmpty ||
+            tertiaryMetric.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              if (secondaryMetric.isNotEmpty)
+                _WidgetPreviewDataPill(
+                  label: secondaryLabel.ifEmpty('Secondary'),
+                  value: secondaryMetric,
+                  palette: palette,
+                ),
+              if (tertiaryMetric.isNotEmpty)
+                _WidgetPreviewDataPill(
+                  label: tertiaryLabel.ifEmpty('Detail'),
+                  value: tertiaryMetric,
+                  palette: palette,
+                ),
+            ],
+          ),
+        ],
+        if (progressValue != null) ...<Widget>[
+          const SizedBox(height: 12),
+          _WidgetPreviewProgress(
+            value: progressValue,
+            label: _widgetProgressLabel(progress),
+            palette: palette,
+          ),
+        ],
         if (values.isNotEmpty) ...<Widget>[
           const SizedBox(height: 14),
           ...values.map(
@@ -19404,18 +19647,18 @@ class _AiWidgetPreviewStat extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      row['label']?.toString() ?? '',
+                      _widgetSanitizedText(row['label']?.toString() ?? ''),
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
+                        color: palette.muted,
                         fontSize: compact ? 11 : 12,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    row['value']?.toString() ?? '',
+                    _widgetSanitizedText(row['value']?.toString() ?? ''),
                     style: TextStyle(
-                      color: Colors.white,
+                      color: palette.foreground,
                       fontSize: compact ? 12 : 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -19426,17 +19669,22 @@ class _AiWidgetPreviewStat extends StatelessWidget {
           ),
         ] else ...<Widget>[
           const Spacer(),
+          Text(
+            'Waiting for first update',
+            style: TextStyle(color: palette.muted, fontSize: compact ? 12 : 13),
+          ),
+          const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: List<Widget>.generate(9, (index) {
-              final factor = (9 - index) / 9;
+            children: List<Widget>.generate(8, (index) {
+              final factor = (8 - index) / 8;
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: Container(
                   width: compact ? 8 : 10,
-                  height: (compact ? 26 : 32) * factor + 10,
+                  height: (compact ? 20 : 26) * factor + 8,
                   decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.75 - (index * 0.05)),
+                    color: accent.withValues(alpha: 0.62 - (index * 0.05)),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -19454,20 +19702,29 @@ class _AiWidgetPreviewSummary extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.body,
+    required this.metric,
+    required this.metricLabel,
     required this.chips,
+    required this.palette,
     required this.compact,
   });
 
   final String title;
   final String subtitle;
   final String body;
+  final String metric;
+  final String metricLabel;
   final List<String> chips;
+  final _WidgetPreviewPalette palette;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final topLabel = subtitle.trim().isNotEmpty ? subtitle : title;
-    final copy = body.trim().isNotEmpty ? body : title;
+    final topLabel = subtitle.trim().isNotEmpty ? subtitle : 'Summary';
+    final headline = title.trim().isNotEmpty
+        ? title
+        : 'Waiting for first update';
+    final copy = body.trim().isNotEmpty ? body : headline;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -19475,26 +19732,44 @@ class _AiWidgetPreviewSummary extends StatelessWidget {
           topLabel,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.74),
-            fontSize: compact ? 11 : 12,
-          ),
+          style: TextStyle(color: palette.muted, fontSize: compact ? 11 : 12),
         ),
         const SizedBox(height: 10),
         Text(
-          copy,
-          maxLines: compact ? 4 : 5,
+          headline,
+          maxLines: compact ? 3 : 4,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: Colors.white,
+            color: palette.foreground,
             fontSize: compact ? 20 : 24,
             height: 1.12,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.6,
           ),
         ),
-        if (chips.isNotEmpty) ...<Widget>[
+        if (copy != headline) ...<Widget>[
+          const SizedBox(height: 10),
+          Text(
+            copy,
+            maxLines: compact ? 3 : 4,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: palette.foreground.withValues(alpha: 0.86),
+              fontSize: compact ? 13 : 14,
+              height: 1.34,
+            ),
+          ),
+        ],
+        if (metric.isNotEmpty) ...<Widget>[
           const Spacer(),
+          _WidgetPreviewDataPill(
+            label: metricLabel.ifEmpty('Now'),
+            value: metric,
+            palette: palette,
+          ),
+          const SizedBox(height: 10),
+        ] else if (chips.isNotEmpty) ...<Widget>[const Spacer()],
+        if (chips.isNotEmpty) ...<Widget>[
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -19502,13 +19777,13 @@ class _AiWidgetPreviewSummary extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: palette.chip,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   chip,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.94),
+                    color: palette.foreground.withValues(alpha: 0.94),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -19524,15 +19799,21 @@ class _AiWidgetPreviewSummary extends StatelessWidget {
 
 class _AiWidgetPreviewList extends StatelessWidget {
   const _AiWidgetPreviewList({
+    required this.title,
+    required this.subtitle,
     required this.rows,
     required this.chips,
     required this.accent,
+    required this.palette,
     required this.compact,
   });
 
+  final String title;
+  final String subtitle;
   final List<Map<String, dynamic>> rows;
   final List<String> chips;
   final Color accent;
+  final _WidgetPreviewPalette palette;
   final bool compact;
 
   @override
@@ -19542,84 +19823,134 @@ class _AiWidgetPreviewList extends StatelessWidget {
               .map((chip) => <String, dynamic>{'label': chip, 'value': ''})
               .toList(growable: false)
         : rows.take(4).toList(growable: false);
+    if (entries.isEmpty) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Waiting for items',
+          style: TextStyle(color: palette.muted, fontSize: compact ? 13 : 14),
+        ),
+      );
+    }
     return Column(
-      children: entries.map((row) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            children: <Widget>[
-              Container(
-                width: compact ? 18 : 20,
-                height: compact ? 18 : 20,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.22),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.check_rounded,
-                  size: compact ? 12 : 14,
-                  color: accent,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  row['label']?.toString() ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: compact ? 15 : 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              if ((row['value']?.toString() ?? '')
-                  .trim()
-                  .isNotEmpty) ...<Widget>[
-                const SizedBox(width: 8),
-                Text(
-                  row['value']?.toString() ?? '',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontSize: compact ? 12 : 13,
-                  ),
-                ),
-              ],
-            ],
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (subtitle.trim().isNotEmpty)
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: palette.muted, fontSize: compact ? 11 : 12),
           ),
-        );
-      }).toList(),
+        if (title.trim().isNotEmpty) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: palette.foreground,
+              fontSize: compact ? 18 : 20,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        ...entries.map((row) {
+          final label = _widgetSanitizedText(
+            row['label']?.toString() ?? '',
+            fallback: 'Item',
+          );
+          final value = _widgetSanitizedText(row['value']?.toString() ?? '');
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: compact ? 18 : 20,
+                  height: compact ? 18 : 20,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.22),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.check_rounded,
+                    size: compact ? 12 : 14,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.foreground,
+                      fontSize: compact ? 15 : 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (value.isNotEmpty) ...<Widget>[
+                  const SizedBox(width: 8),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: palette.muted,
+                      fontSize: compact ? 12 : 13,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 }
 
-class _WidgetGlassPill extends StatelessWidget {
-  const _WidgetGlassPill({required this.label, required this.icon});
+class _WidgetSupportingMetricCard extends StatelessWidget {
+  const _WidgetSupportingMetricCard({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
 
   final String label;
-  final IconData icon;
+  final String value;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      constraints: const BoxConstraints(minWidth: 110),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(icon, size: 14, color: _textSecondary),
-          const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
+              color: _textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
               color: _textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -19628,23 +19959,222 @@ class _WidgetGlassPill extends StatelessWidget {
   }
 }
 
-Color _widgetAccentColor(String token) {
+class _WidgetProgressBar extends StatelessWidget {
+  const _WidgetProgressBar({
+    required this.accent,
+    required this.value,
+    required this.label,
+  });
+
+  final Color accent;
+  final double value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: value,
+            minHeight: 8,
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
+            valueColor: AlwaysStoppedAnimation<Color>(accent),
+          ),
+        ),
+        if (label.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: _textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WidgetPreviewDataPill extends StatelessWidget {
+  const _WidgetPreviewDataPill({
+    required this.label,
+    required this.value,
+    required this.palette,
+  });
+
+  final String label;
+  final String value;
+  final _WidgetPreviewPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: palette.chip,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.foreground.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: TextStyle(
+              color: palette.muted,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              color: palette.foreground,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WidgetPreviewProgress extends StatelessWidget {
+  const _WidgetPreviewProgress({
+    required this.value,
+    required this.label,
+    required this.palette,
+  });
+
+  final double value;
+  final String label;
+  final _WidgetPreviewPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: value,
+            minHeight: 7,
+            backgroundColor: Colors.white.withValues(alpha: 0.1),
+            valueColor: AlwaysStoppedAnimation<Color>(palette.accent),
+          ),
+        ),
+        if (label.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: palette.muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WidgetMetricBlock extends StatelessWidget {
+  const _WidgetMetricBlock({
+    required this.label,
+    required this.value,
+    this.accent,
+  });
+
+  final String label;
+  final String value;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 120),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: TextStyle(
+              color: _textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: accent ?? _textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WidgetPreviewPalette {
+  const _WidgetPreviewPalette({
+    required this.colors,
+    required this.accent,
+    required this.foreground,
+    required this.muted,
+    required this.chip,
+    required this.glow,
+  });
+
+  final List<Color> colors;
+  final Color accent;
+  final Color foreground;
+  final Color muted;
+  final Color chip;
+  final Color glow;
+}
+
+Color _widgetAccentColor(String token, {String surfaceColor = ''}) {
+  final surfaceOverride = _widgetColorFromHex(surfaceColor);
+  if (surfaceOverride != null) {
+    return Color.lerp(surfaceOverride, Colors.white, 0.16)!;
+  }
   switch (token.trim().toLowerCase()) {
     case 'warning':
     case 'sun':
+    case 'sunny':
     case 'weather':
       return _warning;
     case 'success':
     case 'health':
     case 'growth':
+    case 'battery':
+    case 'electric':
       return _success;
     case 'alert':
     case 'error':
+    case 'storm':
       return _danger;
     case 'sky':
     case 'ocean':
     case 'summary':
+    case 'rain':
+    case 'cloud':
       return _accentAlt;
+    case 'night':
+      return const Color(0xFFB7C9FF);
     default:
       return _accent;
   }
@@ -19654,7 +20184,19 @@ IconData _widgetIconData(String token) {
   switch (token.trim().toLowerCase()) {
     case 'weather':
     case 'sun':
+    case 'sunny':
       return Icons.wb_sunny_outlined;
+    case 'rain':
+    case 'storm':
+      return Icons.thunderstorm_outlined;
+    case 'cloud':
+      return Icons.cloud_outlined;
+    case 'vehicle':
+    case 'car':
+      return Icons.directions_car_outlined;
+    case 'battery':
+    case 'electric':
+      return Icons.battery_charging_full_rounded;
     case 'list':
     case 'agenda':
       return Icons.view_list_outlined;
@@ -19672,6 +20214,107 @@ String _manualRunButtonLabel(String label, int remainingSeconds) {
     return label;
   }
   return '$label (${remainingSeconds}s)';
+}
+
+String _widgetSanitizedText(String value, {String fallback = ''}) {
+  final normalized = value.trim();
+  if (normalized.isEmpty || normalized.toLowerCase() == 'null') {
+    return fallback;
+  }
+  return normalized;
+}
+
+String _widgetDisplayName(String raw) {
+  final normalized = raw
+      .trim()
+      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ');
+  if (normalized.isEmpty) {
+    return 'AI Widget';
+  }
+  return normalized
+      .split(' ')
+      .where((part) => part.isNotEmpty)
+      .map((part) {
+        if (part.length <= 2 && part.toUpperCase() == part) {
+          return part;
+        }
+        return '${part[0].toUpperCase()}${part.substring(1)}';
+      })
+      .join(' ');
+}
+
+String _widgetPrimaryTitle(AiWidgetItem item, WidgetSnapshotItem? snapshot) {
+  final snapshotTitle = _widgetSanitizedText(snapshot?.title ?? '');
+  if (snapshotTitle.isNotEmpty) {
+    return snapshotTitle;
+  }
+  return _widgetDisplayName(item.name);
+}
+
+String _widgetSecondaryTitle(AiWidgetItem item, WidgetSnapshotItem? snapshot) {
+  final kicker = _widgetSanitizedText(snapshot?.kicker ?? '');
+  if (kicker.isNotEmpty) {
+    return kicker;
+  }
+  final subtitle = _widgetSanitizedText(snapshot?.subtitle ?? '');
+  if (subtitle.isNotEmpty) {
+    return subtitle;
+  }
+  final metricLabel = _widgetSanitizedText(snapshot?.metricLabel ?? '');
+  if (metricLabel.isNotEmpty) {
+    return metricLabel;
+  }
+  if (snapshot != null) {
+    return _widgetDisplayName(item.name);
+  }
+  return 'Waiting for the first update';
+}
+
+String _widgetSummaryText(AiWidgetItem item, WidgetSnapshotItem? snapshot) {
+  final body = _widgetSanitizedText(snapshot?.body ?? '');
+  if (body.isNotEmpty) {
+    return body;
+  }
+  final supportingFacts = <String>[
+    _widgetLabeledValue(
+      snapshot?.secondaryLabel ?? '',
+      snapshot?.secondaryMetric ?? '',
+    ),
+    _widgetLabeledValue(
+      snapshot?.tertiaryLabel ?? '',
+      snapshot?.tertiaryMetric ?? '',
+    ),
+  ].where((entry) => entry.isNotEmpty).toList(growable: false);
+  if (supportingFacts.isNotEmpty) {
+    return supportingFacts.join(' • ');
+  }
+  final rowSummary = snapshot?.rows
+      .map(
+        (row) => _widgetLabeledValue(
+          row['label']?.toString() ?? '',
+          row['value']?.toString() ?? '',
+        ),
+      )
+      .where((entry) => entry.isNotEmpty)
+      .take(2)
+      .join(' • ');
+  if (rowSummary != null && rowSummary.isNotEmpty) {
+    return rowSummary;
+  }
+  final description = _widgetSanitizedText(
+    item.definition['description']?.toString() ?? '',
+  );
+  if (description.isNotEmpty) {
+    return description;
+  }
+  final prompt = _widgetSanitizedText(item.prompt);
+  if (prompt.isNotEmpty) {
+    return prompt;
+  }
+  return snapshot == null
+      ? 'Waiting for the first update.'
+      : 'Opens the latest widget snapshot everywhere you use NeoAgent.';
 }
 
 String _widgetCadenceLabel(String cron) {
@@ -19726,24 +20369,106 @@ double _widgetPreviewAspectRatio(String template) {
   }
 }
 
-List<Color> _widgetPreviewColors(String template, Color accent) {
-  switch (template.trim().toLowerCase()) {
-    case 'summary':
-      return <Color>[
-        Color.lerp(accent, const Color(0xFF18263A), 0.35)!,
-        const Color(0xFF10161F),
-      ];
-    case 'list':
-      return <Color>[
-        Color.lerp(accent, const Color(0xFF263148), 0.6)!,
-        const Color(0xFF1D2334),
-      ];
-    default:
-      return <Color>[
-        Color.lerp(accent, const Color(0xFF223041), 0.52)!,
-        const Color(0xFF151C25),
-      ];
+String _widgetLabeledValue(String label, String value) {
+  final safeLabel = _widgetSanitizedText(label);
+  final safeValue = _widgetSanitizedText(value);
+  if (safeLabel.isEmpty) return safeValue;
+  if (safeValue.isEmpty) return safeLabel;
+  return '$safeLabel $safeValue';
+}
+
+Color? _widgetColorFromHex(String raw) {
+  final normalized = raw.trim();
+  if (normalized.isEmpty) {
+    return null;
   }
+  final hex = normalized.startsWith('#') ? normalized.substring(1) : normalized;
+  if (!RegExp(r'^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$').hasMatch(hex)) {
+    return null;
+  }
+  final value = int.parse(hex.length == 6 ? 'FF$hex' : hex, radix: 16);
+  return Color(value);
+}
+
+Color _widgetBackgroundSeed(String token, Color accent) {
+  switch (token.trim().toLowerCase()) {
+    case 'sun':
+    case 'sunny':
+      return const Color(0xFFD59B4E);
+    case 'rain':
+      return const Color(0xFF5274A7);
+    case 'storm':
+      return const Color(0xFF50597A);
+    case 'cloud':
+      return const Color(0xFF71809A);
+    case 'night':
+      return const Color(0xFF42507B);
+    case 'electric':
+    case 'battery':
+      return const Color(0xFF37C990);
+    case 'vehicle':
+      return const Color(0xFF5B6E88);
+    default:
+      return accent;
+  }
+}
+
+double? _widgetProgressFraction(Map<String, dynamic>? progress) {
+  if (progress == null) {
+    return null;
+  }
+  final value = double.tryParse(progress['value']?.toString() ?? '');
+  final max = double.tryParse(progress['max']?.toString() ?? '');
+  if (value == null || max == null || max <= 0) {
+    return null;
+  }
+  return (value / max).clamp(0.0, 1.0);
+}
+
+String _widgetProgressLabel(Map<String, dynamic>? progress) {
+  if (progress == null) {
+    return '';
+  }
+  final explicit = _widgetSanitizedText(progress['label']?.toString() ?? '');
+  if (explicit.isNotEmpty) {
+    return explicit;
+  }
+  final value = progress['value']?.toString() ?? '';
+  final max = progress['max']?.toString() ?? '';
+  if (value.isNotEmpty && max.isNotEmpty) {
+    return '$value / $max';
+  }
+  return '';
+}
+
+_WidgetPreviewPalette _widgetPreviewPalette(
+  String template,
+  Color accent, {
+  String backgroundToken = '',
+  String surfaceColor = '',
+}) {
+  final surfaceOverride = _widgetColorFromHex(surfaceColor);
+  final seed =
+      surfaceOverride ?? _widgetBackgroundSeed(backgroundToken, accent);
+  final accentColor = Color.lerp(seed, Colors.white, 0.18)!;
+  final start = switch (template.trim().toLowerCase()) {
+    'summary' => Color.lerp(seed, const Color(0xFF101B28), 0.28)!,
+    'list' => Color.lerp(seed, const Color(0xFF162130), 0.44)!,
+    _ => Color.lerp(seed, const Color(0xFF121A25), 0.34)!,
+  };
+  final end = switch (template.trim().toLowerCase()) {
+    'summary' => Color.lerp(seed, const Color(0xFF081018), 0.74)!,
+    'list' => Color.lerp(seed, const Color(0xFF0D141F), 0.78)!,
+    _ => Color.lerp(seed, const Color(0xFF0B121C), 0.8)!,
+  };
+  return _WidgetPreviewPalette(
+    colors: <Color>[start, end],
+    accent: accentColor,
+    foreground: Colors.white,
+    muted: Colors.white.withValues(alpha: 0.72),
+    chip: Colors.white.withValues(alpha: 0.11),
+    glow: accentColor.withValues(alpha: 0.18),
+  );
 }
 
 class SchedulerPanel extends StatefulWidget {

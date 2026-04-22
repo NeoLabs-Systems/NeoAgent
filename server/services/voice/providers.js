@@ -34,6 +34,8 @@ const DEFAULT_TTS_VOICES = Object.freeze({
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const DEFAULT_GEMINI_TRANSCRIPTION_PROMPT =
   'Transcribe this audio verbatim. Return only the transcript text.';
+const EMOJI_SPEECH_REGEX =
+  /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Regional_Indicator}\u200D\uFE0F\u20E3]/gu;
 
 function withTimeout(promise, timeoutMs, label) {
   const normalizedTimeout = Number(timeoutMs);
@@ -52,6 +54,19 @@ function withTimeout(promise, timeoutMs, label) {
       clearTimeout(timer);
     }
   });
+}
+
+function sanitizeSpeechText(value) {
+  const text = String(value || '');
+  if (!text) {
+    return '';
+  }
+  return text
+    .replace(EMOJI_SPEECH_REGEX, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function readSharedApiKeys() {
@@ -641,6 +656,7 @@ module.exports = {
   resolveTtsModel,
   resolveTtsVoice,
   normalizeVoiceSynthesisOptions,
+  sanitizeSpeechText,
   guessExtFromMimeType,
   splitIntoSentenceChunks,
   transcribeVoiceInput,

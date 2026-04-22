@@ -1160,7 +1160,7 @@ function getAvailableTools(app, options = {}) {
                 properties: {
                     snapshot: {
                         type: 'object',
-                        description: 'Structured widget snapshot payload containing title, optional subtitle/body/metric/trend/rows/chips/iconToken/accentToken/updatedAt/deepLink.'
+                        description: 'Structured widget snapshot payload containing a strong title, optional kicker/subtitle/body, primary and supporting metrics, optional progress, rows, chips, icon/accent/background tokens, optional surfaceColor, updatedAt, and deepLink.'
                     }
                 },
                 required: ['snapshot']

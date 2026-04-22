@@ -7,7 +7,12 @@ const { getVoiceRuntimeSettings } = require('./liveSettings');
 const { VoiceLiveSession } = require('./liveSession');
 const { OpenAiLiveRelayAdapter } = require('./openaiLiveRelayAdapter');
 const { GeminiLiveRelayAdapter } = require('./geminiLiveRelayAdapter');
-const { synthesizeVoiceReply, normalizeVoiceSynthesisOptions, synthesizeVoiceReplyStream } = require('./providers');
+const {
+  synthesizeVoiceReply,
+  normalizeVoiceSynthesisOptions,
+  synthesizeVoiceReplyStream,
+  sanitizeSpeechText,
+} = require('./providers');
 const { VoiceAgentBridge } = require('./agentBridge');
 
 class VoiceRuntimeManager {
@@ -296,17 +301,19 @@ class VoiceRuntimeManager {
       model: session.voiceSettings?.liveTtsModel,
       voice: session.voiceSettings?.liveVoice,
     });
+    const spokenContent = sanitizeSpeechText(content);
 
     let index = 0;
     let streamError = null;
     const ttsAttempts = this.#buildTtsAttemptOrder(session, voiceOptions);
-    try {
+    if (spokenContent) {
+      try {
       for (const attempt of ttsAttempts) {
         index = 0;
         streamError = null;
         try {
           await synthesizeVoiceReplyStream(
-            content,
+            spokenContent,
             attempt,
             async ({ audioBytes, mimeType }) => {
               if (session.closed || session.interrupted) return;
@@ -326,8 +333,9 @@ class VoiceRuntimeManager {
           streamError = String(error?.message || error || 'Voice playback failed.');
         }
       }
-    } catch (error) {
-      streamError = String(error?.message || error || 'Voice playback failed.');
+      } catch (error) {
+        streamError = String(error?.message || error || 'Voice playback failed.');
+      }
     }
 
     if (!streamError && !session.closed && !session.interrupted) {

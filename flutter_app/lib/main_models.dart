@@ -2263,17 +2263,30 @@ class WidgetSnapshotItem {
   String get title =>
       payload['title']?.toString().ifEmpty('Untitled widget') ??
       'Untitled widget';
+  String get kicker => payload['kicker']?.toString() ?? '';
   String get subtitle => payload['subtitle']?.toString() ?? '';
   String get body => payload['body']?.toString() ?? '';
   String get metric => payload['metric']?.toString() ?? '';
+  String get metricLabel => payload['metricLabel']?.toString() ?? '';
+  String get secondaryMetric => payload['secondaryMetric']?.toString() ?? '';
+  String get secondaryLabel => payload['secondaryLabel']?.toString() ?? '';
+  String get tertiaryMetric => payload['tertiaryMetric']?.toString() ?? '';
+  String get tertiaryLabel => payload['tertiaryLabel']?.toString() ?? '';
   String get template => payload['template']?.toString() ?? '';
   String get layoutVariant => payload['layoutVariant']?.toString() ?? '';
   String get deepLink => payload['deepLink']?.toString() ?? '';
   String get iconToken => payload['iconToken']?.toString() ?? '';
   String get accentToken => payload['accentToken']?.toString() ?? '';
+  String get backgroundToken => payload['backgroundToken']?.toString() ?? '';
+  String get surfaceColor => payload['surfaceColor']?.toString() ?? '';
 
   Map<String, dynamic>? get trend {
     final raw = payload['trend'];
+    return raw is Map ? Map<String, dynamic>.from(raw) : null;
+  }
+
+  Map<String, dynamic>? get progress {
+    final raw = payload['progress'];
     return raw is Map ? Map<String, dynamic>.from(raw) : null;
   }
 

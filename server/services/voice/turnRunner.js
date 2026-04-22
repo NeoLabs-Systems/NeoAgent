@@ -5,7 +5,11 @@ const { getProviderRuntimeConfig } = require('../ai/models');
 const { buildAgentRunContext } = require('../ai/runContext');
 const { buildDirectVoiceContext } = require('./message');
 const { analyzeVoiceAssistantScreenshot } = require('./screenshotContext');
-const { synthesizeVoiceReply, normalizeVoiceSynthesisOptions } = require('./providers');
+const {
+  synthesizeVoiceReply,
+  normalizeVoiceSynthesisOptions,
+  sanitizeSpeechText,
+} = require('./providers');
 const {
   VOICE_HISTORY_WINDOW,
   buildDirectVoiceRunOptions,
@@ -132,6 +136,14 @@ async function runVoiceTranscriptTurn({
   let modelUsed = voiceOptions.model;
   let voiceUsed = voiceOptions.voice;
   if (synthesize !== false) {
+    const spokenReplyText = sanitizeSpeechText(replyText);
+    if (!spokenReplyText) {
+      synthesized = {
+        mimeType: 'audio/mpeg',
+        audioBytes: Buffer.alloc(0),
+      };
+      ttsError = null;
+    } else {
     const attemptProviders = [
       voiceOptions.provider,
       ...['openai', 'deepgram', 'gemini'].filter((provider) => provider !== voiceOptions.provider),
@@ -145,7 +157,7 @@ async function runVoiceTranscriptTurn({
       });
       const runtime = resolveProviderRuntime(userId, agentId, provider);
       try {
-        synthesized = await synthesizeVoiceReply(replyText, {
+        synthesized = await synthesizeVoiceReply(spokenReplyText, {
           ...normalized,
           apiKey: runtime.apiKey,
           baseUrl: runtime.baseUrl,
@@ -166,6 +178,7 @@ async function runVoiceTranscriptTurn({
         mimeType: 'audio/mpeg',
         audioBytes: Buffer.alloc(0),
       };
+    }
     }
   } else {
     synthesized = {
