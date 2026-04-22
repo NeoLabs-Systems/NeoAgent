@@ -33,6 +33,7 @@ import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
 import 'src/recording_payloads.dart';
 import 'src/theme/palette.dart';
+import 'src/widget_bridge.dart';
 
 part 'main_theme.dart';
 part 'main_app_shell.dart';
@@ -108,6 +109,7 @@ enum AppSection {
   integrations,
   memory,
   scheduler,
+  widgets,
   mcp,
   health,
 }
@@ -181,6 +183,8 @@ extension AppSectionX on AppSection {
         return 'Memory';
       case AppSection.scheduler:
         return 'Scheduler';
+      case AppSection.widgets:
+        return 'Widgets';
       case AppSection.mcp:
         return 'MCP';
       case AppSection.health:
@@ -218,6 +222,8 @@ extension AppSectionX on AppSection {
         return Icons.psychology_outlined;
       case AppSection.scheduler:
         return Icons.schedule_outlined;
+      case AppSection.widgets:
+        return Icons.dashboard_customize_outlined;
       case AppSection.mcp:
         return Icons.hub_outlined;
       case AppSection.health:
@@ -242,6 +248,7 @@ extension AppSectionX on AppSection {
       case AppSection.integrations:
       case AppSection.memory:
       case AppSection.scheduler:
+      case AppSection.widgets:
       case AppSection.mcp:
       case AppSection.health:
         return SidebarGroup.automation;
@@ -279,6 +286,7 @@ class NeoAgentApp extends StatefulWidget {
 class _NeoAgentAppState extends State<NeoAgentApp>
     with WindowListener, TrayListener {
   late final NeoAgentController _controller;
+  StreamSubscription<String>? _widgetOpenSubscription;
   GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _navigatorScopeSignature;
   Menu? _trayMenu;
@@ -314,9 +322,13 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       appMode: widget.mode,
       backendClient: backendClient,
       healthBridge: HealthBridge(),
+      widgetBridge: WidgetBridge(),
       recordingBridge: createRecordingBridge(),
     )..bootstrap();
     _controller.addListener(_handleControllerChanged);
+    _widgetOpenSubscription = _controller.widgetOpenRequests.listen(
+      _controller.openWidgetSurface,
+    );
     if (_supportsDesktopShell) {
       unawaited(_initializeDesktopShell());
     }
@@ -324,6 +336,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
 
   @override
   void dispose() {
+    _widgetOpenSubscription?.cancel();
     _controller.removeListener(_handleControllerChanged);
     if (_supportsDesktopShell) {
       trayManager.removeListener(this);
@@ -1059,10 +1072,12 @@ class NeoAgentController extends ChangeNotifier {
     this.appMode = NeoAgentAppMode.standard,
     required BackendClient backendClient,
     required HealthBridge healthBridge,
+    required WidgetBridge widgetBridge,
     required RecordingBridge recordingBridge,
     OAuthLauncher? oauthLauncher,
   }) : _backendClient = backendClient,
        _healthBridge = healthBridge,
+       _widgetBridge = widgetBridge,
        _recordingBridge = recordingBridge,
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher() {
     _recordingBridge.onRecordingStopped = _handleRecordingStopped;
@@ -1080,6 +1095,7 @@ class NeoAgentController extends ChangeNotifier {
   final NeoAgentAppMode appMode;
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
+  final WidgetBridge _widgetBridge;
   final RecordingBridge _recordingBridge;
   final OAuthLauncher _oauthLauncher;
   final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
@@ -1196,6 +1212,7 @@ class NeoAgentController extends ChangeNotifier {
   List<MemoryItem> memoryRecallResults = const <MemoryItem>[];
   List<ConversationItem> memoryConversations = const <ConversationItem>[];
   List<SchedulerTask> schedulerTasks = const <SchedulerTask>[];
+  List<AiWidgetItem> widgets = const <AiWidgetItem>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
   Map<String, dynamic> browserRuntime = const <String, dynamic>{};
   Map<String, dynamic> browserExtensionStatus = const <String, dynamic>{};
@@ -1216,6 +1233,8 @@ class NeoAgentController extends ChangeNotifier {
   String? androidUiDumpPath;
   final Map<String, RunDetailSnapshot> _runDetailsCache =
       <String, RunDetailSnapshot>{};
+  String? _selectedWidgetId;
+  String? _pendingChatDraft;
 
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
@@ -2492,6 +2511,7 @@ class NeoAgentController extends ChangeNotifier {
     memoryRecallResults = const <MemoryItem>[];
     memoryConversations = const <ConversationItem>[];
     schedulerTasks = const <SchedulerTask>[];
+    widgets = const <AiWidgetItem>[];
     mcpServers = const <McpServerItem>[];
     browserRuntime = const <String, dynamic>{};
     browserExtensionStatus = const <String, dynamic>{};
@@ -2517,9 +2537,18 @@ class NeoAgentController extends ChangeNotifier {
     toolEvents = const <ToolEventItem>[];
     streamingAssistant = '';
     selectedSection = AppSection.chat;
+    _selectedWidgetId = null;
+    _pendingChatDraft = null;
     _runDetailsCache.clear();
     unawaited(
       _healthBridge.configureBackgroundSync(
+        enabled: false,
+        backendUrl: backendUrl,
+        sessionCookie: '',
+      ),
+    );
+    unawaited(
+      _widgetBridge.configureHomeWidgets(
         enabled: false,
         backendUrl: backendUrl,
         sessionCookie: '',
@@ -2543,6 +2572,7 @@ class NeoAgentController extends ChangeNotifier {
       await _prefs?.remove(_sessionCookiePrefsKey);
       await _prefs?.setString(_sessionCookieBackendPrefsKey, backendUrl);
       await _syncDesktopCompanionSession();
+      unawaited(_syncHomeWidgetConfig());
       return;
     }
     await _prefs?.remove(_sessionCookiePrefsKey);
@@ -2551,6 +2581,7 @@ class NeoAgentController extends ChangeNotifier {
       await _secureStorage.delete(key: _sessionCookieSecureStorageKey);
     } catch (_) {}
     await _syncDesktopCompanionSession();
+    unawaited(_syncHomeWidgetConfig());
   }
 
   Future<void> _syncDesktopCompanionSession() {
@@ -2935,6 +2966,11 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchSchedulerTasks(backendUrl, agentId: agentId),
         const <Map<String, dynamic>>[],
       );
+      final widgetsFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
+        'widgets',
+        _backendClient.fetchWidgets(backendUrl, agentId: agentId),
+        const <Map<String, dynamic>>[],
+      );
       final mcpFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
         'mcp_servers',
         _backendClient.fetchMcpServers(backendUrl, agentId: agentId),
@@ -2995,6 +3031,7 @@ class NeoAgentController extends ChangeNotifier {
       final memoriesResponse = await memoriesFuture;
       final conversationsResponse = await conversationsFuture;
       final schedulerResponse = await schedulerFuture;
+      final widgetsResponse = await widgetsFuture;
       final mcpResponse = await mcpFuture;
       final recordingsResponse = await recordingsFuture;
       final browserResponse = await browserFuture;
@@ -3076,6 +3113,15 @@ class NeoAgentController extends ChangeNotifier {
         schedulerResponse,
         SchedulerTask.fromJson,
       );
+      widgets = _decodeModelList(
+        'widgets',
+        widgetsResponse,
+        AiWidgetItem.fromJson,
+      );
+      _selectedWidgetId =
+          widgets.any((widget) => widget.id == _selectedWidgetId)
+          ? _selectedWidgetId
+          : (widgets.isEmpty ? null : widgets.first.id);
       mcpServers = _decodeModelList(
         'mcp_servers',
         mcpResponse,
@@ -3109,6 +3155,10 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       await _syncBackgroundHealthConfig();
+      if (!_isCurrentAuthCycle(authCycle)) {
+        return;
+      }
+      await _syncHomeWidgetConfig();
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
@@ -3295,6 +3345,25 @@ class NeoAgentController extends ChangeNotifier {
       ),
       SchedulerTask.fromJson,
     );
+    notifyListeners();
+  }
+
+  Future<void> refreshWidgets({bool all = false}) async {
+    widgets = _decodeModelList(
+      'widgets',
+      await _backendClient.fetchWidgets(
+        backendUrl,
+        agentId: all ? null : _scopedAgentId,
+        all: all,
+      ),
+      AiWidgetItem.fromJson,
+    );
+    _selectedWidgetId = widgets.any((widget) => widget.id == _selectedWidgetId)
+        ? _selectedWidgetId
+        : (widgets.isEmpty ? null : widgets.first.id);
+    if (isAuthenticated) {
+      unawaited(_widgetBridge.syncNow());
+    }
     notifyListeners();
   }
 
@@ -5920,6 +5989,102 @@ class NeoAgentController extends ChangeNotifier {
     await refreshScheduler();
   }
 
+  Future<void> toggleWidgetEnabled(AiWidgetItem item) async {
+    await _backendClient.saveWidget(
+      backendUrl,
+      id: item.id,
+      payload: <String, dynamic>{
+        'name': item.name,
+        'template': item.template,
+        'layoutVariant': item.layoutVariant,
+        'refreshCron': item.refreshCron,
+        'definition': item.definition,
+        'enabled': !item.enabled,
+        'agentId': item.agentId ?? _scopedAgentId,
+      },
+    );
+    await refreshWidgets();
+    await refreshScheduler();
+  }
+
+  Future<void> refreshWidgetNow(String id) async {
+    await _backendClient.refreshWidget(backendUrl, id);
+    await refreshWidgets();
+    await refreshScheduler();
+    await refreshRunsOnly();
+  }
+
+  Future<void> deleteWidget(String id) async {
+    await _backendClient.deleteWidget(backendUrl, id);
+    widgets = widgets.where((widget) => widget.id != id).toList();
+    _selectedWidgetId = widgets.any((widget) => widget.id == _selectedWidgetId)
+        ? _selectedWidgetId
+        : (widgets.isEmpty ? null : widgets.first.id);
+    notifyListeners();
+    await refreshScheduler();
+  }
+
+  void openWidgetCreateFlow() {
+    queueChatDraft(
+      'Create a new AI widget for the current agent. Choose the best template and approved layout variant, set a refresh cadence of at least 1 hour, create it, and run an initial refresh if appropriate.',
+    );
+  }
+
+  void openWidgetEditFlow(AiWidgetItem item) {
+    queueChatDraft(
+      'Update the AI widget "${item.name}" (ID: ${item.id}) for the current agent. Keep the cadence at 1 hour or longer. Change the layout variant only if the edit explicitly requires it.\n\nCurrent template: ${item.template}\nCurrent layout variant: ${item.layoutVariant}\nCurrent refresh cron: ${item.refreshCron}\nCurrent definition prompt:\n${item.prompt}',
+    );
+  }
+
+  void queueChatDraft(String text) {
+    final normalized = text.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    _pendingChatDraft = normalized;
+    selectedSection = AppSection.chat;
+    notifyListeners();
+  }
+
+  String? takePendingChatDraft() {
+    final draft = _pendingChatDraft;
+    _pendingChatDraft = null;
+    return draft;
+  }
+
+  void selectWidget(String? widgetId) {
+    if (widgetId != null && !widgets.any((widget) => widget.id == widgetId)) {
+      return;
+    }
+    _selectedWidgetId = widgetId;
+    notifyListeners();
+  }
+
+  void openWidgetSurface(String widgetId) {
+    final normalized = widgetId.trim();
+    selectedSection = AppSection.widgets;
+    if (normalized.isNotEmpty) {
+      _selectedWidgetId = normalized;
+      unawaited(refreshWidgets(all: true));
+    }
+    notifyListeners();
+  }
+
+  String? get selectedWidgetId => _selectedWidgetId;
+
+  AiWidgetItem? get selectedWidget {
+    final widgetId = _selectedWidgetId;
+    if (widgetId == null) {
+      return widgets.isEmpty ? null : widgets.first;
+    }
+    for (final item in widgets) {
+      if (item.id == widgetId) {
+        return item;
+      }
+    }
+    return widgets.isEmpty ? null : widgets.first;
+  }
+
   Future<void> toggleSchedulerTask(SchedulerTask task) async {
     await _backendClient
         .updateSchedulerTask(backendUrl, task.id, <String, dynamic>{
@@ -6388,6 +6553,24 @@ class NeoAgentController extends ChangeNotifier {
       sessionCookie: cookie,
     );
   }
+
+  Future<void> _syncHomeWidgetConfig() async {
+    final cookie = _backendClient.sessionCookie ?? '';
+    final enabled =
+        isAuthenticated &&
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android;
+    await _widgetBridge.configureHomeWidgets(
+      enabled: enabled,
+      backendUrl: backendUrl,
+      sessionCookie: cookie,
+    );
+    if (enabled) {
+      await _widgetBridge.syncNow();
+    }
+  }
+
+  Stream<String> get widgetOpenRequests => _widgetBridge.openWidgetRequests;
 
   List<ChatEntry> get visibleChatMessages {
     final entries = <ChatEntry>[...chatMessages];
@@ -10283,13 +10466,26 @@ class _ChatPanelState extends State<ChatPanel> {
   void initState() {
     super.initState();
     _composerController = TextEditingController();
+    widget.controller.addListener(_consumeQueuedDraft);
+    _consumeQueuedDraft();
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_consumeQueuedDraft);
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _consumeQueuedDraft() {
+    final draft = widget.controller.takePendingChatDraft();
+    if (draft == null || draft.isEmpty) {
+      return;
+    }
+    _composerController
+      ..text = draft
+      ..selection = TextSelection.collapsed(offset: draft.length);
   }
 
   @override
@@ -18237,6 +18433,306 @@ class _MemoryPanelState extends State<MemoryPanel> {
   }
 }
 
+class WidgetsPanel extends StatelessWidget {
+  const WidgetsPanel({super.key, required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Widgets',
+          subtitle:
+              'Shared AI widgets with fixed templates, approved layout variants, and scheduled snapshot refreshes.',
+          trailing: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: controller.refreshWidgets,
+                icon: Icon(Icons.refresh_rounded),
+                label: Text('Refresh'),
+              ),
+              FilledButton.icon(
+                onPressed: controller.openWidgetCreateFlow,
+                icon: Icon(Icons.auto_awesome_outlined),
+                label: Text('Create With AI'),
+              ),
+            ],
+          ),
+        ),
+        if (controller.widgets.isEmpty)
+          const _EmptyCard(
+            title: 'No AI widgets yet',
+            subtitle:
+                'Create a widget through the agent and it will appear here, in launcher mode, and in Android home widgets.',
+          )
+        else
+          ...controller.widgets.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: _AiWidgetCard(
+                item: item,
+                active: controller.selectedWidgetId == item.id,
+                onSelect: () => controller.selectWidget(item.id),
+                footer: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    OutlinedButton(
+                      onPressed: () => controller.openWidgetEditFlow(item),
+                      child: Text('Edit With AI'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => controller.toggleWidgetEnabled(item),
+                      child: Text(item.enabled ? 'Pause' : 'Enable'),
+                    ),
+                    FilledButton(
+                      onPressed: () => controller.refreshWidgetNow(item.id),
+                      child: Text('Run Now'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => _confirmDelete(
+                        context,
+                        title: 'Delete widget?',
+                        message:
+                            'This removes "${item.name}" and its refresh job.',
+                        onConfirm: () => controller.deleteWidget(item.id),
+                      ),
+                      child: Text('Delete'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _AiWidgetCard extends StatelessWidget {
+  const _AiWidgetCard({
+    required this.item,
+    this.footer,
+    this.active = false,
+    this.compact = false,
+    this.onSelect,
+  });
+
+  final AiWidgetItem item;
+  final Widget? footer;
+  final bool active;
+  final bool compact;
+  final VoidCallback? onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = item.latestSnapshot;
+    final accent = _widgetAccentColor(snapshot?.accentToken ?? item.template);
+    final icon = _widgetIconData(snapshot?.iconToken ?? item.template);
+    final title = snapshot?.title ?? item.name;
+    final subtitle = snapshot?.subtitle ?? item.template.toUpperCase();
+    final metric = snapshot?.metric ?? '';
+    final rows = snapshot?.rows ?? const <Map<String, dynamic>>[];
+    final chips = snapshot?.chips ?? const <String>[];
+    final body = snapshot?.body ?? item.prompt;
+
+    return Card(
+      color: active ? _bgSecondary.withValues(alpha: 0.92) : null,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onSelect,
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 16 : 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Container(
+                    width: compact ? 42 : 48,
+                    height: compact ? 42 : 48,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: accent.withValues(alpha: 0.25)),
+                    ),
+                    child: Icon(icon, color: accent),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: compact ? 16 : 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(subtitle, style: TextStyle(color: _textSecondary)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _StatusPill(
+                    label: item.enabled ? 'Live' : 'Paused',
+                    color: item.enabled ? _success : _textSecondary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  _MetaPill(
+                    icon: Icons.view_quilt_outlined,
+                    label: '${item.template} · ${item.layoutVariant}',
+                  ),
+                  _MetaPill(
+                    icon: Icons.schedule_outlined,
+                    label: item.refreshCron,
+                  ),
+                  _MetaPill(
+                    icon: Icons.update_outlined,
+                    label: snapshot?.generatedAtLabel ?? item.lastSnapshotLabel,
+                  ),
+                ],
+              ),
+              if (metric.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 16),
+                Text(
+                  metric,
+                  style: _displayTitleStyle(
+                    compact ? 30 : 36,
+                  ).copyWith(color: accent),
+                ),
+              ],
+              if (body.trim().isNotEmpty) ...<Widget>[
+                const SizedBox(height: 10),
+                Text(body, style: TextStyle(color: _textPrimary, height: 1.45)),
+              ],
+              if (rows.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 14),
+                ...rows.map(
+                  (row) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            row['label']?.toString() ?? '',
+                            style: TextStyle(color: _textSecondary),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          row['value']?.toString() ?? '',
+                          style: TextStyle(
+                            color: _textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              if (chips.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: chips
+                      .map(
+                        (chip) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.18),
+                            ),
+                          ),
+                          child: Text(
+                            chip,
+                            style: TextStyle(
+                              color: _textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+              if (item.hasError) ...<Widget>[
+                const SizedBox(height: 14),
+                _InlineError(message: item.lastError!),
+              ],
+              if (footer != null) ...<Widget>[
+                const SizedBox(height: 16),
+                footer!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color _widgetAccentColor(String token) {
+  switch (token.trim().toLowerCase()) {
+    case 'warning':
+    case 'sun':
+    case 'weather':
+      return _warning;
+    case 'success':
+    case 'health':
+    case 'growth':
+      return _success;
+    case 'alert':
+    case 'error':
+      return _danger;
+    case 'sky':
+    case 'ocean':
+    case 'summary':
+      return _accentAlt;
+    default:
+      return _accent;
+  }
+}
+
+IconData _widgetIconData(String token) {
+  switch (token.trim().toLowerCase()) {
+    case 'weather':
+    case 'sun':
+      return Icons.wb_sunny_outlined;
+    case 'list':
+    case 'agenda':
+      return Icons.view_list_outlined;
+    case 'health':
+      return Icons.favorite_outline;
+    case 'summary':
+      return Icons.notes_outlined;
+    default:
+      return Icons.dashboard_customize_outlined;
+  }
+}
+
 class SchedulerPanel extends StatefulWidget {
   const SchedulerPanel({super.key, required this.controller});
 
@@ -18270,20 +18766,37 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
         : controller.schedulerTasks
               .where((task) => task.agentId == _agentFilterId)
               .toList();
+    final automationTasks = filteredTasks
+        .where((task) => !task.isWidgetRefresh)
+        .toList();
+    final widgetTasks = filteredTasks
+        .where((task) => task.isWidgetRefresh)
+        .toList();
     final selectedAgentLabel = controller.agentLabelFor(_agentFilterId);
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
           title: 'Scheduler',
-          subtitle: 'Recurring tasks and one-click manual runs.',
-          trailing: FilledButton.icon(
-            onPressed: () => _openTaskEditor(
-              context,
-              defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
-            ),
-            icon: Icon(Icons.add),
-            label: Text('Add Task'),
+          subtitle: 'Recurring tasks plus widget-owned refresh jobs.',
+          trailing: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: controller.openWidgetCreateFlow,
+                icon: Icon(Icons.dashboard_customize_outlined),
+                label: Text('Create Widget'),
+              ),
+              FilledButton.icon(
+                onPressed: () => _openTaskEditor(
+                  context,
+                  defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
+                ),
+                icon: Icon(Icons.add),
+                label: Text('Add Task'),
+              ),
+            ],
           ),
         ),
         if (controller.agentProfiles.isNotEmpty) ...<Widget>[
@@ -18339,101 +18852,220 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
             title: 'No tasks for $selectedAgentLabel',
             subtitle: 'Create a task while this agent is selected.',
           )
-        else
-          ...filteredTasks.map(
-            (task) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              task.name,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          _StatusPill(
-                            label: task.enabled ? 'Active' : 'Paused',
-                            color: task.enabled ? _success : _textSecondary,
-                          ),
-                        ],
+        else ...<Widget>[
+          if (automationTasks.isNotEmpty) ...<Widget>[
+            Text('Tasks', style: _sectionEyebrowStyle()),
+            const SizedBox(height: 10),
+            ...automationTasks.map(_buildTaskCard),
+          ],
+          if (widgetTasks.isNotEmpty) ...<Widget>[
+            if (automationTasks.isNotEmpty) const SizedBox(height: 18),
+            Text('Widget Refresh Jobs', style: _sectionEyebrowStyle()),
+            const SizedBox(height: 10),
+            ...widgetTasks.map(_buildWidgetTaskCard),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTaskCard(SchedulerTask task) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      task.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        task.scheduleLabel,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                        ),
-                      ),
-                      if (task.hasModelOverride) ...<Widget>[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Model: ${_modelLabelForValue(task.model, controller.supportedModels)}',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Text(
-                        'Assigned agent: ${controller.agentLabelFor(task.agentId)}',
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(task.prompt, style: TextStyle(color: _textPrimary)),
-                      if (task.lastRunLabel.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Last run: ${task.lastRunLabel}',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                      ],
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: <Widget>[
-                          OutlinedButton(
-                            onPressed: () =>
-                                _openTaskEditor(context, task: task),
-                            child: Text('Edit'),
-                          ),
-                          OutlinedButton(
-                            onPressed: () =>
-                                controller.toggleSchedulerTask(task),
-                            child: Text(task.enabled ? 'Pause' : 'Enable'),
-                          ),
-                          FilledButton(
-                            onPressed: () =>
-                                controller.runSchedulerTask(task.id),
-                            child: Text('Run Now'),
-                          ),
-                          OutlinedButton(
-                            onPressed: () => _confirmDelete(
-                              context,
-                              title: 'Delete task?',
-                              message: 'This will remove "${task.name}".',
-                              onConfirm: () =>
-                                  controller.deleteSchedulerTask(task.id),
-                            ),
-                            child: Text('Delete'),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
+                  _StatusPill(
+                    label: task.enabled ? 'Active' : 'Paused',
+                    color: task.enabled ? _success : _textSecondary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                task.scheduleLabel,
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                 ),
               ),
-            ),
+              if (task.hasModelOverride) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  'Model: ${_modelLabelForValue(task.model, controller.supportedModels)}',
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                'Assigned agent: ${controller.agentLabelFor(task.agentId)}',
+                style: TextStyle(color: _textSecondary),
+              ),
+              const SizedBox(height: 8),
+              Text(task.prompt, style: TextStyle(color: _textPrimary)),
+              if (task.lastRunLabel.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  'Last run: ${task.lastRunLabel}',
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  OutlinedButton(
+                    onPressed: () => _openTaskEditor(context, task: task),
+                    child: Text('Edit'),
+                  ),
+                  OutlinedButton(
+                    onPressed: () => controller.toggleSchedulerTask(task),
+                    child: Text(task.enabled ? 'Pause' : 'Enable'),
+                  ),
+                  FilledButton(
+                    onPressed: () => controller.runSchedulerTask(task.id),
+                    child: Text('Run Now'),
+                  ),
+                  OutlinedButton(
+                    onPressed: () => _confirmDelete(
+                      context,
+                      title: 'Delete task?',
+                      message: 'This will remove "${task.name}".',
+                      onConfirm: () => controller.deleteSchedulerTask(task.id),
+                    ),
+                    child: Text('Delete'),
+                  ),
+                ],
+              ),
+            ],
           ),
-      ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWidgetTaskCard(SchedulerTask task) {
+    AiWidgetItem? linkedWidget;
+    for (final item in controller.widgets) {
+      if (item.id == task.widgetId) {
+        linkedWidget = item;
+        break;
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      linkedWidget?.name ?? task.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  _StatusPill(
+                    label: task.enabled ? 'Active' : 'Paused',
+                    color: task.enabled ? _success : _textSecondary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                task.scheduleLabel,
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Assigned agent: ${controller.agentLabelFor(task.agentId)}',
+                style: TextStyle(color: _textSecondary),
+              ),
+              if (linkedWidget != null) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  '${linkedWidget.template} · ${linkedWidget.layoutVariant}',
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  linkedWidget.prompt,
+                  style: TextStyle(color: _textPrimary),
+                ),
+              ],
+              if (task.lastRunLabel.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  'Last run: ${task.lastRunLabel}',
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  OutlinedButton(
+                    onPressed: linkedWidget == null
+                        ? null
+                        : () => controller.openWidgetEditFlow(linkedWidget!),
+                    child: Text('Edit With AI'),
+                  ),
+                  OutlinedButton(
+                    onPressed: linkedWidget == null
+                        ? null
+                        : () => controller.toggleWidgetEnabled(linkedWidget!),
+                    child: Text(task.enabled ? 'Pause' : 'Enable'),
+                  ),
+                  FilledButton(
+                    onPressed: linkedWidget == null
+                        ? () => controller.runSchedulerTask(task.id)
+                        : () => controller.refreshWidgetNow(linkedWidget!.id),
+                    child: Text('Refresh Now'),
+                  ),
+                  OutlinedButton(
+                    onPressed: linkedWidget == null
+                        ? null
+                        : () => _confirmDelete(
+                            context,
+                            title: 'Delete widget?',
+                            message:
+                                'This will remove "${linkedWidget!.name}" and its refresh job.',
+                            onConfirm: () =>
+                                controller.deleteWidget(linkedWidget!.id),
+                          ),
+                    child: Text('Delete'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -2117,6 +2117,8 @@ class SchedulerTask {
     required this.model,
     required this.enabled,
     required this.lastRun,
+    required this.taskType,
+    required this.widgetId,
   });
 
   factory SchedulerTask.fromJson(Map<dynamic, dynamic> json) {
@@ -2142,6 +2144,16 @@ class SchedulerTask {
           '',
       enabled: json['enabled'] != false,
       lastRun: _parseOptionalTimestamp(json['lastRun']?.toString()),
+      taskType:
+          json['taskType']?.toString().ifEmpty(
+            json['task_type']?.toString() ?? 'agent_prompt',
+          ) ??
+          'agent_prompt',
+      widgetId:
+          json['widgetId']?.toString().ifEmpty(
+            config['widgetId']?.toString() ?? '',
+          ) ??
+          '',
     );
   }
 
@@ -2155,6 +2167,8 @@ class SchedulerTask {
   final String model;
   final bool enabled;
   final DateTime? lastRun;
+  final String taskType;
+  final String widgetId;
 
   String get scheduleLabel => oneTime
       ? (runAt == null
@@ -2163,6 +2177,167 @@ class SchedulerTask {
       : cronExpression;
   String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
   bool get hasModelOverride => model.trim().isNotEmpty;
+  bool get isWidgetRefresh => taskType == 'widget_refresh';
+}
+
+class WidgetSnapshotItem {
+  const WidgetSnapshotItem({
+    required this.id,
+    required this.widgetId,
+    required this.payload,
+    required this.generatedAt,
+    required this.sourceRunId,
+    required this.status,
+  });
+
+  factory WidgetSnapshotItem.fromJson(Map<dynamic, dynamic> json) {
+    return WidgetSnapshotItem(
+      id: _asInt(json['id']),
+      widgetId:
+          json['widgetId']?.toString() ?? json['widget_id']?.toString() ?? '',
+      payload: json['payload'] is Map
+          ? Map<String, dynamic>.from(json['payload'] as Map)
+          : const <String, dynamic>{},
+      generatedAt: _parseOptionalTimestamp(
+        json['generatedAt']?.toString() ?? json['generated_at']?.toString(),
+      ),
+      sourceRunId:
+          json['sourceRunId']?.toString() ?? json['source_run_id']?.toString(),
+      status: json['status']?.toString().ifEmpty('ready') ?? 'ready',
+    );
+  }
+
+  final int id;
+  final String widgetId;
+  final Map<String, dynamic> payload;
+  final DateTime? generatedAt;
+  final String? sourceRunId;
+  final String status;
+
+  String get title =>
+      payload['title']?.toString().ifEmpty('Untitled widget') ??
+      'Untitled widget';
+  String get subtitle => payload['subtitle']?.toString() ?? '';
+  String get body => payload['body']?.toString() ?? '';
+  String get metric => payload['metric']?.toString() ?? '';
+  String get template => payload['template']?.toString() ?? '';
+  String get layoutVariant => payload['layoutVariant']?.toString() ?? '';
+  String get deepLink => payload['deepLink']?.toString() ?? '';
+  String get iconToken => payload['iconToken']?.toString() ?? '';
+  String get accentToken => payload['accentToken']?.toString() ?? '';
+
+  Map<String, dynamic>? get trend {
+    final raw = payload['trend'];
+    return raw is Map ? Map<String, dynamic>.from(raw) : null;
+  }
+
+  List<Map<String, dynamic>> get rows => _jsonMapList(payload['rows']);
+  List<String> get chips =>
+      (payload['chips'] as List?)
+          ?.map((chip) => chip?.toString() ?? '')
+          .where((chip) => chip.trim().isNotEmpty)
+          .toList(growable: false) ??
+      const <String>[];
+
+  String get generatedAtLabel =>
+      generatedAt == null ? 'No refresh yet' : _formatTimestamp(generatedAt!);
+}
+
+class AiWidgetItem {
+  const AiWidgetItem({
+    required this.id,
+    required this.userId,
+    required this.agentId,
+    required this.name,
+    required this.template,
+    required this.layoutVariant,
+    required this.definition,
+    required this.refreshCron,
+    required this.enabled,
+    required this.scheduledTaskId,
+    required this.lastSnapshotAt,
+    required this.lastError,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.nextRefresh,
+    required this.latestSnapshot,
+  });
+
+  factory AiWidgetItem.fromJson(Map<dynamic, dynamic> json) {
+    return AiWidgetItem(
+      id: json['id']?.toString() ?? '',
+      userId: _asInt(json['userId'] ?? json['user_id']),
+      agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
+      name: json['name']?.toString().ifEmpty('Widget') ?? 'Widget',
+      template: json['template']?.toString().ifEmpty('summary') ?? 'summary',
+      layoutVariant:
+          json['layoutVariant']?.toString().ifEmpty(
+            json['layout_variant']?.toString() ?? 'stack',
+          ) ??
+          'stack',
+      definition: json['definition'] is Map
+          ? Map<String, dynamic>.from(json['definition'] as Map)
+          : (json['definition_json'] is Map
+                ? Map<String, dynamic>.from(json['definition_json'] as Map)
+                : const <String, dynamic>{}),
+      refreshCron:
+          json['refreshCron']?.toString().ifEmpty(
+            json['refresh_cron']?.toString() ?? '',
+          ) ??
+          '',
+      enabled: json['enabled'] != false,
+      scheduledTaskId: _asInt(
+        json['scheduledTaskId'] ?? json['scheduled_task_id'],
+      ),
+      lastSnapshotAt: _parseOptionalTimestamp(
+        json['lastSnapshotAt']?.toString() ??
+            json['last_snapshot_at']?.toString(),
+      ),
+      lastError:
+          json['lastError']?.toString() ?? json['last_error']?.toString(),
+      createdAt: _parseOptionalTimestamp(
+        json['createdAt']?.toString() ?? json['created_at']?.toString(),
+      ),
+      updatedAt: _parseOptionalTimestamp(
+        json['updatedAt']?.toString() ?? json['updated_at']?.toString(),
+      ),
+      nextRefresh: _parseOptionalTimestamp(
+        json['nextRefresh']?.toString() ?? json['next_refresh']?.toString(),
+      ),
+      latestSnapshot: json['latestSnapshot'] is Map
+          ? WidgetSnapshotItem.fromJson(
+              Map<String, dynamic>.from(json['latestSnapshot'] as Map),
+            )
+          : null,
+    );
+  }
+
+  final String id;
+  final int userId;
+  final String? agentId;
+  final String name;
+  final String template;
+  final String layoutVariant;
+  final Map<String, dynamic> definition;
+  final String refreshCron;
+  final bool enabled;
+  final int scheduledTaskId;
+  final DateTime? lastSnapshotAt;
+  final String? lastError;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final DateTime? nextRefresh;
+  final WidgetSnapshotItem? latestSnapshot;
+
+  bool get hasSnapshot => latestSnapshot != null;
+  bool get hasError => (lastError ?? '').trim().isNotEmpty;
+  String get prompt => definition['prompt']?.toString() ?? '';
+  String get nextRefreshLabel => nextRefresh == null
+      ? 'Next refresh unknown'
+      : _formatTimestamp(nextRefresh!);
+  String get lastSnapshotLabel => lastSnapshotAt == null
+      ? 'No snapshot yet'
+      : _formatTimestamp(lastSnapshotAt!);
 }
 
 class McpServerItem {

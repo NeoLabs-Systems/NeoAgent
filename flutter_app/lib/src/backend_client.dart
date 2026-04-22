@@ -1339,6 +1339,49 @@ class BackendClient {
     await deleteMap(baseUrl, '/api/scheduler/$id');
   }
 
+  Future<List<Map<String, dynamic>>> fetchWidgets(
+    String baseUrl, {
+    String? agentId,
+    bool all = false,
+  }) async {
+    var path = _withAgentQuery('/api/widgets', all ? null : agentId);
+    if (all) {
+      path = path.contains('?') ? '$path&all=true' : '$path?all=true';
+    }
+    return getList(baseUrl, path);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWidgetSnapshots(
+    String baseUrl, {
+    String? agentId,
+    bool all = false,
+  }) async {
+    var path = _withAgentQuery('/api/widgets/snapshots', all ? null : agentId);
+    if (all) {
+      path = path.contains('?') ? '$path&all=true' : '$path?all=true';
+    }
+    return getList(baseUrl, path);
+  }
+
+  Future<Map<String, dynamic>> saveWidget(
+    String baseUrl, {
+    String? id,
+    required Map<String, dynamic> payload,
+  }) async {
+    if (id == null) {
+      return postMap(baseUrl, '/api/widgets', payload);
+    }
+    return putMap(baseUrl, '/api/widgets/$id', payload);
+  }
+
+  Future<void> deleteWidget(String baseUrl, String id) async {
+    await deleteMap(baseUrl, '/api/widgets/$id');
+  }
+
+  Future<Map<String, dynamic>> refreshWidget(String baseUrl, String id) async {
+    return _postEmpty(baseUrl, '/api/widgets/$id/refresh');
+  }
+
   Future<List<Map<String, dynamic>>> fetchMcpServers(
     String baseUrl, {
     String? agentId,

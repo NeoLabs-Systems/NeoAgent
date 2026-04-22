@@ -68,6 +68,10 @@
         <activity
             android:name=".health.PermissionsRationaleActivity"
             android:exported="false" />
+        <activity
+            android:name=".widgets.WidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/LaunchTheme" />
         <activity-alias
             android:name=".ViewPermissionUsageActivity"
             android:exported="true"
@@ -106,6 +110,16 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".widgets.AiHomeWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/neoagent_ai_widget_info" />
         </receiver>
         <meta-data
             android:name="com.neoagent.APP_MODE"

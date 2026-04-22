@@ -1,6 +1,6 @@
 part of 'main.dart';
 
-enum _LauncherPage { assistant, recordings, settings }
+enum _LauncherPage { assistant, widgets, recordings, settings }
 
 class LauncherHomeView extends StatefulWidget {
   const LauncherHomeView({super.key, required this.controller});
@@ -58,9 +58,9 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openWifiSettings() async {
@@ -379,6 +379,42 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildWidgetsPage() {
+    final controller = widget.controller;
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        _PageTitle(
+          title: 'Widgets',
+          subtitle:
+              'Pinned AI widgets refreshed by the server and rendered here at a glance.',
+          trailing: OutlinedButton.icon(
+            onPressed: controller.openWidgetCreateFlow,
+            icon: Icon(Icons.auto_awesome),
+            label: Text('Create With AI'),
+          ),
+        ),
+        if (controller.widgets.isEmpty)
+          const _EmptyCard(
+            title: 'No widgets yet',
+            subtitle: 'Create one in chat and it will show up here.',
+          )
+        else
+          ...controller.widgets.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _AiWidgetCard(
+                item: item,
+                compact: true,
+                active: controller.selectedWidgetId == item.id,
+                onSelect: () => controller.selectWidget(item.id),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -725,7 +761,11 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                           ),
                         ),
                         const Spacer(),
-                        Icon(Icons.access_time, size: 16, color: _textSecondary),
+                        Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: _textSecondary,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           timeLabel,
@@ -745,6 +785,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                   builder: (context, _) {
                     final pages = <Widget>[
                       _buildAssistantPage(),
+                      _buildWidgetsPage(),
                       _buildRecordingsPage(),
                       _buildSettingsPage(),
                     ];
@@ -767,6 +808,10 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             NavigationDestination(
               icon: Icon(Icons.keyboard_voice_outlined),
               label: 'Assistant',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_customize_outlined),
+              label: 'Widgets',
             ),
             NavigationDestination(
               icon: Icon(Icons.fiber_smart_record_outlined),

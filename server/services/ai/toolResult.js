@@ -221,7 +221,32 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'schedule_run':
     case 'delete_scheduled_task':
     case 'update_scheduled_task':
+    case 'create_ai_widget':
+    case 'update_ai_widget':
+    case 'delete_ai_widget':
+    case 'save_widget_snapshot':
       envelope = buildSimpleStatusEnvelope(toolName, toolResult, softLimit);
+      break;
+
+    case 'list_ai_widgets':
+      envelope = trimObject({
+        tool: toolName,
+        status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',
+        message: clampText(toolResult?.message || toolResult?.error || '', Math.floor(softLimit * 0.3)),
+        count: typeof toolResult?.count === 'number'
+          ? toolResult.count
+          : (Array.isArray(toolResult?.widgets) ? toolResult.widgets.length : undefined),
+        widgets: Array.isArray(toolResult?.widgets)
+          ? toolResult.widgets.slice(0, 6).map((widget) => trimObject({
+            id: widget?.id,
+            name: widget?.name,
+            template: widget?.template,
+            layoutVariant: widget?.layoutVariant,
+            refreshCron: widget?.refreshCron,
+            enabled: widget?.enabled,
+          }))
+          : undefined,
+      });
       break;
 
     case 'spawn_subagent':

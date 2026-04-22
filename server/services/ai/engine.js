@@ -474,6 +474,10 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     'update_scheduled_task',
     'delete_scheduled_task',
     'schedule_run',
+    'create_ai_widget',
+    'update_ai_widget',
+    'delete_ai_widget',
+    'save_widget_snapshot',
     'mcp_add_server',
     'mcp_remove_server',
     'spawn_subagent',
@@ -498,7 +502,7 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
                   ? 'command'
                   : name.includes('skill')
                     ? 'skills'
-                    : name.includes('scheduled_task') || name === 'schedule_run'
+                    : name.includes('scheduled_task') || name === 'schedule_run' || name.includes('widget')
                       ? 'scheduler'
                       : name === 'send_message' || name === 'make_call'
                         ? 'messaging'
@@ -1966,6 +1970,7 @@ class AgentEngine {
               source: options.source || null,
               chatId: options.chatId || null,
               taskId: options.taskId || null,
+              widgetId: options.widgetId || null,
               deliveryState: options.deliveryState || null,
               allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
               allowExternalSideEffects: options.allowExternalSideEffects === true,
@@ -2801,7 +2806,7 @@ class AgentEngine {
     if (toolName === 'send_message') return 'messaging';
     if (toolName === 'make_call') return 'messaging';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
-    if (toolName.includes('scheduled_task') || toolName === 'schedule_run') return 'scheduler';
+    if (toolName.includes('scheduled_task') || toolName === 'schedule_run' || toolName.includes('widget')) return 'scheduler';
     if (toolName.includes('subagent')) return 'subagent';
     if (toolName === 'think') return 'thinking';
     return 'tool';

@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const crypto = require('crypto');
 const db = require('../../db/database');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const { findNextRun } = require('./cron_utils');
 
 const MAX_SCHEDULER_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -60,11 +61,27 @@ class Scheduler {
     console.log('[Scheduler] One-time poller active (every 1 min)');
   }
 
-  createTask(userId, { name, cronExpression, prompt, enabled = true, callTo = null, callGreeting = null, model = null, runAt = null, oneTime = false, agentId = null }) {
+  createTask(userId, {
+    name,
+    cronExpression,
+    prompt,
+    enabled = true,
+    callTo = null,
+    callGreeting = null,
+    model = null,
+    runAt = null,
+    oneTime = false,
+    agentId = null,
+    taskType = 'agent_prompt',
+    taskConfig = null,
+  }) {
     const scopedAgentId = resolveAgentId(userId, agentId);
     const notifyTarget = this._getDefaultNotifyTarget(userId, scopedAgentId);
 
     if (oneTime) {
+      if (taskType !== 'agent_prompt') {
+        throw new Error('One-time runs support only agent_prompt tasks.');
+      }
       if (!runAt) throw new Error('runAt is required for one-time tasks');
       const runAtDate = new Date(runAt);
       if (isNaN(runAtDate.getTime())) throw new Error(`Invalid runAt value: ${runAt}`);
@@ -88,17 +105,25 @@ class Scheduler {
       throw new Error(`Invalid cron expression: ${cronExpression}`);
     }
 
-    const config = { prompt };
-    if (callTo) { config.callTo = callTo; config.callGreeting = callGreeting || ''; }
-    if (typeof model === 'string' && model.trim()) config.model = model.trim();
-    if (notifyTarget.platform && notifyTarget.to) {
-      config.notifyPlatform = notifyTarget.platform;
-      config.notifyTo = notifyTarget.to;
+    let config;
+    if (taskType === 'widget_refresh') {
+      config = this._normalizeTaskConfig(taskConfig || {});
+      if (!config.widgetId) {
+        throw new Error('widget_refresh tasks require widgetId.');
+      }
+    } else {
+      config = { prompt };
+      if (callTo) { config.callTo = callTo; config.callGreeting = callGreeting || ''; }
+      if (typeof model === 'string' && model.trim()) config.model = model.trim();
+      if (notifyTarget.platform && notifyTarget.to) {
+        config.notifyPlatform = notifyTarget.platform;
+        config.notifyTo = notifyTarget.to;
+      }
     }
 
     const result = db.prepare(
       'INSERT INTO scheduled_tasks (user_id, agent_id, name, cron_expression, task_type, task_config, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(userId, scopedAgentId, name, cronExpression, 'agent_prompt', JSON.stringify(config), enabled ? 1 : 0);
+    ).run(userId, scopedAgentId, name, cronExpression, taskType, JSON.stringify(config), enabled ? 1 : 0);
 
     const taskId = result.lastInsertRowid;
 
@@ -106,12 +131,15 @@ class Scheduler {
       this._scheduleTask(taskId, userId, cronExpression, config, scopedAgentId);
     }
 
-    return { id: taskId, name, cronExpression, enabled, callTo: config.callTo || null, model: config.model || null, agentId: scopedAgentId };
+    return { id: taskId, name, cronExpression, enabled, callTo: config.callTo || null, model: config.model || null, agentId: scopedAgentId, taskType, widgetId: config.widgetId || null };
   }
 
-  updateTask(taskId, userId, updates) {
+  updateTask(taskId, userId, updates, options = {}) {
     const task = db.prepare('SELECT * FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
     if (!task) throw new Error('Task not found');
+    if (task.task_type === 'widget_refresh' && options.allowManaged !== true) {
+      throw new Error('Widget refresh tasks must be updated via widgets.');
+    }
 
     const name = updates.name || task.name;
     const cronExpr = updates.cronExpression || task.cron_expression;
@@ -122,25 +150,34 @@ class Scheduler {
 
     // Merge config — start from existing, apply any changes
     let config = this._normalizeTaskConfig(task.task_config);
-    if (updates.prompt !== undefined) config.prompt = updates.prompt;
-    if (updates.callTo !== undefined) config.callTo = updates.callTo || null;
-    if (updates.callGreeting !== undefined) config.callGreeting = updates.callGreeting || null;
-    if (updates.model !== undefined) {
-      if (typeof updates.model === 'string' && updates.model.trim()) {
-        config.model = updates.model.trim();
-      } else {
-        delete config.model;
+    if (task.task_type === 'widget_refresh') {
+      if (updates.taskConfig !== undefined) {
+        config = this._normalizeTaskConfig(updates.taskConfig);
       }
-    }
-    if (!config.notifyPlatform || !config.notifyTo) {
-      const notifyTarget = this._getDefaultNotifyTarget(userId, agentId);
-      if (notifyTarget.platform && notifyTarget.to) {
-        config.notifyPlatform = notifyTarget.platform;
-        config.notifyTo = notifyTarget.to;
+      if (!config.widgetId) {
+        throw new Error('widget_refresh tasks require widgetId.');
       }
+    } else {
+      if (updates.prompt !== undefined) config.prompt = updates.prompt;
+      if (updates.callTo !== undefined) config.callTo = updates.callTo || null;
+      if (updates.callGreeting !== undefined) config.callGreeting = updates.callGreeting || null;
+      if (updates.model !== undefined) {
+        if (typeof updates.model === 'string' && updates.model.trim()) {
+          config.model = updates.model.trim();
+        } else {
+          delete config.model;
+        }
+      }
+      if (!config.notifyPlatform || !config.notifyTo) {
+        const notifyTarget = this._getDefaultNotifyTarget(userId, agentId);
+        if (notifyTarget.platform && notifyTarget.to) {
+          config.notifyPlatform = notifyTarget.platform;
+          config.notifyTo = notifyTarget.to;
+        }
+      }
+      // Clean up nulls
+      if (!config.callTo) { delete config.callTo; delete config.callGreeting; }
     }
-    // Clean up nulls
-    if (!config.callTo) { delete config.callTo; delete config.callGreeting; }
 
     if (updates.cronExpression && !cron.validate(updates.cronExpression)) {
       throw new Error(`Invalid cron expression: ${updates.cronExpression}`);
@@ -160,12 +197,15 @@ class Scheduler {
       this._scheduleTask(taskId, userId, cronExpr, config, agentId);
     }
 
-    return { id: taskId, name, cronExpression: cronExpr, enabled, callTo: config.callTo || null, model: config.model || null, agentId };
+    return { id: taskId, name, cronExpression: cronExpr, enabled, callTo: config.callTo || null, model: config.model || null, agentId, taskType: task.task_type || 'agent_prompt', widgetId: config.widgetId || null };
   }
 
-  deleteTask(taskId, userId) {
+  deleteTask(taskId, userId, options = {}) {
     const task = db.prepare('SELECT * FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
     if (!task) throw new Error('Task not found');
+    if (task.task_type === 'widget_refresh' && options.allowManaged !== true) {
+      throw new Error('Widget refresh tasks must be deleted via widgets.');
+    }
 
     const existing = this.jobs.get(taskId);
     if (existing) {
@@ -203,6 +243,8 @@ class Scheduler {
         enabled: !!t.enabled,
         lastRun: t.last_run,
         nextRun: t.one_time ? t.run_at : this._getNextRun(t.cron_expression),
+        taskType: t.task_type || 'agent_prompt',
+        widgetId: config.widgetId || null,
         config,
         prompt: config.prompt || '',
         model: config.model || null,
@@ -308,6 +350,20 @@ class Scheduler {
     this.io.to(`user:${userId}`).emit('scheduler:task_running', { taskId, timestamp: new Date().toISOString() });
 
     try {
+      if (task.task_type === 'widget_refresh') {
+        const widgetService = this.app?.locals?.widgetService;
+        if (!widgetService || !config.widgetId) {
+          throw new Error('Widget refresh task is missing widget context.');
+        }
+        const result = await widgetService.refreshWidget(userId, config.widgetId, {
+          taskId,
+          manual: executionMeta.manual === true,
+          scheduledAt: executionMeta.scheduledAt || null,
+        });
+        this.io.to(`user:${userId}`).emit('scheduler:task_complete', { taskId, result });
+        return result;
+      }
+
       if (this.agentEngine && config.prompt !== undefined) {
         let notifyHint = '';
 
@@ -458,10 +514,7 @@ class Scheduler {
 
   _getNextRun(cronExpression) {
     try {
-      const interval = cron.schedule(cronExpression, () => { });
-      interval.stop();
-      // node-cron doesn't expose nextRun; we just return null
-      return null;
+      return findNextRun(cronExpression)?.toISOString() || null;
     } catch {
       return null;
     }

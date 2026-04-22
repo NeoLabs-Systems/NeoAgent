@@ -11,6 +11,7 @@ const { SkillRunner } = require('./ai/toolRunner');
 const { CommandRouter } = require('./commands/router');
 const { MessagingManager } = require('./messaging/manager');
 const { Scheduler } = require('./scheduler/cron');
+const { WidgetService } = require('./widgets/service');
 const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
@@ -417,6 +418,16 @@ function createRecordingManager(app, io) {
   return recordingManager;
 }
 
+function createWidgetService(app) {
+  const widgetService = registerLocal(
+    app,
+    'widgetService',
+    new WidgetService({ app }),
+  );
+  logServiceReady('Widget service ready');
+  return widgetService;
+}
+
 function restoreMessagingConnections(messagingManager) {
   void runBackgroundTask('[Messaging] Restore error:', () =>
     messagingManager.restoreConnections(),
@@ -501,6 +512,7 @@ async function startServices(app, io) {
 
     const messagingManager = createMessagingManager(app, io, agentEngine);
     const recordingManager = createRecordingManager(app, io);
+    createWidgetService(app);
 
     restoreMessagingConnections(messagingManager);
     restoreMcpClients(mcpClient);
@@ -606,6 +618,25 @@ async function stopServices(app) {
         console.error('[Runtime] Shutdown error:', getErrorMessage(err));
       }),
     );
+  }
+
+  if (app.locals.widgetService) {
+    const widgetService = app.locals.widgetService;
+    const cleanupMethod = ['shutdown', 'close', 'stop', 'dispose'].find(
+      (method) => typeof widgetService[method] === 'function',
+    );
+    if (cleanupMethod) {
+      tasks.push(
+        Promise.resolve()
+          .then(() => widgetService[cleanupMethod]())
+          .then(() => {
+            logServiceReady(`Widget service ${cleanupMethod} completed`);
+          })
+          .catch((err) => {
+            console.error('[Widget] Shutdown error:', getErrorMessage(err));
+          }),
+      );
+    }
   }
 
   if (app.locals.browserExtensionRegistry) {
