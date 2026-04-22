@@ -2838,11 +2838,12 @@ class NeoAgentController extends ChangeNotifier {
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
-      agentProfiles =
-          _jsonMapList(profilesResponse['agents'], fallbackToMapValues: true)
-              .map(AgentProfile.fromJson)
-              .where((agent) => agent.id.isNotEmpty)
-              .toList();
+      agentProfiles = _decodeModelList(
+        'agent_profiles',
+        profilesResponse['agents'],
+        AgentProfile.fromJson,
+        fallbackToMapValues: true,
+      ).where((agent) => agent.id.isNotEmpty).toList();
       _ensureSelectedAgent();
       final agentId = _scopedAgentId;
 
@@ -2969,9 +2970,11 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
 
-      officialIntegrations = (await officialIntegrationsFuture)
-          .map(OfficialIntegrationItem.fromJson)
-          .toList();
+      officialIntegrations = _decodeModelList(
+        'official_integrations',
+        await officialIntegrationsFuture,
+        OfficialIntegrationItem.fromJson,
+      );
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
@@ -3002,26 +3005,34 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
 
-      chatMessages = _jsonMapList(
+      chatMessages = _decodeModelList(
+        'chat_history',
         history['messages'],
+        ChatEntry.fromJson,
         fallbackToMapValues: true,
-      ).map(ChatEntry.fromJson).toList();
+      );
 
-      supportedModels = _jsonMapList(
+      supportedModels = _decodeModelList(
+        'supported_models',
         modelsResponse['models'],
+        ModelMeta.fromJson,
         fallbackToMapValues: true,
-      ).map(ModelMeta.fromJson).toList();
+      );
 
-      aiProviders = _jsonMapList(
+      aiProviders = _decodeModelList(
+        'ai_providers',
         providersResponse['providers'],
+        AiProviderMeta.fromJson,
         fallbackToMapValues: true,
-      ).map(AiProviderMeta.fromJson).toList();
+      );
 
       settings = Map<String, dynamic>.from(settingsResponse);
-      recentRuns = _jsonMapList(
+      recentRuns = _decodeModelList(
+        'runs',
         runsResponse['runs'],
+        RunSummary.fromJson,
         fallbackToMapValues: true,
-      ).map(RunSummary.fromJson).toList();
+      );
       versionInfo = versionResponse;
       backendHealthStatus = healthResponse;
       tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
@@ -3038,21 +3049,43 @@ class NeoAgentController extends ChangeNotifier {
         ),
       );
       pendingMessagingQr = _derivePendingMessagingQr(messagingStatuses);
-      messagingMessages = messagingMessagesResponse
-          .map(MessagingMessage.fromJson)
-          .toList();
-      skills = skillsResponse.map(SkillItem.fromJson).toList();
-      storeSkills = storeSkillsResponse.map(StoreSkillItem.fromJson).toList();
+      messagingMessages = _decodeModelList(
+        'messaging_messages',
+        messagingMessagesResponse,
+        MessagingMessage.fromJson,
+      );
+      skills = _decodeModelList('skills', skillsResponse, SkillItem.fromJson);
+      storeSkills = _decodeModelList(
+        'skill_store',
+        storeSkillsResponse,
+        StoreSkillItem.fromJson,
+      );
       memoryOverview = MemoryOverview.fromJson(memoryResponse);
-      memories = memoriesResponse.map(MemoryItem.fromJson).toList();
-      memoryConversations = conversationsResponse
-          .map(ConversationItem.fromJson)
-          .toList();
-      schedulerTasks = schedulerResponse.map(SchedulerTask.fromJson).toList();
-      mcpServers = mcpResponse.map(McpServerItem.fromJson).toList();
-      recordingSessions = recordingsResponse
-          .map(RecordingSessionItem.fromJson)
-          .toList();
+      memories = _decodeModelList(
+        'memories',
+        memoriesResponse,
+        MemoryItem.fromJson,
+      );
+      memoryConversations = _decodeModelList(
+        'memory_conversations',
+        conversationsResponse,
+        ConversationItem.fromJson,
+      );
+      schedulerTasks = _decodeModelList(
+        'scheduler_tasks',
+        schedulerResponse,
+        SchedulerTask.fromJson,
+      );
+      mcpServers = _decodeModelList(
+        'mcp_servers',
+        mcpResponse,
+        McpServerItem.fromJson,
+      );
+      recordingSessions = _decodeModelList(
+        'recordings',
+        recordingsResponse,
+        RecordingSessionItem.fromJson,
+      );
       browserRuntime = Map<String, dynamic>.from(browserResponse);
       browserExtensionStatus = Map<String, dynamic>.from(
         browserExtensionResponse,
@@ -3116,16 +3149,50 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  List<T> _decodeModelList<T>(
+    String label,
+    dynamic raw,
+    T Function(Map<dynamic, dynamic> json) fromJson, {
+    bool fallbackToMapValues = false,
+  }) {
+    final rows = _jsonMapList(raw, fallbackToMapValues: fallbackToMapValues);
+    if (rows.isEmpty) {
+      return <T>[];
+    }
+
+    final parsed = <T>[];
+    for (var index = 0; index < rows.length; index += 1) {
+      final row = rows[index];
+      try {
+        parsed.add(fromJson(row));
+      } catch (error, stackTrace) {
+        AppDiagnostics.log(
+          'ui.refresh',
+          '$label.item_parse_failed',
+          data: <String, Object?>{
+            'index': index,
+            'keys': row.keys.take(16).join(','),
+          },
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+    return parsed;
+  }
+
   Future<void> refreshRunsOnly() async {
     try {
       final runsResponse = await _backendClient.fetchRuns(
         backendUrl,
         agentId: _scopedAgentId,
       );
-      recentRuns = _jsonMapList(
+      recentRuns = _decodeModelList(
+        'runs',
         runsResponse['runs'],
+        RunSummary.fromJson,
         fallbackToMapValues: true,
-      ).map(RunSummary.fromJson).toList();
+      );
       _runDetailsCache.clear();
       tokenUsage = TokenUsageSnapshot.fromJson(
         await _backendClient.fetchTokenUsageSummary(
@@ -3154,25 +3221,37 @@ class NeoAgentController extends ChangeNotifier {
       ),
     );
     pendingMessagingQr = _derivePendingMessagingQr(messagingStatuses);
-    messagingMessages = (await _backendClient.fetchMessagingMessages(
-      backendUrl,
-      agentId: _scopedAgentId,
-    )).map(MessagingMessage.fromJson).toList();
+    messagingMessages = _decodeModelList(
+      'messaging_messages',
+      await _backendClient.fetchMessagingMessages(
+        backendUrl,
+        agentId: _scopedAgentId,
+      ),
+      MessagingMessage.fromJson,
+    );
     notifyListeners();
   }
 
   Future<void> refreshSkills() async {
-    skills = (await _backendClient.fetchSkills(
-      backendUrl,
-    )).map(SkillItem.fromJson).toList();
-    storeSkills = (await _backendClient.fetchSkillStore(
-      backendUrl,
-    )).map(StoreSkillItem.fromJson).toList();
+    skills = _decodeModelList(
+      'skills',
+      await _backendClient.fetchSkills(backendUrl),
+      SkillItem.fromJson,
+    );
+    storeSkills = _decodeModelList(
+      'skill_store',
+      await _backendClient.fetchSkillStore(backendUrl),
+      StoreSkillItem.fromJson,
+    );
     try {
-      officialIntegrations = (await _backendClient.fetchOfficialIntegrations(
-        backendUrl,
-        agentId: _scopedAgentId,
-      )).map(OfficialIntegrationItem.fromJson).toList();
+      officialIntegrations = _decodeModelList(
+        'official_integrations',
+        await _backendClient.fetchOfficialIntegrations(
+          backendUrl,
+          agentId: _scopedAgentId,
+        ),
+        OfficialIntegrationItem.fromJson,
+      );
     } catch (_) {
       officialIntegrations = const <OfficialIntegrationItem>[];
     }
@@ -3186,36 +3265,47 @@ class NeoAgentController extends ChangeNotifier {
         agentId: _scopedAgentId,
       ),
     );
-    memories = (await _backendClient.fetchMemories(
-      backendUrl,
-      agentId: _scopedAgentId,
-    )).map(MemoryItem.fromJson).toList();
-    memoryConversations = (await _backendClient.fetchConversations(
-      backendUrl,
-      agentId: _scopedAgentId,
-    )).map(ConversationItem.fromJson).toList();
+    memories = _decodeModelList(
+      'memories',
+      await _backendClient.fetchMemories(backendUrl, agentId: _scopedAgentId),
+      MemoryItem.fromJson,
+    );
+    memoryConversations = _decodeModelList(
+      'memory_conversations',
+      await _backendClient.fetchConversations(
+        backendUrl,
+        agentId: _scopedAgentId,
+      ),
+      ConversationItem.fromJson,
+    );
     notifyListeners();
   }
 
   Future<void> refreshScheduler() async {
-    schedulerTasks = (await _backendClient.fetchSchedulerTasks(
-      backendUrl,
-    )).map(SchedulerTask.fromJson).toList();
+    schedulerTasks = _decodeModelList(
+      'scheduler_tasks',
+      await _backendClient.fetchSchedulerTasks(backendUrl),
+      SchedulerTask.fromJson,
+    );
     notifyListeners();
   }
 
   Future<void> refreshMcp() async {
-    mcpServers = (await _backendClient.fetchMcpServers(
-      backendUrl,
-    )).map(McpServerItem.fromJson).toList();
+    mcpServers = _decodeModelList(
+      'mcp_servers',
+      await _backendClient.fetchMcpServers(backendUrl),
+      McpServerItem.fromJson,
+    );
     notifyListeners();
   }
 
   Future<void> refreshRecordings() async {
     _logRecording('refresh.request');
-    recordingSessions = (await _backendClient.fetchRecordingSessions(
-      backendUrl,
-    )).map(RecordingSessionItem.fromJson).toList();
+    recordingSessions = _decodeModelList(
+      'recordings',
+      await _backendClient.fetchRecordingSessions(backendUrl),
+      RecordingSessionItem.fromJson,
+    );
     await _recordingBridge.refreshStatus();
     _logRecording(
       'refresh.done',
