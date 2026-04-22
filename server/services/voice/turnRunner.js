@@ -42,21 +42,6 @@ async function runVoiceTranscriptTurn({
     model: ttsModel,
     voice: ttsVoice,
   });
-  const ttsProviderId = voiceOptions.provider === 'gemini'
-    ? 'google'
-    : voiceOptions.provider;
-  let ttsRuntime = { apiKey: '', baseUrl: '' };
-  if (ttsProviderId !== 'deepgram') {
-    try {
-      const runtime = getProviderRuntimeConfig(userId, ttsProviderId, agentId);
-      ttsRuntime = {
-        apiKey: typeof runtime.apiKey === 'string' ? runtime.apiKey.trim() : '',
-        baseUrl: typeof runtime.baseUrl === 'string' ? runtime.baseUrl.trim() : '',
-      };
-    } catch {
-      ttsRuntime = { apiKey: '', baseUrl: '' };
-    }
-  }
 
   const storedUserContent = transcriptText;
   const normalizedMetadata = metadata && typeof metadata === 'object' ? metadata : {};
@@ -143,15 +128,40 @@ async function runVoiceTranscriptTurn({
 
   let synthesized;
   let ttsError = null;
+  let providerUsed = voiceOptions.provider;
+  let modelUsed = voiceOptions.model;
+  let voiceUsed = voiceOptions.voice;
   if (synthesize !== false) {
-    try {
-      synthesized = await synthesizeVoiceReply(replyText, {
-        ...voiceOptions,
-        apiKey: ttsRuntime.apiKey,
-        baseUrl: ttsRuntime.baseUrl,
+    const attemptProviders = [
+      voiceOptions.provider,
+      ...['openai', 'deepgram', 'gemini'].filter((provider) => provider !== voiceOptions.provider),
+    ];
+    let lastTtsError = null;
+    for (const provider of attemptProviders) {
+      const normalized = normalizeVoiceSynthesisOptions({
+        provider,
+        model: provider === voiceOptions.provider ? voiceOptions.model : null,
+        voice: provider === voiceOptions.provider ? voiceOptions.voice : null,
       });
-    } catch (error) {
-      ttsError = String(error?.message || error || 'Speech synthesis failed.');
+      const runtime = resolveProviderRuntime(userId, agentId, provider);
+      try {
+        synthesized = await synthesizeVoiceReply(replyText, {
+          ...normalized,
+          apiKey: runtime.apiKey,
+          baseUrl: runtime.baseUrl,
+          timeoutMs: 12000,
+        });
+        providerUsed = normalized.provider;
+        modelUsed = normalized.model;
+        voiceUsed = normalized.voice;
+        ttsError = null;
+        break;
+      } catch (error) {
+        lastTtsError = error;
+      }
+    }
+    if (!synthesized) {
+      ttsError = String(lastTtsError?.message || lastTtsError || 'Speech synthesis failed.');
       synthesized = {
         mimeType: 'audio/mpeg',
         audioBytes: Buffer.alloc(0),
@@ -168,13 +178,31 @@ async function runVoiceTranscriptTurn({
     runId: runResult?.runId || null,
     transcript: transcriptText,
     replyText,
-    ttsProvider: voiceOptions.provider,
-    ttsModel: voiceOptions.model,
-    ttsVoice: voiceOptions.voice,
+    ttsProvider: providerUsed,
+    ttsModel: modelUsed,
+    ttsVoice: voiceUsed,
     audioMimeType: synthesized.mimeType,
     audioBase64: synthesized.audioBytes.toString('base64'),
     ttsError,
   };
+}
+
+function resolveProviderRuntime(userId, agentId, provider) {
+  const providerId = String(provider || '').trim().toLowerCase() === 'gemini'
+    ? 'google'
+    : String(provider || '').trim().toLowerCase();
+  if (!providerId || providerId === 'deepgram') {
+    return { apiKey: '', baseUrl: '' };
+  }
+  try {
+    const runtime = getProviderRuntimeConfig(userId, providerId, agentId);
+    return {
+      apiKey: typeof runtime.apiKey === 'string' ? runtime.apiKey.trim() : '',
+      baseUrl: typeof runtime.baseUrl === 'string' ? runtime.baseUrl.trim() : '',
+    };
+  } catch {
+    return { apiKey: '', baseUrl: '' };
+  }
 }
 
 module.exports = {

@@ -35,6 +35,25 @@ const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/mo
 const DEFAULT_GEMINI_TRANSCRIPTION_PROMPT =
   'Transcribe this audio verbatim. Return only the transcript text.';
 
+function withTimeout(promise, timeoutMs, label) {
+  const normalizedTimeout = Number(timeoutMs);
+  if (!Number.isFinite(normalizedTimeout) || normalizedTimeout <= 0) {
+    return promise;
+  }
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${normalizedTimeout}ms.`));
+    }, normalizedTimeout);
+    timer.unref?.();
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  });
+}
+
 function readSharedApiKeys() {
   try {
     const keysPath = path.join(AGENT_DATA_DIR, 'API_KEYS.json');
@@ -287,14 +306,16 @@ async function transcribeWithGemini(filePath, model, mimeType, options = {}) {
 async function transcribeVoiceInput(filePath, options = {}) {
   const provider = normalizeSttProvider(options.provider);
   const model = resolveSttModel(provider, options.model);
+  let request = null;
 
   if (provider === 'openai') {
-    return transcribeWithOpenAi(filePath, model, options);
+    request = transcribeWithOpenAi(filePath, model, options);
+  } else if (provider === 'deepgram') {
+    request = transcribeWithDeepgram(filePath, options.mimeType);
+  } else {
+    request = transcribeWithGemini(filePath, model, options.mimeType, options);
   }
-  if (provider === 'deepgram') {
-    return transcribeWithDeepgram(filePath, options.mimeType);
-  }
-  return transcribeWithGemini(filePath, model, options.mimeType, options);
+  return withTimeout(request, options.timeoutMs, `${provider} STT`);
 }
 
 async function synthesizeWithOpenAi(text, model, voice, options = {}) {
@@ -545,14 +566,16 @@ async function synthesizeVoiceReply(text, options = {}) {
   }
 
   const { provider, model, voice } = normalizeVoiceSynthesisOptions(options);
+  let request = null;
 
   if (provider === 'openai') {
-    return synthesizeWithOpenAi(content, model, voice, options);
+    request = synthesizeWithOpenAi(content, model, voice, options);
+  } else if (provider === 'deepgram') {
+    request = synthesizeWithDeepgram(content, model);
+  } else {
+    request = synthesizeWithGemini(content, model, voice, options);
   }
-  if (provider === 'deepgram') {
-    return synthesizeWithDeepgram(content, model);
-  }
-  return synthesizeWithGemini(content, model, voice, options);
+  return withTimeout(request, options.timeoutMs, `${provider} TTS`);
 }
 
 // Minimum characters before flushing a sentence chunk to TTS to avoid tiny requests.
@@ -590,15 +613,18 @@ async function synthesizeVoiceReplyStream(text, options = {}, onChunk) {
   const { provider, model, voice } = normalizeVoiceSynthesisOptions(options);
   const chunks = splitIntoSentenceChunks(content);
 
-  for (const chunk of chunks) {
-    if (provider === 'openai') {
-      await streamWithOpenAi(chunk, model, voice, options, onChunk);
-    } else if (provider === 'deepgram') {
-      await streamWithDeepgram(chunk, model, onChunk);
-    } else {
-      await streamWithGemini(chunk, model, voice, options, onChunk);
+  const run = (async () => {
+    for (const chunk of chunks) {
+      if (provider === 'openai') {
+        await streamWithOpenAi(chunk, model, voice, options, onChunk);
+      } else if (provider === 'deepgram') {
+        await streamWithDeepgram(chunk, model, onChunk);
+      } else {
+        await streamWithGemini(chunk, model, voice, options, onChunk);
+      }
     }
-  }
+  })();
+  await withTimeout(run, options.timeoutMs, `${provider} TTS stream`);
 }
 
 module.exports = {

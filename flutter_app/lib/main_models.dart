@@ -942,6 +942,18 @@ class VoiceAssistantTurnResult {
   final String? ttsError;
 }
 
+class LiveVoiceBufferedChunk {
+  LiveVoiceBufferedChunk({
+    required this.sequence,
+    required Uint8List bytes,
+    this.sent = false,
+  }) : bytes = Uint8List.fromList(bytes);
+
+  final int sequence;
+  final Uint8List bytes;
+  bool sent;
+}
+
 class VoiceAssistantLiveState {
   VoiceAssistantLiveState({
     this.sessionId = '',
@@ -949,13 +961,17 @@ class VoiceAssistantLiveState {
     this.provider = 'openai',
     this.model = '',
     this.voice = '',
+    this.transportState = 'connected',
     this.state = 'idle',
     this.partialTranscript = '',
     this.finalTranscript = '',
+    this.interimAssistantText = '',
+    this.finalAssistantText = '',
     this.assistantText = '',
     this.audioMimeType = 'audio/mpeg',
     List<Uint8List>? audioQueue,
     this.audioStreamDone = false,
+    this.recoverableUntil,
     this.error,
   }) : audioQueue = audioQueue ?? const <Uint8List>[];
 
@@ -964,13 +980,17 @@ class VoiceAssistantLiveState {
   final String provider;
   final String model;
   final String voice;
+  final String transportState;
   final String state;
   final String partialTranscript;
   final String finalTranscript;
+  final String interimAssistantText;
+  final String finalAssistantText;
   final String assistantText;
   final String audioMimeType;
   final List<Uint8List> audioQueue;
   final bool audioStreamDone;
+  final DateTime? recoverableUntil;
   final String? error;
 
   bool get hasActiveSession => sessionId.trim().isNotEmpty;
@@ -978,6 +998,8 @@ class VoiceAssistantLiveState {
   bool get isListening => state == 'listening';
   bool get isBusy =>
       state == 'transcribing' || state == 'thinking' || state == 'speaking';
+  bool get isRecoverable =>
+      recoverableUntil != null && recoverableUntil!.isAfter(DateTime.now());
 
   VoiceAssistantLiveState copyWith({
     String? sessionId,
@@ -985,16 +1007,21 @@ class VoiceAssistantLiveState {
     String? provider,
     String? model,
     String? voice,
+    String? transportState,
     String? state,
     String? partialTranscript,
     String? finalTranscript,
+    String? interimAssistantText,
+    String? finalAssistantText,
     String? assistantText,
     String? audioMimeType,
     List<Uint8List>? audioQueue,
     bool? audioStreamDone,
+    DateTime? recoverableUntil,
     String? error,
     bool clearError = false,
     bool clearAudio = false,
+    bool clearRecoverableUntil = false,
   }) {
     return VoiceAssistantLiveState(
       sessionId: sessionId ?? this.sessionId,
@@ -1002,9 +1029,12 @@ class VoiceAssistantLiveState {
       provider: provider ?? this.provider,
       model: model ?? this.model,
       voice: voice ?? this.voice,
+      transportState: transportState ?? this.transportState,
       state: state ?? this.state,
       partialTranscript: partialTranscript ?? this.partialTranscript,
       finalTranscript: finalTranscript ?? this.finalTranscript,
+      interimAssistantText: interimAssistantText ?? this.interimAssistantText,
+      finalAssistantText: finalAssistantText ?? this.finalAssistantText,
       assistantText: assistantText ?? this.assistantText,
       audioMimeType: audioMimeType ?? this.audioMimeType,
       audioQueue: clearAudio
@@ -1013,6 +1043,9 @@ class VoiceAssistantLiveState {
       audioStreamDone: clearAudio
           ? false
           : (audioStreamDone ?? this.audioStreamDone),
+      recoverableUntil: clearRecoverableUntil
+          ? null
+          : (recoverableUntil ?? this.recoverableUntil),
       error: clearError ? null : (error ?? this.error),
     );
   }

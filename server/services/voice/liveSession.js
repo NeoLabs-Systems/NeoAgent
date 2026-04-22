@@ -21,8 +21,12 @@ class VoiceLiveSession {
     this.currentRunId = null;
     this.interrupted = false;
     this.inputMimeType = 'audio/pcm;rate=16000;channels=1';
-    this.inputChunks = [];
+    this.inputChunks = new Map();
     this.inputBytes = 0;
+    this.activeTurnId = '';
+    this.highestContiguousSequence = -1;
+    this.highestReceivedSequence = -1;
+    this.finalSequence = null;
     this.lastPartialTranscript = '';
     this.lastFinalTranscript = '';
     this.lastAssistantText = '';
@@ -32,8 +36,12 @@ class VoiceLiveSession {
 
   resetInput(mimeType = 'audio/pcm;rate=16000;channels=1') {
     this.inputMimeType = String(mimeType || this.inputMimeType).trim() || 'audio/pcm;rate=16000;channels=1';
-    this.inputChunks = [];
+    this.inputChunks = new Map();
     this.inputBytes = 0;
+    this.activeTurnId = '';
+    this.highestContiguousSequence = -1;
+    this.highestReceivedSequence = -1;
+    this.finalSequence = null;
     this.lastPartialTranscript = '';
   }
 
@@ -45,20 +53,112 @@ class VoiceLiveSession {
     this.interrupted = false;
   }
 
-  appendInputChunk(chunk, mimeType = null) {
+  startTurn(turnId, mimeType = null) {
+    this.resetInput(mimeType || this.inputMimeType);
+    this.activeTurnId = String(turnId || '').trim();
+  }
+
+  appendInputChunk(chunk, mimeType = null, options = {}) {
     if (mimeType) {
       this.inputMimeType = String(mimeType).trim() || this.inputMimeType;
     }
+    const turnId = String(options.turnId || '').trim();
+    if (turnId && this.activeTurnId && turnId !== this.activeTurnId) {
+      throw new Error('Audio chunk turn does not match the active voice turn.');
+    }
+    if (turnId && !this.activeTurnId) {
+      this.activeTurnId = turnId;
+    }
+    const sequence = Number(options.sequence);
+    if (!Number.isInteger(sequence) || sequence < 0) {
+      throw new Error('Audio chunk sequence must be a non-negative integer.');
+    }
     const payload = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || []);
-    if (payload.length === 0) return;
-    this.inputChunks.push(payload);
+    if (payload.length === 0) {
+      return {
+        duplicate: false,
+        receivedThrough: this.highestContiguousSequence,
+        highestReceived: this.highestReceivedSequence,
+      };
+    }
+    if (this.inputChunks.has(sequence)) {
+      return {
+        duplicate: true,
+        receivedThrough: this.highestContiguousSequence,
+        highestReceived: this.highestReceivedSequence,
+      };
+    }
+    this.inputChunks.set(sequence, payload);
     this.inputBytes += payload.length;
+    if (sequence > this.highestReceivedSequence) {
+      this.highestReceivedSequence = sequence;
+    }
+    while (this.inputChunks.has(this.highestContiguousSequence + 1)) {
+      this.highestContiguousSequence += 1;
+    }
+    return {
+      duplicate: false,
+      receivedThrough: this.highestContiguousSequence,
+      highestReceived: this.highestReceivedSequence,
+    };
   }
 
-  getInputAudioBuffer() {
-    return this.inputChunks.length === 1
-      ? Buffer.from(this.inputChunks[0])
-      : Buffer.concat(this.inputChunks);
+  markCommitPending(turnId, finalSequence) {
+    const normalizedTurnId = String(turnId || '').trim();
+    if (normalizedTurnId && this.activeTurnId && normalizedTurnId !== this.activeTurnId) {
+      throw new Error('Voice commit turn does not match the active voice turn.');
+    }
+    if (normalizedTurnId && !this.activeTurnId) {
+      this.activeTurnId = normalizedTurnId;
+    }
+    const normalizedFinalSequence = Number(finalSequence);
+    if (!Number.isInteger(normalizedFinalSequence) || normalizedFinalSequence < 0) {
+      throw new Error('Voice commit finalSequence must be a non-negative integer.');
+    }
+    this.finalSequence = normalizedFinalSequence;
+    return {
+      finalSequence: this.finalSequence,
+      receivedThrough: this.highestContiguousSequence,
+      ready: this.hasInputThrough(normalizedFinalSequence),
+    };
+  }
+
+  hasInputThrough(sequence) {
+    const normalizedSequence = Number(sequence);
+    if (!Number.isInteger(normalizedSequence) || normalizedSequence < 0) {
+      return false;
+    }
+    return this.highestContiguousSequence >= normalizedSequence;
+  }
+
+  getInputAudioBuffer(options = {}) {
+    const contiguousOnly = options.contiguousOnly !== false;
+    const throughSequence = Number.isInteger(options.throughSequence)
+      ? Number(options.throughSequence)
+      : null;
+    const maxSequence = throughSequence != null
+      ? throughSequence
+      : (contiguousOnly ? this.highestContiguousSequence : this.highestReceivedSequence);
+    if (!Number.isInteger(maxSequence) || maxSequence < 0) {
+      return Buffer.alloc(0);
+    }
+    const ordered = [];
+    for (let sequence = 0; sequence <= maxSequence; sequence += 1) {
+      const chunk = this.inputChunks.get(sequence);
+      if (!chunk) {
+        if (contiguousOnly || throughSequence != null) {
+          break;
+        }
+        continue;
+      }
+      ordered.push(chunk);
+    }
+    if (ordered.length === 0) {
+      return Buffer.alloc(0);
+    }
+    return ordered.length === 1
+      ? Buffer.from(ordered[0])
+      : Buffer.concat(ordered);
   }
 
   async setState(state, extra = {}) {

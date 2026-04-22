@@ -116,6 +116,9 @@ class VoiceRuntimeManager {
   async closeSession(sessionId, reason = 'closed') {
     const session = this.getSession(sessionId);
     if (!session) return;
+    if (reason === 'socket_disconnected') {
+      await this.abortActiveRun(session.id, 'voice_disconnect');
+    }
     this.sessions.delete(session.id);
     await session.adapter?.close?.(session.id);
     await session.close(reason);
@@ -128,13 +131,14 @@ class VoiceRuntimeManager {
     session.resetTurnState();
     await session.adapter.onInputStart(session, {
       mimeType: options.mimeType,
+      turnId: options.turnId,
     });
     await session.setState('listening');
   }
 
   async appendInputAudio(sessionId, audioBytes, options = {}) {
     const session = this.#requireSession(sessionId);
-    await session.adapter.appendAudioChunk(session, audioBytes, options);
+    return session.adapter.appendAudioChunk(session, audioBytes, options);
   }
 
   async commitInput(sessionId, options = {}) {
@@ -143,7 +147,10 @@ class VoiceRuntimeManager {
       return { transcript: '' };
     }
     await session.setState('transcribing');
-    const transcript = await session.adapter.commitInput(session);
+    const transcript = await session.adapter.commitInput(session, {
+      turnId: options.turnId,
+      finalSequence: options.finalSequence,
+    });
     if (!transcript) {
       await session.setState('idle');
       return { transcript: '' };
@@ -280,7 +287,9 @@ class VoiceRuntimeManager {
       kind,
     });
 
-    await session.setState('speaking', { kind });
+    if (kind === 'final') {
+      await session.setState('speaking', { kind });
+    }
 
     const voiceOptions = normalizeVoiceSynthesisOptions({
       provider: session.voiceSettings?.liveProvider,
@@ -290,39 +299,80 @@ class VoiceRuntimeManager {
 
     let index = 0;
     let streamError = null;
+    const ttsAttempts = this.#buildTtsAttemptOrder(session, voiceOptions);
     try {
-      await synthesizeVoiceReplyStream(
-        content,
-        {
-          ...voiceOptions,
-          apiKey: session.voiceSettings?.liveApiKey,
-          baseUrl: session.voiceSettings?.liveBaseUrl,
-        },
-        async ({ audioBytes, mimeType }) => {
-          if (session.closed || session.interrupted) return;
-          socket.emit('voice:audio_chunk', {
-            sessionId,
-            kind,
-            index,
-            audioBase64: audioBytes.toString('base64'),
-            mimeType,
-          });
-          index += 1;
-        },
-      );
+      for (const attempt of ttsAttempts) {
+        index = 0;
+        streamError = null;
+        try {
+          await synthesizeVoiceReplyStream(
+            content,
+            attempt,
+            async ({ audioBytes, mimeType }) => {
+              if (session.closed || session.interrupted) return;
+              socket.emit('voice:audio_chunk', {
+                sessionId,
+                kind,
+                index,
+                audioBase64: audioBytes.toString('base64'),
+                mimeType,
+              });
+              index += 1;
+            },
+          );
+          streamError = null;
+          break;
+        } catch (error) {
+          streamError = String(error?.message || error || 'Voice playback failed.');
+        }
+      }
     } catch (error) {
       streamError = String(error?.message || error || 'Voice playback failed.');
-      socket.emit('voice:error', {
-        sessionId,
-        error: streamError,
-      });
     }
 
     if (!streamError && !session.closed && !session.interrupted) {
       socket.emit('voice:audio_done', { sessionId, kind, totalChunks: index });
+    } else if (kind === 'final' && !session.closed && !session.interrupted) {
+      socket.emit('voice:error', {
+        sessionId,
+        error: streamError,
+        recoverable: true,
+        phase: 'tts',
+      });
+      await session.setState('degraded', { kind, phase: 'tts' });
     }
 
-    await session.setState('idle');
+    if (kind === 'final' && !streamError) {
+      await session.setState('idle');
+    }
+  }
+
+  #buildTtsAttemptOrder(session, voiceOptions) {
+    const attempts = [];
+    const providers = [
+      voiceOptions.provider,
+      ...['openai', 'deepgram', 'gemini'].filter((provider) => provider !== voiceOptions.provider),
+    ];
+    for (const provider of providers) {
+      const normalized = normalizeVoiceSynthesisOptions({
+        provider,
+        model: provider === voiceOptions.provider ? voiceOptions.model : null,
+        voice: provider === voiceOptions.provider ? voiceOptions.voice : null,
+      });
+      const runtime = provider === voiceOptions.provider
+        ? {
+            apiKey: session.voiceSettings?.liveApiKey,
+            baseUrl: session.voiceSettings?.liveBaseUrl,
+          }
+        : this.#getProviderRuntime(session.userId, provider, session.agentId);
+      attempts.push({
+        ...normalized,
+        apiKey: runtime.apiKey,
+        baseUrl: runtime.baseUrl,
+        timeoutMs: 12000,
+      });
+    }
+    return attempts;
   }
 }
 

@@ -1245,6 +1245,17 @@ class NeoAgentController extends ChangeNotifier {
   bool _isStoppingLiveVoice = false;
   bool _liveVoiceCaptureActive = false;
   bool _pendingLiveVoiceStop = false;
+  int _liveVoiceTurnCounter = 0;
+  String? _liveVoiceTurnId;
+  final List<LiveVoiceBufferedChunk> _liveVoiceBufferedChunks =
+      <LiveVoiceBufferedChunk>[];
+  int _liveVoiceAckThrough = -1;
+  int _liveVoiceFinalSequence = -1;
+  bool _liveVoiceCommitPending = false;
+  bool _liveVoiceAwaitingResponse = false;
+  Map<String, dynamic>? _liveVoicePendingCommitPayload;
+  DateTime? _liveVoiceRecoverableUntil;
+  Timer? _liveVoiceRecoveryTimer;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   VoiceAssistantLiveState voiceAssistantLiveState = VoiceAssistantLiveState();
   bool _desktopAskOnClose = true;
@@ -1353,6 +1364,7 @@ class NeoAgentController extends ChangeNotifier {
   void dispose() {
     _updatePollTimer?.cancel();
     _qrLoginPollTimer?.cancel();
+    _liveVoiceRecoveryTimer?.cancel();
     _socket?.dispose();
     _diagnosticLogSubscription?.cancel();
     _connectivitySubscription?.cancel();
@@ -4715,6 +4727,153 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  String _createLiveVoiceTurnId() {
+    _liveVoiceTurnCounter += 1;
+    return 'live_${DateTime.now().millisecondsSinceEpoch}_$_liveVoiceTurnCounter';
+  }
+
+  bool _hasRecoverableLiveVoiceTurn() {
+    final recoverableUntil = _liveVoiceRecoverableUntil;
+    if ((_liveVoiceTurnId ?? '').trim().isEmpty) {
+      return false;
+    }
+    if (recoverableUntil == null || !recoverableUntil.isAfter(DateTime.now())) {
+      return false;
+    }
+    return _liveVoiceBufferedChunks.isNotEmpty ||
+        _liveVoiceCaptureActive ||
+        _liveVoiceCommitPending ||
+        _liveVoiceAwaitingResponse;
+  }
+
+  void _setLiveVoiceRecoveryWindow() {
+    _liveVoiceRecoveryTimer?.cancel();
+    final recoverableUntil = DateTime.now().add(const Duration(seconds: 15));
+    _liveVoiceRecoverableUntil = recoverableUntil;
+    _liveVoiceRecoveryTimer = Timer(const Duration(seconds: 15), () {
+      if (!_hasRecoverableLiveVoiceTurn()) {
+        return;
+      }
+      _liveVoiceCaptureActive = false;
+      _pendingLiveVoiceStop = false;
+      unawaited(_liveVoiceCapture.stop());
+      _resetLiveVoiceTurnBuffer();
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        sessionId: '',
+        transportState: 'disconnected',
+        state: 'error',
+        error: 'Live voice reconnect timed out. Try again.',
+        clearAudio: true,
+        clearRecoverableUntil: true,
+      );
+      notifyListeners();
+    });
+    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+      recoverableUntil: recoverableUntil,
+    );
+  }
+
+  void _resetLiveVoiceTurnBuffer({bool clearRecovery = true}) {
+    _liveVoiceTurnId = null;
+    _liveVoiceBufferedChunks.clear();
+    _liveVoiceAckThrough = -1;
+    _liveVoiceFinalSequence = -1;
+    _liveVoiceCommitPending = false;
+    _liveVoiceAwaitingResponse = false;
+    _liveVoicePendingCommitPayload = null;
+    if (clearRecovery) {
+      _liveVoiceRecoveryTimer?.cancel();
+      _liveVoiceRecoveryTimer = null;
+      _liveVoiceRecoverableUntil = null;
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        clearRecoverableUntil: true,
+      );
+    }
+  }
+
+  void _markLiveVoiceChunksForReplay() {
+    _liveVoiceAckThrough = -1;
+    for (final chunk in _liveVoiceBufferedChunks) {
+      chunk.sent = false;
+    }
+  }
+
+  void _sendLiveVoiceInputStart({
+    required String sessionId,
+    required String turnId,
+  }) {
+    final socket = _socket;
+    if (socket == null) {
+      return;
+    }
+    socket.emit('voice:interrupt', <String, dynamic>{
+      'sessionId': sessionId,
+    });
+    socket.emit('voice:input_start', <String, dynamic>{
+      'sessionId': sessionId,
+      'turnId': turnId,
+      'mimeType': 'audio/pcm;rate=16000;channels=1',
+    });
+  }
+
+  Future<void> _flushLiveVoiceBufferedChunks() async {
+    final socket = _socket;
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    final turnId = (_liveVoiceTurnId ?? '').trim();
+    if (socket == null || !socketConnected || sessionId.isEmpty || turnId.isEmpty) {
+      return;
+    }
+    for (final chunk in _liveVoiceBufferedChunks) {
+      if (chunk.sent) {
+        continue;
+      }
+      socket.emit('voice:audio_chunk', <String, dynamic>{
+        'sessionId': sessionId,
+        'turnId': turnId,
+        'sequence': chunk.sequence,
+        'mimeType': 'audio/pcm;rate=16000;channels=1',
+        'audioBase64': base64Encode(chunk.bytes),
+      });
+      chunk.sent = true;
+    }
+  }
+
+  Future<void> _emitPendingLiveVoiceCommitIfReady() async {
+    final socket = _socket;
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    final turnId = (_liveVoiceTurnId ?? '').trim();
+    if (!_liveVoiceCommitPending ||
+        socket == null ||
+        !socketConnected ||
+        sessionId.isEmpty ||
+        turnId.isEmpty ||
+        _liveVoiceFinalSequence < 0 ||
+        _liveVoiceAckThrough < _liveVoiceFinalSequence) {
+      return;
+    }
+    final payload = <String, dynamic>{
+      'sessionId': sessionId,
+      'turnId': turnId,
+      'finalSequence': _liveVoiceFinalSequence,
+      ...?_liveVoicePendingCommitPayload,
+    };
+    _liveVoiceCommitPending = false;
+    _liveVoiceAwaitingResponse = true;
+    socket.emit('voice:input_commit', payload);
+  }
+
+  Future<void> _restoreBufferedLiveVoiceTurnToActiveSession() async {
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    final turnId = (_liveVoiceTurnId ?? '').trim();
+    if (sessionId.isEmpty || turnId.isEmpty || !_hasRecoverableLiveVoiceTurn()) {
+      return;
+    }
+    _markLiveVoiceChunksForReplay();
+    _sendLiveVoiceInputStart(sessionId: sessionId, turnId: turnId);
+    await _flushLiveVoiceBufferedChunks();
+    await _emitPendingLiveVoiceCommitIfReady();
+  }
+
   Future<void> startLiveVoiceCapture() async {
     if (recordingRuntime.active || isStartingRecording || isStoppingRecording) {
       throw StateError(
@@ -4743,31 +4902,31 @@ class NeoAgentController extends ChangeNotifier {
       if (sessionId.isEmpty || _socket == null) {
         throw StateError('Live voice session did not initialize.');
       }
+      final turnId = _createLiveVoiceTurnId();
+      _resetLiveVoiceTurnBuffer(clearRecovery: false);
+      _liveVoiceTurnId = turnId;
+      _setLiveVoiceRecoveryWindow();
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        transportState: 'connected',
         state: 'listening',
         partialTranscript: '',
         finalTranscript: '',
+        interimAssistantText: '',
+        finalAssistantText: '',
         assistantText: '',
         clearAudio: true,
         clearError: true,
       );
       notifyListeners();
-      _socket!.emit('voice:interrupt', <String, dynamic>{
-        'sessionId': sessionId,
-      });
-      _socket!.emit('voice:input_start', <String, dynamic>{
-        'sessionId': sessionId,
-        'mimeType': 'audio/pcm;rate=16000;channels=1',
-      });
+      _sendLiveVoiceInputStart(sessionId: sessionId, turnId: turnId);
       await _liveVoiceCapture.start(
         onChunk: (Uint8List chunk) {
-          final socket = _socket;
-          if (socket == null) return;
-          socket.emit('voice:audio_chunk', <String, dynamic>{
-            'sessionId': sessionId,
-            'mimeType': 'audio/pcm;rate=16000;channels=1',
-            'audioBase64': base64Encode(chunk),
-          });
+          final sequence = _liveVoiceBufferedChunks.length;
+          _liveVoiceBufferedChunks.add(
+            LiveVoiceBufferedChunk(sequence: sequence, bytes: chunk),
+          );
+          _setLiveVoiceRecoveryWindow();
+          unawaited(_flushLiveVoiceBufferedChunks());
         },
         onError: (Object error, StackTrace stackTrace) {
           AppDiagnostics.log(
@@ -4780,6 +4939,7 @@ class NeoAgentController extends ChangeNotifier {
             return;
           }
           _liveVoiceCaptureActive = false;
+          _resetLiveVoiceTurnBuffer();
           voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
             state: 'error',
             error: _friendlyErrorMessage(error),
@@ -4795,6 +4955,7 @@ class NeoAgentController extends ChangeNotifier {
             return;
           }
           _liveVoiceCaptureActive = false;
+          _resetLiveVoiceTurnBuffer();
           voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
             state: 'error',
             error:
@@ -4855,25 +5016,37 @@ class NeoAgentController extends ChangeNotifier {
     try {
       _liveVoiceCaptureActive = false;
       await _liveVoiceCapture.stop();
-      final sessionId = voiceAssistantLiveState.sessionId.trim();
-      if (sessionId.isNotEmpty && _socket != null) {
-        final screenshotPayload = await buildVoiceAssistantContextPayload();
-        AppDiagnostics.log(
-          'desktop.assistant',
-          'ptt.capture_committing',
-          data: <String, Object?>{'sessionId': sessionId},
-        );
+      if (_liveVoiceBufferedChunks.isEmpty) {
+        _resetLiveVoiceTurnBuffer();
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          state: 'transcribing',
+          state: 'idle',
+          clearRecoverableUntil: true,
         );
-        _socket!.emit('voice:input_commit', <String, dynamic>{
-          'sessionId': sessionId,
-          if ((screenshotPayload['screenshotBase64'] ?? '').isNotEmpty)
-            'screenshotBase64': screenshotPayload['screenshotBase64'],
-          if ((screenshotPayload['screenshotMimeType'] ?? '').isNotEmpty)
-            'screenshotMimeType': screenshotPayload['screenshotMimeType'],
-        });
+        return;
       }
+      final screenshotPayload = await buildVoiceAssistantContextPayload();
+      AppDiagnostics.log(
+        'desktop.assistant',
+        'ptt.capture_committing',
+        data: <String, Object?>{
+          'sessionId': voiceAssistantLiveState.sessionId.trim(),
+          'turnId': _liveVoiceTurnId,
+        },
+      );
+      _liveVoiceFinalSequence = _liveVoiceBufferedChunks.length - 1;
+      _liveVoiceCommitPending = true;
+      _liveVoicePendingCommitPayload = <String, dynamic>{
+        if ((screenshotPayload['screenshotBase64'] ?? '').isNotEmpty)
+          'screenshotBase64': screenshotPayload['screenshotBase64'],
+        if ((screenshotPayload['screenshotMimeType'] ?? '').isNotEmpty)
+          'screenshotMimeType': screenshotPayload['screenshotMimeType'],
+      };
+      _setLiveVoiceRecoveryWindow();
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        state: 'transcribing',
+      );
+      await _flushLiveVoiceBufferedChunks();
+      await _emitPendingLiveVoiceCommitIfReady();
     } finally {
       _isStoppingLiveVoice = false;
       notifyListeners();
@@ -4888,7 +5061,11 @@ class NeoAgentController extends ChangeNotifier {
     _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
     _liveVoiceCaptureActive = false;
     _pendingLiveVoiceStop = false;
-    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(state: 'idle');
+    _resetLiveVoiceTurnBuffer();
+    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+      state: 'idle',
+      clearRecoverableUntil: true,
+    );
     notifyListeners();
   }
 
@@ -4902,6 +5079,7 @@ class NeoAgentController extends ChangeNotifier {
     });
     _liveVoiceCaptureActive = false;
     _pendingLiveVoiceStop = false;
+    _resetLiveVoiceTurnBuffer();
     voiceAssistantLiveState = VoiceAssistantLiveState();
     notifyListeners();
   }
@@ -6644,17 +6822,47 @@ class NeoAgentController extends ChangeNotifier {
       socketConnected = true;
       socket.emit('client:request_logs');
       socket.emit('integrations:status');
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        transportState: 'connected',
+        clearError: _hasRecoverableLiveVoiceTurn(),
+      );
+      if (_hasRecoverableLiveVoiceTurn()) {
+        unawaited(ensureLiveVoiceSession().catchError((Object error) {
+          voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+            transportState: 'disconnected',
+            state: 'error',
+            error: _friendlyErrorMessage(error),
+          );
+          notifyListeners();
+        }));
+      }
       notifyListeners();
     });
     socket.onDisconnect((_) {
       socketConnected = false;
-      _liveVoiceCaptureActive = false;
-      _pendingLiveVoiceStop = false;
-      voiceAssistantLiveState = VoiceAssistantLiveState();
+      if (_hasRecoverableLiveVoiceTurn()) {
+        _setLiveVoiceRecoveryWindow();
+        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+          sessionId: '',
+          transportState: hasNetworkConnection ? 'reconnecting' : 'disconnected',
+          state: _liveVoiceCaptureActive ? 'listening' : voiceAssistantLiveState.state,
+        );
+      } else {
+        _liveVoiceCaptureActive = false;
+        _pendingLiveVoiceStop = false;
+        voiceAssistantLiveState = VoiceAssistantLiveState(
+          transportState: hasNetworkConnection ? 'disconnected' : 'disconnected',
+        );
+      }
       notifyListeners();
     });
     socket.onConnectError((dynamic _) {
       socketConnected = false;
+      if (_hasRecoverableLiveVoiceTurn()) {
+        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+          transportState: 'reconnecting',
+        );
+      }
       notifyListeners();
     });
     socket.on('server:log_history', (dynamic data) {
@@ -6764,12 +6972,16 @@ class NeoAgentController extends ChangeNotifier {
         voice:
             payload['voice']?.toString().ifEmpty(voiceLiveVoice) ??
             voiceLiveVoice,
+        transportState: 'connected',
         state: 'idle',
         clearError: true,
       );
       if (_liveVoiceSessionOpenCompleter != null &&
           !_liveVoiceSessionOpenCompleter!.isCompleted) {
         _liveVoiceSessionOpenCompleter!.complete();
+      }
+      if (_hasRecoverableLiveVoiceTurn()) {
+        unawaited(_restoreBufferedLiveVoiceTurnToActiveSession());
       }
       notifyListeners();
     });
@@ -6782,6 +6994,26 @@ class NeoAgentController extends ChangeNotifier {
         state: payload['state']?.toString().ifEmpty('idle') ?? 'idle',
       );
       notifyListeners();
+    });
+    socket.on('voice:chunk_ack', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      final ackTurnId = payload['turnId']?.toString().trim() ?? '';
+      if (ackTurnId.isEmpty || ackTurnId != (_liveVoiceTurnId ?? '').trim()) {
+        return;
+      }
+      _liveVoiceAckThrough = math.max(
+        _liveVoiceAckThrough,
+        _asInt(payload['receivedThrough']),
+      );
+      for (final chunk in _liveVoiceBufferedChunks) {
+        if (chunk.sequence <= _liveVoiceAckThrough) {
+          chunk.sent = true;
+        }
+      }
+      unawaited(_emitPendingLiveVoiceCommitIfReady());
     });
     socket.on('voice:transcript_partial', (dynamic data) {
       final payload = _jsonMap(data);
@@ -6816,9 +7048,16 @@ class NeoAgentController extends ChangeNotifier {
       final content = payload['content']?.toString() ?? '';
       final kind = payload['kind']?.toString() ?? 'final';
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        interimAssistantText:
+            kind == 'final'
+                ? voiceAssistantLiveState.interimAssistantText
+                : content,
+        finalAssistantText:
+            kind == 'final' ? content : voiceAssistantLiveState.finalAssistantText,
         assistantText: content,
       );
       if (kind == 'final' && content.trim().isNotEmpty) {
+        _resetLiveVoiceTurnBuffer();
         _appendAssistantChatMessage(content, platform: 'voice_live');
       }
       notifyListeners();
@@ -6855,6 +7094,7 @@ class NeoAgentController extends ChangeNotifier {
       if (!_matchesLiveVoiceSessionPayload(payload)) {
         return;
       }
+      _resetLiveVoiceTurnBuffer();
       final message = payload['error']?.toString() ?? 'Live voice failed.';
       if (_liveVoiceSessionOpenCompleter != null &&
           !_liveVoiceSessionOpenCompleter!.isCompleted) {
@@ -6863,8 +7103,10 @@ class NeoAgentController extends ChangeNotifier {
       _liveVoiceSessionOpenCompleter = null;
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         error: message,
-        state: 'idle',
+        state:
+            payload['phase']?.toString() == 'tts' ? 'degraded' : 'idle',
         clearAudio: true,
+        clearRecoverableUntil: true,
       );
       _liveVoiceCaptureActive = false;
       _pendingLiveVoiceStop = false;
@@ -7300,11 +7542,13 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString();
       if (runId != null && _voiceRunIds.remove(runId)) {
+        _resetLiveVoiceTurnBuffer();
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
           error:
               payload['error']?.toString() ??
               'I could not complete that voice request.',
           state: 'idle',
+          clearRecoverableUntil: true,
         );
         notifyListeners();
         return;

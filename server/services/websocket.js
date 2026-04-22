@@ -516,6 +516,7 @@ function setupWebSocket(io, services) {
         }
         await voiceRuntimeManager.beginInput(sessionId, {
           mimeType: toOptionalString(data?.mimeType, 128),
+          turnId: toOptionalString(data?.turnId, 128),
         });
       } catch (err) {
         console.error(`[WS] voice:input_start failed for user ${userId}:`, err);
@@ -554,8 +555,30 @@ function setupWebSocket(io, services) {
             error: `audio chunk is too large (max ${MAX_VOICE_AUDIO_CHUNK_BYTES} bytes)`,
           });
         }
-        await voiceRuntimeManager.appendInputAudio(sessionId, audioBytes, {
+        const turnId = toOptionalString(data?.turnId, 128);
+        const sequence = toBoundedInt(data?.sequence, -1, -1, 1_000_000);
+        if (!turnId) {
+          return socket.emit('voice:error', {
+            sessionId,
+            error: 'turnId is required',
+          });
+        }
+        if (sequence < 0) {
+          return socket.emit('voice:error', {
+            sessionId,
+            error: 'sequence is required',
+          });
+        }
+        const appendResult = await voiceRuntimeManager.appendInputAudio(sessionId, audioBytes, {
           mimeType: toOptionalString(data?.mimeType, 128),
+          turnId,
+          sequence,
+        });
+        socket.emit('voice:chunk_ack', {
+          sessionId,
+          turnId,
+          sequence,
+          receivedThrough: appendResult?.receivedThrough ?? sequence,
         });
       } catch (err) {
         console.error(`[WS] voice:audio_chunk failed for user ${userId}:`, err);
@@ -618,6 +641,8 @@ function setupWebSocket(io, services) {
         }
 
         await voiceRuntimeManager.commitInput(sessionId, {
+          turnId: toOptionalString(data?.turnId, 128),
+          finalSequence: toBoundedInt(data?.finalSequence, -1, -1, 1_000_000),
           promptHint: toOptionalString(data?.promptHint, 2000),
           metadata,
         });

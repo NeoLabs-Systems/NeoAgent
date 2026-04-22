@@ -78,7 +78,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
 
   void _syncLiveVoiceState() {
     final liveState = widget.controller.voiceAssistantLiveState;
-    _assistantReply = liveState.assistantText;
+    _assistantReply = liveState.finalAssistantText.ifEmpty(
+      liveState.interimAssistantText,
+    );
     _assistantTranscript = liveState.finalTranscript.ifEmpty(
       liveState.partialTranscript,
     );
@@ -180,6 +182,13 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     _isDraining = true;
     try {
       while (_audioQueue.isNotEmpty && !_audioInterrupted) {
+        if (_audioQueue.length < 2 &&
+            !widget.controller.voiceAssistantLiveState.audioStreamDone) {
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+          if (_audioInterrupted || _audioQueue.isEmpty) {
+            break;
+          }
+        }
         final chunk = _audioQueue.removeAt(0);
         if (chunk.isEmpty) continue;
         final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
@@ -247,7 +256,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       liveState.partialTranscript,
     );
     final helperText = liveState.hasActiveSession
-        ? '${liveState.provider.toUpperCase()} • ${liveState.model} • ${liveState.state}'
+        ? '${liveState.provider.toUpperCase()} • ${liveState.model} • ${liveState.state} • ${liveState.transportState}'
+        : liveState.isRecoverable
+        ? 'Reconnecting live voice turn...'
         : 'Open a push-to-talk session to start live voice.';
     return _VoiceAssistantSectionCard(
       icon: Icons.graphic_eq_outlined,
