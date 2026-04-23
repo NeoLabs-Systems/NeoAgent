@@ -19,12 +19,11 @@ The Flutter client exposes the main operator surfaces:
 | Devices | Server-side browser and Android runtime controls |
 | Recordings | Recording sessions, transcripts, segments, and playback |
 | Health | Android Health Connect sync status and synced metrics |
-| Wearables | Supported Bluetooth recording devices and audio upload status |
 | Settings | AI providers, model routing, runtime settings, messaging, and service controls |
 
 ## Recordings
 
-NeoAgent records audio as server-side sessions with one or more sources. The web client can record browser microphone and screen audio, the Android app can record phone microphone audio through a foreground service, and the wearable bridge can upload audio chunks from supported Bluetooth devices.
+NeoAgent records audio as server-side sessions with one or more sources. The web client can record browser microphone and screen audio, and the Android app can record phone microphone audio through a foreground service.
 
 Recording sessions support:
 
@@ -55,18 +54,16 @@ Android control supports:
 
 These actions run where the NeoAgent backend is running. If NeoAgent is deployed on a remote server, the AI controls the Android runtime attached to that server, not the laptop where you are reading the docs.
 
-## Android App, Health, And Wearables
+## Android App And Health
 
-The Flutter Android app is still useful as a client. It can sign in to the same self-hosted backend, run chat and operator UI flows, sync Health Connect data, record audio locally, and bridge supported wearables.
+The Flutter Android app is still useful as a client. It can sign in to the same self-hosted backend, run chat and operator UI flows, sync Health Connect data, and record audio locally.
 
 Android app capabilities include:
 
 - `NEOAGENT_BACKEND_URL` build/run configuration for real devices.
 - Health Connect permission flow and background sync.
 - Microphone recording through an Android foreground service.
-- Boot restore hooks for recording and wearable services when Android allows them.
-- Bluetooth wearable bridge support for HeyPocket-style devices.
-- Upload of wearable chunks and synchronization state to the backend.
+- Boot restore hooks for recording services when Android allows them.
 
 ## Health Data
 

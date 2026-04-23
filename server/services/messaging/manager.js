@@ -9,7 +9,6 @@ const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
 const { TelegramPlatform } = require('./telegram');
-const { WaveshareWearablePlatform } = require('./waveshare_wearable');
 const {
   SlackPlatform,
   GoogleChatPlatform,
@@ -89,7 +88,6 @@ class MessagingManager extends EventEmitter {
       feishu: createGenericPlatformClass('feishu'),
       line: LinePlatform,
       mattermost: MattermostPlatform,
-      waveshare_wearable: WaveshareWearablePlatform,
       nextcloud_talk: createGenericPlatformClass('nextcloud_talk'),
       nostr: createGenericPlatformClass('nostr'),
       synology_chat: createGenericPlatformClass('synology_chat'),

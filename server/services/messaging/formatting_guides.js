@@ -18,10 +18,6 @@ const PLATFORM_FORMATTING = {
   telnyx: {
     spokenOnly: true,
     inlineCode: false,
-  },
-  waveshare_wearable: {
-    spokenOnly: false,
-    inlineCode: true,
   }
 };
 

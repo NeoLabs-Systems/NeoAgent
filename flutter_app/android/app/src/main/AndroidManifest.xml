@@ -13,10 +13,6 @@
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
@@ -100,21 +96,8 @@
             android:name=".recording.RecordingForegroundService"
             android:exported="false"
             android:foregroundServiceType="microphone|connectedDevice" />
-        <service
-            android:name=".wearablebg.WearableBleForegroundService"
-            android:exported="false"
-            android:stopWithTask="false"
-            android:foregroundServiceType="connectedDevice|dataSync" />
         <receiver
             android:name=".recording.RecordingBootReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-        <receiver
-            android:name=".wearablebg.WearableBridgeBootReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>

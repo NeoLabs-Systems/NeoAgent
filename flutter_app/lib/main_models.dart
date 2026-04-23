@@ -278,18 +278,6 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.call_rounded,
   ),
-  MessagingPlatformDescriptor(
-    id: 'waveshare_wearable',
-    label: 'NeoOS Wearable',
-    subtitle: 'Pairing and connected-device visibility',
-    accent: Color(0xFF1D4ED8),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.watch_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'deviceLabel', label: 'Device Label'),
-      MessagingConfigField(key: 'pairingCode', label: 'Pairing Code'),
-    ],
-  ),
   ...longTailMessagingPlatforms,
 ];
 

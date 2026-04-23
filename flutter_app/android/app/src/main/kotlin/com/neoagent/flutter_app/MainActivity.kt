@@ -23,9 +23,6 @@ import com.neoagent.flutter_app.widgets.AiHomeWidgetProvider
 import com.neoagent.flutter_app.widgets.AiWidgetStore
 import com.neoagent.flutter_app.widgets.VoiceLaunchWidgetProvider
 import com.neoagent.flutter_app.widgets.WidgetSyncScheduler
-import com.neoagent.flutter_app.wearablebg.WearableBleForegroundService
-import com.neoagent.flutter_app.wearablebg.WearableBridgeConfig
-import com.neoagent.flutter_app.wearablebg.WearableBridgeStateStore
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -41,15 +38,11 @@ class MainActivity : FlutterFragmentActivity() {
     private lateinit var healthSyncScheduler: HealthSyncScheduler
     private lateinit var widgetSyncScheduler: WidgetSyncScheduler
     private lateinit var recordingStateStore: RecordingStateStore
-    private lateinit var wearableBridgeStateStore: WearableBridgeStateStore
     private lateinit var permissionLauncher: ActivityResultLauncher<Set<String>>
     private lateinit var microphonePermissionLauncher: ActivityResultLauncher<String>
-    private lateinit var bluetoothPermissionLauncher: ActivityResultLauncher<Array<String>>
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var pendingRecordingResult: MethodChannel.Result? = null
     private var pendingRecordingArgs: Map<*, *>? = null
-    private var pendingWearableBridgeResult: MethodChannel.Result? = null
-    private var pendingWearableBridgeArgs: Map<*, *>? = null
     private var launcherButtonSink: EventChannel.EventSink? = null
     private var widgetEventSink: EventChannel.EventSink? = null
     private var appLaunchEventSink: EventChannel.EventSink? = null
@@ -63,7 +56,6 @@ class MainActivity : FlutterFragmentActivity() {
         healthSyncScheduler = HealthSyncScheduler(this)
         widgetSyncScheduler = WidgetSyncScheduler(this)
         recordingStateStore = RecordingStateStore(this)
-        wearableBridgeStateStore = WearableBridgeStateStore(this)
         permissionLauncher = registerForActivityResult(
             PermissionController.createRequestPermissionResultContract(),
         ) {
@@ -99,54 +91,6 @@ class MainActivity : FlutterFragmentActivity() {
                 )
             }
         }
-        bluetoothPermissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions(),
-        ) { grants ->
-            val pending = pendingWearableBridgeResult
-            val args = pendingWearableBridgeArgs
-            pendingWearableBridgeResult = null
-            pendingWearableBridgeArgs = null
-
-            val allGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                grants[android.Manifest.permission.BLUETOOTH_CONNECT] == true &&
-                    grants[android.Manifest.permission.BLUETOOTH_SCAN] == true
-            } else {
-                true
-            }
-
-            if (!allGranted) {
-                pending?.error(
-                    "wearable_bridge_permission_denied",
-                    "Bluetooth permissions are required for the wearable background bridge.",
-                    null,
-                )
-                return@registerForActivityResult
-            }
-
-            try {
-                val config = parseWearableBridgeConfig(args)
-                if (config == null || !isValidWearableBridgeConfig(config)) {
-                    pending?.error(
-                        "wearable_bridge_invalid_args",
-                        "backendUrl, sessionCookie, macAddress, serviceUuid, and audioNotifyUuid are required.",
-                        null,
-                    )
-                    return@registerForActivityResult
-                }
-                ContextCompat.startForegroundService(
-                    this,
-                    WearableBleForegroundService.buildStartIntent(this, config),
-                )
-                pending?.success(wearableBridgeStateStore.statusMap())
-            } catch (err: Exception) {
-                pending?.error(
-                    "wearable_bridge_start_failed",
-                    err.message ?: err.javaClass.simpleName,
-                    null,
-                )
-            }
-        }
-
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "neoagent/health",
@@ -299,73 +243,6 @@ class MainActivity : FlutterFragmentActivity() {
                 "stopBackgroundRecording" -> {
                     startService(RecordingForegroundService.buildStopIntent(this))
                     result.success(recordingStateStore.statusMap())
-                }
-
-                else -> result.notImplemented()
-            }
-        }
-
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            "neoagent/wearables_background",
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "startBackgroundBridge" -> {
-                    try {
-                        val args = call.arguments as? Map<*, *>
-                        val config = parseWearableBridgeConfig(args)
-                        if (config == null || !isValidWearableBridgeConfig(config)) {
-                            result.error(
-                                "wearable_bridge_invalid_args",
-                                "backendUrl, sessionCookie, macAddress, serviceUuid, and audioNotifyUuid are required.",
-                                null,
-                            )
-                            return@setMethodCallHandler
-                        }
-
-	                        if (!hasWearableBridgePermissions()) {
-	                            if (pendingWearableBridgeResult != null || pendingWearableBridgeArgs != null) {
-	                                result.error(
-	                                    "wearable_bridge_request_pending",
-	                                    "Another wearable background bridge request is already waiting for Bluetooth permissions.",
-	                                    null,
-	                                )
-	                                return@setMethodCallHandler
-	                            }
-	                            pendingWearableBridgeResult = result
-	                            pendingWearableBridgeArgs = args
-	                            bluetoothPermissionLauncher.launch(
-                                arrayOf(
-                                    android.Manifest.permission.BLUETOOTH_CONNECT,
-                                    android.Manifest.permission.BLUETOOTH_SCAN,
-                                ),
-                            )
-                            return@setMethodCallHandler
-                        }
-
-                        ContextCompat.startForegroundService(
-                            this,
-                            WearableBleForegroundService.buildStartIntent(this, config),
-                        )
-                        result.success(wearableBridgeStateStore.statusMap())
-                    } catch (err: Exception) {
-                        result.error(
-                            "wearable_bridge_start_failed",
-                            err.message ?: err.javaClass.simpleName,
-                            null,
-                        )
-                    }
-                }
-
-                "stopBackgroundBridge" -> {
-                    val args = call.arguments as? Map<*, *>
-                    val sendStop = args?.get("sendStop") == true
-                    startService(WearableBleForegroundService.buildStopIntent(this, sendStop))
-                    result.success(wearableBridgeStateStore.statusMap())
-                }
-
-                "backgroundBridgeStatus" -> {
-                    result.success(wearableBridgeStateStore.statusMap())
                 }
 
                 else -> result.notImplemented()
@@ -686,47 +563,6 @@ class MainActivity : FlutterFragmentActivity() {
             sessionId = sessionId,
         )
         ContextCompat.startForegroundService(this, intent)
-    }
-
-    private fun parseWearableBridgeConfig(args: Map<*, *>?): WearableBridgeConfig? {
-        if (args == null) {
-            return null
-        }
-        return WearableBridgeConfig(
-            backendUrl = args["backendUrl"]?.toString().orEmpty(),
-            sessionCookie = args["sessionCookie"]?.toString().orEmpty(),
-            macAddress = args["macAddress"]?.toString().orEmpty(),
-            deviceName = args["deviceName"]?.toString().orEmpty(),
-            protocolId = args["protocolId"]?.toString().orEmpty().ifBlank { "heypocket" },
-            serviceUuid = args["serviceUuid"]?.toString().orEmpty(),
-            audioNotifyUuid = args["audioNotifyUuid"]?.toString().orEmpty(),
-            controlNotifyUuid = args["controlNotifyUuid"]?.toString(),
-            controlWriteUuid = args["controlWriteUuid"]?.toString(),
-            autoStartRecording = args["autoStartRecording"] == true,
-        )
-    }
-
-    private fun isValidWearableBridgeConfig(config: WearableBridgeConfig): Boolean {
-        return config.backendUrl.isNotBlank() &&
-            config.sessionCookie.isNotBlank() &&
-            config.macAddress.isNotBlank() &&
-            config.serviceUuid.isNotBlank() &&
-            config.audioNotifyUuid.isNotBlank()
-    }
-
-    private fun hasWearableBridgePermissions(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            return true
-        }
-        val connectGranted = ContextCompat.checkSelfPermission(
-            this,
-            android.Manifest.permission.BLUETOOTH_CONNECT,
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        val scanGranted = ContextCompat.checkSelfPermission(
-            this,
-            android.Manifest.permission.BLUETOOTH_SCAN,
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        return connectGranted && scanGranted
     }
 
     private fun currentAppMode(): String {

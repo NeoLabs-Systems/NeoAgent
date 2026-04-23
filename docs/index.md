@@ -6,7 +6,7 @@ sidebar_label: Overview
 
 # NeoAgent
 
-NeoAgent is a self-hosted proactive AI agent with a bundled Flutter client for web and Android. It runs on your server, keeps credentials server-side, and gives you an operator UI for chat, runs, logs, scheduler tasks, skills, integrations, MCP, memory, Android control, recordings, Health Connect data, wearables, and settings.
+NeoAgent is a self-hosted proactive AI agent with a bundled Flutter client for web and Android. It runs on your server, keeps credentials server-side, and gives you an operator UI for chat, runs, logs, scheduler tasks, skills, integrations, MCP, memory, Android control, recordings, Health Connect data, and settings.
 
 It is designed for people who want a focused personal automation server rather than a broad gateway platform. NeoAgent can run scheduled tasks, control a browser, operate a server-attached Android emulator or device, manage files, remember long-term context, connect to hosted AI providers or local Ollama, search recordings, read synced health summaries, and send results through Telegram, Discord, WhatsApp, or Telnyx Voice.
 
@@ -24,10 +24,10 @@ Open the server URL, sign in, configure providers and messaging, then create a s
 | Area | Capability |
 |---|---|
 | AI providers | OpenAI, Anthropic, xAI, Google, MiniMax Code, and local Ollama |
-| Operator UI | Chat, live runs, logs, scheduler, skills, integrations, MCP, memory, devices, recordings, health, wearables, settings |
+| Operator UI | Chat, live runs, logs, scheduler, skills, integrations, MCP, memory, devices, recordings, health, settings |
 | Automation | Recurring scheduled tasks, one-time runs, browser control, file access, CLI skills, subagents, and messaging delivery |
 | Android control | AI control of a server-attached Android emulator or device: screenshots, UI dumps, taps, typing, intents, APK installs, and ADB shell |
-| Recordings | Web, Android, and wearable audio sessions with transcript search and AI insights |
+| Recordings | Web and Android audio sessions with transcript search and AI insights |
 | Integrations | Google Workspace, Notion, Microsoft 365, Slack, Figma, and remote MCP servers |
 | Messaging | Telegram, Discord, WhatsApp text/media, and Telnyx Voice calls |
 | Outputs | Artifacts, Grok image generation, vision analysis, markdown tables, and Mermaid graphs |
@@ -46,5 +46,4 @@ Open the server URL, sign in, configure providers and messaging, then create a s
 | Skills and MCP | [Skills](skills.md) |
 | Secrets and runtime settings | [Configuration](configuration.md) |
 | Logs, updates, and repair | [Operations](operations.md) |
-| Want to flash a Waveshare ESP32-S3 1.8inch AMOLED | [Waveshare ESP32-S3 1.8inch AMOLED Setup](hardware.md) |
 | OpenClaw comparison | [Why NeoAgent](why-neoagent.md) |
