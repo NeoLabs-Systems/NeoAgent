@@ -282,6 +282,10 @@ class _RunStatusPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final runningCount = tools.where((tool) => tool.status == 'running').length;
+    final helperCount = tools.where((tool) => tool.isHelperRelated).length;
+    final webCount = tools.where((tool) => tool.isWebRelated).length;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -324,9 +328,46 @@ class _RunStatusPanel extends StatelessWidget {
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children: tools.map((tool) => _ToolChip(tool: tool)).toList(),
+                children: <Widget>[
+                  _MetaPill(
+                    label: '${tools.length} events',
+                    icon: Icons.timeline_outlined,
+                  ),
+                  if (runningCount > 0)
+                    _MetaPill(
+                      label: '$runningCount active',
+                      icon: Icons.sync_outlined,
+                      color: _warning,
+                    ),
+                  if (webCount > 0)
+                    _MetaPill(
+                      label: '$webCount web',
+                      icon: Icons.language_outlined,
+                    ),
+                  if (helperCount > 0)
+                    _MetaPill(
+                      label: '$helperCount helpers',
+                      icon: Icons.account_tree_outlined,
+                    ),
+                ],
               ),
-            ],
+              const SizedBox(height: 14),
+              ...tools.asMap().entries.map(
+                (entry) => Padding(
+                  padding: EdgeInsets.only(
+                    bottom: entry.key == tools.length - 1 ? 0 : 12,
+                  ),
+                  child: _ToolEventTimelineRow(
+                    tool: entry.value,
+                    isLast: entry.key == tools.length - 1,
+                  ),
+                ),
+              ),
+            ] else
+              Text(
+                'Waiting for task events...',
+                style: TextStyle(color: _textSecondary),
+              ),
           ],
         ),
       ),
@@ -334,10 +375,11 @@ class _RunStatusPanel extends StatelessWidget {
   }
 }
 
-class _ToolChip extends StatelessWidget {
-  const _ToolChip({required this.tool});
+class _ToolEventTimelineRow extends StatelessWidget {
+  const _ToolEventTimelineRow({required this.tool, required this.isLast});
 
   final ToolEventItem tool;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
@@ -352,45 +394,85 @@ class _ToolChip extends StatelessWidget {
       default:
         color = _success;
     }
-    return Container(
-      constraints: const BoxConstraints(minWidth: 220, maxWidth: 340),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(
+          width: 28,
+          child: Column(
             children: <Widget>[
-              Icon(
-                tool.type == 'note' ? Icons.info_outline : Icons.build_outlined,
-                size: 16,
-                color: color,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  tool.toolName,
-                  style: TextStyle(fontWeight: FontWeight.w700),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
                 ),
+                child: Icon(tool.laneIcon, size: 16, color: color),
               ),
-              _StatusPill(label: tool.status, color: color),
+              if (!isLast)
+                Container(
+                  width: 2,
+                  height: 62,
+                  margin: const EdgeInsets.only(top: 6),
+                  decoration: BoxDecoration(
+                    color: _border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
             ],
           ),
-          if (tool.summary.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              tool.summary,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: _textSecondary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _bgSecondary,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
             ),
-          ],
-        ],
-      ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            tool.toolName,
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            tool.laneLabel,
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _StatusPill(label: tool.statusLabel, color: color),
+                  ],
+                ),
+                if (tool.summary.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Text(
+                    tool.compactSummary,
+                    style: TextStyle(color: _textSecondary, height: 1.45),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -846,9 +928,10 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.entry});
+  const _ChatBubble({required this.entry, this.onLoadRunDetail});
 
   final ChatEntry entry;
+  final Future<RunDetailSnapshot> Function(String runId)? onLoadRunDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -924,6 +1007,14 @@ class _ChatBubble extends StatelessWidget {
                           ),
                         ),
                   ),
+                  if (!isUser &&
+                      entry.runId?.trim().isNotEmpty == true) ...<Widget>[
+                    const SizedBox(height: 12),
+                    _MessageRunPreview(
+                      runId: entry.runId!.trim(),
+                      onLoadRunDetail: onLoadRunDetail,
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   Text(
                     entry.createdAtLabel,
@@ -941,6 +1032,247 @@ class _ChatBubble extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _MessageRunPreview extends StatefulWidget {
+  const _MessageRunPreview({
+    required this.runId,
+    required this.onLoadRunDetail,
+  });
+
+  final String runId;
+  final Future<RunDetailSnapshot> Function(String runId)? onLoadRunDetail;
+
+  @override
+  State<_MessageRunPreview> createState() => _MessageRunPreviewState();
+}
+
+class _MessageRunPreviewState extends State<_MessageRunPreview> {
+  late Future<RunDetailSnapshot>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.onLoadRunDetail?.call(widget.runId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _MessageRunPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.runId != widget.runId ||
+        oldWidget.onLoadRunDetail != widget.onLoadRunDetail) {
+      _future = widget.onLoadRunDetail?.call(widget.runId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_future == null) {
+      return const SizedBox.shrink();
+    }
+    return FutureBuilder<RunDetailSnapshot>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _MessageRunCardShell(
+            child: Row(
+              children: <Widget>[
+                SizedBox.square(
+                  dimension: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Loading execution details...',
+                    style: TextStyle(color: _textSecondary, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+        final detail = snapshot.data!;
+        final previewSteps = detail.steps.take(4).toList();
+        return _MessageRunCardShell(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      detail.run.title.ifEmpty('Execution'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: _textPrimary,
+                      ),
+                    ),
+                  ),
+                  _StatusPill(
+                    label: detail.run.statusLabel,
+                    color: detail.run.statusColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  _MetaPill(
+                    label: '${detail.steps.length} steps',
+                    icon: Icons.timeline_outlined,
+                  ),
+                  if (detail.webStepCount > 0)
+                    _MetaPill(
+                      label: '${detail.webStepCount} web',
+                      icon: Icons.language_outlined,
+                    ),
+                  if (detail.helperCount > 0)
+                    _MetaPill(
+                      label: '${detail.helperCount} helpers',
+                      icon: Icons.account_tree_outlined,
+                    ),
+                  if (detail.planningStepCount > 0)
+                    _MetaPill(
+                      label: '${detail.planningStepCount} planning',
+                      icon: Icons.route_outlined,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...previewSteps.asMap().entries.map(
+                (entry) => Padding(
+                  padding: EdgeInsets.only(
+                    bottom: entry.key == previewSteps.length - 1 ? 0 : 10,
+                  ),
+                  child: _MessageRunStepRow(
+                    step: entry.value,
+                    isLast: entry.key == previewSteps.length - 1,
+                  ),
+                ),
+              ),
+              if (detail.steps.length > previewSteps.length) ...<Widget>[
+                const SizedBox(height: 10),
+                Text(
+                  '${detail.steps.length - previewSteps.length} more steps in run history',
+                  style: TextStyle(
+                    color: _textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MessageRunCardShell extends StatelessWidget {
+  const _MessageRunCardShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _bgPrimary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _MessageRunStepRow extends StatelessWidget {
+  const _MessageRunStepRow({required this.step, required this.isLast});
+
+  final RunStepItem step;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(
+          width: 24,
+          child: Column(
+            children: <Widget>[
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: step.statusColor.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(step.laneIcon, size: 14, color: step.statusColor),
+              ),
+              if (!isLast)
+                Container(
+                  width: 2,
+                  height: 34,
+                  margin: const EdgeInsets.only(top: 6),
+                  decoration: BoxDecoration(
+                    color: _border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      step.label,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: _textPrimary,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    step.laneLabel,
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                step.compactSummary,
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

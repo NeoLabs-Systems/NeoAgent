@@ -10928,7 +10928,10 @@ class _ChatPanelState extends State<ChatPanel> {
                 ...messages.map(
                   (entry) => Padding(
                     padding: const EdgeInsets.only(bottom: 18),
-                    child: _ChatBubble(entry: entry),
+                    child: _ChatBubble(
+                      entry: entry,
+                      onLoadRunDetail: controller.fetchRunDetail,
+                    ),
                   ),
                 ),
             ],

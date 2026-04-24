@@ -1084,6 +1084,11 @@ class RunDetailSnapshot {
     final label = '${step.type} ${step.toolName}'.toLowerCase();
     return label.contains('subagent') || label.contains('helper');
   }).length;
+
+  int get webStepCount => steps.where((step) => step.isWebRelated).length;
+
+  int get planningStepCount =>
+      steps.where((step) => step.isPlanningRelated).length;
 }
 
 class RunStepItem {
@@ -1164,6 +1169,72 @@ class RunStepItem {
     return description.ifEmpty('No details captured.');
   }
 
+  String get compactSummary => _condenseRunText(summary, maxLength: 140);
+
+  String get laneLabel {
+    if (isPlanningRelated) {
+      return 'Planning';
+    }
+    if (isHelperRelated) {
+      return 'Helper';
+    }
+    if (isWebRelated) {
+      return 'Web';
+    }
+    if (type == 'verification') {
+      return 'Verification';
+    }
+    return 'Execution';
+  }
+
+  bool get isPlanningRelated =>
+      type == 'analysis' || type == 'planning' || toolName == 'analysis';
+
+  bool get isHelperRelated {
+    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    return label.contains('subagent') || label.contains('helper');
+  }
+
+  bool get isBrowserRelated {
+    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    return label.contains('browser') ||
+        label.contains('page') ||
+        label.contains('screenshot');
+  }
+
+  bool get isMessagingRelated {
+    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    return label.contains('message') ||
+        label.contains('telegram') ||
+        label.contains('discord') ||
+        label.contains('whatsapp') ||
+        label.contains('slack');
+  }
+
+  bool get isWebRelated => isBrowserRelated || isMessagingRelated;
+
+  IconData get laneIcon {
+    if (isPlanningRelated) {
+      return Icons.route_outlined;
+    }
+    if (isHelperRelated) {
+      return Icons.account_tree_outlined;
+    }
+    if (isBrowserRelated) {
+      return Icons.language_outlined;
+    }
+    if (isMessagingRelated) {
+      return Icons.chat_bubble_outline;
+    }
+    if (type == 'verification') {
+      return Icons.verified_outlined;
+    }
+    if (status == 'failed') {
+      return Icons.error_outline;
+    }
+    return Icons.build_outlined;
+  }
+
   Color get statusColor {
     switch (status) {
       case 'completed':
@@ -1176,6 +1247,14 @@ class RunStepItem {
         return _textSecondary;
     }
   }
+}
+
+String _condenseRunText(String value, {int maxLength = 160}) {
+  final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return '${normalized.substring(0, maxLength - 1).trimRight()}…';
 }
 
 dynamic _decodeMaybeJson(dynamic value) {
@@ -2954,4 +3033,72 @@ class ToolEventItem {
   final String type;
   final String status;
   final String summary;
+
+  String get statusLabel => _titleCase(status.replaceAll('_', ' '));
+
+  bool get isPlanningRelated =>
+      type == 'analysis' || type == 'planning' || toolName == 'plan';
+
+  bool get isHelperRelated {
+    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    return label.contains('subagent') || label.contains('helper');
+  }
+
+  bool get isBrowserRelated {
+    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    return label.contains('browser') ||
+        label.contains('page') ||
+        label.contains('screenshot');
+  }
+
+  bool get isMessagingRelated {
+    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    return label.contains('message') ||
+        label.contains('telegram') ||
+        label.contains('discord') ||
+        label.contains('whatsapp') ||
+        label.contains('slack');
+  }
+
+  bool get isWebRelated => isBrowserRelated || isMessagingRelated;
+
+  String get laneLabel {
+    if (isPlanningRelated) {
+      return 'Planning';
+    }
+    if (isHelperRelated) {
+      return 'Helper';
+    }
+    if (isWebRelated) {
+      return 'Web';
+    }
+    if (type == 'verification') {
+      return 'Verification';
+    }
+    return 'Execution';
+  }
+
+  IconData get laneIcon {
+    if (isPlanningRelated) {
+      return Icons.route_outlined;
+    }
+    if (isHelperRelated) {
+      return Icons.account_tree_outlined;
+    }
+    if (isBrowserRelated) {
+      return Icons.language_outlined;
+    }
+    if (isMessagingRelated) {
+      return Icons.chat_bubble_outline;
+    }
+    if (type == 'verification') {
+      return Icons.verified_outlined;
+    }
+    if (status == 'failed') {
+      return Icons.error_outline;
+    }
+    return Icons.build_outlined;
+  }
+
+  String get compactSummary => _condenseRunText(summary, maxLength: 120);
 }
