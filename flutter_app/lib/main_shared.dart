@@ -71,7 +71,7 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.runs,
     AppSection.logs,
     AppSection.devices,
-    AppSection.scheduler,
+    AppSection.tasks,
     AppSection.widgets,
     AppSection.skills,
     AppSection.integrations,

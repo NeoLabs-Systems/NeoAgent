@@ -49,7 +49,7 @@ const PLAN_PROMPT_INSTRUCTIONS = [
   'Prefer native integrations and structured tools before browser automation or generic shell commands.',
   'For external actions, include a step to draft or confirm before sending unless the user already gave explicit current-session approval.',
   'For code or config changes, include inspection, scoped edit, and verification steps.',
-  'For scheduled tasks, make the future prompt self-contained and include notification conditions.',
+  'For tasks that run later, make the future prompt self-contained and include notification conditions.',
 ];
 const VERIFIER_PROMPT_INSTRUCTIONS = [
   'Verify whether the draft final reply is adequately supported by the gathered evidence.',
@@ -58,14 +58,14 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
   'A non-zero execute_command exit code means partial or failed shell evidence. Do not treat later sections of a chained shell command as observed unless they were verified separately.',
   'A successful send_message or make_call means outbound delivery succeeded in this run unless a later messaging tool failed.',
   'Any claim that an outbound action already happened (sent/submitted/called/"already done") must be backed by a successful outbound tool execution in this run. If not backed, rewrite the reply to "not sent yet" and provide a draft or next concrete step.',
-  'A successful scheduled-task create/update/delete tool call is required before claiming a schedule changed.',
+  'A successful create_task or update_task tool call is required before claiming a task schedule changed.',
   'If external evidence conflicts with memory, history, or another tool result, preserve the uncertainty instead of flattening it into a single confident claim.',
 ];
 const EXECUTION_GUIDANCE_ACTION_LINES = [
   'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',
   'Use send_interim_update sparingly when a short real update or question would help.',
   'When you must ask for missing required user input, ask once, then wait for the reply instead of re-asking in the same run.',
-  'For outbound messages, calls, emails, shared edits, installs, restarts, or scheduled-task mutations, verify the action result before claiming it happened. If user confirmation is required and missing, draft or ask instead of sending.',
+  'For outbound messages, calls, emails, shared edits, installs, restarts, or task mutations, verify the action result before claiming it happened. If user confirmation is required and missing, draft or ask instead of sending.',
   'Retry with alternative tools or approaches when one path fails. If evidence is still insufficient, say so explicitly instead of guessing.',
 ];
 

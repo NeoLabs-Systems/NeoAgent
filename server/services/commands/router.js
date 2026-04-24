@@ -214,7 +214,7 @@ class CommandRouter {
         '- `/status` - show current run/queue status\n' +
         '- `/tools` - list available built-in tools\n' +
         '- `/memory` - quick memory summary\n' +
-        '- `/tasks` - list latest tasks and scheduled jobs\n' +
+        '- `/tasks` - list latest task runs and configured tasks\n' +
         '- `/models` - list currently available models\n' +
         '- `/skills` - list enabled skills\n' +
         '- `/help` - show this message\n\n' +
@@ -288,18 +288,26 @@ class CommandRouter {
 
     if (mode === 'scheduled') {
       const scheduled = db
-        .prepare('SELECT id, name, enabled, cron_expression, run_at, one_time, last_run FROM scheduled_tasks WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC')
+        .prepare('SELECT id, name, enabled, trigger_type, trigger_config, last_run FROM scheduled_tasks WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC')
         .all(userId, agentId);
       if (!scheduled.length) {
-        return { handled: true, content: '**Tasks**\n- No scheduled tasks found.' };
+        return { handled: true, content: '**Tasks**\n- No tasks found.' };
       }
       const lines = scheduled.map((task) => {
-        const scheduleLabel = task.one_time ? `one-time at ${task.run_at || 'unknown'}` : (task.cron_expression || 'unspecified');
-        return `- #${task.id} ${task.name} [${task.enabled ? 'enabled' : 'disabled'}] - ${scheduleLabel}`;
+        let triggerLabel = task.trigger_type || 'schedule';
+        try {
+          const config = JSON.parse(task.trigger_config || '{}') || {};
+          if (triggerLabel === 'schedule') {
+            triggerLabel = config.mode === 'one_time'
+              ? `one-time at ${config.runAt || 'unknown'}`
+              : (config.cronExpression || 'schedule');
+          }
+        } catch {}
+        return `- #${task.id} ${task.name} [${task.enabled ? 'enabled' : 'disabled'}] - ${triggerLabel}`;
       });
       return {
         handled: true,
-        content: `**Scheduled Tasks (${scheduled.length})**\n${lines.join('\n')}`
+        content: `**Tasks (${scheduled.length})**\n${lines.join('\n')}`
       };
     }
 

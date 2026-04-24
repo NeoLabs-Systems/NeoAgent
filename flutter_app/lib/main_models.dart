@@ -2218,14 +2218,15 @@ class ConversationItem {
   final String preview;
 }
 
-class SchedulerTask {
-  const SchedulerTask({
+class TaskItem {
+  const TaskItem({
     required this.id,
     required this.agentId,
     required this.name,
-    required this.cronExpression,
-    required this.runAt,
-    required this.oneTime,
+    required this.triggerType,
+    required this.triggerSummary,
+    required this.triggerConfig,
+    required this.nextRun,
     required this.prompt,
     required this.model,
     required this.enabled,
@@ -2234,25 +2235,43 @@ class SchedulerTask {
     required this.widgetId,
   });
 
-  factory SchedulerTask.fromJson(Map<dynamic, dynamic> json) {
-    final config = json['config'] is Map
+  factory TaskItem.fromJson(Map<dynamic, dynamic> json) {
+    final legacyConfig = json['config'] is Map
         ? Map<String, dynamic>.from(json['config'] as Map)
         : const <String, dynamic>{};
-    return SchedulerTask(
+    final taskConfig = {
+      ...legacyConfig,
+      ...(json['taskConfig'] is Map
+          ? Map<String, dynamic>.from(json['taskConfig'] as Map)
+          : const <String, dynamic>{}),
+    };
+    final triggerConfig = {
+      ...(legacyConfig['triggerConfig'] is Map
+          ? Map<String, dynamic>.from(legacyConfig['triggerConfig'] as Map)
+          : const <String, dynamic>{}),
+      ...(json['triggerConfig'] is Map
+          ? Map<String, dynamic>.from(json['triggerConfig'] as Map)
+          : const <String, dynamic>{}),
+    };
+    final triggerSummary = json['triggerSummary']?.toString() ?? '';
+    return TaskItem(
       id: _asInt(json['id']),
       agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
       name: json['name']?.toString() ?? 'Task',
-      cronExpression: json['cronExpression']?.toString() ?? '',
-      runAt: _parseOptionalTimestamp(json['runAt']?.toString()),
-      oneTime: json['oneTime'] == true,
+      triggerType: json['triggerType']?.toString() ?? 'schedule',
+      triggerSummary: triggerSummary.trim().isEmpty
+          ? 'Task trigger'
+          : triggerSummary,
+      triggerConfig: triggerConfig,
+      nextRun: _parseOptionalTimestamp(json['nextRun']?.toString()),
       prompt:
           json['prompt']?.toString().ifEmpty(
-            config['prompt']?.toString() ?? '',
+            taskConfig['prompt']?.toString() ?? '',
           ) ??
           '',
       model:
           json['model']?.toString().ifEmpty(
-            config['model']?.toString() ?? '',
+            taskConfig['model']?.toString() ?? '',
           ) ??
           '',
       enabled: json['enabled'] != false,
@@ -2264,7 +2283,7 @@ class SchedulerTask {
           'agent_prompt',
       widgetId:
           json['widgetId']?.toString().ifEmpty(
-            config['widgetId']?.toString() ?? '',
+            taskConfig['widgetId']?.toString() ?? '',
           ) ??
           '',
     );
@@ -2273,9 +2292,10 @@ class SchedulerTask {
   final int id;
   final String? agentId;
   final String name;
-  final String cronExpression;
-  final DateTime? runAt;
-  final bool oneTime;
+  final String triggerType;
+  final String triggerSummary;
+  final Map<String, dynamic> triggerConfig;
+  final DateTime? nextRun;
   final String prompt;
   final String model;
   final bool enabled;
@@ -2283,11 +2303,8 @@ class SchedulerTask {
   final String taskType;
   final String widgetId;
 
-  String get scheduleLabel => oneTime
-      ? (runAt == null
-            ? 'One-time run'
-            : 'One-time at ${_formatTimestamp(runAt!)}')
-      : cronExpression;
+  String get scheduleLabel =>
+      triggerSummary.trim().isEmpty ? 'Task trigger' : triggerSummary;
   String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
   bool get hasModelOverride => model.trim().isNotEmpty;
   bool get isWidgetRefresh => taskType == 'widget_refresh';

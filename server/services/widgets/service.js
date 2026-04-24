@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
-const { getMinimumIntervalMinutes } = require('../scheduler/cron_utils');
+const { findNextRun, getMinimumIntervalMinutes } = require('../tasks/schedule_utils');
 
 const MIN_WIDGET_REFRESH_MINUTES = 60;
 
@@ -228,8 +228,8 @@ class WidgetService {
     this.app = app;
   }
 
-  get scheduler() {
-    return this.app?.locals?.scheduler || null;
+  get taskRuntime() {
+    return this.app?.locals?.taskRuntime || null;
   }
 
   get agentEngine() {
@@ -271,11 +271,11 @@ class WidgetService {
       .filter(Boolean);
   }
 
-  createWidget(userId, input = {}) {
+  async createWidget(userId, input = {}) {
     const normalized = normalizeWidgetInput(input, userId);
-    const scheduler = this.scheduler;
-    if (!scheduler) {
-      throw new Error('Scheduler not available.');
+    const taskRuntime = this.taskRuntime;
+    if (!taskRuntime) {
+      throw new Error('Task runtime not available.');
     }
     const widgetId = crypto.randomUUID();
 
@@ -302,9 +302,13 @@ class WidgetService {
 
     let task;
     try {
-      task = scheduler.createTask(userId, {
+      task = await taskRuntime.createTask(userId, {
         name: buildWidgetRefreshTaskName(normalized.name),
-        cronExpression: normalized.refreshCron,
+        triggerType: 'schedule',
+        triggerConfig: {
+          mode: 'recurring',
+          cronExpression: normalized.refreshCron,
+        },
         enabled: normalized.enabled,
         agentId: normalized.agentId,
         taskType: 'widget_refresh',
@@ -323,7 +327,7 @@ class WidgetService {
       ).run(task.id, widgetId, userId);
     } catch (error) {
       try {
-        scheduler.deleteTask(task.id, userId, { allowManaged: true });
+        taskRuntime.deleteTask(task.id, userId, { allowManaged: true });
       } catch {
         // Ignore cleanup failures and rethrow the original DB error.
       }
@@ -333,7 +337,7 @@ class WidgetService {
     return this.getWidget(userId, widgetId);
   }
 
-  updateWidget(userId, widgetId, input = {}) {
+  async updateWidget(userId, widgetId, input = {}) {
     const existingRow = db.prepare('SELECT * FROM ai_widgets WHERE id = ? AND user_id = ?').get(widgetId, userId);
     if (!existingRow) {
       throw new Error('Widget not found.');
@@ -353,9 +357,9 @@ class WidgetService {
       description: input.description,
     }, userId);
 
-    const scheduler = this.scheduler;
-    if (!scheduler) {
-      throw new Error('Scheduler not available.');
+    const taskRuntime = this.taskRuntime;
+    if (!taskRuntime) {
+      throw new Error('Task runtime not available.');
     }
 
     db.prepare('BEGIN').run();
@@ -378,12 +382,16 @@ class WidgetService {
       );
 
       if (existingRow.scheduled_task_id) {
-        scheduler.updateTask(
+        await taskRuntime.updateTask(
           existingRow.scheduled_task_id,
           userId,
           {
             name: buildWidgetRefreshTaskName(normalized.name),
-            cronExpression: normalized.refreshCron,
+            triggerType: 'schedule',
+            triggerConfig: {
+              mode: 'recurring',
+              cronExpression: normalized.refreshCron,
+            },
             enabled: normalized.enabled,
             agentId: normalized.agentId,
             taskConfig: { widgetId },
@@ -391,9 +399,13 @@ class WidgetService {
           { allowManaged: true },
         );
       } else {
-        const task = scheduler.createTask(userId, {
+        const task = await taskRuntime.createTask(userId, {
           name: buildWidgetRefreshTaskName(normalized.name),
-          cronExpression: normalized.refreshCron,
+          triggerType: 'schedule',
+          triggerConfig: {
+            mode: 'recurring',
+            cronExpression: normalized.refreshCron,
+          },
           enabled: normalized.enabled,
           agentId: normalized.agentId,
           taskType: 'widget_refresh',
@@ -411,7 +423,7 @@ class WidgetService {
       try {
         db.prepare('ROLLBACK').run();
       } catch {
-        // Ignore rollback failures and rethrow the original scheduler/DB error.
+        // Ignore rollback failures and rethrow the original task runtime/DB error.
       }
       throw error;
     }
@@ -425,10 +437,10 @@ class WidgetService {
       throw new Error('Widget not found.');
     }
 
-    const scheduler = this.scheduler;
+    const taskRuntime = this.taskRuntime;
     const tx = db.transaction(() => {
-      if (existingRow.scheduled_task_id && scheduler) {
-        scheduler.deleteTask(existingRow.scheduled_task_id, userId, { allowManaged: true });
+      if (existingRow.scheduled_task_id && taskRuntime) {
+        taskRuntime.deleteTask(existingRow.scheduled_task_id, userId, { allowManaged: true });
       }
       db.prepare('DELETE FROM ai_widget_snapshots WHERE widget_id = ?').run(widgetId);
       db.prepare('DELETE FROM ai_widgets WHERE id = ? AND user_id = ?').run(widgetId, userId);
@@ -484,8 +496,8 @@ class WidgetService {
     try {
       const prompt = this._buildRefreshPrompt(widget);
       const result = await engine.run(userId, prompt, {
-        triggerType: 'scheduler',
-        triggerSource: 'scheduler',
+        triggerType: 'schedule',
+        triggerSource: 'tasks',
         agentId: widget.agentId,
         app: this.app,
         taskId: options.taskId || widget.scheduledTaskId || null,
@@ -586,7 +598,7 @@ class WidgetService {
       lastError: row.last_error || null,
       createdAt: row.created_at || null,
       updatedAt: row.updated_at || null,
-      nextRefresh: row.refresh_cron ? this.scheduler?._getNextRun?.(row.refresh_cron) || null : null,
+      nextRefresh: row.refresh_cron ? findNextRun(row.refresh_cron)?.toISOString() || null : null,
       latestSnapshot,
     };
   }

@@ -354,7 +354,7 @@ function getMemoryHealth(engine) {
   });
 }
 
-function getSchedulerHealth(userId, agentId = null) {
+function getTaskHealth(userId, agentId = null) {
   const taskCount = agentId
     ? db.prepare('SELECT COUNT(*) AS count FROM scheduled_tasks WHERE user_id = ? AND agent_id = ?').get(userId, agentId)?.count || 0
     : db.prepare('SELECT COUNT(*) AS count FROM scheduled_tasks WHERE user_id = ?').get(userId)?.count || 0;
@@ -363,8 +363,8 @@ function getSchedulerHealth(userId, agentId = null) {
     configured: true,
     healthy: true,
     summary: taskCount > 0
-      ? `${taskCount} scheduled task(s) exist for this user.`
-      : 'No scheduled tasks are configured.',
+      ? `${taskCount} task(s) exist for this user.`
+      : 'No tasks are configured.',
     details: { taskCount },
   });
 }
@@ -385,7 +385,7 @@ async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
       integrations: getIntegrationHealth(userId, app, agentId),
       mcp: getMcpHealth(userId, app, engine, agentId),
       skills: getSkillHealth(app, engine),
-      scheduler: getSchedulerHealth(userId, agentId),
+      tasks: getTaskHealth(userId, agentId),
     },
   };
 }

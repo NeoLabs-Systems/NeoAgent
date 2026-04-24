@@ -53,7 +53,7 @@ NeoAgent can talk through:
 | IRC and Twitch | IRC-style channel connections |
 | LINE and Mattermost | Native send paths with webhook ingestion |
 | Feishu, Nextcloud Talk, Nostr, Synology Chat, Tlon, Zalo, Zalo Personal, WeChat, and WebChat | Configurable webhook bridges |
-| Telnyx Voice | Inbound and outbound calling with text-to-speech; scheduled tasks can call a number |
+| Telnyx Voice | Inbound and outbound calling with text-to-speech; tasks can call a number |
 
 Messaging channel credentials are configured through the Flutter app messaging tab (not `.env`) for channel setup and inbound callback routing. The generic inbound callback path is:
 

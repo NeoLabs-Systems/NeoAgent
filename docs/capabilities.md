@@ -9,9 +9,9 @@ The Flutter client exposes the main operator surfaces:
 | Section | What it is for |
 |---|---|
 | Chat | Normal agent runs with tools, memory, integrations, and messaging |
-| Runs | Live and historical run steps, including browser, Android, CLI, messaging, scheduler, MCP, and subagent work |
+| Runs | Live and historical run steps, including browser, Android, CLI, messaging, tasks, MCP, and subagent work |
 | Logs | Service logs and diagnostics from the server you are connected to |
-| Scheduler | Recurring cron tasks and one-time future runs |
+| Tasks | Schedule-triggered and integration-triggered automations |
 | Skills | Built-in and custom reusable workflows |
 | Integrations | OAuth account connections for structured app tools |
 | MCP | Remote MCP server registration and tool discovery |
@@ -96,7 +96,7 @@ NeoAgent's agent tool surface includes more than basic chat:
 | HTTP | Direct HTTP requests |
 | Memory | Semantic memory, session search, daily logs, API key name reads, and core memory |
 | Skills | Create, list, update, and delete persistent skills |
-| Scheduler | Recurring tasks, one-time runs, model overrides, and optional Telnyx call delivery |
+| Tasks | Schedule-triggered and integration-triggered automations, one-time runs, model overrides, and optional Telnyx call delivery |
 | MCP | Add, list, and remove MCP servers, plus dynamic MCP tool use |
 | Subagents | Spawn, list, wait for, and cancel async subagents inside a run |
 | Output | Generate markdown tables and Mermaid graphs |

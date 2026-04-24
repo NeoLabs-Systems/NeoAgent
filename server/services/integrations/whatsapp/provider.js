@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
 const db = require('../../../db/database');
@@ -205,8 +206,9 @@ function simplifyMessage(msg = {}, fallbackChatId = '') {
   };
 }
 
-class WhatsAppPersonalProvider {
+class WhatsAppPersonalProvider extends EventEmitter {
   constructor(options = {}) {
+    super();
     this.key = 'whatsapp_personal';
     this.label = 'WhatsApp';
     this.description =
@@ -779,6 +781,24 @@ class WhatsAppPersonalProvider {
       ...existingChat,
       lastMessageAt: simplified.timestamp,
     });
+
+    const userId = target.userId || null;
+    const agentId = target.agentId || null;
+    const connectionId = target.connectionId || null;
+    if (userId && agentId && connectionId && simplified.fromMe !== true) {
+      this.emit('message', {
+        userId,
+        agentId,
+        connectionId,
+        chatId: simplified.chatId,
+        sender: simplified.sender,
+        senderTag: simplified.senderTag,
+        messageId: simplified.id,
+        text: simplified.text,
+        timestamp: simplified.timestamp,
+        isGroup: String(simplified.chatId || '').endsWith('@g.us'),
+      });
+    }
   }
 
   _normalizeChatId(value) {
@@ -900,6 +920,8 @@ class WhatsAppPersonalProvider {
 
     const client = existing || {
       connectionId: connection.id,
+      userId: connection.user_id,
+      agentId: connection.agent_id,
       authDir,
       socket: null,
       chats: new Map(),

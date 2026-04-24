@@ -459,6 +459,7 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     'recordings_list',
     'recordings_get',
     'recordings_search',
+    'list_tasks',
     'wait_subagent',
   ]);
   const stateChangingExact = new Set([
@@ -471,10 +472,9 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     'create_skill',
     'update_skill',
     'delete_skill',
-    'create_scheduled_task',
-    'update_scheduled_task',
-    'delete_scheduled_task',
-    'schedule_run',
+    'create_task',
+    'update_task',
+    'delete_task',
     'create_ai_widget',
     'update_ai_widget',
     'delete_ai_widget',
@@ -503,8 +503,8 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
                   ? 'command'
                   : name.includes('skill')
                     ? 'skills'
-                    : name.includes('scheduled_task') || name === 'schedule_run' || name.includes('widget')
-                      ? 'scheduler'
+                    : (name === 'create_task' || name === 'update_task' || name === 'delete_task' || name === 'list_tasks' || name.includes('widget'))
+                      ? 'tasks'
                       : name === 'send_message' || name === 'make_call'
                         ? 'messaging'
                         : name.startsWith('recordings_') || name === 'read_health_data'
@@ -647,7 +647,7 @@ class AgentEngine {
     this.messagingManager = services.messagingManager || null;
     this.mcpManager = services.mcpManager || services.mcpClient || null;
     this.skillRunner = services.skillRunner || null;
-    this.scheduler = services.scheduler || null;
+    this.taskRuntime = services.taskRuntime || null;
     this.memoryManager = services.memoryManager || null;
     this.voiceRuntimeManager = services.voiceRuntimeManager || null;
   }
@@ -2495,7 +2495,7 @@ class AgentEngine {
       messagingManager: this.messagingManager,
       mcpManager: this.mcpManager,
       skillRunner: this.skillRunner,
-      scheduler: this.scheduler,
+      taskRuntime: this.taskRuntime,
       memoryManager: this.memoryManager,
     });
 
@@ -2832,7 +2832,7 @@ class AgentEngine {
     if (toolName === 'send_message') return 'messaging';
     if (toolName === 'make_call') return 'messaging';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
-    if (toolName.includes('scheduled_task') || toolName === 'schedule_run' || toolName.includes('widget')) return 'scheduler';
+    if (toolName === 'create_task' || toolName === 'update_task' || toolName === 'delete_task' || toolName === 'list_tasks' || toolName.includes('widget')) return 'tasks';
     if (toolName.includes('subagent')) return 'subagent';
     if (toolName === 'think') return 'thinking';
     return 'tool';

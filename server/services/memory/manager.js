@@ -897,15 +897,15 @@ class MemoryManager {
 
       const queryTokens = tokenizeRecallQuery(query);
       if (queryTokens.length) {
-        const recentSchedulerRuns = db.prepare(
+        const recentTaskRuns = db.prepare(
           `SELECT title, final_response, completed_at
            FROM agent_runs
-           WHERE user_id = ? AND agent_id = ? AND trigger_source = 'scheduler' AND status = 'completed'
+           WHERE user_id = ? AND agent_id = ? AND trigger_source IN ('schedule', 'tasks') AND status = 'completed'
            ORDER BY completed_at DESC, created_at DESC
            LIMIT 12`
         ).all(userId, agentId);
 
-        const schedulerMatches = recentSchedulerRuns
+        const taskMatches = recentTaskRuns
           .map((run) => ({
             ...run,
             score: scoreSchedulerRunMatch(queryTokens, run.title, run.final_response),
@@ -913,14 +913,14 @@ class MemoryManager {
           .filter((run) => run.score > 0)
           .slice(0, 3);
 
-        if (schedulerMatches.length) {
-          const schedulerLines = schedulerMatches.map((run) => {
+        if (taskMatches.length) {
+          const taskLines = taskMatches.map((run) => {
             const when = run.completed_at ? String(run.completed_at) : 'unknown time';
-            const title = String(run.title || 'scheduler task').replace(/\s+/g, ' ').trim();
+            const title = String(run.title || 'task').replace(/\s+/g, ' ').trim();
             const outcome = buildExcerpt(String(run.final_response || ''), query) || String(run.final_response || '').slice(0, 180);
             return `- ${when}: ${title} -> ${outcome || '(no final response stored)'}`;
           });
-          sections.push(`Relevant recent scheduler runs:\n${schedulerLines.join('\n')}`);
+          sections.push(`Relevant recent task runs:\n${taskLines.join('\n')}`);
         }
       }
 

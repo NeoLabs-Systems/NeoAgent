@@ -2,9 +2,9 @@
 
 NeoAgent is built for proactive work: tasks that run later, repeat on a schedule, use tools, and notify you when there is something useful to report.
 
-## Scheduler
+## Tasks
 
-Use the **Scheduler** section in the UI to create recurring tasks. A scheduled task has:
+Use the **Tasks** section in the UI to create scheduled automations. These tasks use Cron expressions for time-based scheduling. A task has:
 
 | Field | Purpose |
 |---|---|

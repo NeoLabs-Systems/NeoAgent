@@ -21,7 +21,7 @@ function isTransientOperationalMemory(content) {
 
   const lower = text.toLowerCase();
   const hasRecency = /\b(recent|latest|current|today|tonight|just now|this run|last run)\b/.test(lower);
-  const hasRunEntity = /\b(scheduler|scheduled task|cron job|agent run|task run|workflow run|job run)\b/.test(lower);
+  const hasRunEntity = /\b(task|scheduled run|schedule run|agent run|task run|workflow run|job run)\b/.test(lower);
   const hasExecutionState = /\b(status|completed|succeeded|failed|errored|finished|started|triggered|executed|ran)\b/.test(lower);
 
   if (hasRecency && hasRunEntity && hasExecutionState) {

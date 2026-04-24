@@ -332,13 +332,18 @@ db.exec(`
     user_id INTEGER NOT NULL,
     agent_id TEXT,
     name TEXT NOT NULL,
+    trigger_type TEXT DEFAULT 'schedule',
+    trigger_config TEXT DEFAULT '{}',
     cron_expression TEXT,
     run_at TEXT,
     one_time INTEGER DEFAULT 0,
+    execution_mode TEXT DEFAULT 'prompt',
     task_type TEXT DEFAULT 'agent_prompt',
     task_config TEXT DEFAULT '{}',
     enabled INTEGER DEFAULT 1,
     last_run TEXT,
+    last_triggered_at TEXT,
+    last_trigger_fingerprint TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
@@ -755,12 +760,17 @@ for (const col of [
   "ALTER TABLE integration_connections ADD COLUMN agent_id TEXT",
   "ALTER TABLE integration_oauth_states ADD COLUMN agent_id TEXT",
   "ALTER TABLE scheduled_tasks ADD COLUMN agent_id TEXT",
+  "ALTER TABLE scheduled_tasks ADD COLUMN trigger_type TEXT DEFAULT 'schedule'",
+  "ALTER TABLE scheduled_tasks ADD COLUMN trigger_config TEXT DEFAULT '{}'",
   "ALTER TABLE conversations ADD COLUMN agent_id TEXT",
   "ALTER TABLE conversation_history ADD COLUMN agent_id TEXT",
   "ALTER TABLE memories ADD COLUMN agent_id TEXT",
   "ALTER TABLE core_memory ADD COLUMN agent_id TEXT",
   "ALTER TABLE scheduled_tasks ADD COLUMN run_at TEXT",
   "ALTER TABLE scheduled_tasks ADD COLUMN one_time INTEGER DEFAULT 0",
+  "ALTER TABLE scheduled_tasks ADD COLUMN execution_mode TEXT DEFAULT 'prompt'",
+  "ALTER TABLE scheduled_tasks ADD COLUMN last_triggered_at TEXT",
+  "ALTER TABLE scheduled_tasks ADD COLUMN last_trigger_fingerprint TEXT",
   "ALTER TABLE agent_runs ADD COLUMN prompt_metrics TEXT",
   "ALTER TABLE agent_runs ADD COLUMN metadata_json TEXT",
   "ALTER TABLE agent_runs ADD COLUMN final_response TEXT",
@@ -1285,8 +1295,58 @@ function backfillVerifiedAccountEmails() {
   }
 }
 
+function backfillTaskTriggers() {
+  try {
+    db.prepare(
+      `UPDATE scheduled_tasks
+       SET trigger_type = CASE
+         WHEN COALESCE(trigger_type, '') = '' THEN 'schedule'
+         ELSE trigger_type
+       END`
+    ).run();
+  } catch {}
+
+  try {
+    const rows = db
+      .prepare(
+        `SELECT id, cron_expression, run_at, one_time, trigger_type, trigger_config
+         FROM scheduled_tasks`,
+      )
+      .all();
+    const update = db.prepare(
+      `UPDATE scheduled_tasks
+       SET trigger_type = ?, trigger_config = ?, execution_mode = COALESCE(NULLIF(execution_mode, ''), 'prompt')
+       WHERE id = ?`,
+    );
+    const tx = db.transaction(() => {
+      for (const row of rows) {
+        const triggerType = String(row.trigger_type || 'schedule').trim() || 'schedule';
+        let parsedConfig = {};
+        try {
+          parsedConfig = JSON.parse(String(row.trigger_config || '{}')) || {};
+        } catch {
+          parsedConfig = {};
+        }
+        const hasConfig = parsedConfig && typeof parsedConfig === 'object' && !Array.isArray(parsedConfig) && Object.keys(parsedConfig).length > 0;
+        if (triggerType !== 'schedule' && hasConfig) {
+          update.run(triggerType, JSON.stringify(parsedConfig), row.id);
+          continue;
+        }
+
+        const mode = row.one_time ? 'one_time' : 'recurring';
+        const config = row.one_time
+          ? { mode, runAt: row.run_at || null }
+          : { mode, cronExpression: row.cron_expression || null };
+        update.run('schedule', JSON.stringify(config), row.id);
+      }
+    });
+    tx();
+  } catch {}
+}
+
 backfillAgentIds();
 backfillAgentPolicies();
+backfillTaskTriggers();
 rebuildPlatformConnectionsForAgents();
 rebuildCoreMemoryForAgents();
 migrateIntegrationConnectionsTable();

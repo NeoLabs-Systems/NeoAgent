@@ -10,7 +10,7 @@ neoagent logs
 neoagent restart
 ```
 
-`neoagent status` reports the install root, config path, runtime data paths, release channel, and service state. `neoagent logs` is the first place to look when the service starts but the UI, messaging, OAuth, or scheduled tasks behave unexpectedly.
+`neoagent status` reports the install root, config path, runtime data paths, release channel, and service state. `neoagent logs` is the first place to look when the service starts but the UI, messaging, OAuth, or tasks behave unexpectedly.
 
 ## Release Channels
 

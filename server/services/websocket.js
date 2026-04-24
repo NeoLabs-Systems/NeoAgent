@@ -160,7 +160,7 @@ function recordRateLimitHit(observer, userId, socketId, eventName, retryAfterMs)
 }
 
 function setupWebSocket(io, services) {
-  const { agentEngine, messagingManager, mcpClient, scheduler, memoryManager, voiceRuntimeManager } = services;
+  const { agentEngine, messagingManager, mcpClient, taskRuntime, memoryManager, voiceRuntimeManager } = services;
   const rateLimitObserver = createRateLimitObserver();
   const integrationManager =
     services.integrationManager || services.app?.locals?.integrationManager || null;

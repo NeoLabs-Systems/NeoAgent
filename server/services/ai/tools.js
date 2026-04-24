@@ -92,7 +92,7 @@ function compactToolDefinition(tool, options = {}) {
 }
 
 function isProactiveTrigger(triggerSource) {
-    return triggerSource === 'scheduler';
+    return triggerSource === 'schedule' || triggerSource === 'tasks';
 }
 
 function getRunState(engine, runId) {
@@ -559,7 +559,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'memory_save',
-            description: 'Save ONE specific, self-contained fact to long-term semantic memory. RULES: (1) One discrete fact per call — if you have 10 facts, call this 10 times. (2) The ENTIRE value must be IN the content string itself — never write a pointer/reference like "user shared a profile" or "see chat history for details". That is useless. (3) Content must be a complete statement a stranger could read cold and understand. (4) Only save durable facts, preferences, or stable project context — never save recent scheduler runs, task statuses, execution receipts, or other transient operational logs. GOOD: "XYZ lives in" / "XYZ prefers dark mode". BAD: "User pasted a profile dump" / "XYZ shared lots of details — see chat history" / "XYZ gave a big list of projects" / "Recent scheduler run: backup completed".',
+            description: 'Save ONE specific, self-contained fact to long-term semantic memory. RULES: (1) One discrete fact per call — if you have 10 facts, call this 10 times. (2) The ENTIRE value must be IN the content string itself — never write a pointer/reference like "user shared a profile" or "see chat history for details". That is useless. (3) Content must be a complete statement a stranger could read cold and understand. (4) Only save durable facts, preferences, or stable project context — never save recent task runs, task statuses, execution receipts, or other transient operational logs. GOOD: "XYZ lives in" / "XYZ prefers dark mode". BAD: "User pasted a profile dump" / "XYZ shared lots of details — see chat history" / "XYZ gave a big list of projects" / "Recent task run: backup completed".',
             parameters: {
                 type: 'object',
                 properties: {
@@ -870,68 +870,54 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
-            name: 'create_scheduled_task',
-            description: 'Create a RECURRING scheduled task (cron job). Use this for repeating automations — daily reminders, weekly checks, etc. For a one-time future run, use schedule_run instead.',
+            name: 'create_task',
+            description: 'Create a background task with a named trigger and self-contained prompt.',
             parameters: {
                 type: 'object',
                 properties: {
-                    name: { type: 'string', description: 'Short descriptive name for the task' },
-                    cron_expression: { type: 'string', description: 'Cron expression for the schedule, e.g. "0 9 * * 1-5" for weekdays at 9am, "*/30 * * * *" for every 30 minutes. Use standard 5-field cron syntax.' },
-                    prompt: { type: 'string', description: 'The prompt/instructions the agent will run when triggered. Be specific about what to do and who to notify.' },
-                    enabled: { type: 'boolean', description: 'Whether to activate immediately (default true)' },
-                    model: { type: 'string', description: 'Optional specific AI model ID to force for this task. Omit to use the normal automatic/default model selection.' },
-                    call_to: { type: 'string', description: 'E.164 phone number to call via Telnyx when this task fires, e.g. "+12125550100".' },
-                    call_greeting: { type: 'string', description: 'Opening sentence spoken to the user when the call is answered. Required if call_to is set.' }
+                    name: { type: 'string', description: 'Short descriptive name for the task.' },
+                    trigger_type: { type: 'string', description: 'Trigger type such as schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, or whatsapp_personal_message_received.' },
+                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object.' },
+                    prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
+                    enabled: { type: 'boolean', description: 'Whether to activate immediately.' },
+                    model: { type: 'string', description: 'Optional model override.' },
+                    call_to: { type: 'string', description: 'Optional E.164 phone number to call via Telnyx when this task fires.' },
+                    call_greeting: { type: 'string', description: 'Optional spoken greeting hint for make_call.' }
                 },
-                required: ['name', 'cron_expression', 'prompt']
+                required: ['name', 'trigger_type', 'trigger_config', 'prompt']
             }
         },
         {
-            name: 'schedule_run',
-            description: 'Schedule a ONE-TIME agent run at a specific future datetime. The run fires once, then is automatically deleted. Use this for reminders, delayed tasks, or anything the user wants done at a specific time. Accepts any ISO 8601 datetime string.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    name: { type: 'string', description: 'Short descriptive name, e.g. "Remind about meeting"' },
-                    run_at: { type: 'string', description: 'ISO 8601 datetime when the run should fire, e.g. "2026-03-09T22:00:00"' },
-                    prompt: { type: 'string', description: 'The prompt/instructions the agent will execute at that time. Be specific.' },
-                    model: { type: 'string', description: 'Optional specific AI model ID to force for this run. Omit to use the normal automatic/default model selection.' },
-                    call_to: { type: 'string', description: 'Optional E.164 phone number to call via Telnyx when this fires.' },
-                    call_greeting: { type: 'string', description: 'Opening sentence spoken when the Telnyx call is answered.' }
-                },
-                required: ['name', 'run_at', 'prompt']
-            }
-        },
-        {
-            name: 'list_scheduled_tasks',
-            description: 'List all scheduled tasks/cron jobs for this user.',
+            name: 'list_tasks',
+            description: 'List all tasks for this user and agent.',
             parameters: { type: 'object', properties: {} }
         },
         {
-            name: 'delete_scheduled_task',
-            description: 'Delete a scheduled task by its ID.',
+            name: 'delete_task',
+            description: 'Delete a task by its ID.',
             parameters: {
                 type: 'object',
                 properties: {
-                    task_id: { type: 'number', description: 'The numeric ID of the task to delete (get it from list_scheduled_tasks)' }
+                    task_id: { type: 'number', description: 'The numeric ID of the task to delete.' }
                 },
                 required: ['task_id']
             }
         },
         {
-            name: 'update_scheduled_task',
-            description: 'Update an existing scheduled task — change its name, schedule, prompt, enabled state, or Telnyx call settings.',
+            name: 'update_task',
+            description: 'Update an existing task, including its trigger, prompt, or enabled state.',
             parameters: {
                 type: 'object',
                 properties: {
-                    task_id: { type: 'number', description: 'The numeric ID of the task to update (get it from list_scheduled_tasks)' },
-                    name: { type: 'string', description: 'New name for the task' },
-                    cron_expression: { type: 'string', description: 'New cron expression, e.g. "0 8 * * *" for daily at 8am' },
-                    prompt: { type: 'string', description: 'New prompt/instructions for the task' },
-                    enabled: { type: 'boolean', description: 'Enable or disable the task' },
-                    model: { type: 'string', description: 'Specific AI model ID for this task. Set to empty string to clear the override and go back to automatic/default selection.' },
-                    call_to: { type: 'string', description: 'E.164 phone number to call via Telnyx when this task fires. Set to empty string to remove.' },
-                    call_greeting: { type: 'string', description: 'New opening sentence spoken when the Telnyx call is answered.' }
+                    task_id: { type: 'number', description: 'The numeric ID of the task to update.' },
+                    name: { type: 'string', description: 'New name for the task.' },
+                    trigger_type: { type: 'string', description: 'Updated trigger type.' },
+                    trigger_config: { type: 'object', description: 'Updated trigger-specific configuration.' },
+                    prompt: { type: 'string', description: 'Updated task prompt.' },
+                    enabled: { type: 'boolean', description: 'Enable or disable the task.' },
+                    model: { type: 'string', description: 'Specific AI model ID for this task. Set to empty string to clear the override.' },
+                    call_to: { type: 'string', description: 'Optional E.164 phone number to call via Telnyx when this task fires. Set to empty string to remove.' },
+                    call_greeting: { type: 'string', description: 'Updated spoken greeting hint.' }
                 },
                 required: ['task_id']
             }
@@ -1151,7 +1137,7 @@ function getAvailableTools(app, options = {}) {
         tools.push(...integrationTools);
     }
 
-    if (options.triggerSource === 'scheduler' && options.widgetId) {
+    if ((options.triggerSource === 'schedule' || options.triggerSource === 'tasks') && options.widgetId) {
         tools.push({
             name: 'save_widget_snapshot',
             description: 'Save the refreshed structured snapshot for the widget that is currently being updated. Call this exactly once per widget refresh run.',
@@ -1246,7 +1232,7 @@ async function executeTool(toolName, args, context, engine) {
     const mcp = () => app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
     const integrations = () => app?.locals?.integrationManager || null;
     const sk = () => app?.locals?.skillRunner || engine.skillRunner;
-    const sched = () => app?.locals?.scheduler || engine.scheduler;
+    const taskRuntime = () => app?.locals?.taskRuntime || engine.taskRuntime;
     const rec = () => app?.locals?.recordingManager || null;
     const widgets = () => app?.locals?.widgetService || null;
 
@@ -1837,7 +1823,7 @@ async function executeTool(toolName, args, context, engine) {
                 return {
                     called: false,
                     skipped: true,
-                    reason: 'A proactive notification was already sent in this scheduler run; duplicate make_call was suppressed.'
+                    reason: 'A proactive notification was already sent in this task run; duplicate make_call was suppressed.'
                 };
             }
 
@@ -1896,7 +1882,7 @@ async function executeTool(toolName, args, context, engine) {
                 return {
                     sent: false,
                     skipped: true,
-                    reason: 'A proactive message was already sent in this scheduler run; duplicate send_message was suppressed.'
+                    reason: 'A proactive message was already sent in this task run; duplicate send_message was suppressed.'
                 };
             }
 
@@ -1904,7 +1890,7 @@ async function executeTool(toolName, args, context, engine) {
                 agentId,
                 mediaPath: args.media_path,
                 runId,
-                persistConversation: triggerSource === 'scheduler'
+                persistConversation: triggerSource === 'schedule' || triggerSource === 'tasks'
             });
             // Track that the agent explicitly sent a message during this run
             if (!suppressReply && sendResult?.suppressed !== true) {
@@ -2104,7 +2090,7 @@ async function executeTool(toolName, args, context, engine) {
             const message = typeof args.message === 'string' ? args.message.trim() : '';
             if (!message) return { error: 'message is required' };
 
-            if (triggerSource === 'scheduler') {
+            if (triggerSource === 'schedule' || triggerSource === 'tasks') {
                 const manager = msg();
                 if (!manager) {
                     throw new Error('Messaging manager not available');
@@ -2120,7 +2106,7 @@ async function executeTool(toolName, args, context, engine) {
                     return {
                         sent: false,
                         skipped: true,
-                        reason: 'A notification was already sent in this run; duplicate scheduler message was suppressed.'
+                        reason: 'A notification was already sent in this run; duplicate task message was suppressed.'
                     };
                 }
 
@@ -2140,7 +2126,7 @@ async function executeTool(toolName, args, context, engine) {
 
                 let taskConfig = null;
                 let taskTarget = null;
-                if (triggerSource === 'scheduler' && taskId) {
+                if ((triggerSource === 'schedule' || triggerSource === 'tasks') && taskId) {
                     const task = db.prepare('SELECT task_config FROM scheduled_tasks WHERE id = ? AND user_id = ?')
                         .get(taskId, userId);
                     if (task?.task_config) {
@@ -2169,7 +2155,7 @@ async function executeTool(toolName, args, context, engine) {
                 addCandidate(fallbackTarget);
 
                 if (candidateTargets.length === 0) {
-                    throw new Error('No messaging target is configured for this scheduled run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.');
+                    throw new Error('No messaging target is configured for this task run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.');
                 }
 
                 let lastError = null;
@@ -2208,20 +2194,21 @@ async function executeTool(toolName, args, context, engine) {
                     }
                 }
 
-                throw (lastError || new Error('Failed to deliver scheduled notification.'));
+                throw (lastError || new Error('Failed to deliver task notification.'));
             }
 
             engine.emit(userId, 'run:interim', { runId, message });
             return { sent: true, via: 'interim' };
         }
 
-        case 'create_scheduled_task': {
-            const s = sched();
-            if (!s) return { error: 'Scheduler not available' };
+        case 'create_task': {
+            const s = taskRuntime();
+            if (!s) return { error: 'Task runtime not available' };
             try {
-                const task = s.createTask(userId, {
+                const task = await s.createTask(userId, {
                     name: args.name,
-                    cronExpression: args.cron_expression,
+                    triggerType: args.trigger_type,
+                    triggerConfig: args.trigger_config,
                     prompt: args.prompt,
                     enabled: args.enabled !== false,
                     model: args.model || null,
@@ -2229,46 +2216,25 @@ async function executeTool(toolName, args, context, engine) {
                     callGreeting: args.call_greeting || null,
                     agentId
                 });
-                const callNote = args.call_to ? ` | will call ${args.call_to}` : '';
-                return { success: true, task, message: `Scheduled task "${args.name}" created(${args.cron_expression}${callNote})` };
+                return { success: true, task, message: `Task "${args.name}" created.` };
             } catch (err) {
                 return { error: err.message };
             }
         }
 
-        case 'schedule_run': {
-            const s = sched();
-            if (!s) return { error: 'Scheduler not available' };
-            try {
-                const task = s.createTask(userId, {
-                    name: args.name,
-                    prompt: args.prompt,
-                    runAt: args.run_at,
-                    oneTime: true,
-                    model: args.model || null,
-                    callTo: args.call_to || null,
-                    callGreeting: args.call_greeting || null,
-                    agentId
-                });
-                return { success: true, task, message: `One-time run "${args.name}" scheduled for ${args.run_at}` };
-            } catch (err) {
-                return { error: err.message };
-            }
-        }
-
-        case 'list_scheduled_tasks': {
-            const s = sched();
-            if (!s) return { error: 'Scheduler not available' };
+        case 'list_tasks': {
+            const s = taskRuntime();
+            if (!s) return { error: 'Task runtime not available' };
             const tasks = s.listTasks(userId).filter((task) => !agentId || task.agentId === agentId);
             return { tasks, count: tasks.length };
         }
 
-        case 'delete_scheduled_task': {
-            const s = sched();
-            if (!s) return { error: 'Scheduler not available' };
+        case 'delete_task': {
+            const s = taskRuntime();
+            if (!s) return { error: 'Task runtime not available' };
             try {
                 const task = db.prepare('SELECT agent_id FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(args.task_id, userId);
-                if (!task || task.agent_id !== agentId) return { error: 'Scheduled task not found for this agent.' };
+                if (!task || task.agent_id !== agentId) return { error: 'Task not found for this agent.' };
                 s.deleteTask(args.task_id, userId);
                 return { success: true, deleted: args.task_id };
             } catch (err) {
@@ -2276,21 +2242,22 @@ async function executeTool(toolName, args, context, engine) {
             }
         }
 
-        case 'update_scheduled_task': {
-            const s = sched();
-            if (!s) return { error: 'Scheduler not available' };
+        case 'update_task': {
+            const s = taskRuntime();
+            if (!s) return { error: 'Task runtime not available' };
             try {
                 const existing = db.prepare('SELECT agent_id FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(args.task_id, userId);
-                if (!existing || existing.agent_id !== agentId) return { error: 'Scheduled task not found for this agent.' };
+                if (!existing || existing.agent_id !== agentId) return { error: 'Task not found for this agent.' };
                 const updates = {};
                 if (args.name !== undefined) updates.name = args.name;
-                if (args.cron_expression !== undefined) updates.cronExpression = args.cron_expression;
+                if (args.trigger_type !== undefined) updates.triggerType = args.trigger_type;
+                if (args.trigger_config !== undefined) updates.triggerConfig = args.trigger_config;
                 if (args.prompt !== undefined) updates.prompt = args.prompt;
                 if (args.enabled !== undefined) updates.enabled = args.enabled;
                 if (args.model !== undefined) updates.model = args.model || null;
                 if (args.call_to !== undefined) updates.callTo = args.call_to || null;
                 if (args.call_greeting !== undefined) updates.callGreeting = args.call_greeting || null;
-                const updated = s.updateTask(args.task_id, userId, updates);
+                const updated = await s.updateTask(args.task_id, userId, updates);
                 return { success: true, task: updated };
             } catch (err) {
                 return { error: err.message };
@@ -2301,7 +2268,7 @@ async function executeTool(toolName, args, context, engine) {
             const widgetService = widgets();
             if (!widgetService) return { error: 'Widget service not available' };
             try {
-                const widget = widgetService.createWidget(userId, {
+                const widget = await widgetService.createWidget(userId, {
                     name: args.name,
                     template: args.template,
                     layoutVariant: args.layout_variant,
@@ -2352,7 +2319,7 @@ async function executeTool(toolName, args, context, engine) {
                 if (!existing || existing.agentId !== agentId) {
                     return { error: 'Widget not found for this agent.' };
                 }
-                const widget = widgetService.updateWidget(userId, args.widget_id, {
+                const widget = await widgetService.updateWidget(userId, args.widget_id, {
                     name: args.name,
                     template: args.template,
                     layoutVariant: args.layout_variant,

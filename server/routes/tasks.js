@@ -3,79 +3,81 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
-const cron = require('node-cron');
 
 router.use(requireAuth);
 
-// List scheduled tasks
 router.get('/', (req, res) => {
-  const scheduler = req.app.locals.scheduler;
-  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-  res.json(scheduler.listTasks(req.session.userId, { agentId }));
+  try {
+    const tasks = req.app.locals.taskRuntime;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    res.json(tasks.listTasks(req.session.userId, { agentId }));
+  } catch (error) {
+    (req.app.locals.logger?.error || console.error)('[Tasks] Failed to list tasks', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-// Create a new scheduled task
-router.post('/', (req, res) => {
+router.get('/catalog', (req, res) => {
   try {
-    const { name, cronExpression, prompt, enabled, model } = req.body;
+    const tasks = req.app.locals.taskRuntime;
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    if (!name || !cronExpression || !prompt) {
-      return res.status(400).json({ error: 'name, cronExpression, and prompt required' });
-    }
-    if (!cron.validate(String(cronExpression))) {
-      return res.status(400).json({ error: 'Invalid cron expression' });
-    }
+    res.json(tasks.getTriggerCatalog(req.session.userId, { agentId }));
+  } catch (error) {
+    (req.app.locals.logger?.error || console.error)('[Tasks] Failed to load trigger catalog', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
-    const scheduler = req.app.locals.scheduler;
-    const task = scheduler.createTask(req.session.userId, { name, cronExpression, prompt, enabled, model, agentId });
+router.post('/', async (req, res) => {
+  try {
+    const tasks = req.app.locals.taskRuntime;
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const task = await tasks.createTask(req.session.userId, {
+      ...req.body,
+      agentId,
+    });
     res.status(201).json(task);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }
 });
 
-// Update a scheduled task
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const taskId = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(taskId) || taskId <= 0) {
       return res.status(400).json({ error: 'Invalid task id' });
     }
-    if (req.body?.cronExpression !== undefined && !cron.validate(String(req.body.cronExpression))) {
-      return res.status(400).json({ error: 'Invalid cron expression' });
-    }
-    const scheduler = req.app.locals.scheduler;
-    const task = scheduler.updateTask(taskId, req.session.userId, req.body);
+    const tasks = req.app.locals.taskRuntime;
+    const task = await tasks.updateTask(taskId, req.session.userId, req.body);
     res.json(task);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }
 });
 
-// Delete a scheduled task
 router.delete('/:id', (req, res) => {
   try {
     const taskId = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(taskId) || taskId <= 0) {
       return res.status(400).json({ error: 'Invalid task id' });
     }
-    const scheduler = req.app.locals.scheduler;
-    scheduler.deleteTask(taskId, req.session.userId);
+    const tasks = req.app.locals.taskRuntime;
+    tasks.deleteTask(taskId, req.session.userId);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }
 });
 
-// Run a task immediately
 router.post('/:id/run', (req, res) => {
   try {
     const taskId = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(taskId) || taskId <= 0) {
       return res.status(400).json({ error: 'Invalid task id' });
     }
-    const scheduler = req.app.locals.scheduler;
-    const result = scheduler.runTaskNow(taskId, req.session.userId);
+    const tasks = req.app.locals.taskRuntime;
+    const result = tasks.runTaskNow(taskId, req.session.userId);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });

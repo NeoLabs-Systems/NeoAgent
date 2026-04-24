@@ -1279,18 +1279,19 @@ class BackendClient {
     );
   }
 
-  Future<List<Map<String, dynamic>>> fetchSchedulerTasks(
+  Future<List<Map<String, dynamic>>> fetchTasks(
     String baseUrl, {
     String? agentId,
   }) async {
-    return getList(baseUrl, _withAgentQuery('/api/scheduler', agentId));
+    return getList(baseUrl, _withAgentQuery('/api/tasks', agentId));
   }
 
-  Future<Map<String, dynamic>> saveSchedulerTask(
+  Future<Map<String, dynamic>> saveTask(
     String baseUrl, {
     int? id,
     required String name,
-    required String cronExpression,
+    required String triggerType,
+    required Map<String, dynamic> triggerConfig,
     required String prompt,
     String? model,
     bool enabled = true,
@@ -1298,28 +1299,29 @@ class BackendClient {
   }) async {
     final payload = _withAgentId(<String, dynamic>{
       'name': name,
-      'cronExpression': cronExpression,
+      'triggerType': triggerType,
+      'triggerConfig': triggerConfig,
       'prompt': prompt,
       'model': model,
       'enabled': enabled,
     }, agentId);
-    return _saveByOptionalId(baseUrl, '/api/scheduler', id, payload);
+    return _saveByOptionalId(baseUrl, '/api/tasks', id, payload);
   }
 
-  Future<Map<String, dynamic>> updateSchedulerTask(
+  Future<Map<String, dynamic>> updateTask(
     String baseUrl,
     int id,
     Map<String, dynamic> payload,
   ) async {
-    return putMap(baseUrl, '/api/scheduler/$id', payload);
+    return putMap(baseUrl, '/api/tasks/$id', payload);
   }
 
-  Future<Map<String, dynamic>> runSchedulerTask(String baseUrl, int id) async {
-    return _postEmpty(baseUrl, '/api/scheduler/$id/run');
+  Future<Map<String, dynamic>> runSavedTask(String baseUrl, int id) async {
+    return _postEmpty(baseUrl, '/api/tasks/$id/run');
   }
 
-  Future<void> deleteSchedulerTask(String baseUrl, int id) async {
-    await deleteMap(baseUrl, '/api/scheduler/$id');
+  Future<void> deleteTask(String baseUrl, int id) async {
+    await deleteMap(baseUrl, '/api/tasks/$id');
   }
 
   Future<List<Map<String, dynamic>>> fetchWidgets(

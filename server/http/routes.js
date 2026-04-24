@@ -18,7 +18,7 @@ const routeRegistry = [
   { basePath: '/api/store', modulePath: '../routes/store' },
   { basePath: '/api/artifacts', modulePath: '../routes/artifacts' },
   { basePath: '/api/memory', modulePath: '../routes/memory' },
-  { basePath: '/api/scheduler', modulePath: '../routes/scheduler' },
+  { basePath: '/api/tasks', modulePath: '../routes/tasks' },
   { basePath: '/api/widgets', modulePath: '../routes/widgets' },
   { basePath: '/api/browser', modulePath: '../routes/browser' },
   { basePath: '/api/browser-extension', modulePath: '../routes/browser_extension' },

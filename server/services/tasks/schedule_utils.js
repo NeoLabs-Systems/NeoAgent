@@ -1,3 +1,5 @@
+'use strict';
+
 const MINUTE_MS = 60 * 1000;
 const MONTH_NAMES = new Map([
   ['jan', 1],

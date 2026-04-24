@@ -155,7 +155,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
-    case 'list_scheduled_tasks':
+    case 'list_tasks':
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',
@@ -167,9 +167,8 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           ? toolResult.tasks.slice(0, 8).map((task) => trimObject({
             id: task?.id,
             name: task?.name,
-            cronExpression: task?.cronExpression,
-            ...(task?.oneTime ? { runAt: task?.runAt } : {}),
-            oneTime: task?.oneTime,
+            triggerType: task?.triggerType,
+            triggerSummary: task?.triggerSummary,
             enabled: task?.enabled,
             ...(task?.model ? { model: task.model } : {})
           }))
@@ -217,10 +216,9 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'memory_update_core':
     case 'memory_read':
     case 'memory_write':
-    case 'create_scheduled_task':
-    case 'schedule_run':
-    case 'delete_scheduled_task':
-    case 'update_scheduled_task':
+    case 'create_task':
+    case 'delete_task':
+    case 'update_task':
     case 'create_ai_widget':
     case 'update_ai_widget':
     case 'delete_ai_widget':

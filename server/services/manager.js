@@ -10,7 +10,7 @@ const { MultiStepOrchestrator } = require('./ai/multiStep');
 const { SkillRunner } = require('./ai/toolRunner');
 const { CommandRouter } = require('./commands/router');
 const { MessagingManager } = require('./messaging/manager');
-const { Scheduler } = require('./scheduler/cron');
+const { TaskRuntime } = require('./tasks/runtime');
 const { WidgetService } = require('./widgets/service');
 const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
@@ -445,12 +445,12 @@ function restoreMcpClients(mcpClient) {
   }
 }
 
-function startScheduler(app, io, agentEngine) {
-  const scheduler = registerLocal(app, 'scheduler', new Scheduler(io, agentEngine, app));
-  agentEngine.scheduler = scheduler;
-  scheduler.start();
-  logServiceReady('Scheduler started');
-  return scheduler;
+function startTaskRuntime(app, io, agentEngine) {
+  const taskRuntime = registerLocal(app, 'taskRuntime', new TaskRuntime(io, agentEngine, app));
+  agentEngine.taskRuntime = taskRuntime;
+  taskRuntime.start();
+  logServiceReady('Task runtime started');
+  return taskRuntime;
 }
 
 function configureRealtime(app, io, services) {
@@ -459,7 +459,7 @@ function configureRealtime(app, io, services) {
     messagingManager: services.messagingManager,
     mcpClient: services.mcpClient,
     integrationManager: services.integrationManager,
-    scheduler: services.scheduler,
+    taskRuntime: services.taskRuntime,
     recordingManager: services.recordingManager,
     memoryManager: services.memoryManager,
     voiceRuntimeManager: services.voiceRuntimeManager,
@@ -524,14 +524,14 @@ async function startServices(app, io) {
       agentEngine,
     });
 
-    const scheduler = startScheduler(app, io, agentEngine);
+    const taskRuntime = startTaskRuntime(app, io, agentEngine);
 
     configureRealtime(app, io, {
       agentEngine,
       messagingManager,
       integrationManager,
       mcpClient,
-      scheduler,
+      taskRuntime,
       recordingManager,
       memoryManager,
       voiceRuntimeManager,
@@ -551,12 +551,12 @@ async function stopServices(app) {
   const tasks = [];
   console.log('[Services] Stopping services');
 
-  if (app.locals.scheduler) {
+  if (app.locals.taskRuntime) {
     try {
-      app.locals.scheduler.stop();
-      logServiceReady('Scheduler stopped');
+      app.locals.taskRuntime.stop();
+      logServiceReady('Task runtime stopped');
     } catch (err) {
-      console.error('[Scheduler] Stop error:', getErrorMessage(err));
+      console.error('[Tasks] Stop error:', getErrorMessage(err));
     }
   }
 

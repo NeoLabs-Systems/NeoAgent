@@ -109,7 +109,7 @@ enum AppSection {
   agents,
   integrations,
   memory,
-  scheduler,
+  tasks,
   widgets,
   mcp,
   health,
@@ -182,8 +182,8 @@ extension AppSectionX on AppSection {
         return 'Integrations';
       case AppSection.memory:
         return 'Memory';
-      case AppSection.scheduler:
-        return 'Scheduler';
+      case AppSection.tasks:
+        return 'Tasks';
       case AppSection.widgets:
         return 'Widgets';
       case AppSection.mcp:
@@ -221,7 +221,7 @@ extension AppSectionX on AppSection {
         return Icons.integration_instructions_outlined;
       case AppSection.memory:
         return Icons.psychology_outlined;
-      case AppSection.scheduler:
+      case AppSection.tasks:
         return Icons.schedule_outlined;
       case AppSection.widgets:
         return Icons.dashboard_customize_outlined;
@@ -246,7 +246,7 @@ extension AppSectionX on AppSection {
       case AppSection.skills:
       case AppSection.integrations:
       case AppSection.memory:
-      case AppSection.scheduler:
+      case AppSection.tasks:
       case AppSection.widgets:
       case AppSection.mcp:
       case AppSection.health:
@@ -1228,7 +1228,7 @@ class NeoAgentController extends ChangeNotifier {
   List<MemoryItem> memories = const <MemoryItem>[];
   List<MemoryItem> memoryRecallResults = const <MemoryItem>[];
   List<ConversationItem> memoryConversations = const <ConversationItem>[];
-  List<SchedulerTask> schedulerTasks = const <SchedulerTask>[];
+  List<TaskItem> taskItems = const <TaskItem>[];
   List<AiWidgetItem> widgets = const <AiWidgetItem>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
   Map<String, dynamic> browserRuntime = const <String, dynamic>{};
@@ -2541,7 +2541,7 @@ class NeoAgentController extends ChangeNotifier {
     memories = const <MemoryItem>[];
     memoryRecallResults = const <MemoryItem>[];
     memoryConversations = const <ConversationItem>[];
-    schedulerTasks = const <SchedulerTask>[];
+    taskItems = const <TaskItem>[];
     widgets = const <AiWidgetItem>[];
     mcpServers = const <McpServerItem>[];
     browserRuntime = const <String, dynamic>{};
@@ -2992,9 +2992,9 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchConversations(backendUrl, agentId: agentId),
         const <Map<String, dynamic>>[],
       );
-      final schedulerFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
-        'scheduler_tasks',
-        _backendClient.fetchSchedulerTasks(backendUrl, agentId: agentId),
+      final tasksFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
+        'tasks',
+        _backendClient.fetchTasks(backendUrl, agentId: agentId),
         const <Map<String, dynamic>>[],
       );
       final widgetsFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
@@ -3061,7 +3061,7 @@ class NeoAgentController extends ChangeNotifier {
       final memoryResponse = await memoryFuture;
       final memoriesResponse = await memoriesFuture;
       final conversationsResponse = await conversationsFuture;
-      final schedulerResponse = await schedulerFuture;
+      final tasksResponse = await tasksFuture;
       final widgetsResponse = await widgetsFuture;
       final mcpResponse = await mcpFuture;
       final recordingsResponse = await recordingsFuture;
@@ -3139,10 +3139,10 @@ class NeoAgentController extends ChangeNotifier {
         conversationsResponse,
         ConversationItem.fromJson,
       );
-      schedulerTasks = _decodeModelList(
-        'scheduler_tasks',
-        schedulerResponse,
-        SchedulerTask.fromJson,
+      taskItems = _decodeModelList(
+        'tasks',
+        tasksResponse,
+        TaskItem.fromJson,
       );
       widgets = _decodeModelList(
         'widgets',
@@ -3367,14 +3367,14 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refreshScheduler() async {
-    schedulerTasks = _decodeModelList(
-      'scheduler_tasks',
-      await _backendClient.fetchSchedulerTasks(
+  Future<void> refreshTasks() async {
+    taskItems = _decodeModelList(
+      'tasks',
+      await _backendClient.fetchTasks(
         backendUrl,
         agentId: _scopedAgentId,
       ),
-      SchedulerTask.fromJson,
+      TaskItem.fromJson,
     );
     notifyListeners();
   }
@@ -6162,26 +6162,28 @@ class NeoAgentController extends ChangeNotifier {
     await refreshMemory();
   }
 
-  Future<void> saveSchedulerTask({
+  Future<void> saveTask({
     int? id,
     required String name,
-    required String cronExpression,
+    required String triggerType,
+    required Map<String, dynamic> triggerConfig,
     required String prompt,
     String? model,
     bool enabled = true,
     String? agentId,
   }) async {
-    await _backendClient.saveSchedulerTask(
+    await _backendClient.saveTask(
       backendUrl,
       id: id,
       name: name,
-      cronExpression: cronExpression,
+      triggerType: triggerType,
+      triggerConfig: triggerConfig,
       prompt: prompt,
       model: model,
       enabled: enabled,
       agentId: agentId ?? _scopedAgentId,
     );
-    await refreshScheduler();
+    await refreshTasks();
   }
 
   String _manualRunCooldownKey(String scope, String id) => '$scope:$id';
@@ -6225,11 +6227,9 @@ class NeoAgentController extends ChangeNotifier {
     return remaining <= 0 ? 0 : remaining + 1;
   }
 
-  bool canRunSchedulerTaskNow(int id) =>
-      _manualRunCooldownSeconds('scheduler', '$id') == 0;
+  bool canRunTaskNow(int id) => _manualRunCooldownSeconds('task', '$id') == 0;
 
-  int schedulerRunCooldownSeconds(int id) =>
-      _manualRunCooldownSeconds('scheduler', '$id');
+  int taskRunCooldownSeconds(int id) => _manualRunCooldownSeconds('task', '$id');
 
   bool canRefreshWidgetNow(String id) =>
       _manualRunCooldownSeconds('widget', id) == 0;
@@ -6252,7 +6252,7 @@ class NeoAgentController extends ChangeNotifier {
       },
     );
     await refreshWidgets();
-    await refreshScheduler();
+    await refreshTasks();
   }
 
   Future<void> refreshWidgetNow(String id) async {
@@ -6263,7 +6263,7 @@ class NeoAgentController extends ChangeNotifier {
     _startManualRunCooldown('widget', id);
     await _backendClient.refreshWidget(backendUrl, id);
     await refreshWidgets();
-    await refreshScheduler();
+    await refreshTasks();
     await refreshRunsOnly();
   }
 
@@ -6274,7 +6274,7 @@ class NeoAgentController extends ChangeNotifier {
         ? _selectedWidgetId
         : (widgets.isEmpty ? null : widgets.first.id);
     notifyListeners();
-    await refreshScheduler();
+    await refreshTasks();
   }
 
   void openWidgetCreateFlow() {
@@ -6343,30 +6343,30 @@ class NeoAgentController extends ChangeNotifier {
     return widgets.isEmpty ? null : widgets.first;
   }
 
-  Future<void> toggleSchedulerTask(SchedulerTask task) async {
+  Future<void> toggleTask(TaskItem task) async {
     await _backendClient
-        .updateSchedulerTask(backendUrl, task.id, <String, dynamic>{
+        .updateTask(backendUrl, task.id, <String, dynamic>{
           'enabled': !task.enabled,
           if (task.agentId != null && task.agentId!.isNotEmpty)
             'agentId': task.agentId,
         });
-    await refreshScheduler();
+    await refreshTasks();
   }
 
-  Future<void> runSchedulerTask(int id) async {
-    if (!canRunSchedulerTaskNow(id)) {
+  Future<void> runTaskNow(int id) async {
+    if (!canRunTaskNow(id)) {
       notifyListeners();
       return;
     }
-    _startManualRunCooldown('scheduler', '$id');
-    await _backendClient.runSchedulerTask(backendUrl, id);
-    await refreshScheduler();
+    _startManualRunCooldown('task', '$id');
+    await _backendClient.runSavedTask(backendUrl, id);
+    await refreshTasks();
     await refreshRunsOnly();
   }
 
-  Future<void> deleteSchedulerTask(int id) async {
-    await _backendClient.deleteSchedulerTask(backendUrl, id);
-    await refreshScheduler();
+  Future<void> deleteTask(int id) async {
+    await _backendClient.deleteTask(backendUrl, id);
+    await refreshTasks();
   }
 
   Future<void> saveMcpServer({
@@ -7686,7 +7686,9 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   bool _isBackgroundRun(String triggerSource) {
-    return triggerSource == 'scheduler' || triggerSource == 'messaging';
+    return triggerSource == 'schedule' ||
+        triggerSource == 'tasks' ||
+        triggerSource == 'messaging';
   }
 
   String _socketOrigin() {
@@ -20370,22 +20372,255 @@ _WidgetPreviewPalette _widgetPreviewPalette(
   );
 }
 
-class SchedulerPanel extends StatefulWidget {
-  const SchedulerPanel({super.key, required this.controller});
+class _TaskTriggerOption {
+  const _TaskTriggerOption({
+    required this.type,
+    required this.section,
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
+
+  final String type;
+  final String section;
+  final String label;
+  final String description;
+  final IconData icon;
+}
+
+const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
+  _TaskTriggerOption(
+    type: 'schedule',
+    section: 'Time',
+    label: 'Schedule',
+    description: 'Cron-based recurring runs and one-time timed execution.',
+    icon: Icons.schedule_rounded,
+  ),
+  _TaskTriggerOption(
+    type: 'gmail_message_received',
+    section: 'Email',
+    label: 'Gmail Message Received',
+    description: 'Run when a matching Gmail message arrives.',
+    icon: Icons.mail_rounded,
+  ),
+  _TaskTriggerOption(
+    type: 'outlook_email_received',
+    section: 'Email',
+    label: 'Outlook Email Received',
+    description: 'Run when a matching Outlook email arrives.',
+    icon: Icons.markunread_rounded,
+  ),
+  _TaskTriggerOption(
+    type: 'slack_message_received',
+    section: 'Messaging',
+    label: 'Slack Message Received',
+    description: 'Run when a Slack message matches the selected scope.',
+    icon: Icons.forum_rounded,
+  ),
+  _TaskTriggerOption(
+    type: 'teams_message_received',
+    section: 'Messaging',
+    label: 'Teams Message Received',
+    description: 'Run when a Teams chat message matches the selected scope.',
+    icon: Icons.groups_rounded,
+  ),
+  _TaskTriggerOption(
+    type: 'whatsapp_personal_message_received',
+    section: 'Messaging',
+    label: 'WhatsApp Personal Message Received',
+    description: 'Run on inbound personal WhatsApp messages.',
+    icon: Icons.chat_bubble_rounded,
+  ),
+];
+
+_TaskTriggerOption _taskTriggerOptionForType(String type) {
+  return _taskTriggerOptions.firstWhere(
+    (option) => option.type == type,
+    orElse: () => _taskTriggerOptions.first,
+  );
+}
+
+Future<String?> _pickTaskTriggerType(
+  BuildContext context,
+  String selectedType,
+) {
+  final optionsBySection = <String, List<_TaskTriggerOption>>{};
+  for (final option in _taskTriggerOptions) {
+    optionsBySection.putIfAbsent(option.section, () => <_TaskTriggerOption>[])
+        .add(option);
+  }
+
+  return showDialog<String>(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: _bgCard,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 720),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Select Trigger',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose how this task should start. Schedule is time-based. Integration triggers fire from connected official apps.',
+                  style: TextStyle(color: _textSecondary, height: 1.45),
+                ),
+                const SizedBox(height: 18),
+                Expanded(
+                  child: ListView(
+                    children: optionsBySection.entries.map((entry) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              entry.key.toUpperCase(),
+                              style: TextStyle(
+                                color: _textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ...entry.value.map((option) {
+                              final isSelected = option.type == selectedType;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(18),
+                                  onTap: () => Navigator.of(context).pop(option.type),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 160),
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: isSelected ? _accent : _border,
+                                        width: isSelected ? 1.6 : 1,
+                                      ),
+                                      gradient: isSelected
+                                          ? LinearGradient(
+                                              colors: <Color>[
+                                                _accent.withValues(alpha: 0.18),
+                                                _accent.withValues(alpha: 0.05),
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            )
+                                          : null,
+                                      color: isSelected
+                                          ? null
+                                          : _bgCard.withValues(alpha: 0.72),
+                                      boxShadow: isSelected
+                                          ? <BoxShadow>[
+                                              BoxShadow(
+                                                color: _accent.withValues(alpha: 0.12),
+                                                blurRadius: 24,
+                                                offset: const Offset(0, 10),
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? _accent.withValues(alpha: 0.16)
+                                                : _bgCard,
+                                            borderRadius: BorderRadius.circular(14),
+                                          ),
+                                          child: Icon(
+                                            option.icon,
+                                            color: isSelected ? _accent : _textSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: <Widget>[
+                                              Text(
+                                                option.label,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 5),
+                                              Text(
+                                                option.description,
+                                                style: TextStyle(
+                                                  color: _textSecondary,
+                                                  height: 1.4,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Icon(
+                                          isSelected
+                                              ? Icons.check_circle_rounded
+                                              : Icons.arrow_forward_rounded,
+                                          color: isSelected ? _accent : _textSecondary,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class TasksPanel extends StatefulWidget {
+  const TasksPanel({super.key, required this.controller});
 
   final NeoAgentController controller;
 
   @override
-  State<SchedulerPanel> createState() => _SchedulerPanelState();
+  State<TasksPanel> createState() => _TasksPanelState();
 }
 
-class _SchedulerPanelState extends State<SchedulerPanel> {
+class _TasksPanelState extends State<TasksPanel> {
   String? _agentFilterId;
 
   NeoAgentController get controller => widget.controller;
 
   @override
-  void didUpdateWidget(covariant SchedulerPanel oldWidget) {
+  void didUpdateWidget(covariant TasksPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_agentFilterId == null) return;
     final stillExists = controller.agentProfiles.any(
@@ -20399,8 +20634,8 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
   @override
   Widget build(BuildContext context) {
     final filteredTasks = _agentFilterId == null
-        ? controller.schedulerTasks
-        : controller.schedulerTasks
+        ? controller.taskItems
+        : controller.taskItems
               .where((task) => task.agentId == _agentFilterId)
               .toList();
     final automationTasks = filteredTasks
@@ -20414,8 +20649,8 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
-          title: 'Scheduler',
-          subtitle: 'Recurring tasks plus widget-owned refresh jobs.',
+          title: 'Tasks',
+          subtitle: 'Premium automation with schedule and integration triggers.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -20454,14 +20689,14 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                     children: <Widget>[
                       ChoiceChip(
                         label: Text(
-                          'All agents (${controller.schedulerTasks.length})',
+                          'All agents (${controller.taskItems.length})',
                         ),
                         selected: _agentFilterId == null,
                         onSelected: (_) =>
                             setState(() => _agentFilterId = null),
                       ),
                       ...controller.agentProfiles.map((agent) {
-                        final count = controller.schedulerTasks
+                        final count = controller.taskItems
                             .where((task) => task.agentId == agent.id)
                             .length;
                         return ChoiceChip(
@@ -20479,10 +20714,10 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
           ),
           const SizedBox(height: 14),
         ],
-        if (controller.schedulerTasks.isEmpty)
+        if (controller.taskItems.isEmpty)
           const _EmptyCard(
-            title: 'No scheduled tasks',
-            subtitle: 'Create a cron-based task to automate regular work.',
+            title: 'No tasks yet',
+            subtitle: 'Create a task with a trigger to automate regular work.',
           )
         else if (filteredTasks.isEmpty)
           _EmptyCard(
@@ -20497,7 +20732,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
           ],
           if (widgetTasks.isNotEmpty) ...<Widget>[
             if (automationTasks.isNotEmpty) const SizedBox(height: 18),
-            Text('Widget Refresh Jobs', style: _sectionEyebrowStyle()),
+            Text('Managed Widget Tasks', style: _sectionEyebrowStyle()),
             const SizedBox(height: 10),
             ...widgetTasks.map(_buildWidgetTaskCard),
           ],
@@ -20506,8 +20741,8 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
     );
   }
 
-  Widget _buildTaskCard(SchedulerTask task) {
-    final remaining = controller.schedulerRunCooldownSeconds(task.id);
+  Widget _buildTaskCard(TaskItem task) {
+    final remaining = controller.taskRunCooldownSeconds(task.id);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Card(
@@ -20572,13 +20807,13 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                     child: Text('Edit'),
                   ),
                   OutlinedButton(
-                    onPressed: () => controller.toggleSchedulerTask(task),
+                    onPressed: () => controller.toggleTask(task),
                     child: Text(task.enabled ? 'Pause' : 'Enable'),
                   ),
                   FilledButton(
                     onPressed: remaining > 0
                         ? null
-                        : () => controller.runSchedulerTask(task.id),
+                        : () => controller.runTaskNow(task.id),
                     child: Text(_manualRunButtonLabel('Run Now', remaining)),
                   ),
                   OutlinedButton(
@@ -20586,7 +20821,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                       context,
                       title: 'Delete task?',
                       message: 'This will remove "${task.name}".',
-                      onConfirm: () => controller.deleteSchedulerTask(task.id),
+                      onConfirm: () => controller.deleteTask(task.id),
                     ),
                     child: Text('Delete'),
                   ),
@@ -20599,7 +20834,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
     );
   }
 
-  Widget _buildWidgetTaskCard(SchedulerTask task) {
+  Widget _buildWidgetTaskCard(TaskItem task) {
     AiWidgetItem? linkedWidget;
     for (final item in controller.widgets) {
       if (item.id == task.widgetId) {
@@ -20608,7 +20843,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
       }
     }
     final remaining = linkedWidget == null
-        ? controller.schedulerRunCooldownSeconds(task.id)
+        ? controller.taskRunCooldownSeconds(task.id)
         : controller.widgetRunCooldownSeconds(linkedWidget.id);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -20688,7 +20923,7 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                     onPressed: remaining > 0
                         ? null
                         : (linkedWidget == null
-                              ? () => controller.runSchedulerTask(task.id)
+                              ? () => controller.runTaskNow(task.id)
                               : () => controller.refreshWidgetNow(
                                   linkedWidget!.id,
                                 )),
@@ -20720,15 +20955,37 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
 
   Future<void> _openTaskEditor(
     BuildContext context, {
-    SchedulerTask? task,
+    TaskItem? task,
     String? defaultAgentId,
   }) async {
     final nameController = TextEditingController(text: task?.name ?? '');
+    final triggerType = ValueNotifier<String>(
+      task?.triggerType ?? 'schedule',
+    );
     final cronController = TextEditingController(
-      text: task?.cronExpression ?? '*/30 * * * *',
+      text: task?.triggerConfig['cronExpression']?.toString() ?? '*/30 * * * *',
+    );
+    final runAtController = TextEditingController(
+      text: task?.triggerConfig['runAt']?.toString() ?? '',
+    );
+    final connectionIdController = TextEditingController(
+      text: task?.triggerConfig['connectionId']?.toString() ?? '',
+    );
+    final queryController = TextEditingController(
+      text: task?.triggerConfig['query']?.toString() ?? '',
+    );
+    final channelController = TextEditingController(
+      text: task?.triggerConfig['channel']?.toString()
+          ?? task?.triggerConfig['chatId']?.toString()
+          ?? '',
+    );
+    final senderController = TextEditingController(
+      text: task?.triggerConfig['sender']?.toString() ?? '',
     );
     final promptController = TextEditingController(text: task?.prompt ?? '');
     var enabled = task?.enabled ?? true;
+    var unreadOnly = task?.triggerConfig['unreadOnly'] == true;
+    var ignoreGroups = task?.triggerConfig['ignoreGroups'] == true;
     var selectedModel = _ensureModelValue(
       task?.model ?? 'auto',
       controller.supportedModels,
@@ -20766,11 +21023,193 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                         decoration: const InputDecoration(labelText: 'Name'),
                       ),
                       const SizedBox(height: 12),
-                      TextField(
-                        controller: cronController,
-                        decoration: const InputDecoration(
-                          labelText: 'Cron Expression',
-                        ),
+                      ValueListenableBuilder<String>(
+                        valueListenable: triggerType,
+                        builder: (context, selectedTriggerType, _) {
+                          final option = _taskTriggerOptionForType(
+                            selectedTriggerType,
+                          );
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () async {
+                              final nextType = await _pickTaskTriggerType(
+                                context,
+                                selectedTriggerType,
+                              );
+                              if (nextType != null) {
+                                triggerType.value = nextType;
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Trigger Type',
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: _accent.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Icon(option.icon, color: _accent),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
+                                        Text(
+                                          option.label,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          option.description,
+                                          style: TextStyle(
+                                            color: _textSecondary,
+                                            fontSize: 12.5,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _bgCard.withValues(alpha: 0.72),
+                                          borderRadius: BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          option.section,
+                                          style: TextStyle(
+                                            color: _textSecondary,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Icon(
+                                        Icons.unfold_more_rounded,
+                                        color: _textSecondary,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      ValueListenableBuilder<String>(
+                        valueListenable: triggerType,
+                        builder: (context, selectedTriggerType, _) {
+                          if (selectedTriggerType == 'schedule') {
+                            return Column(
+                              children: <Widget>[
+                                TextField(
+                                  controller: cronController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Cron Expression',
+                                    helperText: 'Use cron for recurring tasks. Leave Run At empty for recurring schedules.',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: runAtController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Run At (optional ISO datetime)',
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+
+                          return Column(
+                            children: <Widget>[
+                              TextField(
+                                controller: connectionIdController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Official Integration Connection ID',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              if (selectedTriggerType == 'gmail_message_received' ||
+                                  selectedTriggerType == 'outlook_email_received')
+                                ...<Widget>[
+                                  TextField(
+                                    controller: queryController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Query / Filter',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  SwitchListTile(
+                                    value: unreadOnly,
+                                    contentPadding: EdgeInsets.zero,
+                                    title: const Text('Unread Only'),
+                                    onChanged: (value) =>
+                                        setLocalState(() => unreadOnly = value),
+                                  ),
+                                ],
+                              if (selectedTriggerType == 'outlook_email_received') ...<Widget>[
+                                TextField(
+                                  controller: channelController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Folder ID (optional)',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (selectedTriggerType == 'slack_message_received' ||
+                                  selectedTriggerType == 'teams_message_received' ||
+                                  selectedTriggerType == 'whatsapp_personal_message_received')
+                                ...<Widget>[
+                                  TextField(
+                                    controller: channelController,
+                                    decoration: InputDecoration(
+                                      labelText: selectedTriggerType == 'slack_message_received'
+                                          ? 'Channel ID'
+                                          : 'Chat ID',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: senderController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Sender Filter (optional)',
+                                    ),
+                                  ),
+                                ],
+                              if (selectedTriggerType ==
+                                  'whatsapp_personal_message_received') ...<Widget>[
+                                const SizedBox(height: 12),
+                                SwitchListTile(
+                                  value: ignoreGroups,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Ignore Groups'),
+                                  onChanged: (value) =>
+                                      setLocalState(() => ignoreGroups = value),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -20840,10 +21279,53 @@ class _SchedulerPanelState extends State<SchedulerPanel> {
                 ),
                 FilledButton(
                   onPressed: () async {
-                    await controller.saveSchedulerTask(
+                    final selectedTriggerType = triggerType.value;
+                    final triggerConfig = <String, dynamic>{};
+                    if (selectedTriggerType == 'schedule') {
+                      final runAt = runAtController.text.trim();
+                      triggerConfig['mode'] =
+                          runAt.isEmpty ? 'recurring' : 'one_time';
+                      if (runAt.isEmpty) {
+                        triggerConfig['cronExpression'] =
+                            cronController.text.trim();
+                      } else {
+                        triggerConfig['runAt'] = runAt;
+                      }
+                    } else {
+                      triggerConfig['connectionId'] =
+                          int.tryParse(connectionIdController.text.trim()) ?? 0;
+                      if (selectedTriggerType == 'gmail_message_received' ||
+                          selectedTriggerType == 'outlook_email_received') {
+                        if (queryController.text.trim().isNotEmpty) {
+                          triggerConfig['query'] = queryController.text.trim();
+                        }
+                        triggerConfig['unreadOnly'] = unreadOnly;
+                        if (selectedTriggerType == 'outlook_email_received' &&
+                            channelController.text.trim().isNotEmpty) {
+                          triggerConfig['folderId'] = channelController.text.trim();
+                        }
+                      }
+                      if (selectedTriggerType == 'slack_message_received') {
+                        triggerConfig['channel'] = channelController.text.trim();
+                      }
+                      if (selectedTriggerType == 'teams_message_received' ||
+                          selectedTriggerType ==
+                              'whatsapp_personal_message_received') {
+                        triggerConfig['chatId'] = channelController.text.trim();
+                      }
+                      if (senderController.text.trim().isNotEmpty) {
+                        triggerConfig['sender'] = senderController.text.trim();
+                      }
+                      if (selectedTriggerType ==
+                          'whatsapp_personal_message_received') {
+                        triggerConfig['ignoreGroups'] = ignoreGroups;
+                      }
+                    }
+                    await controller.saveTask(
                       id: task?.id,
                       name: nameController.text.trim(),
-                      cronExpression: cronController.text.trim(),
+                      triggerType: selectedTriggerType,
+                      triggerConfig: triggerConfig,
                       prompt: promptController.text.trim(),
                       model: selectedModel == 'auto' ? null : selectedModel,
                       enabled: enabled,

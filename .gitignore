@@ -141,15 +141,13 @@ dist
 agent-data/
 /.npm-cache
 /dev
-server/public/.last_build_id
-server/public/assets/NOTICES
-server/public/assets/fonts/MaterialIcons-Regular.otf
-server/public/flutter_bootstrap.js
-server/public/flutter_service_worker.js
-server/public/main.dart.js
 /tmp
 flutter_app/neoagent_flutter.iml
 flutter_app/.idea/
+
+# The Flutter web bundle under server/public is a checked-in release artifact.
+# Keep generated runtime data ignored, but do not ignore the shipped client bundle.
+server/public/.last_build_id
 
 # ESP-IDF firmware generated artifacts
 firmware/**/build/
