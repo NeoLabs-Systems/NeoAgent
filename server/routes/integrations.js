@@ -159,6 +159,7 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
     if (!session) {
       return res.status(404).send('Connection session not found.');
     }
+    const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));
     const statusUrl = `/api/integrations/${encodeURIComponent(req.params.provider)}/connect/${encodeURIComponent(req.params.sessionId)}/status?agentId=${encodeURIComponent(agentId)}`;
     res.send(`
       <html>
@@ -188,6 +189,14 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
             const statusEl = document.getElementById('status');
             const qrEl = document.getElementById('qr');
             const statusUrl = ${JSON.stringify(statusUrl)};
+            const trustedOrigin = ${trustedOrigin};
+            const provider = ${JSON.stringify(req.params.provider)};
+            const appId = ${JSON.stringify(session.appKey)};
+
+            function notifyOpener(payload) {
+              if (!window.opener) return;
+              window.opener.postMessage(payload, trustedOrigin);
+            }
 
             async function refresh() {
               const response = await fetch(statusUrl, { credentials: 'same-origin' });
@@ -204,11 +213,24 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
               } else if (status === 'connected') {
                 qrEl.style.display = 'none';
                 statusEl.textContent = 'Connected as ' + (data.accountEmail || 'your WhatsApp account') + '. Closing…';
+                notifyOpener({
+                  type: 'integration_oauth_success',
+                  provider,
+                  appId,
+                  connectionId: data.connectionId || null,
+                  accountEmail: data.accountEmail || null,
+                });
                 setTimeout(() => window.close(), 800);
                 return;
               } else if (status === 'failed' || status === 'logged_out' || status === 'disconnected') {
                 qrEl.style.display = 'none';
                 statusEl.textContent = data.error || ('Connection ended with status: ' + status + '.');
+                notifyOpener({
+                  type: 'integration_oauth_error',
+                  provider,
+                  appId,
+                  error: data.error || ('Connection ended with status: ' + status + '.'),
+                });
                 return;
               } else {
                 statusEl.textContent = 'Waiting for WhatsApp to generate a QR code…';
