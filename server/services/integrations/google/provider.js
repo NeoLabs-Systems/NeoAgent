@@ -144,6 +144,15 @@ function getAppScopes(appId) {
   return Array.from(new Set([...GOOGLE_ACCOUNT_IDENTITY_SCOPES, ...app.scopes]));
 }
 
+function getAllWorkspaceScopes() {
+  return Array.from(
+    new Set([
+      ...GOOGLE_ACCOUNT_IDENTITY_SCOPES,
+      ...GOOGLE_WORKSPACE_APPS.flatMap((app) => app.scopes || []),
+    ]),
+  );
+}
+
 function sortConnections(rows) {
   return rows.slice().sort((left, right) => {
     const leftEmail = String(left.account_email || '').toLowerCase();
@@ -381,7 +390,9 @@ function createGoogleWorkspaceProvider() {
       const url = client.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
-        scope: getAppScopes(app.id),
+        // Request the full workspace scope bundle so one durable Google grant can
+        // back Gmail, Calendar, Drive, Docs, and Sheets for the same account.
+        scope: getAllWorkspaceScopes(),
         include_granted_scopes: true,
         state,
         code_challenge: codeChallenge,
@@ -410,7 +421,14 @@ function createGoogleWorkspaceProvider() {
         appId: app.id,
         accountEmail,
         credentials: client.credentials,
-        scopes: getAppScopes(app.id),
+        scopes: Array.from(
+          new Set(
+            String(client.credentials.scope || '')
+              .split(/\s+/)
+              .map((scope) => scope.trim())
+              .filter(Boolean),
+          ),
+        ),
         metadata: {
           appId: app.id,
         },

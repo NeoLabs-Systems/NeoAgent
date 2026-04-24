@@ -53,6 +53,58 @@ class IntegrationManager {
     return merged;
   }
 
+  findReusableConnection(userId, agentId, providerKey, accountEmail, options = {}) {
+    const normalizedEmail = String(accountEmail || '').trim().toLowerCase();
+    if (!normalizedEmail) return null;
+    const excludedConnectionId = Number(options.excludeConnectionId);
+    const connections = this.listConnections(userId, providerKey, agentId).filter(
+      (connection) =>
+        String(connection.account_email || '').trim().toLowerCase() === normalizedEmail &&
+        connection.status === 'connected' &&
+        (!Number.isInteger(excludedConnectionId) || connection.id !== excludedConnectionId),
+    );
+    if (connections.length === 0) return null;
+    return connections.sort((left, right) =>
+      String(right.updated_at || '').localeCompare(String(left.updated_at || '')),
+    )[0];
+  }
+
+  mergeWithReusableCredentials(userId, agentId, providerKey, accountEmail, credentials, options = {}) {
+    const reusableConnection = this.findReusableConnection(
+      userId,
+      agentId,
+      providerKey,
+      accountEmail,
+      options,
+    );
+    if (!reusableConnection) {
+      return credentials && typeof credentials === 'object' ? credentials : {};
+    }
+    const reusableCredentials = this.parseCredentials(
+      reusableConnection.credentials_json,
+    );
+    return this.mergeUpdatedCredentials(
+      reusableCredentials,
+      credentials,
+    );
+  }
+
+  persistSharedCredentials(userId, agentId, providerKey, accountEmail, credentials) {
+    const normalizedEmail = String(accountEmail || '').trim();
+    if (!normalizedEmail) return;
+    db.prepare(
+      `UPDATE integration_connections
+       SET credentials_json = ?, updated_at = datetime('now')
+       WHERE user_id = ? AND agent_id = ? AND provider_key = ? AND lower(account_email) = lower(?)`,
+    ).run(
+      encryptValue(JSON.stringify(credentials || {})),
+      userId,
+      agentId,
+      providerKey,
+      normalizedEmail,
+    );
+  }
+
   getProvider(providerKey) {
     return this.registry.get(providerKey);
   }
@@ -218,6 +270,19 @@ class IntegrationManager {
       appKey: stateRow.app_key,
     });
 
+    const mergedCredentials = this.mergeWithReusableCredentials(
+      stateRow.user_id,
+      stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
+      provider.key,
+      result.accountEmail,
+      result.credentials,
+    );
+    if (!mergedCredentials.refresh_token) {
+      throw new Error(
+        `${provider.label} did not return a refresh token, so the connection would expire. Revoke the existing app grant for this provider and reconnect it so offline access is granted.`,
+      );
+    }
+
     db.prepare(
       `INSERT INTO integration_connections (
          user_id,
@@ -246,8 +311,16 @@ class IntegrationManager {
       stateRow.app_key,
       result.accountEmail,
       JSON.stringify(result.scopes || []),
-      encryptValue(JSON.stringify(result.credentials || {})),
+      encryptValue(JSON.stringify(mergedCredentials)),
       JSON.stringify(result.metadata || {}),
+    );
+
+    this.persistSharedCredentials(
+      stateRow.user_id,
+      stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
+      provider.key,
+      result.accountEmail,
+      mergedCredentials,
     );
 
     const connection = db
@@ -548,14 +621,12 @@ class IntegrationManager {
           existingCredentials,
           execution.credentials,
         );
-        db.prepare(
-          `UPDATE integration_connections
-           SET credentials_json = ?, updated_at = datetime('now')
-           WHERE id = ? AND user_id = ?`,
-        ).run(
-          encryptValue(JSON.stringify(mergedCredentials)),
-          selection.connection.id,
+        this.persistSharedCredentials(
           userId,
+          resolveAgentId(userId, agentId),
+          provider.key,
+          selection.connection.account_email,
+          mergedCredentials,
         );
       }
 
