@@ -341,6 +341,33 @@ class WhatsAppPlatform extends BasePlatform {
     }
   }
 
+  async listAccessTargets() {
+    const [contacts, chats] = await Promise.all([
+      this.getContacts(),
+      this.getChats(),
+    ]);
+    return [
+      ...contacts
+        .filter((item) => !item.isGroup)
+        .map((item) => ({
+          source: 'live',
+          bucket: 'directRules',
+          scope: 'phone_number',
+          value: String(item.id || '').split('@')[0],
+          label: item.name || String(item.id || '').split('@')[0],
+          subtitle: 'WhatsApp contact',
+        })),
+      ...chats.map((chat) => ({
+        source: 'live',
+        bucket: 'sharedSpaceRules',
+        scope: 'group',
+        value: chat.id,
+        label: chat.name || chat.id,
+        subtitle: 'WhatsApp group',
+      })),
+    ];
+  }
+
   getAuthInfo() {
     return { qrCode: this.qrCode, status: this.status };
   }

@@ -39,9 +39,7 @@ class TelnyxVoicePlatform extends BasePlatform {
     this.ttsVoice = resolveTtsVoice(this.ttsProvider, config.ttsVoice);
     this.ttsModel = resolveTtsModel(this.ttsProvider, config.ttsModel);
     this.sttModel = resolveSttModel(this.sttProvider, config.sttModel);
-    this.allowedNumbers = Array.isArray(config.allowedNumbers)
-      ? config.allowedNumbers
-      : [];
+    this.allowedNumbers = Array.isArray(this.allowedNumbers) ? this.allowedNumbers : [];
     this.voiceSecret = String(config.voiceSecret || '').replace(/\D/g, '');
     this.voiceRuntimeManager = config.voiceRuntimeManager || null;
     this.userId = config.userId || null;
@@ -110,8 +108,21 @@ class TelnyxVoicePlatform extends BasePlatform {
   getAuthInfo() { return { phoneNumber: this.phoneNumber }; }
 
   setAllowedNumbers(numbers) {
-    this.allowedNumbers = Array.isArray(numbers) ? numbers : [];
-    console.log(`[TelnyxVoice] Whitelist updated: ${this.allowedNumbers.length} number(s)`);
+    return this.setAccessPolicy({
+      directPolicy: Array.isArray(numbers) && numbers.length > 0 ? 'allowlist' : 'disabled',
+      directRules: (Array.isArray(numbers) ? numbers : []).map((value) => ({
+        scope: 'phone_number',
+        value,
+      })),
+    });
+  }
+
+  setAccessPolicy(policy) {
+    const normalized = super.setAccessPolicy(policy);
+    this.allowedNumbers = normalized.directRules
+      .filter((rule) => rule.scope === 'phone_number')
+      .map((rule) => rule.value);
+    return normalized;
   }
 
   setVoiceSecret(secret) {
@@ -160,13 +171,20 @@ class TelnyxVoicePlatform extends BasePlatform {
   }
 
   _isAllowed(number) {
-    if (!this.allowedNumbers || !this.allowedNumbers.length) return false;
-    const normalize = (n) => n.replace(/\D/g, '');
-    const cn = normalize(number);
-    return this.allowedNumbers.some(wl => {
-      const cw = normalize(wl);
-      return cn === cw || cn.endsWith(cw) || cw.endsWith(cn);
-    });
+    return this.evaluateAccess({
+      platform: 'telnyx',
+      senderId: this._normalizeNumber(number),
+      chatId: this._normalizeNumber(number),
+      isDirect: true,
+      isShared: false,
+      groupId: '',
+      channelId: '',
+      serverId: '',
+      roomId: '',
+      roleIds: [],
+      phoneNumber: this._normalizeNumber(number),
+      wasMentioned: false,
+    }).allowed;
   }
 
   _normalizeNumber(n) {
@@ -414,16 +432,27 @@ class TelnyxVoicePlatform extends BasePlatform {
           if (payload.direction !== 'incoming') break;
           const caller = payload.from;
           if (!this._isAllowed(caller)) {
+            const blockedInfo = {
+              caller,
+              ccId,
+              meta: 'Caller is not allowed by the access policy.',
+              suggestions: [{
+                label: `Allow number (${caller})`,
+                prefixedId: caller,
+                bucket: 'directRules',
+                rule: { scope: 'phone_number', value: this._normalizeNumber(caller) },
+              }],
+            };
             if (this._isBanned(caller)) {
               console.log(`[TelnyxVoice] Rejecting banned caller: ${caller}`);
               await this._rejectCall(ccId);
-              this.emit('blocked_caller', { caller, ccId });
+              this.emit('blocked_caller', blockedInfo);
               break;
             }
             if (!this.voiceSecret) {
               console.log(`[TelnyxVoice] Blocked non-whitelisted caller (no secret set): ${caller}`);
               await this._rejectCall(ccId);
-              this.emit('blocked_caller', { caller, ccId });
+              this.emit('blocked_caller', blockedInfo);
               break;
             }
             console.log(`[TelnyxVoice] Non-whitelisted caller ${caller} — awaiting secret code`);

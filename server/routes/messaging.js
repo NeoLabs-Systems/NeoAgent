@@ -4,6 +4,11 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const {
+  legacyWhitelistKey,
+  normalizeAccessPolicy,
+  summarizeAccessPolicy,
+} = require('../services/messaging/access_policy');
 
 const PREFIXED_ENTRY_RE = /[^0-9a-z:_.@#+=\-!$*]/gi;
 
@@ -135,6 +140,37 @@ router.get('/status/:platform', (req, res) => {
   res.json(manager.getPlatformStatus(req.session.userId, req.params.platform, { agentId }));
 });
 
+router.get('/:platform/access-policy', async (req, res) => {
+  try {
+    const manager = req.app.locals.messagingManager;
+    const platform = String(req.params.platform || '').replace(/[^0-9a-z_+-]/gi, '');
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    if (!platform) return res.status(400).json({ error: 'platform is required' });
+    const catalog = await manager.getAccessCatalog(req.session.userId, platform, { agentId });
+    res.json(catalog);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.put('/:platform/access-policy', (req, res) => {
+  try {
+    const manager = req.app.locals.messagingManager;
+    const platform = String(req.params.platform || '').replace(/[^0-9a-z_+-]/gi, '');
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    if (!platform) return res.status(400).json({ error: 'platform is required' });
+    const policy = normalizeAccessPolicy(platform, req.body?.policy || req.body || {});
+    const saved = manager.setAccessPolicy(req.session.userId, platform, policy, { agentId });
+    res.json({
+      success: true,
+      policy: saved,
+      summary: summarizeAccessPolicy(platform, saved),
+    });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 router.get('/:platform/devices', (req, res) => {
   try {
     const manager = req.app.locals.messagingManager;
@@ -167,9 +203,9 @@ router.put('/telnyx/whitelist', (req, res) => {
     if (!Array.isArray(numbers)) return res.status(400).json({ error: 'numbers must be an array' });
     const list = numbers.map(n => n.replace(/[^0-9+]/g, '')).filter(Boolean);
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    upsertAgentSetting(req.session.userId, agentId, 'platform_whitelist_telnyx', list);
+    upsertAgentSetting(req.session.userId, agentId, legacyWhitelistKey('telnyx'), list);
     const manager = req.app.locals.messagingManager;
-    if (manager) manager.updateTelnyxAllowedNumbers(req.session.userId, list, { agentId });
+    const policy = manager ? manager.updateTelnyxAllowedNumbers(req.session.userId, list, { agentId }) : null;
     res.json({ success: true, numbers: list });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -184,7 +220,7 @@ router.put('/discord/whitelist', (req, res) => {
     // Keep prefixed format, strip only clearly unsafe characters
     const list = ids.map(id => String(id).replace(/[^0-9a-z:_-]/gi, '')).filter(Boolean);
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    upsertAgentSetting(req.session.userId, agentId, 'platform_whitelist_discord', list);
+    upsertAgentSetting(req.session.userId, agentId, legacyWhitelistKey('discord'), list);
     const manager = req.app.locals.messagingManager;
     if (manager) manager.updateDiscordAllowedIds(req.session.userId, list, { agentId });
     res.json({ success: true, ids: list });
@@ -201,7 +237,7 @@ router.put('/telegram/whitelist', (req, res) => {
     // Keep prefixed format; group IDs are negative so allow minus sign
     const list = ids.map(id => String(id).replace(/[^0-9a-z:_-]/gi, '')).filter(Boolean);
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    upsertAgentSetting(req.session.userId, agentId, 'platform_whitelist_telegram', list);
+    upsertAgentSetting(req.session.userId, agentId, legacyWhitelistKey('telegram'), list);
     const manager = req.app.locals.messagingManager;
     if (manager) manager.updateTelegramAllowedIds(req.session.userId, list, { agentId });
     res.json({ success: true, ids: list });
@@ -219,7 +255,7 @@ router.put('/:platform/whitelist', (req, res) => {
     if (!platform) return res.status(400).json({ error: 'platform is required' });
     const list = ids.map(id => String(id).replace(PREFIXED_ENTRY_RE, '')).filter(Boolean);
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    upsertAgentSetting(req.session.userId, agentId, `platform_whitelist_${platform}`, list);
+    upsertAgentSetting(req.session.userId, agentId, legacyWhitelistKey(platform), list);
     const manager = req.app.locals.messagingManager;
     if (manager?.updateAllowedEntries) manager.updateAllowedEntries(req.session.userId, platform, list, { agentId });
     res.json({ success: true, ids: list });

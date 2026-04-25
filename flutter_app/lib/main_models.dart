@@ -431,6 +431,7 @@ class MessagingPlatformDescriptor {
     required this.connectMethod,
     required this.icon,
     this.configFields = const <MessagingConfigField>[],
+    this.accessCapabilities,
   });
 
   final String id;
@@ -440,6 +441,7 @@ class MessagingPlatformDescriptor {
   final MessagingConnectMethod connectMethod;
   final IconData icon;
   final List<MessagingConfigField> configFields;
+  final MessagingAccessCapabilities? accessCapabilities;
 
   String get settingsKey => '${id}_config';
 }
@@ -635,6 +637,288 @@ class MessagingQrState {
   }
 }
 
+class MessagingAccessRule {
+  const MessagingAccessRule({
+    required this.scope,
+    required this.value,
+    this.label,
+  });
+
+  factory MessagingAccessRule.fromJson(Map<String, dynamic> json) {
+    return MessagingAccessRule(
+      scope: json['scope']?.toString() ?? 'chat',
+      value: json['value']?.toString() ?? '',
+      label: json['label']?.toString(),
+    );
+  }
+
+  final String scope;
+  final String value;
+  final String? label;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'scope': scope,
+    'value': value,
+    if (label != null && label!.trim().isNotEmpty) 'label': label,
+  };
+
+  String get id => '$scope:$value';
+
+  String get displayLabel => label?.ifEmpty(value) ?? value;
+
+  String get scopeLabel {
+    switch (scope) {
+      case 'phone_number':
+        return 'Number';
+      case 'server':
+        return 'Server';
+      case 'channel':
+        return 'Channel';
+      case 'group':
+        return 'Group';
+      case 'room':
+        return 'Room';
+      case 'role':
+        return 'Role';
+      case 'dm':
+        return 'DM';
+      case 'user':
+        return 'User';
+      default:
+        return 'Chat';
+    }
+  }
+}
+
+class MessagingAccessPolicy {
+  const MessagingAccessPolicy({
+    required this.directPolicy,
+    required this.sharedPolicy,
+    required this.requireMentionInShared,
+    required this.directRules,
+    required this.sharedSpaceRules,
+    required this.sharedActorRules,
+  });
+
+  factory MessagingAccessPolicy.fromJson(Map<String, dynamic> json) {
+    return MessagingAccessPolicy(
+      directPolicy: json['directPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
+      sharedPolicy: json['sharedPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
+      requireMentionInShared: json['requireMentionInShared'] == true,
+      directRules: (json['directRules'] is List ? json['directRules'] as List : const <dynamic>[])
+          .whereType<Map>()
+          .map((item) => MessagingAccessRule.fromJson(Map<String, dynamic>.from(item)))
+          .toList(growable: false),
+      sharedSpaceRules: (json['sharedSpaceRules'] is List ? json['sharedSpaceRules'] as List : const <dynamic>[])
+          .whereType<Map>()
+          .map((item) => MessagingAccessRule.fromJson(Map<String, dynamic>.from(item)))
+          .toList(growable: false),
+      sharedActorRules: (json['sharedActorRules'] is List ? json['sharedActorRules'] as List : const <dynamic>[])
+          .whereType<Map>()
+          .map((item) => MessagingAccessRule.fromJson(Map<String, dynamic>.from(item)))
+          .toList(growable: false),
+    );
+  }
+
+  const MessagingAccessPolicy.defaults({
+    this.directPolicy = 'allowlist',
+    this.sharedPolicy = 'allowlist',
+    this.requireMentionInShared = true,
+    this.directRules = const <MessagingAccessRule>[],
+    this.sharedSpaceRules = const <MessagingAccessRule>[],
+    this.sharedActorRules = const <MessagingAccessRule>[],
+  });
+
+  final String directPolicy;
+  final String sharedPolicy;
+  final bool requireMentionInShared;
+  final List<MessagingAccessRule> directRules;
+  final List<MessagingAccessRule> sharedSpaceRules;
+  final List<MessagingAccessRule> sharedActorRules;
+
+  MessagingAccessPolicy copyWith({
+    String? directPolicy,
+    String? sharedPolicy,
+    bool? requireMentionInShared,
+    List<MessagingAccessRule>? directRules,
+    List<MessagingAccessRule>? sharedSpaceRules,
+    List<MessagingAccessRule>? sharedActorRules,
+  }) {
+    return MessagingAccessPolicy(
+      directPolicy: directPolicy ?? this.directPolicy,
+      sharedPolicy: sharedPolicy ?? this.sharedPolicy,
+      requireMentionInShared:
+          requireMentionInShared ?? this.requireMentionInShared,
+      directRules: directRules ?? this.directRules,
+      sharedSpaceRules: sharedSpaceRules ?? this.sharedSpaceRules,
+      sharedActorRules: sharedActorRules ?? this.sharedActorRules,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'directPolicy': directPolicy,
+    'sharedPolicy': sharedPolicy,
+    'requireMentionInShared': requireMentionInShared,
+    'directRules': directRules.map((rule) => rule.toJson()).toList(growable: false),
+    'sharedSpaceRules':
+        sharedSpaceRules.map((rule) => rule.toJson()).toList(growable: false),
+    'sharedActorRules':
+        sharedActorRules.map((rule) => rule.toJson()).toList(growable: false),
+  };
+
+  int get totalRuleCount =>
+      directRules.length + sharedSpaceRules.length + sharedActorRules.length;
+}
+
+class MessagingAccessCapabilities {
+  const MessagingAccessCapabilities({
+    this.supportsDirectPolicy = true,
+    this.supportsSharedPolicy = true,
+    this.supportsMentionGate = false,
+    this.supportsDiscovery = false,
+    this.directRuleScopes = const <String>[],
+    this.sharedSpaceRuleScopes = const <String>[],
+    this.sharedActorRuleScopes = const <String>[],
+    this.manualEntryHint = '',
+  });
+
+  factory MessagingAccessCapabilities.fromJson(Map<String, dynamic> json) {
+    List<String> _stringList(dynamic value) {
+      if (value is! List) return const <String>[];
+      return value.map((item) => item.toString()).where((item) => item.isNotEmpty).toList(growable: false);
+    }
+
+    return MessagingAccessCapabilities(
+      supportsDirectPolicy: json['supportsDirectPolicy'] != false,
+      supportsSharedPolicy: json['supportsSharedPolicy'] != false,
+      supportsMentionGate: json['supportsMentionGate'] == true,
+      supportsDiscovery: json['supportsDiscovery'] == true,
+      directRuleScopes: _stringList(json['directRuleScopes']),
+      sharedSpaceRuleScopes: _stringList(json['sharedSpaceRuleScopes']),
+      sharedActorRuleScopes: _stringList(json['sharedActorRuleScopes']),
+      manualEntryHint: json['manualEntryHint']?.toString() ?? '',
+    );
+  }
+
+  final bool supportsDirectPolicy;
+  final bool supportsSharedPolicy;
+  final bool supportsMentionGate;
+  final bool supportsDiscovery;
+  final List<String> directRuleScopes;
+  final List<String> sharedSpaceRuleScopes;
+  final List<String> sharedActorRuleScopes;
+  final String manualEntryHint;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'supportsDirectPolicy': supportsDirectPolicy,
+    'supportsSharedPolicy': supportsSharedPolicy,
+    'supportsMentionGate': supportsMentionGate,
+    'supportsDiscovery': supportsDiscovery,
+    'directRuleScopes': directRuleScopes,
+    'sharedSpaceRuleScopes': sharedSpaceRuleScopes,
+    'sharedActorRuleScopes': sharedActorRuleScopes,
+    'manualEntryHint': manualEntryHint,
+  };
+}
+
+class MessagingAccessTarget {
+  const MessagingAccessTarget({
+    required this.source,
+    required this.bucket,
+    required this.scope,
+    required this.value,
+    required this.label,
+    required this.subtitle,
+  });
+
+  factory MessagingAccessTarget.fromJson(Map<String, dynamic> json) {
+    return MessagingAccessTarget(
+      source: json['source']?.toString() ?? 'manual',
+      bucket: json['bucket']?.toString() ?? 'sharedSpaceRules',
+      scope: json['scope']?.toString() ?? 'chat',
+      value: json['value']?.toString() ?? '',
+      label: json['label']?.toString().ifEmpty(json['value']?.toString() ?? '') ??
+          (json['value']?.toString() ?? ''),
+      subtitle: json['subtitle']?.toString() ?? '',
+    );
+  }
+
+  final String source;
+  final String bucket;
+  final String scope;
+  final String value;
+  final String label;
+  final String subtitle;
+
+  MessagingAccessRule get asRule =>
+      MessagingAccessRule(scope: scope, value: value, label: label);
+
+  String get id => '$bucket:$scope:$value';
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'source': source,
+    'bucket': bucket,
+    'scope': scope,
+    'value': value,
+    'label': label,
+    'subtitle': subtitle,
+  };
+}
+
+class MessagingAccessCatalog {
+  const MessagingAccessCatalog({
+    required this.platform,
+    required this.policy,
+    required this.capabilities,
+    required this.discoveredTargets,
+    required this.suggestedTargets,
+    required this.summary,
+  });
+
+  factory MessagingAccessCatalog.fromJson(
+    String platform,
+    Map<String, dynamic> json,
+  ) {
+    List<MessagingAccessTarget> _targets(dynamic raw) {
+      if (raw is! List) return const <MessagingAccessTarget>[];
+      return raw
+          .whereType<Map>()
+          .map((item) => MessagingAccessTarget.fromJson(Map<String, dynamic>.from(item)))
+          .where((item) => item.value.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    return MessagingAccessCatalog(
+      platform: platform,
+      policy: MessagingAccessPolicy.fromJson(_jsonMap(json['policy'])),
+      capabilities: MessagingAccessCapabilities.fromJson(
+        _jsonMap(json['capabilities']),
+      ),
+      discoveredTargets: _targets(json['discoveredTargets']),
+      suggestedTargets: _targets(json['suggestedTargets']),
+      summary: json['summary']?.toString() ?? 'Access policy',
+    );
+  }
+
+  factory MessagingAccessCatalog.empty(String platform) {
+    return MessagingAccessCatalog(
+      platform: platform,
+      policy: const MessagingAccessPolicy.defaults(),
+      capabilities: const MessagingAccessCapabilities(),
+      discoveredTargets: const <MessagingAccessTarget>[],
+      suggestedTargets: const <MessagingAccessTarget>[],
+      summary: 'Access policy',
+    );
+  }
+
+  final String platform;
+  final MessagingAccessPolicy policy;
+  final MessagingAccessCapabilities capabilities;
+  final List<MessagingAccessTarget> discoveredTargets;
+  final List<MessagingAccessTarget> suggestedTargets;
+  final String summary;
+}
+
 class BlockedSenderNotice {
   const BlockedSenderNotice({
     required this.id,
@@ -662,7 +946,7 @@ class BlockedSenderNotice {
                   Map<String, dynamic>.from(item),
                 ),
               )
-              .where((item) => item.entry.isNotEmpty)
+              .where((item) => item.rule.value.isNotEmpty)
               .toList()
         : const <QuickAllowSuggestion>[];
 
@@ -692,22 +976,56 @@ class BlockedSenderNotice {
 }
 
 class QuickAllowSuggestion {
-  const QuickAllowSuggestion({required this.label, required this.entry});
+  const QuickAllowSuggestion({
+    required this.label,
+    required this.bucket,
+    required this.rule,
+  });
 
   factory QuickAllowSuggestion.fromJson(
     String platform,
     Map<String, dynamic> json,
   ) {
+    final ruleJson = _jsonMap(json['rule']);
     final prefixedId = json['prefixedId']?.toString().trim() ?? '';
+    final MessagingAccessRule? parsedRule = ruleJson.isNotEmpty
+        ? MessagingAccessRule.fromJson(ruleJson)
+        : _ruleFromPrefixedEntry(platform, prefixedId);
+    if (parsedRule == null) {
+      return const QuickAllowSuggestion(
+        label: 'Allow sender',
+        bucket: 'sharedActorRules',
+        rule: MessagingAccessRule(scope: 'chat', value: ''),
+      );
+    }
     return QuickAllowSuggestion(
       label:
           json['label']?.toString().ifEmpty('Allow sender') ?? 'Allow sender',
-      entry: _normalizeSuggestedWhitelistEntry(platform, prefixedId),
+      bucket: json['bucket']?.toString().ifEmpty('sharedActorRules') ??
+          'sharedActorRules',
+      rule: parsedRule,
     );
   }
 
   final String label;
-  final String entry;
+  final String bucket;
+  final MessagingAccessRule rule;
+}
+
+MessagingAccessRule? _ruleFromPrefixedEntry(String platform, String entry) {
+  final normalized = _normalizeSuggestedWhitelistEntry(platform, entry);
+  if (normalized.isEmpty) return null;
+  if (platform == 'telnyx' || platform == 'whatsapp') {
+    return MessagingAccessRule(scope: 'phone_number', value: normalized);
+  }
+  final match = RegExp(r'^([a-z_]+):(.*)$').firstMatch(normalized);
+  if (match != null) {
+    final scope = match.group(1) ?? '';
+    final value = match.group(2) ?? '';
+    if (scope.isEmpty || value.isEmpty) return null;
+    return MessagingAccessRule(scope: scope == 'guild' ? 'server' : scope, value: value);
+  }
+  return MessagingAccessRule(scope: 'chat', value: normalized);
 }
 
 class RecordingSessionItem {

@@ -19,6 +19,8 @@ class TelegramPlatform extends BasePlatform {
     this._contextBuffers = new Map();
     this._contextMaxSize = 25;
     this._contextMaxChats = 200;
+    this._seenUsers = new Map();
+    this._seenGroups = new Map();
   }
 
   async connect() {
@@ -91,31 +93,14 @@ class TelegramPlatform extends BasePlatform {
     this.status = 'disconnected';
     this._botUser = null;
     this._contextBuffers.clear();
+    this._seenUsers.clear();
+    this._seenGroups.clear();
     this.emit('disconnected', { manual: true });
   }
 
   async logout() { await this.disconnect(); }
   getStatus() { return this.status; }
   getAuthInfo() { return this._botUser ? { username: this._botUser.username, id: this._botUser.id } : null; }
-
-  _checkAccess(msg) {
-    const userId = String(msg.from.id);
-    const chatId = String(msg.chat.id);
-    const isPrivate = msg.chat.type === 'private';
-    const userAllowed = super._checkAccess(`user:${userId}`) || super._checkAccess(userId);
-
-    if (isPrivate) {
-      return {
-        allowed: this.allowedEntries.size === 0 || userAllowed,
-        requireMention: false,
-      };
-    }
-
-    return {
-      allowed: userAllowed || super._checkAccess(`group:${chatId}`),
-      requireMention: true,
-    };
-  }
 
   _isMentioned(msg) {
     if (!this._botUser) return false;
@@ -195,6 +180,10 @@ class TelegramPlatform extends BasePlatform {
     const senderDisplayName = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ')
       || senderUsername || userId;
     const senderName = senderDisplayName;
+    this._seenUsers.set(userId, senderDisplayName);
+    if (!isPrivate) {
+      this._seenGroups.set(rawChatId, msg.chat.title || rawChatId);
+    }
 
     this._addToContext(rawChatId, {
       author: senderName,
@@ -202,30 +191,30 @@ class TelegramPlatform extends BasePlatform {
       mine: false,
     });
 
-    const { allowed, requireMention } = this._checkAccess(msg);
+    const access = this._checkInboundAccess({
+      platform: 'telegram',
+      senderId: userId,
+      chatId: outputChatId,
+      isDirect: isPrivate,
+      isShared: !isPrivate,
+      groupId: !isPrivate ? rawChatId : '',
+      channelId: '',
+      serverId: '',
+      roomId: '',
+      roleIds: [],
+      phoneNumber: '',
+      wasMentioned: isPrivate ? false : this._isMentioned(msg),
+    }, {
+      senderName,
+      meta: msg.chat.title ? `Group: ${msg.chat.title}` : '',
+      groupLabel: msg.chat.title || rawChatId,
+    });
 
-    if (requireMention && !this._isMentioned(msg)) return;
-
-    if (!allowed) {
-      const suggestions = [
-        { label: `Add user (${senderName})`, prefixedId: `user:${userId}` },
-      ];
-      if (!isPrivate) suggestions.push({
-        label: `Add group (${msg.chat.title || rawChatId})`,
-        prefixedId: `group:${rawChatId}`,
-      });
-
-      this.emit('blocked_sender', {
-        sender: userId,
-        chatId: outputChatId,
-        senderName,
-        groupName: msg.chat.title || null,
-        suggestions,
-      });
+    if (!access.allowed) {
       return;
     }
 
-    let content = requireMention ? this._stripMention(text) : text;
+    let content = (!isPrivate && this._isMentioned(msg)) ? this._stripMention(text) : text;
     if (!content && msg.photo) content = `[photo]`;
     if (!content && msg.document) content = `[document: ${msg.document.file_name || 'file'}]`;
     if (!content) return;
@@ -234,7 +223,7 @@ class TelegramPlatform extends BasePlatform {
       ? senderName
       : `${senderName} in ${msg.chat.title || rawChatId}`;
 
-    const channelContext = (!isPrivate && requireMention) ? this._getContext(rawChatId) : null;
+    const channelContext = (!isPrivate && this._isMentioned(msg)) ? this._getContext(rawChatId) : null;
 
     this.emit('message', {
       platform: 'telegram',
@@ -281,6 +270,31 @@ class TelegramPlatform extends BasePlatform {
       const id = chatId.startsWith('dm_') ? chatId.slice(3) : chatId;
       await this._bot.telegram.sendChatAction(id, 'typing');
     } catch {}
+  }
+
+  async listAccessTargets() {
+    const targets = [];
+    for (const [userId, label] of this._seenUsers.entries()) {
+      targets.push({
+        source: 'live',
+        bucket: 'directRules',
+        scope: 'user',
+        value: userId,
+        label,
+        subtitle: 'Telegram user',
+      });
+    }
+    for (const [groupId, label] of this._seenGroups.entries()) {
+      targets.push({
+        source: 'live',
+        bucket: 'sharedSpaceRules',
+        scope: 'group',
+        value: groupId,
+        label,
+        subtitle: 'Telegram group',
+      });
+    }
+    return targets;
   }
 }
 

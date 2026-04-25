@@ -2,10 +2,17 @@
 
 const db = require('../../db/database');
 const { detectPromptInjection } = require('../../utils/security');
-const { normalizeWhatsAppId } = require('../../utils/whatsapp');
 const { randomUUID } = require('crypto');
 const { isMainAgent } = require('../agents/manager');
 const { buildPlatformFormattingGuide } = require('./formatting_guides');
+const {
+  accessPolicyKey,
+  legacyWhitelistKey,
+  parseStoredAccessPolicy,
+  evaluateAccessPolicy,
+  buildBlockedSenderPayload,
+  contextFromMessage,
+} = require('./access_policy');
 const {
   buildVoiceMessagingPrompt,
   buildVoiceMessagingRunOptions,
@@ -362,120 +369,50 @@ function buildSenderIdentityBlock(msg) {
   return `<sender_identity>\n${lines.join('\n')}\n</sender_identity>`;
 }
 
-function messagingAllowlistCandidates(msg) {
-  const sender = String(msg.sender || '').trim();
-  const chatId = String(msg.chatId || '').trim();
-  const values = new Set([sender, chatId].filter(Boolean));
-  const normalizedChatId = chatId.startsWith('dm_') ? chatId.slice(3) : chatId;
-  const guildId = String(msg.guildId || '').trim();
-
-  if (normalizedChatId) {
-    values.add(normalizedChatId);
-  }
-  if (sender) values.add(`user:${sender}`);
-  if (guildId) values.add(`guild:${guildId}`);
-  if (chatId) {
-    values.add(`chat:${chatId}`);
-    values.add(`channel:${chatId}`);
-    values.add(`room:${chatId}`);
-    values.add(`group:${chatId}`);
-  }
-  if (normalizedChatId) {
-    values.add(`chat:${normalizedChatId}`);
-    values.add(`channel:${normalizedChatId}`);
-    values.add(`room:${normalizedChatId}`);
-    values.add(`group:${normalizedChatId}`);
-  }
-  return [...values];
-}
-
 async function isAllowedMessagingSender({ io, userId, msg }) {
   const agentId = msg.agentId || null;
-  const whitelistRow = db
+  const policyRow = db
     .prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
-    .get(userId, agentId, `platform_whitelist_${msg.platform}`)
+    .get(userId, agentId, accessPolicyKey(msg.platform))
     || (isMainAgent(userId, agentId)
       ? db
         .prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, `platform_whitelist_${msg.platform}`)
+        .get(userId, accessPolicyKey(msg.platform))
+      : null);
+  const legacyRow = db
+    .prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
+    .get(userId, agentId, legacyWhitelistKey(msg.platform))
+    || (isMainAgent(userId, agentId)
+      ? db
+        .prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
+        .get(userId, legacyWhitelistKey(msg.platform))
       : null);
 
-  const normalize =
-    msg.platform === 'whatsapp'
-      ? normalizeWhatsAppId
-      : msg.platform === 'telnyx'
-        ? (id) => String(id || '').replace(/[^0-9+]/g, '')
-        : (id) => String(id || '').trim();
-
-  let whitelist = [];
-  if (whitelistRow) {
-    try {
-      const parsed = JSON.parse(whitelistRow.value);
-      if (Array.isArray(parsed)) whitelist = parsed;
-    } catch {
-      whitelist = [];
-    }
-  }
-
-  const shouldCheckWhitelist = whitelist.length > 0;
-
-  if (!shouldCheckWhitelist) {
-    if (!msg.isGroup) return true;
-    console.log(
-      `[Messaging] Blocked ${msg.platform} group message from ${msg.sender} (no group allowlist configured)`
-    );
-    emitBlockedSenderSuggestion({ io, userId, msg });
-    return false;
-  }
-
-  const candidates = messagingAllowlistCandidates(msg).map(normalize).filter(Boolean);
-  const allowed = whitelist.some((entry) => {
-    const normalizedEntry = normalize(entry);
-    return normalizedEntry === '*' || candidates.includes(normalizedEntry);
-  });
-  if (allowed) {
+  const policy = parseStoredAccessPolicy(msg.platform, policyRow?.value, legacyRow?.value);
+  const decision = evaluateAccessPolicy(policy, contextFromMessage(msg), msg.platform);
+  if (decision.allowed) {
     return true;
   }
 
   console.log(
-    `[Messaging] Blocked ${msg.platform} message from ${msg.sender} (not in whitelist)`
+    `[Messaging] Blocked ${msg.platform} message from ${msg.sender} (${decision.reason})`
   );
   emitBlockedSenderSuggestion({ io, userId, msg });
   return false;
 }
 
 function emitBlockedSenderSuggestion({ io, userId, msg }) {
-  const suggestions = [];
-  if (msg.platform === 'whatsapp') {
-    const normalizedSender = normalizeWhatsAppId(msg.sender || msg.chatId);
-    if (normalizedSender) {
-      suggestions.push({
-        label: `Add sender (${msg.senderName || normalizedSender})`,
-        prefixedId: normalizedSender
-      });
-    }
-  } else {
-    const sender = String(msg.sender || '').trim();
-    const chatId = String(msg.chatId || '').trim();
-    if (sender) {
-      suggestions.push({
-        label: `Add sender (${msg.senderName || sender})`,
-        prefixedId: `user:${sender}`
-      });
-    }
-    if (chatId && chatId !== sender) {
-      suggestions.push({
-        label: `Add chat (${chatId})`,
-        prefixedId: msg.isGroup ? `group:${chatId}` : chatId
-      });
-    }
-  }
+  const payload = buildBlockedSenderPayload(msg.platform, contextFromMessage(msg), {
+    senderName: msg.senderName || null,
+    meta: msg.guildName ? `Server: ${msg.guildName}` : (msg.groupName ? `Group: ${msg.groupName}` : ''),
+    serverLabel: msg.guildName || '',
+    groupLabel: msg.groupName || '',
+    channelLabel: msg.channelName || '',
+    roomLabel: msg.roomName || '',
+  });
   io.to(`user:${userId}`).emit('messaging:blocked_sender', {
     platform: msg.platform,
-    sender: msg.sender,
-    chatId: msg.chatId,
-    senderName: msg.senderName || null,
-    suggestions: suggestions.length > 0 ? suggestions : null
+    ...payload,
   });
 }
 

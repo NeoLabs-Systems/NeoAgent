@@ -22,29 +22,17 @@ const {
   createGenericPlatformClass,
 } = require('./http_platforms');
 const { normalizeOutgoingMessageForPlatform } = require('./formatting_guides');
-
-const GENERIC_ALLOWLIST_PLATFORMS = new Set([
-  'slack',
-  'google_chat',
-  'teams',
-  'matrix',
-  'signal',
-  'imessage',
-  'bluebubbles',
-  'irc',
-  'feishu',
-  'line',
-  'mattermost',
-  'nextcloud_talk',
-  'nostr',
-  'synology_chat',
-  'tlon',
-  'twitch',
-  'zalo',
-  'zalo_personal',
-  'wechat',
-  'webchat',
-]);
+const {
+  accessPolicyKey,
+  legacyWhitelistKey,
+  getPlatformAccessCapabilities,
+  normalizeAccessPolicy,
+  migrateLegacyWhitelist,
+  parseStoredAccessPolicy,
+  evaluateAccessPolicy,
+  summarizeAccessPolicy,
+  classifyRecentTarget,
+} = require('./access_policy');
 
 const LEGACY_WHATSAPP_AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 
@@ -70,6 +58,7 @@ class MessagingManager extends EventEmitter {
     this.io = io;
     this.voiceRuntimeManager = options.voiceRuntimeManager || null;
     this.platforms = new Map();
+    this.accessSuggestions = new Map();
     this.messageHandlers = [];
     this.isShuttingDown = false;
     this.platformTypes = {
@@ -176,6 +165,41 @@ class MessagingManager extends EventEmitter {
       .get(userId, key);
   }
 
+  _upsertSetting(userId, agentId, key, value) {
+    db.prepare(
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
+    ).run(userId, agentId, key, JSON.stringify(value));
+  }
+
+  _accessSuggestionKey(userId, agentId, platformName) {
+    return `${userId}:${agentId}:${platformName}:access-suggestions`;
+  }
+
+  _rememberAccessSuggestions(userId, agentId, platformName, suggestions = []) {
+    if (!Array.isArray(suggestions) || suggestions.length === 0) return;
+    const key = this._accessSuggestionKey(userId, agentId, platformName);
+    const existing = this.accessSuggestions.get(key) || [];
+    const merged = [...suggestions, ...existing].filter((item) => item && item.rule && item.bucket);
+    const unique = [];
+    const seen = new Set();
+    for (const item of merged) {
+      const id = `${item.bucket}:${item.rule.scope}:${item.rule.value}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      unique.push(item);
+      if (unique.length >= 24) break;
+    }
+    this.accessSuggestions.set(key, unique);
+  }
+
+  _loadAccessPolicy(userId, agentId, platformName) {
+    const policyRow = this._setting(userId, agentId, accessPolicyKey(platformName));
+    const legacyRow = this._setting(userId, agentId, legacyWhitelistKey(platformName));
+    return parseStoredAccessPolicy(platformName, policyRow?.value, legacyRow?.value);
+  }
+
   _scopedPlatformAuthDir(userId, agentId, platformName) {
     return path.join(
       AGENT_DATA_DIR,
@@ -249,6 +273,7 @@ class MessagingManager extends EventEmitter {
     config = { ...(config || {}) };
     config.userId = userId;
     config.agentId = agentId;
+    config.accessPolicy = this._loadAccessPolicy(userId, agentId, platformName);
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
 
@@ -268,10 +293,6 @@ class MessagingManager extends EventEmitter {
         }
       };
 
-      const wlRow = this._setting(userId, agentId, 'platform_whitelist_telnyx');
-      if (wlRow) {
-        try { config.allowedNumbers = JSON.parse(wlRow.value); } catch { /* ignore */ }
-      }
       const secretRow = this._setting(userId, agentId, 'platform_voice_secret_telnyx');
       if (secretRow) {
         try { config.voiceSecret = JSON.parse(secretRow.value); } catch { config.voiceSecret = secretRow.value; }
@@ -299,32 +320,6 @@ class MessagingManager extends EventEmitter {
         config.ttsVoice = voiceTtsVoice.trim();
       }
       config.voiceRuntimeManager = this.voiceRuntimeManager || null;
-    }
-
-    // Inject saved allowlists for platforms that enforce access in the adapter.
-    if (platformName === 'discord') {
-      const wlRow = this._setting(userId, agentId, 'platform_whitelist_discord');
-      if (wlRow) {
-        try { config.allowedIds = JSON.parse(wlRow.value); } catch { /* ignore */ }
-      }
-    }
-
-    // For Telegram, inject saved allowedIds whitelist
-    if (platformName === 'telegram') {
-      const wlRow = this._setting(userId, agentId, 'platform_whitelist_telegram');
-      if (wlRow) {
-        try { config.allowedIds = JSON.parse(wlRow.value); } catch { /* ignore */ }
-      }
-    }
-
-    if (GENERIC_ALLOWLIST_PLATFORMS.has(platformName)) {
-      const wlRow = this._setting(userId, agentId, `platform_whitelist_${platformName}`);
-      if (wlRow) {
-        try {
-          const parsed = JSON.parse(wlRow.value);
-          if (Array.isArray(parsed)) config.allowedIds = parsed;
-        } catch { /* ignore */ }
-      }
     }
 
     const storedConfig = JSON.stringify(this._persistableConfig(config) || {});
@@ -373,22 +368,26 @@ class MessagingManager extends EventEmitter {
 
     // Telnyx-specific: blocked inbound caller notification
     platform.on('blocked_caller', (info) => {
+      this._rememberAccessSuggestions(userId, agentId, platformName, info?.suggestions || []);
       this.io.to(`user:${userId}`).emit('messaging:blocked_sender', {
         platform: platformName,
         sender: info.caller,
         chatId: info.ccId,
-        senderName: null
+        senderName: null,
+        meta: info.meta || '',
+        suggestions: info.suggestions || null,
       });
     });
 
-    // Discord / Telegram: blocked sender notification with suggestions
+    // Adapter-level blocked sender notification with suggestions
     platform.on('blocked_sender', (info) => {
+      this._rememberAccessSuggestions(userId, agentId, platformName, info?.suggestions || []);
       this.io.to(`user:${userId}`).emit('messaging:blocked_sender', {
         platform: platformName,
         sender: info.sender,
         chatId: info.chatId,
         senderName: info.senderName || null,
-        meta: info.guildName ? `Server: ${info.guildName}` : (info.groupName ? `Group: ${info.groupName}` : null),
+        meta: info.meta || (info.guildName ? `Server: ${info.guildName}` : (info.groupName ? `Group: ${info.groupName}` : null)),
         suggestions: info.suggestions || null,
       });
     });
@@ -679,13 +678,88 @@ class MessagingManager extends EventEmitter {
     };
   }
 
+  getAccessPolicy(userId, platformName, options = {}) {
+    const agentId = this._agentId(userId, options);
+    return this._loadAccessPolicy(userId, agentId, platformName);
+  }
+
+  setAccessPolicy(userId, platformName, policy, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const normalized = normalizeAccessPolicy(platformName, policy);
+    this._upsertSetting(userId, agentId, accessPolicyKey(platformName), normalized);
+    const key = this._key(userId, agentId, platformName);
+    const platform = this.platforms.get(key);
+    if (platform?.setAccessPolicy) {
+      platform.setAccessPolicy(normalized);
+    }
+    return normalized;
+  }
+
+  evaluateAccess(userId, platformName, context, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const key = this._key(userId, agentId, platformName);
+    const platform = this.platforms.get(key);
+    if (platform?.evaluateAccess) {
+      return platform.evaluateAccess(context);
+    }
+    return evaluateAccessPolicy(
+      this._loadAccessPolicy(userId, agentId, platformName),
+      context,
+      platformName,
+    );
+  }
+
+  async getAccessCatalog(userId, platformName, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const key = this._key(userId, agentId, platformName);
+    const platform = this.platforms.get(key);
+    let discoveredTargets = [];
+    if (platform?.listAccessTargets) {
+      discoveredTargets = await Promise.resolve(platform.listAccessTargets()).catch(() => []);
+    }
+
+    const recentRows = db.prepare(
+      `SELECT platform_chat_id, metadata
+       FROM messages
+       WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id IS NOT NULL
+       ORDER BY id DESC
+       LIMIT 40`
+    ).all(userId, agentId, platformName);
+    const recentTargets = recentRows
+      .map((row) => {
+        let metadata = {};
+        try {
+          metadata = row.metadata ? JSON.parse(row.metadata) : {};
+        } catch {
+          metadata = {};
+        }
+        return classifyRecentTarget(platformName, { ...row, metadata });
+      })
+      .filter(Boolean);
+
+    const seen = new Set();
+    const unique = (items) => items.filter((item) => {
+      const keyValue = `${item.bucket}:${item.scope}:${item.value}`;
+      if (seen.has(keyValue)) return false;
+      seen.add(keyValue);
+      return true;
+    });
+
+    return {
+      capabilities: getPlatformAccessCapabilities(platformName),
+      discoveredTargets: unique([...(Array.isArray(discoveredTargets) ? discoveredTargets : []), ...recentTargets]),
+      suggestedTargets: unique(this.accessSuggestions.get(this._accessSuggestionKey(userId, agentId, platformName)) || []),
+      policy: this._loadAccessPolicy(userId, agentId, platformName),
+      summary: summarizeAccessPolicy(platformName, this._loadAccessPolicy(userId, agentId, platformName)),
+    };
+  }
+
   /**
    * Update the allowed-numbers list on a live Telnyx platform instance.
    */
   updateTelnyxAllowedNumbers(userId, numbers, options = {}) {
-    const key = this._key(userId, this._agentId(userId, options), 'telnyx');
-    const platform = this.platforms.get(key);
-    if (platform?.setAllowedNumbers) platform.setAllowedNumbers(numbers);
+    const migrated = migrateLegacyWhitelist('telnyx', numbers);
+    return this.setAccessPolicy(userId, 'telnyx', migrated, options);
   }
 
   /**
@@ -710,10 +784,7 @@ class MessagingManager extends EventEmitter {
    * Accepts prefixed strings: "user:ID", "guild:ID", "channel:ID"
    */
   updateDiscordAllowedIds(userId, ids, options = {}) {
-    const key = this._key(userId, this._agentId(userId, options), 'discord');
-    const platform = this.platforms.get(key);
-    if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
-    else if (platform?.setAllowedIds) platform.setAllowedIds(ids); // legacy fallback
+    return this.setAccessPolicy(userId, 'discord', migrateLegacyWhitelist('discord', ids), options);
   }
 
   /**
@@ -721,15 +792,11 @@ class MessagingManager extends EventEmitter {
    * Accepts prefixed strings: "user:ID", "group:ID"
    */
   updateTelegramAllowedIds(userId, ids, options = {}) {
-    const key = this._key(userId, this._agentId(userId, options), 'telegram');
-    const platform = this.platforms.get(key);
-    if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
+    return this.setAccessPolicy(userId, 'telegram', migrateLegacyWhitelist('telegram', ids), options);
   }
 
   updateAllowedEntries(userId, platformName, ids, options = {}) {
-    const key = this._key(userId, this._agentId(userId, options), platformName);
-    const platform = this.platforms.get(key);
-    if (platform?.setAllowedEntries) platform.setAllowedEntries(ids);
+    return this.setAccessPolicy(userId, platformName, migrateLegacyWhitelist(platformName, ids), options);
   }
 }
 

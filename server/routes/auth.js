@@ -239,18 +239,26 @@ function updateLastLogin(userId) {
 }
 
 router.get('/api/auth/status', (req, res) => {
-  const currentUser = readAuthenticatedUser(req);
-  if (!currentUser) {
-    return res.json({
-      authenticated: false,
-      user: null,
-    });
-  }
-
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get();
   const policy = getDeploymentPolicy();
   const emailConfig = getEmailConfig();
   const authProviderManager = getAuthProviderManager(req);
+  const currentUser = readAuthenticatedUser(req);
+  if (!currentUser) {
+    return res.json({
+      hasUser: count.count > 0,
+      registrationOpen: policy.registrationOpen || count.count === 0,
+      deploymentProfile: policy.profile,
+      authenticated: false,
+      user: null,
+      email: {
+        enabled: emailConfig.enabled,
+        configured: emailConfig.configured,
+        signupConfirmationRequired: requireSignupEmailConfirmation(),
+      },
+      providers: authProviderManager ? authProviderManager.listProviders() : [],
+    });
+  }
   res.json({
     hasUser: count.count > 0,
     registrationOpen: policy.registrationOpen || count.count === 0,

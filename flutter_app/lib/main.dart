@@ -30,6 +30,7 @@ import 'src/desktop_screen_capture.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
 import 'src/live_voice_capture.dart';
+import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
 import 'src/recording_payloads.dart';
@@ -1218,6 +1219,8 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, MessagingPlatformStatus> messagingStatuses =
       const <String, MessagingPlatformStatus>{};
   List<MessagingMessage> messagingMessages = const <MessagingMessage>[];
+  Map<String, MessagingAccessCatalog> messagingAccessCatalogs =
+      const <String, MessagingAccessCatalog>{};
   MessagingQrState? pendingMessagingQr;
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
   List<SkillItem> skills = const <SkillItem>[];
@@ -2533,6 +2536,7 @@ class NeoAgentController extends ChangeNotifier {
     logs = const <LogEntry>[];
     messagingStatuses = const <String, MessagingPlatformStatus>{};
     messagingMessages = const <MessagingMessage>[];
+    messagingAccessCatalogs = const <String, MessagingAccessCatalog>{};
     pendingMessagingQr = null;
     skills = const <SkillItem>[];
     storeSkills = const <StoreSkillItem>[];
@@ -2662,6 +2666,7 @@ class NeoAgentController extends ChangeNotifier {
     recentRuns = const <RunSummary>[];
     messagingStatuses = const <String, MessagingPlatformStatus>{};
     messagingMessages = const <MessagingMessage>[];
+    messagingAccessCatalogs = const <String, MessagingAccessCatalog>{};
     officialIntegrations = const <OfficialIntegrationItem>[];
     memoryOverview = const MemoryOverview();
     memories = const <MemoryItem>[];
@@ -2771,60 +2776,97 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<String> currentMessagingWhitelist(String platform) {
-    dynamic raw;
-    switch (platform) {
-      case 'whatsapp':
-        raw = settings['platform_whitelist_whatsapp'];
-        if (raw is String && raw.trim().isNotEmpty) {
-          try {
-            raw = jsonDecode(raw);
-          } catch (_) {
-            raw = const <dynamic>[];
-          }
-        }
-        break;
-      case 'telnyx':
-        raw = settings['platform_whitelist_telnyx'];
-        break;
-      case 'discord':
-        raw = settings['platform_whitelist_discord'];
-        break;
-      case 'telegram':
-        raw = settings['platform_whitelist_telegram'];
-        break;
-      default:
-        raw = settings['platform_whitelist_$platform'];
-        break;
-    }
-    if (raw is List) {
-      return raw
-          .map((item) => item.toString())
-          .where((item) => item.isNotEmpty)
-          .toList();
-    }
-    return const <String>[];
+  MessagingAccessCatalog currentMessagingAccessCatalog(String platform) {
+    return messagingAccessCatalogs[platform] ??
+        MessagingAccessCatalog.empty(platform);
   }
 
-  Future<void> allowMessagingEntry(String platform, String entry) async {
+  MessagingAccessPolicy currentMessagingAccessPolicy(String platform) {
+    return currentMessagingAccessCatalog(platform).policy;
+  }
+
+  List<MessagingAccessRule> _dedupeAccessRules(
+    List<MessagingAccessRule> rules,
+  ) {
+    final seen = <String>{};
+    final result = <MessagingAccessRule>[];
+    for (final rule in rules) {
+      if (rule.value.trim().isEmpty) continue;
+      if (!seen.add(rule.id)) continue;
+      result.add(rule);
+    }
+    return result;
+  }
+
+  MessagingAccessPolicy _policyWithAddedRule(
+    MessagingAccessPolicy policy,
+    QuickAllowSuggestion suggestion,
+  ) {
+    switch (suggestion.bucket) {
+      case 'directRules':
+        return policy.copyWith(
+          directPolicy: policy.directPolicy == 'disabled'
+              ? 'allowlist'
+              : policy.directPolicy,
+          directRules: _dedupeAccessRules(<MessagingAccessRule>[
+            ...policy.directRules,
+            suggestion.rule,
+          ]),
+        );
+      case 'sharedActorRules':
+        return policy.copyWith(
+          sharedPolicy: policy.sharedPolicy == 'disabled'
+              ? 'allowlist'
+              : policy.sharedPolicy,
+          sharedActorRules: _dedupeAccessRules(<MessagingAccessRule>[
+            ...policy.sharedActorRules,
+            suggestion.rule,
+          ]),
+        );
+      default:
+        return policy.copyWith(
+          sharedPolicy: policy.sharedPolicy == 'disabled'
+              ? 'allowlist'
+              : policy.sharedPolicy,
+          sharedSpaceRules: _dedupeAccessRules(<MessagingAccessRule>[
+            ...policy.sharedSpaceRules,
+            suggestion.rule,
+          ]),
+        );
+    }
+  }
+
+  Future<MessagingAccessCatalog> loadMessagingAccessCatalog(
+    String platform, {
+    bool force = false,
+  }) async {
+    if (!force && messagingAccessCatalogs.containsKey(platform)) {
+      return messagingAccessCatalogs[platform]!;
+    }
+    final data = await _backendClient.fetchMessagingAccessPolicy(
+      backendUrl,
+      platform: platform,
+      agentId: _scopedAgentId,
+    );
+    final catalog = MessagingAccessCatalog.fromJson(platform, data);
+    messagingAccessCatalogs = <String, MessagingAccessCatalog>{
+      ...messagingAccessCatalogs,
+      platform: catalog,
+    };
+    notifyListeners();
+    return catalog;
+  }
+
+  Future<void> allowMessagingSuggestion(
+    String platform,
+    QuickAllowSuggestion suggestion,
+  ) async {
     try {
-      final current = currentMessagingWhitelist(platform).toSet()..add(entry);
-      switch (platform) {
-        case 'whatsapp':
-          await saveWhatsAppWhitelist(current.toList());
-          break;
-        case 'telnyx':
-          await saveTelnyxWhitelist(current.toList());
-          break;
-        case 'discord':
-          await saveDiscordWhitelist(current.toList());
-          break;
-        case 'telegram':
-          await saveTelegramWhitelist(current.toList());
-          break;
-        default:
-          await saveMessagingWhitelist(platform, current.toList());
-      }
+      final nextPolicy = _policyWithAddedRule(
+        currentMessagingAccessPolicy(platform),
+        suggestion,
+      );
+      await saveMessagingAccessPolicy(platform, nextPolicy);
       errorMessage = null;
       notifyListeners();
     } catch (error) {
@@ -3139,11 +3181,7 @@ class NeoAgentController extends ChangeNotifier {
         conversationsResponse,
         ConversationItem.fromJson,
       );
-      taskItems = _decodeModelList(
-        'tasks',
-        tasksResponse,
-        TaskItem.fromJson,
-      );
+      taskItems = _decodeModelList('tasks', tasksResponse, TaskItem.fromJson);
       widgets = _decodeModelList(
         'widgets',
         widgetsResponse,
@@ -3311,6 +3349,29 @@ class NeoAgentController extends ChangeNotifier {
         ),
         MessagingMessage.fromJson,
       );
+      final policyResponses = await Future.wait(
+        messagingPlatforms.map((platform) async {
+          try {
+            final data = await _backendClient.fetchMessagingAccessPolicy(
+              backendUrl,
+              platform: platform.id,
+              agentId: _scopedAgentId,
+            );
+            return MapEntry(
+              platform.id,
+              MessagingAccessCatalog.fromJson(platform.id, data),
+            );
+          } catch (_) {
+            return MapEntry(
+              platform.id,
+              MessagingAccessCatalog.empty(platform.id),
+            );
+          }
+        }),
+      );
+      messagingAccessCatalogs = Map<String, MessagingAccessCatalog>.fromEntries(
+        policyResponses,
+      );
       notifyListeners();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -3370,10 +3431,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> refreshTasks() async {
     taskItems = _decodeModelList(
       'tasks',
-      await _backendClient.fetchTasks(
-        backendUrl,
-        agentId: _scopedAgentId,
-      ),
+      await _backendClient.fetchTasks(backendUrl, agentId: _scopedAgentId),
       TaskItem.fromJson,
     );
     notifyListeners();
@@ -5985,35 +6043,6 @@ class NeoAgentController extends ChangeNotifier {
     return const <Map<String, dynamic>>[];
   }
 
-  Future<void> saveWhatsAppWhitelist(List<String> values) async {
-    final normalized = values
-        .map((value) => value.replaceAll(RegExp(r'[^0-9]'), ''))
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList();
-    await _backendClient.saveSettings(backendUrl, <String, dynamic>{
-      'platform_whitelist_whatsapp': jsonEncode(normalized),
-    }, agentId: _scopedAgentId);
-    settings = <String, dynamic>{
-      ...settings,
-      'platform_whitelist_whatsapp': jsonEncode(normalized),
-    };
-    notifyListeners();
-  }
-
-  Future<void> saveTelnyxWhitelist(List<String> values) async {
-    await _backendClient.saveTelnyxWhitelist(
-      backendUrl,
-      values,
-      agentId: _scopedAgentId,
-    );
-    settings = <String, dynamic>{
-      ...settings,
-      'platform_whitelist_telnyx': values,
-    };
-    notifyListeners();
-  }
-
   Future<void> saveTelnyxVoiceSecret(String secret) async {
     await _backendClient.saveTelnyxVoiceSecret(
       backendUrl,
@@ -6027,45 +6056,32 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveDiscordWhitelist(List<String> values) async {
-    await _backendClient.saveDiscordWhitelist(
-      backendUrl,
-      values,
-      agentId: _scopedAgentId,
-    );
-    settings = <String, dynamic>{
-      ...settings,
-      'platform_whitelist_discord': values,
-    };
-    notifyListeners();
-  }
-
-  Future<void> saveTelegramWhitelist(List<String> values) async {
-    await _backendClient.saveTelegramWhitelist(
-      backendUrl,
-      values,
-      agentId: _scopedAgentId,
-    );
-    settings = <String, dynamic>{
-      ...settings,
-      'platform_whitelist_telegram': values,
-    };
-    notifyListeners();
-  }
-
-  Future<void> saveMessagingWhitelist(
+  Future<void> saveMessagingAccessPolicy(
     String platform,
-    List<String> values,
+    MessagingAccessPolicy policy,
   ) async {
-    await _backendClient.saveMessagingWhitelist(
+    final response = await _backendClient.saveMessagingAccessPolicy(
       backendUrl,
       platform: platform,
-      ids: values,
+      policy: policy.toJson(),
       agentId: _scopedAgentId,
     );
-    settings = <String, dynamic>{
-      ...settings,
-      'platform_whitelist_$platform': values,
+    final saved = MessagingAccessCatalog.fromJson(platform, <String, dynamic>{
+      'policy': _jsonMap(response['policy']),
+      'capabilities': currentMessagingAccessCatalog(
+        platform,
+      ).capabilities.toJson(),
+      'discoveredTargets': currentMessagingAccessCatalog(
+        platform,
+      ).discoveredTargets.map((item) => item.toJson()).toList(growable: false),
+      'suggestedTargets': currentMessagingAccessCatalog(
+        platform,
+      ).suggestedTargets.map((item) => item.toJson()).toList(growable: false),
+      'summary': response['summary']?.toString() ?? 'Access policy',
+    });
+    messagingAccessCatalogs = <String, MessagingAccessCatalog>{
+      ...messagingAccessCatalogs,
+      platform: saved,
     };
     notifyListeners();
   }
@@ -6229,7 +6245,8 @@ class NeoAgentController extends ChangeNotifier {
 
   bool canRunTaskNow(int id) => _manualRunCooldownSeconds('task', '$id') == 0;
 
-  int taskRunCooldownSeconds(int id) => _manualRunCooldownSeconds('task', '$id');
+  int taskRunCooldownSeconds(int id) =>
+      _manualRunCooldownSeconds('task', '$id');
 
   bool canRefreshWidgetNow(String id) =>
       _manualRunCooldownSeconds('widget', id) == 0;
@@ -6344,12 +6361,11 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> toggleTask(TaskItem task) async {
-    await _backendClient
-        .updateTask(backendUrl, task.id, <String, dynamic>{
-          'enabled': !task.enabled,
-          if (task.agentId != null && task.agentId!.isNotEmpty)
-            'agentId': task.agentId,
-        });
+    await _backendClient.updateTask(backendUrl, task.id, <String, dynamic>{
+      'enabled': !task.enabled,
+      if (task.agentId != null && task.agentId!.isNotEmpty)
+        'agentId': task.agentId,
+    });
     await refreshTasks();
   }
 
@@ -6462,6 +6478,22 @@ class NeoAgentController extends ChangeNotifier {
   String _friendlyErrorMessage(Object error) {
     final text = _normalizeErrorText(error);
     final lower = text.toLowerCase();
+    final backendStatusCode = error is BackendException
+        ? error.statusCode
+        : null;
+
+    if (backendStatusCode == 402) {
+      final details = _extractMeaningfulErrorDetails(text);
+      if (lower.contains('invalid credentials')) {
+        return 'The NeoAgent deployment responded with HTTP 402 instead of the normal 401 for invalid credentials. Check reverse-proxy, auth gateway, or payment-related rules on that server.';
+      }
+      if (details.isNotEmpty &&
+          details.toLowerCase() !=
+              'request failed with http $backendStatusCode') {
+        return 'The NeoAgent deployment responded with HTTP 402.\n\n$details';
+      }
+      return 'The NeoAgent deployment responded with HTTP 402. Check reverse-proxy, auth gateway, or payment-related rules on that server.';
+    }
 
     if (lower.contains('invalid credentials')) {
       return 'Your username or password is incorrect.';
@@ -11128,11 +11160,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
           'webchat',
         ],
       ),
-      const (
-        'Voice',
-        'Telephony integrations.',
-        ['telnyx'],
-      ),
+      const ('Voice', 'Telephony integrations.', ['telnyx']),
     ];
     final query = _searchController.text.trim().toLowerCase();
     final counts = _MessagingStatusCounts.from(controller.messagingStatuses);
@@ -11222,9 +11250,8 @@ class _MessagingPanelState extends State<MessagingPanel> {
                               status:
                                   controller.messagingStatuses[platform.id] ??
                                   MessagingPlatformStatus.empty(platform.id),
-                              whitelist: controller.currentMessagingWhitelist(
-                                platform.id,
-                              ),
+                              accessCatalog: controller
+                                  .currentMessagingAccessCatalog(platform.id),
                               controller: controller,
                               onConnect: () => _openMessagingConfig(platform),
                               onDisconnect: () => controller
@@ -12340,7 +12367,7 @@ class _MessagingCard extends StatelessWidget {
   const _MessagingCard({
     required this.platform,
     required this.status,
-    required this.whitelist,
+    required this.accessCatalog,
     required this.controller,
     required this.onConnect,
     required this.onDisconnect,
@@ -12349,7 +12376,7 @@ class _MessagingCard extends StatelessWidget {
 
   final MessagingPlatformDescriptor platform;
   final MessagingPlatformStatus? status;
-  final List<String> whitelist;
+  final MessagingAccessCatalog accessCatalog;
   final NeoAgentController controller;
   final Future<void> Function() onConnect;
   final Future<void> Function() onDisconnect;
@@ -12365,9 +12392,7 @@ class _MessagingCard extends StatelessWidget {
         : configured
         ? 'Reconnect'
         : 'Connect';
-    final accessLabel = whitelist.isEmpty
-        ? 'Open access'
-        : '${whitelist.length} allowed';
+    final accessLabel = accessCatalog.summary.ifEmpty('Access policy');
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -12492,8 +12517,8 @@ class _MessagingCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               IconButton.outlined(
-                tooltip: 'Access list',
-                onPressed: () => _editWhitelist(context, controller),
+                tooltip: 'Access policy',
+                onPressed: () => _editAccessPolicy(context, controller),
                 icon: Icon(Icons.group_add_outlined),
               ),
               if (platform.id == 'telnyx') ...[
@@ -12519,67 +12544,24 @@ class _MessagingCard extends StatelessWidget {
     );
   }
 
-  Future<void> _editWhitelist(
+  Future<void> _editAccessPolicy(
     BuildContext context,
     NeoAgentController controller,
   ) async {
-    switch (platform.id) {
-      case 'whatsapp':
-        await _showStringListDialog(
-          context,
-          title: 'WhatsApp allowlist',
-          subtitle:
-              'Only listed phone numbers can trigger the agent. Leave empty to allow any sender.',
-          values: controller.currentMessagingWhitelist('whatsapp'),
-          label: 'Phone number',
-          onSave: controller.saveWhatsAppWhitelist,
-        );
-        break;
-      case 'telnyx':
-        await _showStringListDialog(
-          context,
-          title: 'Telnyx allowlist',
-          subtitle:
-              'Only listed caller numbers can reach voice automation. Leave empty to allow any caller.',
-          values: controller.currentMessagingWhitelist('telnyx'),
-          label: 'Phone number',
-          onSave: controller.saveTelnyxWhitelist,
-        );
-        break;
-      case 'discord':
-        await _showStringListDialog(
-          context,
-          title: 'Discord allowlist',
-          subtitle:
-              'Use user:, channel:, guild:, role: prefixes to decide who can trigger the agent.',
-          values: controller.currentMessagingWhitelist('discord'),
-          label: 'user:123 or channel:456',
-          onSave: controller.saveDiscordWhitelist,
-        );
-        break;
-      case 'telegram':
-        await _showStringListDialog(
-          context,
-          title: 'Telegram allowlist',
-          subtitle:
-              'Only listed Telegram chat IDs can trigger the agent. Leave empty to allow any chat.',
-          values: controller.currentMessagingWhitelist('telegram'),
-          label: 'Chat ID',
-          onSave: controller.saveTelegramWhitelist,
-        );
-        break;
-      default:
-        await _showStringListDialog(
-          context,
-          title: '${platform.label} access list',
-          subtitle:
-              'Limit who can trigger the agent from this channel. Leave empty to allow any sender.',
-          values: controller.currentMessagingWhitelist(platform.id),
-          label: 'Allowed sender or channel',
-          onSave: (values) =>
-              controller.saveMessagingWhitelist(platform.id, values),
-        );
-    }
+    final catalog = await controller.loadMessagingAccessCatalog(
+      platform.id,
+      force: true,
+    );
+    if (!context.mounted) return;
+    await _showMessagingAccessPolicyDialog(
+      context,
+      platform: platform,
+      initialCatalog: catalog,
+      onRefreshCatalog: () =>
+          controller.loadMessagingAccessCatalog(platform.id, force: true),
+      onSave: (policy) =>
+          controller.saveMessagingAccessPolicy(platform.id, policy),
+    );
   }
 
   Future<void> _editTelnyxSecret(
@@ -12603,66 +12585,594 @@ class _MessagingCard extends StatelessWidget {
   }
 }
 
-Future<void> _showStringListDialog(
+class _MessagingRuleSelection {
+  const _MessagingRuleSelection({required this.bucket, required this.rule});
+
+  final String bucket;
+  final MessagingAccessRule rule;
+}
+
+Future<void> _showMessagingAccessPolicyDialog(
   BuildContext context, {
-  required String title,
-  required String subtitle,
-  required List<String> values,
-  required String label,
-  required Future<void> Function(List<String> values) onSave,
+  required MessagingPlatformDescriptor platform,
+  required MessagingAccessCatalog initialCatalog,
+  required Future<MessagingAccessCatalog> Function() onRefreshCatalog,
+  required Future<void> Function(MessagingAccessPolicy policy) onSave,
 }) async {
-  final controller = TextEditingController(text: values.join('\n'));
-  try {
-    final saved = await showDialog<List<String>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: _bgCard,
-        title: Text(title),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(subtitle, style: TextStyle(color: _textSecondary)),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                minLines: 5,
-                maxLines: 10,
-                decoration: InputDecoration(
-                  labelText: label,
-                  helperText: 'One entry per line',
+  var catalog = initialCatalog;
+  var policy = initialCatalog.policy;
+
+  List<MessagingAccessRule> dedupeRules(List<MessagingAccessRule> rules) {
+    final seen = <String>{};
+    final result = <MessagingAccessRule>[];
+    for (final rule in rules) {
+      if (rule.value.trim().isEmpty) continue;
+      if (!seen.add(rule.id)) continue;
+      result.add(rule);
+    }
+    return result;
+  }
+
+  void addRule(
+    _MessagingRuleSelection selection,
+    void Function(void Function()) setLocalState,
+  ) {
+    setLocalState(() {
+      switch (selection.bucket) {
+        case 'directRules':
+          policy = policy.copyWith(
+            directPolicy: policy.directPolicy == 'disabled'
+                ? 'allowlist'
+                : policy.directPolicy,
+            directRules: dedupeRules(<MessagingAccessRule>[
+              ...policy.directRules,
+              selection.rule,
+            ]),
+          );
+          break;
+        case 'sharedActorRules':
+          policy = policy.copyWith(
+            sharedPolicy: policy.sharedPolicy == 'disabled'
+                ? 'allowlist'
+                : policy.sharedPolicy,
+            sharedActorRules: dedupeRules(<MessagingAccessRule>[
+              ...policy.sharedActorRules,
+              selection.rule,
+            ]),
+          );
+          break;
+        default:
+          policy = policy.copyWith(
+            sharedPolicy: policy.sharedPolicy == 'disabled'
+                ? 'allowlist'
+                : policy.sharedPolicy,
+            sharedSpaceRules: dedupeRules(<MessagingAccessRule>[
+              ...policy.sharedSpaceRules,
+              selection.rule,
+            ]),
+          );
+      }
+    });
+  }
+
+  void removeRule(
+    String bucket,
+    MessagingAccessRule rule,
+    void Function(void Function()) setLocalState,
+  ) {
+    setLocalState(() {
+      switch (bucket) {
+        case 'directRules':
+          policy = policy.copyWith(
+            directRules: policy.directRules
+                .where((item) => item.id != rule.id)
+                .toList(growable: false),
+          );
+          break;
+        case 'sharedActorRules':
+          policy = policy.copyWith(
+            sharedActorRules: policy.sharedActorRules
+                .where((item) => item.id != rule.id)
+                .toList(growable: false),
+          );
+          break;
+        default:
+          policy = policy.copyWith(
+            sharedSpaceRules: policy.sharedSpaceRules
+                .where((item) => item.id != rule.id)
+                .toList(growable: false),
+          );
+      }
+    });
+  }
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setLocalState) {
+          final capabilities = catalog.capabilities;
+          final summaryText = [
+            'DMs ${policy.directPolicy}',
+            if (capabilities.supportsSharedPolicy)
+              'shared ${policy.sharedPolicy}',
+            if (capabilities.supportsMentionGate)
+              policy.requireMentionInShared
+                  ? 'mentions required'
+                  : 'mentions optional',
+            if (policy.totalRuleCount > 0) '${policy.totalRuleCount} rules',
+          ].join(' • ');
+
+          return AlertDialog(
+            backgroundColor: _bgCard,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 18,
+            ),
+            title: Text('${platform.label} Access Policy'),
+            content: SizedBox(
+              width: 760,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    MessagingAccessSummaryCard(
+                      accent: platform.accent,
+                      summary: summaryText,
+                      hint: capabilities.manualEntryHint.ifEmpty(
+                        'Choose who can reach this platform and how shared spaces behave.',
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    if (capabilities.supportsDirectPolicy)
+                      _AccessModeField(
+                        label: 'Direct messages',
+                        value: policy.directPolicy,
+                        onChanged: (value) => setLocalState(() {
+                          policy = policy.copyWith(directPolicy: value);
+                        }),
+                      ),
+                    if (capabilities.supportsSharedPolicy) ...<Widget>[
+                      const SizedBox(height: 12),
+                      _AccessModeField(
+                        label: 'Shared spaces',
+                        value: policy.sharedPolicy,
+                        onChanged: (value) => setLocalState(() {
+                          policy = policy.copyWith(sharedPolicy: value);
+                        }),
+                      ),
+                    ],
+                    if (capabilities.supportsMentionGate) ...<Widget>[
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Require mention in shared spaces'),
+                        subtitle: Text(
+                          'Keep channels quiet until the bot is directly mentioned.',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                        value: policy.requireMentionInShared,
+                        onChanged: (value) => setLocalState(() {
+                          policy = policy.copyWith(
+                            requireMentionInShared: value,
+                          );
+                        }),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: <Widget>[
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final selection =
+                                await _showMessagingAccessRulePicker(
+                                  context,
+                                  platform: platform,
+                                  catalog: catalog,
+                                );
+                            if (selection != null) {
+                              addRule(selection, setLocalState);
+                            }
+                          },
+                          icon: Icon(Icons.add_rounded),
+                          label: Text('Add Rule'),
+                        ),
+                        const SizedBox(width: 10),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final refreshed = await onRefreshCatalog();
+                            if (!context.mounted) return;
+                            setLocalState(() {
+                              catalog = refreshed;
+                            });
+                          },
+                          icon: Icon(Icons.travel_explore_rounded),
+                          label: Text('Refresh Discovery'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    _AccessRuleSection(
+                      title: 'Direct senders',
+                      subtitle: 'Who can start a one-to-one conversation.',
+                      rules: policy.directRules,
+                      emptyLabel: 'No direct sender rules yet.',
+                      onRemove: (rule) =>
+                          removeRule('directRules', rule, setLocalState),
+                    ),
+                    if (capabilities.supportsSharedPolicy) ...<Widget>[
+                      const SizedBox(height: 16),
+                      _AccessRuleSection(
+                        title: 'Shared spaces',
+                        subtitle:
+                            'Which channels, groups, rooms, or servers can trigger the agent.',
+                        rules: policy.sharedSpaceRules,
+                        emptyLabel: 'No shared-space rules yet.',
+                        onRemove: (rule) =>
+                            removeRule('sharedSpaceRules', rule, setLocalState),
+                      ),
+                      const SizedBox(height: 16),
+                      _AccessRuleSection(
+                        title: 'Shared actors',
+                        subtitle:
+                            'Optional extra filter for who inside allowed shared spaces can trigger the agent.',
+                        rules: policy.sharedActorRules,
+                        emptyLabel: 'No shared-actor rules yet.',
+                        onRemove: (rule) =>
+                            removeRule('sharedActorRules', rule, setLocalState),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  await onSave(policy);
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+                child: Text('Save Policy'),
+              ),
             ],
-          ),
+          );
+        },
+      );
+    },
+  );
+}
+
+class _AccessModeField extends StatelessWidget {
+  const _AccessModeField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          items: const <DropdownMenuItem<String>>[
+            DropdownMenuItem(value: 'allowlist', child: Text('Allowlist only')),
+            DropdownMenuItem(value: 'open', child: Text('Open access')),
+            DropdownMenuItem(value: 'disabled', child: Text('Disabled')),
+          ],
+          onChanged: (next) {
+            if (next != null) onChanged(next);
+          },
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final values = controller.text
-                  .split(RegExp(r'\r?\n'))
-                  .map((value) => value.trim())
-                  .where((value) => value.isNotEmpty)
-                  .toSet()
-                  .toList();
-              Navigator.of(context).pop(values);
-            },
-            child: Text('Save'),
-          ),
+      ),
+    );
+  }
+}
+
+class _AccessRuleSection extends StatelessWidget {
+  const _AccessRuleSection({
+    required this.title,
+    required this.subtitle,
+    required this.rules,
+    required this.emptyLabel,
+    required this.onRemove,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<MessagingAccessRule> rules;
+  final String emptyLabel;
+  final ValueChanged<MessagingAccessRule> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(title, style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(color: _textSecondary)),
+          const SizedBox(height: 12),
+          if (rules.isEmpty)
+            Text(emptyLabel, style: TextStyle(color: _textMuted))
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: rules
+                  .map((rule) {
+                    return Chip(
+                      label: Text('${rule.scopeLabel}: ${rule.displayLabel}'),
+                      deleteIcon: Icon(Icons.close_rounded, size: 18),
+                      onDeleted: () => onRemove(rule),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
         ],
       ),
     );
-    if (saved != null) {
-      await onSave(saved);
+  }
+}
+
+Future<_MessagingRuleSelection?> _showMessagingAccessRulePicker(
+  BuildContext context, {
+  required MessagingPlatformDescriptor platform,
+  required MessagingAccessCatalog catalog,
+}) async {
+  return showModalBottomSheet<_MessagingRuleSelection>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: _bgCard,
+    builder: (sheetContext) =>
+        _MessagingAccessRulePickerSheet(platform: platform, catalog: catalog),
+  );
+}
+
+class _MessagingAccessRulePickerSheet extends StatefulWidget {
+  const _MessagingAccessRulePickerSheet({
+    required this.platform,
+    required this.catalog,
+  });
+
+  final MessagingPlatformDescriptor platform;
+  final MessagingAccessCatalog catalog;
+
+  @override
+  State<_MessagingAccessRulePickerSheet> createState() =>
+      _MessagingAccessRulePickerSheetState();
+}
+
+class _MessagingAccessRulePickerSheetState
+    extends State<_MessagingAccessRulePickerSheet> {
+  late final TextEditingController _queryController;
+  late String _selectedBucket;
+  late String _selectedScope;
+
+  @override
+  void initState() {
+    super.initState();
+    _queryController = TextEditingController();
+    _selectedBucket = widget.catalog.capabilities.directRuleScopes.isNotEmpty
+        ? 'directRules'
+        : (widget.catalog.capabilities.sharedSpaceRuleScopes.isNotEmpty
+              ? 'sharedSpaceRules'
+              : 'sharedActorRules');
+    _selectedScope = widget.catalog.capabilities.directRuleScopes.isNotEmpty
+        ? widget.catalog.capabilities.directRuleScopes.first
+        : (widget.catalog.capabilities.sharedSpaceRuleScopes.isNotEmpty
+              ? widget.catalog.capabilities.sharedSpaceRuleScopes.first
+              : (widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
+                    ? widget.catalog.capabilities.sharedActorRuleScopes.first
+                    : 'chat'));
+  }
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  List<String> _scopesForBucket() {
+    switch (_selectedBucket) {
+      case 'directRules':
+        return widget.catalog.capabilities.directRuleScopes;
+      case 'sharedActorRules':
+        return widget.catalog.capabilities.sharedActorRuleScopes;
+      default:
+        return widget.catalog.capabilities.sharedSpaceRuleScopes;
     }
-  } finally {
-    controller.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final availableScopes = _scopesForBucket();
+    if (!availableScopes.contains(_selectedScope) &&
+        availableScopes.isNotEmpty) {
+      _selectedScope = availableScopes.first;
+    }
+    final query = _queryController.text.trim().toLowerCase();
+    final targets =
+        <MessagingAccessTarget>[
+              ...widget.catalog.suggestedTargets,
+              ...widget.catalog.discoveredTargets,
+            ]
+            .where((target) {
+              if (target.bucket != _selectedBucket) return false;
+              if (query.isEmpty) return true;
+              final haystack =
+                  '${target.label} ${target.subtitle} ${target.scope} ${target.value}'
+                      .toLowerCase();
+              return haystack.contains(query);
+            })
+            .toList(growable: false);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 18,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Add Access Rule',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Choose a preset, a discovered target, or enter an id manually for ${widget.platform.label}.',
+              style: TextStyle(color: _textSecondary),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                if (widget.catalog.capabilities.directRuleScopes.isNotEmpty)
+                  ChoiceChip(
+                    label: Text('Direct'),
+                    selected: _selectedBucket == 'directRules',
+                    onSelected: (_) => setState(() {
+                      _selectedBucket = 'directRules';
+                    }),
+                  ),
+                if (widget
+                    .catalog
+                    .capabilities
+                    .sharedSpaceRuleScopes
+                    .isNotEmpty)
+                  ChoiceChip(
+                    label: Text('Shared spaces'),
+                    selected: _selectedBucket == 'sharedSpaceRules',
+                    onSelected: (_) => setState(() {
+                      _selectedBucket = 'sharedSpaceRules';
+                    }),
+                  ),
+                if (widget
+                    .catalog
+                    .capabilities
+                    .sharedActorRuleScopes
+                    .isNotEmpty)
+                  ChoiceChip(
+                    label: Text('Shared actors'),
+                    selected: _selectedBucket == 'sharedActorRules',
+                    onSelected: (_) => setState(() {
+                      _selectedBucket = 'sharedActorRules';
+                    }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _queryController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.search_rounded),
+                labelText: 'Search discovered targets',
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (targets.isNotEmpty) ...<Widget>[
+              Text(
+                'Suggested & discovered',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              ...targets.take(10).map((target) {
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(target.label),
+                  subtitle: Text(
+                    target.subtitle.ifEmpty(
+                      '${target.scope} • ${target.value}',
+                    ),
+                  ),
+                  trailing: Icon(Icons.add_circle_outline_rounded),
+                  onTap: () => Navigator.of(context).pop(
+                    _MessagingRuleSelection(
+                      bucket: target.bucket,
+                      rule: target.asRule,
+                    ),
+                  ),
+                );
+              }),
+              const Divider(height: 24),
+            ],
+            Text('Manual entry', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            if (availableScopes.isNotEmpty)
+              InputDecorator(
+                decoration: InputDecoration(labelText: 'Rule scope'),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedScope,
+                    isExpanded: true,
+                    items: availableScopes
+                        .map(
+                          (scope) => DropdownMenuItem<String>(
+                            value: scope,
+                            child: Text(scope.replaceAll('_', ' ')),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedScope = value);
+                      }
+                    },
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+            TextField(
+              decoration: InputDecoration(
+                labelText: 'ID / value',
+                helperText: widget.catalog.capabilities.manualEntryHint,
+              ),
+              onSubmitted: (value) {
+                final trimmed = value.trim();
+                if (trimmed.isEmpty) return;
+                Navigator.of(context).pop(
+                  _MessagingRuleSelection(
+                    bucket: _selectedBucket,
+                    rule: MessagingAccessRule(
+                      scope: _selectedScope,
+                      value: trimmed,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -12729,20 +13239,27 @@ class _MessagingMiniPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _borderLight),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: _textSecondary),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: _textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 260),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: _textSecondary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -20446,7 +20963,8 @@ Future<String?> _pickTaskTriggerType(
 ) {
   final optionsBySection = <String, List<_TaskTriggerOption>>{};
   for (final option in _taskTriggerOptions) {
-    optionsBySection.putIfAbsent(option.section, () => <_TaskTriggerOption>[])
+    optionsBySection
+        .putIfAbsent(option.section, () => <_TaskTriggerOption>[])
         .add(option);
   }
 
@@ -20496,7 +21014,8 @@ Future<String?> _pickTaskTriggerType(
                                 padding: const EdgeInsets.only(bottom: 10),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(18),
-                                  onTap: () => Navigator.of(context).pop(option.type),
+                                  onTap: () =>
+                                      Navigator.of(context).pop(option.type),
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 160),
                                     padding: const EdgeInsets.all(16),
@@ -20522,7 +21041,9 @@ Future<String?> _pickTaskTriggerType(
                                       boxShadow: isSelected
                                           ? <BoxShadow>[
                                               BoxShadow(
-                                                color: _accent.withValues(alpha: 0.12),
+                                                color: _accent.withValues(
+                                                  alpha: 0.12,
+                                                ),
                                                 blurRadius: 24,
                                                 offset: const Offset(0, 10),
                                               ),
@@ -20530,26 +21051,34 @@ Future<String?> _pickTaskTriggerType(
                                           : null,
                                     ),
                                     child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: <Widget>[
                                         Container(
                                           width: 44,
                                           height: 44,
                                           decoration: BoxDecoration(
                                             color: isSelected
-                                                ? _accent.withValues(alpha: 0.16)
+                                                ? _accent.withValues(
+                                                    alpha: 0.16,
+                                                  )
                                                 : _bgCard,
-                                            borderRadius: BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                           ),
                                           child: Icon(
                                             option.icon,
-                                            color: isSelected ? _accent : _textSecondary,
+                                            color: isSelected
+                                                ? _accent
+                                                : _textSecondary,
                                           ),
                                         ),
                                         const SizedBox(width: 14),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: <Widget>[
                                               Text(
                                                 option.label,
@@ -20574,7 +21103,9 @@ Future<String?> _pickTaskTriggerType(
                                           isSelected
                                               ? Icons.check_circle_rounded
                                               : Icons.arrow_forward_rounded,
-                                          color: isSelected ? _accent : _textSecondary,
+                                          color: isSelected
+                                              ? _accent
+                                              : _textSecondary,
                                         ),
                                       ],
                                     ),
@@ -20650,7 +21181,8 @@ class _TasksPanelState extends State<TasksPanel> {
       children: <Widget>[
         _PageTitle(
           title: 'Tasks',
-          subtitle: 'Premium automation with schedule and integration triggers.',
+          subtitle:
+              'Premium automation with schedule and integration triggers.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -20959,9 +21491,7 @@ class _TasksPanelState extends State<TasksPanel> {
     String? defaultAgentId,
   }) async {
     final nameController = TextEditingController(text: task?.name ?? '');
-    final triggerType = ValueNotifier<String>(
-      task?.triggerType ?? 'schedule',
-    );
+    final triggerType = ValueNotifier<String>(task?.triggerType ?? 'schedule');
     final cronController = TextEditingController(
       text: task?.triggerConfig['cronExpression']?.toString() ?? '*/30 * * * *',
     );
@@ -20975,9 +21505,10 @@ class _TasksPanelState extends State<TasksPanel> {
       text: task?.triggerConfig['query']?.toString() ?? '',
     );
     final channelController = TextEditingController(
-      text: task?.triggerConfig['channel']?.toString()
-          ?? task?.triggerConfig['chatId']?.toString()
-          ?? '',
+      text:
+          task?.triggerConfig['channel']?.toString() ??
+          task?.triggerConfig['chatId']?.toString() ??
+          '',
     );
     final senderController = TextEditingController(
       text: task?.triggerConfig['sender']?.toString() ?? '',
@@ -21058,7 +21589,8 @@ class _TasksPanelState extends State<TasksPanel> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: <Widget>[
                                         Text(
@@ -21090,8 +21622,12 @@ class _TasksPanelState extends State<TasksPanel> {
                                           vertical: 5,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: _bgCard.withValues(alpha: 0.72),
-                                          borderRadius: BorderRadius.circular(999),
+                                          color: _bgCard.withValues(
+                                            alpha: 0.72,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
                                         ),
                                         child: Text(
                                           option.section,
@@ -21126,7 +21662,8 @@ class _TasksPanelState extends State<TasksPanel> {
                                   controller: cronController,
                                   decoration: const InputDecoration(
                                     labelText: 'Cron Expression',
-                                    helperText: 'Use cron for recurring tasks. Leave Run At empty for recurring schedules.',
+                                    helperText:
+                                        'Use cron for recurring tasks. Leave Run At empty for recurring schedules.',
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -21145,29 +21682,32 @@ class _TasksPanelState extends State<TasksPanel> {
                               TextField(
                                 controller: connectionIdController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Official Integration Connection ID',
+                                  labelText:
+                                      'Official Integration Connection ID',
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              if (selectedTriggerType == 'gmail_message_received' ||
-                                  selectedTriggerType == 'outlook_email_received')
-                                ...<Widget>[
-                                  TextField(
-                                    controller: queryController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Query / Filter',
-                                    ),
+                              if (selectedTriggerType ==
+                                      'gmail_message_received' ||
+                                  selectedTriggerType ==
+                                      'outlook_email_received') ...<Widget>[
+                                TextField(
+                                  controller: queryController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Query / Filter',
                                   ),
-                                  const SizedBox(height: 12),
-                                  SwitchListTile(
-                                    value: unreadOnly,
-                                    contentPadding: EdgeInsets.zero,
-                                    title: const Text('Unread Only'),
-                                    onChanged: (value) =>
-                                        setLocalState(() => unreadOnly = value),
-                                  ),
-                                ],
-                              if (selectedTriggerType == 'outlook_email_received') ...<Widget>[
+                                ),
+                                const SizedBox(height: 12),
+                                SwitchListTile(
+                                  value: unreadOnly,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Unread Only'),
+                                  onChanged: (value) =>
+                                      setLocalState(() => unreadOnly = value),
+                                ),
+                              ],
+                              if (selectedTriggerType ==
+                                  'outlook_email_received') ...<Widget>[
                                 TextField(
                                   controller: channelController,
                                   decoration: const InputDecoration(
@@ -21176,28 +21716,36 @@ class _TasksPanelState extends State<TasksPanel> {
                                 ),
                                 const SizedBox(height: 12),
                               ],
-                              if (selectedTriggerType == 'slack_message_received' ||
-                                  selectedTriggerType == 'teams_message_received' ||
-                                  selectedTriggerType == 'whatsapp_personal_message_received')
-                                ...<Widget>[
-                                  TextField(
-                                    controller: channelController,
-                                    decoration: InputDecoration(
-                                      labelText: selectedTriggerType == 'slack_message_received'
-                                          ? 'Channel ID'
-                                          : 'Chat ID',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextField(
-                                    controller: senderController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Sender Filter (optional)',
-                                    ),
-                                  ),
-                                ],
                               if (selectedTriggerType ==
-                                  'whatsapp_personal_message_received') ...<Widget>[
+                                      'slack_message_received' ||
+                                  selectedTriggerType ==
+                                      'teams_message_received' ||
+                                  selectedTriggerType ==
+                                      'whatsapp_personal_message_received') ...<
+                                Widget
+                              >[
+                                TextField(
+                                  controller: channelController,
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        selectedTriggerType ==
+                                            'slack_message_received'
+                                        ? 'Channel ID'
+                                        : 'Chat ID',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: senderController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Sender Filter (optional)',
+                                  ),
+                                ),
+                              ],
+                              if (selectedTriggerType ==
+                                  'whatsapp_personal_message_received') ...<
+                                Widget
+                              >[
                                 const SizedBox(height: 12),
                                 SwitchListTile(
                                   value: ignoreGroups,
@@ -21283,11 +21831,12 @@ class _TasksPanelState extends State<TasksPanel> {
                     final triggerConfig = <String, dynamic>{};
                     if (selectedTriggerType == 'schedule') {
                       final runAt = runAtController.text.trim();
-                      triggerConfig['mode'] =
-                          runAt.isEmpty ? 'recurring' : 'one_time';
+                      triggerConfig['mode'] = runAt.isEmpty
+                          ? 'recurring'
+                          : 'one_time';
                       if (runAt.isEmpty) {
-                        triggerConfig['cronExpression'] =
-                            cronController.text.trim();
+                        triggerConfig['cronExpression'] = cronController.text
+                            .trim();
                       } else {
                         triggerConfig['runAt'] = runAt;
                       }
@@ -21302,11 +21851,13 @@ class _TasksPanelState extends State<TasksPanel> {
                         triggerConfig['unreadOnly'] = unreadOnly;
                         if (selectedTriggerType == 'outlook_email_received' &&
                             channelController.text.trim().isNotEmpty) {
-                          triggerConfig['folderId'] = channelController.text.trim();
+                          triggerConfig['folderId'] = channelController.text
+                              .trim();
                         }
                       }
                       if (selectedTriggerType == 'slack_message_received') {
-                        triggerConfig['channel'] = channelController.text.trim();
+                        triggerConfig['channel'] = channelController.text
+                            .trim();
                       }
                       if (selectedTriggerType == 'teams_message_received' ||
                           selectedTriggerType ==

@@ -124,6 +124,7 @@ router.use(requireAuth);
 function isAgentScopedSettingKey(key) {
   return AGENT_SETTING_KEYS.has(key)
     || key.startsWith('platform_whitelist_')
+    || key.startsWith('platform_access_policy_')
     || key === 'platform_voice_secret_telnyx';
 }
 

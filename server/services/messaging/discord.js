@@ -113,33 +113,6 @@ class DiscordPlatform extends BasePlatform {
   getStatus() { return this.status; }
   getAuthInfo() { return this._botUser ? { tag: this._botUser.tag, id: this._botUser.id } : null; }
 
-  // ── Whitelist ──────────────────────────────────────────────────────────────
-
-  // Inherits setAllowedEntries from BasePlatform
-
-  /** Returns {allowed, requireMention} */
-  _checkAccess(message) {
-    const isDM = message.channel.type === ChannelType.DM;
-    const userId = message.author.id;
-    const guildId = message.guildId || null;
-    const channelId = message.channelId;
-    const userAllowed = super._checkAccess(`user:${userId}`) || super._checkAccess(userId);
-
-    if (isDM) {
-      return {
-        allowed: this.allowedEntries.size === 0 || userAllowed,
-        requireMention: false,
-      };
-    }
-
-    return {
-      allowed: userAllowed
-        || (guildId && super._checkAccess(`guild:${guildId}`))
-        || super._checkAccess(`channel:${channelId}`),
-      requireMention: true,
-    };
-  }
-
   _isMentioned(message) {
     return this._botUser ? message.mentions.has(this._botUser.id) : false;
   }
@@ -185,28 +158,30 @@ class DiscordPlatform extends BasePlatform {
     const channelId = message.channelId;
     const chatId = isDM ? `dm_${userId}` : channelId;
 
-    const { allowed, requireMention } = this._checkAccess(message);
+    const access = this._checkInboundAccess({
+      platform: 'discord',
+      senderId: userId,
+      chatId,
+      isDirect: isDM,
+      isShared: !isDM,
+      groupId: !isDM ? channelId : '',
+      channelId: !isDM ? channelId : '',
+      serverId: guildId || '',
+      roleIds: !isDM && message.member ? [...message.member.roles.cache.keys()] : [],
+      phoneNumber: '',
+      wasMentioned: isDM ? false : this._isMentioned(message),
+    }, {
+      senderName: message.author.username || null,
+      meta: message.guild?.name ? `Server: ${message.guild.name}` : '',
+      serverLabel: message.guild?.name || '',
+      channelLabel: !isDM ? `#${message.channel.name || channelId}` : '',
+    });
 
-    if (requireMention && !this._isMentioned(message)) return;
-
-    if (!allowed) {
-      const suggestions = [
-        { label: `Add user (${message.author.username})`, prefixedId: `user:${userId}` },
-      ];
-      if (guildId) suggestions.push({ label: `Add server (${message.guild?.name || guildId})`, prefixedId: `guild:${guildId}` });
-      if (!isDM) suggestions.push({ label: `Add channel (#${message.channel.name || channelId})`, prefixedId: `channel:${channelId}` });
-
-      this.emit('blocked_sender', {
-        sender: userId,
-        chatId,
-        senderName: message.author.username,
-        guildName: message.guild?.name || null,
-        suggestions,
-      });
+    if (!access.allowed) {
       return;
     }
 
-    let content = requireMention ? this._stripMention(message.content) : (message.content || '');
+    let content = (!isDM && this._isMentioned(message)) ? this._stripMention(message.content) : (message.content || '');
     if (message.attachments.size > 0) {
       const urls = [...message.attachments.values()].map(a => a.url).join(', ');
       content += (content ? '\n' : '') + `[Attachment: ${urls}]`;
@@ -223,7 +198,7 @@ class DiscordPlatform extends BasePlatform {
       : `${senderDisplayName} in #${message.channel.name || channelId}${message.guild ? ` (${message.guild.name})` : ''}`;
 
     // Fetch recent channel history for context on guild/channel mentions
-    const channelContext = (requireMention && !isDM) ? await this._fetchContext(message.channel, 20) : null;
+    const channelContext = (!isDM && this._isMentioned(message)) ? await this._fetchContext(message.channel, 20) : null;
 
     this.emit('message', {
       platform: 'discord',
@@ -278,6 +253,46 @@ class DiscordPlatform extends BasePlatform {
         if (ch?.isTextBased()) await ch.sendTyping();
       }
     } catch { /* non-fatal */ }
+  }
+
+  async listAccessTargets() {
+    if (!this._client || this.status !== 'connected') return [];
+    const targets = [];
+    for (const guild of this._client.guilds.cache.values()) {
+      targets.push({
+        source: 'live',
+        bucket: 'sharedSpaceRules',
+        scope: 'server',
+        value: guild.id,
+        label: guild.name || guild.id,
+        subtitle: 'Discord server',
+      });
+      const channels = guild.channels?.cache?.values?.() || [];
+      for (const channel of channels) {
+        if (!channel?.isTextBased?.() || channel.type === ChannelType.DM) continue;
+        targets.push({
+          source: 'live',
+          bucket: 'sharedSpaceRules',
+          scope: 'channel',
+          value: channel.id,
+          label: `#${channel.name || channel.id}`,
+          subtitle: guild.name || 'Discord channel',
+        });
+      }
+      const roles = guild.roles?.cache?.values?.() || [];
+      for (const role of roles) {
+        if (!role || role.managed || role.name === '@everyone') continue;
+        targets.push({
+          source: 'live',
+          bucket: 'sharedActorRules',
+          scope: 'role',
+          value: role.id,
+          label: role.name || role.id,
+          subtitle: guild.name || 'Discord role',
+        });
+      }
+    }
+    return targets;
   }
 }
 

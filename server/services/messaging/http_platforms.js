@@ -217,6 +217,27 @@ class ConfigurableHttpPlatform extends BasePlatform {
     if (!inboundAllowed(this.config, req)) return { handled: false, status: 403, body: 'Forbidden' };
     const msg = genericMessageFromWebhook(this.name, this.config, req);
     if (!msg) return { handled: true, status: 202, body: 'ignored' };
+    const access = this._checkInboundAccess({
+      platform: this.name,
+      senderId: String(msg.sender || ''),
+      chatId: String(msg.chatId || ''),
+      isDirect: !msg.isGroup,
+      isShared: Boolean(msg.isGroup),
+      groupId: msg.isGroup ? String(msg.chatId || '') : '',
+      channelId: msg.isGroup ? String(msg.chatId || '') : '',
+      serverId: '',
+      roomId: msg.isGroup ? String(msg.chatId || '') : '',
+      roleIds: [],
+      phoneNumber: '',
+      wasMentioned: false,
+    }, {
+      senderName: msg.senderName || null,
+      meta: msg.isGroup ? `Chat: ${msg.chatId}` : '',
+      groupLabel: String(msg.chatId || ''),
+      channelLabel: String(msg.chatId || ''),
+      roomLabel: String(msg.chatId || ''),
+    });
+    if (!access.allowed) return { handled: true, status: 202, body: 'blocked' };
     this.emit('message', msg);
     return { handled: true, status: 200, body: 'OK' };
   }
@@ -318,7 +339,7 @@ class SlackPlatform extends BasePlatform {
       ? String(event.text).replace(new RegExp(`<@${this._botUserId}>`, 'g'), '').trim()
       : String(event.text);
     if (!content) return { handled: true, status: 202, body: 'ignored' };
-    this.emit('message', {
+    const message = {
       platform: 'slack',
       chatId: String(event.channel || 'slack'),
       sender: String(event.user || event.bot_id || 'slack'),
@@ -332,7 +353,28 @@ class SlackPlatform extends BasePlatform {
       timestamp: event.event_ts ? new Date(Number(event.event_ts) * 1000).toISOString() : new Date().toISOString(),
       threadTs: event.thread_ts || null,
       rawMessage: body,
+      wasMentioned,
+    };
+    const access = this._checkInboundAccess({
+      platform: 'slack',
+      senderId: message.sender,
+      chatId: message.chatId,
+      isDirect: !isGroup,
+      isShared: isGroup,
+      groupId: isGroup ? message.chatId : '',
+      channelId: isGroup ? message.chatId : '',
+      serverId: '',
+      roomId: '',
+      roleIds: [],
+      phoneNumber: '',
+      wasMentioned,
+    }, {
+      senderName: message.senderName,
+      meta: isGroup ? `Channel: ${message.chatId}` : '',
+      channelLabel: message.chatId,
     });
+    if (!access.allowed) return { handled: true, status: 202, body: 'blocked' };
+    this.emit('message', message);
     return { handled: true, status: 200, body: 'OK' };
   }
 }
@@ -345,23 +387,43 @@ class GoogleChatPlatform extends ConfigurableHttpPlatform {
   async handleWebhook(req) {
     if (!inboundAllowed(this.config, req)) return { handled: false, status: 403, body: 'Forbidden' };
     const body = req.body || {};
-    const message = body.message || body;
-    const content = message.argumentText || message.text || body.text;
+    const incoming = body.message || body;
+    const content = incoming.argumentText || incoming.text || body.text;
     if (!content) return { handled: true, status: 202, body: 'ignored' };
-    this.emit('message', {
+    const message = {
       platform: 'google_chat',
-      chatId: String(message.space?.name || body.space?.name || this.config.defaultTo || 'google_chat'),
-      sender: String(body.user?.name || message.sender?.name || 'google_chat'),
-      senderName: body.user?.displayName || message.sender?.displayName || null,
-      senderDisplayName: body.user?.displayName || message.sender?.displayName || null,
-      senderTag: body.user?.name || message.sender?.name || null,
+      chatId: String(incoming.space?.name || body.space?.name || this.config.defaultTo || 'google_chat'),
+      sender: String(body.user?.name || incoming.sender?.name || 'google_chat'),
+      senderName: body.user?.displayName || incoming.sender?.displayName || null,
+      senderDisplayName: body.user?.displayName || incoming.sender?.displayName || null,
+      senderTag: body.user?.name || incoming.sender?.name || null,
       content: String(content),
       mediaType: null,
       isGroup: true,
-      messageId: String(message.name || crypto.randomUUID()),
+      messageId: String(incoming.name || crypto.randomUUID()),
       timestamp: new Date().toISOString(),
       rawMessage: body,
+    };
+    const access = this._checkInboundAccess({
+      platform: 'google_chat',
+      senderId: message.sender,
+      chatId: message.chatId,
+      isDirect: false,
+      isShared: true,
+      groupId: '',
+      channelId: '',
+      serverId: '',
+      roomId: message.chatId,
+      roleIds: [],
+      phoneNumber: '',
+      wasMentioned: false,
+    }, {
+      senderName: message.senderName,
+      meta: `Space: ${message.chatId}`,
+      roomLabel: message.chatId,
     });
+    if (!access.allowed) return { handled: true, status: 202, body: 'blocked' };
+    this.emit('message', message);
     return { handled: true, status: 200, body: { text: 'Received.' } };
   }
 }
@@ -376,7 +438,7 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
     const body = req.body || {};
     const content = body.text || body.message?.text || body.value?.text;
     if (!content) return { handled: true, status: 202, body: 'ignored' };
-    this.emit('message', {
+    const message = {
       platform: 'teams',
       chatId: String(body.conversation?.id || body.channelData?.channel?.id || this.config.defaultTo || 'teams'),
       sender: String(body.from?.id || 'teams'),
@@ -389,7 +451,27 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
       messageId: String(body.id || crypto.randomUUID()),
       timestamp: body.timestamp || new Date().toISOString(),
       rawMessage: body,
+    };
+    const access = this._checkInboundAccess({
+      platform: 'teams',
+      senderId: message.sender,
+      chatId: message.chatId,
+      isDirect: false,
+      isShared: true,
+      groupId: '',
+      channelId: message.chatId,
+      serverId: '',
+      roomId: '',
+      roleIds: [],
+      phoneNumber: '',
+      wasMentioned: false,
+    }, {
+      senderName: message.senderName,
+      meta: `Conversation: ${message.chatId}`,
+      channelLabel: message.chatId,
     });
+    if (!access.allowed) return { handled: true, status: 202, body: 'blocked' };
+    this.emit('message', message);
     return { handled: true, status: 200, body: { type: 'message', text: 'Received.' } };
   }
 }
@@ -473,7 +555,7 @@ class MatrixPlatform extends BasePlatform {
           ? String(content).replaceAll(this.userId, '').trim()
           : String(content);
         if (!cleanContent) continue;
-        this.emit('message', {
+        const message = {
           platform: 'matrix',
           chatId: roomId,
           sender: String(event.sender || roomId),
@@ -486,7 +568,27 @@ class MatrixPlatform extends BasePlatform {
           messageId: String(event.event_id || crypto.randomUUID()),
           timestamp: event.origin_server_ts ? new Date(event.origin_server_ts).toISOString() : new Date().toISOString(),
           rawMessage: event,
+        };
+        const access = this._checkInboundAccess({
+          platform: 'matrix',
+          senderId: message.sender,
+          chatId: message.chatId,
+          isDirect: false,
+          isShared: true,
+          groupId: '',
+          channelId: '',
+          serverId: '',
+          roomId: roomId,
+          roleIds: [],
+          phoneNumber: '',
+          wasMentioned: this.userId ? String(content).includes(this.userId) : false,
+        }, {
+          senderName: message.senderName,
+          meta: `Room: ${roomId}`,
+          roomLabel: roomId,
         });
+        if (!access.allowed) continue;
+        this.emit('message', message);
       }
     }
   }
@@ -574,7 +676,7 @@ class SignalPlatform extends ConfigurableHttpPlatform {
       const dataMessage = envelope.dataMessage || {};
       const content = dataMessage.message || '';
       if (!content) continue;
-      this.emit('message', {
+      const message = {
         platform: 'signal',
         chatId: String(envelope.sourceNumber || envelope.source || 'signal'),
         sender: String(envelope.sourceNumber || envelope.source || 'signal'),
@@ -587,7 +689,27 @@ class SignalPlatform extends ConfigurableHttpPlatform {
         messageId: String(envelope.timestamp || crypto.randomUUID()),
         timestamp: envelope.timestamp ? new Date(Number(envelope.timestamp)).toISOString() : new Date().toISOString(),
         rawMessage: item,
+      };
+      const access = this._checkInboundAccess({
+        platform: 'signal',
+        senderId: message.sender,
+        chatId: message.chatId,
+        isDirect: !message.isGroup,
+        isShared: message.isGroup,
+        groupId: message.isGroup ? message.chatId : '',
+        channelId: '',
+        serverId: '',
+        roomId: '',
+        roleIds: [],
+        phoneNumber: message.sender,
+        wasMentioned: false,
+      }, {
+        senderName: message.senderName,
+        meta: message.isGroup ? `Group: ${message.chatId}` : '',
+        groupLabel: message.chatId,
       });
+      if (!access.allowed) continue;
+      this.emit('message', message);
     }
   }
 
@@ -640,7 +762,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
     for (const event of events) {
       const content = event.message?.text || '';
       if (!content) continue;
-      this.emit('message', {
+      const message = {
         platform: 'line',
         chatId: String(event.source?.groupId || event.source?.roomId || event.source?.userId || 'line'),
         sender: String(event.source?.userId || 'line'),
@@ -652,7 +774,28 @@ class LinePlatform extends ConfigurableHttpPlatform {
         messageId: String(event.message?.id || event.webhookEventId || crypto.randomUUID()),
         timestamp: event.timestamp ? new Date(Number(event.timestamp)).toISOString() : new Date().toISOString(),
         rawMessage: event,
+      };
+      const access = this._checkInboundAccess({
+        platform: 'line',
+        senderId: message.sender,
+        chatId: message.chatId,
+        isDirect: !message.isGroup,
+        isShared: message.isGroup,
+        groupId: event.source?.groupId ? String(event.source.groupId) : '',
+        channelId: '',
+        serverId: '',
+        roomId: event.source?.roomId ? String(event.source.roomId) : '',
+        roleIds: [],
+        phoneNumber: '',
+        wasMentioned: false,
+      }, {
+        senderName: message.senderName,
+        meta: event.source?.groupId ? `Group: ${event.source.groupId}` : (event.source?.roomId ? `Room: ${event.source.roomId}` : ''),
+        groupLabel: event.source?.groupId ? String(event.source.groupId) : '',
+        roomLabel: event.source?.roomId ? String(event.source.roomId) : '',
       });
+      if (!access.allowed) continue;
+      this.emit('message', message);
     }
     return { handled: true, status: 200, body: 'OK' };
   }
@@ -795,7 +938,7 @@ class IrcPlatform extends BasePlatform {
         ? content.replace(new RegExp(`(^|\\s)${this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[:,]?\\s*`, 'i'), ' ').trim()
         : content;
       if (!cleanContent) continue;
-      this.emit('message', {
+      const message = {
         platform: this.name,
         chatId: target,
         sender: nick,
@@ -807,7 +950,27 @@ class IrcPlatform extends BasePlatform {
         isGroup,
         messageId: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
+      };
+      const access = this._checkInboundAccess({
+        platform: this.name,
+        senderId: nick,
+        chatId: target,
+        isDirect: !isGroup,
+        isShared: isGroup,
+        groupId: '',
+        channelId: isGroup ? target : '',
+        serverId: '',
+        roomId: '',
+        roleIds: [],
+        phoneNumber: '',
+        wasMentioned: !isGroup || new RegExp(`(^|\\s)${this.nick.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}[:,]?\\b`, 'i').test(content),
+      }, {
+        senderName: nick,
+        meta: isGroup ? `Channel: ${target}` : '',
+        channelLabel: target,
       });
+      if (!access.allowed) continue;
+      this.emit('message', message);
     }
   }
 

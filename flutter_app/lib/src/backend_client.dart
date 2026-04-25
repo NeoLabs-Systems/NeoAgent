@@ -1097,6 +1097,30 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchMessagingAccessPolicy(
+    String baseUrl, {
+    required String platform,
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/messaging/$platform/access-policy', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> saveMessagingAccessPolicy(
+    String baseUrl, {
+    required String platform,
+    required Map<String, dynamic> policy,
+    String? agentId,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/messaging/$platform/access-policy',
+      _withAgentId(<String, dynamic>{'policy': policy}, agentId),
+    );
+  }
+
   Future<Map<String, dynamic>> saveTelnyxWhitelist(
     String baseUrl,
     List<String> numbers, {
@@ -1748,14 +1772,15 @@ class BackendClient {
       message = decoded['error']?.toString() ?? message;
     } catch (_) {}
 
-    throw BackendException(message);
+    throw BackendException(message, statusCode: response.statusCode);
   }
 }
 
 class BackendException implements Exception {
-  const BackendException(this.message);
+  const BackendException(this.message, {this.statusCode});
 
   final String message;
+  final int? statusCode;
 
   @override
   String toString() => message;

@@ -1273,9 +1273,9 @@ class _HomeViewState extends State<HomeView> {
                             child: FilledButton.icon(
                               onPressed: () async {
                                 Navigator.of(dialogContext).pop();
-                                await widget.controller.allowMessagingEntry(
+                                await widget.controller.allowMessagingSuggestion(
                                   notice.platform,
-                                  suggestion.entry,
+                                  suggestion,
                                 );
                               },
                               icon: Icon(Icons.verified_user_outlined),
