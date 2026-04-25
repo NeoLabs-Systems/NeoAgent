@@ -211,6 +211,98 @@
       height: 1px;
       background: linear-gradient(90deg, transparent, var(--border-light) 30%, var(--border-light) 70%, transparent);
     }
+
+    /* ── Migration section ── */
+    .migrate-section {
+      position: relative;
+    }
+
+    .migrate-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2xl);
+      align-items: start;
+    }
+
+    .migrate-what {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+      margin-top: var(--space-xl);
+    }
+
+    .migrate-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-md);
+      padding: var(--space-md) var(--space-lg);
+      border-radius: var(--radius-md);
+      background: var(--bg-card-alpha);
+      border: 1px solid var(--border);
+      transition: all var(--duration-normal) var(--ease-out-expo);
+    }
+
+    .migrate-item:hover {
+      border-color: var(--accent);
+      background: rgba(19, 30, 37, 0.95);
+      transform: translateX(4px);
+    }
+
+    .migrate-item__icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+
+    .migrate-item__title {
+      font-family: var(--font-display);
+      font-size: var(--fs-small);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .migrate-item__desc {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .migrate-sources {
+      display: flex;
+      gap: var(--space-sm);
+      margin-top: var(--space-lg);
+      flex-wrap: wrap;
+    }
+
+    .source-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-light);
+      font-size: var(--fs-xs);
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .source-chip__arrow {
+      color: var(--accent);
+      font-size: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .migrate-layout {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -227,6 +319,7 @@
       <div class="nav__links" id="nav-links">
         <a href="#features" class="nav__link" id="nav-features">Features</a>
         <a href="#how-it-works" class="nav__link" id="nav-how-it-works">How It Works</a>
+        <a href="#migrate" class="nav__link" id="nav-migrate">Migrate</a>
         <a href="#integrations" class="nav__link" id="nav-integrations">Integrations</a>
         <a href="docs/" class="nav__link" id="nav-docs">Docs</a>
         <a href="https://github.com/NeoLabs-Systems/NeoAgent" class="nav__link" id="nav-github" target="_blank"
@@ -517,6 +610,93 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+
+  <div class="divider"></div>
+
+
+  <!-- ════════════════════ MIGRATION ════════════════════ -->
+  <section class="migrate-section" id="migrate">
+    <div class="container">
+      <div class="migrate-layout">
+
+        <div class="reveal-left">
+          <span class="section-eyebrow">Migration</span>
+          <h2 class="section-title">Coming from another agent?<br>One command.</h2>
+          <p class="section-subtitle">
+            NeoAgent detects OpenClaw and Hermes installations and migrates your skills, memories, and API keys automatically — no manual copy-paste.
+          </p>
+
+          <div class="migrate-sources">
+            <span class="source-chip">OpenClaw <span class="source-chip__arrow">→</span> NeoAgent</span>
+            <span class="source-chip">Hermes <span class="source-chip__arrow">→</span> NeoAgent</span>
+          </div>
+
+          <div class="migrate-what">
+            <div class="migrate-item reveal-left">
+              <div class="migrate-item__icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <div>
+                <div class="migrate-item__title">Skills</div>
+                <div class="migrate-item__desc">All .md skill files copied into NeoAgent's skills directory, namespaced by source.</div>
+              </div>
+            </div>
+            <div class="migrate-item reveal-left">
+              <div class="migrate-item__icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+              </div>
+              <div>
+                <div class="migrate-item__title">Memory &amp; Soul</div>
+                <div class="migrate-item__desc">MEMORY.md, SOUL.md, and USER.md migrated and preserved alongside existing context.</div>
+              </div>
+            </div>
+            <div class="migrate-item reveal-left">
+              <div class="migrate-item__icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+              </div>
+              <div>
+                <div class="migrate-item__title">API Keys</div>
+                <div class="migrate-item__desc">All recognised API keys merged into your .env with interactive conflict resolution.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-right">
+          <div class="terminal" style="margin-top: 3.5rem;">
+            <div class="terminal__header">
+              <span class="terminal__dot terminal__dot--red"></span>
+              <span class="terminal__dot terminal__dot--yellow"></span>
+              <span class="terminal__dot terminal__dot--green"></span>
+              <span class="terminal__title">neoagent migrate dry-run</span>
+            </div>
+            <div class="terminal__body" style="text-align: left;">
+              <div class="terminal__line"><span class="terminal__prompt">~$</span><span class="terminal__command"> neoagent migrate dry-run</span></div>
+              <div class="terminal__output" style="margin-top: 10px;">
+                <div style="color: var(--accent-hover); font-weight: 600;">  === Migration Dry Run ===</div>
+                <div style="margin-top: 8px;"><span style="color: var(--success);">✓</span> OpenClaw detection: <span style="color: var(--success);">FOUND</span></div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  Skills:   12</div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  Memories: 3  (SOUL, MEMORY, USER)</div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  API keys: ANTHROPIC_API_KEY, OPENAI_API_KEY</div>
+                <div style="margin-top: 6px;"><span style="color: var(--success);">✓</span> Hermes detection: <span style="color: var(--success);">FOUND</span></div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  Skills:   4</div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  Memories: 2  (MEMORY, USER)</div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  API keys: GOOGLE_AI_KEY</div>
+                <div style="margin-top: 10px; color: var(--text-secondary);">  Would migrate to:</div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  Skills   → ~/.neoagent/skills/</div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  Memories → ~/.neoagent/memory/</div>
+                <div style="color: var(--text-muted); padding-left: 16px;">  API keys → ~/.neoagent/.env</div>
+                <div style="margin-top: 12px; color: var(--text-secondary);">  Run without dry-run to apply:</div>
+                <div style="margin-top: 4px;"><span class="terminal__prompt" style="padding-left: 0;">~$</span> <span style="color: var(--text-primary);">neoagent migrate</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
