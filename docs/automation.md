@@ -4,7 +4,7 @@ NeoAgent is built for proactive work: tasks that run later, repeat on a schedule
 
 ## Tasks
 
-Use the **Tasks** section in the UI to create scheduled automations. These tasks use Cron expressions for time-based scheduling. A task has:
+Use the **Tasks** section in the UI to create automations. Tasks can be time-based (Cron) or integration-triggered (for example email, messaging, and weather-event triggers). A task has:
 
 | Field | Purpose |
 |---|---|

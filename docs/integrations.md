@@ -14,8 +14,12 @@ The built-in registry includes:
 | Slack | Conversations, history, posting, search, user info, and Slack Web API requests |
 | Figma | Current user, files, nodes, rendered images, comments, and Figma REST requests |
 | Home Assistant | Entity/config reads, service calls, and Home Assistant REST API requests |
+| Weather | Keyless Open-Meteo current weather and forecast tools |
+| Spotify | Playback state, recently played, search, and playback controls |
 
 OAuth app credentials are configured through server environment variables. Account connections are created in the Flutter UI under **Integrations**. Connected tools are exposed to the agent as structured tools, so prefer them over browser automation when they can do the job.
+
+Weather note: the Weather integration uses Open-Meteo public APIs and does not require OAuth client credentials.
 
 ### Per-Account Access Mode
 

@@ -1,8 +1,10 @@
 'use strict';
 
 const { randomUUID } = require('crypto');
+const db = require('../../db/database');
 
 const { getProviderRuntimeConfig } = require('../ai/models');
+const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const { getVoiceRuntimeSettings } = require('./liveSettings');
 const { VoiceLiveSession } = require('./liveSession');
 const { OpenAiLiveRelayAdapter } = require('./openaiLiveRelayAdapter');
@@ -180,10 +182,13 @@ class VoiceRuntimeManager {
     await session.setState('idle');
   }
 
-  async publishInterimUpdate({ sessionId, content, kind = 'progress' } = {}) {
+  async publishInterimUpdate({ sessionId, content, kind = 'progress', deferFollowUp = false } = {}) {
     const session = this.getSession(sessionId);
     if (!session || session.closed) {
       return { sent: false, skipped: true, reason: 'Voice session is not active.' };
+    }
+    if (deferFollowUp === true) {
+      session.deferFollowUpRequested = true;
     }
     await this.deliverAssistantMessage(session, content, { kind });
     return { sent: true };
@@ -194,6 +199,88 @@ class VoiceRuntimeManager {
     const normalized = String(content || '').trim();
     if (!normalized) return;
     await session.publishAssistantOutput(normalized, options);
+  }
+
+  async prepareDeferredVoiceFollowUp(session) {
+    if (!session || session.closed) return null;
+    if (String(session.platform || '').trim() !== 'voice_live') return null;
+
+    const target = this.#resolvePreferredMessagingTarget(session.userId, session.agentId);
+    if (!target) return null;
+    return {
+      target,
+    };
+  }
+
+  async deliverDeferredVoiceFollowUp(session, followUpPlan, replyText, runId = null) {
+    if (!session || session.closed || !followUpPlan || session.deferFollowUpRequested !== true) {
+      return { sent: false, skipped: true };
+    }
+    const manager = this.#messagingManager();
+    if (!manager || typeof manager.sendMessage !== 'function') {
+      return { sent: false, skipped: true, reason: 'Messaging manager unavailable.' };
+    }
+
+    const target = followUpPlan.target;
+    if (!target?.platform || !target?.to) {
+      return { sent: false, skipped: true, reason: 'No deferred follow-up target.' };
+    }
+
+    const status = typeof manager.getPlatformStatus === 'function'
+      ? manager.getPlatformStatus(session.userId, target.platform, { agentId: session.agentId })
+      : null;
+    if (status && status.status !== 'connected') {
+      return { sent: false, skipped: true, reason: `Platform ${target.platform} is not connected.` };
+    }
+
+    const body = String(replyText || '').trim();
+    if (!body) {
+      return { sent: false, skipped: true, reason: 'Reply text is empty.' };
+    }
+
+    const followUpContent = [
+      'Update from your voice request:',
+      '',
+      body,
+    ].join('\n');
+
+    let sendResult;
+    try {
+      sendResult = await manager.sendMessage(
+        session.userId,
+        target.platform,
+        target.to,
+        followUpContent,
+        {
+          agentId: session.agentId,
+          runId,
+          persistConversation: true,
+        },
+      );
+    } catch (err) {
+      console.error('Failed to send deferred voice follow-up:', err);
+      return {
+        sent: false,
+        skipped: false,
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+        runId,
+      };
+    }
+
+    session.deferFollowUpRequested = false;
+    const label = this.#platformLabel(target.platform);
+    await this.deliverAssistantMessage(
+      session,
+      `I sent the full result to your ${label} chat.`,
+      { kind: 'final' },
+    );
+
+    return {
+      sent: true,
+      target,
+      result: sendResult,
+    };
   }
 
   async startTelnyxTurn({
@@ -282,6 +369,54 @@ class VoiceRuntimeManager {
     } catch {
       return { apiKey: '', baseUrl: '' };
     }
+  }
+
+  #messagingManager() {
+    return this.agentEngine?.messagingManager || this.agentEngine?.app?.locals?.messagingManager || null;
+  }
+
+  #readScopedSetting(userId, agentId, key) {
+    const row = db.prepare(
+      'SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?'
+    ).get(userId, agentId, key);
+    if (row) {
+      try {
+        return JSON.parse(row.value);
+      } catch {
+        return row.value;
+      }
+    }
+    if (!isMainAgent(userId, agentId)) return null;
+    const userRow = db.prepare(
+      'SELECT value FROM user_settings WHERE user_id = ? AND key = ?'
+    ).get(userId, key);
+    if (!userRow) return null;
+    try {
+      return JSON.parse(userRow.value);
+    } catch {
+      return userRow.value;
+    }
+  }
+
+  #resolvePreferredMessagingTarget(userId, agentId = null) {
+    const manager = this.#messagingManager();
+    if (!manager) return null;
+    const scopedAgentId = resolveAgentId(userId, agentId);
+    const platform = String(this.#readScopedSetting(userId, scopedAgentId, 'last_platform') || '').trim();
+    const to = String(this.#readScopedSetting(userId, scopedAgentId, 'last_chat_id') || '').trim();
+    if (!platform || !to) return null;
+
+    const status = typeof manager.getPlatformStatus === 'function'
+      ? manager.getPlatformStatus(userId, platform, { agentId: scopedAgentId })
+      : null;
+    if (!status || status.status !== 'connected') return null;
+    return { platform, to };
+  }
+
+  #platformLabel(platformName) {
+    const raw = String(platformName || '').trim();
+    if (!raw) return 'message';
+    return raw.replace(/[_-]+/g, ' ');
   }
 
   async #deliverFlutterAssistantOutput(socket, sessionId, session, content, options = {}) {

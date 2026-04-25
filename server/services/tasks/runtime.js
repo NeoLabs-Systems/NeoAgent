@@ -222,8 +222,8 @@ class TaskRuntime {
     const existing = this.scheduleJobs.get(taskId);
     if (existing) {
       existing.task.stop();
-      this.scheduleJobs.delete(taskId);
     }
+    this.scheduleJobs.delete(taskId);
   }
 
   async _executeTask(taskId, userId, executionMeta = {}) {

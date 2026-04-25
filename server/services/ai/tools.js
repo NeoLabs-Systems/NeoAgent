@@ -91,6 +91,103 @@ function compactToolDefinition(tool, options = {}) {
     return compact;
 }
 
+function normalizeScheduleTriggerConfig(inputConfig = {}) {
+    if (!inputConfig || typeof inputConfig !== 'object' || Array.isArray(inputConfig)) {
+        return inputConfig;
+    }
+
+    const normalized = { ...inputConfig };
+    const schedule = (normalized.schedule && typeof normalized.schedule === 'object' && !Array.isArray(normalized.schedule))
+        ? normalized.schedule
+        : null;
+
+    const modeCandidate = String(
+        normalized.mode
+        || normalized.type
+        || normalized.scheduleType
+        || normalized.schedule_type
+        || (normalized.oneTime || normalized.one_time ? 'one_time' : '')
+        || ''
+    ).trim().toLowerCase();
+    if (modeCandidate === 'once') normalized.mode = 'one_time';
+    else if (modeCandidate === 'one_time' || modeCandidate === 'recurring') normalized.mode = modeCandidate;
+
+    const cronCandidate = normalized.cronExpression
+        || normalized.cron_expression
+        || normalized.cron
+        || schedule?.cronExpression
+        || schedule?.cron_expression
+        || schedule?.cron;
+    if (cronCandidate != null) {
+        normalized.cronExpression = String(cronCandidate).trim();
+    }
+
+    const runAtCandidate = normalized.runAt
+        || normalized.run_at
+        || normalized.at
+        || normalized.when
+        || schedule?.runAt
+        || schedule?.run_at
+        || schedule?.at
+        || schedule?.when;
+    if (runAtCandidate != null) {
+        normalized.runAt = String(runAtCandidate).trim();
+    }
+
+    if (!normalized.mode) {
+        normalized.mode = normalized.runAt ? 'one_time' : 'recurring';
+    }
+
+    delete normalized.schedule;
+    return normalized;
+}
+
+function normalizeTaskTriggerInput(triggerType, triggerConfig) {
+    if (String(triggerType || '').trim() !== 'schedule') {
+        return triggerConfig;
+    }
+    return normalizeScheduleTriggerConfig(triggerConfig || {});
+}
+
+function resolveTaskTriggerArgs(args = {}, fallbackTriggerType = null) {
+    let triggerType = args.trigger_type !== undefined
+        ? String(args.trigger_type || '').trim()
+        : String(fallbackTriggerType || '').trim();
+    let triggerConfig = args.trigger_config;
+    let hasType = args.trigger_type !== undefined;
+    let hasConfig = args.trigger_config !== undefined;
+
+    if (args.trigger && typeof args.trigger === 'object' && !Array.isArray(args.trigger)) {
+        const trigger = args.trigger;
+        const unifiedType = trigger.type ?? trigger.triggerType ?? trigger.trigger_type;
+        const unifiedHasType = unifiedType !== undefined && unifiedType !== null && String(unifiedType).trim().length > 0;
+        if (unifiedHasType) {
+            triggerType = String(unifiedType).trim();
+            hasType = true;
+        }
+
+        const hasUnifiedConfig = Object.prototype.hasOwnProperty.call(trigger, 'config')
+            || Object.prototype.hasOwnProperty.call(trigger, 'triggerConfig')
+            || Object.prototype.hasOwnProperty.call(trigger, 'trigger_config');
+        if (hasUnifiedConfig) {
+            triggerConfig = trigger.config ?? trigger.triggerConfig ?? trigger.trigger_config;
+            hasConfig = true;
+        }
+    }
+
+    const normalizedType = String(triggerType || '').trim() || null;
+    const normalizedConfig = hasConfig
+        ? normalizeTaskTriggerInput(normalizedType || fallbackTriggerType || 'schedule', triggerConfig)
+        : undefined;
+
+    return {
+        triggerType: normalizedType,
+        triggerConfig: normalizedConfig,
+        hasType,
+        hasConfig,
+    };
+}
+
 function isProactiveTrigger(triggerSource) {
     return triggerSource === 'schedule' || triggerSource === 'tasks';
 }
@@ -876,15 +973,16 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     name: { type: 'string', description: 'Short descriptive name for the task.' },
-                    trigger_type: { type: 'string', description: 'Trigger type such as schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, or whatsapp_personal_message_received.' },
-                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object.' },
+                    trigger: { type: 'object', description: 'Unified trigger object. Prefer { type: "schedule" | integration_trigger_type, config: {...} }.' },
+                    trigger_type: { type: 'string', description: 'Trigger type such as schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, weather_event, or whatsapp_personal_message_received.' },
+                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. 5-field cron only (seconds unsupported).' },
                     prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately.' },
                     model: { type: 'string', description: 'Optional model override.' },
                     call_to: { type: 'string', description: 'Optional E.164 phone number to call via Telnyx when this task fires.' },
                     call_greeting: { type: 'string', description: 'Optional spoken greeting hint for make_call.' }
                 },
-                required: ['name', 'trigger_type', 'trigger_config', 'prompt']
+                required: ['name', 'prompt']
             }
         },
         {
@@ -911,8 +1009,9 @@ function getAvailableTools(app, options = {}) {
                 properties: {
                     task_id: { type: 'number', description: 'The numeric ID of the task to update.' },
                     name: { type: 'string', description: 'New name for the task.' },
+                    trigger: { type: 'object', description: 'Unified trigger object. Use { type, config } to update trigger in one section.' },
                     trigger_type: { type: 'string', description: 'Updated trigger type.' },
-                    trigger_config: { type: 'object', description: 'Updated trigger-specific configuration.' },
+                    trigger_config: { type: 'object', description: 'Updated trigger-specific configuration. For schedule triggers use mode+cronExpression (recurring) or mode+runAt (one_time).' },
                     prompt: { type: 'string', description: 'Updated task prompt.' },
                     enabled: { type: 'boolean', description: 'Enable or disable the task.' },
                     model: { type: 'string', description: 'Specific AI model ID for this task. Set to empty string to clear the override.' },
@@ -1123,7 +1222,8 @@ function getAvailableTools(app, options = {}) {
                     properties: {
                         content: { type: 'string', description: 'Natural assistant message derived from the current task state.' },
                         kind: { type: 'string', enum: Array.from(INTERIM_KINDS), description: 'ack, progress, question, or blocker' },
-                        expects_reply: { type: 'boolean', description: 'Set true only when the current run should pause for the user to answer.' }
+                        expects_reply: { type: 'boolean', description: 'Set true only when the current run should pause for the user to answer.' },
+                        defer_follow_up: { type: 'boolean', description: 'Set true when you choose to deliver the final result later via the user\'s last connected chat target.' }
                     },
                     required: ['content', 'kind']
                 }
@@ -1847,6 +1947,7 @@ async function executeTool(toolName, args, context, engine) {
             }
             const interimContent = typeof args.content === 'string' ? args.content : '';
             const expectsReply = args.expects_reply === true;
+            const deferFollowUp = args.defer_follow_up === true;
             return engine.publishInterimUpdate({
                 userId,
                 runId,
@@ -1858,6 +1959,7 @@ async function executeTool(toolName, args, context, engine) {
                 content: interimContent,
                 kind: normalizeInterimKind(args.kind),
                 expectsReply,
+                deferFollowUp,
             });
         }
 
@@ -2205,10 +2307,17 @@ async function executeTool(toolName, args, context, engine) {
             const s = taskRuntime();
             if (!s) return { error: 'Task runtime not available' };
             try {
+                const resolvedTrigger = resolveTaskTriggerArgs(args, 'schedule');
+                if (!resolvedTrigger.hasType || !resolvedTrigger.triggerType) {
+                    return { error: 'Task trigger type is required (use trigger.type or trigger_type).' };
+                }
+                if (!resolvedTrigger.hasConfig || resolvedTrigger.triggerConfig === undefined) {
+                    return { error: 'Task trigger config is required (use trigger.config or trigger_config).' };
+                }
                 const task = await s.createTask(userId, {
                     name: args.name,
-                    triggerType: args.trigger_type,
-                    triggerConfig: args.trigger_config,
+                    triggerType: resolvedTrigger.triggerType,
+                    triggerConfig: resolvedTrigger.triggerConfig,
                     prompt: args.prompt,
                     enabled: args.enabled !== false,
                     model: args.model || null,
@@ -2246,12 +2355,13 @@ async function executeTool(toolName, args, context, engine) {
             const s = taskRuntime();
             if (!s) return { error: 'Task runtime not available' };
             try {
-                const existing = db.prepare('SELECT agent_id FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(args.task_id, userId);
+                const existing = db.prepare('SELECT agent_id, trigger_type FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(args.task_id, userId);
                 if (!existing || existing.agent_id !== agentId) return { error: 'Task not found for this agent.' };
                 const updates = {};
+                const resolvedTrigger = resolveTaskTriggerArgs(args, existing.trigger_type || 'schedule');
                 if (args.name !== undefined) updates.name = args.name;
-                if (args.trigger_type !== undefined) updates.triggerType = args.trigger_type;
-                if (args.trigger_config !== undefined) updates.triggerConfig = args.trigger_config;
+                if (resolvedTrigger.hasType && resolvedTrigger.triggerType) updates.triggerType = resolvedTrigger.triggerType;
+                if (resolvedTrigger.hasConfig && resolvedTrigger.triggerConfig !== undefined) updates.triggerConfig = resolvedTrigger.triggerConfig;
                 if (args.prompt !== undefined) updates.prompt = args.prompt;
                 if (args.enabled !== undefined) updates.enabled = args.enabled;
                 if (args.model !== undefined) updates.model = args.model || null;

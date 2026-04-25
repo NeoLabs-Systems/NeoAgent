@@ -61,6 +61,9 @@ function buildDirectVoiceContext({
     allowInterimUpdates
       ? 'Do not use send_message. Use send_interim_update only for short spoken progress updates when silence would otherwise be noticeable.'
       : 'Do not use send_message or send_interim_update.',
+    allowInterimUpdates
+      ? 'You decide when a task is taking long. If so, send a natural deferral via send_interim_update and set defer_follow_up=true.'
+      : 'Keep the spoken response direct and concise.',
     'Return only the assistant reply.',
   ];
 

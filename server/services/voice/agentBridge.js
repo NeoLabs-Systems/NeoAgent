@@ -23,6 +23,7 @@ class VoiceAgentBridge {
     session.currentRunId = runId;
 
     try {
+      const deferredFollowUp = await this.runtimeManager.prepareDeferredVoiceFollowUp(session);
       const result = await runVoiceTranscriptTurn({
         userId: session.userId,
         agentId: session.agentId,
@@ -41,10 +42,25 @@ class VoiceAgentBridge {
         runId,
       });
       session.currentRunId = result.runId || runId;
-      if (String(result.replyText || '').trim()) {
-        await this.runtimeManager.deliverAssistantMessage(session, result.replyText, {
-          kind: 'final',
-        });
+      const replyText = String(result.replyText || '').trim();
+      if (replyText) {
+        if (deferredFollowUp) {
+          const followUp = await this.runtimeManager.deliverDeferredVoiceFollowUp(
+            session,
+            deferredFollowUp,
+            replyText,
+            result.runId || runId,
+          );
+          if (!followUp?.sent) {
+            await this.runtimeManager.deliverAssistantMessage(session, replyText, {
+              kind: 'final',
+            });
+          }
+        } else {
+          await this.runtimeManager.deliverAssistantMessage(session, replyText, {
+            kind: 'final',
+          });
+        }
       }
       await session.setState('idle');
       session.currentRunId = null;

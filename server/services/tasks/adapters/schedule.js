@@ -1,7 +1,7 @@
 'use strict';
 
 const cron = require('node-cron');
-const { findNextRun } = require('../schedule_utils');
+const { findNextRun, parseCronExpression } = require('../schedule_utils');
 
 function normalizeRunAt(value) {
   if (!value) return null;
@@ -10,6 +10,37 @@ function normalizeRunAt(value) {
     throw new Error('A valid runAt datetime is required.');
   }
   return date.toISOString();
+}
+
+function normalizeCronExpression(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    throw new Error('A valid cron expression is required.');
+  }
+
+  const fields = raw.split(/\s+/);
+  if (fields.length === 6) {
+    const seconds = String(fields[0] || '').trim();
+    if (seconds !== '0' && seconds !== '*') {
+      throw new Error('Cron expressions with seconds are not supported. Use a 5-field expression.');
+    }
+    fields.shift();
+  }
+
+  if (fields.length !== 5) {
+    throw new Error('A valid cron expression is required.');
+  }
+
+  // Quartz-style "?" means "no specific value"; convert to standard wildcard.
+  if (fields[2] === '?') fields[2] = '*';
+  if (fields[4] === '?') fields[4] = '*';
+
+  const normalized = fields.join(' ');
+  parseCronExpression(normalized);
+  if (!cron.validate(normalized)) {
+    throw new Error('A valid cron expression is required.');
+  }
+  return normalized;
 }
 
 module.exports = {
@@ -31,10 +62,7 @@ module.exports = {
       };
     }
 
-    const cronExpression = String(config.cronExpression || config.cron_expression || '').trim();
-    if (!cronExpression || !cron.validate(cronExpression)) {
-      throw new Error('A valid cron expression is required.');
-    }
+    const cronExpression = normalizeCronExpression(config.cronExpression || config.cron_expression);
     return {
       mode,
       cronExpression,

@@ -159,6 +159,9 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
     if (!session) {
       return res.status(404).send('Connection session not found.');
     }
+    const provider = manager.getProvider(req.params.provider);
+    const providerLabel = provider?.label || req.params.provider;
+    const appLabel = provider?.getApp?.(session.appKey)?.label || session.appKey || 'account';
     const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));
     const statusUrl = `/api/integrations/${encodeURIComponent(req.params.provider)}/connect/${encodeURIComponent(req.params.sessionId)}/status?agentId=${encodeURIComponent(agentId)}`;
     res.send(`
@@ -166,7 +169,7 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Connect ${escapeHtml(req.params.provider)}</title>
+          <title>Connect ${escapeHtml(providerLabel)}</title>
           <style>
             body { font-family: ui-sans-serif, system-ui, sans-serif; background: #0b1220; color: #f8fafc; margin: 0; padding: 24px; }
             .card { max-width: 560px; margin: 0 auto; background: #111827; border: 1px solid #1f2937; border-radius: 20px; padding: 24px; }
@@ -179,11 +182,11 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
         <body>
           <div class="card">
             <div class="pill">Official integration</div>
-            <h1>Connect WhatsApp</h1>
-            <p class="muted">This link is isolated from the separate messaging-platform WhatsApp bridge. Scan the QR code with your personal WhatsApp account to finish linking.</p>
+            <h1>Connect ${escapeHtml(providerLabel)}</h1>
+            <p class="muted">Complete connection for ${escapeHtml(appLabel)}. This window closes automatically when linking is finished.</p>
             <div id="status" class="muted">Starting connection…</div>
-            <img id="qr" alt="WhatsApp QR code" style="display:none;" />
-            <p class="muted">When the link finishes, this window will close automatically. If it does not, you can close it manually.</p>
+            <img id="qr" alt="Integration QR code" style="display:none;" />
+            <p class="muted">If this flow needs QR scan approval, the code will appear below.</p>
           </div>
           <script>
             const statusEl = document.getElementById('status');
@@ -207,12 +210,12 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
               const data = await response.json();
               const status = String(data.status || 'connecting');
               if (status === 'awaiting_qr' && data.qr) {
-                statusEl.textContent = 'Scan this QR code with WhatsApp on your phone.';
+                statusEl.textContent = 'Scan this QR code to continue linking.';
                 qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?data=' + encodeURIComponent(data.qr) + '&size=320x320';
                 qrEl.style.display = 'block';
               } else if (status === 'connected') {
                 qrEl.style.display = 'none';
-                statusEl.textContent = 'Connected as ' + (data.accountEmail || 'your WhatsApp account') + '. Closing…';
+                statusEl.textContent = 'Connected as ' + (data.accountEmail || 'your account') + '. Closing…';
                 notifyOpener({
                   type: 'integration_oauth_success',
                   provider,
@@ -233,7 +236,7 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
                 });
                 return;
               } else {
-                statusEl.textContent = 'Waiting for WhatsApp to generate a QR code…';
+                statusEl.textContent = 'Waiting for the integration to finish linking…';
               }
               setTimeout(refresh, 1500);
             }

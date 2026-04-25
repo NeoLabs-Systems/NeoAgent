@@ -64,6 +64,10 @@ function resolveHomeAssistantOAuthConfig() {
   };
 }
 
+function resolveSpotifyOAuthConfig() {
+  return resolveOAuthConfig('SPOTIFY');
+}
+
 function describeEnvStatus(config, options = {}) {
   const label = String(options.label || 'This integration').trim() || 'This integration';
   if (config.configured) {
@@ -90,5 +94,6 @@ module.exports = {
   resolveOAuthConfig,
   resolveGoogleOAuthConfig,
   resolvePublicBaseUrl,
+  resolveSpotifyOAuthConfig,
   resolveSlackOAuthConfig,
 };

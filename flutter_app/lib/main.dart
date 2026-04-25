@@ -20942,6 +20942,14 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     icon: Icons.groups_rounded,
   ),
   _TaskTriggerOption(
+    type: 'weather_event',
+    section: 'Environment',
+    label: 'Weather Event',
+    description:
+        'Run when configured weather events are forecast for a location.',
+    icon: Icons.cloudy_snowing_rounded,
+  ),
+  _TaskTriggerOption(
     type: 'whatsapp_personal_message_received',
     section: 'Messaging',
     label: 'WhatsApp Personal Message Received',
@@ -21502,7 +21510,20 @@ class _TasksPanelState extends State<TasksPanel> {
       text: task?.triggerConfig['connectionId']?.toString() ?? '',
     );
     final queryController = TextEditingController(
-      text: task?.triggerConfig['query']?.toString() ?? '',
+      text:
+          task?.triggerConfig['query']?.toString() ??
+          task?.triggerConfig['location']?.toString() ??
+          '',
+    );
+    final weatherEventTypesController = TextEditingController(
+      text: (() {
+        final raw = task?.triggerConfig['eventTypes'];
+        if (raw is List) {
+          return raw.map((entry) => entry.toString()).join(', ');
+        }
+        return task?.triggerConfig['eventTypes']?.toString() ??
+            'rain_start, wind_alert';
+      })(),
     );
     final channelController = TextEditingController(
       text:
@@ -21688,6 +21709,25 @@ class _TasksPanelState extends State<TasksPanel> {
                               ),
                               const SizedBox(height: 12),
                               if (selectedTriggerType ==
+                                  'weather_event') ...<Widget>[
+                                TextField(
+                                  controller: queryController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Location (city or place)',
+                                    helperText: 'Required. Example: Berlin, DE',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: weatherEventTypesController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Event Types (comma separated)',
+                                    helperText:
+                                        'Supported: rain_start, snow_start, wind_alert, temperature_above, temperature_below',
+                                  ),
+                                ),
+                              ],
+                              if (selectedTriggerType ==
                                       'gmail_message_received' ||
                                   selectedTriggerType ==
                                       'outlook_email_received') ...<Widget>[
@@ -21843,6 +21883,26 @@ class _TasksPanelState extends State<TasksPanel> {
                     } else {
                       triggerConfig['connectionId'] =
                           int.tryParse(connectionIdController.text.trim()) ?? 0;
+                      if (selectedTriggerType == 'weather_event') {
+                        if (queryController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Location is required for weather event triggers',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        triggerConfig['location'] = queryController.text.trim();
+                        final eventTypes = weatherEventTypesController.text
+                            .split(',')
+                            .map((entry) => entry.trim())
+                            .where((entry) => entry.isNotEmpty)
+                            .toList();
+                        triggerConfig['eventTypes'] = eventTypes;
+                      }
                       if (selectedTriggerType == 'gmail_message_received' ||
                           selectedTriggerType == 'outlook_email_received') {
                         if (queryController.text.trim().isNotEmpty) {

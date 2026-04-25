@@ -8,6 +8,7 @@ const POLLED_TRIGGER_TYPES = Object.freeze([
   'outlook_email_received',
   'slack_message_received',
   'teams_message_received',
+  'weather_event',
   'whatsapp_personal_message_received',
 ]);
 
@@ -164,6 +165,90 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
         },
       }))
       .sort(sortByTimestamp);
+  }
+
+  if (triggerType === 'weather_event') {
+    const forecast = await integrationManager.executeTool(userId, 'weather_get_forecast', {
+      ...connectionArg,
+      ...(config.location ? { location: config.location } : {}),
+      forecast_hours: Math.max(1, Math.min(Number(config.horizonHours) || 12, 48)),
+    }, scopedAgentId);
+    const hourly = Array.isArray(forecast?.hourly) ? forecast.hourly : [];
+    const eventTypes = Array.isArray(config.eventTypes) ? config.eventTypes : [];
+    const rows = [];
+
+    for (let index = 0; index < hourly.length; index += 1) {
+      const row = hourly[index] || {};
+      const previous = index > 0 ? (hourly[index - 1] || {}) : null;
+      const time = String(row.time || '').trim();
+      if (!time) continue;
+
+      const rain = Number(row.rain || row.precipitation || 0);
+      const prevRain = Number(previous?.rain || previous?.precipitation || 0);
+      const snowfall = Number(row.snowfall || 0);
+      const prevSnow = Number(previous?.snowfall || 0);
+      const windSpeed = Number(row.windSpeed || 0);
+      const temperature = Number(row.temperature);
+
+      const candidates = [
+        {
+          type: 'rain_start',
+          active:
+            eventTypes.includes('rain_start')
+            && rain >= Number(config.minPrecipitationMm || 0.4)
+            && prevRain < Number(config.minPrecipitationMm || 0.4),
+        },
+        {
+          type: 'snow_start',
+          active:
+            eventTypes.includes('snow_start')
+            && snowfall >= Number(config.minSnowfallCm || 0.2)
+            && prevSnow < Number(config.minSnowfallCm || 0.2),
+        },
+        {
+          type: 'wind_alert',
+          active:
+            eventTypes.includes('wind_alert')
+            && windSpeed >= Number(config.windAlertKph || 40),
+        },
+        {
+          type: 'temperature_above',
+          active:
+            eventTypes.includes('temperature_above')
+            && Number.isFinite(temperature)
+            && temperature >= Number(config.temperatureAboveC || 32),
+        },
+        {
+          type: 'temperature_below',
+          active:
+            eventTypes.includes('temperature_below')
+            && Number.isFinite(temperature)
+            && temperature <= Number(config.temperatureBelowC || 0),
+        },
+      ];
+
+      for (const candidate of candidates) {
+        if (!candidate.active) continue;
+        rows.push({
+          fingerprint: `weather:${config.connectionId}:${candidate.type}:${time}`,
+          timestamp: time,
+          context: {
+            triggerEvent: {
+              provider: 'weather',
+              eventType: candidate.type,
+              location: forecast?.location?.label || config.location || null,
+              time,
+              rain,
+              snowfall,
+              windSpeed,
+              temperature,
+            },
+          },
+        });
+      }
+    }
+
+    return rows.sort(sortByTimestamp);
   }
 
   return [];

@@ -75,10 +75,10 @@ The agent tool `read_health_data` returns summaries and recent samples. It is de
 
 NeoAgent has two separate integration layers:
 
-- Official integrations expose structured tools for Google Workspace, Microsoft 365, Notion, Slack, Figma, Home Assistant, and a separate personal WhatsApp connection.
+- Official integrations expose structured tools for Google Workspace, Microsoft 365, Notion, Slack, Figma, Home Assistant, Weather, Spotify, and a separate personal WhatsApp connection.
 - Messaging platforms let the agent talk through WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Twitch, LINE, Mattermost, configurable webhook bridges, and Telnyx Voice.
 
-Official integration examples include Gmail thread search and send mail, Google Calendar events, Drive upload/download/export/share links, Docs create/append/replace, Sheets read/update/append/create, Microsoft Outlook/Calendar/OneDrive/Teams tools, Notion search/page/block/database tools, Slack conversation/message tools, Figma file/node/comment/image tools, Home Assistant entity/config reads and service calls, and a personal WhatsApp integration with isolated chat read/send tools and per-account read-only versus read/write access.
+Official integration examples include Gmail thread search and send mail, Google Calendar events, Drive upload/download/export/share links, Docs create/append/replace, Sheets read/update/append/create, Microsoft Outlook/Calendar/OneDrive/Teams tools, Notion search/page/block/database tools, Slack conversation/message tools, Figma file/node/comment/image tools, Home Assistant entity/config reads and service calls, Weather current/forecast tools plus weather-event task triggers, Spotify playback/search/control tools, and a personal WhatsApp integration with isolated chat read/send tools and per-account read-only versus read/write access.
 
 Messaging examples include Telegram and Discord messages, Slack channel replies, Matrix room messages, Google Chat and Teams webhook delivery, Signal bridge delivery, iMessage/BlueBubbles sends, WhatsApp text and media sends, Telnyx inbound voice, Telnyx outbound calls, and scheduled-task call delivery.
 

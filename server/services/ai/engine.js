@@ -686,6 +686,7 @@ class AgentEngine {
     content,
     kind,
     expectsReply = false,
+    deferFollowUp = false,
   } = {}) {
     const runMeta = this.getRunMeta(runId);
     if (!runMeta || runMeta.aborted) {
@@ -715,6 +716,9 @@ class AgentEngine {
       kind: normalizedKind,
       expectsReply,
     });
+    if (deferFollowUp === true) {
+      metadata.defer_follow_up = true;
+    }
     const createdAt = new Date().toISOString();
 
     if (triggerSource === 'messaging') {
@@ -739,6 +743,7 @@ class AgentEngine {
         content: normalizedContent,
         kind: normalizedKind,
         expectsReply,
+        deferFollowUp,
       });
     } else {
       db.prepare(
@@ -758,6 +763,7 @@ class AgentEngine {
       content: normalizedContent,
       kind: normalizedKind,
       expectsReply: expectsReply === true,
+      deferFollowUp: deferFollowUp === true,
       createdAt,
     });
     runMeta.lastInterimMessage = normalizedContent;
@@ -767,6 +773,7 @@ class AgentEngine {
       content: normalizedContent,
       kind: normalizedKind,
       expectsReply: expectsReply === true,
+      deferFollowUp: deferFollowUp === true,
       triggerSource,
       platform: triggerSource === 'messaging' ? platform : 'web',
     });
@@ -783,6 +790,7 @@ class AgentEngine {
       latestInterim: {
         kind: normalizedKind,
         expectsReply: expectsReply === true,
+        deferFollowUp: deferFollowUp === true,
         content: normalizedContent,
         createdAt,
       },
@@ -795,6 +803,7 @@ class AgentEngine {
       sent: true,
       kind: normalizedKind,
       expectsReply: expectsReply === true,
+      deferFollowUp: deferFollowUp === true,
       content: normalizedContent,
       terminal: terminalInterim,
     };

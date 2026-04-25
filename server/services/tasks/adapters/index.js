@@ -6,5 +6,6 @@ module.exports = [
   require('./outlook_email_received'),
   require('./slack_message_received'),
   require('./teams_message_received'),
+  require('./weather_event'),
   require('./whatsapp_personal_message_received'),
 ];

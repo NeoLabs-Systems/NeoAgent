@@ -33,6 +33,7 @@ const {
   summarizeAccessPolicy,
   classifyRecentTarget,
 } = require('./access_policy');
+const { decryptValue, encryptValue } = require('../integrations/secrets');
 
 const LEGACY_WHATSAPP_AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 
@@ -268,6 +269,31 @@ class MessagingManager extends EventEmitter {
     return undefined;
   }
 
+  _encodeStoredConfig(config) {
+    const serialized = JSON.stringify(this._persistableConfig(config) || {});
+    if (!serialized) return '{}';
+    try {
+      return encryptValue(serialized);
+    } catch {
+      return serialized;
+    }
+  }
+
+  _decodeStoredConfig(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return {};
+    try {
+      const decoded = decryptValue(raw);
+      return decoded ? JSON.parse(decoded) : {};
+    } catch {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return {};
+      }
+    }
+  }
+
   async connectPlatform(userId, platformName, config = {}, options = {}) {
     const agentId = this._agentId(userId, options);
     config = { ...(config || {}) };
@@ -322,7 +348,7 @@ class MessagingManager extends EventEmitter {
       config.voiceRuntimeManager = this.voiceRuntimeManager || null;
     }
 
-    const storedConfig = JSON.stringify(this._persistableConfig(config) || {});
+    const storedConfig = this._encodeStoredConfig(config);
 
     const key = this._key(userId, agentId, platformName);
     let platform = this.platforms.get(key);
@@ -569,11 +595,7 @@ class MessagingManager extends EventEmitter {
     if (platformName === 'whatsapp') {
       reconnectConfig = platform?.config || {};
       if ((!reconnectConfig || Object.keys(reconnectConfig).length === 0) && row?.config) {
-        try {
-          reconnectConfig = JSON.parse(row.config);
-        } catch {
-          reconnectConfig = {};
-        }
+        reconnectConfig = this._decodeStoredConfig(row.config);
       }
     }
     if (platform && platform.logout) {
@@ -594,7 +616,7 @@ class MessagingManager extends EventEmitter {
     ).all();
     for (const row of rows) {
       try {
-        const config = row.config ? JSON.parse(row.config) : {};
+        const config = this._decodeStoredConfig(row.config);
         console.log(`[Messaging] Restoring ${row.platform} for user ${row.user_id} agent ${row.agent_id || 'main'}`);
         await this.connectPlatform(row.user_id, row.platform, config, { agentId: row.agent_id });
       } catch (err) {
