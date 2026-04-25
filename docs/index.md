@@ -47,3 +47,4 @@ Open the server URL, sign in, configure providers and messaging, then create a t
 | Secrets and runtime settings | [Configuration](configuration.md) |
 | Logs, updates, and repair | [Operations](operations.md) |
 | OpenClaw comparison | [Why NeoAgent](why-neoagent.md) |
+| Migration from OpenClaw/Hermes | [Migration Guide](migration.md) |
