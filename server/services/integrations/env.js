@@ -56,6 +56,14 @@ function resolveMicrosoftOAuthConfig() {
   };
 }
 
+function resolveHomeAssistantOAuthConfig() {
+  const base = resolveOAuthConfig('HOME_ASSISTANT');
+  return {
+    ...base,
+    baseUrl: trimEnv('HOME_ASSISTANT_BASE_URL').replace(/\/$/, ''),
+  };
+}
+
 function describeEnvStatus(config, options = {}) {
   const label = String(options.label || 'This integration').trim() || 'This integration';
   if (config.configured) {
@@ -76,6 +84,7 @@ function describeEnvStatus(config, options = {}) {
 module.exports = {
   describeEnvStatus,
   resolveFigmaOAuthConfig,
+  resolveHomeAssistantOAuthConfig,
   resolveMicrosoftOAuthConfig,
   resolveNotionOAuthConfig,
   resolveOAuthConfig,

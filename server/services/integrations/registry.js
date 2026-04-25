@@ -2,6 +2,7 @@
 
 const { createFigmaProvider } = require('./figma/provider');
 const { createGoogleWorkspaceProvider } = require('./google/provider');
+const { createHomeAssistantProvider } = require('./home_assistant/provider');
 const { createMicrosoftProvider } = require('./microsoft/provider');
 const { createNotionProvider } = require('./notion/provider');
 const { createSlackProvider } = require('./slack/provider');
@@ -14,6 +15,7 @@ function createIntegrationRegistry(options = {}) {
     createMicrosoftProvider(),
     createSlackProvider(),
     createFigmaProvider(),
+    createHomeAssistantProvider(),
     createWhatsAppPersonalProvider(options),
   ];
   const byKey = new Map(providers.map((provider) => [provider.key, provider]));

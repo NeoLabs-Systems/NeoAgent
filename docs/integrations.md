@@ -13,6 +13,7 @@ The built-in registry includes:
 | Microsoft 365 | Outlook, Calendar, OneDrive, Teams, and Microsoft Graph requests |
 | Slack | Conversations, history, posting, search, user info, and Slack Web API requests |
 | Figma | Current user, files, nodes, rendered images, comments, and Figma REST requests |
+| Home Assistant | Entity/config reads, service calls, and Home Assistant REST API requests |
 
 OAuth app credentials are configured through server environment variables. Account connections are created in the Flutter UI under **Integrations**. Connected tools are exposed to the agent as structured tools, so prefer them over browser automation when they can do the job.
 
