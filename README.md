@@ -36,7 +36,7 @@ neoagent logs
 
 ## Links
 
-[Docs](https://neolabs-systems.github.io/NeoAgent/) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
+[Docs](https://neolabs-systems.github.io/NeoAgent/docs/) | [Homepage](https://neolabs-systems.github.io/NeoAgent/) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
 
 ---
 
