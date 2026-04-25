@@ -6,7 +6,7 @@ const config = {
   tagline: 'Self-hosted proactive AI agent docs',
 
   url: 'https://neolabs-systems.github.io',
-  baseUrl: '/NeoAgent/',
+  baseUrl: '/NeoAgent/docs/',
 
   organizationName: 'NeoLabs-Systems',
   projectName: 'NeoAgent',
