@@ -5,8 +5,8 @@
       <stop offset="100%" stop-color="#2f7d6e"/>
     </linearGradient>
   </defs>
-  <rect x="2.5" y="2.5" width="27" height="27" rx="9" ry="9" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1"/>
-  <polygon points="16,5.7 5.2,11.6 16,17.6 26.8,11.6" fill="white"/>
-  <polyline points="5.2,17.6 16,23.5 26.8,17.6" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <polyline points="5.2,22.7 16,28.1 26.8,22.7" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="5.76" y="5.76" width="20.48" height="20.48" rx="6.96" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1"/>
+  <polygon points="16,9.76 9.35,13.12 16,16.48 22.65,13.12" fill="white"/>
+  <polyline points="9.35,16.48 16,19.68 22.65,16.48" fill="none" stroke="white" stroke-width="1.44" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="9.35,19.68 16,22.72 22.65,19.68" fill="none" stroke="white" stroke-width="1.44" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
