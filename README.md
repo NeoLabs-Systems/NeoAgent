@@ -22,6 +22,8 @@
 ```bash
 npm install -g neoagent
 neoagent install
+
+neoagent migrate
 ```
 
 ## Manage the Service
