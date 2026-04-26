@@ -1,8 +1,8 @@
 'use strict';
 
 const express = require('express');
-const db = require('../../db/database');
-const { getErrorMessage } = require('../bootstrap_helpers');
+const db = require('../db/database');
+const { getErrorMessage } = require('../services/bootstrap_helpers');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
