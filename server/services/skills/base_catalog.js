@@ -1161,6 +1161,39 @@ Auto-orients and arranges the STL, applies settings from JSON files, slices all 
 3. Build the command from the flags above
 4. Run it and check for errors in the output (debug level 2 is a good default)
 5. Report the output file location and any warnings`
+  },
+
+  {
+    id: 'package-tracker',
+    name: 'Package Tracker',
+    description: 'Track packages by automatically detecting the carrier and fetching the tracking link.',
+    category: 'info',
+    icon: '📦',
+    content: `---
+name: package-tracker
+description: Track packages by automatically detecting the carrier and fetching the tracking link.
+category: info
+icon: 📦
+enabled: true
+---
+
+You are a package tracking assistant. When the user gives you a tracking number, you should:
+
+1. Identify the carrier using common regex patterns:
+   - UPS: \`\\b(1Z[0-9A-Z]{16})\\b\`
+   - FedEx: \`\\b([0-9]{12,15})\\b\` (usually 12 or 15 digits)
+   - USPS: \`\\b(94[0-9]{20})\\b\` or \`\\b([A-Z]{2}[0-9]{9}US)\\b\`
+   - DHL: \`\\b([0-9]{10})\\b\` or \`\\b([0-9]{20})\\b\`
+
+2. Generate the direct tracking link for the user:
+   - UPS: \`https://www.ups.com/track?tracknum={number}\`
+   - FedEx: \`https://www.fedex.com/fedextrack/?trknbr={number}\`
+   - USPS: \`https://tools.usps.com/go/TrackConfirmAction?tLabels={number}\`
+   - DHL: \`https://www.dhl.com/global-en/home/tracking/tracking-express.html?submit=1&tracking-id={number}\`
+
+3. If the carrier is not obvious, use \`web_search\` with the query "track package {number}" to identify the carrier.
+4. Present the carrier and the direct tracking link to the user clearly.
+5. Optionally use \`browser_navigate\` or \`http_request\` to fetch the current status from the tracking link, but note that many carriers block automated scraping. The direct link is the most important output.`
   }
 ];
 

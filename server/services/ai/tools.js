@@ -1153,6 +1153,17 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'ocr_extract',
+            description: 'Extract raw text from an image locally using Tesseract OCR. This is faster and completely offline compared to analyze_image.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    image_path: { type: 'string', description: 'Absolute path to the image file' }
+                },
+                required: ['image_path']
+            }
+        },
+        {
             name: 'read_health_data',
             description: 'Read the user\'s synced mobile health data. Omit metric_type for a summary of all available metrics. With metric_type, returns an aggregate summary (total, avg, min, max over all stored data) plus the most recent individual records. Always report the summary figures — avoid listing every raw record.',
             parameters: {
@@ -2579,6 +2590,20 @@ async function executeTool(toolName, args, context, engine) {
                     question: args.question || 'Describe this image in detail.',
                 });
                 return result;
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
+        case 'ocr_extract': {
+            try {
+                const fs = require('fs');
+                if (!fs.existsSync(args.image_path)) {
+                    return { error: 'File not found: ' + args.image_path };
+                }
+                const Tesseract = require('tesseract.js');
+                const result = await Tesseract.recognize(args.image_path, 'eng');
+                return { text: result.data.text, confidence: result.data.confidence };
             } catch (err) {
                 return { error: err.message };
             }

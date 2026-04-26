@@ -6,11 +6,11 @@ const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 
 const USER_AGENTS = [
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
 ];
 
 const VIEWPORTS = [
@@ -148,6 +148,50 @@ class BrowserController {
             return arr;
           }
         });
+
+        // WebGL Spoofing
+        const getParameterProxyHandler = {
+          apply: function(target, ctx, args) {
+            const param = args[0];
+            // UNMASKED_VENDOR_WEBGL
+            if (param === 37445) return 'Google Inc. (Apple)';
+            // UNMASKED_RENDERER_WEBGL
+            if (param === 37446) return 'ANGLE (Apple, Apple M2, OpenGL 4.1)';
+            return Reflect.apply(target, ctx, args);
+          }
+        };
+        const getParam = WebGLRenderingContext.prototype.getParameter;
+        WebGLRenderingContext.prototype.getParameter = new Proxy(getParam, getParameterProxyHandler);
+        if (typeof WebGL2RenderingContext !== 'undefined') {
+          const getParam2 = WebGL2RenderingContext.prototype.getParameter;
+          WebGL2RenderingContext.prototype.getParameter = new Proxy(getParam2, getParameterProxyHandler);
+        }
+
+        // Canvas Spoofing (slight noise)
+        const originalFillText = CanvasRenderingContext2D.prototype.fillText;
+        CanvasRenderingContext2D.prototype.fillText = function(...args) {
+            if (!this._spoofing_applied) {
+                this._spoofing_applied = true;
+                const r = Math.random() * 0.0001;
+                const g = Math.random() * 0.0001;
+                const b = Math.random() * 0.0001;
+                this.fillStyle = \`rgba(\${Math.floor(r * 255)}, \${Math.floor(g * 255)}, \${Math.floor(b * 255)}, 0.01)\`;
+                originalFillText.call(this, "spoof", 0, 0);
+            }
+            return originalFillText.apply(this, args);
+        };
+
+        // Media Devices Spoofing
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+            const originalEnumerateDevices = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+            navigator.mediaDevices.enumerateDevices = async () => {
+                return [
+                    { kind: 'audioinput', deviceId: 'default', groupId: 'a', label: 'MacBook Pro Microphone' },
+                    { kind: 'audiooutput', deviceId: 'default', groupId: 'b', label: 'MacBook Pro Speakers' },
+                    { kind: 'videoinput', deviceId: 'default', groupId: 'c', label: 'FaceTime HD Camera' }
+                ];
+            };
+        }
       })();
     `);
   }
