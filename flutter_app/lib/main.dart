@@ -20947,7 +20947,7 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     label: 'Weather Event',
     description:
         'Run when configured weather events are forecast for a location.',
-    icon: Icons.cloudy_snowing_rounded,
+    icon: Icons.cloudy_snowing,
   ),
   _TaskTriggerOption(
     type: 'whatsapp_personal_message_received',
