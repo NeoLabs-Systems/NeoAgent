@@ -973,8 +973,8 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     name: { type: 'string', description: 'Short descriptive name for the task.' },
-                    trigger: { type: 'object', description: 'Unified trigger object. Prefer { type: "schedule" | integration_trigger_type, config: {...} }.' },
-                    trigger_type: { type: 'string', description: 'Trigger type such as schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, weather_event, or whatsapp_personal_message_received.' },
+                    trigger: { type: 'object', description: 'Unified trigger object. Prefer { type: "manual" | "schedule" | integration_trigger_type, config: {...} }.' },
+                    trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, weather_event, or whatsapp_personal_message_received.' },
                     trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. 5-field cron only (seconds unsupported).' },
                     prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately.' },
@@ -1010,7 +1010,7 @@ function getAvailableTools(app, options = {}) {
                     task_id: { type: 'number', description: 'The numeric ID of the task to update.' },
                     name: { type: 'string', description: 'New name for the task.' },
                     trigger: { type: 'object', description: 'Unified trigger object. Use { type, config } to update trigger in one section.' },
-                    trigger_type: { type: 'string', description: 'Updated trigger type.' },
+                    trigger_type: { type: 'string', description: 'Updated trigger type, e.g. manual, schedule, or integration trigger type.' },
                     trigger_config: { type: 'object', description: 'Updated trigger-specific configuration. For schedule triggers use mode+cronExpression (recurring) or mode+runAt (one_time).' },
                     prompt: { type: 'string', description: 'Updated task prompt.' },
                     enabled: { type: 'boolean', description: 'Enable or disable the task.' },
@@ -2311,13 +2311,17 @@ async function executeTool(toolName, args, context, engine) {
                 if (!resolvedTrigger.hasType || !resolvedTrigger.triggerType) {
                     return { error: 'Task trigger type is required (use trigger.type or trigger_type).' };
                 }
-                if (!resolvedTrigger.hasConfig || resolvedTrigger.triggerConfig === undefined) {
+                const normalizedTriggerType = String(resolvedTrigger.triggerType || '').trim();
+                const triggerConfig = (!resolvedTrigger.hasConfig || resolvedTrigger.triggerConfig === undefined)
+                    ? (normalizedTriggerType === 'manual' ? {} : undefined)
+                    : resolvedTrigger.triggerConfig;
+                if (triggerConfig === undefined) {
                     return { error: 'Task trigger config is required (use trigger.config or trigger_config).' };
                 }
                 const task = await s.createTask(userId, {
                     name: args.name,
-                    triggerType: resolvedTrigger.triggerType,
-                    triggerConfig: resolvedTrigger.triggerConfig,
+                    triggerType: normalizedTriggerType,
+                    triggerConfig,
                     prompt: args.prompt,
                     enabled: args.enabled !== false,
                     model: args.model || null,

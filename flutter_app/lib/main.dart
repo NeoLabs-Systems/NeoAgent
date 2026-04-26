@@ -20907,6 +20907,13 @@ class _TaskTriggerOption {
 
 const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
   _TaskTriggerOption(
+    type: 'manual',
+    section: 'On Demand',
+    label: 'Manual Trigger',
+    description: 'Runs only when you press Run Now.',
+    icon: Icons.play_circle_outline_rounded,
+  ),
+  _TaskTriggerOption(
     type: 'schedule',
     section: 'Time',
     label: 'Schedule',
@@ -20994,7 +21001,7 @@ Future<String?> _pickTaskTriggerType(
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Choose how this task should start. Schedule is time-based. Integration triggers fire from connected official apps.',
+                  'Choose how this task should start. Manual runs only on Run Now. Schedule is time-based. Integration triggers fire from connected official apps.',
                   style: TextStyle(color: _textSecondary, height: 1.45),
                 ),
                 const SizedBox(height: 18),
@@ -21676,6 +21683,15 @@ class _TasksPanelState extends State<TasksPanel> {
                       ValueListenableBuilder<String>(
                         valueListenable: triggerType,
                         builder: (context, selectedTriggerType, _) {
+                          if (selectedTriggerType == 'manual') {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'This task will only run when you press Run Now.',
+                                style: TextStyle(color: _textSecondary),
+                              ),
+                            );
+                          }
                           if (selectedTriggerType == 'schedule') {
                             return Column(
                               children: <Widget>[
@@ -21869,7 +21885,9 @@ class _TasksPanelState extends State<TasksPanel> {
                   onPressed: () async {
                     final selectedTriggerType = triggerType.value;
                     final triggerConfig = <String, dynamic>{};
-                    if (selectedTriggerType == 'schedule') {
+                    if (selectedTriggerType == 'manual') {
+                      // Manual trigger uses no trigger-specific config.
+                    } else if (selectedTriggerType == 'schedule') {
                       final runAt = runAtController.text.trim();
                       triggerConfig['mode'] = runAt.isEmpty
                           ? 'recurring'

@@ -2,6 +2,7 @@
 
 module.exports = [
   require('./schedule'),
+  require('./manual'),
   require('./gmail_message_received'),
   require('./outlook_email_received'),
   require('./slack_message_received'),
