@@ -50,10 +50,10 @@ router.post('/notification', async (req, res) => {
 
     console.log(`[Triggers] Notification received: ${app_package} - ${title}`);
 
-    db.prepare(\`
+    db.prepare(`
       INSERT INTO notification_history (user_id, app_package, title, body, action_taken)
       VALUES (?, ?, ?, ?, ?)
-    \`).run(req.user.id, app_package || 'unknown', title || '', body || '', action_taken || 'none');
+    `).run(req.user.id, app_package || 'unknown', title || '', body || '', action_taken || 'none');
 
     // Notify agent engine to proactively evaluate the notification
     const agentEngine = req.app.locals.agentEngine;

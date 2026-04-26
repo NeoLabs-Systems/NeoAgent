@@ -88,10 +88,10 @@ class ScreenRecorder {
             // Ignore AppleScript errors
           }
 
-          db.prepare(\`
+          db.prepare(`
             INSERT INTO screen_history (user_id, app_name, text_content)
             VALUES (?, ?, ?)
-          \`).run(userRow.id, appName, textContent);
+          `).run(userRow.id, appName, textContent);
         }
       }
 
@@ -110,12 +110,12 @@ class ScreenRecorder {
 
   cleanupOldRecords() {
     try {
-      const result = db.prepare(\`
+      const result = db.prepare(`
         DELETE FROM screen_history 
         WHERE timestamp < datetime('now', '-7 days')
-      \`).run();
+      `).run();
       if (result.changes > 0) {
-        console.log(\`[ScreenRecorder] Purged \${result.changes} old screen history records.\`);
+        console.log(`[ScreenRecorder] Purged ${result.changes} old screen history records.`);
       }
     } catch (err) {
       console.error('[ScreenRecorder] Cleanup failed:', getErrorMessage(err));

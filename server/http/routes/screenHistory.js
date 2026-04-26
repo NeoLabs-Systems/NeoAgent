@@ -17,23 +17,23 @@ router.get('/search', (req, res) => {
     let results = [];
     if (q) {
       // Full text search
-      results = db.prepare(\`
+      results = db.prepare(`
         SELECT s.id, s.timestamp, s.app_name, s.text_content
         FROM screen_history_fts fts
         JOIN screen_history s ON fts.rowid = s.id
         WHERE screen_history_fts MATCH ? AND s.user_id = ?
         ORDER BY s.timestamp DESC
         LIMIT ? OFFSET ?
-      \`).all(q, req.user.id, Number(limit), Number(offset));
+      `).all(q, req.user.id, Number(limit), Number(offset));
     } else {
       // Recent history
-      results = db.prepare(\`
+      results = db.prepare(`
         SELECT id, timestamp, app_name, text_content
         FROM screen_history
         WHERE user_id = ?
         ORDER BY timestamp DESC
         LIMIT ? OFFSET ?
-      \`).all(req.user.id, Number(limit), Number(offset));
+      `).all(req.user.id, Number(limit), Number(offset));
     }
 
     res.json({ results });
