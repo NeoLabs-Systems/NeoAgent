@@ -1651,15 +1651,17 @@ class BackendClient {
     }
     try {
       final response = await request.timeout(_requestTimeout);
-      _log(
-        'request.response',
-        data: <String, Object?>{
-          'method': method,
-          'uri': uri.toString(),
-          'statusCode': response.statusCode,
-          'allowUnauthorized': allowUnauthorized,
-        },
-      );
+      if (!_isNoisySettingsStatusPoll(method, uri, response.statusCode)) {
+        _log(
+          'request.response',
+          data: <String, Object?>{
+            'method': method,
+            'uri': uri.toString(),
+            'statusCode': response.statusCode,
+            'allowUnauthorized': allowUnauthorized,
+          },
+        );
+      }
       return response;
     } on TimeoutException catch (error, stackTrace) {
       _log(
@@ -1689,6 +1691,13 @@ class BackendClient {
       );
       throw BackendException(_describeTransportError(error, uri));
     }
+  }
+
+  bool _isNoisySettingsStatusPoll(String method, Uri uri, int statusCode) {
+    if (method != 'GET' || statusCode != 200) {
+      return false;
+    }
+    return uri.path == '/api/settings/update/status';
   }
 
   String _describeTransportError(Object error, Uri uri) {
