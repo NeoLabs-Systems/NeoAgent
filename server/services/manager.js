@@ -24,6 +24,7 @@ const { RuntimeManager } = require('./runtime/manager');
 const { BrowserExtensionRegistry } = require('./browser/extension/registry');
 const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
+const { ScreenRecorder } = require('./desktop/screenRecorder');
 const { assertRuntimeValidation, getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
@@ -428,6 +429,17 @@ function createWidgetService(app) {
   return widgetService;
 }
 
+function createScreenRecorder(app) {
+  const screenRecorder = registerLocal(
+    app,
+    'screenRecorder',
+    new ScreenRecorder(),
+  );
+  screenRecorder.start();
+  logServiceReady('Screen recorder started');
+  return screenRecorder;
+}
+
 function restoreMessagingConnections(messagingManager) {
   void runBackgroundTask('[Messaging] Restore error:', () =>
     messagingManager.restoreConnections(),
@@ -513,6 +525,7 @@ async function startServices(app, io) {
     const messagingManager = createMessagingManager(app, io, agentEngine);
     const recordingManager = createRecordingManager(app, io);
     createWidgetService(app);
+    createScreenRecorder(app);
 
     restoreMessagingConnections(messagingManager);
     restoreMcpClients(mcpClient);
@@ -636,6 +649,15 @@ async function stopServices(app) {
             console.error('[Widget] Shutdown error:', getErrorMessage(err));
           }),
       );
+    }
+  }
+
+  if (app.locals.screenRecorder) {
+    try {
+      app.locals.screenRecorder.stop();
+      logServiceReady('Screen recorder stopped');
+    } catch (err) {
+      console.error('[ScreenRecorder] Stop error:', getErrorMessage(err));
     }
   }
 

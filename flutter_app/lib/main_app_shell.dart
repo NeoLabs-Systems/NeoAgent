@@ -1052,6 +1052,21 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
+    
+    // Initialize Proactive Context Features for mobile
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      final backendUrl = widget.controller.backendUrl;
+      final sessionCookie = widget.controller.sessionCookie ?? '';
+      
+      LocationService().initialize(context).then((_) {
+        LocationService().startGeofenceTracking(backendUrl, sessionCookie);
+      });
+      
+      if (Platform.isAndroid) {
+        NotificationInterceptor().initialize(context, backendUrl, sessionCookie);
+      }
+    }
+
     _lastSelectedSection = widget.controller.selectedSection;
     _expandedSidebarGroup = _sidebarGroupForSection(
       widget.controller.selectedSection,

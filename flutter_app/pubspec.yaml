@@ -32,6 +32,9 @@ dependencies:
     path: third_party/desktop_audio_capture
   launch_at_startup: ^0.5.1
   mobile_scanner: ^7.2.0
+  geolocator: ^13.0.2
+  flutter_background_service: ^3.0.1
+  notification_listener_service: ^0.3.5
 
 dependency_overrides:
   flutter_secure_storage_linux:

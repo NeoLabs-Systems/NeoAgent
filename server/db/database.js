@@ -651,6 +651,40 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_recording_chunks_source ON recording_chunks(source_id, sequence_index);
   CREATE INDEX IF NOT EXISTS idx_recording_segments_session ON recording_transcript_segments(session_id, start_ms, created_at);
 
+  CREATE TABLE IF NOT EXISTS screen_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    timestamp TEXT DEFAULT (datetime('now')),
+    app_name TEXT,
+    text_content TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS notification_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    app_package TEXT,
+    title TEXT,
+    body TEXT,
+    timestamp TEXT DEFAULT (datetime('now')),
+    action_taken TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS geofences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    label TEXT,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    radius_meters INTEGER NOT NULL,
+    trigger_action TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_screen_history_user ON screen_history(user_id, timestamp DESC);
+  CREATE INDEX IF NOT EXISTS idx_notification_history_user ON notification_history(user_id, timestamp DESC);
+
   CREATE TABLE IF NOT EXISTS artifacts (
     id TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -676,6 +710,29 @@ db.exec(`
 
 try {
   db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS screen_history_fts USING fts5(
+      text_content,
+      app_name,
+      timestamp UNINDEXED,
+      user_id UNINDEXED,
+      tokenize = 'porter unicode61'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS screen_history_fts_ai AFTER INSERT ON screen_history BEGIN
+      INSERT INTO screen_history_fts(rowid, text_content, app_name, timestamp, user_id)
+      VALUES (new.id, COALESCE(new.text_content, ''), COALESCE(new.app_name, ''), new.timestamp, new.user_id);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS screen_history_fts_ad AFTER DELETE ON screen_history BEGIN
+      DELETE FROM screen_history_fts WHERE rowid = old.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS screen_history_fts_au AFTER UPDATE ON screen_history BEGIN
+      DELETE FROM screen_history_fts WHERE rowid = old.id;
+      INSERT INTO screen_history_fts(rowid, text_content, app_name, timestamp, user_id)
+      VALUES (new.id, COALESCE(new.text_content, ''), COALESCE(new.app_name, ''), new.timestamp, new.user_id);
+    END;
+
     CREATE VIRTUAL TABLE IF NOT EXISTS conversation_history_fts USING fts5(
       content,
       role UNINDEXED,

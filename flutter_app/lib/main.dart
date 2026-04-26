@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -36,6 +37,9 @@ import 'src/recording_bridge.dart';
 import 'src/recording_payloads.dart';
 import 'src/theme/palette.dart';
 import 'src/widget_bridge.dart';
+
+import 'features/location/location_service.dart';
+import 'features/notifications/notification_interceptor.dart';
 
 part 'main_theme.dart';
 part 'main_app_shell.dart';
@@ -1409,6 +1413,8 @@ class NeoAgentController extends ChangeNotifier {
   bool get desktopAutoShowFloatingToolbar => _desktopAutoShowFloatingToolbar;
 
   bool get desktopAssistantHotkeyEnabled => _desktopAssistantHotkeyEnabled;
+
+  String? get sessionCookie => _backendClient.sessionCookie;
 
   bool get desktopFloatingToolbarPopupRequested =>
       _desktopFloatingToolbarPopupRequested;
