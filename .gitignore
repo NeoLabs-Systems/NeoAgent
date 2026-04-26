@@ -155,3 +155,4 @@ firmware/**/managed_components/
 firmware/**/sdkconfig
 firmware/**/sdkconfig.old
 firmware/**/dependencies.lock
+server/db/database.sqlite

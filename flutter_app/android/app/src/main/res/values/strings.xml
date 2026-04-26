@@ -7,4 +7,6 @@
     <string name="voice_widget_description">NeoAgent voice assistant widget</string>
     <string name="voice_widget_title">Voice Mode</string>
     <string name="voice_widget_subtitle">Open the voice assistant</string>
+    <string name="widget_tasks_label">Tasks</string>
+    <string name="task_run_now">Run Now</string>
 </resources>

@@ -2722,6 +2722,7 @@ class AiWidgetItem {
     required this.updatedAt,
     required this.nextRefresh,
     required this.latestSnapshot,
+    required this.tasks,
   });
 
   factory AiWidgetItem.fromJson(Map<dynamic, dynamic> json) {
@@ -2770,6 +2771,12 @@ class AiWidgetItem {
               Map<String, dynamic>.from(json['latestSnapshot'] as Map),
             )
           : null,
+      tasks: json['tasks'] is List
+          ? (json['tasks'] as List)
+              .whereType<Map<dynamic, dynamic>>()
+              .map((m) => TaskItem.fromJson(m))
+              .toList()
+          : const <TaskItem>[],
     );
   }
 
@@ -2789,6 +2796,7 @@ class AiWidgetItem {
   final DateTime? updatedAt;
   final DateTime? nextRefresh;
   final WidgetSnapshotItem? latestSnapshot;
+  final List<TaskItem> tasks;
 
   bool get hasSnapshot => latestSnapshot != null;
   bool get hasError => (lastError ?? '').trim().isNotEmpty;

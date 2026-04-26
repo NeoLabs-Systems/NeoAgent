@@ -4,6 +4,12 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
+data class CachedAiWidgetTask(
+    val id: String,
+    val name: String,
+    val triggerSummary: String,
+)
+
 data class CachedAiWidget(
     val id: String,
     val name: String,
@@ -13,6 +19,7 @@ data class CachedAiWidget(
     val enabled: Boolean,
     val lastError: String?,
     val latestSnapshot: JSONObject?,
+    val tasks: List<CachedAiWidgetTask>,
 )
 
 internal object AiWidgetPrefs {
@@ -25,6 +32,7 @@ internal object AiWidgetPrefs {
     const val KEY_LAST_ERROR = "last_error"
     const val KEY_PENDING_OPEN_WIDGET_ID = "pending_open_widget_id"
     const val KEY_BINDING_PREFIX = "binding_"
+    const val KEY_EXPANDED_PREFIX = "expanded_"
 
     fun read(context: Context) =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -106,6 +114,21 @@ class AiWidgetStore(private val context: Context) {
                                     .ifEmpty { "" }
                                     .let { if (it.isBlank()) null else it },
                             latestSnapshot = item.optJSONObject("latestSnapshot"),
+                            tasks = buildList {
+                                val tasksArray = item.optJSONArray("tasks")
+                                if (tasksArray != null) {
+                                    for (t in 0 until tasksArray.length()) {
+                                        val tItem = tasksArray.optJSONObject(t) ?: continue
+                                        add(
+                                            CachedAiWidgetTask(
+                                                id = tItem.optString("id"),
+                                                name = tItem.optString("name", "Task"),
+                                                triggerSummary = tItem.optString("triggerSummary"),
+                                            )
+                                        )
+                                    }
+                                }
+                            },
                         ),
                     )
                 }
@@ -157,5 +180,15 @@ class AiWidgetStore(private val context: Context) {
             }
             return widgetId
         }
+    }
+
+    fun isTasksExpanded(appWidgetId: Int): Boolean =
+        AiWidgetPrefs.read(context).getBoolean("${AiWidgetPrefs.KEY_EXPANDED_PREFIX}$appWidgetId", false)
+
+    fun toggleTasksExpanded(appWidgetId: Int) {
+        val prefs = AiWidgetPrefs.read(context)
+        val key = "${AiWidgetPrefs.KEY_EXPANDED_PREFIX}$appWidgetId"
+        val current = prefs.getBoolean(key, false)
+        prefs.edit().putBoolean(key, !current).apply()
     }
 }

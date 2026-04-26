@@ -243,7 +243,11 @@ class WidgetService {
        WHERE id = ? AND user_id = ?`
     ).get(widgetId, userId);
     if (!row) return null;
-    return this._serializeWidget(row, this._loadLatestSnapshotMap([widgetId]).get(widgetId) || null);
+    return this._serializeWidget(
+      row,
+      this._loadLatestSnapshotMap([widgetId]).get(widgetId) || null,
+      this._loadWidgetTasksMap([widgetId], userId).get(widgetId) || []
+    );
   }
 
   listWidgets(userId, { agentId = null } = {}) {
@@ -262,7 +266,8 @@ class WidgetService {
          ORDER BY updated_at DESC, created_at DESC`
       ).all(userId);
     const snapshotMap = this._loadLatestSnapshotMap(rows.map((row) => row.id));
-    return rows.map((row) => this._serializeWidget(row, snapshotMap.get(row.id) || null));
+    const tasksMap = this._loadWidgetTasksMap(rows.map((row) => row.id), userId);
+    return rows.map((row) => this._serializeWidget(row, snapshotMap.get(row.id) || null, tasksMap.get(row.id) || []));
   }
 
   listLatestSnapshots(userId, { agentId = null } = {}) {
@@ -343,7 +348,7 @@ class WidgetService {
       throw new Error('Widget not found.');
     }
 
-    const current = this._serializeWidget(existingRow, null);
+    const current = this._serializeWidget(existingRow, null, []);
     const normalized = normalizeWidgetInput({
       name: input.name ?? current.name,
       template: input.template ?? current.template,
@@ -581,7 +586,46 @@ class WidgetService {
     return map;
   }
 
-  _serializeWidget(row, latestSnapshot) {
+  _loadWidgetTasksMap(widgetIds, userId) {
+    const ids = Array.from(new Set(widgetIds.filter(Boolean)));
+    const map = new Map();
+    if (!ids.length) return map;
+    
+    const placeholders = ids.map(() => '?').join(', ');
+    const params = [userId, ...ids];
+    
+    // We filter tasks where task_type is NOT 'widget_refresh' 
+    // and where the task_config contains the widgetId.
+    const rows = db.prepare(
+      `SELECT id, name, trigger_type, enabled, task_config
+       FROM scheduled_tasks
+       WHERE user_id = ?
+         AND task_type != 'widget_refresh'
+         AND json_extract(task_config, '$.widgetId') IN (${placeholders})
+       ORDER BY created_at ASC`
+    ).all(...params);
+    
+    for (const row of rows) {
+      const config = parseJsonObject(row.task_config, {});
+      const widgetId = config.widgetId;
+      if (!widgetId) continue;
+      
+      const task = {
+        id: row.id,
+        name: row.name,
+        triggerType: row.trigger_type,
+        enabled: row.enabled !== 0 && row.enabled !== false,
+      };
+      
+      if (!map.has(widgetId)) {
+        map.set(widgetId, []);
+      }
+      map.get(widgetId).push(task);
+    }
+    return map;
+  }
+
+  _serializeWidget(row, latestSnapshot, tasks = []) {
     const definition = parseJsonObject(row.definition_json, {});
     return {
       id: row.id,
@@ -600,6 +644,7 @@ class WidgetService {
       updatedAt: row.updated_at || null,
       nextRefresh: row.refresh_cron ? findNextRun(row.refresh_cron)?.toISOString() || null : null,
       latestSnapshot,
+      tasks,
     };
   }
 }

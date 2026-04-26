@@ -15,6 +15,24 @@ import org.json.JSONObject
 
 class AiHomeWidgetProvider : AppWidgetProvider() {
 
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (intent.action == ACTION_TOGGLE_TASKS) {
+            val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                val store = AiWidgetStore(context)
+                store.toggleTasksExpanded(appWidgetId)
+                refreshAll(context, AppWidgetManager.getInstance(context), intArrayOf(appWidgetId))
+            }
+        } else if (intent.action == ACTION_RUN_TASK) {
+            val taskId = intent.getStringExtra(EXTRA_TASK_ID)
+            if (taskId != null) {
+                WidgetTaskRunWorker.enqueue(context, taskId)
+            }
+        }
+    }
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -158,7 +176,61 @@ class AiHomeWidgetProvider : AppWidgetProvider() {
                 }
             views.setTextViewText(R.id.widget_status, statusText)
             views.setTextColor(R.id.widget_status, statusColor)
+
             views.setViewVisibility(R.id.widget_status, View.VISIBLE)
+
+            // Tasks Rendering
+            val tasks = widget.tasks
+            if (tasks.isNotEmpty()) {
+                views.setViewVisibility(R.id.widget_tasks_toggle_group, View.VISIBLE)
+                val isExpanded = store.isTasksExpanded(appWidgetId)
+                views.setTextViewText(R.id.widget_tasks_toggle_text, if (isExpanded) "Tasks (${tasks.size}) ▲" else "Tasks (${tasks.size}) ▼")
+                views.setTextColor(R.id.widget_tasks_toggle_text, accent)
+                
+                val toggleIntent = Intent(context, AiHomeWidgetProvider::class.java).apply {
+                    action = ACTION_TOGGLE_TASKS
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                }
+                val togglePendingIntent = PendingIntent.getBroadcast(
+                    context, appWidgetId, toggleIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_tasks_toggle_group, togglePendingIntent)
+                
+                if (isExpanded) {
+                    views.setViewVisibility(R.id.widget_tasks_container, View.VISIBLE)
+                    views.removeAllViews(R.id.widget_tasks_container)
+                    tasks.forEach { task ->
+                        val taskView = RemoteViews(context.packageName, R.layout.neoagent_ai_widget_task_row)
+                        taskView.setTextViewText(R.id.task_name, task.name)
+                        if (task.triggerSummary.isNotBlank()) {
+                            taskView.setTextViewText(R.id.task_schedule, task.triggerSummary)
+                            taskView.setViewVisibility(R.id.task_schedule, View.VISIBLE)
+                        } else {
+                            taskView.setViewVisibility(R.id.task_schedule, View.GONE)
+                        }
+                        
+                        val runIntent = Intent(context, AiHomeWidgetProvider::class.java).apply {
+                            action = ACTION_RUN_TASK
+                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                            putExtra(EXTRA_TASK_ID, task.id)
+                        }
+                        val bucket = kotlin.math.abs(task.id.hashCode()) % 1000
+                        val runPendingIntent = PendingIntent.getBroadcast(
+                            context, appWidgetId * 1000 + bucket, runIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                        taskView.setOnClickPendingIntent(R.id.task_run_btn, runPendingIntent)
+                        
+                        views.addView(R.id.widget_tasks_container, taskView)
+                    }
+                } else {
+                    views.setViewVisibility(R.id.widget_tasks_container, View.GONE)
+                    views.removeAllViews(R.id.widget_tasks_container)
+                }
+            } else {
+                views.setViewVisibility(R.id.widget_tasks_toggle_group, View.GONE)
+                views.setViewVisibility(R.id.widget_tasks_container, View.GONE)
+            }
+
 
             val intent =
                 Intent(context, MainActivity::class.java).apply {
@@ -374,7 +446,12 @@ class AiHomeWidgetProvider : AppWidgetProvider() {
             }
         }
 
+
         const val ACTION_OPEN_WIDGET = "com.neoagent.flutter_app.widgets.OPEN"
+        const val ACTION_TOGGLE_TASKS = "com.neoagent.flutter_app.widgets.TOGGLE_TASKS"
+        const val ACTION_RUN_TASK = "com.neoagent.flutter_app.widgets.RUN_TASK"
         const val EXTRA_WIDGET_ID = "widgetId"
+        const val EXTRA_TASK_ID = "taskId"
+
     }
 }

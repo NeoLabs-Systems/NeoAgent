@@ -19230,6 +19230,7 @@ class WidgetsPanel extends StatelessWidget {
                     width: cardWidth,
                     child: _AiWidgetCard(
                       item: item,
+                      controller: controller,
                       active: controller.selectedWidgetId == item.id,
                       onSelect: () => controller.selectWidget(item.id),
                       footer: Wrap(
@@ -19277,9 +19278,10 @@ class WidgetsPanel extends StatelessWidget {
   }
 }
 
-class _AiWidgetCard extends StatelessWidget {
+class _AiWidgetCard extends StatefulWidget {
   const _AiWidgetCard({
     required this.item,
+    this.controller,
     this.footer,
     this.active = false,
     this.compact = false,
@@ -19287,13 +19289,27 @@ class _AiWidgetCard extends StatelessWidget {
   });
 
   final AiWidgetItem item;
+  final NeoAgentController? controller;
   final Widget? footer;
   final bool active;
   final bool compact;
   final VoidCallback? onSelect;
 
   @override
+  State<_AiWidgetCard> createState() => _AiWidgetCardState();
+}
+
+class _AiWidgetCardState extends State<_AiWidgetCard> {
+  bool _expandedTasks = false;
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final controller = widget.controller;
+    final active = widget.active;
+    final compact = widget.compact;
+    final onSelect = widget.onSelect;
+    final footer = widget.footer;
     final snapshot = item.latestSnapshot;
     final accent = _widgetAccentColor(
       snapshot?.accentToken ?? item.template,
@@ -19487,6 +19503,88 @@ class _AiWidgetCard extends StatelessWidget {
                       if (item.hasError) ...<Widget>[
                         const SizedBox(height: 16),
                         _InlineError(message: item.lastError!),
+                      ],
+                      if (item.tasks.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 16),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() {
+                                _expandedTasks = !_expandedTasks;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                              child: Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Text(
+                                      'Tasks (${item.tasks.length})',
+                                      style: TextStyle(
+                                        color: accent,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    _expandedTasks ? Icons.expand_less : Icons.expand_more,
+                                    color: accent,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_expandedTasks)
+                          ...item.tasks.map((task) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            task.name,
+                                            style: TextStyle(
+                                              color: _textPrimary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          if (task.scheduleLabel.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              task.scheduleLabel,
+                                              style: TextStyle(color: _textSecondary, fontSize: 12),
+                                            ),
+                                          ]
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    FilledButton.tonal(
+                                      onPressed: controller != null ? () => controller.runTaskNow(task.id) : null,
+                                      style: FilledButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      child: const Text('Run now'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
                       ],
                       if (footer != null) ...<Widget>[
                         const SizedBox(height: 18),

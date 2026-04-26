@@ -482,6 +482,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
               padding: const EdgeInsets.only(bottom: 12),
               child: _AiWidgetCard(
                 item: item,
+                controller: controller,
                 compact: true,
                 active: controller.selectedWidgetId == item.id,
                 onSelect: () => controller.selectWidget(item.id),
