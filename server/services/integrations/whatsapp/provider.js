@@ -545,7 +545,7 @@ class WhatsAppPersonalProvider extends EventEmitter {
             chatCount: client.chats.size,
             cachedMessageChats: client.messages.size,
             syncNote:
-              'Read tools only expose chats and messages synchronized through this personal integration session.',
+              'This account is linked and connected. Read tools expose only chats and messages currently available in this session cache.',
           },
         };
       case 'whatsapp_personal_list_chats': {
@@ -557,10 +557,14 @@ class WhatsAppPersonalProvider extends EventEmitter {
           .slice(0, limit);
         return {
           result: {
+            account: client.accountEmail || connection.account_email || null,
+            connected: client.status === 'connected',
             chats,
             count: chats.length,
             syncNote:
-              'Only chats synchronized after linking this personal integration are available here.',
+              chats.length > 0
+                ? 'Chats shown here come from the current personal WhatsApp cache.'
+                : 'The personal WhatsApp account is connected, but no chats are cached yet. The cache populates as history/events are synchronized.',
           },
         };
       }
