@@ -13,6 +13,22 @@ const {
 
 const OAUTH_STATE_PATTERN = /^[a-f0-9]{32,128}$/i;
 
+function isLikelyExpiredConnectionError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  if (!message) return false;
+  return [
+    'invalid_grant',
+    'token refresh failed',
+    'token expired',
+    'access token is missing',
+    'refresh token is missing',
+    'reconnect this integration account',
+    'account is no longer authorized',
+    'reauthorize',
+    're-authorize',
+  ].some((hint) => message.includes(hint));
+}
+
 class IntegrationManager {
   constructor(options = {}) {
     this.app = options.app || null;
@@ -607,6 +623,17 @@ class IntegrationManager {
           selection.connection,
         );
       } catch (err) {
+        if (isLikelyExpiredConnectionError(err)) {
+          db.prepare(
+            `UPDATE integration_connections
+             SET status = 'expired', updated_at = datetime('now')
+             WHERE id = ? AND user_id = ? AND agent_id = ?`,
+          ).run(
+            selection.connection.id,
+            userId,
+            resolveAgentId(userId, agentId),
+          );
+        }
         return { error: err?.message || 'execution_error' };
       }
       if (!execution) {

@@ -85,9 +85,11 @@ class OfficialIntegrationsTab extends StatelessWidget {
                                 ),
                               ),
                               _StatusPill(
-                                label: item.connection.statusLabel,
+                                label: item.statusLabel,
                                 color: item.isConnected
                                     ? _success
+                                    : item.hasExpiredAccounts
+                                    ? _warning
                                     : item.env.configured
                                     ? _info
                                     : _warning,
@@ -124,6 +126,8 @@ class OfficialIntegrationsTab extends StatelessWidget {
                           Text(
                             !item.env.configured
                                 ? item.env.summary
+                              : item.hasExpiredAccounts
+                              ? 'One or more accounts expired. Reconnect the affected account to restore tool access.'
                                 : item.isConnected
                                 ? 'Connect as many accounts as you want. Each app can use a different account.'
                                 : ((item.connectPrompt ?? '').trim().isNotEmpty
@@ -202,8 +206,12 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                           ),
                         ),
                         _StatusPill(
-                          label: app.connection.statusLabel,
-                          color: app.isConnected ? _success : _textSecondary,
+                          label: app.statusLabel,
+                          color: app.isConnected
+                              ? _success
+                              : app.hasExpiredAccounts
+                              ? _warning
+                              : _textSecondary,
                         ),
                       ],
                     ),
@@ -360,7 +368,11 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       _StatusPill(
                         label: account.statusLabel,
-                        color: account.connected ? _success : _textSecondary,
+                        color: account.connected
+                            ? _success
+                            : account.isExpired
+                            ? _warning
+                            : _textSecondary,
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton.icon(

@@ -2276,6 +2276,14 @@ class OfficialIntegrationAppItem {
   final int availableToolCount;
 
   bool get isConnected => connection.connected;
+
+  bool get hasExpiredAccounts =>
+      accounts.any((account) => account.isExpired && !account.connected);
+
+  String get effectiveStatus =>
+      !isConnected && hasExpiredAccounts ? 'expired' : connection.status;
+
+  String get statusLabel => _titleCase(effectiveStatus.replaceAll('_', ' '));
 }
 
 class OfficialIntegrationEnvStatus {
@@ -2339,6 +2347,8 @@ class OfficialIntegrationConnectionStatus {
         return 'Setup Required';
       case 'not_connected':
         return 'Not Connected';
+      case 'expired':
+        return 'Expired';
       default:
         return _titleCase(status.replaceAll('_', ' '));
     }
@@ -2374,6 +2384,8 @@ class OfficialIntegrationAccountItem {
   final String? accountEmail;
   final DateTime? lastConnectedAt;
   final String accessMode;
+
+  bool get isExpired => status == 'expired';
 
   String get statusLabel => _titleCase(status.replaceAll('_', ' '));
 
@@ -2433,6 +2445,13 @@ class OfficialIntegrationItem {
   final String? connectPrompt;
 
   bool get isConnected => connection.connected;
+
+  bool get hasExpiredAccounts => apps.any((app) => app.hasExpiredAccounts);
+
+  String get effectiveStatus =>
+      !isConnected && hasExpiredAccounts ? 'expired' : connection.status;
+
+  String get statusLabel => _titleCase(effectiveStatus.replaceAll('_', ' '));
 }
 
 class SkillDocument {
