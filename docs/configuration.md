@@ -94,13 +94,11 @@ All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` u
 | `HOME_ASSISTANT_OAUTH_CLIENT_ID` | Optional fallback Home Assistant OAuth client ID. |
 | `HOME_ASSISTANT_OAUTH_CLIENT_SECRET` | Optional fallback Home Assistant OAuth client secret. |
 | `HOME_ASSISTANT_OAUTH_REDIRECT_URI` | Optional fallback Home Assistant OAuth callback URL. |
-| `HOME_ASSISTANT_ALLOW_PRIVATE_BASE_URL` | Optional safety override. Set to `1` only if you intentionally allow Home Assistant base URLs on localhost/private networks. |
 | `SPOTIFY_OAUTH_CLIENT_ID` | Spotify OAuth client ID |
 | `SPOTIFY_OAUTH_CLIENT_SECRET` | Spotify OAuth client secret |
 | `SPOTIFY_OAUTH_REDIRECT_URI` | Optional Spotify OAuth callback URL |
 
 Home Assistant no longer requires server-side setup. Each user can open Official Integrations, select Home Assistant, and enter their own base URL and OAuth app credentials.
-For safety, local/private Home Assistant targets are blocked by default unless `HOME_ASSISTANT_ALLOW_PRIVATE_BASE_URL=1` is set on the server.
 
 Weather integration uses Open-Meteo public endpoints and does not require OAuth environment variables.
 

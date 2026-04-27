@@ -68,10 +68,6 @@ function resolveSpotifyOAuthConfig() {
   return resolveOAuthConfig('SPOTIFY');
 }
 
-function resolveGithubOAuthConfig() {
-  return resolveOAuthConfig('GITHUB');
-}
-
 function describeEnvStatus(config, options = {}) {
   const label = String(options.label || 'This integration').trim() || 'This integration';
   if (config.configured) {
@@ -100,5 +96,4 @@ module.exports = {
   resolvePublicBaseUrl,
   resolveSpotifyOAuthConfig,
   resolveSlackOAuthConfig,
-  resolveGithubOAuthConfig,
 };
