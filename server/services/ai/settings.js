@@ -59,6 +59,26 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: false,
     defaultBaseUrl: 'https://api.minimax.io/anthropic'
   },
+  'github-copilot': {
+    id: 'github-copilot',
+    label: 'GitHub Copilot',
+    description: 'Use your GitHub Copilot subscription as an AI provider.',
+    envKey: 'GITHUB_COPILOT_ACCESS_TOKEN',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://api.githubcopilot.com'
+  },
+  'openai-codex': {
+    id: 'openai-codex',
+    label: 'OpenAI Codex',
+    description: 'Use your ChatGPT/Codex subscription as an AI provider.',
+    envKey: 'OPENAI_CODEX_ACCESS_TOKEN',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://api.openai.com/v1'
+  },
   ollama: {
     id: 'ollama',
     label: 'Ollama',

@@ -3,6 +3,8 @@ const { GoogleProvider } = require('./providers/google');
 const { GrokProvider } = require('./providers/grok');
 const { OllamaProvider } = require('./providers/ollama');
 const { OpenAIProvider } = require('./providers/openai');
+const { GithubCopilotProvider } = require('./providers/githubCopilot');
+const { OpenAICodexProvider } = require('./providers/openaiCodex');
 const {
     AI_PROVIDER_DEFINITIONS,
     getProviderConfigs,
@@ -15,6 +17,30 @@ const STATIC_MODELS = [
         label: 'Grok 4.1 (Personality / Default)',
         provider: 'grok',
         purpose: 'general'
+    },
+    {
+        id: 'gpt-5.3',
+        label: 'GPT-5.3 (Copilot Default)',
+        provider: 'github-copilot',
+        purpose: 'general'
+    },
+    {
+        id: 'gpt-4.1',
+        label: 'GPT-4.1 (Copilot Fast)',
+        provider: 'github-copilot',
+        purpose: 'coding'
+    },
+    {
+        id: 'gpt-5.3-codex',
+        label: 'GPT-5.3 (Codex Default)',
+        provider: 'openai-codex',
+        purpose: 'general'
+    },
+    {
+        id: 'gpt-4.1-codex',
+        label: 'GPT-4.1 (Codex Fast)',
+        provider: 'openai-codex',
+        purpose: 'coding'
     },
     {
         id: 'gpt-5-nano',
@@ -302,6 +328,10 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
         return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
     } else if (providerStr === 'ollama') {
         return new OllamaProvider({ baseUrl: runtime.baseUrl, ...providerOverrides });
+    } else if (providerStr === 'github-copilot') {
+        return new GithubCopilotProvider({ apiKey: runtime.apiKey, ...providerOverrides });
+    } else if (providerStr === 'openai-codex') {
+        return new OpenAICodexProvider({ apiKey: runtime.apiKey, ...providerOverrides });
     }
     throw new Error(`Unknown provider: ${providerStr}`);
 }

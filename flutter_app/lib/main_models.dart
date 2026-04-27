@@ -1854,6 +1854,10 @@ class AiProviderMeta {
         return Icons.bolt_outlined;
       case 'ollama':
         return Icons.storage_outlined;
+      case 'github-copilot':
+        return Icons.code;
+      case 'openai-codex':
+        return Icons.psychology_outlined;
       default:
         return Icons.hub_outlined;
     }
