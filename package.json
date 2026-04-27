@@ -51,7 +51,6 @@
   "homepage": "https://github.com/NeoLabs-Systems/NeoAgent#readme",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@github/copilot-sdk": "^0.3.0",
     "@google/generative-ai": "^0.24.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "baileys": "^6.7.21",
@@ -67,7 +66,6 @@
     "geoip-lite": "^1.4.10",
     "googleapis": "^150.0.1",
     "helmet": "^8.0.0",
-    "ipaddr.js": "^2.3.0",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "node-pty": "^1.0.0",

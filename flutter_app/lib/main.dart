@@ -5913,32 +5913,6 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> clearOfficialIntegrationConfig(String providerId) async {
-    final busyKey = '$providerId:config:clear';
-    if (_busyOfficialIntegrationKeys.contains(busyKey)) {
-      return;
-    }
-
-    _busyOfficialIntegrationKeys.add(busyKey);
-    errorMessage = null;
-    notifyListeners();
-
-    try {
-      await _backendClient.clearOfficialIntegrationConfig(
-        backendUrl,
-        providerId,
-        agentId: _scopedAgentId,
-      );
-      await refreshSkills();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      rethrow;
-    } finally {
-      _busyOfficialIntegrationKeys.remove(busyKey);
-      notifyListeners();
-    }
-  }
-
   Future<void> disconnectOfficialIntegration(
     String providerId, {
     required int connectionId,

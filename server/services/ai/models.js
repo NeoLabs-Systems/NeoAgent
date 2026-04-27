@@ -3,8 +3,6 @@ const { GoogleProvider } = require('./providers/google');
 const { GrokProvider } = require('./providers/grok');
 const { OllamaProvider } = require('./providers/ollama');
 const { OpenAIProvider } = require('./providers/openai');
-const { CopilotProvider } = require('./providers/copilot');
-const { CodexProvider } = require('./providers/codex');
 const {
     AI_PROVIDER_DEFINITIONS,
     getProviderConfigs,
@@ -59,36 +57,6 @@ const STATIC_MODELS = [
         label: 'Qwen 3.5 4B (Local / Ollama)',
         provider: 'ollama',
         purpose: 'general'
-    },
-    {
-        id: 'gpt-5-copilot',
-        label: 'GPT-5 (Copilot Plan)',
-        provider: 'copilot',
-        purpose: 'general'
-    },
-    {
-        id: 'claude-sonnet-4-copilot',
-        label: 'Claude Sonnet 4 (Copilot Plan)',
-        provider: 'copilot',
-        purpose: 'planning'
-    },
-    {
-        id: 'codex/gpt-5.5',
-        label: 'GPT-5.5 (Codex Subscription)',
-        provider: 'codex',
-        purpose: 'general'
-    },
-    {
-        id: 'codex/gpt-5.4-mini',
-        label: 'GPT-5.4 Mini (Codex Subscription)',
-        provider: 'codex',
-        purpose: 'fast'
-    },
-    {
-        id: 'codex/gpt-5.2',
-        label: 'GPT-5.2 (Codex Subscription)',
-        provider: 'codex',
-        purpose: 'planning'
     }
 ];
 
@@ -334,17 +302,13 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
         return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
     } else if (providerStr === 'ollama') {
         return new OllamaProvider({ baseUrl: runtime.baseUrl, ...providerOverrides });
-    } else if (providerStr === 'copilot') {
-        return new CopilotProvider({ gitHubToken: runtime.apiKey, ...providerOverrides });
-    } else if (providerStr === 'codex') {
-        return new CodexProvider({ accessToken: runtime.apiKey, ...providerOverrides });
     }
     throw new Error(`Unknown provider: ${providerStr}`);
 }
 
 module.exports = {
     AI_PROVIDER_DEFINITIONS,
-    SUPPORTED_MODELS: STATIC_MODELS,
+    SUPPORTED_MODELS: STATIC_MODELS, // Backward compatibility
     createProviderInstance,
     getProviderCatalog,
     getProviderHealthCatalog,
