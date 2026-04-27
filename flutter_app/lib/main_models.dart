@@ -702,21 +702,44 @@ class MessagingAccessPolicy {
 
   factory MessagingAccessPolicy.fromJson(Map<String, dynamic> json) {
     return MessagingAccessPolicy(
-      directPolicy: json['directPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
-      sharedPolicy: json['sharedPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
+      directPolicy:
+          json['directPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
+      sharedPolicy:
+          json['sharedPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
       requireMentionInShared: json['requireMentionInShared'] == true,
-      directRules: (json['directRules'] is List ? json['directRules'] as List : const <dynamic>[])
-          .whereType<Map>()
-          .map((item) => MessagingAccessRule.fromJson(Map<String, dynamic>.from(item)))
-          .toList(growable: false),
-      sharedSpaceRules: (json['sharedSpaceRules'] is List ? json['sharedSpaceRules'] as List : const <dynamic>[])
-          .whereType<Map>()
-          .map((item) => MessagingAccessRule.fromJson(Map<String, dynamic>.from(item)))
-          .toList(growable: false),
-      sharedActorRules: (json['sharedActorRules'] is List ? json['sharedActorRules'] as List : const <dynamic>[])
-          .whereType<Map>()
-          .map((item) => MessagingAccessRule.fromJson(Map<String, dynamic>.from(item)))
-          .toList(growable: false),
+      directRules:
+          (json['directRules'] is List
+                  ? json['directRules'] as List
+                  : const <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (item) => MessagingAccessRule.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false),
+      sharedSpaceRules:
+          (json['sharedSpaceRules'] is List
+                  ? json['sharedSpaceRules'] as List
+                  : const <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (item) => MessagingAccessRule.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false),
+      sharedActorRules:
+          (json['sharedActorRules'] is List
+                  ? json['sharedActorRules'] as List
+                  : const <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (item) => MessagingAccessRule.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false),
     );
   }
 
@@ -759,11 +782,15 @@ class MessagingAccessPolicy {
     'directPolicy': directPolicy,
     'sharedPolicy': sharedPolicy,
     'requireMentionInShared': requireMentionInShared,
-    'directRules': directRules.map((rule) => rule.toJson()).toList(growable: false),
-    'sharedSpaceRules':
-        sharedSpaceRules.map((rule) => rule.toJson()).toList(growable: false),
-    'sharedActorRules':
-        sharedActorRules.map((rule) => rule.toJson()).toList(growable: false),
+    'directRules': directRules
+        .map((rule) => rule.toJson())
+        .toList(growable: false),
+    'sharedSpaceRules': sharedSpaceRules
+        .map((rule) => rule.toJson())
+        .toList(growable: false),
+    'sharedActorRules': sharedActorRules
+        .map((rule) => rule.toJson())
+        .toList(growable: false),
   };
 
   int get totalRuleCount =>
@@ -785,7 +812,10 @@ class MessagingAccessCapabilities {
   factory MessagingAccessCapabilities.fromJson(Map<String, dynamic> json) {
     List<String> _stringList(dynamic value) {
       if (value is! List) return const <String>[];
-      return value.map((item) => item.toString()).where((item) => item.isNotEmpty).toList(growable: false);
+      return value
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
     }
 
     return MessagingAccessCapabilities(
@@ -837,7 +867,8 @@ class MessagingAccessTarget {
       bucket: json['bucket']?.toString() ?? 'sharedSpaceRules',
       scope: json['scope']?.toString() ?? 'chat',
       value: json['value']?.toString() ?? '',
-      label: json['label']?.toString().ifEmpty(json['value']?.toString() ?? '') ??
+      label:
+          json['label']?.toString().ifEmpty(json['value']?.toString() ?? '') ??
           (json['value']?.toString() ?? ''),
       subtitle: json['subtitle']?.toString() ?? '',
     );
@@ -883,7 +914,10 @@ class MessagingAccessCatalog {
       if (raw is! List) return const <MessagingAccessTarget>[];
       return raw
           .whereType<Map>()
-          .map((item) => MessagingAccessTarget.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) =>
+                MessagingAccessTarget.fromJson(Map<String, dynamic>.from(item)),
+          )
           .where((item) => item.value.isNotEmpty)
           .toList(growable: false);
     }
@@ -1001,7 +1035,8 @@ class QuickAllowSuggestion {
     return QuickAllowSuggestion(
       label:
           json['label']?.toString().ifEmpty('Allow sender') ?? 'Allow sender',
-      bucket: json['bucket']?.toString().ifEmpty('sharedActorRules') ??
+      bucket:
+          json['bucket']?.toString().ifEmpty('sharedActorRules') ??
           'sharedActorRules',
       rule: parsedRule,
     );
@@ -1023,7 +1058,10 @@ MessagingAccessRule? _ruleFromPrefixedEntry(String platform, String entry) {
     final scope = match.group(1) ?? '';
     final value = match.group(2) ?? '';
     if (scope.isEmpty || value.isEmpty) return null;
-    return MessagingAccessRule(scope: scope == 'guild' ? 'server' : scope, value: value);
+    return MessagingAccessRule(
+      scope: scope == 'guild' ? 'server' : scope,
+      value: value,
+    );
   }
   return MessagingAccessRule(scope: 'chat', value: normalized);
 }
@@ -1854,6 +1892,10 @@ class AiProviderMeta {
         return Icons.bolt_outlined;
       case 'ollama':
         return Icons.storage_outlined;
+      case 'copilot':
+        return Icons.code;
+      case 'codex':
+        return Icons.smart_toy_outlined;
       default:
         return Icons.hub_outlined;
     }
@@ -2792,9 +2834,9 @@ class AiWidgetItem {
           : null,
       tasks: json['tasks'] is List
           ? (json['tasks'] as List)
-              .whereType<Map<dynamic, dynamic>>()
-              .map((m) => TaskItem.fromJson(m))
-              .toList()
+                .whereType<Map<dynamic, dynamic>>()
+                .map((m) => TaskItem.fromJson(m))
+                .toList()
           : const <TaskItem>[],
     );
   }

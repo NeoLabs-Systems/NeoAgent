@@ -2,6 +2,7 @@
 
 const { createFigmaProvider } = require('./figma/provider');
 const { createGoogleWorkspaceProvider } = require('./google/provider');
+const { createGithubProvider } = require('./github/provider');
 const { createHomeAssistantProvider } = require('./home_assistant/provider');
 const { createMicrosoftProvider } = require('./microsoft/provider');
 const { createNotionProvider } = require('./notion/provider');
@@ -9,10 +10,12 @@ const { createSpotifyProvider } = require('./spotify/provider');
 const { createSlackProvider } = require('./slack/provider');
 const { createWeatherProvider } = require('./weather/provider');
 const { createWhatsAppPersonalProvider } = require('./whatsapp');
+const { createCodexProvider } = require('./codex/provider');
 
 function createIntegrationRegistry(options = {}) {
   const providers = [
     createGoogleWorkspaceProvider(),
+    createGithubProvider(),
     createNotionProvider(),
     createMicrosoftProvider(),
     createSlackProvider(),
@@ -21,6 +24,7 @@ function createIntegrationRegistry(options = {}) {
     createWeatherProvider(),
     createSpotifyProvider(),
     createWhatsAppPersonalProvider(options),
+    createCodexProvider(),
   ];
   const byKey = new Map(providers.map((provider) => [provider.key, provider]));
 

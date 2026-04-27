@@ -68,6 +68,26 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     supportsBaseUrl: true,
     defaultEnabled: true,
     defaultBaseUrl: 'http://localhost:11434'
+  },
+  copilot: {
+    id: 'copilot',
+    label: 'GitHub Copilot',
+    description: 'GitHub Copilot subscription plan using the Copilot SDK for agentic workflows.',
+    envKey: 'COPILOT_GITHUB_TOKEN',
+    supportsApiKey: false,
+    supportsBaseUrl: false,
+    defaultEnabled: false,
+    defaultBaseUrl: ''
+  },
+  codex: {
+    id: 'codex',
+    label: 'OpenAI Codex',
+    description: 'ChatGPT/Codex subscription plan with GPT-5.5 and reasoning models.',
+    envKey: '',
+    supportsApiKey: false,
+    supportsBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://chatgpt.com/backend-api'
   }
 });
 

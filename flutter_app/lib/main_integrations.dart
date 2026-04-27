@@ -186,6 +186,10 @@ Future<void> _showHomeAssistantSetupDialog(
   final redirectUriController = TextEditingController(
     text: existing['redirectUri']?.toString() ?? '',
   );
+  final hasSavedSetup =
+      (existing['baseUrl']?.toString().trim().isNotEmpty ?? false) ||
+      (existing['clientId']?.toString().trim().isNotEmpty ?? false) ||
+      existing['hasClientSecret'] == true;
   var formError = '';
   var saving = false;
 
@@ -250,6 +254,59 @@ Future<void> _showHomeAssistantSetupDialog(
               ),
             ),
             actions: <Widget>[
+              if (hasSavedSetup)
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final shouldClear =
+                              await showDialog<bool>(
+                                context: dialogContext,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text('Clear Setup?'),
+                                    content: const Text(
+                                      'This removes your saved Home Assistant base URL and OAuth client credentials for this agent.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        child: const Text('Clear Setup'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ) ??
+                              false;
+                          if (!shouldClear) {
+                            return;
+                          }
+                          setState(() {
+                            formError = '';
+                            saving = true;
+                          });
+                          try {
+                            await controller.clearOfficialIntegrationConfig(
+                              'home_assistant',
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              formError =
+                                  controller.errorMessage ??
+                                  'Could not clear Home Assistant setup.';
+                              saving = false;
+                            });
+                          }
+                        },
+                  child: const Text('Clear Setup'),
+                ),
               TextButton(
                 onPressed: saving ? null : () => Navigator.of(dialogContext).pop(),
                 child: const Text('Cancel'),
