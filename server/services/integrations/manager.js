@@ -163,7 +163,12 @@ class IntegrationManager {
 
     return this.registry
       .list()
-      .map((provider) => provider.buildSnapshot(rowsByProvider.get(provider.key) || []));
+      .map((provider) =>
+        provider.buildSnapshot(rowsByProvider.get(provider.key) || [], {
+          userId,
+          agentId: scopedAgentId,
+        }),
+      );
   }
 
   async beginOAuth(userId, providerKey, options = {}) {
@@ -179,7 +184,10 @@ class IntegrationManager {
       throw new Error(`Unknown ${provider.label} app: ${appKey || 'missing app key'}`);
     }
 
-    const env = provider.getEnvStatus();
+    const env = provider.getEnvStatus({
+      userId,
+      agentId,
+    });
     if (!env.configured) {
       throw new Error(env.summary);
     }
@@ -405,7 +413,10 @@ class IntegrationManager {
   getToolDefinitions(userId, agentId = null) {
     const definitions = [];
     for (const provider of this.registry.list()) {
-      const env = provider.getEnvStatus();
+      const env = provider.getEnvStatus({
+        userId,
+        agentId,
+      });
       if (!env.configured) continue;
       const connections = this.listConnections(userId, provider.key, agentId);
       const connectedAppIds = Array.from(
@@ -427,9 +438,15 @@ class IntegrationManager {
     if (!provider) {
       throw new Error(`Unknown integration provider: ${providerKey}`);
     }
-    const env = provider.getEnvStatus();
+    const env = provider.getEnvStatus({
+      userId,
+      agentId,
+    });
     const connections = this.listConnections(userId, provider.key, agentId);
-    const snapshot = provider.buildSnapshot(connections);
+    const snapshot = provider.buildSnapshot(connections, {
+      userId,
+      agentId,
+    });
     const connectedAppIds = snapshot.apps
       .filter((app) => app.connection.connected)
       .map((app) => app.id);
@@ -598,7 +615,10 @@ class IntegrationManager {
     for (const provider of this.registry.list()) {
       if (!provider.supportsTool(toolName)) continue;
       foundSupportingProvider = true;
-      const env = provider.getEnvStatus();
+      const env = provider.getEnvStatus({
+        userId,
+        agentId,
+      });
       if (!env.configured) {
         return { error: env.summary };
       }
@@ -668,7 +688,13 @@ class IntegrationManager {
   summarizeConnectedProviders(userId, agentId = null) {
     const providers = this.registry.list().map((provider) => ({
       provider,
-      snapshot: provider.buildSnapshot(this.listConnections(userId, provider.key, agentId)),
+      snapshot: provider.buildSnapshot(
+        this.listConnections(userId, provider.key, agentId),
+        {
+          userId,
+          agentId,
+        },
+      ),
     }));
 
     if (providers.length === 0) {
@@ -682,6 +708,9 @@ class IntegrationManager {
         }
 
         if (!snapshot?.env?.configured) {
+          if (snapshot?.env?.setupMode === 'user') {
+            return `${provider.label}: setup is not complete for this user yet. If the user wants to use it, tell them to finish setup in Official Integrations first.`;
+          }
           return `${provider.label}: available but not configured on the server yet. If the user wants to use it, tell them to finish setup in Official Integrations first.`;
         }
 

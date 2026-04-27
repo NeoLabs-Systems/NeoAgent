@@ -160,6 +160,165 @@ class OfficialIntegrationsTab extends StatelessWidget {
   }
 }
 
+Future<void> _showHomeAssistantSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> existing;
+  try {
+    existing = await controller.getOfficialIntegrationConfig('home_assistant');
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
+      );
+    }
+    return;
+  }
+
+  final baseUrlController = TextEditingController(
+    text: existing['baseUrl']?.toString() ?? '',
+  );
+  final clientIdController = TextEditingController(
+    text: existing['clientId']?.toString() ?? '',
+  );
+  final clientSecretController = TextEditingController();
+  final redirectUriController = TextEditingController(
+    text: existing['redirectUri']?.toString() ?? '',
+  );
+  var formError = '';
+  var saving = false;
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setState) {
+          return AlertDialog(
+            title: const Text('Home Assistant Setup'),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextField(
+                    controller: baseUrlController,
+                    decoration: const InputDecoration(
+                      labelText: 'Base URL',
+                      hintText: 'https://ha.example.com',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: clientIdController,
+                    decoration: const InputDecoration(
+                      labelText: 'OAuth Client ID',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: clientSecretController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'OAuth Client Secret',
+                      hintText:
+                          existing['hasClientSecret'] == true
+                              ? 'Saved secret exists. Enter to replace it.'
+                              : null,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: redirectUriController,
+                    decoration: const InputDecoration(
+                      labelText: 'Redirect URI (optional)',
+                      hintText:
+                          'Leave blank to use the default callback URL',
+                    ),
+                  ),
+                  if (formError.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        formError,
+                        style: TextStyle(color: _danger),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: saving ? null : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        setState(() {
+                          formError = '';
+                        });
+                        final baseUrl = baseUrlController.text.trim();
+                        final clientId = clientIdController.text.trim();
+                        final clientSecret = clientSecretController.text.trim();
+                        final hasSavedSecret = existing['hasClientSecret'] == true;
+                        if (baseUrl.isEmpty || clientId.isEmpty) {
+                          setState(() {
+                            formError = 'Base URL and OAuth Client ID are required.';
+                          });
+                          return;
+                        }
+                        if (clientSecret.isEmpty && !hasSavedSecret) {
+                          setState(() {
+                            formError = 'OAuth Client Secret is required.';
+                          });
+                          return;
+                        }
+
+                        setState(() {
+                          saving = true;
+                        });
+                        try {
+                          await controller.saveOfficialIntegrationConfig(
+                            'home_assistant',
+                            config: <String, dynamic>{
+                              'baseUrl': baseUrl,
+                              'clientId': clientId,
+                              if (clientSecret.isNotEmpty)
+                                'clientSecret': clientSecret,
+                              'redirectUri': redirectUriController.text.trim(),
+                            },
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } catch (_) {
+                          setState(() {
+                            formError =
+                                controller.errorMessage ??
+                                'Could not save Home Assistant setup.';
+                            saving = false;
+                          });
+                        }
+                      },
+                child: Text(saving ? 'Saving...' : 'Save Setup'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  baseUrlController.dispose();
+  clientIdController.dispose();
+  clientSecretController.dispose();
+  redirectUriController.dispose();
+}
+
 class _OfficialIntegrationAppCard extends StatelessWidget {
   const _OfficialIntegrationAppCard({
     required this.controller,
@@ -242,11 +401,20 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               if (!provider.env.configured)
-                OutlinedButton.icon(
-                  onPressed: null,
-                  icon: Icon(Icons.settings_suggest_outlined),
-                  label: Text('Admin Setup Required'),
-                )
+                provider.id == 'home_assistant'
+                    ? FilledButton.icon(
+                        onPressed: () => _showHomeAssistantSetupDialog(
+                          context,
+                          controller,
+                        ),
+                        icon: Icon(Icons.settings_rounded),
+                        label: Text('Configure'),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: null,
+                        icon: Icon(Icons.settings_suggest_outlined),
+                        label: Text('Admin Setup Required'),
+                      )
               else
                 FilledButton.icon(
                   onPressed: connectBusy

@@ -247,8 +247,8 @@ function createOAuthProvider(options = {}) {
     getToolAppId(toolName) {
       return toolAppMap.get(String(toolName || '').trim()) || null;
     },
-    getEnvStatus() {
-      return options.getEnvStatus();
+    getEnvStatus(context = {}) {
+      return options.getEnvStatus(context);
     },
     getToolDefinitions(toolOptions = {}) {
       const connectedAppIds = new Set(toolOptions.connectedAppIds || []);
@@ -257,8 +257,8 @@ function createOAuthProvider(options = {}) {
     supportsTool(toolName) {
       return toolAppMap.has(String(toolName || '').trim());
     },
-    buildSnapshot(connectionRows) {
-      const env = this.getEnvStatus();
+    buildSnapshot(connectionRows, context = {}) {
+      const env = this.getEnvStatus(context);
       const byApp = new Map();
       for (const row of Array.isArray(connectionRows) ? connectionRows : []) {
         const appId = String(row.app_key || '').trim();
@@ -319,7 +319,7 @@ function createOAuthProvider(options = {}) {
         throw new Error(`Unknown ${this.label} app: ${appKey}`);
       }
       const normalizedState = assertValidOAuthState(state);
-      const env = this.getEnvStatus();
+      const env = this.getEnvStatus({ userId });
       if (!env.configured) {
         throw new Error(env.summary);
       }
@@ -343,7 +343,7 @@ function createOAuthProvider(options = {}) {
         userId,
         state: normalizedState,
         app,
-        env: this.getEnvStatus(),
+        env: this.getEnvStatus({ userId }),
       });
     },
     async disconnect(connectionRow) {
@@ -368,12 +368,16 @@ function createOAuthProvider(options = {}) {
         appId: toolAppMap.get(String(toolName || '').trim()) || connectionRow.app_key,
         connection: connectionRow,
         credentials,
+        env: this.getEnvStatus({ userId: connectionRow?.user_id }),
       });
     },
     summarizeConnection(connectionRows) {
       const snapshot = this.buildSnapshot(connectionRows);
       if (!snapshot.connection.connected) {
         if (snapshot.connection.status === 'env_not_configured') {
+          if (snapshot?.env?.setupMode === 'user') {
+            return `${this.label} still needs per-user setup before accounts can connect.`;
+          }
           return `${this.label} still needs administrator setup before accounts can connect.`;
         }
         return `${this.label} is not connected.`;
@@ -392,6 +396,9 @@ function createOAuthProvider(options = {}) {
     },
     summarizeForModel(snapshot) {
       if (!snapshot?.env?.configured) {
+        if (snapshot?.env?.setupMode === 'user') {
+          return `${this.label}: setup is user-managed and is not complete yet. If the user wants to use it, tell them to open Official Integrations and finish setup in their account first.`;
+        }
         return `${this.label}: workspace setup is not complete yet. If the user wants to use it, tell them to open Official Integrations and ask an administrator to finish setup first.`;
       }
 

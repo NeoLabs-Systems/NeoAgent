@@ -272,6 +272,17 @@ db.exec(`
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS integration_provider_configs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    provider_key TEXT NOT NULL,
+    config_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, provider_key)
+  );
+
   CREATE TABLE IF NOT EXISTS browser_extension_pairing_requests (
     id TEXT PRIMARY KEY,
     user_id INTEGER,

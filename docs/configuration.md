@@ -90,13 +90,15 @@ All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` u
 | `FIGMA_OAUTH_CLIENT_ID` | Figma OAuth client ID |
 | `FIGMA_OAUTH_CLIENT_SECRET` | Figma OAuth client secret |
 | `FIGMA_OAUTH_REDIRECT_URI` | Optional Figma OAuth callback URL |
-| `HOME_ASSISTANT_BASE_URL` | Home Assistant base URL, for example `https://ha.example.com` |
-| `HOME_ASSISTANT_OAUTH_CLIENT_ID` | Home Assistant OAuth client ID |
-| `HOME_ASSISTANT_OAUTH_CLIENT_SECRET` | Home Assistant OAuth client secret |
-| `HOME_ASSISTANT_OAUTH_REDIRECT_URI` | Optional Home Assistant OAuth callback URL |
+| `HOME_ASSISTANT_BASE_URL` | Optional fallback Home Assistant base URL. Users can configure this per account in Official Integrations. |
+| `HOME_ASSISTANT_OAUTH_CLIENT_ID` | Optional fallback Home Assistant OAuth client ID. |
+| `HOME_ASSISTANT_OAUTH_CLIENT_SECRET` | Optional fallback Home Assistant OAuth client secret. |
+| `HOME_ASSISTANT_OAUTH_REDIRECT_URI` | Optional fallback Home Assistant OAuth callback URL. |
 | `SPOTIFY_OAUTH_CLIENT_ID` | Spotify OAuth client ID |
 | `SPOTIFY_OAUTH_CLIENT_SECRET` | Spotify OAuth client secret |
 | `SPOTIFY_OAUTH_REDIRECT_URI` | Optional Spotify OAuth callback URL |
+
+Home Assistant no longer requires server-side setup. Each user can open Official Integrations, select Home Assistant, and enter their own base URL and OAuth app credentials.
 
 Weather integration uses Open-Meteo public endpoints and does not require OAuth environment variables.
 

@@ -6,6 +6,11 @@ const {
   resolveHomeAssistantOAuthConfig,
 } = require('../env');
 const {
+  deleteProviderConfig,
+  getProviderConfig,
+  setProviderConfig,
+} = require('../provider_config_store');
+const {
   appendQuery,
   createOAuthProvider,
   fetchJson,
@@ -93,6 +98,161 @@ const homeAssistantToolDefinitions = [
   },
 ];
 
+function trimText(value) {
+  return String(value || '').trim();
+}
+
+function normalizeBaseUrl(value) {
+  const text = trimText(value);
+  if (!text) return '';
+  return text.replace(/\/$/, '');
+}
+
+function normalizeOptionalAbsoluteUrl(value, label) {
+  const text = trimText(value);
+  if (!text) return '';
+  try {
+    const parsed = new URL(text);
+    if (!/^https?:$/.test(parsed.protocol)) {
+      throw new Error(`${label} must use http or https.`);
+    }
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    throw new Error(`${label} must be a valid absolute URL.`);
+  }
+}
+
+function normalizeUserHomeAssistantConfig(rawConfig) {
+  const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+  return {
+    baseUrl: normalizeBaseUrl(source.baseUrl),
+    clientId: trimText(source.clientId),
+    clientSecret: trimText(source.clientSecret),
+    redirectUri: trimText(source.redirectUri),
+  };
+}
+
+function resolveUserHomeAssistantConfig(userId) {
+  const userConfig = normalizeUserHomeAssistantConfig(
+    Number.isInteger(Number(userId)) && Number(userId) > 0
+      ? getProviderConfig(Number(userId), 'home_assistant')
+      : {},
+  );
+  const envConfig = resolveHomeAssistantOAuthConfig();
+  return {
+    baseUrl: userConfig.baseUrl || envConfig.baseUrl,
+    clientId: userConfig.clientId || envConfig.clientId,
+    clientSecret: userConfig.clientSecret || envConfig.clientSecret,
+    redirectUri: userConfig.redirectUri || envConfig.redirectUri,
+  };
+}
+
+function validateResolvedConfig(config) {
+  const missing = [];
+  if (!trimText(config.baseUrl)) missing.push('baseUrl');
+  if (!trimText(config.clientId)) missing.push('clientId');
+  if (!trimText(config.clientSecret)) missing.push('clientSecret');
+  return {
+    configured: missing.length === 0,
+    missing,
+  };
+}
+
+function resolveHomeAssistantConfigForUser(userId) {
+  const merged = resolveUserHomeAssistantConfig(userId);
+  const validatedBaseUrl = merged.baseUrl
+    ? normalizeOptionalAbsoluteUrl(
+        merged.baseUrl,
+        'Home Assistant base URL',
+      )
+    : '';
+  const validatedRedirectUri = merged.redirectUri
+    ? normalizeOptionalAbsoluteUrl(
+        merged.redirectUri,
+        'Home Assistant OAuth redirect URI',
+      )
+    : '';
+  const result = {
+    baseUrl: validatedBaseUrl,
+    clientId: trimText(merged.clientId),
+    clientSecret: trimText(merged.clientSecret),
+    redirectUri: validatedRedirectUri,
+  };
+  const status = validateResolvedConfig(result);
+  return {
+    ...result,
+    configured: status.configured,
+    missing: status.missing,
+  };
+}
+
+function sanitizeHomeAssistantUserConfigForClient(rawConfig) {
+  const config = normalizeUserHomeAssistantConfig(rawConfig);
+  return {
+    baseUrl: config.baseUrl,
+    clientId: config.clientId,
+    redirectUri: config.redirectUri,
+    hasClientSecret: Boolean(config.clientSecret),
+  };
+}
+
+function parseHomeAssistantConfigInput(input, existingConfig = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const baseUrl = normalizeOptionalAbsoluteUrl(
+    source.baseUrl,
+    'Home Assistant base URL',
+  );
+  const clientId = trimText(source.clientId);
+  const clientSecret =
+    trimText(source.clientSecret) || trimText(existingConfig.clientSecret);
+  const redirectUri = source.redirectUri
+    ? normalizeOptionalAbsoluteUrl(
+        source.redirectUri,
+        'Home Assistant OAuth redirect URI',
+      )
+    : '';
+
+  if (!baseUrl) {
+    throw new Error('Home Assistant base URL is required.');
+  }
+  if (!clientId) {
+    throw new Error('Home Assistant OAuth client ID is required.');
+  }
+  if (!clientSecret) {
+    throw new Error('Home Assistant OAuth client secret is required.');
+  }
+
+  return {
+    baseUrl,
+    clientId,
+    clientSecret,
+    redirectUri,
+  };
+}
+
+function saveHomeAssistantUserConfig(userId, input) {
+  const normalizedUserId = Number(userId);
+  if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+    throw new Error('A valid user is required to save Home Assistant configuration.');
+  }
+  const existingConfig = normalizeUserHomeAssistantConfig(
+    getProviderConfig(normalizedUserId, 'home_assistant'),
+  );
+  const config = parseHomeAssistantConfigInput(input, existingConfig);
+  setProviderConfig(normalizedUserId, 'home_assistant', config);
+  return sanitizeHomeAssistantUserConfigForClient(config);
+}
+
+function getHomeAssistantUserConfig(userId) {
+  const normalizedUserId = Number(userId);
+  if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+    return sanitizeHomeAssistantUserConfigForClient({});
+  }
+  return sanitizeHomeAssistantUserConfigForClient(
+    getProviderConfig(normalizedUserId, 'home_assistant'),
+  );
+}
+
 function requireText(value, label) {
   const text = String(value || '').trim();
   if (!text) throw new Error(`${label} is required.`);
@@ -119,7 +279,7 @@ function homeAssistantUrl(baseUrl, path, query) {
 }
 
 async function homeAssistantRequest(credentials, options = {}) {
-  const config = resolveHomeAssistantOAuthConfig();
+  const config = resolveHomeAssistantConfigForUser(options.userId);
   const accessToken = String(credentials?.access_token || '').trim();
   if (!accessToken) {
     throw new Error('Home Assistant access token is missing. Reconnect this integration account.');
@@ -138,14 +298,20 @@ async function homeAssistantRequest(credentials, options = {}) {
   );
 }
 
-async function executeHomeAssistantTool(toolName, args, { credentials }) {
+async function executeHomeAssistantTool(toolName, args, { connection, credentials }) {
   switch (toolName) {
     case 'home_assistant_get_config':
       return {
-        result: await homeAssistantRequest(credentials, { path: '/api/config' }),
+        result: await homeAssistantRequest(credentials, {
+          path: '/api/config',
+          userId: connection?.user_id,
+        }),
       };
     case 'home_assistant_list_states': {
-      const states = await homeAssistantRequest(credentials, { path: '/api/states' });
+      const states = await homeAssistantRequest(credentials, {
+        path: '/api/states',
+        userId: connection?.user_id,
+      });
       const domain = String(args.domain || '').trim().toLowerCase();
       const limit = Math.max(1, Math.min(Number(args.limit) || 100, 500));
       const filtered = Array.isArray(states)
@@ -163,6 +329,7 @@ async function executeHomeAssistantTool(toolName, args, { credentials }) {
       return {
         result: await homeAssistantRequest(credentials, {
           path: `/api/states/${encodeURIComponent(requireText(args.entity_id, 'entity_id'))}`,
+          userId: connection?.user_id,
         }),
       };
     case 'home_assistant_call_service':
@@ -171,6 +338,7 @@ async function executeHomeAssistantTool(toolName, args, { credentials }) {
           method: 'POST',
           path: `/api/services/${encodeURIComponent(requireText(args.domain, 'domain'))}/${encodeURIComponent(requireText(args.service, 'service'))}`,
           body: args.service_data || {},
+          userId: connection?.user_id,
         }),
       };
     case 'home_assistant_api_request':
@@ -180,6 +348,7 @@ async function executeHomeAssistantTool(toolName, args, { credentials }) {
           path: requireText(args.path, 'path'),
           query: args.query,
           body: args.body,
+          userId: connection?.user_id,
         }),
       };
     default:
@@ -187,19 +356,25 @@ async function executeHomeAssistantTool(toolName, args, { credentials }) {
   }
 }
 
-function resolveHomeAssistantEnvStatus() {
-  const config = resolveHomeAssistantOAuthConfig();
-  const missing = config.missing.slice();
-  if (!config.baseUrl) {
-    missing.push('HOME_ASSISTANT_BASE_URL');
+function resolveHomeAssistantEnvStatus(userId) {
+  try {
+    const config = resolveHomeAssistantConfigForUser(userId);
+    return {
+      configured: config.configured,
+      missing: config.missing,
+      summary: config.configured
+        ? 'Home Assistant is ready for account connections.'
+        : 'Complete your personal Home Assistant setup to connect an account.',
+      setupMode: 'user',
+    };
+  } catch (error) {
+    return {
+      configured: false,
+      missing: ['baseUrl'],
+      summary: `Home Assistant setup is invalid: ${error?.message || 'unknown error'}`,
+      setupMode: 'user',
+    };
   }
-  return describeEnvStatus(
-    {
-      configured: missing.length === 0,
-      missing,
-    },
-    { label: 'Home Assistant' },
-  );
 }
 
 function normalizeCurrentUser(currentUser) {
@@ -225,8 +400,8 @@ function stableAccountEmailLikeIdentifier(user, config) {
   return `homeassistant@${host}`;
 }
 
-async function fetchCurrentUser(token) {
-  const config = resolveHomeAssistantOAuthConfig();
+async function fetchCurrentUser(token, userId) {
+  const config = resolveHomeAssistantConfigForUser(userId);
   return fetchJson(
     homeAssistantUrl(config.baseUrl, '/api/auth/current_user'),
     {
@@ -250,11 +425,11 @@ function createHomeAssistantProvider() {
     toolDefinitions: homeAssistantToolDefinitions,
     connectPrompt:
       'Connect your Home Assistant account to let the agent read entity states and control services with structured tools.',
-    getEnvStatus() {
-      return resolveHomeAssistantEnvStatus();
+    getEnvStatus(context = {}) {
+      return resolveHomeAssistantEnvStatus(context.userId);
     },
-    async beginOAuth({ state, codeVerifier, app }) {
-      const config = resolveHomeAssistantOAuthConfig();
+    async beginOAuth({ state, codeVerifier, app, userId }) {
+      const config = resolveHomeAssistantConfigForUser(userId);
       const codeChallenge = String(codeChallengeForVerifier(codeVerifier));
       return {
         url: appendQuery(homeAssistantUrl(config.baseUrl, '/auth/authorize'), {
@@ -269,8 +444,8 @@ function createHomeAssistantProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, codeVerifier, app }) {
-      const config = resolveHomeAssistantOAuthConfig();
+    async finishOAuth({ code, codeVerifier, app, userId }) {
+      const config = resolveHomeAssistantConfigForUser(userId);
       const token = await fetchJson(
         homeAssistantUrl(config.baseUrl, '/auth/token'),
         {
@@ -297,7 +472,7 @@ function createHomeAssistantProvider() {
         throw new Error('Home Assistant OAuth did not return a refresh token.');
       }
 
-      const currentUser = await fetchCurrentUser(accessToken);
+      const currentUser = await fetchCurrentUser(accessToken, userId);
       const normalizedUser = normalizeCurrentUser(currentUser);
       const accountEmail = stableAccountEmailLikeIdentifier(normalizedUser, config);
 
@@ -328,6 +503,20 @@ function createHomeAssistantProvider() {
       };
     },
     executeTool: executeHomeAssistantTool,
+    getUserConfig({ userId }) {
+      return getHomeAssistantUserConfig(userId);
+    },
+    saveUserConfig({ userId, config }) {
+      return saveHomeAssistantUserConfig(userId, config);
+    },
+    clearUserConfig({ userId }) {
+      const normalizedUserId = Number(userId);
+      if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+        throw new Error('A valid user is required to clear Home Assistant configuration.');
+      }
+      deleteProviderConfig(normalizedUserId, 'home_assistant');
+      return { cleared: true };
+    },
   });
 }
 
@@ -346,5 +535,7 @@ function codeChallengeForVerifier(codeVerifier) {
 }
 
 module.exports = {
+  getHomeAssistantUserConfig,
+  saveHomeAssistantUserConfig,
   createHomeAssistantProvider,
 };

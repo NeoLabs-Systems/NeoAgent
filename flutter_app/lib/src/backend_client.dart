@@ -1021,6 +1021,43 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchOfficialIntegrationConfig(
+    String baseUrl,
+    String providerId, {
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/integrations/$providerId/config', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> saveOfficialIntegrationConfig(
+    String baseUrl,
+    String providerId, {
+    required Map<String, dynamic> config,
+    String? agentId,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/integrations/$providerId/config',
+      _withAgentId(<String, dynamic>{'config': config}, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> clearOfficialIntegrationConfig(
+    String baseUrl,
+    String providerId, {
+    String? agentId,
+  }) async {
+    final response = await _httpClient.delete(
+      _resolveUri(baseUrl, _withAgentQuery('/api/integrations/$providerId/config', agentId)),
+      headers: const <String, String>{'Accept': 'application/json'},
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
   Future<Map<String, dynamic>> fetchMessagingStatus(
     String baseUrl, {
     String? agentId,

@@ -17,7 +17,7 @@ The built-in registry includes:
 | Weather | Keyless Open-Meteo current weather and forecast tools |
 | Spotify | Playback state, recently played, search, and playback controls |
 
-OAuth app credentials are configured through server environment variables. Account connections are created in the Flutter UI under **Integrations**. Connected tools are exposed to the agent as structured tools, so prefer them over browser automation when they can do the job.
+OAuth app credentials are configured through server environment variables for most providers. Home Assistant can also be configured per-user in the Flutter **Integrations** UI without any server-side setup. Account connections are created in the Flutter UI under **Integrations**. Connected tools are exposed to the agent as structured tools, so prefer them over browser automation when they can do the job.
 
 Weather note: the Weather integration uses Open-Meteo public APIs and does not require OAuth client credentials.
 

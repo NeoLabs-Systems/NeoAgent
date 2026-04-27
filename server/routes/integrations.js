@@ -361,4 +361,90 @@ router.get('/:provider/tools/status', (req, res) => {
   }
 });
 
+router.get('/:provider/config', (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
+    const provider = manager.getProvider(req.params.provider);
+    if (!provider) {
+      throw new Error(`Unknown integration provider: ${req.params.provider}`);
+    }
+    if (typeof provider.getUserConfig !== 'function') {
+      return res.status(404).json({
+        error: `${provider.label} does not support per-user configuration.`,
+      });
+    }
+    const config = provider.getUserConfig({
+      userId: req.session.userId,
+      agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+    });
+    res.json({
+      provider: provider.key,
+      config,
+    });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
+router.put('/:provider/config', async (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
+    const provider = manager.getProvider(req.params.provider);
+    if (!provider) {
+      throw new Error(`Unknown integration provider: ${req.params.provider}`);
+    }
+    if (typeof provider.saveUserConfig !== 'function') {
+      return res.status(404).json({
+        error: `${provider.label} does not support per-user configuration.`,
+      });
+    }
+    const config = await provider.saveUserConfig({
+      userId: req.session.userId,
+      agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+      config: req.body?.config || req.body || {},
+    });
+    res.json({
+      provider: provider.key,
+      config,
+      saved: true,
+    });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
+router.delete('/:provider/config', async (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
+    const provider = manager.getProvider(req.params.provider);
+    if (!provider) {
+      throw new Error(`Unknown integration provider: ${req.params.provider}`);
+    }
+    if (typeof provider.clearUserConfig !== 'function') {
+      return res.status(404).json({
+        error: `${provider.label} does not support per-user configuration.`,
+      });
+    }
+    await provider.clearUserConfig({
+      userId: req.session.userId,
+      agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+    });
+    res.json({
+      provider: provider.key,
+      cleared: true,
+    });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
 module.exports = router;

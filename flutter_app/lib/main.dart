@@ -5866,6 +5866,53 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>> getOfficialIntegrationConfig(
+    String providerId,
+  ) async {
+    final response = await _backendClient.fetchOfficialIntegrationConfig(
+      backendUrl,
+      providerId,
+      agentId: _scopedAgentId,
+    );
+    final raw = response['config'];
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw.map(
+        (key, value) => MapEntry(key.toString(), value),
+      ));
+    }
+    return const <String, dynamic>{};
+  }
+
+  Future<void> saveOfficialIntegrationConfig(
+    String providerId, {
+    required Map<String, dynamic> config,
+  }) async {
+    final busyKey = '$providerId:config:save';
+    if (_busyOfficialIntegrationKeys.contains(busyKey)) {
+      return;
+    }
+
+    _busyOfficialIntegrationKeys.add(busyKey);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _backendClient.saveOfficialIntegrationConfig(
+        backendUrl,
+        providerId,
+        config: config,
+        agentId: _scopedAgentId,
+      );
+      await refreshSkills();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    } finally {
+      _busyOfficialIntegrationKeys.remove(busyKey);
+      notifyListeners();
+    }
+  }
+
   Future<void> disconnectOfficialIntegration(
     String providerId, {
     required int connectionId,
