@@ -88,7 +88,18 @@ function buildHelmetOptions({ secureCookies }) {
   return {
     strictTransportSecurity: false,
     crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: { policy: 'same-site' },
     originAgentCluster: false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    permissionsPolicy: {
+      features: {
+        camera: ['self'],
+        geolocation: ['self'],
+        microphone: ['self'],
+        payment: [],
+        usb: [],
+      },
+    },
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -154,6 +165,16 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
     const path = `${value}`.split('?')[0];
     return path === '/socket.io/' || path === '/socket.io' || path.startsWith('/socket.io/');
   };
+  const isStateChangingMethod = (method = '') => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method).toUpperCase());
+  const extractOriginFromReferer = (referer = '') => {
+    const value = String(referer || '').trim();
+    if (!value) return '';
+    try {
+      return new URL(value).origin;
+    } catch {
+      return '';
+    }
+  };
   const requestPath = (req) => req.originalUrl || req.url || req.path || '';
   const applyOnlyToRecordingChunk = (handler) => (req, res, next) => (
     isRecordingChunkPath(requestPath(req)) ? handler(req, res, next) : next()
@@ -187,6 +208,35 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
       });
     })
   );
+  app.use((req, res, next) => {
+    const path = `${req.originalUrl || req.url || req.path || ''}`.split('?')[0];
+    if (path.startsWith('/api/')) {
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    next();
+  });
+  app.use((req, res, next) => {
+    const path = `${req.originalUrl || req.url || req.path || ''}`.split('?')[0];
+    if (!path.startsWith('/api/')) return next();
+    if (!isStateChangingMethod(req.method)) return next();
+
+    const origin = String(req.get('origin') || '').trim() || extractOriginFromReferer(req.get('referer'));
+    if (!origin) return next();
+
+    const allowBrowserExtensionOrigin = isBrowserExtensionCorsPath(path);
+    return validateOrigin(origin, (error) => {
+      if (error) {
+        logRequestSummary('warn', req, 'blocked state-changing request due to invalid origin', { origin });
+        return res.status(403).json({ error: 'Origin not allowed' });
+      }
+      return next();
+    }, {
+      allowChromeExtension: allowBrowserExtensionOrigin,
+      allowMissingOrigin: false,
+    });
+  });
   app.use((req, res, next) => {
     const startedAt = Date.now();
 

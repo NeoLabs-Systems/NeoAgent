@@ -12,6 +12,11 @@ const {
 const { getMemoryStorageDecision } = require('./policy');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const {
+  decryptLocalValue,
+  encryptLocalValue,
+  isLocalEncryptedValue,
+} = require('../../utils/local_secrets');
 
 async function getActiveProvider(userId, agentId = null) {
   try {
@@ -516,11 +521,43 @@ class MemoryManager {
         return {};
       }
     }
-    try { return JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch { return {}; }
+    try {
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return {};
+      }
+
+      let shouldMigrate = false;
+      const normalized = {};
+
+      for (const [service, rawValue] of Object.entries(parsed)) {
+        const value = String(rawValue || '');
+        if (!value) {
+          normalized[service] = '';
+          continue;
+        }
+
+        if (!isLocalEncryptedValue(value)) shouldMigrate = true;
+        normalized[service] = decryptLocalValue(value);
+      }
+
+      if (shouldMigrate) {
+        this.writeApiKeys(normalized, userId);
+      }
+
+      return normalized;
+    } catch {
+      return {};
+    }
   }
 
   writeApiKeys(keys, userId = null) {
-    fs.writeFileSync(this._userApiKeysPath(userId), JSON.stringify(keys, null, 2), 'utf-8');
+    const encrypted = {};
+    for (const [service, rawValue] of Object.entries(keys || {})) {
+      const value = String(rawValue || '');
+      encrypted[service] = value ? encryptLocalValue(value) : '';
+    }
+    fs.writeFileSync(this._userApiKeysPath(userId), JSON.stringify(encrypted, null, 2), 'utf-8');
   }
 
   setApiKey(service, key, userId = null) {

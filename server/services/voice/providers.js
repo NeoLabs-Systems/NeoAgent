@@ -6,6 +6,7 @@ const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { getOpenAiClient } = require('./openaiClient');
 const { synthesizeSpeechBuffer } = require('./openaiSpeech');
 const { transcribeChunkWithDeepgram } = require('../recordings/deepgram');
+const { decryptLocalValue } = require('../../utils/local_secrets');
 
 const DEFAULT_STT_PROVIDER = 'openai';
 const DEFAULT_TTS_PROVIDER = 'openai';
@@ -94,7 +95,7 @@ function resolveApiKey(candidates = []) {
     const snake = lower.replace(/[^a-z0-9]+/g, '_');
     const variants = [key, lower, snake];
     for (const variant of variants) {
-      const value = keys[variant];
+      const value = decryptLocalValue(keys[variant]);
       if (typeof value === 'string' && value.trim()) {
         return value.trim();
       }

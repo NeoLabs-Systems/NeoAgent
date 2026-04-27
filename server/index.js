@@ -97,6 +97,7 @@ if (!configuredSessionSecret()) {
 }
 
 const app = express();
+app.disable('x-powered-by');
 const httpServer = createServer(app);
 const io = createSocketServer(httpServer, { validateOrigin });
 app.locals.httpRuntimeConfig = {

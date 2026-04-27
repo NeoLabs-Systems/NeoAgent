@@ -1,10 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
 router.use(requireAuth);
+
+const apiKeyMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many API key update attempts, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function normalizeMemoryIds(value) {
   return [...new Set(
@@ -232,12 +241,12 @@ router.get('/api-keys', (req, res) => {
   res.json(masked);
 });
 
-router.put('/api-keys/:service', (req, res) => {
+router.put('/api-keys/:service', apiKeyMutationLimiter, (req, res) => {
   req.app.locals.memoryManager.setApiKey(req.params.service, req.body.key, req.session.userId);
   res.json({ success: true });
 });
 
-router.delete('/api-keys/:service', (req, res) => {
+router.delete('/api-keys/:service', apiKeyMutationLimiter, (req, res) => {
   req.app.locals.memoryManager.deleteApiKey(req.params.service, req.session.userId);
   res.json({ success: true });
 });

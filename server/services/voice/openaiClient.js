@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { OpenAI } = require('openai');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
+const { decryptLocalValue } = require('../../utils/local_secrets');
 
 let cachedClient = null;
 
@@ -15,7 +16,9 @@ function resolveOpenAiApiKey() {
   try {
     const keysPath = path.join(AGENT_DATA_DIR, 'API_KEYS.json');
     const keys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
-    const candidate = keys.OPENAI_API_KEY || keys.openai_api_key || keys.openai;
+    const candidate = decryptLocalValue(keys.OPENAI_API_KEY)
+      || decryptLocalValue(keys.openai_api_key)
+      || decryptLocalValue(keys.openai);
     return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : '';
   } catch {
     return '';
