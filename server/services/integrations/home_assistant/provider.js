@@ -1,6 +1,8 @@
 'use strict';
 
 const crypto = require('crypto');
+const net = require('net');
+const ipaddr = require('ipaddr.js');
 const {
   describeEnvStatus,
   resolveHomeAssistantOAuthConfig,
@@ -102,6 +104,83 @@ function trimText(value) {
   return String(value || '').trim();
 }
 
+function isTruthyEnv(name) {
+  const value = String(process.env[name] || '').trim().toLowerCase();
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+}
+
+function isLikelyLocalHostname(hostname) {
+  const host = String(hostname || '').trim().toLowerCase();
+  if (!host) return false;
+  if (host === 'localhost' || host === 'host.docker.internal') return true;
+  if (host.endsWith('.localhost')) return true;
+  if (host.endsWith('.local') || host.endsWith('.lan') || host.endsWith('.internal')) {
+    return true;
+  }
+  return false;
+}
+
+function isPrivateIpv4(hostname) {
+  const parts = String(hostname || '').split('.').map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a === 0) return true;
+  return false;
+}
+
+function isPrivateIpv6(hostname) {
+  const host = String(hostname || '').trim().replace(/^\[|\]$/g, '');
+  if (!host) return false;
+  try {
+    const parsed = ipaddr.parse(host);
+    if (parsed.kind() !== 'ipv6') return false;
+
+    // Normalize IPv4-mapped IPv6 literals and enforce the same local/private rules.
+    if (parsed.isIPv4MappedAddress()) {
+      return isPrivateIpv4(parsed.toIPv4Address().toString());
+    }
+
+    const range = parsed.range();
+    return range === 'loopback' || range === 'uniqueLocal' || range === 'linkLocal' || range === 'unspecified';
+  } catch {
+    return false;
+  }
+}
+
+function isPrivateOrLocalIp(hostname) {
+  const host = String(hostname || '').trim().replace(/^\[|\]$/g, '');
+  const kind = net.isIP(host);
+  if (kind === 4) return isPrivateIpv4(host);
+  if (kind === 6) return isPrivateIpv6(host);
+  return false;
+}
+
+function validateHomeAssistantBaseUrlSafety(parsedUrl) {
+  const allowPrivate = isTruthyEnv('HOME_ASSISTANT_ALLOW_PRIVATE_BASE_URL');
+  const host = String(parsedUrl.hostname || '').trim();
+  const localHostname = isLikelyLocalHostname(host);
+  const localIp = isPrivateOrLocalIp(host);
+  const isLocalTarget = localHostname || localIp;
+
+  if (isLocalTarget && !allowPrivate) {
+    throw new Error(
+      'Home Assistant base URL cannot target localhost/private network addresses unless HOME_ASSISTANT_ALLOW_PRIVATE_BASE_URL=1 is set on the server.',
+    );
+  }
+
+  if (parsedUrl.protocol === 'http:' && !isLocalTarget) {
+    throw new Error('Home Assistant base URL must use HTTPS for non-local hosts.');
+  }
+}
+
 function normalizeBaseUrl(value) {
   const text = trimText(value);
   if (!text) return '';
@@ -120,6 +199,22 @@ function normalizeOptionalAbsoluteUrl(value, label) {
   } catch {
     throw new Error(`${label} must be a valid absolute URL.`);
   }
+}
+
+function normalizeHomeAssistantBaseUrl(value) {
+  const text = trimText(value);
+  if (!text) return '';
+  let parsed;
+  try {
+    parsed = new URL(text);
+  } catch {
+    throw new Error('Home Assistant base URL must be a valid absolute URL.');
+  }
+  if (!/^https?:$/.test(parsed.protocol)) {
+    throw new Error('Home Assistant base URL must use http or https.');
+  }
+  validateHomeAssistantBaseUrlSafety(parsed);
+  return parsed.toString().replace(/\/$/, '');
 }
 
 function normalizeUserHomeAssistantConfig(rawConfig) {
@@ -161,10 +256,7 @@ function validateResolvedConfig(config) {
 function resolveHomeAssistantConfigForUser(userId) {
   const merged = resolveUserHomeAssistantConfig(userId);
   const validatedBaseUrl = merged.baseUrl
-    ? normalizeOptionalAbsoluteUrl(
-        merged.baseUrl,
-        'Home Assistant base URL',
-      )
+    ? normalizeHomeAssistantBaseUrl(merged.baseUrl)
     : '';
   const validatedRedirectUri = merged.redirectUri
     ? normalizeOptionalAbsoluteUrl(
@@ -198,10 +290,7 @@ function sanitizeHomeAssistantUserConfigForClient(rawConfig) {
 
 function parseHomeAssistantConfigInput(input, existingConfig = {}) {
   const source = input && typeof input === 'object' ? input : {};
-  const baseUrl = normalizeOptionalAbsoluteUrl(
-    source.baseUrl,
-    'Home Assistant base URL',
-  );
+  const baseUrl = normalizeHomeAssistantBaseUrl(source.baseUrl);
   const clientId = trimText(source.clientId);
   const clientSecret =
     trimText(source.clientSecret) || trimText(existingConfig.clientSecret);
@@ -262,7 +351,7 @@ function requireText(value, label) {
 function homeAssistantUrl(baseUrl, path, query) {
   const normalizedBase = String(baseUrl || '').trim().replace(/\/$/, '');
   if (!normalizedBase) {
-    throw new Error('HOME_ASSISTANT_BASE_URL is required.');
+    throw new Error('Home Assistant base URL is required.');
   }
   const url = new URL(
     String(path || '').startsWith('http')
