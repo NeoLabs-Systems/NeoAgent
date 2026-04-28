@@ -16,6 +16,7 @@
     "runtime",
     "server",
     "extensions",
+    "flutter_app",
     "docs",
     "com.neoagent.plist",
     "LICENSE",
