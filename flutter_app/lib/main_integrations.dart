@@ -437,19 +437,16 @@ Future<void> _showTrelloSetupDialog(
     return;
   }
 
-  final apiKeyController = TextEditingController(
-    text: existing['apiKey']?.toString() ?? '',
-  );
-  final tokenController = TextEditingController();
-  final hasSavedSetup =
-      (existing['apiKey']?.toString().trim().isNotEmpty ?? false) ||
-      existing['hasToken'] == true ||
-      existing['configured'] == true;
+  final apiKeyConfigured = existing['apiKeyConfigured'] == true;
+  final hasToken = existing['hasToken'] == true;
   var formError = '';
-  var saving = false;
+  var connecting = false;
+
+  final tokenInputController = TextEditingController();
 
   await showDialog<void>(
     context: context,
+    barrierDismissible: false,
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (dialogContext, setState) {
@@ -459,44 +456,58 @@ Future<void> _showTrelloSetupDialog(
               width: 520,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Paste the API key and token from your own Trello Power-Up. They are stored securely per user.',
+                    'Connect your Trello account securely. Your token is stored per user and never shared.',
                     style: TextStyle(color: _textSecondary),
                   ),
+                  const SizedBox(height: 16),
+                  _TrelloStatusItem(
+                    label: 'API Key',
+                    status: apiKeyConfigured ? 'Configured' : 'Not configured',
+                    isConnected: apiKeyConfigured,
+                  ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: apiKeyController,
-                    decoration: const InputDecoration(
-                      labelText: 'API Key',
-                      hintText: 'Your Trello Power-Up API key',
-                    ),
+                  _TrelloStatusItem(
+                    label: 'Token',
+                    status: hasToken ? 'Connected' : 'Not connected',
+                    isConnected: hasToken,
                   ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: tokenController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Token',
-                      hintText: existing['hasToken'] == true
-                          ? 'Saved token exists. Enter to replace it.'
-                          : 'Your Trello API token',
+                  if (apiKeyConfigured && !hasToken) ...<Widget>[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: tokenInputController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Paste your token here',
+                        hintText: 'Token from Trello authorize',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
+                  ],
                   if (formError.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(formError, style: TextStyle(color: _danger)),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _danger.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: _danger.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        formError,
+                        style: TextStyle(color: _danger, fontSize: 12),
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
             actions: <Widget>[
-              if (hasSavedSetup)
+              if (hasToken)
                 TextButton(
-                  onPressed: saving
+                  onPressed: connecting
                       ? null
                       : () async {
                           final shouldClear =
@@ -504,9 +515,9 @@ Future<void> _showTrelloSetupDialog(
                                 context: dialogContext,
                                 builder: (context) {
                                   return AlertDialog(
-                                    title: const Text('Clear Setup?'),
+                                    title: const Text('Disconnect Trello?'),
                                     content: const Text(
-                                      'This removes your saved Trello API key and token for this user.',
+                                      'This removes your saved Trello token for this user.',
                                     ),
                                     actions: [
                                       TextButton(
@@ -517,7 +528,7 @@ Future<void> _showTrelloSetupDialog(
                                       FilledButton(
                                         onPressed: () =>
                                             Navigator.of(context).pop(true),
-                                        child: const Text('Clear Setup'),
+                                        child: const Text('Disconnect'),
                                       ),
                                     ],
                                   );
@@ -529,7 +540,7 @@ Future<void> _showTrelloSetupDialog(
                           }
                           setState(() {
                             formError = '';
-                            saving = true;
+                            connecting = true;
                           });
                           try {
                             await controller.clearOfficialIntegrationConfig(
@@ -542,67 +553,100 @@ Future<void> _showTrelloSetupDialog(
                             setState(() {
                               formError =
                                   controller.errorMessage ??
-                                  'Could not clear Trello setup.';
-                              saving = false;
+                                  'Could not disconnect Trello.';
+                              connecting = false;
                             });
                           }
                         },
-                  child: const Text('Clear Setup'),
+                  child: const Text('Disconnect'),
                 ),
               TextButton(
-                onPressed: saving
+                onPressed: connecting
                     ? null
-                    : () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: saving
-                    ? null
-                    : () async {
-                        setState(() {
-                          formError = '';
-                        });
-                        final apiKey = apiKeyController.text.trim();
-                        final token = tokenController.text.trim();
-                        final hasSavedToken = existing['hasToken'] == true;
-                        if (apiKey.isEmpty) {
-                          setState(() {
-                            formError = 'API Key is required.';
-                          });
-                          return;
-                        }
-                        if (token.isEmpty && !hasSavedToken) {
-                          setState(() {
-                            formError = 'Token is required.';
-                          });
-                          return;
-                        }
-
-                        setState(() {
-                          saving = true;
-                        });
-                        try {
-                          await controller.saveOfficialIntegrationConfig(
-                            'trello',
-                            config: <String, dynamic>{
-                              'apiKey': apiKey,
-                              if (token.isNotEmpty) 'token': token,
-                            },
-                          );
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop();
-                          }
-                        } catch (_) {
-                          setState(() {
-                            formError =
-                                controller.errorMessage ??
-                                'Could not save Trello setup.';
-                            saving = false;
-                          });
-                        }
+                    : () {
+                        tokenInputController.dispose();
+                        Navigator.of(dialogContext).pop();
                       },
-                child: Text(saving ? 'Saving...' : 'Save Setup'),
+                child: const Text('Close'),
               ),
+              if (apiKeyConfigured && !hasToken)
+                FilledButton(
+                  onPressed: connecting
+                      ? null
+                      : () async {
+                          setState(() {
+                            formError = '';
+                            connecting = true;
+                          });
+                          try {
+                            final token = tokenInputController.text.trim();
+                            if (token.isEmpty) {
+                              setState(() {
+                                formError = 'Token is required.';
+                                connecting = false;
+                              });
+                              return;
+                            }
+                            await controller.saveOfficialIntegrationConfig(
+                              'trello',
+                              config: <String, dynamic>{'token': token},
+                            );
+                            if (dialogContext.mounted) {
+                              tokenInputController.dispose();
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              formError =
+                                  controller.errorMessage ??
+                                  'Could not save token.';
+                              connecting = false;
+                            });
+                          }
+                        },
+                  child: Text(connecting ? 'Saving...' : 'Save Token'),
+                )
+              else if (apiKeyConfigured)
+                FilledButton.icon(
+                  onPressed: connecting
+                      ? null
+                      : () async {
+                          setState(() {
+                            formError = '';
+                            connecting = true;
+                          });
+                          try {
+                            final url =
+                                'https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=' +
+                                    Uri.encodeComponent(
+                                      existing['apiKey']?.toString() ?? '',
+                                    );
+                            final result = await controller._oauthLauncher
+                                .openExternal(
+                              url: url,
+                              label: 'Trello',
+                            );
+                            if (!result.launched) {
+                              setState(() {
+                                formError = result.error ??
+                                    'Could not open Trello in your browser.';
+                                connecting = false;
+                              });
+                            } else {
+                              setState(() {
+                                connecting = false;
+                              });
+                            }
+                          } catch (error) {
+                            setState(() {
+                              formError = error.toString();
+                              connecting = false;
+                            });
+                          }
+                        },
+                  icon: Icon(connecting ? null : Icons.login_rounded),
+                  label: Text(connecting ? 'Opening...' : 'Get Token'),
+                ),
             ],
           );
         },
@@ -610,8 +654,62 @@ Future<void> _showTrelloSetupDialog(
     },
   );
 
-  apiKeyController.dispose();
-  tokenController.dispose();
+  tokenInputController.dispose();
+}
+
+class _TrelloStatusItem extends StatelessWidget {
+  const _TrelloStatusItem({
+    required this.label,
+    required this.status,
+    required this.isConnected,
+  });
+
+  final String label;
+  final String status;
+  final bool isConnected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isConnected ? _success.withOpacity(0.3) : _border,
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            isConnected ? Icons.check_circle_outlined : Icons.circle_outlined,
+            size: 18,
+            color: isConnected ? _success : _textSecondary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: _textSecondary),
+                ),
+                Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isConnected ? _success : _textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _OfficialIntegrationAppCard extends StatelessWidget {

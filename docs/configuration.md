@@ -95,8 +95,7 @@ All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` u
 | `HOME_ASSISTANT_OAUTH_CLIENT_SECRET` | Optional fallback Home Assistant OAuth client secret. |
 | `HOME_ASSISTANT_OAUTH_REDIRECT_URI` | Optional fallback Home Assistant OAuth callback URL. |
 | `HOME_ASSISTANT_ALLOW_PRIVATE_BASE_URL` | Optional safety override. Set to `1` only if you intentionally allow Home Assistant base URLs on localhost/private networks. |
-| `TRELLO_API_KEY` | Not used. Trello is configured per user in Official Integrations. |
-| `TRELLO_TOKEN` | Not used. Trello is configured per user in Official Integrations. |
+| `TRELLO_API_KEY` | Optional Trello Power-Up API key. If set, users only need to provide their personal token in Official Integrations. |
 | `SPOTIFY_OAUTH_CLIENT_ID` | Spotify OAuth client ID |
 | `SPOTIFY_OAUTH_CLIENT_SECRET` | Spotify OAuth client secret |
 | `SPOTIFY_OAUTH_REDIRECT_URI` | Optional Spotify OAuth callback URL |
@@ -104,7 +103,7 @@ All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` u
 Home Assistant and Trello no longer require server-side setup. Each user can open Official Integrations and enter their own provider-specific credentials in the Flutter UI.
 For safety, local/private Home Assistant targets are blocked by default unless `HOME_ASSISTANT_ALLOW_PRIVATE_BASE_URL=1` is set on the server.
 
-Trello uses each user’s own API key and token. Those values are stored securely per user and are never added to server environment variables.
+Trello integration is flexible: users can provide both API key and token in the UI, or if `TRELLO_API_KEY` is set as a server environment variable, users only need to authenticate with their personal token. Tokens are stored securely per user and are never added to server environment variables.
 
 Weather integration uses Open-Meteo public endpoints and does not require OAuth environment variables.
 

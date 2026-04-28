@@ -211,18 +211,23 @@ function resolveTrelloConfigForUser(userId) {
     Number.isInteger(normalizedUserId) && normalizedUserId > 0
       ? parseConfigInput(getProviderConfig(normalizedUserId, 'trello'))
       : { apiKey: '', token: '' };
+  const envApiKey = trimText(process.env.TRELLO_API_KEY || '');
+  const apiKey = envApiKey || config.apiKey;
   const missing = [];
-  if (!config.apiKey) missing.push('apiKey');
+  if (!apiKey) missing.push('apiKey');
   if (!config.token) missing.push('token');
-  return { ...config, configured: missing.length === 0, missing };
+  return { apiKey, token: config.token, configured: missing.length === 0, missing };
 }
 
 function sanitizeTrelloUserConfigForClient(rawConfig) {
   const config = parseConfigInput(rawConfig);
+  const envApiKey = trimText(process.env.TRELLO_API_KEY || '');
+  const apiKeyConfigured = Boolean(envApiKey || config.apiKey);
   return {
     apiKey: config.apiKey,
+    apiKeyConfigured,
     hasToken: Boolean(config.token),
-    configured: Boolean(config.apiKey && config.token),
+    configured: Boolean(apiKeyConfigured && config.token),
   };
 }
 
@@ -706,22 +711,46 @@ function createTrelloProvider() {
       }
 
       const scopedAgentId = resolveAgentId(normalizedUserId, agentId || null);
+      const rawConfig = config && typeof config === 'object' ? config : {};
       const existingConfig = parseConfigInput(getProviderConfig(normalizedUserId, 'trello'));
-      const resolvedConfig = parseConfigInput(config, existingConfig);
+      const envApiKey = trimText(process.env.TRELLO_API_KEY || '');
+      
+      // Resolve API key: from env, new config, or existing config
+      const apiKey = envApiKey || trimText(rawConfig.apiKey) || trimText(existingConfig.apiKey);
+      const token = trimText(rawConfig.token) || trimText(existingConfig.token);
 
-      if (!resolvedConfig.apiKey) {
-        throw new Error('Trello API key is required.');
+      if (!apiKey) {
+        throw new Error('Trello API key is required (set via environment or configuration).');
       }
-      if (!resolvedConfig.token) {
+      if (!token) {
         throw new Error('Trello token is required.');
       }
 
-      const profile = await fetchTrelloMemberProfile(resolvedConfig);
-      setProviderConfig(normalizedUserId, 'trello', resolvedConfig);
+      let profile;
+      try {
+        profile = await fetchTrelloMemberProfile({ apiKey, token });
+      } catch (error) {
+        const message = String(error?.message || '').toLowerCase();
+        if (
+          message.includes('invalid key') ||
+          message.includes('invalid token') ||
+          message.includes('unauthorized') ||
+          message.includes('401')
+        ) {
+          throw new Error(
+            'Trello rejected the API key/token pair. If you changed the API key, paste the matching token too.',
+          );
+        }
+        throw error;
+      }
+      
+      // Store only the token if API key is from environment
+      const configToStore = envApiKey ? { token } : { apiKey, token };
+      setProviderConfig(normalizedUserId, 'trello', configToStore);
       upsertTrelloConnection(normalizedUserId, scopedAgentId, profile || {});
       return createTrelloConnectionResult({
         ...profile,
-        apiKey: resolvedConfig.apiKey,
+        apiKey,
       });
     },
     clearUserConfig({ userId, agentId }) {

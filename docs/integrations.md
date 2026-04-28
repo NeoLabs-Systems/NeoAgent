@@ -20,10 +20,6 @@ The built-in registry includes:
 
 OAuth app credentials are configured through server environment variables for most providers. Home Assistant and Trello can also be configured per-user in the Flutter **Integrations** UI without any server-side setup. Account connections are created in the Flutter UI under **Integrations**. Connected tools are exposed to the agent as structured tools, so prefer them over browser automation when they can do the job.
 
-Trello uses a user-supplied API key and token instead of OAuth. Those values are stored per user in the encrypted integration config store, and Trello does not need any server environment variables.
-
-Weather note: the Weather integration uses Open-Meteo public APIs and does not require OAuth client credentials.
-
 ### Per-Account Access Mode
 
 Each connected official integration account can be configured per connection as:

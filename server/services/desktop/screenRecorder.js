@@ -45,7 +45,7 @@ class ScreenRecorder {
       return;
     }
     this.lastBenignSkipAt = now;
-    console.warn(`[ScreenRecorder] Capture skipped: ${reason}`);
+    console.log(`[ScreenRecorder] Capture skipped: ${reason}`);
   }
 
   start() {
