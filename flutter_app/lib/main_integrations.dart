@@ -32,7 +32,12 @@ class OfficialIntegrationsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visibleIntegrations = controller.officialIntegrations
-        .where((item) => item.env.configured || item.env.setupMode == 'user' || item.isConnected)
+        .where(
+          (item) =>
+              item.env.configured ||
+              item.env.setupMode == 'user' ||
+              item.isConnected,
+        )
         .toList();
 
     if (visibleIntegrations.isEmpty) {
@@ -53,7 +58,11 @@ class OfficialIntegrationsTab extends StatelessWidget {
         .where((item) => item.isConnected)
         .toList();
     final availableIntegrations = visibleIntegrations
-        .where((item) => !item.isConnected && (item.env.configured || item.env.setupMode == 'user'))
+        .where(
+          (item) =>
+              !item.isConnected &&
+              (item.env.configured || item.env.setupMode == 'user'),
+        )
         .toList();
 
     return Card(
@@ -61,35 +70,45 @@ class OfficialIntegrationsTab extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           if (connectedIntegrations.isNotEmpty) ...[
-            const _SectionTitle(title: 'Connected'),
-            ...connectedIntegrations.asMap().entries.map((entry) => Padding(
-              padding: EdgeInsets.only(bottom: entry.key < connectedIntegrations.length - 1 ? 12 : 0),
-              child: _buildIntegrationCard(context, entry.value),
-            )),
+            const _IntegrationSectionTitle(title: 'Connected'),
+            ...connectedIntegrations.asMap().entries.map(
+              (entry) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: entry.key < connectedIntegrations.length - 1 ? 12 : 0,
+                ),
+                child: _buildIntegrationCard(context, entry.value),
+              ),
+            ),
           ],
-          if (connectedIntegrations.isNotEmpty && availableIntegrations.isNotEmpty)
+          if (connectedIntegrations.isNotEmpty &&
+              availableIntegrations.isNotEmpty)
             const SizedBox(height: 24),
           if (availableIntegrations.isNotEmpty) ...[
-            const _SectionTitle(title: 'Available'),
-            ...availableIntegrations.asMap().entries.map((entry) => Padding(
-              padding: EdgeInsets.only(bottom: entry.key < availableIntegrations.length - 1 ? 12 : 0),
-              child: _buildIntegrationCard(context, entry.value),
-            )),
+            const _IntegrationSectionTitle(title: 'Available'),
+            ...availableIntegrations.asMap().entries.map(
+              (entry) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: entry.key < availableIntegrations.length - 1 ? 12 : 0,
+                ),
+                child: _buildIntegrationCard(context, entry.value),
+              ),
+            ),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildIntegrationCard(BuildContext context, OfficialIntegrationItem item) {
+  Widget _buildIntegrationCard(
+    BuildContext context,
+    OfficialIntegrationItem item,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _bgSecondary,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: item.isConnected ? _accentMuted : _border,
-        ),
+        border: Border.all(color: item.isConnected ? _accentMuted : _border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,10 +138,10 @@ class OfficialIntegrationsTab extends StatelessWidget {
                           color: item.isConnected
                               ? _success
                               : item.hasExpiredAccounts
-                                  ? _warning
-                                  : item.env.configured
-                                      ? _info
-                                      : _warning,
+                              ? _warning
+                              : item.env.configured
+                              ? _info
+                              : _warning,
                         ),
                       ],
                     ),
@@ -155,12 +174,12 @@ class OfficialIntegrationsTab extends StatelessWidget {
                       !item.env.configured
                           ? item.env.summary
                           : item.hasExpiredAccounts
-                              ? 'One or more accounts expired. Reconnect the affected account to restore tool access.'
-                              : item.isConnected
-                                  ? 'Connect as many accounts as you want. Each app can use a different account.'
-                                  : ((item.connectPrompt ?? '').trim().isNotEmpty
-                                      ? item.connectPrompt!.trim()
-                                      : 'Connect app accounts individually so the AI can use the right account for each official integration.'),
+                          ? 'One or more accounts expired. Reconnect the affected account to restore tool access.'
+                          : item.isConnected
+                          ? 'Connect as many accounts as you want. Each app can use a different account.'
+                          : ((item.connectPrompt ?? '').trim().isNotEmpty
+                                ? item.connectPrompt!.trim()
+                                : 'Connect app accounts individually so the AI can use the right account for each official integration.'),
                       style: TextStyle(color: _textSecondary),
                     ),
                   ],
@@ -250,10 +269,9 @@ Future<void> _showHomeAssistantSetupDialog(
                     obscureText: true,
                     decoration: InputDecoration(
                       labelText: 'OAuth Client Secret',
-                      hintText:
-                          existing['hasClientSecret'] == true
-                              ? 'Saved secret exists. Enter to replace it.'
-                              : null,
+                      hintText: existing['hasClientSecret'] == true
+                          ? 'Saved secret exists. Enter to replace it.'
+                          : null,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -261,18 +279,14 @@ Future<void> _showHomeAssistantSetupDialog(
                     controller: redirectUriController,
                     decoration: const InputDecoration(
                       labelText: 'Redirect URI (optional)',
-                      hintText:
-                          'Leave blank to use the default callback URL',
+                      hintText: 'Leave blank to use the default callback URL',
                     ),
                   ),
                   if (formError.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 10),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        formError,
-                        style: TextStyle(color: _danger),
-                      ),
+                      child: Text(formError, style: TextStyle(color: _danger)),
                     ),
                   ],
                 ],
@@ -295,11 +309,13 @@ Future<void> _showHomeAssistantSetupDialog(
                                     ),
                                     actions: [
                                       TextButton(
-                                        onPressed: () => Navigator.of(context).pop(false),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
                                         child: const Text('Cancel'),
                                       ),
                                       FilledButton(
-                                        onPressed: () => Navigator.of(context).pop(true),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
                                         child: const Text('Clear Setup'),
                                       ),
                                     ],
@@ -333,7 +349,9 @@ Future<void> _showHomeAssistantSetupDialog(
                   child: const Text('Clear Setup'),
                 ),
               TextButton(
-                onPressed: saving ? null : () => Navigator.of(dialogContext).pop(),
+                onPressed: saving
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
                 child: const Text('Cancel'),
               ),
               FilledButton(
@@ -346,10 +364,12 @@ Future<void> _showHomeAssistantSetupDialog(
                         final baseUrl = baseUrlController.text.trim();
                         final clientId = clientIdController.text.trim();
                         final clientSecret = clientSecretController.text.trim();
-                        final hasSavedSecret = existing['hasClientSecret'] == true;
+                        final hasSavedSecret =
+                            existing['hasClientSecret'] == true;
                         if (baseUrl.isEmpty || clientId.isEmpty) {
                           setState(() {
-                            formError = 'Base URL and OAuth Client ID are required.';
+                            formError =
+                                'Base URL and OAuth Client ID are required.';
                           });
                           return;
                         }
@@ -458,20 +478,16 @@ Future<void> _showTrelloSetupDialog(
                     obscureText: true,
                     decoration: InputDecoration(
                       labelText: 'Token',
-                      hintText:
-                          existing['hasToken'] == true
-                              ? 'Saved token exists. Enter to replace it.'
-                              : 'Your Trello API token',
+                      hintText: existing['hasToken'] == true
+                          ? 'Saved token exists. Enter to replace it.'
+                          : 'Your Trello API token',
                     ),
                   ),
                   if (formError.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 10),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        formError,
-                        style: TextStyle(color: _danger),
-                      ),
+                      child: Text(formError, style: TextStyle(color: _danger)),
                     ),
                   ],
                 ],
@@ -494,11 +510,13 @@ Future<void> _showTrelloSetupDialog(
                                     ),
                                     actions: [
                                       TextButton(
-                                        onPressed: () => Navigator.of(context).pop(false),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
                                         child: const Text('Cancel'),
                                       ),
                                       FilledButton(
-                                        onPressed: () => Navigator.of(context).pop(true),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
                                         child: const Text('Clear Setup'),
                                       ),
                                     ],
@@ -514,13 +532,17 @@ Future<void> _showTrelloSetupDialog(
                             saving = true;
                           });
                           try {
-                            await controller.clearOfficialIntegrationConfig('trello');
+                            await controller.clearOfficialIntegrationConfig(
+                              'trello',
+                            );
                             if (dialogContext.mounted) {
                               Navigator.of(dialogContext).pop();
                             }
                           } catch (_) {
                             setState(() {
-                              formError = controller.errorMessage ?? 'Could not clear Trello setup.';
+                              formError =
+                                  controller.errorMessage ??
+                                  'Could not clear Trello setup.';
                               saving = false;
                             });
                           }
@@ -528,7 +550,9 @@ Future<void> _showTrelloSetupDialog(
                   child: const Text('Clear Setup'),
                 ),
               TextButton(
-                onPressed: saving ? null : () => Navigator.of(dialogContext).pop(),
+                onPressed: saving
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
                 child: const Text('Cancel'),
               ),
               FilledButton(
@@ -570,7 +594,9 @@ Future<void> _showTrelloSetupDialog(
                           }
                         } catch (_) {
                           setState(() {
-                            formError = controller.errorMessage ?? 'Could not save Trello setup.';
+                            formError =
+                                controller.errorMessage ??
+                                'Could not save Trello setup.';
                             saving = false;
                           });
                         }
@@ -675,7 +701,10 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                         onPressed: () {
                           switch (provider.id) {
                             case 'home_assistant':
-                              _showHomeAssistantSetupDialog(context, controller);
+                              _showHomeAssistantSetupDialog(
+                                context,
+                                controller,
+                              );
                               break;
                             case 'trello':
                               _showTrelloSetupDialog(context, controller);
@@ -879,8 +908,8 @@ class _OfficialIntegrationIcon extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
+class _IntegrationSectionTitle extends StatelessWidget {
+  const _IntegrationSectionTitle({required this.title});
 
   final String title;
 

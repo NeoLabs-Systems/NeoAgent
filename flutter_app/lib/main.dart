@@ -5876,9 +5876,9 @@ class NeoAgentController extends ChangeNotifier {
     );
     final raw = response['config'];
     if (raw is Map) {
-      return Map<String, dynamic>.from(raw.map(
-        (key, value) => MapEntry(key.toString(), value),
-      ));
+      return Map<String, dynamic>.from(
+        raw.map((key, value) => MapEntry(key.toString(), value)),
+      );
     }
     return const <String, dynamic>{};
   }
@@ -5913,9 +5913,7 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> clearOfficialIntegrationConfig(
-    String providerId,
-  ) async {
+  Future<void> clearOfficialIntegrationConfig(String providerId) async {
     final busyKey = '$providerId:config:clear';
     if (_busyOfficialIntegrationKeys.contains(busyKey)) {
       return;
@@ -15862,43 +15860,57 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   return Wrap(
                     spacing: 16,
                     runSpacing: 16,
-                    children: controller.aiProviders.map((provider) {
-                      children: controller.aiProviders
-                          .where((provider) => provider.available || _providerEnabled[provider.id] == true || controller.aiProviderConfigs[provider.id]?.enabled == true)
-                          .map((provider) {
-                      return SizedBox(
-                        width: cardWidth,
-                        child: _AiProviderCard(
-                          provider: provider,
-                          enabled:
-                              _providerEnabled[provider.id] ??
+                    children: controller.aiProviders
+                        .where(
+                          (provider) =>
+                              provider.available ||
+                              _providerEnabled[provider.id] == true ||
                               controller
-                                  .aiProviderConfigs[provider.id]
-                                  ?.enabled ??
-                              true,
-                          models: controller.supportedModels
-                              .where((model) => model.provider == provider.id)
-                              .toList(),
-                          baseUrlController:
-                              _providerBaseUrlControllers[provider.id]!,
-                          expanded: _expandedProviderIds.contains(provider.id),
-                          onEnabledChanged: (value) {
-                            setState(() {
-                              _providerEnabled[provider.id] = value;
-                            });
-                          },
-                          onExpandToggle: () {
-                            setState(() {
-                              if (_expandedProviderIds.contains(provider.id)) {
-                                _expandedProviderIds.remove(provider.id);
-                              } else {
-                                _expandedProviderIds.add(provider.id);
-                              }
-                            });
-                          },
-                        ),
-                      );
-                    }).toList(),
+                                      .aiProviderConfigs[provider.id]
+                                      ?.enabled ==
+                                  true,
+                        )
+                        .map((provider) {
+                          return SizedBox(
+                            width: cardWidth,
+                            child: _AiProviderCard(
+                              provider: provider,
+                              enabled:
+                                  _providerEnabled[provider.id] ??
+                                  controller
+                                      .aiProviderConfigs[provider.id]
+                                      ?.enabled ??
+                                  true,
+                              models: controller.supportedModels
+                                  .where(
+                                    (model) => model.provider == provider.id,
+                                  )
+                                  .toList(),
+                              baseUrlController:
+                                  _providerBaseUrlControllers[provider.id]!,
+                              expanded: _expandedProviderIds.contains(
+                                provider.id,
+                              ),
+                              onEnabledChanged: (value) {
+                                setState(() {
+                                  _providerEnabled[provider.id] = value;
+                                });
+                              },
+                              onExpandToggle: () {
+                                setState(() {
+                                  if (_expandedProviderIds.contains(
+                                    provider.id,
+                                  )) {
+                                    _expandedProviderIds.remove(provider.id);
+                                  } else {
+                                    _expandedProviderIds.add(provider.id);
+                                  }
+                                });
+                              },
+                            ),
+                          );
+                        })
+                        .toList(),
                   );
                 },
               ),
@@ -19600,7 +19612,10 @@ class _AiWidgetCardState extends State<_AiWidgetCard> {
                               });
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8,
+                                horizontal: 4,
+                              ),
                               child: Row(
                                 children: <Widget>[
                                   Expanded(
@@ -19614,7 +19629,9 @@ class _AiWidgetCardState extends State<_AiWidgetCard> {
                                     ),
                                   ),
                                   Icon(
-                                    _expandedTasks ? Icons.expand_less : Icons.expand_more,
+                                    _expandedTasks
+                                        ? Icons.expand_less
+                                        : Icons.expand_more,
                                     color: accent,
                                   ),
                                 ],
@@ -19631,13 +19648,16 @@ class _AiWidgetCardState extends State<_AiWidgetCard> {
                                 decoration: BoxDecoration(
                                   color: Colors.white.withValues(alpha: 0.04),
                                   borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             task.name,
@@ -19646,19 +19666,26 @@ class _AiWidgetCardState extends State<_AiWidgetCard> {
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                          if (task.scheduleLabel.isNotEmpty) ...[
+                                          if (task
+                                              .scheduleLabel
+                                              .isNotEmpty) ...[
                                             const SizedBox(height: 4),
                                             Text(
                                               task.scheduleLabel,
-                                              style: TextStyle(color: _textSecondary, fontSize: 12),
+                                              style: TextStyle(
+                                                color: _textSecondary,
+                                                fontSize: 12,
+                                              ),
                                             ),
-                                          ]
+                                          ],
                                         ],
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     FilledButton.tonal(
-                                      onPressed: controller != null ? () => controller.runTaskNow(task.id) : null,
+                                      onPressed: controller != null
+                                          ? () => controller.runTaskNow(task.id)
+                                          : null,
                                       style: FilledButton.styleFrom(
                                         visualDensity: VisualDensity.compact,
                                       ),
