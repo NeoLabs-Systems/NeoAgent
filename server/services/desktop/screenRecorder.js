@@ -12,7 +12,7 @@ const { getErrorMessage } = require('../bootstrap_helpers');
 const execAsync = promisify(exec);
 
 class ScreenRecorder {
-  constructor() {
+  constructor(options = {}) {
     this.intervalMs = 10000; // 10 seconds
     this.intervalId = null;
     this.cleanupIntervalId = null;
@@ -20,6 +20,9 @@ class ScreenRecorder {
     this.isProcessing = false;
     this.tempFilePath = path.join(os.tmpdir(), `neoagent-screen-${Date.now()}.png`);
     this.lastBenignSkipAt = 0;
+    this.hasActiveRemoteCaptureSession = typeof options.hasActiveRemoteCaptureSession === 'function'
+      ? options.hasActiveRemoteCaptureSession
+      : () => false;
   }
 
   _isCaptureInactiveApp(appName) {
@@ -94,6 +97,13 @@ class ScreenRecorder {
     this.isProcessing = true;
 
     try {
+      // Only capture while at least one external device/session is actively connected.
+      // This prevents host-level screenshots when no user-side capture source is live.
+      if (!this.hasActiveRemoteCaptureSession()) {
+        this._logBenignSkip('no active external capture session');
+        return;
+      }
+
       // Skip capture when the desktop session is inactive (e.g. locked screen).
       let frontmostApp = '';
       try {

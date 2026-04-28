@@ -69,9 +69,11 @@ ensureSessionStoreSchema(sessionsDb);
 function buildHelmetOptions({ secureCookies }) {
   const wsConnectSrc = secureCookies ? ['wss:'] : ['ws:', 'wss:'];
   const isDevelopment = String(process.env.NODE_ENV || '').trim() === 'development';
-  const allowUnsafeEval = boolEnv('NEOAGENT_CSP_ALLOW_UNSAFE_EVAL', isDevelopment);
-  const allowExternalScriptCdn = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_SCRIPT_CDN', isDevelopment);
-  const allowExternalConnect = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_CONNECT', false);
+  // Flutter web (CanvasKit) requires external script/connect sources and wasm eval.
+  // Keep strict overrides available via env for hardened deployments.
+  const allowUnsafeEval = boolEnv('NEOAGENT_CSP_ALLOW_UNSAFE_EVAL', true);
+  const allowExternalScriptCdn = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_SCRIPT_CDN', true);
+  const allowExternalConnect = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_CONNECT', true);
 
   const scriptSrc = ["'self'", "'unsafe-inline'", 'blob:'];
   if (allowUnsafeEval) {
@@ -83,7 +85,7 @@ function buildHelmetOptions({ secureCookies }) {
 
   const connectSrc = ["'self'", ...wsConnectSrc];
   if (allowExternalConnect) {
-    connectSrc.push('https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://www.gstatic.com');
+    connectSrc.push('https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://www.gstatic.com', 'https://cdn.jsdelivr.net');
   }
 
   return {

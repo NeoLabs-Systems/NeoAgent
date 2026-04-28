@@ -430,10 +430,35 @@ function createWidgetService(app) {
 }
 
 function createScreenRecorder(app) {
+  const hasActiveRemoteCaptureSession = () => {
+    const desktopRegistry = app.locals.desktopCompanionRegistry;
+    if (desktopRegistry?.connectionsByUser instanceof Map) {
+      for (const userMap of desktopRegistry.connectionsByUser.values()) {
+        if (!(userMap instanceof Map)) continue;
+        for (const connection of userMap.values()) {
+          if (typeof connection?.isOpen === 'function' && connection.isOpen()) {
+            return true;
+          }
+        }
+      }
+    }
+
+    const extensionRegistry = app.locals.browserExtensionRegistry;
+    if (extensionRegistry?.connectionsByUser instanceof Map) {
+      for (const connection of extensionRegistry.connectionsByUser.values()) {
+        if (typeof connection?.isOpen === 'function' && connection.isOpen()) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
   const screenRecorder = registerLocal(
     app,
     'screenRecorder',
-    new ScreenRecorder(),
+    new ScreenRecorder({ hasActiveRemoteCaptureSession }),
   );
   screenRecorder.start();
   logServiceReady('Screen recorder started');
