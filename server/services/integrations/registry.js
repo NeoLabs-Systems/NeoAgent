@@ -10,7 +10,6 @@ const { createSpotifyProvider } = require('./spotify/provider');
 const { createSlackProvider } = require('./slack/provider');
 const { createWeatherProvider } = require('./weather/provider');
 const { createWhatsAppPersonalProvider } = require('./whatsapp');
-const { createCodexProvider } = require('./codex/provider');
 
 function createIntegrationRegistry(options = {}) {
   const providers = [
@@ -24,7 +23,6 @@ function createIntegrationRegistry(options = {}) {
     createWeatherProvider(),
     createSpotifyProvider(),
     createWhatsAppPersonalProvider(options),
-    createCodexProvider(),
   ];
   const byKey = new Map(providers.map((provider) => [provider.key, provider]));
 
