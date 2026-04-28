@@ -44,12 +44,6 @@ class RecorderProcessor extends AudioWorkletProcessor {
     // Resampler(current context sample rate, desired sample rate, num channels, buffer size)
     // num channels is always 1 since we resample after interleaving channels
     this._resampler = new Resampler(sampleRate, this._sampleRate, 1, this._bufferSize * this._numChannels)
-    this.port.onmessage = (event) => {
-      const command = event?.data?.command || event?.data
-      if ((command === 'stop' || command === 'flush') && !this.isBufferEmpty()) {
-        this.flush()
-      }
-    }
 
     this.initBuffers()
   }
@@ -133,7 +127,7 @@ class RecorderProcessor extends AudioWorkletProcessor {
 
   // Interleave data from channels from LLLLRRRR to LRLRLRLR
   interleave(channels) {
-    if (channels.length === 1) {
+    if (channels === 1) {
       return channels[0]
     }
 
@@ -397,6 +391,13 @@ class Resampler {
     if (this.fromSampleRate == this.toSampleRate) {
       this.ratioWeight = 1;
     } else {
+      if (this.fromSampleRate < this.toSampleRate) {
+        this.lastWeight = 1;
+      } else {
+        this.tailExists = false;
+        this.lastWeight = 0;
+      }
+      this.initializeBuffers();
       this.ratioWeight = this.fromSampleRate / this.toSampleRate;
     }
     return this.resampler(buffer)

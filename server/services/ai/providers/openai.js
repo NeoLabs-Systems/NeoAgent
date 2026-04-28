@@ -29,7 +29,8 @@ class OpenAIProvider extends BaseProvider {
     };
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENAI_API_KEY,
-      baseURL: config.baseUrl || process.env.OPENAI_BASE_URL || undefined
+      baseURL: config.baseUrl || process.env.OPENAI_BASE_URL || undefined,
+      defaultHeaders: config.defaultHeaders || undefined
     });
   }
 

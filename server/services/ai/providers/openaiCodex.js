@@ -14,7 +14,12 @@ class OpenAICodexProvider extends OpenAIProvider {
     super({
       ...config,
       apiKey: config.apiKey || process.env.OPENAI_CODEX_ACCESS_TOKEN,
-      baseUrl
+      baseUrl,
+      defaultHeaders: {
+        'Editor-Version': process.env.OPENAI_CODEX_EDITOR_VERSION || 'vscode/1.99.0',
+        'Editor-Plugin-Version': process.env.OPENAI_CODEX_EDITOR_PLUGIN_VERSION || 'neoagent/1.0.0',
+        'User-Agent': process.env.OPENAI_CODEX_USER_AGENT || 'NeoAgent/1.0.0'
+      }
     });
     this.name = 'openai-codex';
   }

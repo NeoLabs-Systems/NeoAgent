@@ -290,7 +290,7 @@
         return this.source && this.source.length === 4 ? Float32Array : Float64Array;
     };
     WebmFloat.prototype.updateBySource = function () {
-        var byteArray = Uint8Array.from(this.source).reverse();
+        var byteArray = this.source.reverse();
         var floatArrayType = this.getFloatArrayType();
         var floatArray = new floatArrayType(byteArray.buffer);
         this.data = floatArray[0];

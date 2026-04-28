@@ -156,3 +156,6 @@ firmware/**/sdkconfig
 firmware/**/sdkconfig.old
 firmware/**/dependencies.lock
 server/db/database.sqlite
+deu.traineddata
+eng.traineddata
+server/public/assets/fonts/MaterialIcons-Regular.otf

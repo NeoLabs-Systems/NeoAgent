@@ -19,9 +19,42 @@ class ScreenRecorder {
     this.isRecording = false;
     this.isProcessing = false;
     this.tempFilePath = path.join(os.tmpdir(), `neoagent-screen-${Date.now()}.png`);
+    this.lastBenignSkipAt = 0;
+  }
+
+  _isCaptureInactiveApp(appName) {
+    const normalized = String(appName || '').trim().toLowerCase();
+    return normalized === '' || normalized === 'loginwindow' || normalized === 'screensaverengine';
+  }
+
+  _isBenignCaptureError(message) {
+    const text = String(message || '').toLowerCase();
+    return (
+      text.includes('operation not permitted') ||
+      text.includes('not authorized') ||
+      text.includes('user canceled') ||
+      text.includes('cgwindowlistcreateimage') ||
+      text.includes('screencapture') ||
+      text.includes('timed out')
+    );
+  }
+
+  _logBenignSkip(reason) {
+    const now = Date.now();
+    if (now - this.lastBenignSkipAt < 5 * 60 * 1000) {
+      return;
+    }
+    this.lastBenignSkipAt = now;
+    console.warn(`[ScreenRecorder] Capture skipped: ${reason}`);
   }
 
   start() {
+    const enabledEnv = String(process.env.NEOAGENT_SCREEN_RECORDER_ENABLED || '').trim().toLowerCase();
+    if (enabledEnv === '0' || enabledEnv === 'false' || enabledEnv === 'off' || enabledEnv === 'no') {
+      console.log('[ScreenRecorder] Not starting: disabled by NEOAGENT_SCREEN_RECORDER_ENABLED.');
+      return;
+    }
+
     if (process.platform !== 'darwin') {
       console.log('[ScreenRecorder] Not starting: Screen recording is currently macOS only.');
       return;
@@ -61,6 +94,20 @@ class ScreenRecorder {
     this.isProcessing = true;
 
     try {
+      // Skip capture when the desktop session is inactive (e.g. locked screen).
+      let frontmostApp = '';
+      try {
+        const { stdout } = await execAsync(`osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`);
+        frontmostApp = (stdout || '').trim();
+      } catch {
+        frontmostApp = '';
+      }
+
+      if (this._isCaptureInactiveApp(frontmostApp)) {
+        this._logBenignSkip('no active frontmost app');
+        return;
+      }
+
       // Capture screen silently (-x) to file
       await execAsync(`screencapture -x "${this.tempFilePath}"`);
 
@@ -80,13 +127,7 @@ class ScreenRecorder {
         const userRow = db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get();
         if (userRow) {
           // Identify the active foreground app via AppleScript
-          let appName = 'Unknown';
-          try {
-            const { stdout } = await execAsync(`osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`);
-            appName = stdout.trim();
-          } catch (e) {
-            // Ignore AppleScript errors
-          }
+          let appName = frontmostApp || 'Unknown';
 
           db.prepare(`
             INSERT INTO screen_history (user_id, app_name, text_content)
@@ -96,7 +137,12 @@ class ScreenRecorder {
       }
 
     } catch (err) {
-      console.error('[ScreenRecorder] Capture/OCR failed:', getErrorMessage(err));
+      const errorMessage = getErrorMessage(err);
+      if (this._isBenignCaptureError(errorMessage)) {
+        this._logBenignSkip(errorMessage);
+      } else {
+        console.error('[ScreenRecorder] Capture/OCR failed:', errorMessage);
+      }
     } finally {
       // Always cleanup the screenshot image immediately
       try {
