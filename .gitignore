@@ -159,3 +159,4 @@ server/db/database.sqlite
 deu.traineddata
 eng.traineddata
 server/public/assets/fonts/MaterialIcons-Regular.otf
+.env.backup

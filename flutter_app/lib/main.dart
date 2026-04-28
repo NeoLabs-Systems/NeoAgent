@@ -15863,6 +15863,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     spacing: 16,
                     runSpacing: 16,
                     children: controller.aiProviders.map((provider) {
+                      children: controller.aiProviders
+                          .where((provider) => provider.available || _providerEnabled[provider.id] == true || controller.aiProviderConfigs[provider.id]?.enabled == true)
+                          .map((provider) {
                       return SizedBox(
                         width: cardWidth,
                         child: _AiProviderCard(

@@ -31,7 +31,12 @@ class OfficialIntegrationsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (controller.officialIntegrations.isEmpty) {
+    // Filter integrations: show configured ones, or ones that are already connected
+    final visibleIntegrations = controller.officialIntegrations
+        .where((item) => item.env.configured || item.isConnected)
+        .toList();
+
+    if (visibleIntegrations.isEmpty) {
       return Card(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -45,13 +50,38 @@ class OfficialIntegrationsTab extends StatelessWidget {
       );
     }
 
+    // Separate into connected and available
+    final connectedIntegrations = visibleIntegrations
+        .where((item) => item.isConnected)
+        .toList();
+    final availableIntegrations = visibleIntegrations
+        .where((item) => !item.isConnected && item.env.configured)
+        .toList();
+
     return Card(
-      child: ListView.separated(
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        itemCount: controller.officialIntegrations.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final item = controller.officialIntegrations[index];
+        children: <Widget>[
+          if (connectedIntegrations.isNotEmpty) ...[
+            const _SectionTitle(title: 'Connected'),
+            ...connectedIntegrations.asMap().entries.map((entry) => Padding(
+              padding: EdgeInsets.only(bottom: entry.key < connectedIntegrations.length - 1 ? 12 : 0),
+              child: _buildIntegrationCard(context, entry.value),
+            )),
+          ],
+          if (connectedIntegrations.isNotEmpty && availableIntegrations.isNotEmpty)
+            const SizedBox(height: 24),
+          if (availableIntegrations.isNotEmpty) ...[
+            const _SectionTitle(title: 'Available'),
+            ...availableIntegrations.asMap().entries.map((entry) => Padding(
+              padding: EdgeInsets.only(bottom: entry.key < availableIntegrations.length - 1 ? 12 : 0),
+              child: _buildIntegrationCard(context, entry.value),
+            )),
+          ],
+      ),
+  }
+
+  Widget _buildIntegrationCard(BuildContext context, OfficialIntegrationItem item) {
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -154,7 +184,6 @@ class OfficialIntegrationsTab extends StatelessWidget {
               ],
             ),
           );
-        },
       ),
     );
   }
@@ -628,6 +657,35 @@ class _OfficialIntegrationIcon extends StatelessWidget {
 
   final OfficialIntegrationItem item;
 
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: _textSecondary,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _OfficialIntegrationIcon extends StatelessWidget
+  const _OfficialIntegrationIcon({required this.item});
+
+  final OfficialIntegrationItem item;
+
+  @override
+  Widget build(BuildContext context) {
   @override
   Widget build(BuildContext context) {
     final color = item.icon == 'google' ? const Color(0xFF4285F4) : _accent;
