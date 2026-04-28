@@ -2295,6 +2295,7 @@ class OfficialIntegrationEnvStatus {
     required this.configured,
     required this.missing,
     required this.summary,
+    this.setupMode,
   });
 
   factory OfficialIntegrationEnvStatus.fromJson(Map<dynamic, dynamic> json) {
@@ -2305,12 +2306,14 @@ class OfficialIntegrationEnvStatus {
           ? missingRaw.map((item) => item.toString()).toList()
           : const <String>[],
       summary: json['summary']?.toString() ?? '',
+      setupMode: json['setupMode']?.toString(),
     );
   }
 
   final bool configured;
   final List<String> missing;
   final String summary;
+  final String? setupMode;
 }
 
 class OfficialIntegrationConnectionStatus {

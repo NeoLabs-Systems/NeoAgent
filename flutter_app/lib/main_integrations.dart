@@ -31,9 +31,8 @@ class OfficialIntegrationsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Filter integrations: show configured ones, or ones that are already connected
     final visibleIntegrations = controller.officialIntegrations
-        .where((item) => item.env.configured || item.isConnected)
+        .where((item) => item.env.configured || item.env.setupMode == 'user' || item.isConnected)
         .toList();
 
     if (visibleIntegrations.isEmpty) {
@@ -50,12 +49,11 @@ class OfficialIntegrationsTab extends StatelessWidget {
       );
     }
 
-    // Separate into connected and available
     final connectedIntegrations = visibleIntegrations
         .where((item) => item.isConnected)
         .toList();
     final availableIntegrations = visibleIntegrations
-        .where((item) => !item.isConnected && item.env.configured)
+        .where((item) => !item.isConnected && (item.env.configured || item.env.setupMode == 'user'))
         .toList();
 
     return Card(
@@ -78,112 +76,110 @@ class OfficialIntegrationsTab extends StatelessWidget {
               child: _buildIntegrationCard(context, entry.value),
             )),
           ],
+        ],
       ),
+    );
   }
 
   Widget _buildIntegrationCard(BuildContext context, OfficialIntegrationItem item) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _bgSecondary,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: item.isConnected ? _accentMuted : _border,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: item.isConnected ? _accentMuted : _border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _OfficialIntegrationIcon(item: item),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    _OfficialIntegrationIcon(item: item),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  item.label,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              _StatusPill(
-                                label: item.statusLabel,
-                                color: item.isConnected
-                                    ? _success
-                                    : item.hasExpiredAccounts
-                                    ? _warning
-                                    : item.env.configured
-                                    ? _info
-                                    : _warning,
-                              ),
-                            ],
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            item.label,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item.description,
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: <Widget>[
-                              _MetaPill(
-                                label:
-                                    '${item.connection.accountCount} accounts',
-                                icon: Icons.alternate_email_rounded,
-                              ),
-                              _MetaPill(
-                                label:
-                                    '${item.connection.appCount} apps active',
-                                icon: Icons.apps_rounded,
-                              ),
-                              _MetaPill(
-                                label: '${item.availableToolCount} tools',
-                                icon: Icons.build_outlined,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            !item.env.configured
-                                ? item.env.summary
+                        ),
+                        _StatusPill(
+                          label: item.statusLabel,
+                          color: item.isConnected
+                              ? _success
                               : item.hasExpiredAccounts
+                                  ? _warning
+                                  : item.env.configured
+                                      ? _info
+                                      : _warning,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.description,
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        _MetaPill(
+                          label: '${item.connection.accountCount} accounts',
+                          icon: Icons.alternate_email_rounded,
+                        ),
+                        _MetaPill(
+                          label: '${item.connection.appCount} apps active',
+                          icon: Icons.apps_rounded,
+                        ),
+                        _MetaPill(
+                          label: '${item.availableToolCount} tools',
+                          icon: Icons.build_outlined,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      !item.env.configured
+                          ? item.env.summary
+                          : item.hasExpiredAccounts
                               ? 'One or more accounts expired. Reconnect the affected account to restore tool access.'
-                                : item.isConnected
-                                ? 'Connect as many accounts as you want. Each app can use a different account.'
-                                : ((item.connectPrompt ?? '').trim().isNotEmpty
+                              : item.isConnected
+                                  ? 'Connect as many accounts as you want. Each app can use a different account.'
+                                  : ((item.connectPrompt ?? '').trim().isNotEmpty
                                       ? item.connectPrompt!.trim()
                                       : 'Connect app accounts individually so the AI can use the right account for each official integration.'),
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                        ],
-                      ),
+                      style: TextStyle(color: _textSecondary),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                ...item.apps.map(
-                  (app) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _OfficialIntegrationAppCard(
-                      controller: controller,
-                      provider: item,
-                      app: app,
-                    ),
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...item.apps.map(
+            (app) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _OfficialIntegrationAppCard(
+                controller: controller,
+                provider: item,
+                app: app,
+              ),
             ),
-          );
+          ),
+        ],
       ),
     );
   }
@@ -405,6 +401,193 @@ Future<void> _showHomeAssistantSetupDialog(
   redirectUriController.dispose();
 }
 
+Future<void> _showTrelloSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> existing;
+  try {
+    existing = await controller.getOfficialIntegrationConfig('trello');
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
+      );
+    }
+    return;
+  }
+
+  final apiKeyController = TextEditingController(
+    text: existing['apiKey']?.toString() ?? '',
+  );
+  final tokenController = TextEditingController();
+  final hasSavedSetup =
+      (existing['apiKey']?.toString().trim().isNotEmpty ?? false) ||
+      existing['hasToken'] == true ||
+      existing['configured'] == true;
+  var formError = '';
+  var saving = false;
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setState) {
+          return AlertDialog(
+            title: const Text('Trello Setup'),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    'Paste the API key and token from your own Trello Power-Up. They are stored securely per user.',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: apiKeyController,
+                    decoration: const InputDecoration(
+                      labelText: 'API Key',
+                      hintText: 'Your Trello Power-Up API key',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: tokenController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Token',
+                      hintText:
+                          existing['hasToken'] == true
+                              ? 'Saved token exists. Enter to replace it.'
+                              : 'Your Trello API token',
+                    ),
+                  ),
+                  if (formError.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        formError,
+                        style: TextStyle(color: _danger),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              if (hasSavedSetup)
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final shouldClear =
+                              await showDialog<bool>(
+                                context: dialogContext,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text('Clear Setup?'),
+                                    content: const Text(
+                                      'This removes your saved Trello API key and token for this user.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        child: const Text('Clear Setup'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ) ??
+                              false;
+                          if (!shouldClear) {
+                            return;
+                          }
+                          setState(() {
+                            formError = '';
+                            saving = true;
+                          });
+                          try {
+                            await controller.clearOfficialIntegrationConfig('trello');
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              formError = controller.errorMessage ?? 'Could not clear Trello setup.';
+                              saving = false;
+                            });
+                          }
+                        },
+                  child: const Text('Clear Setup'),
+                ),
+              TextButton(
+                onPressed: saving ? null : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        setState(() {
+                          formError = '';
+                        });
+                        final apiKey = apiKeyController.text.trim();
+                        final token = tokenController.text.trim();
+                        final hasSavedToken = existing['hasToken'] == true;
+                        if (apiKey.isEmpty) {
+                          setState(() {
+                            formError = 'API Key is required.';
+                          });
+                          return;
+                        }
+                        if (token.isEmpty && !hasSavedToken) {
+                          setState(() {
+                            formError = 'Token is required.';
+                          });
+                          return;
+                        }
+
+                        setState(() {
+                          saving = true;
+                        });
+                        try {
+                          await controller.saveOfficialIntegrationConfig(
+                            'trello',
+                            config: <String, dynamic>{
+                              'apiKey': apiKey,
+                              if (token.isNotEmpty) 'token': token,
+                            },
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } catch (_) {
+                          setState(() {
+                            formError = controller.errorMessage ?? 'Could not save Trello setup.';
+                            saving = false;
+                          });
+                        }
+                      },
+                child: Text(saving ? 'Saving...' : 'Save Setup'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  apiKeyController.dispose();
+  tokenController.dispose();
+}
+
 class _OfficialIntegrationAppCard extends StatelessWidget {
   const _OfficialIntegrationAppCard({
     required this.controller,
@@ -487,12 +670,18 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               if (!provider.env.configured)
-                provider.id == 'home_assistant'
+                provider.env.setupMode == 'user'
                     ? FilledButton.icon(
-                        onPressed: () => _showHomeAssistantSetupDialog(
-                          context,
-                          controller,
-                        ),
+                        onPressed: () {
+                          switch (provider.id) {
+                            case 'home_assistant':
+                              _showHomeAssistantSetupDialog(context, controller);
+                              break;
+                            case 'trello':
+                              _showTrelloSetupDialog(context, controller);
+                              break;
+                          }
+                        },
                         icon: Icon(Icons.settings_rounded),
                         label: Text('Configure'),
                       )
@@ -657,6 +846,39 @@ class _OfficialIntegrationIcon extends StatelessWidget {
 
   final OfficialIntegrationItem item;
 
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (item.icon) {
+      'google' => const Color(0xFF4285F4),
+      'trello' => const Color(0xFF0C66E4),
+      _ => _accent,
+    };
+    final label = switch (item.icon) {
+      'google' => 'G',
+      'trello' => 'T',
+      _ => item.label.isNotEmpty ? item.label[0] : '?',
+    };
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.36)),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title});
 
@@ -673,40 +895,6 @@ class _SectionTitle extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: _textSecondary,
           letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
-class _OfficialIntegrationIcon extends StatelessWidget
-  const _OfficialIntegrationIcon({required this.item});
-
-  final OfficialIntegrationItem item;
-
-  @override
-  Widget build(BuildContext context) {
-  @override
-  Widget build(BuildContext context) {
-    final color = item.icon == 'google' ? const Color(0xFF4285F4) : _accent;
-    final label = item.icon == 'google'
-        ? 'G'
-        : (item.label.isNotEmpty ? item.label[0] : '?');
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.36)),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
         ),
       ),
     );

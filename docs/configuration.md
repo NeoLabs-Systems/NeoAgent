@@ -68,7 +68,7 @@ Recording insight generation is controlled in app AI settings with `auto_recordi
 
 ## Official Integrations
 
-Official integrations use OAuth or provider-native account linking and expose structured tools to the agent. The built-in registry currently covers Google Workspace, Notion, Microsoft 365, Slack, Figma, Home Assistant, Weather, Spotify, and personal WhatsApp.
+Official integrations use OAuth or provider-native account linking and expose structured tools to the agent. The built-in registry currently covers Google Workspace, Notion, Microsoft 365, Slack, Figma, Home Assistant, Trello, Weather, Spotify, and personal WhatsApp.
 
 All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` unless you set a provider-specific redirect URI.
 
@@ -95,12 +95,16 @@ All OAuth callbacks default to `PUBLIC_URL + /api/integrations/oauth/callback` u
 | `HOME_ASSISTANT_OAUTH_CLIENT_SECRET` | Optional fallback Home Assistant OAuth client secret. |
 | `HOME_ASSISTANT_OAUTH_REDIRECT_URI` | Optional fallback Home Assistant OAuth callback URL. |
 | `HOME_ASSISTANT_ALLOW_PRIVATE_BASE_URL` | Optional safety override. Set to `1` only if you intentionally allow Home Assistant base URLs on localhost/private networks. |
+| `TRELLO_API_KEY` | Not used. Trello is configured per user in Official Integrations. |
+| `TRELLO_TOKEN` | Not used. Trello is configured per user in Official Integrations. |
 | `SPOTIFY_OAUTH_CLIENT_ID` | Spotify OAuth client ID |
 | `SPOTIFY_OAUTH_CLIENT_SECRET` | Spotify OAuth client secret |
 | `SPOTIFY_OAUTH_REDIRECT_URI` | Optional Spotify OAuth callback URL |
 
-Home Assistant no longer requires server-side setup. Each user can open Official Integrations, select Home Assistant, and enter their own base URL and OAuth app credentials.
+Home Assistant and Trello no longer require server-side setup. Each user can open Official Integrations and enter their own provider-specific credentials in the Flutter UI.
 For safety, local/private Home Assistant targets are blocked by default unless `HOME_ASSISTANT_ALLOW_PRIVATE_BASE_URL=1` is set on the server.
+
+Trello uses each user’s own API key and token. Those values are stored securely per user and are never added to server environment variables.
 
 Weather integration uses Open-Meteo public endpoints and does not require OAuth environment variables.
 

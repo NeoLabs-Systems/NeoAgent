@@ -4,6 +4,7 @@ const { createFigmaProvider } = require('./figma/provider');
 const { createGoogleWorkspaceProvider } = require('./google/provider');
 const { createGithubProvider } = require('./github/provider');
 const { createHomeAssistantProvider } = require('./home_assistant/provider');
+const { createTrelloProvider } = require('./trello/provider');
 const { createMicrosoftProvider } = require('./microsoft/provider');
 const { createNotionProvider } = require('./notion/provider');
 const { createSpotifyProvider } = require('./spotify/provider');
@@ -20,6 +21,7 @@ function createIntegrationRegistry(options = {}) {
     createSlackProvider(),
     createFigmaProvider(),
     createHomeAssistantProvider(),
+    createTrelloProvider(),
     createWeatherProvider(),
     createSpotifyProvider(),
     createWhatsAppPersonalProvider(options),
