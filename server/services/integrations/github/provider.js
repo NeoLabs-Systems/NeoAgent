@@ -337,15 +337,15 @@ function createGithubProvider() {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify({
+        body: new URLSearchParams({
           client_id: config.clientId,
           client_secret: config.clientSecret,
           code,
           code_verifier: codeVerifier,
           redirect_uri: config.redirectUri,
-        }),
+        }).toString(),
       });
 
       const tokenBody = await tokenResponse.text();
