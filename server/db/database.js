@@ -1337,18 +1337,6 @@ function migrateIntegrationProviderConfigsTable() {
     .prepare('SELECT * FROM integration_provider_configs ORDER BY id ASC')
     .all();
 
-  const insert = db.prepare(`
-    INSERT OR REPLACE INTO integration_provider_configs (
-      id,
-      user_id,
-      agent_id,
-      provider_key,
-      config_json,
-      created_at,
-      updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
   db.exec('BEGIN');
   try {
     db.exec(`
@@ -1366,6 +1354,17 @@ function migrateIntegrationProviderConfigsTable() {
         FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
         UNIQUE(user_id, agent_id, provider_key)
       );
+    `);
+    const insert = db.prepare(`
+      INSERT OR REPLACE INTO integration_provider_configs (
+        id,
+        user_id,
+        agent_id,
+        provider_key,
+        config_json,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
     for (const row of rows) {
