@@ -9,6 +9,7 @@ const {
 } = require('../provider_config_store');
 const { getConnectionAccessMode } = require('../access');
 const { fetchJson } = require('../oauth_provider');
+const { encryptValue } = require('../secrets');
 
 const TRELLO_APP = {
   id: 'trello',
@@ -205,18 +206,21 @@ function parseConfigInput(rawConfig, existingConfig = {}) {
   };
 }
 
-function resolveTrelloConfigForUser(userId) {
+function resolveTrelloConfigForUser(userId, agentId = null) {
   const normalizedUserId = Number(userId);
   const config =
     Number.isInteger(normalizedUserId) && normalizedUserId > 0
-      ? parseConfigInput(getProviderConfig(normalizedUserId, 'trello'))
+      ? parseConfigInput(getProviderConfig(normalizedUserId, 'trello', agentId))
       : { apiKey: '', token: '' };
   const envApiKey = trimText(process.env.TRELLO_API_KEY || '');
   const apiKey = envApiKey || config.apiKey;
-  const missing = [];
-  if (!apiKey) missing.push('apiKey');
-  if (!config.token) missing.push('token');
-  return { apiKey, token: config.token, configured: missing.length === 0, missing };
+  return {
+    apiKey,
+    token: config.token,
+    apiKeyConfigured: Boolean(apiKey),
+    configured: Boolean(apiKey),
+    missing: apiKey ? [] : ['apiKey'],
+  };
 }
 
 function sanitizeTrelloUserConfigForClient(rawConfig) {
@@ -226,9 +230,16 @@ function sanitizeTrelloUserConfigForClient(rawConfig) {
   return {
     apiKey: config.apiKey,
     apiKeyConfigured,
-    hasToken: Boolean(config.token),
-    configured: Boolean(apiKeyConfigured && config.token),
+    hasLegacyToken: Boolean(config.token),
+    configured: apiKeyConfigured,
   };
+}
+
+function buildTrelloAuthorizeUrl(apiKey) {
+  const normalizedApiKey = trimText(apiKey);
+  if (!normalizedApiKey) return '';
+  return 'https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=' +
+    encodeURIComponent(normalizedApiKey);
 }
 
 function trelloUrl(path, query = {}, config = {}) {
@@ -367,45 +378,41 @@ function buildConnectedAppSummary(appSnapshots) {
     .join(' | ');
 }
 
-function resolveTrelloEnvStatus(userId) {
+function resolveTrelloEnvStatus(userId, agentId = null) {
   try {
-    const config = resolveTrelloConfigForUser(userId);
+    const config = resolveTrelloConfigForUser(userId, agentId);
     return {
       configured: config.configured,
       missing: config.missing,
       summary: config.configured
         ? 'Trello is ready for account connections.'
-        : 'Add your Trello API key and token in Official Integrations to enable Trello tools.',
+        : 'Add your Trello API key in Official Integrations to enable Trello account connections.',
       setupMode: 'user',
     };
   } catch (error) {
     return {
       configured: false,
-      missing: ['apiKey', 'token'],
+      missing: ['apiKey'],
       summary: `Trello setup is invalid: ${error?.message || 'unknown error'}`,
       setupMode: 'user',
     };
   }
 }
 
-function loadExistingAccessMode(userId, agentId) {
+function loadExistingAccessMode(userId, agentId, accountEmail) {
   const connection = db
     .prepare(
       `SELECT metadata_json
        FROM integration_connections
-       WHERE user_id = ? AND agent_id = ? AND provider_key = ?`,
+       WHERE user_id = ? AND agent_id = ? AND provider_key = ? AND lower(account_email) = lower(?)`,
     )
-    .get(userId, agentId, TRELLO_APP.id);
+    .get(userId, agentId, TRELLO_APP.id, accountEmail);
   return getConnectionAccessMode(connection || null);
 }
 
-function upsertTrelloConnection(userId, agentId, profile) {
+function upsertTrelloConnection(userId, agentId, profile, credentials) {
   const accountEmail = trelloAccountEmail(profile);
-  const accessMode = loadExistingAccessMode(userId, agentId);
-
-  db.prepare(
-    'DELETE FROM integration_connections WHERE user_id = ? AND agent_id = ? AND provider_key = ?',
-  ).run(userId, agentId, TRELLO_APP.id);
+  const accessMode = loadExistingAccessMode(userId, agentId, accountEmail);
 
   db.prepare(
     `INSERT INTO integration_connections (
@@ -420,7 +427,14 @@ function upsertTrelloConnection(userId, agentId, profile) {
        metadata_json,
        last_connected_at,
        updated_at
-     ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+     ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
+       status = excluded.status,
+       scopes_json = excluded.scopes_json,
+       credentials_json = excluded.credentials_json,
+       metadata_json = excluded.metadata_json,
+       last_connected_at = excluded.last_connected_at,
+       updated_at = excluded.updated_at`,
   ).run(
     userId,
     agentId,
@@ -428,7 +442,7 @@ function upsertTrelloConnection(userId, agentId, profile) {
     TRELLO_APP.id,
     accountEmail,
     JSON.stringify(['trello:api']),
-    JSON.stringify({}),
+    encryptValue(JSON.stringify(credentials || {})),
     JSON.stringify({
       access_mode: accessMode,
       trelloMemberId: profile.id || null,
@@ -451,8 +465,8 @@ function upsertTrelloConnection(userId, agentId, profile) {
 function createTrelloConnectionResult(profile) {
   return {
     apiKey: profile.apiKey || '',
-    hasToken: true,
-    configured: true,
+    apiKeyConfigured: Boolean(profile.apiKey),
+    configured: Boolean(profile.apiKey),
     accountEmail: trelloAccountEmail(profile),
     memberId: profile.id || null,
     username: profile.username || null,
@@ -460,11 +474,26 @@ function createTrelloConnectionResult(profile) {
   };
 }
 
-async function executeTrelloTool(toolName, args, connection) {
-  const config = resolveTrelloConfigForUser(connection?.user_id);
-  if (!config.configured) {
-    throw new Error('Trello API key and token are required. Reopen Official Integrations and save your setup again.');
+function resolveTrelloCredentials(connection, credentials = {}) {
+  const savedCredentials =
+    credentials && typeof credentials === 'object' ? credentials : {};
+  const setupConfig = resolveTrelloConfigForUser(
+    connection?.user_id,
+    connection?.agent_id,
+  );
+  const apiKey = trimText(savedCredentials.apiKey) || trimText(setupConfig.apiKey);
+  const token = trimText(savedCredentials.token) || trimText(setupConfig.token);
+  if (!apiKey) {
+    throw new Error('Trello API key is required. Reopen Official Integrations and save the Trello setup again.');
   }
+  if (!token) {
+    throw new Error('Trello token is missing for this account. Reconnect the Trello account from Official Integrations.');
+  }
+  return { apiKey, token };
+}
+
+async function executeTrelloTool(toolName, args, { connection, credentials }) {
+  const config = resolveTrelloCredentials(connection, credentials);
 
   switch (toolName) {
     case 'trello_get_me': {
@@ -615,13 +644,15 @@ async function executeTrelloTool(toolName, args, connection) {
 function createTrelloProvider() {
   return {
     key: 'trello',
-    label: 'Trello',
+        label: 'Trello',
     description:
-      'Official Trello integration for user-managed API key and token setup with board, list, card, and comment tools.',
+      'Official Trello integration for user-managed API key setup with per-account tokens for board, list, card, and comment tools.',
     icon: 'trello',
     apps: [TRELLO_APP],
     connectPrompt:
-      'Save your Trello API key and token to expose structured board, list, card, and comment tools.',
+      'Save your Trello API key, then connect one Trello account for structured board, list, card, and comment tools.',
+    supportsMultipleAccounts: false,
+    connectionMethod: 'user_config',
     getApp(appId) {
       return String(appId || '').trim() === TRELLO_APP.id ? TRELLO_APP : null;
     },
@@ -629,7 +660,7 @@ function createTrelloProvider() {
       return toolAppMap.get(String(toolName || '').trim()) || null;
     },
     getEnvStatus(context = {}) {
-      return resolveTrelloEnvStatus(context.userId);
+      return resolveTrelloEnvStatus(context.userId, context.agentId);
     },
     getToolDefinitions(options = {}) {
       const connectedAppIds = new Set(options.connectedAppIds || []);
@@ -687,6 +718,8 @@ function createTrelloProvider() {
         },
         availableToolCount: appSnapshots.reduce((total, app) => total + app.availableToolCount, 0),
         connectPrompt: this.connectPrompt,
+        supportsMultipleAccounts: this.supportsMultipleAccounts,
+        connectionMethod: this.connectionMethod,
       };
     },
     summarizeForModel(snapshot) {
@@ -694,15 +727,29 @@ function createTrelloProvider() {
         return 'Trello: setup is not complete for this user yet. Tell them to finish Trello setup in Official Integrations first.';
       }
       if (!snapshot.connection?.connected) {
-        return 'Trello: setup is ready, but no Trello account is connected yet. Tell the user to finish setup in Official Integrations first.';
+        return 'Trello: setup is ready, but no Trello account is connected yet. Tell the user to open Official Integrations and connect a Trello account.';
       }
-      return 'Trello: native Trello access is connected in this run with board, list, card, comment, and search tools.';
+      return 'Trello: native Trello access is connected in this run with one Trello account for board, list, card, comment, and search tools.';
     },
     async executeTool(toolName, args, connection) {
       return executeTrelloTool(toolName, args, connection);
     },
-    getUserConfig({ userId }) {
-      return sanitizeTrelloUserConfigForClient(getProviderConfig(Number(userId), 'trello'));
+    getUserConfig({ userId, agentId }) {
+      const normalizedUserId = Number(userId);
+      const scopedAgentId = resolveAgentId(normalizedUserId, agentId || null);
+      const storedConfig = getProviderConfig(normalizedUserId, 'trello', scopedAgentId);
+      const resolvedConfig = resolveTrelloConfigForUser(normalizedUserId, scopedAgentId);
+      const accountCount = db.prepare(
+        `SELECT COUNT(*) AS count
+         FROM integration_connections
+         WHERE user_id = ? AND agent_id = ? AND provider_key = ? AND status = 'connected'`,
+      ).get(normalizedUserId, scopedAgentId, TRELLO_APP.id)?.count || 0;
+      return {
+        ...sanitizeTrelloUserConfigForClient(storedConfig),
+        authorizeUrl: buildTrelloAuthorizeUrl(resolvedConfig.apiKey),
+        accountCount,
+        hasConnectedAccount: accountCount > 0,
+      };
     },
     async saveUserConfig({ userId, agentId, config }) {
       const normalizedUserId = Number(userId);
@@ -712,18 +759,33 @@ function createTrelloProvider() {
 
       const scopedAgentId = resolveAgentId(normalizedUserId, agentId || null);
       const rawConfig = config && typeof config === 'object' ? config : {};
-      const existingConfig = parseConfigInput(getProviderConfig(normalizedUserId, 'trello'));
+      const existingConfig = parseConfigInput(
+        getProviderConfig(normalizedUserId, 'trello', scopedAgentId),
+      );
       const envApiKey = trimText(process.env.TRELLO_API_KEY || '');
-      
-      // Resolve API key: from env, new config, or existing config
-      const apiKey = envApiKey || trimText(rawConfig.apiKey) || trimText(existingConfig.apiKey);
-      const token = trimText(rawConfig.token) || trimText(existingConfig.token);
+      const apiKey =
+        envApiKey || trimText(rawConfig.apiKey) || trimText(existingConfig.apiKey);
+      const token = trimText(rawConfig.token);
 
       if (!apiKey) {
-        throw new Error('Trello API key is required (set via environment or configuration).');
+        throw new Error('Trello API key is required before you can connect an account.');
       }
+
+      if (!envApiKey) {
+        setProviderConfig(normalizedUserId, 'trello', { apiKey }, scopedAgentId);
+      }
+
       if (!token) {
-        throw new Error('Trello token is required.');
+        const accountCount = db.prepare(
+          `SELECT COUNT(*) AS count
+           FROM integration_connections
+           WHERE user_id = ? AND agent_id = ? AND provider_key = ? AND status = 'connected'`,
+        ).get(normalizedUserId, scopedAgentId, TRELLO_APP.id)?.count || 0;
+        return {
+          ...sanitizeTrelloUserConfigForClient({ apiKey }),
+          accountCount,
+          hasConnectedAccount: accountCount > 0,
+        };
       }
 
       let profile;
@@ -743,14 +805,21 @@ function createTrelloProvider() {
         }
         throw error;
       }
-      
-      // Store only the token if API key is from environment
-      const configToStore = envApiKey ? { token } : { apiKey, token };
-      setProviderConfig(normalizedUserId, 'trello', configToStore);
-      upsertTrelloConnection(normalizedUserId, scopedAgentId, profile || {});
+      upsertTrelloConnection(
+        normalizedUserId,
+        scopedAgentId,
+        profile || {},
+        { apiKey, token },
+      );
+      const accountCount = db.prepare(
+        `SELECT COUNT(*) AS count
+         FROM integration_connections
+         WHERE user_id = ? AND agent_id = ? AND provider_key = ? AND status = 'connected'`,
+      ).get(normalizedUserId, scopedAgentId, TRELLO_APP.id)?.count || 0;
       return createTrelloConnectionResult({
         ...profile,
         apiKey,
+        accountCount,
       });
     },
     clearUserConfig({ userId, agentId }) {
@@ -759,7 +828,7 @@ function createTrelloProvider() {
         throw new Error('A valid user is required to clear Trello configuration.');
       }
       const scopedAgentId = resolveAgentId(normalizedUserId, agentId || null);
-      deleteProviderConfig(normalizedUserId, 'trello');
+      deleteProviderConfig(normalizedUserId, 'trello', scopedAgentId);
       db.prepare(
         'DELETE FROM integration_connections WHERE user_id = ? AND agent_id = ? AND provider_key = ?',
       ).run(normalizedUserId, scopedAgentId, TRELLO_APP.id);

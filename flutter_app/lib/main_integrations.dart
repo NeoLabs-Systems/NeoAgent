@@ -175,6 +175,8 @@ class OfficialIntegrationsTab extends StatelessWidget {
                           ? item.env.summary
                           : item.hasExpiredAccounts
                           ? 'One or more accounts expired. Reconnect the affected account to restore tool access.'
+                          : !item.supportsMultipleAccounts && item.isConnected
+                          ? 'This integration currently supports one connected account per agent. Re-open setup to replace it.'
                           : item.isConnected
                           ? 'Connect as many accounts as you want. Each app can use a different account.'
                           : ((item.connectPrompt ?? '').trim().isNotEmpty
@@ -201,6 +203,21 @@ class OfficialIntegrationsTab extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+void _openOfficialIntegrationSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+  String providerId,
+) {
+  switch (providerId) {
+    case 'home_assistant':
+      _showHomeAssistantSetupDialog(context, controller);
+      return;
+    case 'trello':
+      _showTrelloSetupDialog(context, controller);
+      return;
   }
 }
 
@@ -438,10 +455,16 @@ Future<void> _showTrelloSetupDialog(
   }
 
   final apiKeyConfigured = existing['apiKeyConfigured'] == true;
-  final hasToken = existing['hasToken'] == true;
+  final savedApiKey = existing['apiKey']?.toString() ?? '';
+  final apiKeyManagedByServer = apiKeyConfigured && savedApiKey.trim().isEmpty;
+  final authorizeUrl = existing['authorizeUrl']?.toString() ?? '';
+  final accountCount = (existing['accountCount'] as num?)?.toInt() ?? 0;
+  final hasConnectedAccount =
+      existing['hasConnectedAccount'] == true || accountCount > 0;
   var formError = '';
   var connecting = false;
 
+  final apiKeyController = TextEditingController(text: savedApiKey);
   final tokenInputController = TextEditingController();
 
   await showDialog<void>(
@@ -459,7 +482,7 @@ Future<void> _showTrelloSetupDialog(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Connect your Trello account securely. Your token is stored per user and never shared.',
+                    'Save a Trello API key for this agent, then connect one Trello account securely. The account token is stored on the server and used only for this agent.',
                     style: TextStyle(color: _textSecondary),
                   ),
                   const SizedBox(height: 16),
@@ -470,18 +493,42 @@ Future<void> _showTrelloSetupDialog(
                   ),
                   const SizedBox(height: 12),
                   _TrelloStatusItem(
-                    label: 'Token',
-                    status: hasToken ? 'Connected' : 'Not connected',
-                    isConnected: hasToken,
+                    label: 'Connected Account',
+                    status: hasConnectedAccount
+                        ? '$accountCount ${accountCount == 1 ? 'connected account' : 'connected accounts'}'
+                        : 'Not connected',
+                    isConnected: hasConnectedAccount,
                   ),
-                  if (apiKeyConfigured && !hasToken) ...<Widget>[
+                  if (apiKeyManagedByServer) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Text(
+                      'This agent is using a server-managed Trello API key. You only need to authorize an account token below.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                  ] else ...<Widget>[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: apiKeyController,
+                      onChanged: (_) => setState(() {}),
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Trello API Key',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                  if (apiKeyConfigured ||
+                      apiKeyController.text.trim().isNotEmpty ||
+                      apiKeyManagedByServer) ...<Widget>[
                     const SizedBox(height: 12),
                     TextField(
                       controller: tokenInputController,
+                      onChanged: (_) => setState(() {}),
                       obscureText: true,
                       decoration: InputDecoration(
-                        labelText: 'Paste your token here',
-                        hintText: 'Token from Trello authorize',
+                        labelText: hasConnectedAccount
+                            ? 'Paste a replacement token'
+                            : 'Paste your account token',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -505,7 +552,7 @@ Future<void> _showTrelloSetupDialog(
               ),
             ),
             actions: <Widget>[
-              if (hasToken)
+              if (apiKeyConfigured || savedApiKey.trim().isNotEmpty)
                 TextButton(
                   onPressed: connecting
                       ? null
@@ -517,7 +564,7 @@ Future<void> _showTrelloSetupDialog(
                                   return AlertDialog(
                                     title: const Text('Disconnect Trello?'),
                                     content: const Text(
-                                      'This removes your saved Trello token for this user.',
+                                      'This removes the Trello setup and connected accounts for this agent.',
                                     ),
                                     actions: [
                                       TextButton(
@@ -563,50 +610,12 @@ Future<void> _showTrelloSetupDialog(
               TextButton(
                 onPressed: connecting
                     ? null
-                    : () {
-                        tokenInputController.dispose();
-                        Navigator.of(dialogContext).pop();
-                      },
+                    : () => Navigator.of(dialogContext).pop(),
                 child: const Text('Close'),
               ),
-              if (apiKeyConfigured && !hasToken)
-                FilledButton(
-                  onPressed: connecting
-                      ? null
-                      : () async {
-                          setState(() {
-                            formError = '';
-                            connecting = true;
-                          });
-                          try {
-                            final token = tokenInputController.text.trim();
-                            if (token.isEmpty) {
-                              setState(() {
-                                formError = 'Token is required.';
-                                connecting = false;
-                              });
-                              return;
-                            }
-                            await controller.saveOfficialIntegrationConfig(
-                              'trello',
-                              config: <String, dynamic>{'token': token},
-                            );
-                            if (dialogContext.mounted) {
-                              tokenInputController.dispose();
-                              Navigator.of(dialogContext).pop();
-                            }
-                          } catch (_) {
-                            setState(() {
-                              formError =
-                                  controller.errorMessage ??
-                                  'Could not save token.';
-                              connecting = false;
-                            });
-                          }
-                        },
-                  child: Text(connecting ? 'Saving...' : 'Save Token'),
-                )
-              else if (apiKeyConfigured)
+              if (authorizeUrl.isNotEmpty ||
+                  apiKeyManagedByServer ||
+                  apiKeyController.text.trim().isNotEmpty)
                 FilledButton.icon(
                   onPressed: connecting
                       ? null
@@ -616,19 +625,27 @@ Future<void> _showTrelloSetupDialog(
                             connecting = true;
                           });
                           try {
-                            final url =
-                                'https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=' +
-                                    Uri.encodeComponent(
-                                      existing['apiKey']?.toString() ?? '',
-                                    );
+                            final effectiveApiKey = apiKeyManagedByServer
+                                ? ''
+                                : apiKeyController.text.trim();
+                            if (!apiKeyManagedByServer &&
+                                effectiveApiKey.isEmpty) {
+                              setState(() {
+                                formError = 'Trello API Key is required.';
+                                connecting = false;
+                              });
+                              return;
+                            }
+                            final url = authorizeUrl.isNotEmpty
+                                ? authorizeUrl
+                                : 'https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=' +
+                                      Uri.encodeComponent(effectiveApiKey);
                             final result = await controller._oauthLauncher
-                                .openExternal(
-                              url: url,
-                              label: 'Trello',
-                            );
+                                .openExternal(url: url, label: 'Trello');
                             if (!result.launched) {
                               setState(() {
-                                formError = result.error ??
+                                formError =
+                                    result.error ??
                                     'Could not open Trello in your browser.';
                                 connecting = false;
                               });
@@ -644,9 +661,70 @@ Future<void> _showTrelloSetupDialog(
                             });
                           }
                         },
-                  icon: Icon(connecting ? null : Icons.login_rounded),
-                  label: Text(connecting ? 'Opening...' : 'Get Token'),
+                  icon: const Icon(Icons.open_in_browser_rounded),
+                  label: Text(connecting ? 'Opening...' : 'Open Trello'),
                 ),
+              FilledButton(
+                onPressed: connecting
+                    ? null
+                    : () async {
+                        setState(() {
+                          formError = '';
+                          connecting = true;
+                        });
+                        try {
+                          final apiKey = apiKeyController.text.trim();
+                          final token = tokenInputController.text.trim();
+                          if (!apiKeyManagedByServer && apiKey.isEmpty) {
+                            setState(() {
+                              formError = 'Trello API Key is required.';
+                              connecting = false;
+                            });
+                            return;
+                          }
+                          if (token.isEmpty &&
+                              apiKeyConfigured &&
+                              !apiKeyManagedByServer) {
+                            await controller.saveOfficialIntegrationConfig(
+                              'trello',
+                              config: <String, dynamic>{'apiKey': apiKey},
+                            );
+                          } else if (token.isEmpty && !apiKeyManagedByServer) {
+                            await controller.saveOfficialIntegrationConfig(
+                              'trello',
+                              config: <String, dynamic>{'apiKey': apiKey},
+                            );
+                          } else {
+                            await controller.saveOfficialIntegrationConfig(
+                              'trello',
+                              config: <String, dynamic>{
+                                if (!apiKeyManagedByServer) 'apiKey': apiKey,
+                                'token': token,
+                              },
+                            );
+                          }
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } catch (_) {
+                          setState(() {
+                            formError =
+                                controller.errorMessage ??
+                                'Could not save Trello setup.';
+                            connecting = false;
+                          });
+                        }
+                      },
+                child: Text(
+                  connecting
+                      ? 'Saving...'
+                      : tokenInputController.text.trim().isNotEmpty
+                      ? hasConnectedAccount
+                            ? 'Replace Account'
+                            : 'Connect Account'
+                      : 'Save Setup',
+                ),
+              ),
             ],
           );
         },
@@ -654,6 +732,7 @@ Future<void> _showTrelloSetupDialog(
     },
   );
 
+  apiKeyController.dispose();
   tokenInputController.dispose();
 }
 
@@ -739,101 +818,71 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            app.label,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                app.label,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
+                            _StatusPill(
+                              label: app.statusLabel,
+                              color: app.isConnected
+                                  ? _success
+                                  : app.hasExpiredAccounts
+                                  ? _warning
+                                  : _textSecondary,
+                            ),
+                          ],
+                        ),
+                        if ((app.description ?? '')
+                            .trim()
+                            .isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 4),
+                          Text(
+                            app.description!,
+                            style: TextStyle(color: _textSecondary),
                           ),
-                        ),
-                        _StatusPill(
-                          label: app.statusLabel,
-                          color: app.isConnected
-                              ? _success
-                              : app.hasExpiredAccounts
-                              ? _warning
-                              : _textSecondary,
-                        ),
-                      ],
-                    ),
-                    if ((app.description ?? '').trim().isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 4),
-                      Text(
-                        app.description!,
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        _MetaPill(
-                          label: '${app.accounts.length} accounts',
-                          icon: Icons.account_circle_outlined,
-                        ),
-                        _MetaPill(
-                          label: '${app.availableToolCount} tools',
-                          icon: Icons.build_circle_outlined,
+                        ],
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            _MetaPill(
+                              label: '${app.accounts.length} accounts',
+                              icon: Icons.account_circle_outlined,
+                            ),
+                            _MetaPill(
+                              label: '${app.availableToolCount} tools',
+                              icon: Icons.build_circle_outlined,
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (!provider.env.configured)
-                provider.env.setupMode == 'user'
-                    ? FilledButton.icon(
-                        onPressed: () {
-                          switch (provider.id) {
-                            case 'home_assistant':
-                              _showHomeAssistantSetupDialog(
-                                context,
-                                controller,
-                              );
-                              break;
-                            case 'trello':
-                              _showTrelloSetupDialog(context, controller);
-                              break;
-                          }
-                        },
-                        icon: Icon(Icons.settings_rounded),
-                        label: Text('Configure'),
-                      )
-                    : OutlinedButton.icon(
-                        onPressed: null,
-                        icon: Icon(Icons.settings_suggest_outlined),
-                        label: Text('Admin Setup Required'),
-                      )
-              else
-                FilledButton.icon(
-                  onPressed: connectBusy
-                      ? null
-                      : () => controller.connectOfficialIntegration(
-                          provider.id,
-                          appId: app.id,
-                        ),
-                  icon: Icon(Icons.link_rounded),
-                  label: Text(
-                    connectBusy
-                        ? 'Connecting...'
-                        : app.isConnected
-                        ? 'Add Account'
-                        : 'Connect Account',
                   ),
-                ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _buildIntegrationActionButton(context, connectBusy),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -861,101 +910,101 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                       color: account.connected ? _accentMuted : _border,
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              account.accountEmail ?? 'Unknown account',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Connection #${account.id}',
-                              style: TextStyle(color: _textSecondary),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Access: ${account.accessModeLabel}',
-                              style: TextStyle(color: _textSecondary),
-                            ),
-                          ],
-                        ),
+                      Text(
+                        account.accountEmail ?? 'Unknown account',
+                        style: TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(width: 12),
-                      PopupMenuButton<String>(
-                        enabled: !accessBusy,
-                        tooltip: 'Access mode',
-                        onSelected: (value) {
-                          if (value == account.accessMode) return;
-                          controller.setOfficialIntegrationAccessMode(
-                            provider.id,
-                            connectionId: account.id,
-                            accessMode: value,
-                          );
-                        },
-                        itemBuilder: (context) =>
-                            const <PopupMenuEntry<String>>[
-                              PopupMenuItem<String>(
-                                value: 'read_write',
-                                child: Text('Read / Write'),
-                              ),
-                              PopupMenuItem<String>(
-                                value: 'read_only',
-                                child: Text('Read Only'),
-                              ),
-                            ],
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: _border),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Icon(
-                                Icons.lock_open_rounded,
-                                size: 16,
-                                color: _textSecondary,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                accessBusy
-                                    ? 'Saving...'
-                                    : account.accessModeLabel,
-                                style: TextStyle(color: _textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Connection #${account.id}',
+                        style: TextStyle(color: _textSecondary),
                       ),
-                      const SizedBox(width: 8),
-                      _StatusPill(
-                        label: account.statusLabel,
-                        color: account.connected
-                            ? _success
-                            : account.isExpired
-                            ? _warning
-                            : _textSecondary,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Access: ${account.accessModeLabel}',
+                        style: TextStyle(color: _textSecondary),
                       ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: disconnectBusy
-                            ? null
-                            : () => controller.disconnectOfficialIntegration(
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: <Widget>[
+                          PopupMenuButton<String>(
+                            enabled: !accessBusy,
+                            tooltip: 'Access mode',
+                            onSelected: (value) {
+                              if (value == account.accessMode) return;
+                              controller.setOfficialIntegrationAccessMode(
                                 provider.id,
                                 connectionId: account.id,
+                                accessMode: value,
+                              );
+                            },
+                            itemBuilder: (context) =>
+                                const <PopupMenuEntry<String>>[
+                                  PopupMenuItem<String>(
+                                    value: 'read_write',
+                                    child: Text('Read / Write'),
+                                  ),
+                                  PopupMenuItem<String>(
+                                    value: 'read_only',
+                                    child: Text('Read Only'),
+                                  ),
+                                ],
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
                               ),
-                        icon: Icon(Icons.link_off_rounded),
-                        label: Text(
-                          disconnectBusy ? 'Working...' : 'Disconnect',
-                        ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: _border),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.lock_open_rounded,
+                                    size: 16,
+                                    color: _textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    accessBusy
+                                        ? 'Saving...'
+                                        : account.accessModeLabel,
+                                    style: TextStyle(color: _textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          _StatusPill(
+                            label: account.statusLabel,
+                            color: account.connected
+                                ? _success
+                                : account.isExpired
+                                ? _warning
+                                : _textSecondary,
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: disconnectBusy
+                                ? null
+                                : () =>
+                                      controller.disconnectOfficialIntegration(
+                                        provider.id,
+                                        connectionId: account.id,
+                                      ),
+                            icon: Icon(Icons.link_off_rounded),
+                            label: Text(
+                              disconnectBusy ? 'Working...' : 'Disconnect',
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -963,6 +1012,57 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
               }).toList(),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildIntegrationActionButton(BuildContext context, bool connectBusy) {
+    if (provider.connectionMethod == 'user_config') {
+      return FilledButton.icon(
+        onPressed: () => _openOfficialIntegrationSetupDialog(
+          context,
+          controller,
+          provider.id,
+        ),
+        icon: const Icon(Icons.settings_rounded),
+        label: Text(
+          provider.env.configured ? 'Manage Setup' : 'Complete Setup',
+        ),
+      );
+    }
+
+    if (!provider.env.configured) {
+      return provider.env.setupMode == 'user'
+          ? FilledButton.icon(
+              onPressed: () => _openOfficialIntegrationSetupDialog(
+                context,
+                controller,
+                provider.id,
+              ),
+              icon: const Icon(Icons.settings_rounded),
+              label: const Text('Configure'),
+            )
+          : OutlinedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.settings_suggest_outlined),
+              label: const Text('Admin Setup Required'),
+            );
+    }
+
+    return FilledButton.icon(
+      onPressed: connectBusy
+          ? null
+          : () => controller.connectOfficialIntegration(
+              provider.id,
+              appId: app.id,
+            ),
+      icon: const Icon(Icons.link_rounded),
+      label: Text(
+        connectBusy
+            ? 'Connecting...'
+            : provider.supportsMultipleAccounts && app.isConnected
+            ? 'Add Account'
+            : 'Connect Account',
       ),
     );
   }

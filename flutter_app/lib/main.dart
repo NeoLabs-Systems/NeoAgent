@@ -11941,11 +11941,17 @@ class _MessagingQrPanel extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Image.network(
-        'https://api.qrserver.com/v1/create-qr-code/?data=${Uri.encodeComponent(qrState.qr)}&size=280x280',
-        width: 168,
-        height: 168,
-        fit: BoxFit.contain,
+      child: QrImageView(
+        data: qrState.qr,
+        size: 168,
+        eyeStyle: const QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: Colors.black,
+        ),
+        dataModuleStyle: const QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: Colors.black,
+        ),
       ),
     );
     final copy = Column(

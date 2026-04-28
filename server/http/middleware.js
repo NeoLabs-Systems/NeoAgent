@@ -68,9 +68,10 @@ ensureSessionStoreSchema(sessionsDb);
 
 function buildHelmetOptions({ secureCookies }) {
   const wsConnectSrc = secureCookies ? ['wss:'] : ['ws:', 'wss:'];
-  const allowUnsafeEval = boolEnv('NEOAGENT_CSP_ALLOW_UNSAFE_EVAL', true);
-  const allowExternalScriptCdn = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_SCRIPT_CDN', true);
-  const allowExternalConnect = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_CONNECT', true);
+  const isDevelopment = String(process.env.NODE_ENV || '').trim() === 'development';
+  const allowUnsafeEval = boolEnv('NEOAGENT_CSP_ALLOW_UNSAFE_EVAL', isDevelopment);
+  const allowExternalScriptCdn = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_SCRIPT_CDN', isDevelopment);
+  const allowExternalConnect = boolEnv('NEOAGENT_CSP_ALLOW_EXTERNAL_CONNECT', false);
 
   const scriptSrc = ["'self'", "'unsafe-inline'", 'blob:'];
   if (allowUnsafeEval) {
@@ -82,7 +83,7 @@ function buildHelmetOptions({ secureCookies }) {
 
   const connectSrc = ["'self'", ...wsConnectSrc];
   if (allowExternalConnect) {
-    connectSrc.push('https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://www.gstatic.com', 'https://api.qrserver.com');
+    connectSrc.push('https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://www.gstatic.com');
   }
 
   return {
@@ -106,7 +107,7 @@ function buildHelmetOptions({ secureCookies }) {
         scriptSrc,
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https://api.qrserver.com'],
+        imgSrc: ["'self'", 'data:', 'blob:'],
         mediaSrc: ["'self'", 'data:', 'blob:'],
         connectSrc,
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],

@@ -275,12 +275,14 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS integration_provider_configs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
+    agent_id TEXT,
     provider_key TEXT NOT NULL,
     config_json TEXT DEFAULT '{}',
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, provider_key)
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
+    UNIQUE(user_id, agent_id, provider_key)
   );
 
   CREATE TABLE IF NOT EXISTS browser_extension_pairing_requests (
@@ -886,6 +888,7 @@ function createAgentScopedIndexes() {
   const statements = [
     ['agent_runs', 'CREATE INDEX IF NOT EXISTS idx_agent_runs_agent ON agent_runs(user_id, agent_id, created_at DESC)'],
     ['integration_connections', 'CREATE INDEX IF NOT EXISTS idx_integration_connections_agent ON integration_connections(user_id, agent_id, provider_key, app_key)'],
+    ['integration_provider_configs', 'CREATE INDEX IF NOT EXISTS idx_integration_provider_configs_agent ON integration_provider_configs(user_id, agent_id, provider_key)'],
     ['messages', 'CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(user_id, agent_id, created_at DESC)'],
     ['conversations', 'CREATE INDEX IF NOT EXISTS idx_conversations_agent ON conversations(user_id, agent_id, updated_at DESC)'],
     ['scheduled_tasks', 'CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_agent ON scheduled_tasks(user_id, agent_id)'],
@@ -933,6 +936,7 @@ function backfillAgentIds() {
     'platform_connections',
     'mcp_servers',
     'integration_connections',
+    'integration_provider_configs',
     'integration_oauth_states',
     'scheduled_tasks',
     'conversations',
@@ -1314,6 +1318,84 @@ function migrateIntegrationOauthStatesTable() {
   `);
 }
 
+function migrateIntegrationProviderConfigsTable() {
+  if (
+    tableHasColumn('integration_provider_configs', 'agent_id') &&
+    tableHasUniqueIndex('integration_provider_configs', ['user_id', 'agent_id', 'provider_key'])
+  ) {
+    const users = db.prepare('SELECT id FROM users').all();
+    for (const user of users) {
+      const agentId = getMainAgentId(user.id);
+      db.prepare(
+        'UPDATE integration_provider_configs SET agent_id = ? WHERE user_id = ? AND agent_id IS NULL'
+      ).run(agentId, user.id);
+    }
+    return;
+  }
+
+  const rows = db
+    .prepare('SELECT * FROM integration_provider_configs ORDER BY id ASC')
+    .all();
+
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO integration_provider_configs (
+      id,
+      user_id,
+      agent_id,
+      provider_key,
+      config_json,
+      created_at,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  db.exec('BEGIN');
+  try {
+    db.exec(`
+      ALTER TABLE integration_provider_configs RENAME TO integration_provider_configs_legacy_agent_scope;
+
+      CREATE TABLE integration_provider_configs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        agent_id TEXT,
+        provider_key TEXT NOT NULL,
+        config_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
+        UNIQUE(user_id, agent_id, provider_key)
+      );
+    `);
+
+    for (const row of rows) {
+      insert.run(
+        row.id,
+        row.user_id,
+        row.agent_id || getMainAgentId(row.user_id),
+        row.provider_key,
+        row.config_json,
+        row.created_at,
+        row.updated_at,
+      );
+    }
+
+    db.exec(`
+      DROP TABLE integration_provider_configs_legacy_agent_scope;
+      CREATE INDEX IF NOT EXISTS idx_integration_provider_configs_agent
+        ON integration_provider_configs(user_id, agent_id, provider_key);
+    `);
+    db.exec('COMMIT');
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      // Ignore rollback errors and rethrow the original migration failure.
+    }
+    throw error;
+  }
+}
+
 function migrateIntegrationSecretStorage() {
   try {
     const connectionRows = db
@@ -1342,6 +1424,22 @@ function migrateIntegrationSecretStorage() {
       const current = String(row.code_verifier || '');
       if (!current || isEncryptedValue(current)) continue;
       updateState.run(encryptValue(current), row.id);
+    }
+  } catch {
+    // Preserve startup even if a row cannot be re-encrypted.
+  }
+
+  try {
+    const providerRows = db
+      .prepare('SELECT id, config_json FROM integration_provider_configs')
+      .all();
+    const updateProviderConfig = db.prepare(
+      'UPDATE integration_provider_configs SET config_json = ? WHERE id = ?',
+    );
+    for (const row of providerRows) {
+      const current = String(row.config_json || '');
+      if (!current || isEncryptedValue(current)) continue;
+      updateProviderConfig.run(encryptValue(current), row.id);
     }
   } catch {
     // Preserve startup even if a row cannot be re-encrypted.
@@ -1419,7 +1517,9 @@ rebuildPlatformConnectionsForAgents();
 rebuildCoreMemoryForAgents();
 migrateIntegrationConnectionsTable();
 migrateIntegrationOauthStatesTable();
+migrateIntegrationProviderConfigsTable();
 createAgentScopedIndexes();
+backfillAgentIds();
 migrateIntegrationSecretStorage();
 backfillVerifiedAccountEmails();
 rebuildFtsForAgents();

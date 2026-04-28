@@ -243,6 +243,8 @@ function createOAuthProvider(options = {}) {
     icon: options.icon,
     apps: apps.map(({ id, label, description }) => ({ id, label, description })),
     connectPrompt: options.connectPrompt || null,
+    supportsMultipleAccounts: options.supportsMultipleAccounts !== false,
+    connectionMethod: options.connectionMethod || 'oauth',
     getApp,
     getToolAppId(toolName) {
       return toolAppMap.get(String(toolName || '').trim()) || null;
@@ -311,15 +313,17 @@ function createOAuthProvider(options = {}) {
           0,
         ),
         connectPrompt: this.connectPrompt,
+        supportsMultipleAccounts: this.supportsMultipleAccounts,
+        connectionMethod: this.connectionMethod,
       };
     },
-    async beginOAuth({ state, codeVerifier, appKey, userId }) {
+    async beginOAuth({ state, codeVerifier, appKey, userId, agentId }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown ${this.label} app: ${appKey}`);
       }
       const normalizedState = assertValidOAuthState(state);
-      const env = this.getEnvStatus({ userId });
+      const env = this.getEnvStatus({ userId, agentId });
       if (!env.configured) {
         throw new Error(env.summary);
       }
@@ -327,11 +331,12 @@ function createOAuthProvider(options = {}) {
         state: normalizedState,
         codeVerifier,
         userId,
+        agentId,
         app,
         env,
       });
     },
-    async finishOAuth({ code, codeVerifier, appKey, userId, state }) {
+    async finishOAuth({ code, codeVerifier, appKey, userId, agentId, state }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown ${this.label} app: ${appKey}`);
@@ -341,9 +346,10 @@ function createOAuthProvider(options = {}) {
         code,
         codeVerifier,
         userId,
+        agentId,
         state: normalizedState,
         app,
-        env: this.getEnvStatus({ userId }),
+        env: this.getEnvStatus({ userId, agentId }),
       });
     },
     async disconnect(connectionRow) {
@@ -368,7 +374,10 @@ function createOAuthProvider(options = {}) {
         appId: toolAppMap.get(String(toolName || '').trim()) || connectionRow.app_key,
         connection: connectionRow,
         credentials,
-        env: this.getEnvStatus({ userId: connectionRow?.user_id }),
+        env: this.getEnvStatus({
+          userId: connectionRow?.user_id,
+          agentId: connectionRow?.agent_id,
+        }),
       });
     },
     summarizeConnection(connectionRows) {

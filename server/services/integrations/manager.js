@@ -217,6 +217,7 @@ class IntegrationManager {
       state,
       codeVerifier,
       userId,
+      agentId,
       appKey,
     });
 
@@ -288,6 +289,7 @@ class IntegrationManager {
 
     const result = await provider.finishOAuth({
       userId: stateRow.user_id,
+      agentId: stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
       state: stateRow.state,
       code: normalizedCode,
       codeVerifier: decryptValue(stateRow.code_verifier),

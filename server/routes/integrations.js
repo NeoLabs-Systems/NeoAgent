@@ -1,4 +1,5 @@
 const express = require('express');
+const QRCode = require('qrcode');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
@@ -143,6 +144,26 @@ router.get('/oauth/callback', async (req, res) => {
 
 router.use(requireAuth);
 
+router.get('/qr-image', async (req, res) => {
+  try {
+    const data = String(req.query.data || '').trim();
+    if (!data) {
+      return res.status(400).send('Missing QR data.');
+    }
+    const svg = await QRCode.toString(data, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      type: 'svg',
+      width: 320,
+    });
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    return res.send(svg);
+  } catch (err) {
+    return res.status(400).send(escapeHtml(sanitizeError(err)));
+  }
+});
+
 router.get('/:provider/connect/:sessionId', (req, res) => {
   try {
     const manager = getIntegrationManager(req);
@@ -211,7 +232,7 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
               const status = String(data.status || 'connecting');
               if (status === 'awaiting_qr' && data.qr) {
                 statusEl.textContent = 'Scan this QR code to continue linking.';
-                qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?data=' + encodeURIComponent(data.qr) + '&size=320x320';
+                qrEl.src = '/api/integrations/qr-image?data=' + encodeURIComponent(data.qr);
                 qrEl.style.display = 'block';
               } else if (status === 'connected') {
                 qrEl.style.display = 'none';

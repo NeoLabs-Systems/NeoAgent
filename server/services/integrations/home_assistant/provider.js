@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const net = require('net');
 const ipaddr = require('ipaddr.js');
+const { resolveAgentId } = require('../../agents/manager');
 const {
   describeEnvStatus,
   resolveHomeAssistantOAuthConfig,
@@ -227,10 +228,10 @@ function normalizeUserHomeAssistantConfig(rawConfig) {
   };
 }
 
-function resolveUserHomeAssistantConfig(userId) {
+function resolveUserHomeAssistantConfig(userId, agentId = null) {
   const userConfig = normalizeUserHomeAssistantConfig(
     Number.isInteger(Number(userId)) && Number(userId) > 0
-      ? getProviderConfig(Number(userId), 'home_assistant')
+      ? getProviderConfig(Number(userId), 'home_assistant', agentId)
       : {},
   );
   const envConfig = resolveHomeAssistantOAuthConfig();
@@ -253,8 +254,8 @@ function validateResolvedConfig(config) {
   };
 }
 
-function resolveHomeAssistantConfigForUser(userId) {
-  const merged = resolveUserHomeAssistantConfig(userId);
+function resolveHomeAssistantConfigForUser(userId, agentId = null) {
+  const merged = resolveUserHomeAssistantConfig(userId, agentId);
   const validatedBaseUrl = merged.baseUrl
     ? normalizeHomeAssistantBaseUrl(merged.baseUrl)
     : '';
@@ -319,26 +320,31 @@ function parseHomeAssistantConfigInput(input, existingConfig = {}) {
   };
 }
 
-function saveHomeAssistantUserConfig(userId, input) {
+function saveHomeAssistantUserConfig(userId, agentId = null, input) {
   const normalizedUserId = Number(userId);
   if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
     throw new Error('A valid user is required to save Home Assistant configuration.');
   }
+  const scopedAgentId = resolveAgentId(normalizedUserId, agentId);
   const existingConfig = normalizeUserHomeAssistantConfig(
-    getProviderConfig(normalizedUserId, 'home_assistant'),
+    getProviderConfig(normalizedUserId, 'home_assistant', scopedAgentId),
   );
   const config = parseHomeAssistantConfigInput(input, existingConfig);
-  setProviderConfig(normalizedUserId, 'home_assistant', config);
+  setProviderConfig(normalizedUserId, 'home_assistant', config, scopedAgentId);
   return sanitizeHomeAssistantUserConfigForClient(config);
 }
 
-function getHomeAssistantUserConfig(userId) {
+function getHomeAssistantUserConfig(userId, agentId = null) {
   const normalizedUserId = Number(userId);
   if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
     return sanitizeHomeAssistantUserConfigForClient({});
   }
   return sanitizeHomeAssistantUserConfigForClient(
-    getProviderConfig(normalizedUserId, 'home_assistant'),
+    getProviderConfig(
+      normalizedUserId,
+      'home_assistant',
+      resolveAgentId(normalizedUserId, agentId),
+    ),
   );
 }
 
@@ -368,7 +374,10 @@ function homeAssistantUrl(baseUrl, path, query) {
 }
 
 async function homeAssistantRequest(credentials, options = {}) {
-  const config = resolveHomeAssistantConfigForUser(options.userId);
+  const config = resolveHomeAssistantConfigForUser(
+    options.userId,
+    options.agentId,
+  );
   const accessToken = String(credentials?.access_token || '').trim();
   if (!accessToken) {
     throw new Error('Home Assistant access token is missing. Reconnect this integration account.');
@@ -394,12 +403,14 @@ async function executeHomeAssistantTool(toolName, args, { connection, credential
         result: await homeAssistantRequest(credentials, {
           path: '/api/config',
           userId: connection?.user_id,
+          agentId: connection?.agent_id,
         }),
       };
     case 'home_assistant_list_states': {
       const states = await homeAssistantRequest(credentials, {
         path: '/api/states',
         userId: connection?.user_id,
+        agentId: connection?.agent_id,
       });
       const domain = String(args.domain || '').trim().toLowerCase();
       const limit = Math.max(1, Math.min(Number(args.limit) || 100, 500));
@@ -419,6 +430,7 @@ async function executeHomeAssistantTool(toolName, args, { connection, credential
         result: await homeAssistantRequest(credentials, {
           path: `/api/states/${encodeURIComponent(requireText(args.entity_id, 'entity_id'))}`,
           userId: connection?.user_id,
+          agentId: connection?.agent_id,
         }),
       };
     case 'home_assistant_call_service':
@@ -428,6 +440,7 @@ async function executeHomeAssistantTool(toolName, args, { connection, credential
           path: `/api/services/${encodeURIComponent(requireText(args.domain, 'domain'))}/${encodeURIComponent(requireText(args.service, 'service'))}`,
           body: args.service_data || {},
           userId: connection?.user_id,
+          agentId: connection?.agent_id,
         }),
       };
     case 'home_assistant_api_request':
@@ -438,6 +451,7 @@ async function executeHomeAssistantTool(toolName, args, { connection, credential
           query: args.query,
           body: args.body,
           userId: connection?.user_id,
+          agentId: connection?.agent_id,
         }),
       };
     default:
@@ -445,9 +459,9 @@ async function executeHomeAssistantTool(toolName, args, { connection, credential
   }
 }
 
-function resolveHomeAssistantEnvStatus(userId) {
+function resolveHomeAssistantEnvStatus(userId, agentId = null) {
   try {
-    const config = resolveHomeAssistantConfigForUser(userId);
+    const config = resolveHomeAssistantConfigForUser(userId, agentId);
     return {
       configured: config.configured,
       missing: config.missing,
@@ -489,8 +503,8 @@ function stableAccountEmailLikeIdentifier(user, config) {
   return `homeassistant@${host}`;
 }
 
-async function fetchCurrentUser(token, userId) {
-  const config = resolveHomeAssistantConfigForUser(userId);
+async function fetchCurrentUser(token, userId, agentId = null) {
+  const config = resolveHomeAssistantConfigForUser(userId, agentId);
   return fetchJson(
     homeAssistantUrl(config.baseUrl, '/api/auth/current_user'),
     {
@@ -515,10 +529,10 @@ function createHomeAssistantProvider() {
     connectPrompt:
       'Connect your Home Assistant account to let the agent read entity states and control services with structured tools.',
     getEnvStatus(context = {}) {
-      return resolveHomeAssistantEnvStatus(context.userId);
+      return resolveHomeAssistantEnvStatus(context.userId, context.agentId);
     },
-    async beginOAuth({ state, codeVerifier, app, userId }) {
-      const config = resolveHomeAssistantConfigForUser(userId);
+    async beginOAuth({ state, codeVerifier, app, userId, agentId }) {
+      const config = resolveHomeAssistantConfigForUser(userId, agentId);
       const codeChallenge = String(codeChallengeForVerifier(codeVerifier));
       return {
         url: appendQuery(homeAssistantUrl(config.baseUrl, '/auth/authorize'), {
@@ -533,8 +547,8 @@ function createHomeAssistantProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, codeVerifier, app, userId }) {
-      const config = resolveHomeAssistantConfigForUser(userId);
+    async finishOAuth({ code, codeVerifier, app, userId, agentId }) {
+      const config = resolveHomeAssistantConfigForUser(userId, agentId);
       const token = await fetchJson(
         homeAssistantUrl(config.baseUrl, '/auth/token'),
         {
@@ -561,7 +575,7 @@ function createHomeAssistantProvider() {
         throw new Error('Home Assistant OAuth did not return a refresh token.');
       }
 
-      const currentUser = await fetchCurrentUser(accessToken, userId);
+      const currentUser = await fetchCurrentUser(accessToken, userId, agentId);
       const normalizedUser = normalizeCurrentUser(currentUser);
       const accountEmail = stableAccountEmailLikeIdentifier(normalizedUser, config);
 
@@ -592,18 +606,22 @@ function createHomeAssistantProvider() {
       };
     },
     executeTool: executeHomeAssistantTool,
-    getUserConfig({ userId }) {
-      return getHomeAssistantUserConfig(userId);
+    getUserConfig({ userId, agentId }) {
+      return getHomeAssistantUserConfig(userId, agentId);
     },
-    saveUserConfig({ userId, config }) {
-      return saveHomeAssistantUserConfig(userId, config);
+    saveUserConfig({ userId, agentId, config }) {
+      return saveHomeAssistantUserConfig(userId, agentId, config);
     },
-    clearUserConfig({ userId }) {
+    clearUserConfig({ userId, agentId }) {
       const normalizedUserId = Number(userId);
       if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
         throw new Error('A valid user is required to clear Home Assistant configuration.');
       }
-      deleteProviderConfig(normalizedUserId, 'home_assistant');
+      deleteProviderConfig(
+        normalizedUserId,
+        'home_assistant',
+        resolveAgentId(normalizedUserId, agentId),
+      );
       return { cleared: true };
     },
   });
