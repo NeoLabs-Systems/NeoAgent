@@ -524,6 +524,7 @@ function createHomeAssistantProvider() {
     description:
       'Official Home Assistant account connections for entity state reads, service control, and automation support.',
     icon: 'home_assistant',
+    requiresRefreshToken: true,
     apps: HOME_ASSISTANT_APPS,
     toolDefinitions: homeAssistantToolDefinitions,
     connectPrompt:

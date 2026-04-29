@@ -394,6 +394,7 @@ function createSpotifyProvider() {
     label: 'Spotify',
     description: 'Official Spotify account integration for music search and playback control.',
     icon: 'spotify',
+    requiresRefreshToken: true,
     apps: SPOTIFY_APPS,
     toolDefinitions: spotifyToolDefinitions,
     connectPrompt:

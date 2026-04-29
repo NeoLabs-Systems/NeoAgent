@@ -300,6 +300,7 @@ function createGoogleWorkspaceProvider() {
     description:
       'Official Gmail, Calendar, Drive, Docs, and Sheets integrations with app-specific accounts.',
     icon: 'google',
+    requiresRefreshToken: true,
     apps: GOOGLE_WORKSPACE_APPS.map(({ id, label, description }) => ({
       id,
       label,

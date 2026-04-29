@@ -240,6 +240,7 @@ function createFigmaProvider() {
     description:
       'Official Figma OAuth account connections for future design file and collaboration workflows.',
     icon: 'figma',
+    requiresRefreshToken: true,
     apps: FIGMA_APPS,
     toolDefinitions: figmaToolDefinitions,
     connectPrompt:

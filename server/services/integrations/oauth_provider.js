@@ -241,6 +241,7 @@ function createOAuthProvider(options = {}) {
     label: options.label,
     description: options.description,
     icon: options.icon,
+    requiresRefreshToken: options.requiresRefreshToken === true,
     apps: apps.map(({ id, label, description }) => ({ id, label, description })),
     connectPrompt: options.connectPrompt || null,
     supportsMultipleAccounts: options.supportsMultipleAccounts !== false,

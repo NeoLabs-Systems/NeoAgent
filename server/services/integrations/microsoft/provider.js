@@ -346,6 +346,7 @@ function createMicrosoftProvider() {
     description:
       'Official Microsoft 365 OAuth account connections for Outlook, Calendar, OneDrive, and Teams.',
     icon: 'microsoft',
+    requiresRefreshToken: true,
     apps: MICROSOFT_APPS,
     toolDefinitions: microsoftToolDefinitions,
     connectPrompt:

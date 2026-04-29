@@ -296,7 +296,7 @@ class TaskRuntime {
       if (normalizedConfig.callTo) {
         notifyHint = `\n\nThis task is configured to notify the user by phone. Use the make_call tool to call "${normalizedConfig.callTo}" with an appropriate greeting based on your findings. The configured greeting hint is: "${normalizedConfig.callGreeting || 'Hello, this is your task reminder.'}"`;
       } else if (normalizedConfig.notifyPlatform && normalizedConfig.notifyTo) {
-        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${normalizedConfig.notifyPlatform}" to="${normalizedConfig.notifyTo}".`;
+        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${normalizedConfig.notifyPlatform}" to="${normalizedConfig.notifyTo}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]".`;
       }
 
       const triggerPayloadText = executionMeta.triggerPayload

@@ -29,6 +29,27 @@ function isLikelyExpiredConnectionError(error) {
   ].some((hint) => message.includes(hint));
 }
 
+function assertDurableOAuthCredentials(provider, credentials) {
+  const label = String(provider?.label || 'This integration').trim() || 'This integration';
+  const normalizedCredentials =
+    credentials && typeof credentials === 'object' ? credentials : {};
+
+  if (!String(normalizedCredentials.access_token || '').trim()) {
+    throw new Error(
+      `${label} did not return an access token, so the connection could not be completed.`,
+    );
+  }
+
+  if (
+    provider?.requiresRefreshToken === true &&
+    !String(normalizedCredentials.refresh_token || '').trim()
+  ) {
+    throw new Error(
+      `${label} did not return a refresh token, so the connection would expire. Revoke the existing app grant for this provider and reconnect it so offline access is granted.`,
+    );
+  }
+}
+
 class IntegrationManager {
   constructor(options = {}) {
     this.app = options.app || null;
@@ -303,11 +324,7 @@ class IntegrationManager {
       result.accountEmail,
       result.credentials,
     );
-    if (!mergedCredentials.refresh_token) {
-      throw new Error(
-        `${provider.label} did not return a refresh token, so the connection would expire. Revoke the existing app grant for this provider and reconnect it so offline access is granted.`,
-      );
-    }
+    assertDurableOAuthCredentials(provider, mergedCredentials);
 
     db.prepare(
       `INSERT INTO integration_connections (
@@ -727,5 +744,6 @@ class IntegrationManager {
 }
 
 module.exports = {
+  assertDurableOAuthCredentials,
   IntegrationManager,
 };

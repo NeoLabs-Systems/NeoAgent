@@ -192,6 +192,54 @@ function isProactiveTrigger(triggerSource) {
     return triggerSource === 'schedule' || triggerSource === 'tasks';
 }
 
+function normalizeSendMessagePurpose(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'final_result' || normalized === 'blocker' || normalized === 'no_response') {
+        return normalized;
+    }
+    return '';
+}
+
+function validateProactiveSendMessageArgs({ purpose, normalizedMessage }) {
+    const normalizedPurpose = normalizeSendMessagePurpose(purpose);
+    if (!normalizedPurpose) {
+        return {
+            ok: false,
+            error: 'Background send_message requires purpose=final_result, blocker, or no_response.',
+            reason: 'Background send_message requires purpose=final_result, blocker, or no_response.',
+        };
+    }
+
+    if (normalizedPurpose === 'no_response') {
+        if (normalizedMessage !== '[NO RESPONSE]') {
+            return {
+                ok: false,
+                error: 'purpose=no_response requires content "[NO RESPONSE]".',
+                reason: 'purpose=no_response requires content "[NO RESPONSE]".',
+            };
+        }
+        return {
+            ok: false,
+            skipped: true,
+            suppressed: true,
+            reason: 'no_response',
+        };
+    }
+
+    if (normalizedMessage === '[NO RESPONSE]') {
+        return {
+            ok: false,
+            error: `purpose=${normalizedPurpose} cannot use content "[NO RESPONSE]".`,
+            reason: `purpose=${normalizedPurpose} cannot use content "[NO RESPONSE]".`,
+        };
+    }
+
+    return {
+        ok: true,
+        purpose: normalizedPurpose,
+    };
+}
+
 function getRunState(engine, runId) {
     if (!engine || !runId) return null;
     return engine.activeRuns.get(runId) || null;
@@ -742,14 +790,15 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'send_message',
-            description: `Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence or no reply.`,
+            description: `Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence or no reply. For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
             parameters: {
                 type: 'object',
                 properties: {
                     platform: { type: 'string', description: 'Platform name, for example whatsapp, telnyx, discord, telegram, slack, google_chat, teams, matrix, signal, imessage, bluebubbles, irc, line, mattermost, or webchat' },
                     to: { type: 'string', description: 'Recipient/chat ID for the connected platform, such as a WhatsApp chat ID, Telnyx call_control_id, Slack channel ID, Matrix room ID, Discord channel snowflake / "dm_<userId>", Telegram "dm_<userId>" / raw group chat ID, IRC channel, or webhook target' },
                     content: { type: 'string', description: 'Message text. Write one compact natural chat reply; the runtime adapts final formatting for the destination platform.' },
-                    media_path: { type: 'string', description: 'WhatsApp only: absolute path to a local file to attach. Leave empty for text-only or Telnyx.' }
+                    media_path: { type: 'string', description: 'WhatsApp only: absolute path to a local file to attach. Leave empty for text-only or Telnyx.' },
+                    purpose: { type: 'string', enum: ['final_result', 'blocker', 'no_response'], description: 'For background task or schedule runs, required intent for this outbound message. Use final_result for a concrete useful outcome, blocker for a real issue the user should know about, or no_response to intentionally send nothing.' }
                 },
                 required: ['platform', 'to', 'content']
             }
@@ -1986,6 +2035,25 @@ async function executeTool(toolName, args, context, engine) {
                 stripNoResponseMarker: false
             });
             const suppressReply = normalizedMessage === '[NO RESPONSE]';
+            if (isProactiveTrigger(triggerSource)) {
+                const proactiveValidation = validateProactiveSendMessageArgs({
+                    purpose: args.purpose,
+                    normalizedMessage,
+                });
+                if (!proactiveValidation.ok) {
+                    if (proactiveValidation.error) {
+                        return {
+                            error: proactiveValidation.error,
+                        };
+                    }
+                    return {
+                        sent: false,
+                        suppressed: proactiveValidation.suppressed === true,
+                        skipped: proactiveValidation.skipped === true,
+                        reason: proactiveValidation.reason,
+                    };
+                }
+            }
             if (!suppressReply && hasAlreadySentProactiveMessage({
                 triggerSource,
                 runState,
@@ -2701,4 +2769,4 @@ async function executeTool(toolName, args, context, engine) {
     }
 }
 
-module.exports = { getAvailableTools, executeTool };
+module.exports = { getAvailableTools, executeTool, validateProactiveSendMessageArgs };
