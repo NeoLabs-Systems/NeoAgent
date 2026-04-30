@@ -35,6 +35,7 @@ const { registerErrorHandler } = require('./http/errors');
 const { startServices, stopServices } = require('./services/manager');
 const { bindBrowserExtensionGateway } = require('./services/browser/extension/gateway');
 const { bindDesktopCompanionGateway } = require('./services/desktop/gateway');
+const { bindWearableGateway } = require('./services/wearable/gateway');
 
 function parseBooleanFlag(value, fallback = false) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -124,6 +125,7 @@ registerStaticRoutes(app);
 registerErrorHandler(app);
 bindBrowserExtensionGateway(httpServer, app);
 bindDesktopCompanionGateway(httpServer, app, sessionMiddleware);
+bindWearableGateway(httpServer, app, sessionMiddleware);
 
 let shuttingDown = false;
 let shutdownExitCode = 0;

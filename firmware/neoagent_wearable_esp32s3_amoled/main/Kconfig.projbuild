@@ -1,0 +1,10 @@
+menu "NeoAgent Wearable Configuration"
+
+    config ESP_ENABLE_DHCP_CAPTIVEPORTAL
+        bool "Enable DHCP captive portal URI"
+        default y
+        help
+            Advertise the wearable setup page through DHCP option 114 so phones can
+            open the portal automatically after joining the setup hotspot.
+
+endmenu

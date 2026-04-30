@@ -34,11 +34,17 @@ class VoiceRuntimeManager {
     return this.sessions.get(String(sessionId || '').trim()) || null;
   }
 
-  async openFlutterSession({ userId, agentId = null, socket, sessionId = null } = {}) {
-    if (!socket) {
-      throw new Error('Socket is required to open a Flutter voice session.');
+  async openSession({
+    userId,
+    agentId = null,
+    sessionId = null,
+    platform = 'voice_live',
+    sink,
+    outputMode = 'audio_and_text',
+  } = {}) {
+    if (!sink) {
+      throw new Error('A voice session sink is required.');
     }
-
     const voiceSettings = getVoiceRuntimeSettings(userId, agentId);
     const liveProviderRuntime = this.#getProviderRuntime(
       userId,
@@ -53,16 +59,37 @@ class VoiceRuntimeManager {
       id: resolvedSessionId,
       userId,
       agentId,
-      platform: 'voice_live',
+      platform,
       voiceSettings: {
         ...voiceSettings,
         liveApiKey: liveProviderRuntime.apiKey,
         liveBaseUrl: liveProviderRuntime.baseUrl,
       },
+      sink,
+      outputMode,
+    });
+
+    session.adapter = adapter;
+    this.sessions.set(resolvedSessionId, session);
+    await session.publishReady();
+    return session;
+  }
+
+  async openFlutterSession({ userId, agentId = null, socket, sessionId = null } = {}) {
+    if (!socket) {
+      throw new Error('Socket is required to open a Flutter voice session.');
+    }
+    return this.openSession({
+      userId,
+      agentId,
+      sessionId,
+      platform: 'voice_live',
+      outputMode: 'audio_and_text',
       sink: {
         publishReady: async (_session, extra = {}) => {
+          const voiceSettings = getVoiceRuntimeSettings(userId, agentId);
           socket.emit('voice:session_ready', {
-            sessionId: resolvedSessionId,
+            sessionId: String(sessionId || _session.id).trim(),
             runtimeMode: voiceSettings.runtimeMode,
             provider: voiceSettings.liveProvider,
             model: voiceSettings.liveModel,
@@ -72,52 +99,58 @@ class VoiceRuntimeManager {
         },
         setState: async (_session, state, extra = {}) => {
           socket.emit('voice:assistant_state', {
-            sessionId: resolvedSessionId,
+            sessionId: _session.id,
             state,
             ...extra,
           });
         },
         publishTranscriptPartial: async (_session, content) => {
           socket.emit('voice:transcript_partial', {
-            sessionId: resolvedSessionId,
+            sessionId: _session.id,
             content,
           });
         },
         publishTranscriptFinal: async (_session, content) => {
           socket.emit('voice:transcript_final', {
-            sessionId: resolvedSessionId,
+            sessionId: _session.id,
             content,
           });
         },
         publishAssistantOutput: async (_session, content, options = {}) => {
-          await this.#deliverFlutterAssistantOutput(socket, resolvedSessionId, session, content, options);
+          await this.#deliverFlutterAssistantOutput(socket, _session.id, _session, content, options);
         },
-        interruptOutput: async () => {
+        interruptOutput: async (_session) => {
           socket.emit('voice:assistant_state', {
-            sessionId: resolvedSessionId,
+            sessionId: _session.id,
             state: 'interrupted',
           });
         },
         publishError: async (_session, message, extra = {}) => {
           socket.emit('voice:error', {
-            sessionId: resolvedSessionId,
+            sessionId: _session.id,
             error: message,
             ...extra,
           });
         },
-        close: async () => {
+        close: async (_session) => {
           socket.emit('voice:assistant_state', {
-            sessionId: resolvedSessionId,
+            sessionId: _session.id,
             state: 'closed',
           });
         },
       },
     });
+  }
 
-    session.adapter = adapter;
-    this.sessions.set(resolvedSessionId, session);
-    await session.publishReady();
-    return session;
+  async openWearableSession({ userId, agentId = null, sessionId = null, sink } = {}) {
+    return this.openSession({
+      userId,
+      agentId,
+      sessionId,
+      platform: 'wearable_live',
+      outputMode: 'audio_and_text',
+      sink,
+    });
   }
 
   async closeSession(sessionId, reason = 'closed') {
@@ -482,6 +515,88 @@ class VoiceRuntimeManager {
         recoverable: true,
         phase: 'tts',
       });
+      await session.setState('degraded', { kind, phase: 'tts' });
+    }
+
+    if (kind === 'final' && !streamError) {
+      await session.setState('idle');
+    }
+  }
+
+  async deliverWearableAssistantOutput(ws, sessionId, content, options = {}) {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      return;
+    }
+    const kind = String(options.kind || 'final').trim() || 'final';
+    ws.send(JSON.stringify({
+      type: 'voice:assistant_text',
+      sessionId,
+      content,
+      kind,
+    }));
+
+    if (kind === 'final') {
+      await session.setState('speaking', { kind });
+    }
+
+    const voiceOptions = normalizeVoiceSynthesisOptions({
+      provider: session.voiceSettings?.liveProvider,
+      model: session.voiceSettings?.liveTtsModel,
+      voice: session.voiceSettings?.liveVoice,
+    });
+    const spokenContent = sanitizeSpeechText(content);
+    let index = 0;
+    let streamError = null;
+    const ttsAttempts = this.#buildTtsAttemptOrder(session, voiceOptions);
+
+    if (spokenContent) {
+      try {
+        for (const attempt of ttsAttempts) {
+          index = 0;
+          streamError = null;
+          try {
+            await synthesizeVoiceReplyStream(
+              spokenContent,
+              attempt,
+              async ({ audioBytes, mimeType }) => {
+                if (session.closed || session.interrupted) return;
+                ws.send(JSON.stringify({
+                  type: 'voice:audio_chunk',
+                  sessionId,
+                  kind,
+                  index,
+                  audioBase64: audioBytes.toString('base64'),
+                  mimeType,
+                }));
+                index += 1;
+              },
+            );
+            break;
+          } catch (error) {
+            streamError = String(error?.message || error || 'Voice playback failed.');
+          }
+        }
+      } catch (error) {
+        streamError = String(error?.message || error || 'Voice playback failed.');
+      }
+    }
+
+    if (!streamError && !session.closed && !session.interrupted) {
+      ws.send(JSON.stringify({
+        type: 'voice:audio_done',
+        sessionId,
+        kind,
+        totalChunks: index,
+      }));
+    } else if (kind === 'final' && !session.closed && !session.interrupted) {
+      ws.send(JSON.stringify({
+        type: 'voice:error',
+        sessionId,
+        error: streamError,
+        recoverable: true,
+        phase: 'tts',
+      }));
       await session.setState('degraded', { kind, phase: 'tts' });
     }
 

@@ -25,6 +25,7 @@ const { BrowserExtensionRegistry } = require('./browser/extension/registry');
 const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
 const { ScreenRecorder } = require('./desktop/screenRecorder');
+const { WearableService } = require('./wearable/service');
 const { assertRuntimeValidation, getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
@@ -429,6 +430,16 @@ function createWidgetService(app) {
   return widgetService;
 }
 
+function createWearableService(app) {
+  const wearableService = registerLocal(
+    app,
+    'wearableService',
+    new WearableService({ app }),
+  );
+  logServiceReady('Wearable service ready');
+  return wearableService;
+}
+
 function createScreenRecorder(app) {
   const hasActiveRemoteCaptureSession = () => {
     const desktopRegistry = app.locals.desktopCompanionRegistry;
@@ -550,6 +561,7 @@ async function startServices(app, io) {
     const messagingManager = createMessagingManager(app, io, agentEngine);
     const recordingManager = createRecordingManager(app, io);
     createWidgetService(app);
+    createWearableService(app);
     createScreenRecorder(app);
 
     restoreMessagingConnections(messagingManager);
@@ -610,6 +622,14 @@ async function stopServices(app) {
     tasks.push(
       app.locals.browserController.closeBrowser().catch((err) => {
         console.error('[Browser] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (app.locals.wearableGateway?.close) {
+    tasks.push(
+      app.locals.wearableGateway.close().catch((err) => {
+        console.error('[WearableGateway] Shutdown error:', getErrorMessage(err));
       }),
     );
   }
