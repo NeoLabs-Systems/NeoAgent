@@ -296,6 +296,8 @@ class MeshtasticConnection extends EventEmitter {
     this._configured = false;
     this._closing = false;
     this._nodeUsers = new Map();
+    // Prevent 'error' events with no listener from crashing the process
+    this.on('error', () => {});
   }
 
   get myNodeNum() { return this._myNodeNum; }
@@ -353,12 +355,13 @@ class MeshtasticConnection extends EventEmitter {
         const msg = decodeFromRadio(payload);
         this._handleFromRadio(msg);
       } catch (err) {
-        this.emit('error', err);
+        // Bad packet from the mesh — log and skip, don't crash
+        console.warn('[Meshtastic] Decode error (skipping packet):', err.message);
       }
     });
 
     socket.on('data', parser);
-    socket.on('error', () => this._onDisconnected('socket-error'));
+    socket.on('error', (err) => this._onDisconnected(`socket-error: ${err.message}`))
     socket.on('end', () => this._onDisconnected('socket-end'));
     socket.on('close', () => this._onDisconnected('socket-closed'));
     socket.on('timeout', () => {
