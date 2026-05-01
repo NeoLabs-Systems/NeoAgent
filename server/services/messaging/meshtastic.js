@@ -2,6 +2,7 @@
 
 const { BasePlatform } = require('./base');
 const { readMeshtasticEnabled } = require('./meshtastic_env');
+const { MeshtasticTcpTransport } = require('./meshtastic_tcp_transport');
 
 const DEFAULT_TCP_PORT = 4403;
 const DEFAULT_CHANNEL = 0;
@@ -48,14 +49,25 @@ function parseChannel(value) {
 
 async function loadMeshtasticModules() {
   if (!meshtasticModulesPromise) {
-    meshtasticModulesPromise = Promise.all([
-      import('@meshtastic/core'),
-      import('@meshtastic/transport-node'),
-    ]).then(([core, transport]) => ({
+    meshtasticModulesPromise = import('@meshtastic/core').then((core) => ({
       MeshDevice: core.MeshDevice,
       Types: core.Types,
-      TransportNode: transport.TransportNode,
-    }));
+      createTransport: (hostname, port, timeout) =>
+        MeshtasticTcpTransport.create(core, hostname, port, timeout),
+    })).catch((error) => {
+      meshtasticModulesPromise = null;
+      const message = String(error?.message || error || '');
+      if (
+        error?.code === 'ERR_MODULE_NOT_FOUND'
+        || /Cannot find package '@meshtastic\/core'/.test(message)
+        || /Cannot find module '@meshtastic\/core'/.test(message)
+      ) {
+        throw new Error(
+          'Meshtastic support is not installed. Install @meshtastic/core or disable the Meshtastic integration.'
+        );
+      }
+      throw error;
+    });
   }
   return meshtasticModulesPromise;
 }
@@ -127,7 +139,7 @@ class MeshtasticPlatform extends BasePlatform {
     const modules = await loadMeshtasticModules();
     this._modules = modules;
 
-    const transport = await modules.TransportNode.create(this.host, this.port, 60000);
+    const transport = await modules.createTransport(this.host, this.port, 60000);
     this._transport = transport;
 
     const device = new modules.MeshDevice(transport);
