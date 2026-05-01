@@ -31,6 +31,7 @@ static const char *TAG = "NeoAgentWearable";
 #define NEOAGENT_TOUCH_SCREEN_HEIGHT 448
 #define NEOAGENT_WIDGET_REFRESH_INTERVAL_MS 60000
 #define NEOAGENT_CHROME_REFRESH_INTERVAL_MS 5000
+#define NEOAGENT_IDLE_TIMEOUT_MS 180000
 #define NEOAGENT_NAV_TOP_Y 360
 #define NEOAGENT_NAV_ASSISTANT_MAX_X 92
 #define NEOAGENT_NAV_WIDGETS_MAX_X 184
@@ -554,9 +555,18 @@ static void stop_recording_if_needed(const char *stop_reason) {
     }
 }
 
+static void enter_sleep_due_to_idle(const wearable_voice_snapshot_t *voice_snapshot) {
+    if (voice_snapshot != NULL && voice_snapshot->recording) {
+        wearable_voice_client_stop_ptt(&s_voice_client);
+    }
+    stop_recording_if_needed("sleep");
+    esp_deep_sleep_start();
+}
+
 static void run_assistant_shell(const neoagent_device_config_t *device_config, neoagent_session_state_t *session_state, const char *wearable_ws_url) {
     TickType_t last_widget_refresh = 0;
     TickType_t last_chrome_refresh = 0;
+    TickType_t last_interaction = xTaskGetTickCount();
     size_t widget_index = 0;
     esp_err_t last_widget_status = ESP_ERR_NOT_FOUND;
     board_touch_event_t touch_event = {0};
@@ -567,6 +577,8 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
     settings_view_t settings_view = SETTINGS_VIEW_ROOT;
     bool settings_show_reset = false;
     bool boot_voice_hold_active = false;
+    bool charging = false;
+    bool idle_boot_screen_visible = false;
 
     if (wearable_ws_url != NULL && wearable_ws_url[0] != '\0') {
         esp_err_t voice_err = wearable_voice_client_init(
@@ -582,6 +594,10 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
     }
     ESP_ERROR_CHECK(screen_router_navigate(&s_router, NEOAGENT_SCREEN_ASSISTANT));
     update_power_chrome();
+    const neoagent_status_chrome_t *initial_power_status = power_manager_get_status(&s_power_manager);
+    charging = initial_power_status != NULL && initial_power_status->charging;
+    last_interaction = xTaskGetTickCount();
+    vTaskDelay(pdMS_TO_TICKS(1500));
     wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
     background_recording_client_snapshot(&s_recording_client, &recording_snapshot);
     render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
@@ -597,6 +613,8 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
         background_recording_client_snapshot(&s_recording_client, &recording_snapshot);
         if (last_chrome_refresh == 0 || now - last_chrome_refresh >= pdMS_TO_TICKS(NEOAGENT_CHROME_REFRESH_INTERVAL_MS)) {
             bool chrome_changed = update_power_chrome();
+            const neoagent_status_chrome_t *power_status = power_manager_get_status(&s_power_manager);
+            charging = power_status != NULL && power_status->charging;
             static char last_time_label[8] = "--:--";
             char next_time_label[8] = {0};
             format_time_label(next_time_label, sizeof(next_time_label));
@@ -604,12 +622,13 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 snprintf(last_time_label, sizeof(last_time_label), "%s", next_time_label);
                 chrome_changed = true;
             }
-            if (chrome_changed || current_tab == SHELL_TAB_RECORDING || (current_tab == SHELL_TAB_ASSISTANT && background_recording_client_is_active(&s_recording_client))) {
+            if (!idle_boot_screen_visible && (chrome_changed || current_tab == SHELL_TAB_RECORDING || (current_tab == SHELL_TAB_ASSISTANT && background_recording_client_is_active(&s_recording_client))) ) {
                 render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
             }
             last_chrome_refresh = now;
         }
         wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
+
         if (last_widget_refresh == 0 || now - last_widget_refresh >= pdMS_TO_TICKS(NEOAGENT_WIDGET_REFRESH_INTERVAL_MS)) {
             ESP_LOGI(TAG, "refreshing widgets");
             esp_err_t refresh_err = widget_repository_refresh(&s_widgets, device_config->server_url, session_state);
@@ -622,12 +641,15 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             } else {
                 ESP_LOGW(TAG, "widget refresh failed: %s", esp_err_to_name(refresh_err));
             }
-            render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+            if (!idle_boot_screen_visible) {
+                render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+            }
             last_widget_refresh = now;
         }
 
         if (board_support_poll_touch(&s_board, &touch_event) == ESP_OK &&
             (touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down)) {
+            last_interaction = now;
             ESP_LOGI(
                 TAG,
                 "touch event x=%u y=%u pressed=%d released=%d tapped=%d swipe_up=%d swipe_down=%d",
@@ -639,6 +661,11 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 touch_event.swipe_up,
                 touch_event.swipe_down
             );
+            if (idle_boot_screen_visible) {
+                idle_boot_screen_visible = false;
+                render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+                continue;
+            }
             if (touch_event.pressed && touch_event.y >= NEOAGENT_NAV_TOP_Y) {
                 if (current_tab == SHELL_TAB_SETTINGS && settings_view != SETTINGS_VIEW_ROOT && !settings_show_reset) {
                     settings_view = SETTINGS_VIEW_ROOT;
@@ -760,10 +787,25 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
         }
 
         if (board_support_poll_buttons(&s_board, &button_event) == ESP_OK) {
+            if (button_event.power_pressed || button_event.power_released || button_event.power_short_press || button_event.power_long_press || button_event.boot_pressed || button_event.boot_released || button_event.boot_short_press || button_event.boot_long_press) {
+                last_interaction = now;
+            }
+            if (idle_boot_screen_visible) {
+                idle_boot_screen_visible = false;
+                render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+                continue;
+            }
             if (button_event.power_long_press) {
-                ESP_LOGI(TAG, "power long press -> deep sleep");
-                stop_recording_if_needed("sleep");
-                esp_deep_sleep_start();
+                ESP_LOGI(TAG, "power long press -> %s", charging ? "charging standby" : "deep sleep");
+                if (charging) {
+                    if (!idle_boot_screen_visible) {
+                        ESP_ERROR_CHECK(board_support_show_boot_screen(&s_board));
+                        idle_boot_screen_visible = true;
+                        last_interaction = now;
+                    }
+                } else {
+                    enter_sleep_due_to_idle(&voice_snapshot);
+                }
             } else if (button_event.power_short_press) {
                 current_tab = (shell_tab_t)((current_tab + 1) % 4);
                 ESP_LOGI(TAG, "power short press -> tab=%d", (int)current_tab);
@@ -804,6 +846,26 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
             } else if (button_event.boot_long_press) {
                 ESP_LOGI(TAG, "boot long press tab=%d", (int)current_tab);
+            }
+        }
+
+        const bool touch_activity = touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down;
+        const bool button_activity = button_event.power_pressed || button_event.power_released || button_event.power_short_press || button_event.power_long_press || button_event.boot_pressed || button_event.boot_released || button_event.boot_short_press || button_event.boot_long_press;
+
+        if (touch_activity || button_activity) {
+            last_interaction = now;
+            if (idle_boot_screen_visible) {
+                idle_boot_screen_visible = false;
+                render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+            }
+        } else if (now - last_interaction >= pdMS_TO_TICKS(NEOAGENT_IDLE_TIMEOUT_MS)) {
+            if (charging) {
+                if (!idle_boot_screen_visible) {
+                    ESP_ERROR_CHECK(board_support_show_boot_screen(&s_board));
+                    idle_boot_screen_visible = true;
+                }
+            } else {
+                enter_sleep_due_to_idle(&voice_snapshot);
             }
         }
         vTaskDelay(pdMS_TO_TICKS(80));

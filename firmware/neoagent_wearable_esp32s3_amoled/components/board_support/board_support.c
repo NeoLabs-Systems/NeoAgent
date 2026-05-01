@@ -28,6 +28,7 @@
 #include "freertos/task.h"
 #include "lvgl.h"
 #include "extra/libs/qrcode/lv_qrcode.h"
+#include "extra/widgets/spinner/lv_spinner.h"
 
 static const char *TAG = "BoardSupport";
 
@@ -751,7 +752,7 @@ static esp_err_t board_parse_wav(const uint8_t *wav_bytes, size_t wav_length, bo
     return ESP_OK;
 }
 
-static void board_create_default_screen(void) {
+static void board_create_status_screen(void) {
     lv_obj_t *screen = lv_obj_create(NULL);
     board_style_base_screen(screen);
     board_create_header(screen, "SETUP");
@@ -781,6 +782,77 @@ static void board_create_default_screen(void) {
     lv_obj_align(s_runtime.line2_label, LV_ALIGN_TOP_MID, 0, 278);
 
     s_runtime.screen = screen;
+    s_runtime.qr_code = NULL;
+    s_runtime.qr_screen_active = false;
+    board_load_screen(screen, LV_SCR_LOAD_ANIM_FADE_ON);
+}
+
+static void board_create_boot_screen(void) {
+    lv_obj_t *screen = lv_obj_create(NULL);
+    board_style_base_screen(screen);
+
+    lv_obj_t *ambient_glow = lv_obj_create(screen);
+    lv_obj_set_size(ambient_glow, 340, 340);
+    lv_obj_align(ambient_glow, LV_ALIGN_TOP_LEFT, -92, -78);
+    lv_obj_set_style_radius(ambient_glow, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(ambient_glow, lv_color_hex(0xd2ab62), 0);
+    lv_obj_set_style_bg_opa(ambient_glow, (lv_opa_t)22, 0);
+    lv_obj_set_style_border_width(ambient_glow, 0, 0);
+    lv_obj_set_style_shadow_width(ambient_glow, 88, 0);
+    lv_obj_set_style_shadow_opa(ambient_glow, (lv_opa_t)22, 0);
+    lv_obj_set_style_shadow_color(ambient_glow, lv_color_hex(0xd2ab62), 0);
+    lv_obj_clear_flag(ambient_glow, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *secondary_glow = lv_obj_create(screen);
+    lv_obj_set_size(secondary_glow, 220, 220);
+    lv_obj_align(secondary_glow, LV_ALIGN_CENTER, 0, -14);
+    lv_obj_set_style_radius(secondary_glow, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(secondary_glow, lv_color_hex(0x78b6a9), 0);
+    lv_obj_set_style_bg_opa(secondary_glow, LV_OPA_10, 0);
+    lv_obj_set_style_border_width(secondary_glow, 0, 0);
+    lv_obj_set_style_shadow_width(secondary_glow, 42, 0);
+    lv_obj_set_style_shadow_opa(secondary_glow, (lv_opa_t)18, 0);
+    lv_obj_set_style_shadow_color(secondary_glow, lv_color_hex(0x78b6a9), 0);
+    lv_obj_clear_flag(secondary_glow, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *badge = lv_obj_create(screen);
+    lv_obj_set_size(badge, 46, 46);
+    lv_obj_align(badge, LV_ALIGN_CENTER, 0, -46);
+    lv_obj_set_style_radius(badge, 14, 0);
+    lv_obj_set_style_bg_color(badge, lv_color_hex(0xd29e47), 0);
+    lv_obj_set_style_border_width(badge, 1, 0);
+    lv_obj_set_style_border_color(badge, lv_color_hex(0xb68f4f), 0);
+    lv_obj_set_style_shadow_width(badge, 18, 0);
+    lv_obj_set_style_shadow_opa(badge, (lv_opa_t)25, 0);
+    lv_obj_set_style_shadow_color(badge, lv_color_hex(0x000000), 0);
+    lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *title_label = lv_label_create(screen);
+    lv_obj_set_style_text_font(title_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(title_label, lv_color_hex(0xf0e7db), 0);
+    lv_label_set_text(title_label, "NeoOS");
+    lv_obj_align(title_label, LV_ALIGN_CENTER, 0, 8);
+
+    lv_obj_t *spinner = lv_spinner_create(screen, 1200, 70);
+    lv_obj_set_size(spinner, 30, 30);
+    lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 56);
+    lv_obj_set_style_arc_width(spinner, 4, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(spinner, lv_color_hex(0xd2ab62), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(spinner, 4, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(spinner, lv_color_hex(0xf1d39d), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_opa(spinner, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_arc_opa(spinner, LV_OPA_COVER, LV_PART_INDICATOR);
+
+    lv_obj_t *subtitle_label = lv_label_create(screen);
+    lv_obj_set_style_text_font(subtitle_label, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(subtitle_label, lv_color_hex(0xbfc6c0), 0);
+    lv_label_set_text(subtitle_label, "Loading NeoOS");
+    lv_obj_align(subtitle_label, LV_ALIGN_CENTER, 0, 92);
+
+    s_runtime.screen = screen;
+    s_runtime.title_label = NULL;
+    s_runtime.line1_label = NULL;
+    s_runtime.line2_label = NULL;
     s_runtime.qr_code = NULL;
     s_runtime.qr_screen_active = false;
     board_load_screen(screen, LV_SCR_LOAD_ANIM_FADE_ON);
@@ -1418,7 +1490,7 @@ esp_err_t board_support_init(board_support_t *board) {
     xTaskCreate(board_lvgl_task, "neo_lvgl", BOARD_LVGL_TASK_STACK_SIZE, NULL, 2, NULL);
 
     if (board_lock(-1)) {
-        board_create_default_screen();
+        board_create_boot_screen();
         board_unlock();
     }
 
@@ -1467,10 +1539,22 @@ esp_err_t board_support_show_message(board_support_t *board, const char *title, 
     if (!board_lock(1000)) {
         return ESP_ERR_TIMEOUT;
     }
-    board_create_default_screen();
+    board_create_status_screen();
     lv_label_set_text(s_runtime.title_label, title != NULL ? title : "");
     lv_label_set_text(s_runtime.line1_label, line1 != NULL ? line1 : "");
     lv_label_set_text(s_runtime.line2_label, line2 != NULL ? line2 : "");
+    board_unlock();
+    return ESP_OK;
+}
+
+esp_err_t board_support_show_boot_screen(board_support_t *board) {
+    if (board == NULL || !s_runtime.initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (!board_lock(1000)) {
+        return ESP_ERR_TIMEOUT;
+    }
+    board_create_boot_screen();
     board_unlock();
     return ESP_OK;
 }
