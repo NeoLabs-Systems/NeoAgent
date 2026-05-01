@@ -8,6 +8,7 @@
 #define NEOAGENT_DEVICE_LABEL_MAX 64
 #define NEOAGENT_WIFI_SSID_MAX 64
 #define NEOAGENT_WIFI_PASSWORD_MAX 64
+#define NEOAGENT_WIFI_NETWORK_MAX 4
 #define NEOAGENT_SESSION_COOKIE_MAX 512
 #define NEOAGENT_QR_CHALLENGE_ID_MAX 96
 #define NEOAGENT_QR_TOKEN_MAX 160
@@ -20,6 +21,7 @@
 #define NEOAGENT_VOICE_SESSION_ID_MAX 96
 #define NEOAGENT_VOICE_TURN_ID_MAX 96
 #define NEOAGENT_WS_URL_MAX 256
+#define NEOAGENT_FIRMWARE_CHANNEL_MAX 16
 
 typedef enum {
     NEOAGENT_SCREEN_ASSISTANT = 0,
@@ -31,10 +33,21 @@ typedef enum {
 } neoagent_screen_id_t;
 
 typedef struct {
+    char ssid[NEOAGENT_WIFI_SSID_MAX];
+    char password[NEOAGENT_WIFI_PASSWORD_MAX];
+    uint8_t channel;
+    uint8_t bssid[6];
+} neoagent_wifi_network_t;
+
+typedef struct {
     char wifi_ssid[NEOAGENT_WIFI_SSID_MAX];
     char wifi_password[NEOAGENT_WIFI_PASSWORD_MAX];
     char server_url[NEOAGENT_SERVER_URL_MAX];
     char device_label[NEOAGENT_DEVICE_LABEL_MAX];
+    uint8_t wifi_channel;
+    uint8_t wifi_bssid[6];
+    neoagent_wifi_network_t wifi_networks[NEOAGENT_WIFI_NETWORK_MAX];
+    uint8_t wifi_network_count;
 } neoagent_device_config_t;
 
 typedef struct {
@@ -75,3 +88,7 @@ typedef struct {
     bool wifi_connected;
     bool paired;
 } neoagent_status_chrome_t;
+
+typedef struct {
+    char channel[NEOAGENT_FIRMWARE_CHANNEL_MAX];
+} neoagent_firmware_update_settings_t;

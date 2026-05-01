@@ -6,31 +6,45 @@ const { sanitizeError } = require('../utils/security');
 
 const router = express.Router();
 
-router.use(requireAuth);
-
 function wearableService(req) {
   return req.app?.locals?.wearableService || null;
 }
 
-router.get('/bootstrap', (req, res) => {
+// Intentionally public so an already-provisioned wearable can sync local time
+// before the user finishes session-based pairing on the device.
+router.get('/timezone', (req, res) => {
   try {
     const service = wearableService(req);
     if (!service) {
       return res.status(500).json({ error: 'Wearable service unavailable.' });
     }
-    res.json(service.buildBootstrap(req));
+    res.json(service.buildTimeConfig(req));
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }
 });
 
-router.get('/firmware/manifest', (req, res) => {
+router.use(requireAuth);
+
+router.get('/bootstrap', async (req, res) => {
   try {
     const service = wearableService(req);
     if (!service) {
       return res.status(500).json({ error: 'Wearable service unavailable.' });
     }
-    res.json(service.buildFirmwareManifest(req));
+    res.json(await service.buildBootstrap(req));
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/firmware/manifest', async (req, res) => {
+  try {
+    const service = wearableService(req);
+    if (!service) {
+      return res.status(500).json({ error: 'Wearable service unavailable.' });
+    }
+    res.json(await service.buildFirmwareManifest(req));
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }

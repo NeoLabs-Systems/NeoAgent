@@ -9,6 +9,7 @@ const { WhatsAppPlatform } = require('./whatsapp');
 const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
 const { TelegramPlatform } = require('./telegram');
+const { MeshtasticPlatform } = require('./meshtastic');
 const {
   SlackPlatform,
   GoogleChatPlatform,
@@ -34,6 +35,7 @@ const {
   classifyRecentTarget,
 } = require('./access_policy');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
+const { readMeshtasticEnabled } = require('./meshtastic_env');
 
 const LEGACY_WHATSAPP_AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 
@@ -78,6 +80,7 @@ class MessagingManager extends EventEmitter {
       feishu: createGenericPlatformClass('feishu'),
       line: LinePlatform,
       mattermost: MattermostPlatform,
+      meshtastic: MeshtasticPlatform,
       nextcloud_talk: createGenericPlatformClass('nextcloud_talk'),
       nostr: createGenericPlatformClass('nostr'),
       synology_chat: createGenericPlatformClass('synology_chat'),
@@ -302,6 +305,9 @@ class MessagingManager extends EventEmitter {
     config.accessPolicy = this._loadAccessPolicy(userId, agentId, platformName);
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
+    if (platformName === 'meshtastic' && !readMeshtasticEnabled()) {
+      throw new Error('Meshtastic is disabled by environment configuration');
+    }
 
     if (platformName === 'whatsapp' && !config.authDir) {
       config.authDir = this._scopedPlatformAuthDir(userId, agentId, platformName);
@@ -545,6 +551,14 @@ class MessagingManager extends EventEmitter {
 
   getPlatformStatus(userId, platformName, options = {}) {
     const agentId = this._agentId(userId, options);
+    if (platformName === 'meshtastic' && !readMeshtasticEnabled()) {
+      return {
+        status: 'disabled',
+        authInfo: {
+          label: 'Disabled in env',
+        },
+      };
+    }
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
     if (!platform) {
@@ -562,7 +576,21 @@ class MessagingManager extends EventEmitter {
     const connections = db.prepare('SELECT platform, status, last_connected, agent_id FROM platform_connections WHERE user_id = ? AND agent_id = ?').all(userId, agentId);
     const statuses = {};
 
+    if (!readMeshtasticEnabled()) {
+      statuses.meshtastic = {
+        status: 'disabled',
+        agentId,
+        lastConnected: null,
+        authInfo: {
+          label: 'Disabled in env',
+        },
+      };
+    }
+
     for (const conn of connections) {
+      if (conn.platform === 'meshtastic' && !readMeshtasticEnabled()) {
+        continue;
+      }
       const key = this._key(userId, agentId, conn.platform);
       const platform = this.platforms.get(key);
       statuses[conn.platform] = {
@@ -616,6 +644,11 @@ class MessagingManager extends EventEmitter {
     ).all();
     for (const row of rows) {
       try {
+        if (row.platform === 'meshtastic' && !readMeshtasticEnabled()) {
+          db.prepare("UPDATE platform_connections SET status = 'disabled' WHERE user_id = ? AND agent_id = ? AND platform = ?")
+            .run(row.user_id, row.agent_id, row.platform);
+          continue;
+        }
         const config = this._decodeStoredConfig(row.config);
         console.log(`[Messaging] Restoring ${row.platform} for user ${row.user_id} agent ${row.agent_id || 'main'}`);
         await this.connectPlatform(row.user_id, row.platform, config, { agentId: row.agent_id });
@@ -625,6 +658,22 @@ class MessagingManager extends EventEmitter {
           .run(row.user_id, row.agent_id, row.platform);
       }
     }
+  }
+
+  async updateMeshtasticEnabled(enabled) {
+    if (enabled) return;
+    const disconnects = [];
+    for (const [key, platform] of this.platforms.entries()) {
+      if (!key.endsWith(':meshtastic')) continue;
+      disconnects.push(
+        Promise.resolve(platform.disconnect()).catch(() => {}).then(() => {
+          this.platforms.delete(key);
+        })
+      );
+    }
+    await Promise.all(disconnects);
+    db.prepare("UPDATE platform_connections SET status = 'disabled' WHERE platform = 'meshtastic'")
+      .run();
   }
 
   async shutdown() {

@@ -37,6 +37,12 @@ const DEFAULT_GEMINI_TRANSCRIPTION_PROMPT =
   'Transcribe this audio verbatim. Return only the transcript text.';
 const EMOJI_SPEECH_REGEX =
   /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Regional_Indicator}\u200D\uFE0F\u20E3]/gu;
+const WEARABLE_SAFE_AUDIO_FORMAT = Object.freeze({
+  responseFormat: 'wav',
+  mimeType: 'audio/wav',
+  deepgramEncoding: 'linear16',
+  deepgramContainer: 'wav',
+});
 
 function withTimeout(promise, timeoutMs, label) {
   const normalizedTimeout = Number(timeoutMs);
@@ -139,7 +145,14 @@ function normalizeVoiceSynthesisOptions(options = {}) {
     provider,
     model: resolveTtsModel(provider, options.model),
     voice: resolveTtsVoice(provider, options.voice),
+    responseFormat: String(options.responseFormat || '').trim().toLowerCase(),
+    transport: String(options.transport || '').trim().toLowerCase(),
   };
+}
+
+function resolveWearableSafeAudioOptions(options = {}) {
+  return String(options.transport || '').trim().toLowerCase() === 'wearable'
+    || String(options.responseFormat || '').trim().toLowerCase() === 'wav';
 }
 
 function requireApiKey(settingLabel, candidates = []) {
@@ -342,10 +355,15 @@ async function synthesizeWithOpenAi(text, model, voice, options = {}) {
   if (!client) {
     throw new Error('OpenAI TTS is selected but OPENAI_API_KEY is not configured.');
   }
-  const audioBytes = await synthesizeSpeechBuffer(client, text, { model, voice });
+  const useWearableSafeAudio = resolveWearableSafeAudioOptions(options);
+  const audioBytes = await synthesizeSpeechBuffer(client, text, {
+    model,
+    voice,
+    responseFormat: useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.responseFormat : 'mp3',
+  });
   return {
     audioBytes,
-    mimeType: 'audio/mpeg',
+    mimeType: useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.mimeType : 'audio/mpeg',
   };
 }
 
@@ -357,25 +375,37 @@ async function streamWithOpenAi(text, model, voice, options = {}, onChunk) {
   if (!client) {
     throw new Error('OpenAI TTS is selected but OPENAI_API_KEY is not configured.');
   }
+  const useWearableSafeAudio = resolveWearableSafeAudioOptions(options);
   const response = await client.audio.speech.create({
     model: String(model || 'gpt-4o-mini-tts').trim() || 'gpt-4o-mini-tts',
     voice: String(voice || 'alloy').trim() || 'alloy',
     input: text,
-    response_format: 'mp3',
+    response_format: useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.responseFormat : 'mp3',
   });
   const chunks = [];
   for await (const chunk of response.body) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   const audioBytes = Buffer.concat(chunks);
-  await onChunk({ audioBytes, mimeType: 'audio/mpeg' });
+  await onChunk({
+    audioBytes,
+    mimeType: useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.mimeType : 'audio/mpeg',
+  });
 }
 
-async function synthesizeWithDeepgram(text, model) {
+async function synthesizeWithDeepgram(text, model, options = {}) {
   const apiKey = requireApiKey('Deepgram TTS', ['DEEPGRAM_API_KEY']);
+  const useWearableSafeAudio = resolveWearableSafeAudioOptions(options);
+  const searchParams = new URLSearchParams({
+    model,
+  });
+  if (useWearableSafeAudio) {
+    searchParams.set('encoding', WEARABLE_SAFE_AUDIO_FORMAT.deepgramEncoding);
+    searchParams.set('container', WEARABLE_SAFE_AUDIO_FORMAT.deepgramContainer);
+  }
 
   return fetchAudioOrThrow(
-    `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}`,
+    `https://api.deepgram.com/v1/speak?${searchParams.toString()}`,
     {
       method: 'POST',
       headers: {
@@ -385,13 +415,22 @@ async function synthesizeWithDeepgram(text, model) {
       body: JSON.stringify({ text }),
     },
     'Deepgram TTS request failed',
+    useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.mimeType : 'audio/mpeg',
   );
 }
 
-async function streamWithDeepgram(text, model, onChunk) {
+async function streamWithDeepgram(text, model, options = {}, onChunk) {
   const apiKey = requireApiKey('Deepgram TTS', ['DEEPGRAM_API_KEY']);
+  const useWearableSafeAudio = resolveWearableSafeAudioOptions(options);
+  const searchParams = new URLSearchParams({
+    model,
+  });
+  if (useWearableSafeAudio) {
+    searchParams.set('encoding', WEARABLE_SAFE_AUDIO_FORMAT.deepgramEncoding);
+    searchParams.set('container', WEARABLE_SAFE_AUDIO_FORMAT.deepgramContainer);
+  }
   await fetchAudioStreamOrThrow(
-    `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}`,
+    `https://api.deepgram.com/v1/speak?${searchParams.toString()}`,
     {
       method: 'POST',
       headers: {
@@ -401,7 +440,7 @@ async function streamWithDeepgram(text, model, onChunk) {
       body: JSON.stringify({ text }),
     },
     'Deepgram TTS stream failed',
-    'audio/mpeg',
+    useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.mimeType : 'audio/mpeg',
     onChunk,
   );
 }
@@ -587,7 +626,7 @@ async function synthesizeVoiceReply(text, options = {}) {
   if (provider === 'openai') {
     request = synthesizeWithOpenAi(content, model, voice, options);
   } else if (provider === 'deepgram') {
-    request = synthesizeWithDeepgram(content, model);
+    request = synthesizeWithDeepgram(content, model, options);
   } else {
     request = synthesizeWithGemini(content, model, voice, options);
   }
@@ -669,7 +708,7 @@ async function synthesizeVoiceReplyStream(text, options = {}, onChunk) {
       if (provider === 'openai') {
         await streamWithOpenAi(chunk, model, voice, options, onChunk);
       } else if (provider === 'deepgram') {
-        await streamWithDeepgram(chunk, model, onChunk);
+        await streamWithDeepgram(chunk, model, options, onChunk);
       } else {
         await streamWithGemini(chunk, model, voice, options, onChunk);
       }

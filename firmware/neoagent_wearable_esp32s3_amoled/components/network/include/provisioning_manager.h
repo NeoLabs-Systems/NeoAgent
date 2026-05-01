@@ -19,12 +19,16 @@ typedef struct {
     bool portal_running;
     bool portal_saved_config;
     bool wifi_connected;
+    bool station_connecting;
     char ap_ssid[NEOAGENT_PROVISIONING_SSID_MAX];
     char ap_password[NEOAGENT_PROVISIONING_PASSWORD_MAX];
     httpd_handle_t http_server;
     esp_netif_t *ap_netif;
     esp_netif_t *sta_netif;
     EventGroupHandle_t wifi_events;
+    int retry_count;
+    int max_retries;
+    int last_disconnect_reason;
 } provisioning_manager_t;
 
 esp_err_t provisioning_manager_init(provisioning_manager_t *manager);
@@ -33,6 +37,8 @@ bool provisioning_manager_has_complete_config(const provisioning_manager_t *mana
 esp_err_t provisioning_manager_validate_server_url(const char *server_url);
 esp_err_t provisioning_manager_start_portal(provisioning_manager_t *manager, session_store_t *store);
 esp_err_t provisioning_manager_connect_station(provisioning_manager_t *manager, const neoagent_device_config_t *config, int timeout_ms);
+esp_err_t provisioning_manager_sync_time(provisioning_manager_t *manager, const char *server_url, int timeout_ms);
+int provisioning_manager_time_offset_seconds(void);
 const char *provisioning_manager_ap_ssid(const provisioning_manager_t *manager);
 const char *provisioning_manager_ap_password(const provisioning_manager_t *manager);
 bool provisioning_manager_portal_saved_config(const provisioning_manager_t *manager);

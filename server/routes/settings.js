@@ -22,6 +22,11 @@ const {
   normalizeProviderConfigs,
 } = require('../services/ai/settings');
 const {
+  readMeshtasticEnabled,
+  setMeshtasticEnabled,
+  resetMeshtasticEnabled,
+} = require('../services/messaging/meshtastic_env');
+const {
   ensureDefaultRuntimeSettings,
   getRuntimeSettings,
   redactRuntimeSettingValue,
@@ -73,6 +78,10 @@ const VOICE_SETTING_KEYS = new Set([
   'voice_live_provider',
   'voice_live_model',
   'voice_live_voice',
+]);
+
+const ENV_BACKED_SETTING_KEYS = new Set([
+  'meshtastic_enabled',
 ]);
 
 function toOptionalTrimmedString(value) {
@@ -151,6 +160,49 @@ function applyHeadlessSetting(req, value) {
     .catch(() => { });
 }
 
+function isEnvBackedSettingKey(key) {
+  return ENV_BACKED_SETTING_KEYS.has(key);
+}
+
+function readEnvBackedSettingValue(key) {
+  switch (key) {
+    case 'meshtastic_enabled':
+      return readMeshtasticEnabled();
+    default:
+      return null;
+  }
+}
+
+async function writeEnvBackedSettingValue(req, key, value) {
+  switch (key) {
+    case 'meshtastic_enabled': {
+      const enabled = setMeshtasticEnabled(value);
+      const manager = req.app?.locals?.messagingManager;
+      if (manager && typeof manager.updateMeshtasticEnabled === 'function') {
+        await manager.updateMeshtasticEnabled(enabled);
+      }
+      return enabled;
+    }
+    default:
+      return value;
+  }
+}
+
+async function resetEnvBackedSettingValue(req, key) {
+  switch (key) {
+    case 'meshtastic_enabled': {
+      resetMeshtasticEnabled();
+      const manager = req.app?.locals?.messagingManager;
+      if (manager && typeof manager.updateMeshtasticEnabled === 'function') {
+        await manager.updateMeshtasticEnabled(readMeshtasticEnabled());
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
 // Get supported models metadata
 router.get('/meta/models', async (req, res) => {
   const { getSupportedModels } = require('../services/ai/models');
@@ -209,11 +261,12 @@ router.get('/', (req, res) => {
   }
   settings.agentId = agentId;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
+  settings.meshtastic_enabled = readMeshtasticEnabled();
   res.json(settings);
 });
 
 // Update settings (batch)
-router.put('/', (req, res) => {
+router.put('/', async (req, res) => {
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultAiSettings(userId, agentId);
@@ -236,6 +289,12 @@ router.put('/', (req, res) => {
 
   if ('ai_provider_configs' in normalizedBody) {
     normalizedBody.ai_provider_configs = normalizeProviderConfigs(normalizedBody.ai_provider_configs);
+  }
+
+  for (const key of Object.keys(normalizedBody)) {
+    if (isEnvBackedSettingKey(key)) {
+      normalizedBody[key] = await writeEnvBackedSettingValue(req, key, normalizedBody[key]);
+    }
   }
 
   if (
@@ -264,6 +323,8 @@ router.put('/', (req, res) => {
       const v = serializeRuntimeSettingValue(key, value);
       if (isAgentScopedSettingKey(key)) {
         upsertAgent.run(userId, agentId, key, v);
+      } else if (isEnvBackedSettingKey(key)) {
+        continue;
       } else if (key !== 'agentId' && key !== 'agent_id') {
         upsert.run(userId, key, v);
       }
@@ -377,6 +438,9 @@ router.get('/token-usage/summary', (req, res) => {
 
 // Get single setting
 router.get('/:key', (req, res) => {
+  if (isEnvBackedSettingKey(req.params.key)) {
+    return res.json({ value: readEnvBackedSettingValue(req.params.key) });
+  }
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultRuntimeSettings(userId);
@@ -401,11 +465,15 @@ router.get('/:key', (req, res) => {
 });
 
 // Set single setting
-router.put('/:key', (req, res) => {
+router.put('/:key', async (req, res) => {
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultRuntimeSettings(userId);
   let value = req.body.value;
+  if (isEnvBackedSettingKey(req.params.key)) {
+    const saved = await writeEnvBackedSettingValue(req, req.params.key, value);
+    return res.json({ success: true, value: saved });
+  }
   if (req.params.key === 'platform_whitelist_whatsapp') {
     if (typeof value === 'string') {
       try {
@@ -467,6 +535,11 @@ router.put('/:key', (req, res) => {
 
 // Delete setting
 router.delete('/:key', (req, res) => {
+  if (isEnvBackedSettingKey(req.params.key)) {
+    return resetEnvBackedSettingValue(req, req.params.key)
+      .then(() => res.json({ success: true }))
+      .catch((err) => res.status(500).json({ success: false, error: err.message }));
+  }
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   if (

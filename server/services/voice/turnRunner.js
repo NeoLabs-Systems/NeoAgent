@@ -110,8 +110,35 @@ async function runVoiceTranscriptTurn({
   });
 
   const replyText = String(runResult?.content || '').trim();
+  const assistantMetadata = {
+    ...persistedMetadata,
+    platform,
+    tokens: runResult?.totalTokens || 0,
+    screenshotIncluded: Boolean(screenshotContext),
+    screenshotVisionProvider: screenshotContext?.provider || null,
+    screenshotVisionModel: screenshotContext?.model || null,
+  };
   if (!replyText) {
-    throw new Error('Agent returned an empty voice reply.');
+    db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(
+        userId,
+        agentId,
+        runResult?.runId || null,
+        'assistant',
+        '',
+        JSON.stringify(assistantMetadata),
+      );
+    return {
+      runId: runResult?.runId || null,
+      transcript: transcriptText,
+      replyText: '',
+      ttsProvider: voiceOptions.provider,
+      ttsModel: voiceOptions.model,
+      ttsVoice: voiceOptions.voice,
+      audioMimeType: 'audio/mpeg',
+      audioBase64: '',
+      ttsError: null,
+    };
   }
 
   db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
@@ -121,14 +148,7 @@ async function runVoiceTranscriptTurn({
       runResult?.runId || null,
       'assistant',
       replyText,
-      JSON.stringify({
-        ...persistedMetadata,
-        platform,
-        tokens: runResult?.totalTokens || 0,
-        screenshotIncluded: Boolean(screenshotContext),
-        screenshotVisionProvider: screenshotContext?.provider || null,
-        screenshotVisionModel: screenshotContext?.model || null,
-      }),
+      JSON.stringify(assistantMetadata),
     );
 
   let synthesized;

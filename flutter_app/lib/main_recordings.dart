@@ -41,12 +41,25 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
   @override
   Widget build(BuildContext context) {
     final runtime = widget.controller.recordingRuntime;
-    final anyRecordingActive = runtime.active;
+    final isStarting = widget.controller.isStartingRecording;
+    final isStopping = widget.controller.isStoppingRecording;
+    final statusLabel = isStarting
+        ? 'Starting'
+        : isStopping
+        ? 'Stopping'
+        : runtime.active
+        ? (runtime.paused ? 'Paused' : 'Recording')
+        : 'Ready';
+    final statusColor = isStarting || isStopping
+        ? _accent
+        : runtime.active
+        ? (runtime.paused ? _warning : _danger)
+        : _success;
 
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
-        const _SectionTitle('Record meetings and conversations'),
+        const _SectionTitle('Recordings'),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -60,12 +73,8 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
                     _DotStatus(
-                      label: anyRecordingActive
-                          ? (runtime.paused ? 'Paused' : 'Recording')
-                          : 'Idle',
-                      color: anyRecordingActive
-                          ? (runtime.paused ? _warning : _danger)
-                          : _success,
+                      label: statusLabel,
+                      color: statusColor,
                     ),
                     if (runtime.platformLabel != null &&
                         runtime.platformLabel!.isNotEmpty)
@@ -76,12 +85,57 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  runtime.supportsSystemAudio
-                      ? 'Desktop studio mode keeps microphone and system audio as separate live sources, supports background runtime, and exposes a floating control bar for long-running captures.'
-                      : 'Choose the best capture mode for the current platform. Existing web and Android flows remain available alongside the new desktop runtime.',
-                  style: TextStyle(color: _textSecondary, height: 1.5),
-                ),
+                if (isStarting) ...<Widget>[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _bgSecondary.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _borderLight),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Starting recording. This can take a few seconds while the session and permissions are prepared.',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (isStopping) ...<Widget>[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _bgSecondary.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _borderLight),
+                    ),
+                    child: Text(
+                      'Finalizing recording...',
+                      style: TextStyle(color: _textSecondary, height: 1.4),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 Wrap(
                   spacing: 12,
@@ -95,7 +149,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                             ? null
                             : widget.controller.startWebRecording,
                         icon: Icon(Icons.desktop_windows_outlined),
-                        label: Text('Start screen + mic'),
+                        label: Text('Screen + mic'),
                       ),
                     if (runtime.supportsScreenAndMic)
                       OutlinedButton.icon(
@@ -115,7 +169,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                             ? null
                             : widget.controller.startBackgroundRecording,
                         icon: Icon(Icons.mic_none_outlined),
-                        label: Text('Start background mic'),
+                        label: Text('Background mic'),
                       ),
                     if (runtime.supportsSystemAudio)
                       FilledButton.icon(
@@ -127,7 +181,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                           foregroundColor: Colors.white,
                         ),
                         icon: Icon(Icons.surround_sound_outlined),
-                        label: Text('Start desktop studio'),
+                        label: Text('Desktop studio'),
                       ),
                     if (runtime.supportsBackgroundMic && runtime.active)
                       OutlinedButton.icon(
@@ -206,7 +260,7 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Permissions, live levels, and background runtime state stay visible here while the floating bar handles quick controls.',
+                          'Permissions and live levels stay visible while the floating bar handles quick controls.',
                           style: TextStyle(color: _textSecondary, height: 1.45),
                         ),
                         const SizedBox(height: 16),
@@ -317,13 +371,12 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
           ),
         ),
         const SizedBox(height: 20),
-        const _SectionTitle('Transcription history'),
+        const _SectionTitle('Transcripts'),
         const SizedBox(height: 12),
         if (widget.controller.recordingSessions.isEmpty)
           const _EmptyCard(
             title: 'No recordings yet',
-            subtitle:
-                'Start a recording and your persisted transcripts will appear here with timestamps.',
+            subtitle: 'Start one and transcripts will appear here.',
           )
         else
           ...widget.controller.recordingSessions.map(
@@ -466,7 +519,7 @@ class _RecordingSessionCard extends StatelessWidget {
                         Icon(Icons.auto_awesome, size: 16, color: _accent),
                         const SizedBox(width: 8),
                         Text(
-                          'Smart Segments',
+                          'Insights',
                           style: TextStyle(
                             color: _accent,
                             fontWeight: FontWeight.w600,
@@ -612,16 +665,28 @@ class _RecordingSessionCard extends StatelessWidget {
               ),
             ] else if (session.transcriptText.isNotEmpty) ...<Widget>[
               const SizedBox(height: 16),
-              Text(session.transcriptText, style: TextStyle(height: 1.45)),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
+                ),
+                child: SelectableText(
+                  session.transcriptText,
+                  style: TextStyle(height: 1.45),
+                ),
+              ),
             ] else ...<Widget>[
               const SizedBox(height: 16),
               Text(
                 session.status == 'processing'
-                    ? 'Transcription is being processed.'
+                    ? 'Transcribing...'
                     : session.status == 'failed'
                     ? 'Transcription failed. Check the error above and retry.'
                     : session.status == 'completed'
-                    ? 'Transcription completed but no speech text was returned. You can retry transcription.'
+                    ? 'No transcript text was returned. You can retry transcription.'
                     : 'Transcript is not available yet.',
                 style: TextStyle(color: _textSecondary),
               ),

@@ -1,6 +1,10 @@
 'use strict';
 
-async function synthesizeSpeechBuffer(client, text, { model = 'gpt-4o-mini-tts', voice = 'alloy' } = {}) {
+async function synthesizeSpeechBuffer(
+  client,
+  text,
+  { model = 'gpt-4o-mini-tts', voice = 'alloy', responseFormat = 'mp3' } = {},
+) {
   if (!client) {
     throw new Error('OpenAI client is not configured for speech synthesis.');
   }
@@ -14,6 +18,7 @@ async function synthesizeSpeechBuffer(client, text, { model = 'gpt-4o-mini-tts',
     model: String(model || 'gpt-4o-mini-tts').trim() || 'gpt-4o-mini-tts',
     voice: String(voice || 'alloy').trim() || 'alloy',
     input: content,
+    response_format: String(responseFormat || 'mp3').trim() || 'mp3',
   });
 
   return Buffer.from(await response.arrayBuffer());

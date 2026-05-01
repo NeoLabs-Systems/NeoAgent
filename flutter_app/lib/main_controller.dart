@@ -5009,6 +5009,29 @@ class NeoAgentController extends ChangeNotifier {
     await refreshMessaging();
   }
 
+  Future<void> saveSettingsPayload(Map<String, dynamic> payload) async {
+    if (isSavingSettings) {
+      return;
+    }
+    isSavingSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _backendClient.saveSettings(
+        backendUrl,
+        payload,
+        agentId: _scopedAgentId,
+      );
+      settings = <String, dynamic>{...settings, ...payload};
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    } finally {
+      isSavingSettings = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> disconnectMessagingPlatform(String platform) async {
     await _backendClient.disconnectMessagingPlatform(
       backendUrl,
@@ -6212,6 +6235,9 @@ class NeoAgentController extends ChangeNotifier {
       }
       final content = payload['content']?.toString() ?? '';
       final kind = payload['kind']?.toString() ?? 'final';
+      if (content.trim().isEmpty) {
+        return;
+      }
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         interimAssistantText: kind == 'final'
             ? voiceAssistantLiveState.interimAssistantText

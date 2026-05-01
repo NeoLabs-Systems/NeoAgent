@@ -7,6 +7,7 @@ esp_err_t power_manager_init(power_manager_t *manager) {
         return ESP_ERR_INVALID_ARG;
     }
     memset(manager, 0, sizeof(*manager));
+    manager->status.battery_percent = -1;
     return ESP_OK;
 }
 

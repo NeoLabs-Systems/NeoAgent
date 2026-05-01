@@ -191,11 +191,20 @@ jobs:
       ref: ${{ needs.release.outputs.release_sha }}
       release_tag: ${{ needs.release.outputs.release_tag }}
 
+  build-firmware:
+    name: Build Wearable Firmware
+    needs: release
+    uses: ./.github/workflows/_build-firmware.yml
+    with:
+      ref: ${{ needs.release.outputs.release_sha }}
+      release_tag: ${{ needs.release.outputs.release_tag }}
+
   publish-release-assets:
     name: Publish Release Assets
     needs:
       - release
       - build-installers
+      - build-firmware
     uses: ./.github/workflows/_publish-release-assets.yml
     with:
       release_tag: ${{ needs.release.outputs.release_tag }}

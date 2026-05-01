@@ -48,6 +48,14 @@ jobs:
           merge-multiple: true
         continue-on-error: true
 
+      - name: Download firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: neoagent-wearable-firmware
+          merge-multiple: true
+        continue-on-error: true
+
       - name: Collect release files
         id: release_files
         run: |
@@ -60,6 +68,15 @@ jobs:
             dist/*.pkg.tar.zst
             dist/*.apk
           )
+          for firmware_file in \
+            dist/neoagent-wearable-firmware.bin \
+            dist/neoagent-wearable-bootloader.bin \
+            dist/neoagent-wearable-partition-table.bin
+          do
+            if [ -f "$firmware_file" ]; then
+              files+=("$firmware_file")
+            fi
+          done
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No release artifacts were downloaded."
             exit 1

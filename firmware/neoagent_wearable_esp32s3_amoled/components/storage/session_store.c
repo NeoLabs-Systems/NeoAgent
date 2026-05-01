@@ -8,6 +8,7 @@
 
 static const char *TAG = "SessionStore";
 static const char *KEY_DEVICE_CONFIG = "device_cfg";
+static const char *KEY_FIRMWARE_UPDATE_SETTINGS = "fw_update";
 static const char *KEY_SESSION = "session";
 static const char *DEFAULT_NAMESPACE = "neoagent";
 
@@ -34,9 +35,6 @@ static esp_err_t read_blob(const char *namespace_name, const char *key, void *va
     size_t required_size = value_size;
     err = nvs_get_blob(handle, key, value, &required_size);
     nvs_close(handle);
-    if (err == ESP_OK && required_size != value_size) {
-        return ESP_ERR_NVS_INVALID_LENGTH;
-    }
     return err;
 }
 
@@ -90,6 +88,25 @@ esp_err_t session_store_load_device_config(session_store_t *store, neoagent_devi
     return err;
 }
 
+esp_err_t session_store_save_firmware_update_settings(session_store_t *store, const neoagent_firmware_update_settings_t *settings) {
+    if (store == NULL || settings == NULL || !store->initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return write_blob(namespace_for(store), KEY_FIRMWARE_UPDATE_SETTINGS, settings, sizeof(*settings));
+}
+
+esp_err_t session_store_load_firmware_update_settings(session_store_t *store, neoagent_firmware_update_settings_t *settings) {
+    if (store == NULL || settings == NULL || !store->initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    memset(settings, 0, sizeof(*settings));
+    esp_err_t err = read_blob(namespace_for(store), KEY_FIRMWARE_UPDATE_SETTINGS, settings, sizeof(*settings));
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_ERR_NOT_FOUND;
+    }
+    return err;
+}
+
 esp_err_t session_store_save_session(session_store_t *store, const neoagent_session_state_t *session) {
     if (store == NULL || session == NULL || !store->initialized) {
         return ESP_ERR_INVALID_STATE;
@@ -106,6 +123,40 @@ esp_err_t session_store_load_session(session_store_t *store, neoagent_session_st
     if (err == ESP_ERR_NVS_NOT_FOUND) {
         return ESP_ERR_NOT_FOUND;
     }
+    return err;
+}
+
+esp_err_t session_store_clear_device_config(session_store_t *store) {
+    if (store == NULL || !store->initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(namespace_for(store), NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = nvs_erase_key(handle, KEY_DEVICE_CONFIG);
+    if (err == ESP_OK || err == ESP_ERR_NVS_NOT_FOUND) {
+        err = nvs_commit(handle);
+    }
+    nvs_close(handle);
+    return err;
+}
+
+esp_err_t session_store_clear_firmware_update_settings(session_store_t *store) {
+    if (store == NULL || !store->initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(namespace_for(store), NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = nvs_erase_key(handle, KEY_FIRMWARE_UPDATE_SETTINGS);
+    if (err == ESP_OK || err == ESP_ERR_NVS_NOT_FOUND) {
+        err = nvs_commit(handle);
+    }
+    nvs_close(handle);
     return err;
 }
 

@@ -1,17 +1,15 @@
 'use strict';
 
 const { getVersionInfo } = require('../../utils/version');
+const { clientIpFromRequest, lookupIpLocation } = require('../account/geoip');
 const { WEARABLE_WS_PATH } = require('./protocol');
+const {
+  resolveFirmwareManifest,
+  normalizeChannel,
+} = require('./firmware_manifest');
 
 function toTrimmedString(value, maxLength = 512) {
   return String(value || '').trim().slice(0, maxLength);
-}
-
-function toBoolean(value, fallback = false) {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
-  return fallback;
 }
 
 function parseOptionalJson(value, fallback = null) {
@@ -45,13 +43,44 @@ function websocketUrlForBase(baseUrl) {
   return parsed.toString();
 }
 
+function parseTimeZoneOffsetLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (raw === 'GMT' || raw === 'UTC') return 0;
+  const match = raw.match(/^(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!match) return null;
+  const sign = match[1] === '-' ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return sign * ((hours * 60 * 60) + (minutes * 60));
+}
+
+function utcOffsetSecondsForTimeZone(timeZone, now = new Date()) {
+  const normalized = String(timeZone || '').trim();
+  if (!normalized) return null;
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: normalized,
+      timeZoneName: 'shortOffset',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const zonePart = formatter.formatToParts(now).find((part) => part.type === 'timeZoneName');
+    return parseTimeZoneOffsetLabel(zonePart?.value || '');
+  } catch {
+    return null;
+  }
+}
+
 class WearableService {
   constructor({ app }) {
     this.app = app;
     this.connectionsByUser = new Map();
   }
 
-  buildBootstrap(req) {
+  async buildBootstrap(req) {
     const baseUrl = publicBaseUrlForRequest(req);
     const version = getVersionInfo();
     return {
@@ -88,7 +117,7 @@ class WearableService {
         basePath: '/api/recordings',
         voiceAssistantRespondPath: '/api/voice-assistant/respond',
       },
-      firmware: this.buildFirmwareManifest(req),
+      firmware: await this.buildFirmwareManifest(req),
       version,
       user: {
         id: req.session.userId,
@@ -104,29 +133,43 @@ class WearableService {
     };
   }
 
-  buildFirmwareManifest(req) {
+  async buildFirmwareManifest(req) {
     const baseUrl = publicBaseUrlForRequest(req);
+    const channel = normalizeChannel(req?.query?.channel || process.env.NEOAGENT_WEARABLE_FIRMWARE_CHANNEL || 'stable');
     const version = getVersionInfo();
-    const configuredVersion = toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_VERSION, 120);
-    const downloadUrl = toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_DOWNLOAD_URL, 2000);
-    const releaseNotesUrl = toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_RELEASE_NOTES_URL, 2000);
-    const sha256 = toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_SHA256, 256).toLowerCase() || null;
-    const channel = toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_CHANNEL, 64) || 'stable';
-    const minAppVersion = toTrimmedString(process.env.NEOAGENT_WEARABLE_MIN_SERVER_VERSION, 120) || version.version;
-    const rollout = parseOptionalJson(process.env.NEOAGENT_WEARABLE_FIRMWARE_ROLLOUT_JSON, null);
-    return {
-      configured: Boolean(downloadUrl),
+    const manifest = await resolveFirmwareManifest({
       channel,
-      manifestVersion: 1,
-      currentVersion: configuredVersion || version.version,
-      minimumServerVersion: minAppVersion,
-      downloadUrl: downloadUrl || null,
-      releaseNotesUrl: releaseNotesUrl || null,
-      sha256,
+      downloadUrlOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_DOWNLOAD_URL, 2000),
+      currentVersionOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_VERSION, 120),
+      releaseNotesUrlOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_RELEASE_NOTES_URL, 2000),
+      sha256Override: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_SHA256, 256),
+      repositoryOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_GITHUB_REPOSITORY || process.env.GITHUB_REPOSITORY, 256),
+      assetNameOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_ASSET_NAME, 128),
+    });
+    return {
+      ...manifest,
       websocketUrl: websocketUrlForBase(baseUrl),
-      generatedAt: new Date().toISOString(),
-      rollout,
-      mandatory: toBoolean(process.env.NEOAGENT_WEARABLE_FIRMWARE_MANDATORY, false),
+      minimumServerVersion: manifest.minimumServerVersion || version.version,
+      rollout: parseOptionalJson(process.env.NEOAGENT_WEARABLE_FIRMWARE_ROLLOUT_JSON, null),
+    };
+  }
+
+  buildTimeConfig(req) {
+    const now = new Date();
+    const clientIp = req ? clientIpFromRequest(req) : null;
+    const detectedTimeZone = String(lookupIpLocation(clientIp).data?.timezone || '').trim();
+    const fallbackTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const timeZone = detectedTimeZone || fallbackTimeZone;
+    const offsetSeconds =
+      utcOffsetSecondsForTimeZone(timeZone, now)
+      ?? utcOffsetSecondsForTimeZone(fallbackTimeZone, now)
+      ?? (-now.getTimezoneOffset() * 60);
+    return {
+      timezone: timeZone,
+      utcOffsetSeconds: offsetSeconds,
+      serverTime: now.toISOString(),
+      source: detectedTimeZone ? 'client_ip_geoip' : 'server_fallback',
+      ipAddress: clientIp || null,
     };
   }
 

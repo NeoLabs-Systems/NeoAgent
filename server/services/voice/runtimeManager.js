@@ -468,6 +468,8 @@ class VoiceRuntimeManager {
       provider: session.voiceSettings?.liveProvider,
       model: session.voiceSettings?.liveTtsModel,
       voice: session.voiceSettings?.liveVoice,
+      transport: 'wearable',
+      responseFormat: 'wav',
     });
     const spokenContent = sanitizeSpeechText(content);
 

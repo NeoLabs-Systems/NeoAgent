@@ -1,0 +1,74 @@
+name: Reusable Wearable Firmware Build
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build firmware from
+        required: true
+        type: string
+      release_tag:
+        description: Release tag used to version artifacts
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-firmware:
+    name: Build Wearable Firmware
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Build ESP-IDF firmware
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          path: firmware/neoagent_wearable_esp32s3_amoled
+          target: esp32s3
+          esp_idf_version: latest
+
+      - name: Collect firmware release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_dir="firmware/neoagent_wearable_esp32s3_amoled"
+          build_dir="$project_dir/build"
+          dist_dir="$GITHUB_WORKSPACE/dist"
+          mkdir -p "$dist_dir"
+
+          app_bin="$build_dir/neoagent_wearable_esp32s3_amoled.bin"
+          if [ ! -f "$app_bin" ]; then
+            echo "Application binary not found: $app_bin"
+            exit 1
+          fi
+
+          cp "$app_bin" "$dist_dir/neoagent-wearable-firmware.bin"
+
+          if [ -f "$build_dir/bootloader/bootloader.bin" ]; then
+            cp "$build_dir/bootloader/bootloader.bin" "$dist_dir/neoagent-wearable-bootloader.bin"
+          fi
+
+          if [ -f "$build_dir/partition_table/partition-table.bin" ]; then
+            cp "$build_dir/partition_table/partition-table.bin" "$dist_dir/neoagent-wearable-partition-table.bin"
+          fi
+
+          if [ -f "$build_dir/flasher_args.json" ]; then
+            cp "$build_dir/flasher_args.json" "$dist_dir/neoagent-wearable-flasher-args.json"
+          fi
+
+          if [ -f "$build_dir/sdkconfig.json" ]; then
+            cp "$build_dir/sdkconfig.json" "$dist_dir/neoagent-wearable-sdkconfig.json"
+          fi
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-wearable-firmware
+          path: dist/*
+          if-no-files-found: error

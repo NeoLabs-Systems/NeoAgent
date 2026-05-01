@@ -271,6 +271,29 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     ],
   ),
   MessagingPlatformDescriptor(
+    id: 'meshtastic',
+    label: 'Meshtastic',
+    subtitle: 'TCP bridge to a local device channel',
+    accent: Color(0xFF2E7D32),
+    connectMethod: MessagingConnectMethod.config,
+    icon: Icons.router_rounded,
+    configFields: <MessagingConfigField>[
+      MessagingConfigField(
+        key: 'meshtastic_enabled',
+        label: 'Enable Meshtastic on this server',
+        kind: MessagingConfigFieldKind.boolean,
+        settingsKey: 'meshtastic_enabled',
+        includeInConfig: false,
+      ),
+      MessagingConfigField(key: 'host', label: 'Device IP Address'),
+      MessagingConfigField(
+        key: 'channel',
+        label: 'Channel Index',
+        defaultValue: '0',
+      ),
+    ],
+  ),
+  MessagingPlatformDescriptor(
     id: 'telnyx',
     label: 'Telnyx Voice',
     subtitle: 'Inbound and outbound calling',
@@ -413,6 +436,8 @@ class MessagingConfigField {
     this.kind = MessagingConfigFieldKind.text,
     this.obscure = false,
     this.defaultValue,
+    this.settingsKey,
+    this.includeInConfig = true,
   });
 
   final String key;
@@ -420,6 +445,10 @@ class MessagingConfigField {
   final MessagingConfigFieldKind kind;
   final bool obscure;
   final String? defaultValue;
+  final String? settingsKey;
+  final bool includeInConfig;
+
+  String get storageKey => settingsKey ?? key;
 }
 
 class MessagingPlatformDescriptor {

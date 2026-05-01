@@ -12,5 +12,24 @@ typedef struct {
 
 esp_err_t ui_renderer_init(ui_renderer_t *renderer, board_support_t *board);
 esp_err_t ui_renderer_set_screen(ui_renderer_t *renderer, neoagent_screen_id_t screen_id);
+esp_err_t ui_renderer_show_status_card(ui_renderer_t *renderer, neoagent_screen_id_t screen_id, const char *title, const char *line1, const char *line2);
 esp_err_t ui_renderer_show_provisioning(ui_renderer_t *renderer, const char *ssid, const char *password);
 esp_err_t ui_renderer_show_pairing_qr(ui_renderer_t *renderer, const char *qr_payload);
+esp_err_t ui_renderer_show_assistant_home(
+    ui_renderer_t *renderer,
+    const char *status,
+    const char *hint,
+    bool mic_active,
+    board_assistant_state_t state
+);
+esp_err_t ui_renderer_show_widget(ui_renderer_t *renderer, const neoagent_widget_snapshot_t *snapshot, size_t index, size_t total);
+esp_err_t ui_renderer_show_recording(
+    ui_renderer_t *renderer,
+    const char *status,
+    const char *headline,
+    const char *detail,
+    bool active,
+    bool busy,
+    const char *timer_text
+);
+esp_err_t ui_renderer_show_settings(ui_renderer_t *renderer, const char *section_title, const char *headline, const char *body, const char *selected_value, bool show_reset);

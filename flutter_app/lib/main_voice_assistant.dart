@@ -28,6 +28,55 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   bool _audioInterrupted = false;
   int _audioQueueConsumedCount = 0;
 
+  String _liveStateLabel(VoiceAssistantLiveState state) {
+    switch (state.state.trim().toLowerCase()) {
+      case 'listening':
+        return 'Listening';
+      case 'transcribing':
+        return 'Transcribing';
+      case 'thinking':
+        return 'Thinking';
+      case 'speaking':
+        return 'Speaking';
+      case 'interrupted':
+        return 'Interrupted';
+      case 'error':
+        return 'Error';
+      default:
+        return 'Ready';
+    }
+  }
+
+  String _heroHintForState(
+    VoiceAssistantLiveState liveState,
+    bool liveCaptureStarting,
+    bool liveCaptureEngaged,
+    bool useDesktopToggleCapture,
+  ) {
+    if (liveCaptureEngaged) {
+      return useDesktopToggleCapture
+          ? 'Tap again to finish.'
+          : 'Release to finish.';
+    }
+    if (liveCaptureStarting) {
+      return 'Starting voice capture...';
+    }
+    switch (liveState.state.trim().toLowerCase()) {
+      case 'transcribing':
+        return 'Transcribing your speech...';
+      case 'thinking':
+        return 'Thinking...';
+      case 'speaking':
+        return 'Playing the reply...';
+      case 'interrupted':
+        return 'Reply interrupted.';
+      case 'error':
+        return 'Voice capture hit an error.';
+      default:
+        return useDesktopToggleCapture ? 'Tap to talk.' : 'Hold to talk.';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -245,13 +294,15 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
         }
         if (mounted) setState(() => _isAssistantPlaying = true);
         await completer.future;
-        if (mounted)
+        if (mounted) {
           setState(() => _isAssistantPlaying = _audioQueue.isNotEmpty);
+        }
       }
     } finally {
       _isDraining = false;
-      if (mounted && !_isAssistantPlaying)
+      if (mounted && !_isAssistantPlaying) {
         setState(() => _isAssistantPlaying = false);
+      }
     }
   }
 
@@ -352,11 +403,20 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final preview = liveState.finalTranscript.ifEmpty(
       liveState.partialTranscript,
     );
-    final helperText = liveState.hasActiveSession
-        ? '${liveState.provider.toUpperCase()} • ${liveState.model} • ${liveState.state} • ${liveState.transportState}'
+    final statusLabel = controller.isLiveVoiceCaptureStarting
+        ? 'Starting'
+        : liveState.hasActiveSession
+        ? liveState.state.isNotEmpty
+              ? liveState.state
+              : 'Ready'
         : liveState.isRecoverable
-        ? 'Reconnecting live voice turn...'
-        : 'Open a push-to-talk session to start live voice.';
+        ? 'Reconnecting'
+        : 'Idle';
+    final helperText = liveState.hasActiveSession
+        ? '${liveState.provider.toUpperCase()} • ${liveState.model}'
+        : liveState.isRecoverable
+        ? 'Reconnecting the live turn.'
+        : 'Open a push-to-talk session to start.';
     return _VoiceAssistantSectionCard(
       icon: Icons.graphic_eq_outlined,
       title: 'Live Session',
@@ -364,6 +424,29 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              _StatusPill(
+                label: statusLabel,
+                color: controller.isLiveVoiceCaptureStarting
+                    ? _warning
+                    : liveState.isBusy
+                    ? _accent
+                    : _success,
+              ),
+              _StatusPill(
+                label: _activeCallElapsedLabel(controller),
+                color: controller.isLiveVoiceCaptureActive ? _warning : _accent,
+              ),
+              if (liveState.hasActiveSession)
+                _StatusPill(
+                  label: liveState.transportState,
+                  color: _textSecondary,
+                ),
+            ],
+          ),
           if (liveState.hasActiveSession) ...<Widget>[
             Wrap(
               spacing: 10,
@@ -378,15 +461,25 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
             ),
             const SizedBox(height: 14),
           ],
-          Text(
-            preview.trim().isEmpty
-                ? 'Partial and final transcript text will appear here while the turn is in progress.'
-                : preview,
-            maxLines: 6,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: preview.trim().isEmpty ? _textMuted : _textPrimary,
-              height: 1.5,
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 96, maxHeight: 180),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _bgSecondary,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
+            ),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                preview.trim().isEmpty
+                    ? 'Transcript appears while you speak and final text fills in as soon as transcription completes.'
+                    : preview,
+                style: TextStyle(
+                  color: preview.trim().isEmpty ? _textMuted : _textPrimary,
+                  height: 1.45,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -428,6 +521,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final liveState = controller.voiceAssistantLiveState;
+    final liveCaptureStarting = controller.isLiveVoiceCaptureStarting;
     final viewportSize = MediaQuery.sizeOf(context);
     final heroHeight = math
         .min(760, math.max(360, viewportSize.height * 0.72))
@@ -442,11 +536,12 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final canStop = liveCaptureEngaged;
     final hasAssistantAudio = _isAssistantPlaying || _audioQueue.isNotEmpty;
     final useDesktopToggleCapture = assistantUi.useToggleCapture;
-    final heroHint = liveCaptureEngaged
-        ? (useDesktopToggleCapture
-              ? 'Tap again to finish.'
-              : 'Release to finish.')
-        : (useDesktopToggleCapture ? 'Tap to talk.' : 'Hold to talk.');
+    final heroHint = _heroHintForState(
+      liveState,
+      liveCaptureStarting,
+      liveCaptureEngaged,
+      useDesktopToggleCapture,
+    );
     final heroButton = useDesktopToggleCapture
         ? _VoiceAssistantHeroButton(
             icon: liveCaptureEngaged ? Icons.stop_rounded : Icons.mic,
@@ -518,9 +613,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                             alignment: WrapAlignment.center,
                             children: <Widget>[
                               _DotStatus(
-                                label: liveState.state.isEmpty
-                                    ? 'Standby'
-                                    : liveState.state,
+                                label: _liveStateLabel(liveState),
                                 color: liveState.isBusy ? _danger : _success,
                               ),
                               _StatusPill(
@@ -544,6 +637,17 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              if (liveCaptureStarting) ...<Widget>[
+                                const SizedBox(height: 10),
+                                Text(
+                                  'The app is preparing the microphone and session.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: _textMuted,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
                               if (controller.errorMessage?.trim().isNotEmpty ??
                                   false) ...<Widget>[
                                 const SizedBox(height: 16),
@@ -560,7 +664,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                         Align(
                           alignment: Alignment.bottomCenter,
                           child: Text(
-                            'Scroll for details',
+                            liveState.state.trim().toLowerCase() == 'idle'
+                                ? 'Transcript and reply update below.'
+                                : '${_liveStateLabel(liveState)} in progress.',
                             style: TextStyle(color: _textMuted, height: 1.4),
                           ),
                         ),
@@ -609,15 +715,25 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                       subtitle: hasAssistantAudio
                           ? 'Audio reply ready for playback.'
                           : 'Text reply and speech status.',
-                      child: Text(
-                        _assistantReply.trim().isEmpty
-                            ? 'No assistant reply yet.'
-                            : _assistantReply,
-                        style: TextStyle(
-                          color: _assistantReply.trim().isEmpty
-                              ? _textMuted
-                              : _textPrimary,
-                          height: 1.5,
+                      child: Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(minHeight: 96),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _bgSecondary,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: _border),
+                        ),
+                        child: SelectableText(
+                          _assistantReply.trim().isEmpty
+                              ? 'No assistant reply yet.'
+                              : _assistantReply,
+                          style: TextStyle(
+                            color: _assistantReply.trim().isEmpty
+                                ? _textMuted
+                                : _textPrimary,
+                            height: 1.45,
+                          ),
                         ),
                       ),
                     );
@@ -646,16 +762,26 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                   icon: Icons.subject_outlined,
                   title: 'Transcript',
                   subtitle:
-                      'Partial and final transcript text for the live turn.',
-                  child: Text(
-                    _assistantTranscript.trim().isEmpty
-                        ? 'Transcript will appear while or after you finish the live turn.'
-                        : _assistantTranscript,
-                    style: TextStyle(
-                      color: _assistantTranscript.trim().isEmpty
-                          ? _textMuted
-                          : _textPrimary,
-                      height: 1.5,
+                      'Speech-to-text updates as soon as they are available.',
+                  child: Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(minHeight: 96),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: _bgSecondary,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _border),
+                    ),
+                    child: SelectableText(
+                      _assistantTranscript.trim().isEmpty
+                          ? 'Transcript will appear here.'
+                          : _assistantTranscript,
+                      style: TextStyle(
+                        color: _assistantTranscript.trim().isEmpty
+                            ? _textMuted
+                            : _textPrimary,
+                        height: 1.45,
+                      ),
                     ),
                   ),
                 ),

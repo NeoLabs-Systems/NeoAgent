@@ -664,7 +664,9 @@ class _MessagingPanelState extends State<MessagingPanel> {
     final textControllers = <String, TextEditingController>{};
     final boolValues = <String, bool>{};
     for (final field in platform.configFields) {
-      final savedValue = saved[field.key];
+      final savedValue = field.settingsKey == null
+          ? saved[field.key]
+          : widget.controller.settings[field.storageKey];
       if (field.kind == MessagingConfigFieldKind.boolean) {
         boolValues[field.key] =
             savedValue == true || savedValue?.toString() == 'true';
@@ -736,10 +738,22 @@ class _MessagingPanelState extends State<MessagingPanel> {
                             );
                           }),
                         const SizedBox(height: 8),
-                        SelectableText(
-                          'Inbound webhook: ${widget.controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                          style: TextStyle(color: _textSecondary, fontSize: 12),
-                        ),
+                        if (platform.id == 'meshtastic')
+                          Text(
+                            'Meshtastic connects directly to the device TCP API on port 4403 by default. Normal chat is limited to the configured channel.',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                            ),
+                          )
+                        else
+                          SelectableText(
+                            'Inbound webhook: ${widget.controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -752,26 +766,84 @@ class _MessagingPanelState extends State<MessagingPanel> {
                   FilledButton(
                     onPressed: () async {
                       final config = <String, dynamic>{};
-                      for (final entry in textControllers.entries) {
-                        final value = entry.value.text.trim();
-                        if (value.isNotEmpty) config[entry.key] = value;
+                      final snapshot = <String, dynamic>{};
+                      for (final field in platform.configFields) {
+                        if (field.kind == MessagingConfigFieldKind.boolean ||
+                            !field.includeInConfig) {
+                          continue;
+                        }
+                        final controller = textControllers[field.key];
+                        final value = controller?.text.trim() ?? '';
+                        if (value.isNotEmpty) config[field.key] = value;
                       }
-                      for (final entry in boolValues.entries) {
-                        config[entry.key] = entry.value;
+                      for (final field in platform.configFields) {
+                        if (field.kind == MessagingConfigFieldKind.boolean) {
+                          final value = boolValues[field.key] ?? false;
+                          if (field.includeInConfig) {
+                            config[field.key] = value;
+                          }
+                          if (field.settingsKey != null) {
+                            snapshot[field.storageKey] = value;
+                          }
+                        } else if (field.settingsKey != null) {
+                          final controller = textControllers[field.key];
+                          final value = controller?.text.trim() ?? '';
+                          if (value.isNotEmpty) {
+                            snapshot[field.storageKey] = value;
+                          }
+                        }
                       }
-                      final connected = await _connectMessagingPlatform(
-                        platform: platform.id,
-                        platformLabel: platform.label,
-                        config: config,
-                        configSnapshot: <String, dynamic>{
-                          platform.settingsKey: jsonEncode(config),
-                        },
-                      );
+                      snapshot[platform.settingsKey] = jsonEncode(config);
+                      final meshtasticEnabled =
+                          platform.id != 'meshtastic' ||
+                          (boolValues['meshtastic_enabled'] ?? true);
+                      var connected = false;
+                      if (meshtasticEnabled) {
+                        connected = await _connectMessagingPlatform(
+                          platform: platform.id,
+                          platformLabel: platform.label,
+                          config: config,
+                          configSnapshot: snapshot,
+                        );
+                      } else {
+                        final messenger = ScaffoldMessenger.maybeOf(context);
+                        try {
+                          await widget.controller.saveSettingsPayload(snapshot);
+                        } catch (error) {
+                          if (!mounted) return;
+                          messenger?.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Failed to save ${platform.label}: ${widget.controller.friendlyErrorMessage(error)}',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        try {
+                          await widget.controller.refreshMessaging();
+                          connected = true;
+                        } catch (error) {
+                          if (!mounted) return;
+                          messenger?.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Saved ${platform.label}, but refresh failed: ${widget.controller.friendlyErrorMessage(error)}',
+                              ),
+                            ),
+                          );
+                        }
+                      }
                       if (connected && context.mounted) {
                         Navigator.of(context).pop();
                       }
                     },
-                    child: Text('Connect'),
+                    child: Text(
+                      platform.id == 'meshtastic' &&
+                              !(boolValues['meshtastic_enabled'] ?? true)
+                          ? 'Save'
+                          : 'Connect',
+                    ),
                   ),
                 ],
               );

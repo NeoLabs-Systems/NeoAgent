@@ -212,7 +212,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         _PageTitle(
           title: 'Settings',
           subtitle:
-              'Platform-aware workspace, model, recording, update, and diagnostics controls.',
+              'Workspace, models, recording, update, and diagnostics controls.',
           trailing: FilledButton.icon(
             onPressed: controller.isSavingSettings
                 ? null
@@ -306,7 +306,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Overview'),
             const SizedBox(height: 10),
             Text(
-              'Start with workspace behavior, then configure models, recording defaults, and updates for this platform.',
+              'Configure workspace behavior, then models, recording defaults, and updates.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 14),
@@ -358,7 +358,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Workspace'),
             const SizedBox(height: 10),
             Text(
-              'Controls that affect how the app executes work on this device or through the paired browser runtime.',
+              'Controls for how the app runs on this device and in the browser.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -467,7 +467,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Models'),
             const SizedBox(height: 10),
             Text(
-              'Enable providers first, then pick defaults for chat, agents, fallback behavior, and smart routing.',
+              'Enable providers, then choose defaults for chat, agents, fallback behavior, and smart routing.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -705,7 +705,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Voice & Recording'),
             const SizedBox(height: 10),
             Text(
-              'Defaults for transcription, summary generation, and live voice sessions.',
+              'Defaults for transcription, summaries, and live voice.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -935,7 +935,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Desktop'),
             const SizedBox(height: 10),
             Text(
-              'Controls that only apply to the desktop shell on this computer, including local recording UX and Companion Mode.',
+              'Desktop-only recording and companion controls for this computer.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -1195,22 +1195,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Updates'),
             const SizedBox(height: 10),
             Text(
-              'Client and runtime update controls are grouped here so release management lives in one place.',
+              'Client and runtime update controls live here.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    'Client App',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: _textPrimary,
-                    ),
-                  ),
-                ),
-                FilledButton.icon(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 720;
+                final checkButton = FilledButton.icon(
                   onPressed:
                       controller.isCheckingAppUpdate ||
                           !controller.appUpdaterConfigured
@@ -1231,8 +1223,31 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ? 'Checking...'
                         : 'Check now',
                   ),
-                ),
-              ],
+                );
+                final appHeading = Text(
+                  'Client App',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary,
+                  ),
+                );
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      appHeading,
+                      const SizedBox(height: 10),
+                      checkButton,
+                    ],
+                  );
+                }
+                return Row(
+                  children: <Widget>[
+                    Expanded(child: appHeading),
+                    checkButton,
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             if (!controller.appUpdaterConfigured)
@@ -1306,7 +1321,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Source: ${app_release_updater.appUpdaterGithubOwner}/${app_release_updater.appUpdaterGithubRepo}${app_release_updater.appUpdaterGithubToken.trim().isNotEmpty ? ' (override active)' : ' (default or build override)'}',
+                'Source: ${app_release_updater.appUpdaterGithubOwner}/${app_release_updater.appUpdaterGithubRepo}${app_release_updater.appUpdaterGithubToken.trim().isNotEmpty ? ' (override active)' : ''}',
                 style: TextStyle(color: _textSecondary),
               ),
               if (controller.appUpdateErrorMessage
@@ -1416,10 +1431,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 const SizedBox(height: 12),
                 Text(
                   controller.isCheckingAppUpdate
-                      ? 'Checking GitHub releases for this platform...'
+                      ? 'Checking GitHub releases...'
                       : controller.appUpdateLastCheckedAt == null
-                      ? 'Choose a channel and check GitHub releases for this platform.'
-                      : 'No newer app release is available for this platform on the selected channel.',
+                      ? 'Choose a channel, then check GitHub releases.'
+                      : 'No newer app release is available on the selected channel.',
                   style: TextStyle(color: _textSecondary, height: 1.45),
                 ),
               ],
@@ -1458,8 +1473,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
                   final channelHelper = Text(
                     controller.updateStatus.releaseChannel == 'beta'
-                        ? 'Beta follows the preview release stream.'
-                        : 'Stable follows the production release stream.',
+                        ? 'Beta follows preview releases.'
+                        : 'Stable follows production releases.',
                     style: TextStyle(color: _textSecondary),
                   );
 
@@ -1488,18 +1503,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   );
                 },
               ),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      'Runtime',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: _textPrimary,
-                      ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 780;
+                  final runtimeTitle = Text(
+                    'Runtime',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: _textPrimary,
                     ),
-                  ),
-                  FilledButton.icon(
+                  );
+                  final updateButton = FilledButton.icon(
                     onPressed:
                         controller.isSavingReleaseChannel ||
                             controller.isTriggeringUpdate ||
@@ -1517,8 +1531,24 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           )
                         : Icon(Icons.system_update),
                     label: Text('Update'),
-                  ),
-                ],
+                  );
+                  if (compact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        runtimeTitle,
+                        const SizedBox(height: 10),
+                        updateButton,
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: <Widget>[
+                      Expanded(child: runtimeTitle),
+                      updateButton,
+                    ],
+                  );
+                },
               ),
             ] else ...<Widget>[
               Text(
@@ -1535,28 +1565,39 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
             ],
             const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                _StatusPill(
-                  label: controller.updateStatus.badgeLabel,
-                  color: controller.updateStatus.badgeColor,
-                ),
-                const SizedBox(width: 10),
-                _StatusPill(
-                  label: controller.updateStatus.releaseChannelLabel,
-                  color: controller.updateStatus.releaseChannel == 'beta'
-                      ? _warning
-                      : _accent,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    controller.updateStatus.message,
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                ),
-                Text('${controller.updateStatus.progress}%'),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 760;
+                final statusRow = Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    _StatusPill(
+                      label: controller.updateStatus.badgeLabel,
+                      color: controller.updateStatus.badgeColor,
+                    ),
+                    _StatusPill(
+                      label: controller.updateStatus.releaseChannelLabel,
+                      color: controller.updateStatus.releaseChannel == 'beta'
+                          ? _warning
+                          : _accent,
+                    ),
+                    Text(
+                      controller.updateStatus.message,
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                    Text('${controller.updateStatus.progress}%'),
+                  ],
+                );
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[statusRow],
+                  );
+                }
+                return statusRow;
+              },
             ),
             const SizedBox(height: 10),
             ClipRRect(
