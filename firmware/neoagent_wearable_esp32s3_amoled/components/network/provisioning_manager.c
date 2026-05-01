@@ -172,20 +172,14 @@ static void copy_string_bounded(char *destination, size_t destination_size, cons
     if (source == NULL) {
         return;
     }
-    strncpy(destination, source, destination_size - 1);
-    destination[destination_size - 1] = '\0';
+    strlcpy(destination, source, destination_size);
 }
 
 static void append_string_bounded(char *destination, size_t destination_size, const char *suffix) {
     if (destination == NULL || destination_size == 0 || suffix == NULL) {
         return;
     }
-    size_t used = strlen(destination);
-    if (used >= destination_size - 1) {
-        return;
-    }
-    strncpy(destination + used, suffix, destination_size - used - 1);
-    destination[destination_size - 1] = '\0';
+    strlcat(destination, suffix, destination_size);
 }
 
 static void normalize_server_url(neoagent_device_config_t *config) {
@@ -342,17 +336,13 @@ static esp_err_t apply_form_field(neoagent_device_config_t *config, const char *
     url_decode_inplace(value);
     trim_whitespace_inplace(value);
     if (strcmp(key, "server_url") == 0) {
-        strncpy(config->server_url, value, sizeof(config->server_url) - 1);
-        config->server_url[sizeof(config->server_url) - 1] = '\0';
+        strlcpy(config->server_url, value, sizeof(config->server_url));
     } else if (strcmp(key, "wifi_ssid") == 0) {
-        strncpy(config->wifi_ssid, value, sizeof(config->wifi_ssid) - 1);
-        config->wifi_ssid[sizeof(config->wifi_ssid) - 1] = '\0';
+        strlcpy(config->wifi_ssid, value, sizeof(config->wifi_ssid));
     } else if (strcmp(key, "wifi_password") == 0) {
-        strncpy(config->wifi_password, value, sizeof(config->wifi_password) - 1);
-        config->wifi_password[sizeof(config->wifi_password) - 1] = '\0';
+        strlcpy(config->wifi_password, value, sizeof(config->wifi_password));
     } else if (strcmp(key, "device_label") == 0) {
-        strncpy(config->device_label, value, sizeof(config->device_label) - 1);
-        config->device_label[sizeof(config->device_label) - 1] = '\0';
+        strlcpy(config->device_label, value, sizeof(config->device_label));
     } else if (strcmp(key, "wifi_channel") == 0) {
         long channel = strtol(value, NULL, 10);
         if (channel >= 0 && channel <= 255) {
@@ -403,42 +393,7 @@ static void send_json_response(httpd_req_t *request, const char *status, const c
     httpd_resp_send(request, body, HTTPD_RESP_USE_STRLEN);
 }
 
-static void append_json_escaped(char *destination, size_t destination_size, const char *value) {
-    if (destination == NULL || destination_size == 0 || value == NULL) {
-        return;
-    }
-    for (const char *cursor = value; *cursor != '\0'; ++cursor) {
-        const unsigned char byte = (unsigned char)*cursor;
-        switch (byte) {
-            case '\\':
-                append_string_bounded(destination, destination_size, "\\\\");
-                break;
-            case '"':
-                append_string_bounded(destination, destination_size, "\\\"");
-                break;
-            case '\n':
-                append_string_bounded(destination, destination_size, "\\n");
-                break;
-            case '\r':
-                append_string_bounded(destination, destination_size, "\\r");
-                break;
-            case '\t':
-                append_string_bounded(destination, destination_size, "\\t");
-                break;
-            default: {
-                if (byte < 0x20 || byte >= 0x7f) {
-                    char escaped[7];
-                    snprintf(escaped, sizeof(escaped), "\\u%04x", (unsigned)byte);
-                    append_string_bounded(destination, destination_size, escaped);
-                } else {
-                    char chunk[2] = {(char)byte, '\0'};
-                    append_string_bounded(destination, destination_size, chunk);
-                }
-                break;
-            }
-        }
-    }
-}
+
 
 static void sanitize_json_text(char *destination, size_t destination_size, const char *source) {
     if (destination == NULL || destination_size == 0) {
@@ -938,8 +893,7 @@ static void maybe_set_captive_portal_uri(esp_netif_t *netif) {
             IP2STR(&ap_ip_info.ip)
         );
     } else {
-        strncpy(s_captive_portal_uri, "http://192.168.4.1", sizeof(s_captive_portal_uri) - 1);
-        s_captive_portal_uri[sizeof(s_captive_portal_uri) - 1] = '\0';
+        strlcpy(s_captive_portal_uri, "http://192.168.4.1", sizeof(s_captive_portal_uri));
     }
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_dhcps_stop(netif));
     if (have_ap_ip) {
@@ -1294,7 +1248,7 @@ esp_err_t provisioning_manager_start_portal(provisioning_manager_t *manager, ses
     manager->ap_password[0] = '\0';
 
     wifi_config_t wifi_config = {0};
-    strncpy((char *)wifi_config.ap.ssid, manager->ap_ssid, sizeof(wifi_config.ap.ssid) - 1);
+    strlcpy((char *)wifi_config.ap.ssid, manager->ap_ssid, sizeof(wifi_config.ap.ssid));
     wifi_config.ap.ssid_len = strlen(manager->ap_ssid);
     wifi_config.ap.channel = 1;
     wifi_config.ap.max_connection = 4;
