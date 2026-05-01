@@ -81,15 +81,15 @@ function encodeMessageField(fieldNumber, messageBytes) {
 }
 
 function decodeVarint(buf, offset) {
-  let result = 0;
-  let shift = 0;
+  let result = 0n;
+  let shift = 0n;
   let pos = offset;
   while (pos < buf.length) {
-    const b = buf[pos++];
-    result |= (b & 0x7F) << shift;
-    if ((b & 0x80) === 0) return { value: result >>> 0, offset: pos };
-    shift += 7;
-    if (shift > 35) throw new Error('Varint too long');
+    const b = BigInt(buf[pos++]);
+    result |= (b & 0x7Fn) << shift;
+    if ((b & 0x80n) === 0n) return { value: Number(result), offset: pos };
+    shift += 7n;
+    if (shift > 69n) throw new Error('Varint too long');
   }
   throw new Error('Unexpected end of varint');
 }
