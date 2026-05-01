@@ -54,7 +54,6 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@google/generative-ai": "^0.24.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "@meshtastic/core": "^2.6.7",
     "baileys": "^6.7.21",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^11.8.1",

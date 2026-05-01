@@ -3,11 +3,10 @@
 const { BasePlatform } = require('./base');
 const { readMeshtasticEnabled } = require('./meshtastic_env');
 const { MeshtasticTcpTransport } = require('./meshtastic_tcp_transport');
+const { BROADCAST_NUM } = require('./meshtastic_protocol');
 
 const DEFAULT_TCP_PORT = 4403;
 const DEFAULT_CHANNEL = 0;
-
-let meshtasticModulesPromise = null;
 
 function requireText(value, label) {
   const text = String(value || '').trim();
@@ -47,31 +46,6 @@ function parseChannel(value) {
   return channel;
 }
 
-async function loadMeshtasticModules() {
-  if (!meshtasticModulesPromise) {
-    meshtasticModulesPromise = import('@meshtastic/core').then((core) => ({
-      MeshDevice: core.MeshDevice,
-      Types: core.Types,
-      createTransport: (hostname, port, timeout) =>
-        MeshtasticTcpTransport.create(core, hostname, port, timeout),
-    })).catch((error) => {
-      meshtasticModulesPromise = null;
-      const message = String(error?.message || error || '');
-      if (
-        error?.code === 'ERR_MODULE_NOT_FOUND'
-        || /Cannot find package '@meshtastic\/core'/.test(message)
-        || /Cannot find module '@meshtastic\/core'/.test(message)
-      ) {
-        throw new Error(
-          'Meshtastic support is not installed. Install @meshtastic/core or disable the Meshtastic integration.'
-        );
-      }
-      throw error;
-    });
-  }
-  return meshtasticModulesPromise;
-}
-
 function normalizeNodeId(value) {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -99,13 +73,8 @@ class MeshtasticPlatform extends BasePlatform {
     this.channel = DEFAULT_CHANNEL;
     this.authInfo = null;
     this._transport = null;
-    this._device = null;
-    this._modules = null;
     this._connectPromise = null;
     this._disconnecting = false;
-    this._configured = false;
-    this._lastMyNodeInfo = null;
-    this._lastNodeUsers = new Map();
   }
 
   async connect() {
@@ -131,99 +100,31 @@ class MeshtasticPlatform extends BasePlatform {
     this.port = endpoint.port;
     this.channel = parseChannel(this.config.channel);
     this._disconnecting = false;
-    this._configured = false;
-    this._lastMyNodeInfo = null;
-    this._lastNodeUsers.clear();
     this.status = 'connecting';
 
-    const modules = await loadMeshtasticModules();
-    this._modules = modules;
-
-    const transport = await modules.createTransport(this.host, this.port, 60000);
+    const transport = await MeshtasticTcpTransport.create(this.host, this.port, 60000);
     this._transport = transport;
 
-    const device = new modules.MeshDevice(transport);
-    this._device = device;
-    this._wireDeviceEvents(device, modules.Types);
+    const conn = transport.connection;
 
-    const ready = new Promise((resolve, reject) => {
-      let settled = false;
-      const resolveOnce = () => {
-        if (settled) return;
-        settled = true;
-        resolve({ status: this.status });
-      };
-      const rejectOnce = (error) => {
-        if (settled) return;
-        settled = true;
-        reject(error);
-      };
-
-      device.events.onDeviceStatus.subscribe((status) => {
-        if (status === modules.Types.DeviceStatusEnum.DeviceConnected) {
-          device.configure().catch((error) => {
-            if (!this._disconnecting) {
-              rejectOnce(error);
-            }
-          });
-          return;
-        }
-
-        if (status === modules.Types.DeviceStatusEnum.DeviceConfigured) {
-          this._configured = true;
-          this.status = 'connected';
-          this.authInfo = this._buildAuthInfo();
-          this.emit('connected');
-          resolveOnce();
-          return;
-        }
-
-        if (status === modules.Types.DeviceStatusEnum.DeviceDisconnected) {
-          this.status = 'disconnected';
-          if (!this._disconnecting) {
-            const error = new Error('Meshtastic device disconnected');
-            rejectOnce(error);
-            this.emit('disconnected', { reason: 'device_disconnected' });
-          }
-        }
-      });
+    conn.on('myNodeInfo', () => {
+      this.authInfo = this._buildAuthInfo(conn);
     });
 
-    await ready;
-    return { status: this.status };
-  }
+    conn.on('textMessage', (msg) => {
+      if (msg.channel !== this.channel) return;
 
-  _wireDeviceEvents(device, Types) {
-    device.events.onMyNodeInfo.subscribe((info) => {
-      this._lastMyNodeInfo = info;
-      this.authInfo = this._buildAuthInfo();
-    });
+      const localNodeNum = conn.myNodeNum;
+      if (msg.from > 0 && localNodeNum > 0 && msg.from === localNodeNum) return;
 
-    device.events.onUserPacket.subscribe((packet) => {
-      const user = packet?.data;
-      const from = Number(packet?.from || 0);
-      if (!user || !Number.isFinite(from) || from <= 0) return;
-      this._lastNodeUsers.set(from, user);
-    });
-
-    device.events.onMessagePacket.subscribe((packet) => {
-      if (!packet) return;
-      const channel = Number(packet.channel);
-      if (channel !== this.channel) return;
-
-      const senderNum = Number(packet.from || 0);
-      const localNodeNum = Number(this._lastMyNodeInfo?.myNodeNum || 0);
-      if (senderNum > 0 && localNodeNum > 0 && senderNum === localNodeNum) {
-        return;
-      }
-      const senderUser = this._lastNodeUsers.get(senderNum) || null;
+      const senderUser = conn.nodeUsers.get(msg.from) || null;
       const senderName = senderUser?.longName || senderUser?.shortName || null;
       const senderUsername = normalizeNodeId(senderUser?.id || '');
-      const chatId = `channel:${channel}`;
+      const chatId = `channel:${msg.channel}`;
 
       const access = this._checkInboundAccess({
         platform: this.name,
-        senderId: String(senderNum || ''),
+        senderId: String(msg.from || ''),
         chatId,
         isDirect: false,
         isShared: true,
@@ -245,35 +146,46 @@ class MeshtasticPlatform extends BasePlatform {
 
       this.emit('message', {
         chatId,
-        sender: String(senderNum || ''),
+        sender: String(msg.from || ''),
         senderName,
         senderUsername: senderUsername || null,
         senderTag: senderUsername || null,
-        content: String(packet.data || ''),
+        content: msg.data,
         mediaType: null,
         isGroup: true,
-        messageId: String(packet.id || `${Date.now()}`),
-        timestamp: toIsoTimestamp(packet.rxTime),
+        messageId: String(msg.id || `${Date.now()}`),
+        timestamp: toIsoTimestamp(msg.rxTime),
         metadata: {
-          channel,
+          channel: msg.channel,
           host: this.host,
           meshNodeId: senderUsername || null,
-          meshDestination: packet.type || 'broadcast',
+          meshDestination: msg.type || 'broadcast',
         },
         rawMessage: {
-          id: packet.id,
-          from: packet.from,
-          to: packet.to,
-          type: packet.type,
-          channel: packet.channel,
+          id: msg.id,
+          from: msg.from,
+          to: msg.to,
+          type: msg.type,
+          channel: msg.channel,
         },
       });
     });
+
+    conn.on('disconnected', (info) => {
+      if (this._disconnecting) return;
+      this.status = 'disconnected';
+      this.emit('disconnected', { reason: info?.reason || 'device_disconnected' });
+    });
+
+    this.status = 'connected';
+    this.authInfo = this._buildAuthInfo(conn);
+    this.emit('connected');
+    return { status: this.status };
   }
 
-  _buildAuthInfo() {
-    const info = this._lastMyNodeInfo || {};
-    const user = info.user || {};
+  _buildAuthInfo(conn) {
+    const nodeNum = conn?.myNodeNum || 0;
+    const user = conn?.nodeUsers.get(nodeNum) || {};
     return {
       label: user.longName || user.shortName || normalizeNodeId(user.id) || this.host || 'Meshtastic',
       nodeId: normalizeNodeId(user.id),
@@ -283,7 +195,7 @@ class MeshtasticPlatform extends BasePlatform {
   }
 
   async sendMessage(to, content) {
-    if (this.status !== 'connected' || !this._device || !this._modules) {
+    if (this.status !== 'connected' || !this._transport) {
       throw new Error('Meshtastic is not connected');
     }
 
@@ -292,11 +204,11 @@ class MeshtasticPlatform extends BasePlatform {
       throw new Error(`Meshtastic is configured for channel ${this.channel}`);
     }
 
-    await this._device.sendText(
+    await this._transport.connection.sendText(
       String(content || ''),
-      'broadcast',
-      true,
       this.channel,
+      BROADCAST_NUM,
+      true,
     );
     return { success: true };
   }
@@ -305,15 +217,10 @@ class MeshtasticPlatform extends BasePlatform {
     this._disconnecting = true;
     this.status = 'disconnected';
 
-    const device = this._device;
     const transport = this._transport;
-    this._device = null;
     this._transport = null;
-    this._configured = false;
 
-    if (device && typeof device.disconnect === 'function') {
-      await device.disconnect().catch(() => {});
-    } else if (transport && typeof transport.disconnect === 'function') {
+    if (transport) {
       await transport.disconnect().catch(() => {});
     }
   }
@@ -323,7 +230,7 @@ class MeshtasticPlatform extends BasePlatform {
   }
 
   getAuthInfo() {
-    return this.authInfo || this._buildAuthInfo();
+    return this.authInfo || this._buildAuthInfo(this._transport?.connection);
   }
 }
 
