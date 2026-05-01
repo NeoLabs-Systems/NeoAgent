@@ -60,8 +60,7 @@ static void copy_bounded(char *destination, size_t destination_size, const char 
     if (value == NULL) {
         return;
     }
-    strncpy(destination, value, destination_size - 1);
-    destination[destination_size - 1] = '\0';
+    strlcpy(destination, value, destination_size);
 }
 
 static void set_last_error(wearable_voice_client_t *client, const char *message) {

@@ -113,11 +113,11 @@ static esp_err_t parse_challenge_response(const char *json_body, neoagent_pairin
     }
 
     memset(state, 0, sizeof(*state));
-    strncpy(state->challenge_id, challenge_id->valuestring, sizeof(state->challenge_id) - 1);
-    strncpy(state->poll_token, poll_token->valuestring, sizeof(state->poll_token) - 1);
-    strncpy(state->qr_payload, qr_payload->valuestring, sizeof(state->qr_payload) - 1);
+    strlcpy(state->challenge_id, challenge_id->valuestring, sizeof(state->challenge_id));
+    strlcpy(state->poll_token, poll_token->valuestring, sizeof(state->poll_token));
+    strlcpy(state->qr_payload, qr_payload->valuestring, sizeof(state->qr_payload));
     if (cJSON_IsString(expires_at)) {
-        strncpy(state->expires_at, expires_at->valuestring, sizeof(state->expires_at) - 1);
+        strlcpy(state->expires_at, expires_at->valuestring, sizeof(state->expires_at));
     }
     state->pending = true;
     cJSON_Delete(root);
@@ -166,8 +166,8 @@ static esp_err_t parse_claim_response(const char *json_body, const char *session
 
     memset(session, 0, sizeof(*session));
     session->authenticated = true;
-    strncpy(session->session_cookie, session_cookie, sizeof(session->session_cookie) - 1);
-    strncpy(session->username, username->valuestring, sizeof(session->username) - 1);
+    strlcpy(session->session_cookie, session_cookie, sizeof(session->session_cookie));
+    strlcpy(session->username, username->valuestring, sizeof(session->username));
     snprintf(session->user_id, sizeof(session->user_id), "%.0f", user_id->valuedouble);
     cJSON_Delete(root);
     return ESP_OK;
