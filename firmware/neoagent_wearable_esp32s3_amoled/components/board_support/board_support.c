@@ -28,7 +28,6 @@
 #include "freertos/task.h"
 #include "lvgl.h"
 #include "extra/libs/qrcode/lv_qrcode.h"
-#include "extra/widgets/spinner/lv_spinner.h"
 
 static const char *TAG = "BoardSupport";
 
@@ -86,8 +85,6 @@ typedef struct {
     bool initialized;
     bool qr_screen_active;
     SemaphoreHandle_t lvgl_mutex;
-    lv_disp_t *display;
-    lv_disp_rot_t display_rotation;
     lv_obj_t *screen;
     lv_obj_t *title_label;
     lv_obj_t *line1_label;
@@ -224,46 +221,6 @@ static void board_load_screen(lv_obj_t *screen, lv_scr_load_anim_t animation) {
 
 static void board_set_translate_y(void *object, int32_t value) {
     lv_obj_set_style_translate_y((lv_obj_t *)object, (lv_coord_t)value, 0);
-}
-
-static void board_apply_rotation(lv_disp_rot_t rotation) {
-    s_runtime.display_rotation = rotation;
-    if (s_runtime.display != NULL) {
-        lv_disp_set_rotation(s_runtime.display, rotation);
-    }
-}
-
-static void board_transform_touch_point(uint16_t *x, uint16_t *y) {
-    if (x == NULL || y == NULL) {
-        return;
-    }
-
-    int32_t local_x = (int32_t)(*x);
-    int32_t local_y = (int32_t)(*y);
-
-    if (s_runtime.display_rotation == LV_DISP_ROT_180 || s_runtime.display_rotation == LV_DISP_ROT_270) {
-        local_x = BOARD_LCD_H_RES - local_x - 1;
-        local_y = BOARD_LCD_V_RES - local_y - 1;
-    }
-    if (s_runtime.display_rotation == LV_DISP_ROT_90 || s_runtime.display_rotation == LV_DISP_ROT_270) {
-        int32_t tmp = local_y;
-        local_y = local_x;
-        local_x = BOARD_LCD_V_RES - tmp - 1;
-    }
-
-    if (local_x < 0) {
-        local_x = 0;
-    } else if (local_x >= BOARD_LCD_V_RES) {
-        local_x = BOARD_LCD_V_RES - 1;
-    }
-    if (local_y < 0) {
-        local_y = 0;
-    } else if (local_y >= BOARD_LCD_H_RES) {
-        local_y = BOARD_LCD_H_RES - 1;
-    }
-
-    *x = (uint16_t)local_x;
-    *y = (uint16_t)local_y;
 }
 
 static void board_format_battery_text(char *text, size_t text_size) {
@@ -826,95 +783,6 @@ static void board_create_default_screen(void) {
     s_runtime.screen = screen;
     s_runtime.qr_code = NULL;
     s_runtime.qr_screen_active = false;
-    board_load_screen(screen, LV_SCR_LOAD_ANIM_FADE_ON);
-}
-
-static void board_create_boot_screen(void) {
-    lv_obj_t *screen = lv_obj_create(NULL);
-    board_style_base_screen(screen);
-
-    lv_obj_t *gold_glow = lv_obj_create(screen);
-    lv_obj_set_size(gold_glow, 296, 296);
-    lv_obj_align(gold_glow, LV_ALIGN_TOP_LEFT, -84, -82);
-    lv_obj_set_style_radius(gold_glow, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(gold_glow, lv_color_hex(0xb28a53), 0);
-    lv_obj_set_style_bg_opa(gold_glow, LV_OPA_30, 0);
-    lv_obj_set_style_border_width(gold_glow, 0, 0);
-    lv_obj_set_style_shadow_width(gold_glow, 150, 0);
-    lv_obj_set_style_shadow_opa(gold_glow, LV_OPA_70, 0);
-    lv_obj_set_style_shadow_color(gold_glow, lv_color_hex(0xb28a53), 0);
-    lv_obj_clear_flag(gold_glow, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *teal_glow = lv_obj_create(screen);
-    lv_obj_set_size(teal_glow, 220, 220);
-    lv_obj_align(teal_glow, LV_ALIGN_BOTTOM_RIGHT, 58, 58);
-    lv_obj_set_style_radius(teal_glow, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(teal_glow, lv_color_hex(0x295c57), 0);
-    lv_obj_set_style_bg_opa(teal_glow, LV_OPA_20, 0);
-    lv_obj_set_style_border_width(teal_glow, 0, 0);
-    lv_obj_set_style_shadow_width(teal_glow, 120, 0);
-    lv_obj_set_style_shadow_opa(teal_glow, LV_OPA_60, 0);
-    lv_obj_set_style_shadow_color(teal_glow, lv_color_hex(0x295c57), 0);
-    lv_obj_clear_flag(teal_glow, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *emblem = lv_obj_create(screen);
-    lv_obj_set_size(emblem, 56, 56);
-    lv_obj_align(emblem, LV_ALIGN_CENTER, 0, -34);
-    lv_obj_set_style_radius(emblem, 16, 0);
-    lv_obj_set_style_bg_color(emblem, lv_color_hex(0x2d3f3f), 0);
-    lv_obj_set_style_bg_opa(emblem, LV_OPA_90, 0);
-    lv_obj_set_style_border_width(emblem, 1, 0);
-    lv_obj_set_style_border_color(emblem, lv_color_hex(0x506660), 0);
-    lv_obj_set_style_pad_all(emblem, 0, 0);
-    lv_obj_clear_flag(emblem, LV_OBJ_FLAG_SCROLLABLE);
-
-    const lv_coord_t layer_widths[] = {26, 30, 22};
-    const lv_color_t layer_colors[] = {
-        lv_color_hex(0xf0c05b),
-        lv_color_hex(0xdcc08a),
-        lv_color_hex(0x78afa6),
-    };
-    const lv_coord_t layer_offsets[] = {-10, 0, 10};
-    for (size_t i = 0; i < 3; ++i) {
-        lv_obj_t *layer = lv_obj_create(emblem);
-        lv_obj_set_size(layer, layer_widths[i], 5);
-        lv_obj_align(layer, LV_ALIGN_CENTER, layer_offsets[i], -6 + (lv_coord_t)(i * 11));
-        lv_obj_set_style_radius(layer, 4, 0);
-        lv_obj_set_style_bg_color(layer, layer_colors[i], 0);
-        lv_obj_set_style_border_width(layer, 0, 0);
-        lv_obj_clear_flag(layer, LV_OBJ_FLAG_SCROLLABLE);
-    }
-
-    lv_obj_t *title_label = lv_label_create(screen);
-    lv_obj_set_style_text_font(title_label, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(title_label, lv_color_hex(0xf4f1ea), 0);
-    lv_label_set_text(title_label, "NeoOS");
-    lv_obj_align(title_label, LV_ALIGN_CENTER, 0, 30);
-
-    lv_obj_t *spinner = lv_spinner_create(screen, 1100, 62);
-    lv_obj_set_size(spinner, 24, 24);
-    lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 78);
-    lv_obj_set_style_arc_color(spinner, lv_color_hex(0xd7b06a), LV_PART_MAIN);
-    lv_obj_set_style_arc_color(spinner, lv_color_hex(0xf2deb5), LV_PART_INDICATOR);
-    lv_obj_set_style_arc_width(spinner, 3, LV_PART_MAIN);
-    lv_obj_set_style_arc_width(spinner, 3, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_opa(spinner, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(spinner, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(spinner, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *loading_label = lv_label_create(screen);
-    lv_obj_set_style_text_font(loading_label, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(loading_label, lv_color_hex(0xc6b49b), 0);
-    lv_label_set_text(loading_label, "Loading NeoOS");
-    lv_obj_align(loading_label, LV_ALIGN_CENTER, 0, 108);
-
-    s_runtime.screen = screen;
-    s_runtime.title_label = title_label;
-    s_runtime.line1_label = loading_label;
-    s_runtime.line2_label = NULL;
-    s_runtime.qr_code = NULL;
-    s_runtime.qr_screen_active = false;
-    board_animate_entry(emblem);
     board_load_screen(screen, LV_SCR_LOAD_ANIM_FADE_ON);
 }
 
@@ -1536,8 +1404,6 @@ esp_err_t board_support_init(board_support_t *board) {
     lv_disp_t *display = lv_disp_drv_register(&s_runtime.disp_drv);
 
     (void)display;
-    s_runtime.display = display;
-    s_runtime.display_rotation = LV_DISP_ROT_NONE;
 
     const esp_timer_create_args_t timer_args = {
         .callback = board_increase_lvgl_tick,
@@ -1552,7 +1418,7 @@ esp_err_t board_support_init(board_support_t *board) {
     xTaskCreate(board_lvgl_task, "neo_lvgl", BOARD_LVGL_TASK_STACK_SIZE, NULL, 2, NULL);
 
     if (board_lock(-1)) {
-        board_create_boot_screen();
+        board_create_default_screen();
         board_unlock();
     }
 
@@ -1575,18 +1441,6 @@ esp_err_t board_support_init(board_support_t *board) {
     return ESP_OK;
 }
 
-esp_err_t board_support_show_boot_screen(board_support_t *board) {
-    if (board == NULL || !s_runtime.initialized) {
-        return ESP_ERR_INVALID_STATE;
-    }
-    if (!board_lock(1000)) {
-        return ESP_ERR_TIMEOUT;
-    }
-    board_create_boot_screen();
-    board_unlock();
-    return ESP_OK;
-}
-
 esp_err_t board_support_set_chrome(board_support_t *board, const neoagent_status_chrome_t *status, const char *time_text) {
     if (board == NULL || !s_runtime.initialized) {
         return ESP_ERR_INVALID_STATE;
@@ -1602,7 +1456,6 @@ esp_err_t board_support_set_chrome(board_support_t *board, const neoagent_status
     } else {
         snprintf(s_runtime.chrome_time, sizeof(s_runtime.chrome_time), "--:--");
     }
-    board_apply_rotation(s_runtime.chrome.charging ? LV_DISP_ROT_90 : LV_DISP_ROT_NONE);
     board_unlock();
     return ESP_OK;
 }
@@ -1707,7 +1560,6 @@ esp_err_t board_support_poll_touch(board_support_t *board, board_touch_event_t *
     bool pressed = esp_lcd_touch_get_coordinates(s_runtime.touch_handle, x, y, NULL, &points, 1);
 
     if (pressed && points > 0) {
-        board_transform_touch_point(&x[0], &y[0]);
         event->pressed = !s_runtime.touch_down;
         event->x = x[0];
         event->y = y[0];
