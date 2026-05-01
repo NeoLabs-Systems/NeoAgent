@@ -1,6 +1,6 @@
 {
   "name": "neoagent",
-  "version": "2.3.1-beta.37",
+  "version": "2.3.1-beta.38",
   "description": "Proactive personal AI agent with no limits",
   "license": "MIT",
   "main": "server/index.js",
