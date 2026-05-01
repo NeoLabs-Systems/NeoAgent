@@ -50,6 +50,7 @@ typedef enum {
 } board_assistant_state_t;
 
 esp_err_t board_support_init(board_support_t *board);
+esp_err_t board_support_show_boot_screen(board_support_t *board);
 esp_err_t board_support_set_chrome(board_support_t *board, const neoagent_status_chrome_t *status, const char *time_text);
 esp_err_t board_support_show_message(board_support_t *board, const char *title, const char *line1, const char *line2);
 esp_err_t board_support_show_qr(board_support_t *board, const char *title, const char *subtitle, const char *qr_payload);
