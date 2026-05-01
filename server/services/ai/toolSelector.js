@@ -33,7 +33,20 @@ function selectMcpTools(task, mcpTools = []) {
 }
 
 function selectToolsForTask(task, builtInTools = [], mcpTools = [], _options = {}) {
-  return [...builtInTools, ...selectMcpTools(task, mcpTools)];
+  const MAX_TOOLS = 128; // Strict provider limit (e.g. Github Copilot / OpenAI)
+  const selectedMcp = selectMcpTools(task, mcpTools);
+  
+  if (builtInTools.length + selectedMcp.length <= MAX_TOOLS) {
+    return [...builtInTools, ...selectedMcp];
+  }
+
+  // If we exceed the limit, prioritize base tools and take as many MCP tools as fit
+  const remainingSpace = MAX_TOOLS - builtInTools.length;
+  if (remainingSpace > 0) {
+    return [...builtInTools, ...selectedMcp.slice(0, remainingSpace)];
+  }
+  
+  return builtInTools.slice(0, MAX_TOOLS);
 }
 
 module.exports = { selectToolsForTask, selectMcpTools };
