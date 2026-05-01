@@ -75,6 +75,7 @@ class MeshtasticPlatform extends BasePlatform {
     this._transport = null;
     this._connectPromise = null;
     this._disconnecting = false;
+    this._reconnectTimer = null;
   }
 
   async connect() {
@@ -175,12 +176,26 @@ class MeshtasticPlatform extends BasePlatform {
       if (this._disconnecting) return;
       this.status = 'disconnected';
       this.emit('disconnected', { reason: info?.reason || 'device_disconnected' });
+      this._scheduleReconnect();
     });
 
     this.status = 'connected';
     this.authInfo = this._buildAuthInfo(conn);
     this.emit('connected');
     return { status: this.status };
+  }
+
+  _scheduleReconnect() {
+    if (this._disconnecting || this._reconnectTimer) return;
+    console.log(`[Meshtastic] Connection lost. Reconnecting in 10 seconds...`);
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      if (this._disconnecting) return;
+      this.connect().catch((err) => {
+        console.error(`[Meshtastic] Auto-reconnect failed:`, err.message);
+        this._scheduleReconnect();
+      });
+    }, 10000);
   }
 
   _buildAuthInfo(conn) {
@@ -216,6 +231,10 @@ class MeshtasticPlatform extends BasePlatform {
   async disconnect() {
     this._disconnecting = true;
     this.status = 'disconnected';
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
 
     const transport = this._transport;
     this._transport = null;
