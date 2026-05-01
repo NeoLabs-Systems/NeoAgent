@@ -2744,7 +2744,12 @@ async function executeTool(toolName, args, context, engine) {
             const { detectPromptInjection } = require('../../utils/security');
             const mcpManager = mcp();
             if (mcpManager) {
-                const mcpResult = await mcpManager.callToolByName(toolName, args, userId, { agentId });
+                let mcpResult = null;
+                try {
+                    mcpResult = await mcpManager.callToolByName(toolName, args, userId, { agentId });
+                } catch (mcpErr) {
+                    return { error: mcpErr.message, tool: toolName, source: 'mcp' };
+                }
                 if (mcpResult !== null) {
                     const resultText = typeof mcpResult === 'string' ? mcpResult : JSON.stringify(mcpResult);
                     if (detectPromptInjection(resultText)) {

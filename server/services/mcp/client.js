@@ -1,9 +1,14 @@
+'use strict';
+
 const EventEmitter = require('events');
 const crypto = require('crypto');
 const db = require('../../db/database');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js');
 const { validateRemoteMcpEndpoint } = require('../runtime/mcp');
+
+const CONSECUTIVE_FAIL_LIMIT = 3;
+const RECONNECT_DELAY_MS = 60_000;
 
 class DBAuthProvider {
   constructor(serverId, clientId, authServerUrl) {
@@ -50,7 +55,6 @@ class DBAuthProvider {
   }
 
   redirectToAuthorization(authorizationUrl) {
-    // Throw error so the API route catches it and returns the URL to the frontend
     throw new Error(`OAUTH_REDIRECT:${authorizationUrl.toString()}`);
   }
 
@@ -66,10 +70,30 @@ class DBAuthProvider {
   }
 }
 
+function extractErrorMessage(err) {
+  const raw = err?.message || String(err || 'Unknown error');
+  // Strip HTML bodies (e.g. Cloudflare 530 error pages) — keep only the first line
+  if (raw.includes('<!doctype') || raw.includes('<html') || raw.includes('<!DOCTYPE')) {
+    const httpMatch = raw.match(/HTTP (\d+)/i);
+    return httpMatch
+      ? `Server returned HTTP ${httpMatch[1]} — the MCP endpoint may be down or misconfigured`
+      : 'Server returned an HTML error page — the MCP endpoint may be down or misconfigured';
+  }
+  // ECONNREFUSED: pull out just the host/port
+  if (err?.code === 'ECONNREFUSED' || raw.includes('ECONNREFUSED')) {
+    const addrMatch = raw.match(/connect ECONNREFUSED ([^\s,]+)/);
+    return addrMatch
+      ? `Connection refused at ${addrMatch[1]} — is the MCP server running?`
+      : 'Connection refused — the MCP server is not reachable';
+  }
+  return raw.split('\n')[0].trim();
+}
+
 class MCPClient extends EventEmitter {
   constructor() {
     super();
     this.servers = new Map();
+    this._reconnectTimers = new Map();
   }
 
   async startServer(serverId, url, name = '', userId = null, options = {}) {
@@ -90,13 +114,12 @@ class MCPClient extends EventEmitter {
 
       const transportOpts = {
         requestInit: { headers: {} },
-        eventSourceInit: { headers: {} }
+        eventSourceInit: { headers: {} },
       };
 
       if (authObj.type === 'bearer' && authObj.token) {
         const h = `Bearer ${authObj.token}`;
         transportOpts.requestInit.headers['Authorization'] = h;
-        // Native EventSource doesn't support headers well in browsers, but Node.js EventSource / sse.js might
         transportOpts.eventSourceInit.headers['Authorization'] = h;
       } else if (authObj.type === 'oauth') {
         transportOpts.authProvider = new DBAuthProvider(serverId, authObj.clientId, authObj.authServerUrl);
@@ -105,7 +128,7 @@ class MCPClient extends EventEmitter {
       const transport = new SSEClientTransport(new URL(endpoint), transportOpts);
       const client = new Client(
         { name: 'NeoAgent', version: '1.0.0' },
-        { capabilities: { tools: {} } }
+        { capabilities: { tools: {} } },
       );
 
       const serverObj = {
@@ -119,7 +142,9 @@ class MCPClient extends EventEmitter {
         client,
         transport,
         tools: [],
-        status: 'starting'
+        status: 'starting',
+        consecutiveFails: 0,
+        lastError: null,
       };
 
       this.servers.set(serverId, serverObj);
@@ -129,17 +154,24 @@ class MCPClient extends EventEmitter {
       const server = this.servers.get(serverId);
       if (server) {
         server.status = 'running';
+        server.consecutiveFails = 0;
+        server.lastError = null;
         this.emit('server_status', { serverId, status: 'running' });
       }
 
       return { status: 'running' };
     } catch (err) {
+      const message = extractErrorMessage(err);
       const server = this.servers.get(serverId);
       if (server) {
+        server.consecutiveFails = (server.consecutiveFails || 0) + 1;
+        server.lastError = message;
         server.status = 'error';
-        this.emit('server_status', { serverId, status: 'error', error: err.message });
+        this.emit('server_status', { serverId, status: 'error', error: message });
       }
-      throw err;
+      const friendlyErr = new Error(message);
+      friendlyErr.originalError = err;
+      throw friendlyErr;
     }
   }
 
@@ -149,24 +181,60 @@ class MCPClient extends EventEmitter {
       throw new Error(`Server ${serverId} transport not initialized`);
     }
     await server.transport.finishAuth(code);
-    await server.client.connect(server.transport).catch(() => { }); // Reconnect using tokens
+    await server.client.connect(server.transport).catch(() => {});
 
     server.status = 'running';
+    server.consecutiveFails = 0;
+    server.lastError = null;
     this.emit('server_status', { serverId, status: 'running' });
   }
 
   async stopServer(serverId) {
+    const timer = this._reconnectTimers.get(serverId);
+    if (timer) {
+      clearTimeout(timer);
+      this._reconnectTimers.delete(serverId);
+    }
+
     const server = this.servers.get(serverId);
     if (!server) return;
 
     try {
       if (server.client) await server.client.close();
     } catch (err) {
-      console.error(`Error closing MCP client ${serverId}:`, err);
+      console.error(`[MCP] Error closing client ${serverId}:`, err.message);
     }
 
     this.servers.delete(serverId);
     this.emit('server_status', { serverId, status: 'stopped' });
+  }
+
+  _scheduleReconnect(serverId, userId, options) {
+    if (this._reconnectTimers.has(serverId)) return;
+
+    const timer = setTimeout(async () => {
+      this._reconnectTimers.delete(serverId);
+      const server = this.servers.get(serverId);
+      if (!server || server.status === 'running') return;
+
+      const row = db.prepare('SELECT * FROM mcp_servers WHERE id = ? AND enabled = 1').get(serverId);
+      if (!row) return;
+
+      try {
+        await this.startServer(serverId, row.command, row.name, userId, options);
+        await this.listTools(serverId, userId);
+        console.log(`[MCP] Reconnected to ${row.name}`);
+      } catch (err) {
+        const server = this.servers.get(serverId);
+        if (server && server.consecutiveFails < CONSECUTIVE_FAIL_LIMIT) {
+          this._scheduleReconnect(serverId, userId, options);
+        } else {
+          console.warn(`[MCP] ${row.name} disabled after ${CONSECUTIVE_FAIL_LIMIT} consecutive failures: ${err.message}`);
+        }
+      }
+    }, RECONNECT_DELAY_MS);
+
+    this._reconnectTimers.set(serverId, timer);
   }
 
   _getOwnedServer(serverId, userId = null) {
@@ -189,14 +257,30 @@ class MCPClient extends EventEmitter {
 
   async callTool(serverId, toolName, args = {}, userId = null) {
     const server = this._getOwnedServer(serverId, userId);
-    if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverId} not running`);
+    if (!server) throw new Error(`Server ${serverId} not found`);
+
+    if (server.status !== 'running') {
+      const hint = server.lastError ? ` (${server.lastError})` : '';
+      throw new Error(`MCP server "${server.name}" is not available${hint}`);
     }
 
-    return await server.client.callTool({
-      name: toolName,
-      arguments: args
-    });
+    try {
+      const result = await server.client.callTool({ name: toolName, arguments: args });
+      server.consecutiveFails = 0;
+      return result;
+    } catch (err) {
+      const message = extractErrorMessage(err);
+      server.consecutiveFails = (server.consecutiveFails || 0) + 1;
+      server.lastError = message;
+
+      if (server.consecutiveFails >= CONSECUTIVE_FAIL_LIMIT) {
+        server.status = 'error';
+        this.emit('server_status', { serverId, status: 'error', error: message });
+        this._scheduleReconnect(serverId, server.userId, { agentId: server.agentId });
+      }
+
+      throw new Error(`MCP tool "${toolName}" failed: ${message}`);
+    }
   }
 
   async callToolByName(fullName, args = {}, userId = null, options = {}) {
@@ -204,10 +288,10 @@ class MCPClient extends EventEmitter {
       if (userId != null && server.userId !== userId) continue;
       if (options.agentId && server.agentId && server.agentId !== options.agentId) continue;
       const prefix = `mcp_${server.slug}_`;
-      if (fullName.startsWith(prefix)) {
-        const originalName = fullName.substring(prefix.length);
-        return await this.callTool(serverId, originalName, args, userId);
-      }
+      if (!fullName.startsWith(prefix)) continue;
+
+      const originalName = fullName.substring(prefix.length);
+      return await this.callTool(serverId, originalName, args, userId);
     }
     return null;
   }
@@ -224,7 +308,7 @@ class MCPClient extends EventEmitter {
           name: `mcp_${server.slug}_${tool.name}`,
           originalName: tool.name,
           parameters: tool.inputSchema || tool.parameters,
-          serverId
+          serverId,
         });
       }
     }
@@ -242,7 +326,9 @@ class MCPClient extends EventEmitter {
         command: server.url,
         args: [],
         toolCount: server.tools.length,
-        serverInfo: null
+        error: server.lastError || null,
+        consecutiveFails: server.consecutiveFails || 0,
+        serverInfo: null,
       };
     }
     return statuses;
@@ -258,8 +344,14 @@ class MCPClient extends EventEmitter {
         await this.listTools(srv.id, userId);
         results.push({ id: srv.id, name: srv.name, status: 'running' });
       } catch (err) {
-        console.error(`Failed to start MCP server ${srv.name}:`, err.message);
-        results.push({ id: srv.id, name: srv.name, status: 'error', error: err.message });
+        const message = err.message;
+        console.error(`[MCP] Failed to start "${srv.name}":`, message);
+        // Schedule a reconnect attempt for transient failures (not auth errors)
+        const server = this.servers.get(srv.id);
+        if (server) {
+          this._scheduleReconnect(srv.id, userId, { agentId: srv.agent_id });
+        }
+        results.push({ id: srv.id, name: srv.name, status: 'error', error: message });
       }
     }
 
@@ -267,6 +359,11 @@ class MCPClient extends EventEmitter {
   }
 
   async shutdown() {
+    for (const timer of this._reconnectTimers.values()) {
+      clearTimeout(timer);
+    }
+    this._reconnectTimers.clear();
+
     const promises = [];
     for (const serverId of this.servers.keys()) {
       promises.push(this.stopServer(serverId));

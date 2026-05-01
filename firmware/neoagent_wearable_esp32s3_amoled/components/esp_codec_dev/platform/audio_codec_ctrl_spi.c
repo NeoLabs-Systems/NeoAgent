@@ -5,6 +5,7 @@
  */
 #include "audio_codec_ctrl_if.h"
 #include "esp_codec_dev_defaults.h"
+#include "esp_idf_version.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
@@ -37,13 +38,7 @@ int _spi_ctrl_open(const audio_codec_ctrl_if_t *ctrl, void *cfg, int cfg_size)
         .queue_size = 6,         // queue 7 transactions at a time
     };
     dev_cfg.spics_io_num = spi_cfg->cs_pin;
-#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 4))
     spi_host_device_t host_id = SPI2_HOST;
-#elif (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0))
-    spi_host_device_t host_id = SPI3_HOST;
-#else
-    spi_host_device_t host_id = HSPI_HOST;
-#endif
     int ret = spi_bus_add_device(host_id, &dev_cfg, &spi_ctrl->spi_handle);
     if (ret == 0) {
         gpio_set_pull_mode(spi_cfg->cs_pin, GPIO_FLOATING);
