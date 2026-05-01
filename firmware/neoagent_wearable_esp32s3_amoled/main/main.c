@@ -611,40 +611,47 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             }
         }
         background_recording_client_snapshot(&s_recording_client, &recording_snapshot);
-        if (last_chrome_refresh == 0 || now - last_chrome_refresh >= pdMS_TO_TICKS(NEOAGENT_CHROME_REFRESH_INTERVAL_MS)) {
-            bool chrome_changed = update_power_chrome();
-            const neoagent_status_chrome_t *power_status = power_manager_get_status(&s_power_manager);
-            charging = power_status != NULL && power_status->charging;
-            static char last_time_label[8] = "--:--";
-            char next_time_label[8] = {0};
-            format_time_label(next_time_label, sizeof(next_time_label));
-            if (strcmp(last_time_label, next_time_label) != 0) {
-                snprintf(last_time_label, sizeof(last_time_label), "%s", next_time_label);
-                chrome_changed = true;
+        
+        // Don't process chrome/widget refresh while boot screen is visible to prevent looping
+        if (!idle_boot_screen_visible) {
+            if (last_chrome_refresh == 0 || now - last_chrome_refresh >= pdMS_TO_TICKS(NEOAGENT_CHROME_REFRESH_INTERVAL_MS)) {
+                bool chrome_changed = update_power_chrome();
+                const neoagent_status_chrome_t *power_status = power_manager_get_status(&s_power_manager);
+                charging = power_status != NULL && power_status->charging;
+                static char last_time_label[8] = "--:--";
+                char next_time_label[8] = {0};
+                format_time_label(next_time_label, sizeof(next_time_label));
+                if (strcmp(last_time_label, next_time_label) != 0) {
+                    snprintf(last_time_label, sizeof(last_time_label), "%s", next_time_label);
+                    chrome_changed = true;
+                }
+                if (chrome_changed || current_tab == SHELL_TAB_RECORDING || (current_tab == SHELL_TAB_ASSISTANT && background_recording_client_is_active(&s_recording_client))) {
+                    render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+                }
+                last_chrome_refresh = now;
             }
-            if (!idle_boot_screen_visible && (chrome_changed || current_tab == SHELL_TAB_RECORDING || (current_tab == SHELL_TAB_ASSISTANT && background_recording_client_is_active(&s_recording_client))) ) {
-                render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
-            }
-            last_chrome_refresh = now;
-        }
-        wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
+            wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
 
-        if (last_widget_refresh == 0 || now - last_widget_refresh >= pdMS_TO_TICKS(NEOAGENT_WIDGET_REFRESH_INTERVAL_MS)) {
-            ESP_LOGI(TAG, "refreshing widgets");
-            esp_err_t refresh_err = widget_repository_refresh(&s_widgets, device_config->server_url, session_state);
-            last_widget_status = refresh_err;
-            if (refresh_err == ESP_OK && s_widgets.count > 0) {
-                ESP_LOGI(TAG, "loaded %u widgets", (unsigned)s_widgets.count);
-                widget_index = 0;
-            } else if (refresh_err == ESP_ERR_NOT_FOUND) {
-                ESP_LOGI(TAG, "no widgets available for paired user");
-            } else {
-                ESP_LOGW(TAG, "widget refresh failed: %s", esp_err_to_name(refresh_err));
+            if (last_widget_refresh == 0 || now - last_widget_refresh >= pdMS_TO_TICKS(NEOAGENT_WIDGET_REFRESH_INTERVAL_MS)) {
+                ESP_LOGI(TAG, "refreshing widgets");
+                esp_err_t refresh_err = widget_repository_refresh(&s_widgets, device_config->server_url, session_state);
+                last_widget_status = refresh_err;
+                if (refresh_err == ESP_OK && s_widgets.count > 0) {
+                    ESP_LOGI(TAG, "loaded %u widgets", (unsigned)s_widgets.count);
+                    widget_index = 0;
+                } else if (refresh_err == ESP_ERR_NOT_FOUND) {
+                    ESP_LOGI(TAG, "no widgets available for paired user");
+                } else {
+                    ESP_LOGW(TAG, "widget refresh failed: %s", esp_err_to_name(refresh_err));
+                }
+                if (refresh_err == ESP_OK) {
+                    render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+                }
+                last_widget_refresh = now;
             }
-            if (!idle_boot_screen_visible) {
-                render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
-            }
-            last_widget_refresh = now;
+        } else {
+            // Still update voice snapshot even when boot screen is visible
+            wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
         }
 
         if (board_support_poll_touch(&s_board, &touch_event) == ESP_OK &&
@@ -663,7 +670,12 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             );
             if (idle_boot_screen_visible) {
                 idle_boot_screen_visible = false;
+                // Force battery and time update before showing normal UI
+                update_power_chrome();
                 render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+                // Reset timers to ensure immediate UI update
+                last_chrome_refresh = 0;
+                last_widget_refresh = 0;
                 continue;
             }
             if (touch_event.pressed && touch_event.y >= NEOAGENT_NAV_TOP_Y) {
@@ -792,7 +804,12 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             }
             if (idle_boot_screen_visible) {
                 idle_boot_screen_visible = false;
+                // Force battery and time update before showing normal UI
+                update_power_chrome();
                 render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+                // Reset timers to ensure immediate UI update
+                last_chrome_refresh = 0;
+                last_widget_refresh = 0;
                 continue;
             }
             if (button_event.power_long_press) {
@@ -856,7 +873,12 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             last_interaction = now;
             if (idle_boot_screen_visible) {
                 idle_boot_screen_visible = false;
+                // Force battery and time update before showing normal UI
+                update_power_chrome();
                 render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, &recording_snapshot, true, settings_show_reset);
+                // Reset timers to ensure immediate UI update
+                last_chrome_refresh = 0;
+                last_widget_refresh = 0;
             }
         } else if (now - last_interaction >= pdMS_TO_TICKS(NEOAGENT_IDLE_TIMEOUT_MS)) {
             if (charging) {
