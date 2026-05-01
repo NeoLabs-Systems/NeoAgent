@@ -340,6 +340,13 @@ class _MessagingPanelState extends State<MessagingPanel> {
           'webchat',
         ],
       ),
+      const (
+        'Hardware Bridges',
+        'Local device bridges and TCP-connected integrations.',
+        [
+          'meshtastic',
+        ],
+      ),
       const ('Voice', 'Telephony integrations.', ['telnyx']),
     ];
     final query = _searchController.text.trim().toLowerCase();
