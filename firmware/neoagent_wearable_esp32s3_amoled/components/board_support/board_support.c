@@ -500,6 +500,16 @@ static esp_err_t board_pmu_device_init(void) {
     return err;
 }
 
+static void board_pmu_device_reset(void) {
+    if (s_runtime.i2c_bus != NULL && s_runtime.pmu_device_handle != NULL) {
+        esp_err_t err = i2c_master_bus_rm_device(s_runtime.pmu_device_handle);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "pmu device reset failed: %s", esp_err_to_name(err));
+        }
+    }
+    s_runtime.pmu_device_handle = NULL;
+}
+
 // Read PMU register with I2C error recovery for noise tolerance during charging
 static esp_err_t board_pmu_read_register(uint8_t reg, uint8_t *buffer, size_t length) {
     if (buffer == NULL || length == 0 || s_runtime.i2c_bus == NULL) {
@@ -542,6 +552,7 @@ static esp_err_t board_pmu_read_register(uint8_t reg, uint8_t *buffer, size_t le
                 ESP_LOGW(TAG, "pmu read failed after %d retries (error count: %u): %s", 
                     max_retries, s_runtime.pmu_read_error_count, esp_err_to_name(read_err));
             }
+            board_pmu_device_reset();
             return read_err;
         }
     }
@@ -584,6 +595,7 @@ static esp_err_t board_pmu_write_register(uint8_t reg, uint8_t value) {
         } else {
             ESP_LOGW(TAG, "pmu write 0x%02x=0x%02x failed after %d retries: %s", 
                 reg, value, max_retries, esp_err_to_name(write_err));
+            board_pmu_device_reset();
             return write_err;
         }
     }
