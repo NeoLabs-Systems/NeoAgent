@@ -468,8 +468,6 @@ class VoiceRuntimeManager {
       provider: session.voiceSettings?.liveProvider,
       model: session.voiceSettings?.liveTtsModel,
       voice: session.voiceSettings?.liveVoice,
-      transport: 'wearable',
-      responseFormat: 'wav',
     });
     const spokenContent = sanitizeSpeechText(content);
 
@@ -481,6 +479,7 @@ class VoiceRuntimeManager {
       for (const attempt of ttsAttempts) {
         index = 0;
         streamError = null;
+        let attemptChunks = 0;
         try {
           await synthesizeVoiceReplyStream(
             spokenContent,
@@ -494,13 +493,21 @@ class VoiceRuntimeManager {
                 audioBase64: audioBytes.toString('base64'),
                 mimeType,
               });
+              attemptChunks += 1;
               index += 1;
             },
           );
+          if (attemptChunks === 0) {
+            throw new Error(`${attempt.provider} TTS produced no audio chunks.`);
+          }
           streamError = null;
           break;
         } catch (error) {
           streamError = String(error?.message || error || 'Voice playback failed.');
+          console.warn(`[VoiceRuntime] ${attempt.provider} TTS failed for flutter session ${sessionId}: ${streamError}`);
+          if (attemptChunks > 0) {
+            break;
+          }
         }
       }
       } catch (error) {
@@ -559,6 +566,7 @@ class VoiceRuntimeManager {
         for (const attempt of ttsAttempts) {
           index = 0;
           streamError = null;
+          let attemptChunks = 0;
           try {
             await synthesizeVoiceReplyStream(
               spokenContent,
@@ -573,12 +581,20 @@ class VoiceRuntimeManager {
                   audioBase64: audioBytes.toString('base64'),
                   mimeType,
                 }));
+                attemptChunks += 1;
                 index += 1;
               },
             );
+            if (attemptChunks === 0) {
+              throw new Error(`${attempt.provider} TTS produced no audio chunks.`);
+            }
             break;
           } catch (error) {
             streamError = String(error?.message || error || 'Voice playback failed.');
+            console.warn(`[VoiceRuntime] ${attempt.provider} TTS failed for wearable session ${sessionId}: ${streamError}`);
+            if (attemptChunks > 0) {
+              break;
+            }
           }
         }
       } catch (error) {

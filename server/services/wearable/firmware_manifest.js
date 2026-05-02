@@ -64,10 +64,17 @@ function toBoolean(value, fallback = false) {
   return fallback;
 }
 
-function selectGithubRelease(releases, channel) {
+function releaseHasAsset(release, assetName) {
+  return Boolean(selectReleaseAsset(release, assetName));
+}
+
+function selectGithubRelease(releases, channel, assetName = null) {
   const normalizedChannel = normalizeChannel(channel);
   if (normalizedChannel === 'stable') {
-    return Array.isArray(releases) ? releases.find((release) => release && release.prerelease === false && release.draft === false) || null : null;
+    const candidates = Array.isArray(releases)
+      ? releases.filter((release) => release && release.prerelease === false && release.draft === false)
+      : [];
+    return candidates.find((release) => !assetName || releaseHasAsset(release, assetName)) || candidates[0] || null;
   }
 
   const betaPattern = /-beta(?:\.\d+)?$/i;
@@ -79,7 +86,7 @@ function selectGithubRelease(releases, channel) {
     const leftPublished = Date.parse(left?.published_at ?? left?.created_at ?? '') || 0;
     return rightPublished - leftPublished;
   });
-  return candidates[0] || null;
+  return candidates.find((release) => !assetName || releaseHasAsset(release, assetName)) || candidates[0] || null;
 }
 
 function selectReleaseAsset(release, assetName) {
@@ -161,13 +168,10 @@ function parseChecksumBody(body, assetName) {
   return null;
 }
 
-async function fetchGithubRelease(fetchImpl, repository, channel, token) {
+async function fetchGithubRelease(fetchImpl, repository, channel, token, assetName = null) {
   const normalizedChannel = normalizeChannel(channel);
-  if (normalizedChannel === 'stable') {
-    return fetchGithubJson(fetchImpl, `https://api.github.com/repos/${repository}/releases/latest`, token);
-  }
   const releases = await fetchGithubJson(fetchImpl, `https://api.github.com/repos/${repository}/releases?per_page=100`, token);
-  const release = selectGithubRelease(releases, normalizedChannel);
+  const release = selectGithubRelease(releases, normalizedChannel, assetName);
   if (!release) {
     const error = new Error(`No ${normalizedChannel} firmware release found for ${repository}`);
     error.status = 404;
@@ -260,7 +264,7 @@ async function resolveFirmwareManifest({
 
   try {
     const token = getGithubToken();
-    const release = await fetchGithubRelease(fetchImpl, repository, normalizedChannel, token);
+    const release = await fetchGithubRelease(fetchImpl, repository, normalizedChannel, token, assetName);
     const asset = selectReleaseAsset(release, assetName);
     if (!asset || !asset.browser_download_url) {
       return {
