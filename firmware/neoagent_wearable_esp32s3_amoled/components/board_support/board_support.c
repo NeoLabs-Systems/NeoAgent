@@ -116,6 +116,8 @@ typedef struct {
     bool power_button_long_fired;
     int64_t boot_button_press_started_us;
     int64_t power_button_press_started_us;
+    i2c_master_dev_handle_t pmu_device_handle;  // Cached PMU device handle to reduce I2C bus contention
+    uint8_t pmu_read_error_count;  // Error counter for diagnostic purposes
 } board_runtime_t;
 
 static board_runtime_t s_runtime = {0};
@@ -474,37 +476,119 @@ static esp_err_t board_audio_open_codec(uint32_t sample_rate_hz, uint8_t channel
     return ESP_OK;
 }
 
+// Initialize cached PMU device handle on I2C bus
+static esp_err_t board_pmu_device_init(void) {
+    if (s_runtime.i2c_bus == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    if (s_runtime.pmu_device_handle != NULL) {
+        return ESP_OK;  // Already initialized
+    }
+    
+    i2c_device_config_t device_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = BOARD_AXP2101_ADDRESS,
+        .scl_speed_hz = 400000,
+    };
+    
+    esp_err_t err = i2c_master_bus_add_device(s_runtime.i2c_bus, &device_config, &s_runtime.pmu_device_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "pmu device init failed: %s", esp_err_to_name(err));
+        s_runtime.pmu_device_handle = NULL;
+    }
+    return err;
+}
+
+// Read PMU register with I2C error recovery for noise tolerance during charging
 static esp_err_t board_pmu_read_register(uint8_t reg, uint8_t *buffer, size_t length) {
     if (buffer == NULL || length == 0 || s_runtime.i2c_bus == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    i2c_device_config_t device_config = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = BOARD_AXP2101_ADDRESS,
-        .scl_speed_hz = 400000,
-    };
-    i2c_master_dev_handle_t device_handle = NULL;
-    ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(s_runtime.i2c_bus, &device_config, &device_handle), TAG, "pmu add device failed");
-    esp_err_t read_err = i2c_master_transmit_receive(device_handle, &reg, 1, buffer, length, 1000);
-    i2c_master_bus_rm_device(device_handle);
-    return read_err;
+    
+    // Ensure PMU device is initialized
+    if (s_runtime.pmu_device_handle == NULL) {
+        ESP_RETURN_ON_ERROR(board_pmu_device_init(), TAG, "pmu device init failed");
+    }
+    
+    // Retry with exponential backoff for I2C errors during charging
+    const int max_retries = 3;
+    const int base_delay_ms = 2;
+    
+    for (int attempt = 0; attempt < max_retries; attempt++) {
+        esp_err_t read_err = i2c_master_transmit_receive(
+            s_runtime.pmu_device_handle, 
+            &reg, 
+            1, 
+            buffer, 
+            length, 
+            1000  // 1 second timeout per attempt
+        );
+        
+        if (read_err == ESP_OK) {
+            // Clear error counter on success
+            s_runtime.pmu_read_error_count = 0;
+            return ESP_OK;
+        }
+        
+        if (attempt < max_retries - 1) {
+            // Exponential backoff: 2ms, 4ms, 8ms...
+            int delay_ms = base_delay_ms << attempt;
+            vTaskDelay(pdMS_TO_TICKS(delay_ms));
+        } else {
+            // Final attempt failed
+            s_runtime.pmu_read_error_count++;
+            if (s_runtime.pmu_read_error_count % 10 == 0) {
+                ESP_LOGW(TAG, "pmu read failed after %d retries (error count: %u): %s", 
+                    max_retries, s_runtime.pmu_read_error_count, esp_err_to_name(read_err));
+            }
+            return read_err;
+        }
+    }
+    
+    return ESP_FAIL;
 }
 
+// Write PMU register with I2C error recovery
 static esp_err_t board_pmu_write_register(uint8_t reg, uint8_t value) {
     if (s_runtime.i2c_bus == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
-    i2c_device_config_t device_config = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = BOARD_AXP2101_ADDRESS,
-        .scl_speed_hz = 400000,
-    };
-    i2c_master_dev_handle_t device_handle = NULL;
-    ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(s_runtime.i2c_bus, &device_config, &device_handle), TAG, "pmu add device failed");
-    uint8_t payload[2] = {reg, value};
-    esp_err_t write_err = i2c_master_transmit(device_handle, payload, sizeof(payload), 1000);
-    i2c_master_bus_rm_device(device_handle);
-    return write_err;
+    
+    // Ensure PMU device is initialized
+    if (s_runtime.pmu_device_handle == NULL) {
+        ESP_RETURN_ON_ERROR(board_pmu_device_init(), TAG, "pmu device init failed");
+    }
+    
+    // Retry with exponential backoff
+    const int max_retries = 3;
+    const int base_delay_ms = 2;
+    
+    for (int attempt = 0; attempt < max_retries; attempt++) {
+        uint8_t payload[2] = {reg, value};
+        esp_err_t write_err = i2c_master_transmit(
+            s_runtime.pmu_device_handle, 
+            payload, 
+            sizeof(payload), 
+            1000  // 1 second timeout per attempt
+        );
+        
+        if (write_err == ESP_OK) {
+            return ESP_OK;
+        }
+        
+        if (attempt < max_retries - 1) {
+            // Exponential backoff
+            int delay_ms = base_delay_ms << attempt;
+            vTaskDelay(pdMS_TO_TICKS(delay_ms));
+        } else {
+            ESP_LOGW(TAG, "pmu write 0x%02x=0x%02x failed after %d retries: %s", 
+                reg, value, max_retries, esp_err_to_name(write_err));
+            return write_err;
+        }
+    }
+    
+    return ESP_FAIL;
 }
 
 static esp_err_t board_pmu_enable_battery_measurements(void) {
@@ -1374,7 +1458,7 @@ esp_err_t board_support_init(board_support_t *board) {
         .i2c_port = BOARD_TOUCH_HOST,
         .sda_io_num = BOARD_TOUCH_SDA,
         .scl_io_num = BOARD_TOUCH_SCL,
-        .glitch_ignore_cnt = 7,
+        .glitch_ignore_cnt = 15,  // Maximum glitch filtering to suppress charger noise during I2C transactions
         .flags.enable_internal_pullup = true,
     };
     ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_config, &s_runtime.i2c_bus));
