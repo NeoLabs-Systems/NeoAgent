@@ -1255,8 +1255,14 @@ esp_err_t provisioning_manager_start_portal(provisioning_manager_t *manager, ses
     wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     wifi_config.ap.pmf_cfg.required = false;
 
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_disconnect());
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_stop());
+    esp_err_t wifi_err = esp_wifi_disconnect();
+    if (wifi_err != ESP_OK && wifi_err != ESP_ERR_WIFI_NOT_STARTED) {
+        ESP_LOGW(TAG, "wifi disconnect before station connect failed: %s", esp_err_to_name(wifi_err));
+    }
+    wifi_err = esp_wifi_stop();
+    if (wifi_err != ESP_OK && wifi_err != ESP_ERR_WIFI_NOT_STARTED) {
+        ESP_LOGW(TAG, "wifi stop before station connect failed: %s", esp_err_to_name(wifi_err));
+    }
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -1322,8 +1328,14 @@ esp_err_t provisioning_manager_connect_station(provisioning_manager_t *manager, 
         manager->sta_netif = esp_netif_create_default_wifi_sta();
     }
 
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_disconnect());
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_stop());
+    esp_err_t wifi_err = esp_wifi_disconnect();
+    if (wifi_err != ESP_OK && wifi_err != ESP_ERR_WIFI_NOT_STARTED) {
+        ESP_LOGW(TAG, "wifi disconnect before station connect failed: %s", esp_err_to_name(wifi_err));
+    }
+    wifi_err = esp_wifi_stop();
+    if (wifi_err != ESP_OK && wifi_err != ESP_ERR_WIFI_NOT_STARTED) {
+        ESP_LOGW(TAG, "wifi stop before station connect failed: %s", esp_err_to_name(wifi_err));
+    }
     ESP_ERROR_CHECK(esp_wifi_restore());
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));

@@ -54,10 +54,20 @@ static const char *TAG = "BoardSupport";
 #define BOARD_I2S_DIN GPIO_NUM_10
 #define BOARD_AUDIO_POWER_AMP GPIO_NUM_46
 
-#define BOARD_LCD_H_RES 368
-#define BOARD_LCD_V_RES 448
+#define BOARD_LCD_NATIVE_H_RES 368
+#define BOARD_LCD_NATIVE_V_RES 448
+#define BOARD_LCD_H_RES 448
+#define BOARD_LCD_V_RES 368
 #define BOARD_LCD_BIT_PER_PIXEL 16
-#define BOARD_LVGL_BUF_HEIGHT (BOARD_LCD_V_RES / 10)
+#define BOARD_LVGL_BUF_HEIGHT 24
+#define BOARD_LVGL_BUF_PIXELS (BOARD_LCD_H_RES * BOARD_LVGL_BUF_HEIGHT)
+#define BOARD_UI_ROTATION LV_DISP_ROT_270
+#define BOARD_UI_NAV_WIDTH 64
+#define BOARD_UI_HEADER_HEIGHT 44
+#define BOARD_UI_CONTENT_X BOARD_UI_NAV_WIDTH
+#define BOARD_UI_CONTENT_W (BOARD_LCD_H_RES - BOARD_UI_NAV_WIDTH)
+#define BOARD_UI_CONTENT_CENTER_X (BOARD_UI_CONTENT_X + (BOARD_UI_CONTENT_W / 2))
+#define BOARD_UI_CENTER_Y (BOARD_LCD_V_RES / 2)
 #define BOARD_LVGL_TICK_PERIOD_MS 2
 #define BOARD_LVGL_TASK_STACK_SIZE (4 * 1024)
 #define BOARD_BUTTON_LONG_PRESS_US 700000
@@ -96,6 +106,8 @@ typedef struct {
     lv_disp_draw_buf_t disp_buf;
     lv_color_t *buf1;
     lv_color_t *buf2;
+    lv_color_t *rotate_buf;
+    bool display_awake;
     i2c_master_bus_handle_t i2c_bus;
     esp_lcd_panel_io_handle_t touch_io;
     esp_lcd_touch_handle_t touch_handle;
@@ -156,7 +168,55 @@ static bool board_notify_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd
 
 static void board_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map) {
     esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)drv->user_data;
-    esp_lcd_panel_draw_bitmap(panel_handle, area->x1, area->y1, area->x2 + 1, area->y2 + 1, color_map);
+    const int32_t logical_w = area->x2 - area->x1 + 1;
+    const int32_t logical_h = area->y2 - area->y1 + 1;
+    const size_t pixel_count = (size_t)logical_w * (size_t)logical_h;
+
+    if (s_runtime.rotate_buf == NULL || pixel_count > BOARD_LVGL_BUF_PIXELS) {
+        ESP_LOGE(TAG, "invalid flush buffer pixels=%u", (unsigned)pixel_count);
+        lv_disp_flush_ready(drv);
+        return;
+    }
+
+    int32_t draw_x1 = 0;
+    int32_t draw_y1 = 0;
+    int32_t draw_x2 = 0;
+    int32_t draw_y2 = 0;
+
+    switch (BOARD_UI_ROTATION) {
+        case LV_DISP_ROT_90:
+            draw_x1 = BOARD_LCD_NATIVE_H_RES - 1 - area->y2;
+            draw_y1 = area->x1;
+            draw_x2 = BOARD_LCD_NATIVE_H_RES - area->y1;
+            draw_y2 = area->x2 + 1;
+            for (int32_t y = 0; y < logical_h; ++y) {
+                for (int32_t x = 0; x < logical_w; ++x) {
+                    s_runtime.rotate_buf[x * logical_h + (logical_h - 1 - y)] = color_map[y * logical_w + x];
+                }
+            }
+            break;
+        case LV_DISP_ROT_270:
+            draw_x1 = area->y1;
+            draw_y1 = BOARD_LCD_NATIVE_V_RES - 1 - area->x2;
+            draw_x2 = area->y2 + 1;
+            draw_y2 = BOARD_LCD_NATIVE_V_RES - area->x1;
+            for (int32_t y = 0; y < logical_h; ++y) {
+                for (int32_t x = 0; x < logical_w; ++x) {
+                    s_runtime.rotate_buf[(logical_w - 1 - x) * logical_h + y] = color_map[y * logical_w + x];
+                }
+            }
+            break;
+        default:
+            ESP_LOGE(TAG, "unsupported software rotation=%d", (int)BOARD_UI_ROTATION);
+            lv_disp_flush_ready(drv);
+            return;
+    }
+
+    esp_err_t err = esp_lcd_panel_draw_bitmap(panel_handle, draw_x1, draw_y1, draw_x2, draw_y2, s_runtime.rotate_buf);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "flush failed: %s", esp_err_to_name(err));
+        lv_disp_flush_ready(drv);
+    }
 }
 
 static void board_lvgl_rounder_cb(lv_disp_drv_t *disp_drv, lv_area_t *area) {
@@ -167,26 +227,36 @@ static void board_lvgl_rounder_cb(lv_disp_drv_t *disp_drv, lv_area_t *area) {
     area->y2 = ((area->y2 >> 1) << 1) + 1;
 }
 
-static void board_lvgl_update_cb(lv_disp_drv_t *drv) {
-    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)drv->user_data;
-    switch (drv->rotated) {
-        case LV_DISP_ROT_NONE:
-            esp_lcd_panel_swap_xy(panel_handle, false);
-            esp_lcd_panel_mirror(panel_handle, true, false);
-            break;
+static void board_transform_touch_point(uint16_t raw_x, uint16_t raw_y, uint16_t *logical_x, uint16_t *logical_y) {
+    uint16_t x = raw_x;
+    uint16_t y = raw_y;
+
+    switch (BOARD_UI_ROTATION) {
         case LV_DISP_ROT_90:
-            esp_lcd_panel_swap_xy(panel_handle, true);
-            esp_lcd_panel_mirror(panel_handle, true, true);
+            x = raw_y;
+            y = (BOARD_LCD_NATIVE_H_RES - 1U) - raw_x;
             break;
         case LV_DISP_ROT_180:
-            esp_lcd_panel_swap_xy(panel_handle, false);
-            esp_lcd_panel_mirror(panel_handle, false, true);
+            x = (BOARD_LCD_NATIVE_H_RES - 1U) - raw_x;
+            y = (BOARD_LCD_NATIVE_V_RES - 1U) - raw_y;
             break;
         case LV_DISP_ROT_270:
-            esp_lcd_panel_swap_xy(panel_handle, true);
-            esp_lcd_panel_mirror(panel_handle, false, false);
+            x = (BOARD_LCD_NATIVE_V_RES - 1U) - raw_y;
+            y = raw_x;
+            break;
+        case LV_DISP_ROT_NONE:
+        default:
             break;
     }
+
+    if (x >= BOARD_LCD_H_RES) {
+        x = BOARD_LCD_H_RES - 1U;
+    }
+    if (y >= BOARD_LCD_V_RES) {
+        y = BOARD_LCD_V_RES - 1U;
+    }
+    *logical_x = x;
+    *logical_y = y;
 }
 
 static void board_increase_lvgl_tick(void *arg) {
@@ -241,8 +311,8 @@ static lv_obj_t *board_create_header(lv_obj_t *screen, const char *title) {
     char battery_text[12];
 
     lv_obj_t *header = lv_obj_create(screen);
-    lv_obj_set_size(header, 368, 54);
-    lv_obj_align(header, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_size(header, BOARD_UI_CONTENT_W, BOARD_UI_HEADER_HEIGHT);
+    lv_obj_set_pos(header, BOARD_UI_CONTENT_X, 0);
     lv_obj_set_style_radius(header, 0, 0);
     lv_obj_set_style_bg_color(header, lv_color_hex(0x0b1219), 0);
     lv_obj_set_style_border_width(header, 0, 0);
@@ -250,7 +320,7 @@ static lv_obj_t *board_create_header(lv_obj_t *screen, const char *title) {
     lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *divider = lv_obj_create(header);
-    lv_obj_set_size(divider, 336, 1);
+    lv_obj_set_size(divider, BOARD_UI_CONTENT_W - 32, 1);
     lv_obj_align(divider, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_radius(divider, 0, 0);
     lv_obj_set_style_bg_color(divider, lv_color_hex(0x1e2b38), 0);
@@ -261,7 +331,7 @@ static lv_obj_t *board_create_header(lv_obj_t *screen, const char *title) {
     lv_obj_set_style_text_font(time_label, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(time_label, lv_color_hex(0x9fb3c8), 0);
     lv_label_set_text(time_label, s_runtime.chrome_time[0] != '\0' ? s_runtime.chrome_time : "--:--");
-    lv_obj_align(time_label, LV_ALIGN_LEFT_MID, 18, -1);
+    lv_obj_align(time_label, LV_ALIGN_LEFT_MID, 16, -1);
 
     lv_obj_t *title_label = lv_label_create(header);
     lv_obj_set_style_text_font(title_label, &lv_font_montserrat_14, 0);
@@ -270,9 +340,9 @@ static lv_obj_t *board_create_header(lv_obj_t *screen, const char *title) {
     lv_obj_center(title_label);
 
     lv_obj_t *battery_pill = lv_obj_create(header);
-    lv_obj_set_size(battery_pill, 66, 28);
-    lv_obj_align(battery_pill, LV_ALIGN_RIGHT_MID, -16, -1);
-    lv_obj_set_style_radius(battery_pill, 14, 0);
+    lv_obj_set_size(battery_pill, 64, 26);
+    lv_obj_align(battery_pill, LV_ALIGN_RIGHT_MID, -14, -1);
+    lv_obj_set_style_radius(battery_pill, 13, 0);
     lv_obj_set_style_bg_color(battery_pill, lv_color_hex(0x131d27), 0);
     lv_obj_set_style_border_width(battery_pill, 1, 0);
     lv_obj_set_style_border_color(
@@ -313,9 +383,9 @@ static void board_style_base_screen(lv_obj_t *screen) {
 
 static lv_obj_t *board_create_surface(lv_obj_t *screen) {
     lv_obj_t *surface = lv_obj_create(screen);
-    lv_obj_set_size(surface, 332, 330);
-    lv_obj_align(surface, LV_ALIGN_TOP_MID, 0, 62);
-    lv_obj_set_style_radius(surface, 28, 0);
+    lv_obj_set_size(surface, 348, 250);
+    lv_obj_set_pos(surface, BOARD_UI_CONTENT_X + 18, 58);
+    lv_obj_set_style_radius(surface, 24, 0);
     lv_obj_set_style_bg_color(surface, lv_color_hex(0x171919), 0);
     lv_obj_set_style_bg_grad_color(surface, lv_color_hex(0x171919), 0);
     lv_obj_set_style_bg_grad_dir(surface, LV_GRAD_DIR_NONE, 0);
@@ -331,10 +401,9 @@ static lv_obj_t *board_create_surface(lv_obj_t *screen) {
 
 static lv_obj_t *board_create_nav_bar(lv_obj_t *screen, size_t active_index) {
     static const char *icons[] = {LV_SYMBOL_AUDIO, LV_SYMBOL_IMAGE, LV_SYMBOL_PLAY, LV_SYMBOL_SETTINGS};
-    static const char *labels[] = {"Talk", "Widgets", "Record", "Settings"};
     lv_obj_t *nav = lv_obj_create(screen);
-    lv_obj_set_size(nav, 368, 68);
-    lv_obj_align(nav, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_size(nav, BOARD_UI_NAV_WIDTH, BOARD_LCD_V_RES);
+    lv_obj_set_pos(nav, 0, 0);
     lv_obj_set_style_radius(nav, 0, 0);
     lv_obj_set_style_bg_color(nav, lv_color_hex(0x0a121a), 0);
     lv_obj_set_style_border_width(nav, 0, 0);
@@ -343,8 +412,8 @@ static lv_obj_t *board_create_nav_bar(lv_obj_t *screen, size_t active_index) {
 
     for (size_t i = 0; i < 4; ++i) {
         lv_obj_t *segment = lv_obj_create(nav);
-        lv_obj_set_size(segment, 92, 68);
-        lv_obj_align(segment, LV_ALIGN_LEFT_MID, (int32_t)(i * 92), 0);
+        lv_obj_set_size(segment, BOARD_UI_NAV_WIDTH, BOARD_LCD_V_RES / 4);
+        lv_obj_set_pos(segment, 0, (lv_coord_t)(i * (BOARD_LCD_V_RES / 4)));
         lv_obj_set_style_radius(segment, 0, 0);
         lv_obj_set_style_bg_opa(segment, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(segment, 0, 0);
@@ -353,8 +422,8 @@ static lv_obj_t *board_create_nav_bar(lv_obj_t *screen, size_t active_index) {
 
         if (i == active_index) {
             lv_obj_t *indicator = lv_obj_create(segment);
-            lv_obj_set_size(indicator, 74, 3);
-            lv_obj_align(indicator, LV_ALIGN_TOP_MID, 0, 0);
+            lv_obj_set_size(indicator, 4, 52);
+            lv_obj_align(indicator, LV_ALIGN_RIGHT_MID, 0, 0);
             lv_obj_set_style_radius(indicator, 3, 0);
             lv_obj_set_style_bg_color(indicator, lv_color_hex(0xe2b76d), 0);
             lv_obj_set_style_border_width(indicator, 0, 0);
@@ -365,15 +434,52 @@ static lv_obj_t *board_create_nav_bar(lv_obj_t *screen, size_t active_index) {
         lv_obj_set_style_text_font(icon, &lv_font_montserrat_16, 0);
         lv_obj_set_style_text_color(icon, i == active_index ? lv_color_hex(0xe6edf5) : lv_color_hex(0x6f879f), 0);
         lv_label_set_text(icon, icons[i]);
-        lv_obj_align(icon, LV_ALIGN_TOP_MID, 0, 13);
-
-        lv_obj_t *label = lv_label_create(segment);
-        lv_obj_set_style_text_font(label, &lv_font_montserrat_12, 0);
-        lv_obj_set_style_text_color(label, i == active_index ? lv_color_hex(0xe2b76d) : lv_color_hex(0x73879a), 0);
-        lv_label_set_text(label, labels[i]);
-        lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -11);
+        lv_obj_center(icon);
     }
     return nav;
+}
+
+static lv_obj_t *board_create_system_rail(lv_obj_t *screen) {
+    lv_obj_t *rail = lv_obj_create(screen);
+    lv_obj_set_size(rail, BOARD_UI_NAV_WIDTH, BOARD_LCD_V_RES);
+    lv_obj_set_pos(rail, 0, 0);
+    lv_obj_set_style_radius(rail, 0, 0);
+    lv_obj_set_style_bg_color(rail, lv_color_hex(0x0a121a), 0);
+    lv_obj_set_style_border_width(rail, 0, 0);
+    lv_obj_set_style_pad_all(rail, 0, 0);
+    lv_obj_clear_flag(rail, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *mark = lv_obj_create(rail);
+    lv_obj_set_size(mark, 34, 34);
+    lv_obj_align(mark, LV_ALIGN_TOP_MID, 0, 18);
+    lv_obj_set_style_radius(mark, 12, 0);
+    lv_obj_set_style_bg_color(mark, lv_color_hex(0xd29e47), 0);
+    lv_obj_set_style_border_width(mark, 1, 0);
+    lv_obj_set_style_border_color(mark, lv_color_hex(0xf0cf8b), 0);
+    lv_obj_clear_flag(mark, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *mark_label = lv_label_create(mark);
+    lv_obj_set_style_text_font(mark_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(mark_label, lv_color_hex(0x111111), 0);
+    lv_label_set_text(mark_label, "N");
+    lv_obj_center(mark_label);
+
+    lv_obj_t *line = lv_obj_create(rail);
+    lv_obj_set_size(line, 3, 210);
+    lv_obj_align(line, LV_ALIGN_CENTER, 0, 20);
+    lv_obj_set_style_radius(line, 2, 0);
+    lv_obj_set_style_bg_color(line, lv_color_hex(0x1f2d3a), 0);
+    lv_obj_set_style_border_width(line, 0, 0);
+    lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *dot = lv_obj_create(rail);
+    lv_obj_set_size(dot, 8, 8);
+    lv_obj_align(dot, LV_ALIGN_BOTTOM_MID, 0, -24);
+    lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(dot, lv_color_hex(0x6f879f), 0);
+    lv_obj_set_style_border_width(dot, 0, 0);
+    lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
+    return rail;
 }
 
 static lv_obj_t *board_create_stat_tile(
@@ -851,31 +957,32 @@ static esp_err_t board_parse_wav(const uint8_t *wav_bytes, size_t wav_length, bo
 static void board_create_status_screen(void) {
     lv_obj_t *screen = lv_obj_create(NULL);
     board_style_base_screen(screen);
+    board_create_system_rail(screen);
     board_create_header(screen, "SETUP");
 
     s_runtime.title_label = lv_label_create(screen);
-    lv_obj_set_width(s_runtime.title_label, 296);
+    lv_obj_set_width(s_runtime.title_label, 326);
     lv_label_set_long_mode(s_runtime.title_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(s_runtime.title_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_color(s_runtime.title_label, lv_color_hex(0xf0ede4), 0);
     lv_obj_set_style_text_font(s_runtime.title_label, &lv_font_montserrat_16, 0);
-    lv_obj_align(s_runtime.title_label, LV_ALIGN_TOP_MID, 0, 136);
+    lv_obj_align(s_runtime.title_label, LV_ALIGN_TOP_MID, BOARD_UI_NAV_WIDTH / 2, 92);
 
     s_runtime.line1_label = lv_label_create(screen);
-    lv_obj_set_width(s_runtime.line1_label, 300);
+    lv_obj_set_width(s_runtime.line1_label, 332);
     lv_label_set_long_mode(s_runtime.line1_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(s_runtime.line1_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_color(s_runtime.line1_label, lv_color_hex(0xc5b9a6), 0);
     lv_obj_set_style_text_font(s_runtime.line1_label, &lv_font_montserrat_16, 0);
-    lv_obj_align(s_runtime.line1_label, LV_ALIGN_TOP_MID, 0, 186);
+    lv_obj_align(s_runtime.line1_label, LV_ALIGN_TOP_MID, BOARD_UI_NAV_WIDTH / 2, 142);
 
     s_runtime.line2_label = lv_label_create(screen);
-    lv_obj_set_width(s_runtime.line2_label, 300);
+    lv_obj_set_width(s_runtime.line2_label, 332);
     lv_label_set_long_mode(s_runtime.line2_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(s_runtime.line2_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_color(s_runtime.line2_label, lv_color_hex(0x817968), 0);
     lv_obj_set_style_text_font(s_runtime.line2_label, &lv_font_montserrat_12, 0);
-    lv_obj_align(s_runtime.line2_label, LV_ALIGN_TOP_MID, 0, 278);
+    lv_obj_align(s_runtime.line2_label, LV_ALIGN_TOP_MID, BOARD_UI_NAV_WIDTH / 2, 252);
 
     s_runtime.screen = screen;
     s_runtime.qr_code = NULL;
@@ -889,7 +996,7 @@ static void board_create_boot_screen(void) {
 
     lv_obj_t *ambient_glow = lv_obj_create(screen);
     lv_obj_set_size(ambient_glow, 340, 340);
-    lv_obj_align(ambient_glow, LV_ALIGN_TOP_LEFT, -92, -78);
+    lv_obj_align(ambient_glow, LV_ALIGN_TOP_LEFT, -78, -98);
     lv_obj_set_style_radius(ambient_glow, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(ambient_glow, lv_color_hex(0xd2ab62), 0);
     lv_obj_set_style_bg_opa(ambient_glow, (lv_opa_t)22, 0);
@@ -901,7 +1008,7 @@ static void board_create_boot_screen(void) {
 
     lv_obj_t *secondary_glow = lv_obj_create(screen);
     lv_obj_set_size(secondary_glow, 220, 220);
-    lv_obj_align(secondary_glow, LV_ALIGN_CENTER, 0, -14);
+    lv_obj_align(secondary_glow, LV_ALIGN_CENTER, 0, -10);
     lv_obj_set_style_radius(secondary_glow, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(secondary_glow, lv_color_hex(0x78b6a9), 0);
     lv_obj_set_style_bg_opa(secondary_glow, LV_OPA_10, 0);
@@ -913,7 +1020,7 @@ static void board_create_boot_screen(void) {
 
     lv_obj_t *badge = lv_obj_create(screen);
     lv_obj_set_size(badge, 46, 46);
-    lv_obj_align(badge, LV_ALIGN_CENTER, 0, -46);
+    lv_obj_align(badge, LV_ALIGN_CENTER, 0, -44);
     lv_obj_set_style_radius(badge, 14, 0);
     lv_obj_set_style_bg_color(badge, lv_color_hex(0xd29e47), 0);
     lv_obj_set_style_border_width(badge, 1, 0);
@@ -943,7 +1050,7 @@ static void board_create_boot_screen(void) {
     lv_obj_set_style_text_font(subtitle_label, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(subtitle_label, lv_color_hex(0xbfc6c0), 0);
     lv_label_set_text(subtitle_label, "Loading NeoOS");
-    lv_obj_align(subtitle_label, LV_ALIGN_CENTER, 0, 92);
+    lv_obj_align(subtitle_label, LV_ALIGN_CENTER, 0, 88);
 
     s_runtime.screen = screen;
     s_runtime.title_label = NULL;
@@ -957,45 +1064,46 @@ static void board_create_boot_screen(void) {
 static void board_create_qr_screen(const char *title, const char *subtitle, const char *qr_payload) {
     lv_obj_t *screen = lv_obj_create(NULL);
     board_style_base_screen(screen);
+    board_create_system_rail(screen);
     board_create_header(screen, "PAIR");
 
     lv_obj_t *title_label = lv_label_create(screen);
     lv_obj_set_style_text_font(title_label, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(title_label, lv_color_hex(0xb89b5c), 0);
     lv_label_set_text(title_label, title != NULL ? title : "Scan To Pair");
-    lv_obj_align(title_label, LV_ALIGN_TOP_MID, 0, 164);
+    lv_obj_align(title_label, LV_ALIGN_TOP_MID, BOARD_UI_NAV_WIDTH / 2, 64);
 
     lv_obj_t *qr_frame = lv_obj_create(screen);
-    lv_obj_set_size(qr_frame, 160, 160);
+    lv_obj_set_size(qr_frame, 156, 156);
     lv_obj_set_style_radius(qr_frame, 16, 0);
     lv_obj_set_style_bg_color(qr_frame, lv_color_hex(0xffffff), 0);
     lv_obj_set_style_border_width(qr_frame, 2, 0);
     lv_obj_set_style_border_color(qr_frame, lv_color_hex(0xd59a12), 0);
     lv_obj_set_style_pad_all(qr_frame, 10, 0);
-    lv_obj_align(qr_frame, LV_ALIGN_CENTER, 0, 8);
+    lv_obj_set_pos(qr_frame, BOARD_UI_CONTENT_X + 26, 104);
 
-    lv_obj_t *qr_code = lv_qrcode_create(qr_frame, 136, lv_color_hex(0x111111), lv_color_hex(0xffffff));
+    lv_obj_t *qr_code = lv_qrcode_create(qr_frame, 132, lv_color_hex(0x111111), lv_color_hex(0xffffff));
     lv_obj_center(qr_code);
     if (qr_payload != NULL && qr_payload[0] != '\0') {
         lv_qrcode_update(qr_code, qr_payload, strlen(qr_payload));
     }
 
     lv_obj_t *subtitle_label = lv_label_create(screen);
-    lv_obj_set_width(subtitle_label, 280);
+    lv_obj_set_width(subtitle_label, 180);
     lv_label_set_long_mode(subtitle_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(subtitle_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_color(subtitle_label, lv_color_hex(0xe5ddd0), 0);
     lv_obj_set_style_text_font(subtitle_label, &lv_font_montserrat_16, 0);
-    lv_obj_align(subtitle_label, LV_ALIGN_CENTER, 0, 126);
+    lv_obj_set_pos(subtitle_label, BOARD_UI_CONTENT_X + 188, 116);
     lv_label_set_text(subtitle_label, subtitle != NULL ? subtitle : "");
 
     lv_obj_t *footer_label = lv_label_create(screen);
-    lv_obj_set_width(footer_label, 300);
+    lv_obj_set_width(footer_label, 180);
     lv_label_set_long_mode(footer_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(footer_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_color(footer_label, lv_color_hex(0x918878), 0);
     lv_obj_set_style_text_font(footer_label, &lv_font_montserrat_12, 0);
-    lv_obj_align(footer_label, LV_ALIGN_CENTER, 0, 170);
+    lv_obj_set_pos(footer_label, BOARD_UI_CONTENT_X + 188, 230);
     lv_label_set_text(footer_label, "Open NeoAgent on another device and scan this code.");
 
     s_runtime.screen = screen;
@@ -1050,7 +1158,7 @@ static void board_create_assistant_screen(const char *status, const char *hint, 
 
     lv_obj_t *status_pill = lv_obj_create(screen);
     lv_obj_set_size(status_pill, 132, 30);
-    lv_obj_align(status_pill, LV_ALIGN_TOP_MID, 0, 54);
+    lv_obj_align(status_pill, LV_ALIGN_TOP_MID, BOARD_UI_NAV_WIDTH / 2, 54);
     lv_obj_set_style_radius(status_pill, 15, 0);
     lv_obj_set_style_bg_color(status_pill, lv_color_hex(0x111a23), 0);
     lv_obj_set_style_border_width(status_pill, 1, 0);
@@ -1064,8 +1172,8 @@ static void board_create_assistant_screen(const char *status, const char *hint, 
     lv_obj_center(status_label);
 
     lv_obj_t *orb_glow = lv_obj_create(screen);
-    lv_obj_set_size(orb_glow, 148, 148);
-    lv_obj_align(orb_glow, LV_ALIGN_CENTER, 0, -12);
+    lv_obj_set_size(orb_glow, 136, 136);
+    lv_obj_align(orb_glow, LV_ALIGN_CENTER, BOARD_UI_NAV_WIDTH / 2, -20);
     lv_obj_set_style_radius(orb_glow, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(orb_glow, orb_start, 0);
     lv_obj_set_style_bg_grad_color(orb_glow, orb_start, 0);
@@ -1084,14 +1192,14 @@ static void board_create_assistant_screen(const char *status, const char *hint, 
         lv_obj_set_style_text_font(caption_label, &lv_font_montserrat_12, 0);
         lv_obj_set_style_text_color(caption_label, lv_color_hex(0x9baabd), 0);
         lv_label_set_text(caption_label, caption);
-        lv_obj_align(caption_label, LV_ALIGN_CENTER, 0, 102);
+        lv_obj_align(caption_label, LV_ALIGN_CENTER, BOARD_UI_NAV_WIDTH / 2, 56);
     }
 
     if (show_output_card) {
         lv_obj_t *output_card = lv_obj_create(screen);
-        lv_obj_set_size(output_card, 316, 108);
-        lv_obj_align(output_card, LV_ALIGN_BOTTOM_MID, 0, -72);
-        lv_obj_set_style_radius(output_card, 24, 0);
+        lv_obj_set_size(output_card, 328, 78);
+        lv_obj_align(output_card, LV_ALIGN_BOTTOM_MID, BOARD_UI_NAV_WIDTH / 2, -18);
+        lv_obj_set_style_radius(output_card, 20, 0);
         lv_obj_set_style_bg_color(output_card, lv_color_hex(0x111a23), 0);
         lv_obj_set_style_border_width(output_card, 1, 0);
         lv_obj_set_style_border_color(output_card, lv_color_hex(0x223343), 0);
@@ -1099,7 +1207,7 @@ static void board_create_assistant_screen(const char *status, const char *hint, 
         lv_obj_clear_flag(output_card, LV_OBJ_FLAG_SCROLLABLE);
 
         lv_obj_t *output_label = lv_label_create(output_card);
-        lv_obj_set_width(output_label, 284);
+        lv_obj_set_width(output_label, 296);
         lv_label_set_long_mode(output_label, LV_LABEL_LONG_WRAP);
         lv_obj_set_style_text_align(output_label, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_style_text_font(output_label, &lv_font_montserrat_14, 0);
@@ -1129,7 +1237,7 @@ static void board_create_widget_screen(const char *title, const char *metric, co
     lv_obj_align(eyebrow, LV_ALIGN_TOP_LEFT, 0, 2);
 
     lv_obj_t *title_label = lv_label_create(surface);
-    lv_obj_set_width(title_label, 250);
+    lv_obj_set_width(title_label, 260);
     lv_label_set_long_mode(title_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_font(title_label, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(title_label, lv_color_hex(0xf1f4f8), 0);
@@ -1156,7 +1264,7 @@ static void board_create_widget_screen(const char *title, const char *metric, co
             lv_obj_set_style_text_font(metric_label, &lv_font_montserrat_16, 0);
             lv_obj_set_style_text_color(metric_label, lv_color_hex(0xe6b667), 0);
             lv_label_set_text(metric_label, metric);
-            lv_obj_align(metric_label, LV_ALIGN_TOP_LEFT, 0, 78);
+            lv_obj_align(metric_label, LV_ALIGN_TOP_LEFT, 0, 70);
         }
 
         if (has_detail) {
@@ -1166,7 +1274,7 @@ static void board_create_widget_screen(const char *title, const char *metric, co
             lv_obj_set_style_text_font(detail_label, &lv_font_montserrat_12, 0);
             lv_obj_set_style_text_color(detail_label, lv_color_hex(0xb7c7d6), 0);
             lv_label_set_text(detail_label, detail);
-            lv_obj_align(detail_label, LV_ALIGN_TOP_LEFT, 0, has_metric ? 146 : 96);
+            lv_obj_align(detail_label, LV_ALIGN_TOP_LEFT, 0, has_metric ? 122 : 86);
         }
     }
 
@@ -1204,7 +1312,7 @@ static void board_create_widget_screen(const char *title, const char *metric, co
 
         lv_obj_t *prev_pill = lv_obj_create(screen);
         lv_obj_set_size(prev_pill, 44, 44);
-        lv_obj_align(prev_pill, LV_ALIGN_BOTTOM_LEFT, 18, -74);
+        lv_obj_set_pos(prev_pill, BOARD_UI_CONTENT_X + 10, 162);
         lv_obj_set_style_radius(prev_pill, 22, 0);
         lv_obj_set_style_bg_color(prev_pill, lv_color_hex(0x12202b), 0);
         lv_obj_set_style_border_width(prev_pill, 1, 0);
@@ -1217,7 +1325,7 @@ static void board_create_widget_screen(const char *title, const char *metric, co
 
         lv_obj_t *next_pill = lv_obj_create(screen);
         lv_obj_set_size(next_pill, 44, 44);
-        lv_obj_align(next_pill, LV_ALIGN_BOTTOM_RIGHT, -18, -74);
+        lv_obj_set_pos(next_pill, BOARD_LCD_H_RES - 54, 162);
         lv_obj_set_style_radius(next_pill, 22, 0);
         lv_obj_set_style_bg_color(next_pill, lv_color_hex(0x12202b), 0);
         lv_obj_set_style_border_width(next_pill, 1, 0);
@@ -1250,7 +1358,7 @@ static void board_create_recording_screen(
 
     lv_obj_t *status_pill = lv_obj_create(screen);
     lv_obj_set_size(status_pill, 148, 30);
-    lv_obj_align(status_pill, LV_ALIGN_TOP_MID, 0, 58);
+    lv_obj_set_pos(status_pill, BOARD_UI_CONTENT_X + 42, 58);
     lv_obj_set_style_radius(status_pill, 15, 0);
     lv_obj_set_style_bg_color(status_pill, lv_color_hex(0x111a23), 0);
     lv_obj_set_style_border_width(status_pill, 1, 0);
@@ -1267,11 +1375,11 @@ static void board_create_recording_screen(
     lv_obj_set_style_text_font(timer_label, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(timer_label, lv_color_hex(0xf2f4f8), 0);
     lv_label_set_text(timer_label, timer_text != NULL ? timer_text : "00:00");
-    lv_obj_align(timer_label, LV_ALIGN_TOP_MID, 0, 106);
+    lv_obj_set_pos(timer_label, BOARD_UI_CONTENT_X + 90, 98);
 
     lv_obj_t *cta_orb = lv_obj_create(screen);
-    lv_obj_set_size(cta_orb, 150, 150);
-    lv_obj_align(cta_orb, LV_ALIGN_CENTER, 0, 4);
+    lv_obj_set_size(cta_orb, 138, 138);
+    lv_obj_set_pos(cta_orb, BOARD_UI_CONTENT_X + 56, 132);
     lv_obj_set_style_radius(cta_orb, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(cta_orb, active ? lv_color_hex(0xa63e48) : lv_color_hex(0xe0a908), 0);
     lv_obj_set_style_bg_grad_color(cta_orb, active ? lv_color_hex(0xa63e48) : lv_color_hex(0xe0a908), 0);
@@ -1292,23 +1400,23 @@ static void board_create_recording_screen(
     lv_obj_center(cta_label);
 
     lv_obj_t *headline_label = lv_label_create(screen);
-    lv_obj_set_width(headline_label, 260);
+    lv_obj_set_width(headline_label, 178);
     lv_label_set_long_mode(headline_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(headline_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_font(headline_label, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(headline_label, lv_color_hex(0xe8eef5), 0);
     lv_label_set_text(headline_label, headline != NULL ? headline : "Background capture");
-    lv_obj_align(headline_label, LV_ALIGN_CENTER, 0, 112);
+    lv_obj_set_pos(headline_label, BOARD_UI_CONTENT_X + 214, 132);
 
     if (detail != NULL && detail[0] != '\0') {
         lv_obj_t *detail_label = lv_label_create(screen);
-        lv_obj_set_width(detail_label, 278);
+        lv_obj_set_width(detail_label, 178);
         lv_label_set_long_mode(detail_label, LV_LABEL_LONG_WRAP);
         lv_obj_set_style_text_align(detail_label, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_style_text_font(detail_label, &lv_font_montserrat_12, 0);
         lv_obj_set_style_text_color(detail_label, lv_color_hex(0x9fb1c4), 0);
         lv_label_set_text(detail_label, detail);
-        lv_obj_align(detail_label, LV_ALIGN_CENTER, 0, 152);
+        lv_obj_set_pos(detail_label, BOARD_UI_CONTENT_X + 214, 198);
     }
 
     board_create_nav_bar(screen, 2);
@@ -1324,8 +1432,8 @@ static void board_create_settings_screen(const char *section_title, const char *
     board_create_header(screen, "SETTINGS");
 
     lv_obj_t *frame = lv_obj_create(screen);
-    lv_obj_set_size(frame, 314, 304);
-    lv_obj_align(frame, LV_ALIGN_CENTER, 0, -16);
+    lv_obj_set_size(frame, 334, 246);
+    lv_obj_set_pos(frame, BOARD_UI_CONTENT_X + 24, 58);
     lv_obj_set_style_radius(frame, 24, 0);
     lv_obj_set_style_bg_color(frame, lv_color_hex(0x111a23), 0);
     lv_obj_set_style_border_width(frame, 1, 0);
@@ -1336,11 +1444,11 @@ static void board_create_settings_screen(const char *section_title, const char *
     if (!show_reset) {
         if (section_title != NULL && strcmp(section_title, "Update") == 0) {
             board_create_list_row(frame, 0, "S", "Stable", selected_value == NULL || strcmp(selected_value, "beta") != 0);
-            board_create_list_row(frame, 58, "B", "Beta", selected_value != NULL && strcmp(selected_value, "beta") == 0);
+            board_create_list_row(frame, 54, "B", "Beta", selected_value != NULL && strcmp(selected_value, "beta") == 0);
 
             lv_obj_t *update = lv_obj_create(frame);
-            lv_obj_set_size(update, 268, 46);
-            lv_obj_align(update, LV_ALIGN_BOTTOM_MID, 0, -66);
+            lv_obj_set_size(update, 296, 42);
+            lv_obj_align(update, LV_ALIGN_BOTTOM_MID, 0, -58);
             lv_obj_set_style_radius(update, 18, 0);
             lv_obj_set_style_bg_color(update, lv_color_hex(0x143025), 0);
             lv_obj_set_style_border_width(update, 1, 0);
@@ -1354,8 +1462,8 @@ static void board_create_settings_screen(const char *section_title, const char *
             lv_obj_center(update_label);
 
             lv_obj_t *setup = lv_obj_create(frame);
-            lv_obj_set_size(setup, 268, 46);
-            lv_obj_align(setup, LV_ALIGN_BOTTOM_MID, 0, -14);
+            lv_obj_set_size(setup, 296, 42);
+            lv_obj_align(setup, LV_ALIGN_BOTTOM_MID, 0, -10);
             lv_obj_set_style_radius(setup, 18, 0);
             lv_obj_set_style_bg_color(setup, lv_color_hex(0x2c220f), 0);
             lv_obj_set_style_border_width(setup, 1, 0);
@@ -1368,8 +1476,8 @@ static void board_create_settings_screen(const char *section_title, const char *
             lv_label_set_text(setup_label, "Re-enter setup mode");
             lv_obj_center(setup_label);
         } else if (section_title != NULL && strcmp(section_title, "Settings") == 0) {
-            board_create_list_row(frame, 32, LV_SYMBOL_WIFI, "Network", false);
-            board_create_list_row(frame, 110, LV_SYMBOL_REFRESH, "Update", false);
+            board_create_list_row(frame, 28, LV_SYMBOL_WIFI, "Network", false);
+            board_create_list_row(frame, 104, LV_SYMBOL_REFRESH, "Update", false);
         } else {
             lv_obj_t *headline_label = lv_label_create(frame);
             lv_obj_set_width(headline_label, 268);
@@ -1377,7 +1485,7 @@ static void board_create_settings_screen(const char *section_title, const char *
             lv_obj_set_style_text_font(headline_label, &lv_font_montserrat_16, 0);
             lv_obj_set_style_text_color(headline_label, lv_color_hex(0xe7eef7), 0);
             lv_label_set_text(headline_label, headline != NULL ? headline : "Settings");
-            lv_obj_align(headline_label, LV_ALIGN_TOP_LEFT, 0, 24);
+            lv_obj_align(headline_label, LV_ALIGN_TOP_LEFT, 0, 18);
 
             if (body != NULL && body[0] != '\0') {
                 lv_obj_t *body_label = lv_label_create(frame);
@@ -1386,7 +1494,7 @@ static void board_create_settings_screen(const char *section_title, const char *
                 lv_obj_set_style_text_font(body_label, &lv_font_montserrat_12, 0);
                 lv_obj_set_style_text_color(body_label, lv_color_hex(0xa4b6c9), 0);
                 lv_label_set_text(body_label, body);
-                lv_obj_align(body_label, LV_ALIGN_TOP_LEFT, 0, 66);
+                lv_obj_align(body_label, LV_ALIGN_TOP_LEFT, 0, 58);
             }
         }
     } else {
@@ -1410,11 +1518,11 @@ static void board_create_settings_screen(const char *section_title, const char *
         lv_obj_set_style_text_font(body_label, &lv_font_montserrat_12, 0);
         lv_obj_set_style_text_color(body_label, lv_color_hex(0xa4b6c9), 0);
         lv_label_set_text(body_label, "Clear pairing and Wi-Fi setup, then return to provisioning.");
-        lv_obj_align(body_label, LV_ALIGN_TOP_LEFT, 0, 76);
+        lv_obj_align(body_label, LV_ALIGN_TOP_LEFT, 0, 72);
 
         lv_obj_t *reset = lv_obj_create(frame);
-        lv_obj_set_size(reset, 268, 54);
-        lv_obj_align(reset, LV_ALIGN_BOTTOM_MID, 0, -22);
+        lv_obj_set_size(reset, 296, 46);
+        lv_obj_align(reset, LV_ALIGN_BOTTOM_MID, 0, -16);
         lv_obj_set_style_radius(reset, 18, 0);
         lv_obj_set_style_bg_color(reset, lv_color_hex(0x38171d), 0);
         lv_obj_set_style_border_width(reset, 1, 0);
@@ -1432,8 +1540,8 @@ static void board_create_settings_screen(const char *section_title, const char *
         board_create_nav_bar(screen, 3);
     } else {
         lv_obj_t *back = lv_obj_create(screen);
-        lv_obj_set_size(back, 312, 54);
-        lv_obj_align(back, LV_ALIGN_BOTTOM_MID, 0, -12);
+        lv_obj_set_size(back, 318, 42);
+        lv_obj_align(back, LV_ALIGN_BOTTOM_MID, BOARD_UI_NAV_WIDTH / 2, -10);
         lv_obj_set_style_radius(back, 18, 0);
         lv_obj_set_style_bg_color(back, lv_color_hex(0x101820), 0);
         lv_obj_set_style_border_width(back, 1, 0);
@@ -1501,7 +1609,7 @@ esp_err_t board_support_init(board_support_t *board) {
         BOARD_LCD_DATA1,
         BOARD_LCD_DATA2,
         BOARD_LCD_DATA3,
-        BOARD_LCD_H_RES * BOARD_LCD_V_RES * BOARD_LCD_BIT_PER_PIXEL / 8
+        BOARD_LCD_NATIVE_H_RES * BOARD_LCD_NATIVE_V_RES * BOARD_LCD_BIT_PER_PIXEL / 8
     );
     ESP_ERROR_CHECK(spi_bus_initialize(BOARD_LCD_HOST, &bus_config, SPI_DMA_CH_AUTO));
 
@@ -1530,13 +1638,14 @@ esp_err_t board_support_init(board_support_t *board) {
     ESP_ERROR_CHECK(esp_lcd_panel_reset(s_runtime.panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_runtime.panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_runtime.panel_handle, true));
+    s_runtime.display_awake = true;
 
     esp_lcd_panel_io_i2c_config_t touch_io_config = ESP_LCD_TOUCH_IO_I2C_FT5x06_CONFIG();
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(s_runtime.i2c_bus, &touch_io_config, &s_runtime.touch_io));
 
     esp_lcd_touch_config_t touch_config = {
-        .x_max = BOARD_LCD_H_RES,
-        .y_max = BOARD_LCD_V_RES,
+        .x_max = BOARD_LCD_NATIVE_H_RES,
+        .y_max = BOARD_LCD_NATIVE_V_RES,
         .rst_gpio_num = GPIO_NUM_NC,
         .int_gpio_num = BOARD_TOUCH_INT,
         .levels = {
@@ -1556,21 +1665,21 @@ esp_err_t board_support_init(board_support_t *board) {
     }
 
     lv_init();
-    s_runtime.buf1 = heap_caps_malloc(BOARD_LCD_H_RES * BOARD_LVGL_BUF_HEIGHT * sizeof(lv_color_t), MALLOC_CAP_DMA);
+    s_runtime.buf1 = heap_caps_malloc(BOARD_LVGL_BUF_PIXELS * sizeof(lv_color_t), MALLOC_CAP_DMA);
     s_runtime.buf2 = NULL;
+    s_runtime.rotate_buf = heap_caps_malloc(BOARD_LVGL_BUF_PIXELS * sizeof(lv_color_t), MALLOC_CAP_DMA);
     assert(s_runtime.buf1 != NULL);
-    lv_disp_draw_buf_init(&s_runtime.disp_buf, s_runtime.buf1, s_runtime.buf2, BOARD_LCD_H_RES * BOARD_LVGL_BUF_HEIGHT);
+    assert(s_runtime.rotate_buf != NULL);
+    lv_disp_draw_buf_init(&s_runtime.disp_buf, s_runtime.buf1, s_runtime.buf2, BOARD_LVGL_BUF_PIXELS);
 
     lv_disp_drv_init(&s_runtime.disp_drv);
     s_runtime.disp_drv.hor_res = BOARD_LCD_H_RES;
     s_runtime.disp_drv.ver_res = BOARD_LCD_V_RES;
     s_runtime.disp_drv.flush_cb = board_lvgl_flush_cb;
     s_runtime.disp_drv.rounder_cb = board_lvgl_rounder_cb;
-    s_runtime.disp_drv.drv_update_cb = board_lvgl_update_cb;
     s_runtime.disp_drv.draw_buf = &s_runtime.disp_buf;
     s_runtime.disp_drv.user_data = s_runtime.panel_handle;
     lv_disp_t *display = lv_disp_drv_register(&s_runtime.disp_drv);
-
     (void)display;
 
     const esp_timer_create_args_t timer_args = {
@@ -1626,6 +1735,25 @@ esp_err_t board_support_set_chrome(board_support_t *board, const neoagent_status
     }
     board_unlock();
     return ESP_OK;
+}
+
+esp_err_t board_support_set_display_awake(board_support_t *board, bool awake) {
+    if (board == NULL || !s_runtime.initialized || s_runtime.panel_handle == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (!board_lock(1000)) {
+        return ESP_ERR_TIMEOUT;
+    }
+    if (s_runtime.display_awake == awake) {
+        board_unlock();
+        return ESP_OK;
+    }
+    esp_err_t err = esp_lcd_panel_disp_on_off(s_runtime.panel_handle, awake);
+    if (err == ESP_OK) {
+        s_runtime.display_awake = awake;
+    }
+    board_unlock();
+    return err;
 }
 
 esp_err_t board_support_show_message(board_support_t *board, const char *title, const char *line1, const char *line2) {
@@ -1740,16 +1868,19 @@ esp_err_t board_support_poll_touch(board_support_t *board, board_touch_event_t *
     bool pressed = esp_lcd_touch_get_coordinates(s_runtime.touch_handle, x, y, NULL, &points, 1);
 
     if (pressed && points > 0) {
+        uint16_t logical_x = 0;
+        uint16_t logical_y = 0;
+        board_transform_touch_point(x[0], y[0], &logical_x, &logical_y);
         event->pressed = !s_runtime.touch_down;
-        event->x = x[0];
-        event->y = y[0];
+        event->x = logical_x;
+        event->y = logical_y;
         if (!s_runtime.touch_down) {
-            s_runtime.touch_start_x = x[0];
-            s_runtime.touch_start_y = y[0];
+            s_runtime.touch_start_x = logical_x;
+            s_runtime.touch_start_y = logical_y;
         }
         s_runtime.touch_down = true;
-        s_runtime.last_touch_x = x[0];
-        s_runtime.last_touch_y = y[0];
+        s_runtime.last_touch_x = logical_x;
+        s_runtime.last_touch_y = logical_y;
         return ESP_OK;
     }
 
