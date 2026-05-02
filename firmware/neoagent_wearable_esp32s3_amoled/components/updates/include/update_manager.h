@@ -6,10 +6,12 @@
 #include "esp_err.h"
 #include "neoagent_wearable_types.h"
 
+#define NEOAGENT_FIRMWARE_DOWNLOAD_URL_MAX 1024
+
 typedef struct {
     char current_version[64];
     char channel[NEOAGENT_FIRMWARE_CHANNEL_MAX];
-    char download_url[256];
+    char download_url[NEOAGENT_FIRMWARE_DOWNLOAD_URL_MAX];
     char latest_version[64];
     char release_notes_url[256];
     bool mandatory;

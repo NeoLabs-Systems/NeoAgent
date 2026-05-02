@@ -252,6 +252,8 @@ esp_err_t update_manager_auto_update(update_manager_t *manager, const char *serv
         .url = manager->download_url,
         .method = HTTP_METHOD_GET,
         .timeout_ms = 60000,
+        .user_agent = "NeoAgentWearable/ota",
+        .keep_alive_enable = true,
     };
     if (url_is_https(manager->download_url)) {
         http_config.crt_bundle_attach = esp_crt_bundle_attach;

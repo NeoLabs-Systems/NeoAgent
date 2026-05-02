@@ -139,11 +139,7 @@ class WearableService {
     const version = getVersionInfo();
     const manifest = await resolveFirmwareManifest({
       channel,
-      downloadUrlOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_DOWNLOAD_URL, 2000),
-      currentVersionOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_VERSION, 120),
-      releaseNotesUrlOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_RELEASE_NOTES_URL, 2000),
-      sha256Override: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_SHA256, 256),
-      repositoryOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_GITHUB_REPOSITORY || process.env.GITHUB_REPOSITORY, 256),
+      repositoryOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_GITHUB_REPOSITORY, 256),
       assetNameOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_ASSET_NAME, 128),
     });
     return {

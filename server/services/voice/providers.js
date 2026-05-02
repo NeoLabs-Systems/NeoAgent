@@ -40,9 +40,17 @@ const EMOJI_SPEECH_REGEX =
 const WEARABLE_SAFE_AUDIO_FORMAT = Object.freeze({
   responseFormat: 'wav',
   mimeType: 'audio/wav',
+  streamResponseFormat: 'pcm',
+  streamMimeType: 'audio/wav',
+  pcmSampleRate: 24000,
+  pcmChannels: 1,
+  pcmBitsPerSample: 16,
   deepgramEncoding: 'linear16',
   deepgramContainer: 'wav',
+  deepgramStreamContainer: 'none',
 });
+const MIN_STREAM_PCM_CHUNK_BYTES = 24000;
+const MAX_STREAM_PCM_CHUNK_BYTES = 48000;
 
 function withTimeout(promise, timeoutMs, label) {
   const normalizedTimeout = Number(timeoutMs);
@@ -198,10 +206,11 @@ async function fetchAudioStreamOrThrow(url, init, errorPrefix, defaultMimeType =
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    if (value?.length) chunks.push(Buffer.from(value));
+    if (value?.length) {
+      chunks.push(Buffer.from(value));
+    }
   }
-  const audioBytes = Buffer.concat(chunks);
-  await onChunk({ audioBytes, mimeType });
+  await onChunk({ audioBytes: Buffer.concat(chunks), mimeType });
 }
 
 function guessExtFromMimeType(mimeType) {
@@ -260,6 +269,49 @@ function wrapPcmAsWav(audioBytes, format) {
   header.writeUInt32LE(data.length, 40);
 
   return Buffer.concat([header, data]);
+}
+
+async function streamPcmAsWavChunks(readable, format, onChunk) {
+  const source = readable && typeof readable.getReader === 'function'
+    ? readable
+    : null;
+  let pending = Buffer.alloc(0);
+
+  async function flushPending(force = false) {
+    while (pending.length >= MIN_STREAM_PCM_CHUNK_BYTES || (force && pending.length > 0)) {
+      const targetLength = force
+        ? pending.length
+        : Math.min(pending.length, MAX_STREAM_PCM_CHUNK_BYTES);
+      const evenLength = targetLength - (targetLength % 2);
+      if (evenLength <= 0) return;
+      const pcmChunk = pending.subarray(0, evenLength);
+      pending = pending.subarray(evenLength);
+      await onChunk({
+        audioBytes: wrapPcmAsWav(pcmChunk, format),
+        mimeType: WEARABLE_SAFE_AUDIO_FORMAT.streamMimeType,
+      });
+    }
+  }
+
+  if (source) {
+    const reader = source.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value?.length) {
+        pending = Buffer.concat([pending, Buffer.from(value)]);
+        await flushPending(false);
+      }
+    }
+  } else {
+    for await (const chunk of readable) {
+      if (chunk?.length) {
+        pending = Buffer.concat([pending, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)]);
+        await flushPending(false);
+      }
+    }
+  }
+  await flushPending(true);
 }
 
 async function transcribeWithOpenAi(filePath, model, options = {}) {
@@ -380,8 +432,20 @@ async function streamWithOpenAi(text, model, voice, options = {}, onChunk) {
     model: String(model || 'gpt-4o-mini-tts').trim() || 'gpt-4o-mini-tts',
     voice: String(voice || 'alloy').trim() || 'alloy',
     input: text,
-    response_format: useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.responseFormat : 'mp3',
+    response_format: useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.streamResponseFormat : 'mp3',
   });
+  if (useWearableSafeAudio) {
+    await streamPcmAsWavChunks(
+      response.body,
+      {
+        bitsPerSample: WEARABLE_SAFE_AUDIO_FORMAT.pcmBitsPerSample,
+        sampleRate: WEARABLE_SAFE_AUDIO_FORMAT.pcmSampleRate,
+        channels: WEARABLE_SAFE_AUDIO_FORMAT.pcmChannels,
+      },
+      onChunk,
+    );
+    return;
+  }
   const chunks = [];
   for await (const chunk of response.body) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -427,7 +491,32 @@ async function streamWithDeepgram(text, model, options = {}, onChunk) {
   });
   if (useWearableSafeAudio) {
     searchParams.set('encoding', WEARABLE_SAFE_AUDIO_FORMAT.deepgramEncoding);
-    searchParams.set('container', WEARABLE_SAFE_AUDIO_FORMAT.deepgramContainer);
+    searchParams.set('container', WEARABLE_SAFE_AUDIO_FORMAT.deepgramStreamContainer);
+    searchParams.set('sample_rate', String(WEARABLE_SAFE_AUDIO_FORMAT.pcmSampleRate));
+    const response = await fetch(
+      `https://api.deepgram.com/v1/speak?${searchParams.toString()}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      },
+    );
+    if (!response.ok) {
+      await throwResponseError(response, 'Deepgram TTS stream failed');
+    }
+    await streamPcmAsWavChunks(
+      response.body,
+      {
+        bitsPerSample: WEARABLE_SAFE_AUDIO_FORMAT.pcmBitsPerSample,
+        sampleRate: WEARABLE_SAFE_AUDIO_FORMAT.pcmSampleRate,
+        channels: WEARABLE_SAFE_AUDIO_FORMAT.pcmChannels,
+      },
+      onChunk,
+    );
+    return;
   }
   await fetchAudioStreamOrThrow(
     `https://api.deepgram.com/v1/speak?${searchParams.toString()}`,

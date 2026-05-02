@@ -546,6 +546,8 @@ class VoiceRuntimeManager {
       provider: session.voiceSettings?.liveProvider,
       model: session.voiceSettings?.liveTtsModel,
       voice: session.voiceSettings?.liveVoice,
+      transport: 'wearable',
+      responseFormat: 'wav',
     });
     const spokenContent = sanitizeSpeechText(content);
     let index = 0;
@@ -618,6 +620,8 @@ class VoiceRuntimeManager {
         provider,
         model: provider === voiceOptions.provider ? voiceOptions.model : null,
         voice: provider === voiceOptions.provider ? voiceOptions.voice : null,
+        transport: voiceOptions.transport,
+        responseFormat: voiceOptions.responseFormat,
       });
       const runtime = provider === voiceOptions.provider
         ? {

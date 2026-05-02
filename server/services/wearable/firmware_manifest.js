@@ -1,10 +1,6 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-
-const { APP_DIR } = require('../../../runtime/paths');
-
+const DEFAULT_GITHUB_REPOSITORY = 'NeoLabs-Systems/NeoAgent';
 const DEFAULT_ASSET_NAME = 'neoagent-wearable-firmware.bin';
 const MANIFEST_CACHE_TTL_MS = 5 * 60 * 1000;
 const manifestCache = new Map();
@@ -33,28 +29,10 @@ function parseRepositorySlug(value) {
   return null;
 }
 
-function readPackageRepositorySlug() {
-  try {
-    const packageJsonPath = path.join(APP_DIR, 'package.json');
-    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    const repository = pkg?.repository;
-    if (typeof repository === 'string') {
-      return parseRepositorySlug(repository);
-    }
-    if (repository && typeof repository.url === 'string') {
-      return parseRepositorySlug(repository.url);
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 function getGithubRepository() {
   return (
     parseRepositorySlug(process.env.NEOAGENT_WEARABLE_FIRMWARE_GITHUB_REPOSITORY)
-    || parseRepositorySlug(process.env.GITHUB_REPOSITORY)
-    || readPackageRepositorySlug()
+    || DEFAULT_GITHUB_REPOSITORY
   );
 }
 
@@ -359,6 +337,7 @@ async function resolveFirmwareManifest({
 
 module.exports = {
   DEFAULT_ASSET_NAME,
+  DEFAULT_GITHUB_REPOSITORY,
   getFirmwareAssetName,
   getGithubRepository,
   normalizeChannel,
