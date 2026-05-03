@@ -13,6 +13,42 @@
  */
 
 const MCP_ALWAYS_INCLUDE_THRESHOLD = 20;
+const MAX_TOOLS = 128; // Strict provider limit (e.g. Github Copilot / OpenAI)
+
+function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}) {
+  const requiredNames = [];
+  if (options.widgetId) requiredNames.push('save_widget_snapshot');
+  if (!requiredNames.length) return selectedTools;
+
+  const selected = Array.isArray(selectedTools) ? [...selectedTools] : [];
+
+  for (const toolName of requiredNames) {
+    if (selected.some((tool) => tool?.name === toolName)) continue;
+    const required = builtInTools.find((tool) => tool?.name === toolName);
+    if (!required) continue;
+
+    if (selected.length < MAX_TOOLS) {
+      selected.push(required);
+      continue;
+    }
+
+    // Keep within provider tool cap: replace the last non-required tool.
+    let replaced = false;
+    for (let index = selected.length - 1; index >= 0; index -= 1) {
+      const currentName = selected[index]?.name;
+      if (!requiredNames.includes(currentName)) {
+        selected[index] = required;
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced && selected.length > 0) {
+      selected[selected.length - 1] = required;
+    }
+  }
+
+  return selected;
+}
 
 function selectMcpTools(task, mcpTools = []) {
   if (!mcpTools.length) return [];
@@ -33,20 +69,24 @@ function selectMcpTools(task, mcpTools = []) {
 }
 
 function selectToolsForTask(task, builtInTools = [], mcpTools = [], _options = {}) {
-  const MAX_TOOLS = 128; // Strict provider limit (e.g. Github Copilot / OpenAI)
   const selectedMcp = selectMcpTools(task, mcpTools);
+  const options = _options || {};
+  let selected;
   
   if (builtInTools.length + selectedMcp.length <= MAX_TOOLS) {
-    return [...builtInTools, ...selectedMcp];
+    selected = [...builtInTools, ...selectedMcp];
+    return ensureRequiredTools(selected, builtInTools, options);
   }
 
   // If we exceed the limit, prioritize base tools and take as many MCP tools as fit
   const remainingSpace = MAX_TOOLS - builtInTools.length;
   if (remainingSpace > 0) {
-    return [...builtInTools, ...selectedMcp.slice(0, remainingSpace)];
+    selected = [...builtInTools, ...selectedMcp.slice(0, remainingSpace)];
+    return ensureRequiredTools(selected, builtInTools, options);
   }
   
-  return builtInTools.slice(0, MAX_TOOLS);
+  selected = builtInTools.slice(0, MAX_TOOLS);
+  return ensureRequiredTools(selected, builtInTools, options);
 }
 
 module.exports = { selectToolsForTask, selectMcpTools };
