@@ -1551,6 +1551,7 @@ class AgentEngine {
       agentId,
       triggerType,
       triggerSource,
+      widgetId: options.widgetId || null,
     });
     const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.mcpManager;
     const integrationManager = app?.locals?.integrationManager || null;
