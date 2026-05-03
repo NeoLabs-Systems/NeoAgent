@@ -1,5 +1,6 @@
 #include "widget_repository.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
@@ -7,7 +8,7 @@
 #include "esp_http_client.h"
 
 typedef struct {
-    char body[8192];
+    char body[16384];
     size_t body_length;
 } widget_http_capture_t;
 
@@ -15,7 +16,7 @@ static bool url_is_https(const char *url) {
     return url != NULL && strncmp(url, "https://", 8) == 0;
 }
 
-static void build_snapshots_url(const char *server_url, char *output, size_t output_size) {
+static void build_widgets_url(const char *server_url, char *output, size_t output_size) {
     if (output == NULL || output_size == 0) {
         return;
     }
@@ -27,7 +28,7 @@ static void build_snapshots_url(const char *server_url, char *output, size_t out
     while (base_length > 0 && server_url[base_length - 1] == '/') {
         base_length--;
     }
-    const char *path = "/api/widgets/snapshots?all=true";
+    const char *path = "/api/widgets?all=true";
     if (base_length + strlen(path) + 1 > output_size) {
         return;
     }
@@ -65,25 +66,29 @@ static void copy_text(char *destination, size_t destination_size, const cJSON *i
     destination[destination_size - 1] = '\0';
 }
 
-static esp_err_t decode_snapshot(const cJSON *entry, neoagent_widget_snapshot_t *snapshot) {
-    if (entry == NULL || snapshot == NULL) {
+static const char *json_string_value(const cJSON *item) {
+    return cJSON_IsString(item) && item->valuestring != NULL ? item->valuestring : NULL;
+}
+
+static const cJSON *json_object_item(const cJSON *object, const char *name) {
+    return cJSON_IsObject(object) ? cJSON_GetObjectItemCaseSensitive(object, name) : NULL;
+}
+
+static esp_err_t decode_payload_snapshot(const cJSON *payload, const char *widget_id, neoagent_widget_snapshot_t *snapshot) {
+    if (!cJSON_IsObject(payload) || snapshot == NULL || widget_id == NULL || widget_id[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
-    }
-    const cJSON *widget_id = cJSON_GetObjectItemCaseSensitive(entry, "widgetId");
-    const cJSON *payload = cJSON_GetObjectItemCaseSensitive(entry, "payload");
-    if (!cJSON_IsString(widget_id) || !cJSON_IsObject(payload)) {
-        return ESP_ERR_INVALID_RESPONSE;
     }
 
     memset(snapshot, 0, sizeof(*snapshot));
-    copy_text(snapshot->id, sizeof(snapshot->id), widget_id);
-    copy_text(snapshot->title, sizeof(snapshot->title), cJSON_GetObjectItemCaseSensitive(payload, "title"));
-    copy_text(snapshot->subtitle, sizeof(snapshot->subtitle), cJSON_GetObjectItemCaseSensitive(payload, "subtitle"));
-    copy_text(snapshot->body, sizeof(snapshot->body), cJSON_GetObjectItemCaseSensitive(payload, "body"));
-    copy_text(snapshot->metric, sizeof(snapshot->metric), cJSON_GetObjectItemCaseSensitive(payload, "metric"));
-    copy_text(snapshot->metric_label, sizeof(snapshot->metric_label), cJSON_GetObjectItemCaseSensitive(payload, "metricLabel"));
+    strncpy(snapshot->id, widget_id, sizeof(snapshot->id) - 1);
+    snapshot->id[sizeof(snapshot->id) - 1] = '\0';
+    copy_text(snapshot->title, sizeof(snapshot->title), json_object_item(payload, "title"));
+    copy_text(snapshot->subtitle, sizeof(snapshot->subtitle), json_object_item(payload, "subtitle"));
+    copy_text(snapshot->body, sizeof(snapshot->body), json_object_item(payload, "body"));
+    copy_text(snapshot->metric, sizeof(snapshot->metric), json_object_item(payload, "metric"));
+    copy_text(snapshot->metric_label, sizeof(snapshot->metric_label), json_object_item(payload, "metricLabel"));
 
-    const cJSON *rows = cJSON_GetObjectItemCaseSensitive(payload, "rows");
+    const cJSON *rows = json_object_item(payload, "rows");
     if (cJSON_IsArray(rows)) {
         size_t row_count = cJSON_GetArraySize(rows);
         if (row_count > NEOAGENT_WIDGET_ROWS_MAX) {
@@ -94,12 +99,58 @@ static esp_err_t decode_snapshot(const cJSON *entry, neoagent_widget_snapshot_t 
             if (!cJSON_IsObject(row)) {
                 continue;
             }
-            copy_text(snapshot->rows[index].label, sizeof(snapshot->rows[index].label), cJSON_GetObjectItemCaseSensitive(row, "label"));
-            copy_text(snapshot->rows[index].value, sizeof(snapshot->rows[index].value), cJSON_GetObjectItemCaseSensitive(row, "value"));
+            copy_text(snapshot->rows[index].label, sizeof(snapshot->rows[index].label), json_object_item(row, "label"));
+            copy_text(snapshot->rows[index].value, sizeof(snapshot->rows[index].value), json_object_item(row, "value"));
             snapshot->row_count += 1;
         }
     }
     return snapshot->title[0] != '\0' ? ESP_OK : ESP_ERR_INVALID_RESPONSE;
+}
+
+static esp_err_t decode_widget_placeholder(const cJSON *entry, neoagent_widget_snapshot_t *snapshot) {
+    const char *widget_id = json_string_value(json_object_item(entry, "id"));
+    const char *name = json_string_value(json_object_item(entry, "name"));
+    if (widget_id == NULL || widget_id[0] == '\0' || name == NULL || name[0] == '\0' || snapshot == NULL) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    memset(snapshot, 0, sizeof(*snapshot));
+    strncpy(snapshot->id, widget_id, sizeof(snapshot->id) - 1);
+    snapshot->id[sizeof(snapshot->id) - 1] = '\0';
+    strncpy(snapshot->title, name, sizeof(snapshot->title) - 1);
+    snapshot->title[sizeof(snapshot->title) - 1] = '\0';
+
+    const cJSON *definition = json_object_item(entry, "definition");
+    copy_text(snapshot->body, sizeof(snapshot->body), json_object_item(definition, "emptyState"));
+    if (snapshot->body[0] == '\0') {
+        strncpy(snapshot->body, "Waiting for first refresh", sizeof(snapshot->body) - 1);
+        snapshot->body[sizeof(snapshot->body) - 1] = '\0';
+    }
+    return ESP_OK;
+}
+
+static esp_err_t decode_snapshot(const cJSON *entry, neoagent_widget_snapshot_t *snapshot) {
+    if (!cJSON_IsObject(entry) || snapshot == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const cJSON *payload = json_object_item(entry, "payload");
+    const char *widget_id = json_string_value(json_object_item(entry, "widgetId"));
+    if (widget_id != NULL && cJSON_IsObject(payload)) {
+        return decode_payload_snapshot(payload, widget_id, snapshot);
+    }
+
+    const cJSON *latest_snapshot = json_object_item(entry, "latestSnapshot");
+    payload = json_object_item(latest_snapshot, "payload");
+    widget_id = json_string_value(json_object_item(latest_snapshot, "widgetId"));
+    if (widget_id == NULL) {
+        widget_id = json_string_value(json_object_item(entry, "id"));
+    }
+    if (widget_id != NULL && cJSON_IsObject(payload)) {
+        return decode_payload_snapshot(payload, widget_id, snapshot);
+    }
+
+    return decode_widget_placeholder(entry, snapshot);
 }
 
 esp_err_t widget_repository_init(widget_repository_t *repository) {
@@ -143,7 +194,7 @@ esp_err_t widget_repository_refresh(widget_repository_t *repository, const char 
     }
 
     char url[NEOAGENT_SERVER_URL_MAX + 64];
-    build_snapshots_url(server_url, url, sizeof(url));
+    build_widgets_url(server_url, url, sizeof(url));
     if (url[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }

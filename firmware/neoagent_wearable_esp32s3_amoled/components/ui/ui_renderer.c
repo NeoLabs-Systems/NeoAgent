@@ -21,6 +21,27 @@ static void append_text(char *destination, size_t destination_size, const char *
     destination[used + to_copy] = '\0';
 }
 
+static void append_row_detail(char *destination, size_t destination_size, const neoagent_widget_row_t *row) {
+    if (destination == NULL || destination_size == 0 || row == NULL) {
+        return;
+    }
+    if (row->label[0] == '\0' && row->value[0] == '\0') {
+        return;
+    }
+    char line[160];
+    if (row->label[0] != '\0' && row->value[0] != '\0') {
+        snprintf(line, sizeof(line), "%s: %s", row->label, row->value);
+    } else if (row->value[0] != '\0') {
+        snprintf(line, sizeof(line), "%s", row->value);
+    } else {
+        snprintf(line, sizeof(line), "%s", row->label);
+    }
+    if (destination[0] != '\0') {
+        append_text(destination, destination_size, "\n");
+    }
+    append_text(destination, destination_size, line);
+}
+
 esp_err_t ui_renderer_init(ui_renderer_t *renderer, board_support_t *board) {
     if (renderer == NULL || board == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -79,19 +100,36 @@ esp_err_t ui_renderer_show_widget(ui_renderer_t *renderer, const neoagent_widget
     }
 
     char detail[192];
+    char footer[96];
+    const bool metric_from_subtitle = snapshot->metric[0] == '\0' && snapshot->subtitle[0] != '\0';
     const char *metric = snapshot->metric[0] != '\0' ? snapshot->metric : snapshot->subtitle;
     renderer->visible_screen = NEOAGENT_SCREEN_WIDGETS;
 
     detail[0] = '\0';
+    footer[0] = '\0';
     if (snapshot->body[0] != '\0') {
         append_text(detail, sizeof(detail), snapshot->body);
-    } else if (snapshot->rows[0].value[0] != '\0') {
-        append_text(detail, sizeof(detail), snapshot->rows[0].value);
+    } else if (snapshot->row_count > 0) {
+        for (size_t row_index = 0; row_index < snapshot->row_count; ++row_index) {
+            append_row_detail(detail, sizeof(detail), &snapshot->rows[row_index]);
+        }
     } else if (snapshot->metric_label[0] != '\0') {
         append_text(detail, sizeof(detail), snapshot->metric_label);
     }
 
-    return board_support_show_widget_card(renderer->board, snapshot->title, metric, detail, NULL, index, total);
+    if (detail[0] == '\0' && (metric == NULL || metric[0] == '\0')) {
+        append_text(detail, sizeof(detail), "No live data yet");
+    }
+
+    if (metric_from_subtitle && snapshot->metric_label[0] != '\0') {
+        append_text(footer, sizeof(footer), snapshot->metric_label);
+    } else if (!metric_from_subtitle && snapshot->subtitle[0] != '\0') {
+        append_text(footer, sizeof(footer), snapshot->subtitle);
+    } else if (snapshot->metric[0] != '\0' && snapshot->metric_label[0] != '\0') {
+        append_text(footer, sizeof(footer), snapshot->metric_label);
+    }
+
+    return board_support_show_widget_card(renderer->board, snapshot->title, metric, detail, footer[0] != '\0' ? footer : NULL, index, total);
 }
 
 esp_err_t ui_renderer_show_recording(
