@@ -540,6 +540,7 @@ class WidgetService {
       '',
       'You are updating a structured product widget. Keep the layout fixed. Refresh only the content snapshot.',
       'Use fresh tools for time-sensitive claims. Do not rely on stale memory for live data such as weather, markets, incidents, or schedules.',
+      'The refresh run has a hard limit of 15 tool-call iterations. Call save_widget_snapshot as early as you have enough accurate data; do not keep exploring after saving.',
       'After gathering the latest information, call save_widget_snapshot exactly once with a payload matching this schema:',
       '{"title":"","kicker":"","subtitle":"","body":"","metric":"","metricLabel":"","secondaryMetric":"","secondaryLabel":"","tertiaryMetric":"","tertiaryLabel":"","trend":{"label":"","direction":"flat"},"progress":{"value":0,"max":100,"label":""},"rows":[{"label":"","value":""}],"chips":[""],"iconToken":"","accentToken":"","backgroundToken":"","surfaceColor":"","updatedAt":"","deepLink":""}',
       'Rules:',
