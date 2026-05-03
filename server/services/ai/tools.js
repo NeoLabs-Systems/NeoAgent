@@ -2556,7 +2556,17 @@ async function executeTool(toolName, args, context, engine) {
             if (!widgetService) return { error: 'Widget service not available' };
             if (!widgetId) return { error: 'save_widget_snapshot is only available during widget refresh runs.' };
             try {
-                const snapshot = widgetService.saveSnapshot(userId, widgetId, args.snapshot, {
+                const snapshotPayload = (
+                    args
+                    && typeof args === 'object'
+                    && !Array.isArray(args)
+                    && args.snapshot
+                    && typeof args.snapshot === 'object'
+                    && !Array.isArray(args.snapshot)
+                )
+                    ? args.snapshot
+                    : args;
+                const snapshot = widgetService.saveSnapshot(userId, widgetId, snapshotPayload, {
                     sourceRunId: runId,
                     status: 'ready',
                 });
