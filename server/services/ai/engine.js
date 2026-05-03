@@ -38,8 +38,8 @@ const {
   normalizeInterimKind,
 } = require('./interim');
 
-const MAX_CONSECUTIVE_TOOL_FAILURES = 3;
-const WIDGET_REFRESH_MAX_ITERATIONS = 15;
+const MAX_CONSECUTIVE_TOOL_FAILURES = 5;
+const WIDGET_REFRESH_MAX_ITERATIONS = 30;
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
