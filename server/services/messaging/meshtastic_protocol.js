@@ -314,36 +314,63 @@ class MeshtasticConnection extends EventEmitter {
     return new Promise((resolve, reject) => {
       const socket = new Socket();
       let settled = false;
+      let timer = null;
+
+      const cleanupHandshake = () => {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        socket.removeListener('error', fail);
+        socket.removeListener('close', onPreReadyClose);
+        this.removeListener('configured', onConfigured);
+        this.removeListener('disconnected', onDisconnected);
+      };
 
       const fail = (err) => {
         if (settled) return;
         settled = true;
+        cleanupHandshake();
+        if (this._socket === socket) {
+          this._socket = null;
+        }
         socket.destroy();
         reject(err);
       };
 
-      const timer = setTimeout(() => fail(new Error('Connection timeout')), timeout);
+      const onConfigured = () => {
+        if (settled) return;
+        settled = true;
+        cleanupHandshake();
+        resolve();
+      };
+
+      const onDisconnected = (info) => {
+        fail(new Error(`Disconnected before configuration: ${info?.reason || 'unknown'}`));
+      };
+
+      const onPreReadyClose = () => {
+        fail(new Error('Disconnected before configuration: socket-closed'));
+      };
+
+      timer = setTimeout(() => fail(new Error('Connection timeout')), timeout);
 
       socket.once('error', fail);
+      socket.once('close', onPreReadyClose);
       socket.once('ready', () => {
         socket.removeListener('error', fail);
+        socket.removeListener('close', onPreReadyClose);
         this._socket = socket;
         this._wireSocket(socket);
         this.emit('status', 'connected');
 
-        const onConfigured = () => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          resolve();
-        };
         this.once('configured', onConfigured);
+        this.once('disconnected', onDisconnected);
 
         const toRadio = encodeToRadioWantConfig(this._configId);
         socket.write(framePacket(toRadio));
       });
 
-      socket.setTimeout(timeout);
       socket.connect(port, host);
     });
   }
@@ -361,18 +388,22 @@ class MeshtasticConnection extends EventEmitter {
     });
 
     socket.on('data', parser);
-    socket.on('error', (err) => this._onDisconnected(`socket-error: ${err.message}`))
+    socket.on('error', (err) => this._onDisconnected(`socket-error: ${err.message}`));
     socket.on('end', () => this._onDisconnected('socket-end'));
     socket.on('close', () => this._onDisconnected('socket-closed'));
     socket.on('timeout', () => {
       this._onDisconnected('socket-timeout');
-      socket.destroy();
     });
   }
 
   _onDisconnected(reason) {
     if (this._closing) return;
+    const socket = this._socket;
+    if (!socket) return;
+    this._socket = null;
     this._configured = false;
+    socket.removeAllListeners();
+    socket.destroy();
     this.emit('status', 'disconnected');
     this.emit('disconnected', { reason });
   }

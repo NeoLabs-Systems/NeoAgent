@@ -23,8 +23,6 @@ const {
 } = require('../services/ai/settings');
 const {
   readMeshtasticEnabled,
-  setMeshtasticEnabled,
-  resetMeshtasticEnabled,
 } = require('../services/messaging/meshtastic_env');
 const {
   ensureDefaultRuntimeSettings,
@@ -81,6 +79,10 @@ const VOICE_SETTING_KEYS = new Set([
 ]);
 
 const ENV_BACKED_SETTING_KEYS = new Set([
+  'meshtastic_enabled',
+]);
+
+const READ_ONLY_ENV_SETTING_KEYS = new Set([
   'meshtastic_enabled',
 ]);
 
@@ -175,14 +177,8 @@ function readEnvBackedSettingValue(key) {
 
 async function writeEnvBackedSettingValue(req, key, value) {
   switch (key) {
-    case 'meshtastic_enabled': {
-      const enabled = setMeshtasticEnabled(value);
-      const manager = req.app?.locals?.messagingManager;
-      if (manager && typeof manager.updateMeshtasticEnabled === 'function') {
-        await manager.updateMeshtasticEnabled(enabled);
-      }
-      return enabled;
-    }
+    case 'meshtastic_enabled':
+      return readMeshtasticEnabled();
     default:
       return value;
   }
@@ -191,11 +187,6 @@ async function writeEnvBackedSettingValue(req, key, value) {
 async function resetEnvBackedSettingValue(req, key) {
   switch (key) {
     case 'meshtastic_enabled': {
-      resetMeshtasticEnabled();
-      const manager = req.app?.locals?.messagingManager;
-      if (manager && typeof manager.updateMeshtasticEnabled === 'function') {
-        await manager.updateMeshtasticEnabled(readMeshtasticEnabled());
-      }
       return;
     }
     default:
@@ -292,6 +283,10 @@ router.put('/', async (req, res) => {
   }
 
   for (const key of Object.keys(normalizedBody)) {
+    if (READ_ONLY_ENV_SETTING_KEYS.has(key)) {
+      delete normalizedBody[key];
+      continue;
+    }
     if (isEnvBackedSettingKey(key)) {
       normalizedBody[key] = await writeEnvBackedSettingValue(req, key, normalizedBody[key]);
     }
@@ -470,6 +465,13 @@ router.put('/:key', async (req, res) => {
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultRuntimeSettings(userId);
   let value = req.body.value;
+  if (READ_ONLY_ENV_SETTING_KEYS.has(req.params.key)) {
+    return res.status(403).json({
+      success: false,
+      error: `${req.params.key} is managed via environment only`,
+      value: readEnvBackedSettingValue(req.params.key),
+    });
+  }
   if (isEnvBackedSettingKey(req.params.key)) {
     const saved = await writeEnvBackedSettingValue(req, req.params.key, value);
     return res.json({ success: true, value: saved });
@@ -535,6 +537,13 @@ router.put('/:key', async (req, res) => {
 
 // Delete setting
 router.delete('/:key', (req, res) => {
+  if (READ_ONLY_ENV_SETTING_KEYS.has(req.params.key)) {
+    return res.status(403).json({
+      success: false,
+      error: `${req.params.key} is managed via environment only`,
+      value: readEnvBackedSettingValue(req.params.key),
+    });
+  }
   if (isEnvBackedSettingKey(req.params.key)) {
     return resetEnvBackedSettingValue(req, req.params.key)
       .then(() => res.json({ success: true }))

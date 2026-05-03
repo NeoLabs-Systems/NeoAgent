@@ -801,55 +801,18 @@ class _MessagingPanelState extends State<MessagingPanel> {
                         }
                       }
                       snapshot[platform.settingsKey] = jsonEncode(config);
-                      final meshtasticEnabled =
-                          platform.id != 'meshtastic' ||
-                          (boolValues['meshtastic_enabled'] ?? true);
-                      var connected = false;
-                      if (meshtasticEnabled) {
-                        connected = await _connectMessagingPlatform(
-                          platform: platform.id,
-                          platformLabel: platform.label,
-                          config: config,
-                          configSnapshot: snapshot,
-                        );
-                      } else {
-                        final messenger = ScaffoldMessenger.maybeOf(context);
-                        try {
-                          await widget.controller.saveSettingsPayload(snapshot);
-                        } catch (error) {
-                          if (!mounted) return;
-                          messenger?.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Failed to save ${platform.label}: ${widget.controller.friendlyErrorMessage(error)}',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-                        try {
-                          await widget.controller.refreshMessaging();
-                          connected = true;
-                        } catch (error) {
-                          if (!mounted) return;
-                          messenger?.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Saved ${platform.label}, but refresh failed: ${widget.controller.friendlyErrorMessage(error)}',
-                              ),
-                            ),
-                          );
-                        }
-                      }
+                      final connected = await _connectMessagingPlatform(
+                        platform: platform.id,
+                        platformLabel: platform.label,
+                        config: config,
+                        configSnapshot: snapshot,
+                      );
                       if (connected && context.mounted) {
                         Navigator.of(context).pop();
                       }
                     },
                     child: Text(
-                      platform.id == 'meshtastic' &&
-                              !(boolValues['meshtastic_enabled'] ?? true)
-                          ? 'Save'
-                          : 'Connect',
+                      'Connect',
                     ),
                   ),
                 ],

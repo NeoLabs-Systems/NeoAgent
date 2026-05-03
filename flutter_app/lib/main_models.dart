@@ -278,13 +278,6 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.router_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'meshtastic_enabled',
-        label: 'Enable Meshtastic on this server',
-        kind: MessagingConfigFieldKind.boolean,
-        settingsKey: 'meshtastic_enabled',
-        includeInConfig: false,
-      ),
       MessagingConfigField(key: 'host', label: 'Device IP Address'),
       MessagingConfigField(
         key: 'channel',

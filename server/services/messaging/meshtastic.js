@@ -103,6 +103,12 @@ class MeshtasticPlatform extends BasePlatform {
     this._disconnecting = false;
     this.status = 'connecting';
 
+    const staleTransport = this._transport;
+    this._transport = null;
+    if (staleTransport) {
+      await staleTransport.disconnect().catch(() => {});
+    }
+
     const transport = await MeshtasticTcpTransport.create(this.host, this.port, 60000);
     this._transport = transport;
 
@@ -174,6 +180,9 @@ class MeshtasticPlatform extends BasePlatform {
 
     conn.on('disconnected', (info) => {
       if (this._disconnecting) return;
+      if (this._transport === transport) {
+        this._transport = null;
+      }
       this.status = 'disconnected';
       this.emit('disconnected', { reason: info?.reason || 'device_disconnected' });
       this._scheduleReconnect();
