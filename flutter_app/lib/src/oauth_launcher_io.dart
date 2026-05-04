@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import 'oauth_launcher.dart';
 
 OAuthLauncher createPlatformOAuthLauncher() => _IoOAuthLauncher();
@@ -32,6 +34,22 @@ class _IoOAuthLauncher extends OAuthLauncher {
           <String>[url],
           runInShell: true,
         ).timeout(timeout);
+      } else if (Platform.isAndroid || Platform.isIOS) {
+        final uri = Uri.parse(url);
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        ).timeout(timeout);
+        
+        if (launched) {
+          return const OAuthLaunchResult(launched: true, completed: false);
+        } else {
+          return const OAuthLaunchResult(
+            launched: false,
+            completed: false,
+            error: 'Failed to launch external browser via url_launcher.',
+          );
+        }
       } else {
         return const OAuthLaunchResult(
           launched: false,

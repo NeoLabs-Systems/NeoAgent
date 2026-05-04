@@ -35,6 +35,7 @@ dependencies:
   geolocator: ^13.0.2
   flutter_background_service: ^5.1.0
   notification_listener_service: ^0.3.5
+  url_launcher: ^6.3.2
 
 dependency_overrides:
   flutter_secure_storage_linux:
