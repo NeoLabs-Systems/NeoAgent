@@ -330,7 +330,12 @@ router.get('/api/auth/providers/complete', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    if (getTwoFactorStatus(user.id).enabled) {
+    // Skip secondary two-factor when signing in via certain social providers.
+    // Currently skip for Google (`provider === 'google`).
+    const providerKey = String(completion.provider || '').trim();
+    const twoFactor = getTwoFactorStatus(user.id);
+    const skipTwoFactorForProviders = new Set(['google']);
+    if (twoFactor.enabled && !skipTwoFactorForProviders.has(providerKey)) {
       return establishPendingTwoFactorSession(req, res, user);
     }
     updateLastLogin(user.id);
