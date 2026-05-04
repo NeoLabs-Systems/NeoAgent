@@ -37,6 +37,7 @@ import 'src/recording_bridge.dart';
 import 'src/recording_payloads.dart';
 import 'src/theme/palette.dart';
 import 'src/widget_bridge.dart';
+import 'src/android_auto_bridge.dart';
 
 import 'features/location/location_service.dart';
 import 'features/notifications/notification_interceptor.dart';

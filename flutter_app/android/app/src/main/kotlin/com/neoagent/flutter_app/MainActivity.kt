@@ -26,6 +26,14 @@ import com.neoagent.flutter_app.widgets.WidgetSyncScheduler
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
+import android.telecom.PhoneAccount
+import android.telecom.PhoneAccountHandle
+import android.telecom.TelecomManager
+import android.content.ComponentName
+import android.os.Bundle
+import android.telecom.DisconnectCause
+import android.content.Context
+import com.neoagent.flutter_app.telecom.NeoAgentConnectionService
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 import kotlinx.coroutines.launch
@@ -50,11 +58,22 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        io.flutter.embedding.engine.FlutterEngineCache.getInstance().put("main_engine", flutterEngine)
         GeneratedPluginRegistrant.registerWith(flutterEngine)
 
         healthGateway = HealthConnectGateway(this)
         healthSyncScheduler = HealthSyncScheduler(this)
         widgetSyncScheduler = WidgetSyncScheduler(this)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+            val componentName = ComponentName(this, NeoAgentConnectionService::class.java)
+            val phoneAccountHandle = PhoneAccountHandle(componentName, "NeoAgentVoiceId")
+            val phoneAccount = PhoneAccount.builder(phoneAccountHandle, "NeoAgent Voice Assistant")
+                .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)
+                .build()
+            telecomManager.registerPhoneAccount(phoneAccount)
+        }
         recordingStateStore = RecordingStateStore(this)
         permissionLauncher = registerForActivityResult(
             PermissionController.createRequestPermissionResultContract(),
@@ -91,6 +110,44 @@ class MainActivity : FlutterFragmentActivity() {
                 )
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "neoagent/telecom",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startCallRouting" -> {
+                    try {
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                            result.error("UNSUPPORTED", "Self-managed calls require Android O or newer", null)
+                            return@setMethodCallHandler
+                        }
+                        val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                        val componentName = ComponentName(this, NeoAgentConnectionService::class.java)
+                        val phoneAccountHandle = PhoneAccountHandle(componentName, "NeoAgentVoiceId")
+                        val extras = Bundle().apply {
+                            putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle)
+                            putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, android.telecom.VideoProfile.STATE_AUDIO_ONLY)
+                            putBoolean("is_flutter_initiated", true)
+                        }
+                        telecomManager.placeCall(Uri.parse("tel:NeoAgent"), extras)
+                        result.success(true)
+                    } catch (e: SecurityException) {
+                        result.error("PERMISSION_DENIED", "Missing Manage Own Calls permission", null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+                "stopCallRouting" -> {
+                    NeoAgentConnectionService.getAndClearCurrentConnection()?.let {
+                        it.setDisconnected(DisconnectCause(DisconnectCause.LOCAL))
+                        it.destroy()
+                    }
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "neoagent/health",

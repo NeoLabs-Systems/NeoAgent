@@ -16,6 +16,10 @@ class NeoAgentController extends ChangeNotifier {
     _recordingBridge.onRecordingStopped = _handleRecordingStopped;
     _recordingBridge.addListener(_handleRecordingBridgeChanged);
     _desktopCompanion.addListener(notifyListeners);
+    
+    AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
+    AndroidAutoBridge.instance.onStopVoiceMode = interruptLiveVoiceAssistant;
+
     _clientLogs = AppDiagnostics.recentEntries
         .map(_logEntryFromDiagnostic)
         .toList(growable: false);
@@ -303,6 +307,8 @@ class NeoAgentController extends ChangeNotifier {
 
   @override
   void dispose() {
+    AndroidAutoBridge.instance.onStartVoiceMode = null;
+    AndroidAutoBridge.instance.onStopVoiceMode = null;
     _updatePollTimer?.cancel();
     _qrLoginPollTimer?.cancel();
     _manualRunCooldownTimer?.cancel();
@@ -3893,6 +3899,14 @@ class NeoAgentController extends ChangeNotifier {
     if (_isStartingLiveVoice || _isStoppingLiveVoice) {
       return;
     }
+    
+    bool routingStarted = false;
+    try {
+      routingStarted = await AndroidAutoBridge.instance.startTelecomCallRouting();
+    } catch (_) {
+      // Swallowed safely
+    }
+
     _isStartingLiveVoice = true;
     _pendingLiveVoiceStop = false;
     errorMessage = null;
@@ -3939,6 +3953,9 @@ class NeoAgentController extends ChangeNotifier {
           unawaited(_flushLiveVoiceBufferedChunks());
         },
         onError: (Object error, StackTrace stackTrace) {
+          if (routingStarted) {
+            AndroidAutoBridge.instance.stopTelecomCallRouting();
+          }
           AppDiagnostics.log(
             'desktop.assistant',
             'ptt.capture_error',
@@ -3957,6 +3974,9 @@ class NeoAgentController extends ChangeNotifier {
           notifyListeners();
         },
         onStoppedUnexpectedly: () {
+          if (routingStarted) {
+            AndroidAutoBridge.instance.stopTelecomCallRouting();
+          }
           AppDiagnostics.log(
             'desktop.assistant',
             'ptt.capture_stopped_unexpectedly',
@@ -3987,6 +4007,9 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
     } catch (error) {
+      if (routingStarted) {
+        await AndroidAutoBridge.instance.stopTelecomCallRouting();
+      }
       _liveVoiceCaptureActive = false;
       _pendingLiveVoiceStop = false;
       rethrow;
@@ -4005,6 +4028,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> stopLiveVoiceCapture() async {
+    await AndroidAutoBridge.instance.stopTelecomCallRouting();
     AppDiagnostics.log(
       'desktop.assistant',
       'ptt.stop_request',
@@ -4066,6 +4090,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> interruptLiveVoiceAssistant() async {
+    await AndroidAutoBridge.instance.stopTelecomCallRouting();
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     if (sessionId.isEmpty || _socket == null) {
       return;
