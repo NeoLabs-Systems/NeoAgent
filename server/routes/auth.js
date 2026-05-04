@@ -75,6 +75,7 @@ function toUserPayload(user) {
     createdAt: user.created_at || null,
     lastLogin: user.last_login || null,
     hasPassword: Number(user.password_login_enabled || 0) === 1,
+    hasCompletedOnboarding: Number(user.has_completed_onboarding || 0) === 1,
   };
 }
 
@@ -119,7 +120,7 @@ function readAuthenticatedUser(req) {
     return null;
   }
   const user = db.prepare(
-    `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
+    `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
      FROM users
      WHERE id = ?`,
   ).get(req.session.userId);
@@ -322,7 +323,7 @@ router.get('/api/auth/providers/complete', async (req, res) => {
     }
 
     const user = db.prepare(
-      `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
+      `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
        FROM users
        WHERE id = ?`,
     ).get(completion.result.userId);
@@ -412,6 +413,7 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
       password_login_enabled: 1,
       created_at: new Date().toISOString(),
       last_login: null,
+      has_completed_onboarding: 0,
     });
   } catch (err) {
     if (err?.statusCode) {
@@ -443,7 +445,7 @@ router.post('/api/auth/login', authLimiter, async (req, res) => {
     }
 
     const user = db.prepare(
-      `SELECT id, username, email, email_verified_at, password, password_login_enabled, created_at, last_login
+      `SELECT id, username, email, email_verified_at, password, password_login_enabled, created_at, last_login, has_completed_onboarding
        FROM users
        WHERE username = ?`,
     ).get(username);
@@ -494,7 +496,7 @@ router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
     }
 
     const user = db.prepare(
-      `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
+      `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
        FROM users
        WHERE id = ?`,
     ).get(pendingUserId);
@@ -726,6 +728,20 @@ router.get('/api/auth/me', (req, res) => {
     return res.status(401).json({ error: 'Not authenticated' });
   }
   res.json({ user: toUserPayload(user) });
+});
+
+router.post('/api/auth/onboarding/complete', (req, res) => {
+  const user = readAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  try {
+    db.prepare('UPDATE users SET has_completed_onboarding = 1 WHERE id = ?').run(user.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Onboarding complete error:', err);
+    res.status(500).json({ error: 'Failed to update onboarding status' });
+  }
 });
 
 module.exports = router;

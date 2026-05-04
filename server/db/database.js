@@ -24,7 +24,8 @@ db.exec(`
     password TEXT NOT NULL,
     password_login_enabled INTEGER DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now')),
-    last_login TEXT
+    last_login TEXT,
+    has_completed_onboarding INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS agents (
@@ -1522,6 +1523,19 @@ backfillAgentIds();
 migrateIntegrationSecretStorage();
 backfillVerifiedAccountEmails();
 rebuildFtsForAgents();
+
+function migrateUsersOnboarding() {
+  try {
+    const columns = db.pragma('table_info(users)');
+    const hasOnboardingCol = columns.some((c) => c.name === 'has_completed_onboarding');
+    if (!hasOnboardingCol) {
+      db.exec('ALTER TABLE users ADD COLUMN has_completed_onboarding INTEGER DEFAULT 0');
+    }
+  } catch (err) {
+    console.warn('Could not add has_completed_onboarding column:', err.message);
+  }
+}
+migrateUsersOnboarding();
 
 try {
   db.exec(`

@@ -71,6 +71,7 @@ class NeoAgentController extends ChangeNotifier {
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
   bool isBooting = true;
+  bool showOnboarding = false;
   bool isAuthenticated = false;
   bool isAuthenticating = false;
   bool isAwaitingTwoFactor = false;
@@ -1195,6 +1196,7 @@ class NeoAgentController extends ChangeNotifier {
     Map<String, dynamic> response, {
     String? fallbackUsername,
     String? retentionErrorMessage,
+    bool isRegistration = false,
   }) async {
     user = Map<String, dynamic>.from(
       response['user'] as Map<dynamic, dynamic>? ??
@@ -1208,6 +1210,10 @@ class NeoAgentController extends ChangeNotifier {
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
     password = '';
+    
+    final bool backendCompletedOnboarding = user?['hasCompletedOnboarding'] == true;
+    showOnboarding = isRegistration || !backendCompletedOnboarding;
+    
     _clearQrLoginChallenge();
     await _persistCredentials();
     await refresh();
@@ -1279,6 +1285,7 @@ class NeoAgentController extends ChangeNotifier {
       }
       await _completeAuthenticatedResponse(
         response,
+        isRegistration: register,
         retentionErrorMessage:
             'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, check backend session cookie settings.',
       );
@@ -1394,6 +1401,7 @@ class NeoAgentController extends ChangeNotifier {
       await _completeAuthenticatedResponse(
         response,
         fallbackUsername: username,
+        isRegistration: register,
         retentionErrorMessage:
             'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, the backend session cookie is likely not being retained.',
       );
@@ -1434,6 +1442,22 @@ class NeoAgentController extends ChangeNotifier {
     isAuthenticating = false;
     notifyListeners();
   }
+
+  Future<void> dismissOnboarding() async {
+    showOnboarding = false;
+    notifyListeners();
+    try {
+      await _backendClient.completeOnboarding(backendUrl);
+      if (isAuthenticated && user != null) {
+        user!['hasCompletedOnboarding'] = true;
+      }
+    } catch (e) {
+      debugPrint('Failed to dismiss onboarding: $e');
+      showOnboarding = true;
+      notifyListeners();
+    }
+  }
+
 
   void _clearAuthenticatedState() {
     _disconnectSocket();

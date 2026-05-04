@@ -440,7 +440,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
                               accessCatalog: controller
                                   .currentMessagingAccessCatalog(platform.id),
                               controller: controller,
-                              onConnect: () => _openMessagingConfig(platform),
+                              onConnect: () => openMessagingConfig(context, controller, platform),
                               onDisconnect: () => controller
                                   .disconnectMessagingPlatform(platform.id),
                               onLogout: () => controller
@@ -506,326 +506,6 @@ class _MessagingPanelState extends State<MessagingPanel> {
       }.contains(effective.status),
       _ => true,
     };
-  }
-
-  Future<void> _openMessagingConfig(
-    MessagingPlatformDescriptor platform,
-  ) async {
-    switch (platform.id) {
-      case 'whatsapp':
-        await _connectMessagingPlatform(
-          platform: 'whatsapp',
-          platformLabel: platform.label,
-        );
-        return;
-      case 'telnyx':
-        return _openTelnyxConfig();
-      default:
-        return _openGenericMessagingConfig(platform);
-    }
-  }
-
-  Future<bool> _connectMessagingPlatform({
-    required String platform,
-    required String platformLabel,
-    Map<String, dynamic>? config,
-    Map<String, dynamic>? configSnapshot,
-  }) async {
-    try {
-      await widget.controller.connectMessagingPlatform(
-        platform: platform,
-        config: config,
-        configSnapshot: configSnapshot,
-      );
-      return true;
-    } catch (error) {
-      if (!mounted) return false;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to connect $platformLabel: ${widget.controller.friendlyErrorMessage(error)}',
-          ),
-        ),
-      );
-      return false;
-    }
-  }
-
-  Future<void> _openTelnyxConfig() async {
-    final saved = _jsonMap(
-      _decodeMaybeJson(widget.controller.settings['telnyx_config']),
-    );
-    final apiKey = TextEditingController(
-      text: saved['apiKey']?.toString() ?? '',
-    );
-    final phoneNumber = TextEditingController(
-      text: saved['phoneNumber']?.toString() ?? '',
-    );
-    final connectionId = TextEditingController(
-      text: saved['connectionId']?.toString() ?? '',
-    );
-    final webhookUrl = TextEditingController(
-      text: saved['webhookUrl']?.toString() ?? widget.controller.backendUrl,
-    );
-
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setLocalState) {
-              return AlertDialog(
-                backgroundColor: _bgCard,
-                title: Text('Telnyx Voice'),
-                content: SizedBox(
-                  width: 620,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        TextField(
-                          controller: apiKey,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'API Key',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: phoneNumber,
-                          decoration: const InputDecoration(
-                            labelText: 'Phone Number',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: connectionId,
-                          decoration: const InputDecoration(
-                            labelText: 'Connection ID',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: webhookUrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Webhook Base URL',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Voice STT/TTS providers and models are configured in global Settings > Voice.',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('Cancel'),
-                  ),
-                  FilledButton(
-                    onPressed: () async {
-                      final config = <String, dynamic>{
-                        'apiKey': apiKey.text.trim(),
-                        'phoneNumber': phoneNumber.text.trim(),
-                        'connectionId': connectionId.text.trim(),
-                        'webhookUrl': webhookUrl.text.trim(),
-                      };
-                      final connected = await _connectMessagingPlatform(
-                        platform: 'telnyx',
-                        platformLabel: 'Telnyx Voice',
-                        config: config,
-                        configSnapshot: <String, dynamic>{
-                          'telnyx_config': jsonEncode(config),
-                        },
-                      );
-                      if (connected && context.mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    child: Text('Connect'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      apiKey.dispose();
-      phoneNumber.dispose();
-      connectionId.dispose();
-      webhookUrl.dispose();
-    }
-  }
-
-  Future<void> _openGenericMessagingConfig(
-    MessagingPlatformDescriptor platform,
-  ) async {
-    final saved = _jsonMap(
-      _decodeMaybeJson(widget.controller.settings[platform.settingsKey]),
-    );
-    final textControllers = <String, TextEditingController>{};
-    final boolValues = <String, bool>{};
-    for (final field in platform.configFields) {
-      final savedValue = field.settingsKey == null
-          ? saved[field.key]
-          : widget.controller.settings[field.storageKey];
-      if (field.kind == MessagingConfigFieldKind.boolean) {
-        boolValues[field.key] =
-            savedValue == true || savedValue?.toString() == 'true';
-      } else {
-        textControllers[field.key] = TextEditingController(
-          text: savedValue?.toString() ?? field.defaultValue ?? '',
-        );
-      }
-    }
-
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setLocalState) {
-              return AlertDialog(
-                backgroundColor: _bgCard,
-                title: Text(platform.label),
-                content: SizedBox(
-                  width: 620,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        if (platform.configFields.isEmpty)
-                          Text(
-                            'No extra settings are required.',
-                            style: TextStyle(color: _textSecondary),
-                          )
-                        else
-                          ...platform.configFields.map((field) {
-                            if (field.kind ==
-                                MessagingConfigFieldKind.boolean) {
-                              return SwitchListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(field.label),
-                                value: boolValues[field.key] ?? false,
-                                onChanged: (value) {
-                                  setLocalState(() {
-                                    boolValues[field.key] = value;
-                                  });
-                                },
-                              );
-                            }
-                            final controller = textControllers[field.key]!;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: TextField(
-                                controller: controller,
-                                obscureText:
-                                    field.obscure ||
-                                    field.kind ==
-                                        MessagingConfigFieldKind.password,
-                                minLines:
-                                    field.kind ==
-                                        MessagingConfigFieldKind.multiline
-                                    ? 4
-                                    : 1,
-                                maxLines:
-                                    field.kind ==
-                                        MessagingConfigFieldKind.multiline
-                                    ? 8
-                                    : 1,
-                                decoration: InputDecoration(
-                                  labelText: field.label,
-                                ),
-                              ),
-                            );
-                          }),
-                        const SizedBox(height: 8),
-                        if (platform.id == 'meshtastic')
-                          Text(
-                            'Meshtastic connects directly to the device TCP API on port 4403 by default. Normal chat is limited to the configured channel.',
-                            style: TextStyle(
-                              color: _textSecondary,
-                              fontSize: 12,
-                            ),
-                          )
-                        else
-                          SelectableText(
-                            'Inbound webhook: ${widget.controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                            style: TextStyle(
-                              color: _textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('Cancel'),
-                  ),
-                  FilledButton(
-                    onPressed: () async {
-                      final config = <String, dynamic>{};
-                      final snapshot = <String, dynamic>{};
-                      for (final field in platform.configFields) {
-                        if (field.kind == MessagingConfigFieldKind.boolean ||
-                            !field.includeInConfig) {
-                          continue;
-                        }
-                        final controller = textControllers[field.key];
-                        final value = controller?.text.trim() ?? '';
-                        if (value.isNotEmpty) config[field.key] = value;
-                      }
-                      for (final field in platform.configFields) {
-                        if (field.kind == MessagingConfigFieldKind.boolean) {
-                          final value = boolValues[field.key] ?? false;
-                          if (field.includeInConfig) {
-                            config[field.key] = value;
-                          }
-                          if (field.settingsKey != null) {
-                            snapshot[field.storageKey] = value;
-                          }
-                        } else if (field.settingsKey != null) {
-                          final controller = textControllers[field.key];
-                          final value = controller?.text.trim() ?? '';
-                          if (value.isNotEmpty) {
-                            snapshot[field.storageKey] = value;
-                          }
-                        }
-                      }
-                      snapshot[platform.settingsKey] = jsonEncode(config);
-                      final connected = await _connectMessagingPlatform(
-                        platform: platform.id,
-                        platformLabel: platform.label,
-                        config: config,
-                        configSnapshot: snapshot,
-                      );
-                      if (connected && context.mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    child: Text(
-                      'Connect',
-                    ),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      for (final controller in textControllers.values) {
-        controller.dispose();
-      }
-    }
   }
 }
 
@@ -3313,3 +2993,324 @@ class _RunDetailBlock extends StatelessWidget {
     );
   }
 }
+
+Future<void> openMessagingConfig(BuildContext context, NeoAgentController controller, 
+    MessagingPlatformDescriptor platform,
+  ) async {
+    switch (platform.id) {
+      case 'whatsapp':
+        await _connectMessagingPlatformHelper(context, controller, 
+          platform: 'whatsapp',
+          platformLabel: platform.label,
+        );
+        return;
+      case 'telnyx':
+        return _openTelnyxConfigHelper(context, controller);
+      default:
+        return _openGenericMessagingConfigHelper(context, controller, platform);
+    }
+  }
+
+  Future<bool> _connectMessagingPlatformHelper(BuildContext context, NeoAgentController controller, {
+    required String platform,
+    required String platformLabel,
+    Map<String, dynamic>? config,
+    Map<String, dynamic>? configSnapshot,
+  }) async {
+    try {
+      await controller.connectMessagingPlatform(
+        platform: platform,
+        config: config,
+        configSnapshot: configSnapshot,
+      );
+      return true;
+    } catch (error) {
+      if (!context.mounted) return false;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to connect $platformLabel: ${controller.friendlyErrorMessage(error)}',
+          ),
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<void> _openTelnyxConfigHelper(BuildContext context, NeoAgentController controller) async {
+    final saved = _jsonMap(
+      _decodeMaybeJson(controller.settings['telnyx_config']),
+    );
+    final apiKey = TextEditingController(
+      text: saved['apiKey']?.toString() ?? '',
+    );
+    final phoneNumber = TextEditingController(
+      text: saved['phoneNumber']?.toString() ?? '',
+    );
+    final connectionId = TextEditingController(
+      text: saved['connectionId']?.toString() ?? '',
+    );
+    final webhookUrl = TextEditingController(
+      text: saved['webhookUrl']?.toString() ?? controller.backendUrl,
+    );
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setLocalState) {
+              return AlertDialog(
+                backgroundColor: _bgCard,
+                title: Text('Telnyx Voice'),
+                content: SizedBox(
+                  width: 620,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        TextField(
+                          controller: apiKey,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'API Key',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: phoneNumber,
+                          decoration: const InputDecoration(
+                            labelText: 'Phone Number',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: connectionId,
+                          decoration: const InputDecoration(
+                            labelText: 'Connection ID',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: webhookUrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Webhook Base URL',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Voice STT/TTS providers and models are configured in global Settings > Voice.',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () async {
+                      final config = <String, dynamic>{
+                        'apiKey': apiKey.text.trim(),
+                        'phoneNumber': phoneNumber.text.trim(),
+                        'connectionId': connectionId.text.trim(),
+                        'webhookUrl': webhookUrl.text.trim(),
+                      };
+                      final connected = await _connectMessagingPlatformHelper(context, controller, 
+                        platform: 'telnyx',
+                        platformLabel: 'Telnyx Voice',
+                        config: config,
+                        configSnapshot: <String, dynamic>{
+                          'telnyx_config': jsonEncode(config),
+                        },
+                      );
+                      if (connected && context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text('Connect'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      apiKey.dispose();
+      phoneNumber.dispose();
+      connectionId.dispose();
+      webhookUrl.dispose();
+    }
+  }
+
+  Future<void> _openGenericMessagingConfigHelper(BuildContext context, NeoAgentController controller, 
+    MessagingPlatformDescriptor platform,
+  ) async {
+    final saved = _jsonMap(
+      _decodeMaybeJson(controller.settings[platform.settingsKey]),
+    );
+    final textControllers = <String, TextEditingController>{};
+    final boolValues = <String, bool>{};
+    for (final field in platform.configFields) {
+      final savedValue = field.settingsKey == null
+          ? saved[field.key]
+          : controller.settings[field.storageKey];
+      if (field.kind == MessagingConfigFieldKind.boolean) {
+        boolValues[field.key] =
+            savedValue == true || savedValue?.toString() == 'true';
+      } else {
+        textControllers[field.key] = TextEditingController(
+          text: savedValue?.toString() ?? field.defaultValue ?? '',
+        );
+      }
+    }
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setLocalState) {
+              return AlertDialog(
+                backgroundColor: _bgCard,
+                title: Text(platform.label),
+                content: SizedBox(
+                  width: 620,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        if (platform.configFields.isEmpty)
+                          Text(
+                            'No extra settings are required.',
+                            style: TextStyle(color: _textSecondary),
+                          )
+                        else
+                          ...platform.configFields.map((field) {
+                            if (field.kind ==
+                                MessagingConfigFieldKind.boolean) {
+                              return SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(field.label),
+                                value: boolValues[field.key] ?? false,
+                                onChanged: (value) {
+                                  setLocalState(() {
+                                    boolValues[field.key] = value;
+                                  });
+                                },
+                              );
+                            }
+                            final controller = textControllers[field.key]!;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: TextField(
+                                controller: controller,
+                                obscureText:
+                                    field.obscure ||
+                                    field.kind ==
+                                        MessagingConfigFieldKind.password,
+                                minLines:
+                                    field.kind ==
+                                        MessagingConfigFieldKind.multiline
+                                    ? 4
+                                    : 1,
+                                maxLines:
+                                    field.kind ==
+                                        MessagingConfigFieldKind.multiline
+                                    ? 8
+                                    : 1,
+                                decoration: InputDecoration(
+                                  labelText: field.label,
+                                ),
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 8),
+                        if (platform.id == 'meshtastic')
+                          Text(
+                            'Meshtastic connects directly to the device TCP API on port 4403 by default. Normal chat is limited to the configured channel.',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                            ),
+                          )
+                        else
+                          SelectableText(
+                            'Inbound webhook: ${controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () async {
+                      final config = <String, dynamic>{};
+                      final snapshot = <String, dynamic>{};
+                      for (final field in platform.configFields) {
+                        if (field.kind == MessagingConfigFieldKind.boolean ||
+                            !field.includeInConfig) {
+                          continue;
+                        }
+                        final controller = textControllers[field.key];
+                        final value = controller?.text.trim() ?? '';
+                        if (value.isNotEmpty) config[field.key] = value;
+                      }
+                      for (final field in platform.configFields) {
+                        if (field.kind == MessagingConfigFieldKind.boolean) {
+                          final value = boolValues[field.key] ?? false;
+                          if (field.includeInConfig) {
+                            config[field.key] = value;
+                          }
+                          if (field.settingsKey != null) {
+                            snapshot[field.storageKey] = value;
+                          }
+                        } else if (field.settingsKey != null) {
+                          final controller = textControllers[field.key];
+                          final value = controller?.text.trim() ?? '';
+                          if (value.isNotEmpty) {
+                            snapshot[field.storageKey] = value;
+                          }
+                        }
+                      }
+                      snapshot[platform.settingsKey] = jsonEncode(config);
+                      final connected = await _connectMessagingPlatformHelper(context, controller, 
+                        platform: platform.id,
+                        platformLabel: platform.label,
+                        config: config,
+                        configSnapshot: snapshot,
+                      );
+                      if (connected && context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text(
+                      'Connect',
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      for (final controller in textControllers.values) {
+        controller.dispose();
+      }
+    }
+  }
+

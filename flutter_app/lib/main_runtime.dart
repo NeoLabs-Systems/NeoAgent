@@ -798,6 +798,9 @@ class NeoAgentRoot extends StatelessWidget {
     if (!controller.isAuthenticated) {
       return AuthView(controller: controller);
     }
+    if (controller.showOnboarding) {
+      return OnboardingShell(controller: controller);
+    }
     if (controller.isLauncherMode) {
       return LauncherHomeView(controller: controller);
     }

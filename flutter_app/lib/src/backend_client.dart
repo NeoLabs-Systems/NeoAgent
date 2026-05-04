@@ -212,6 +212,10 @@ class BackendClient {
     }
   }
 
+  Future<Map<String, dynamic>> completeOnboarding(String baseUrl) async {
+    return postMap(baseUrl, '/api/auth/onboarding/complete', const <String, dynamic>{});
+  }
+
   Future<Map<String, dynamic>> fetchAgentProfiles(String baseUrl) async {
     return getMap(baseUrl, '/api/agent-profiles');
   }
