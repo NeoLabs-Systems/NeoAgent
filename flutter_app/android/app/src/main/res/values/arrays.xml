@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Hosts allowed to connect to the Android Auto app. Update as needed. -->
+    <string-array name="hosts_allowlist">
+        <item>androidx.car.app</item>
+        <item>com.google.android.projection.gearhead</item>
+    </string-array>
+</resources>
