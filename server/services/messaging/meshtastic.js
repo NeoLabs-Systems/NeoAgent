@@ -76,6 +76,7 @@ class MeshtasticPlatform extends BasePlatform {
     this._connectPromise = null;
     this._disconnecting = false;
     this._reconnectTimer = null;
+    this._reconnectDelayMs = 10000;
   }
 
   async connect() {
@@ -109,7 +110,11 @@ class MeshtasticPlatform extends BasePlatform {
       await staleTransport.disconnect().catch(() => {});
     }
 
-    const transport = await MeshtasticTcpTransport.create(this.host, this.port, 60000);
+    const transport = await MeshtasticTcpTransport.create(this.host, this.port, 60000, {
+      // This service only needs the local node info plus live packets. Pulling
+      // the full node DB on each reconnect adds avoidable load to Wi-Fi radios.
+      noNodes: true,
+    });
     this._transport = transport;
 
     const conn = transport.connection;
@@ -189,6 +194,7 @@ class MeshtasticPlatform extends BasePlatform {
     });
 
     this.status = 'connected';
+    this._reconnectDelayMs = 10000;
     this.authInfo = this._buildAuthInfo(conn);
     this.emit('connected');
     return { status: this.status };
@@ -196,7 +202,8 @@ class MeshtasticPlatform extends BasePlatform {
 
   _scheduleReconnect() {
     if (this._disconnecting || this._reconnectTimer) return;
-    console.log(`[Meshtastic] Connection lost. Reconnecting in 10 seconds...`);
+    const delayMs = this._reconnectDelayMs;
+    console.log(`[Meshtastic] Connection lost. Reconnecting in ${Math.round(delayMs / 1000)} seconds...`);
     this._reconnectTimer = setTimeout(() => {
       this._reconnectTimer = null;
       if (this._disconnecting) return;
@@ -204,7 +211,8 @@ class MeshtasticPlatform extends BasePlatform {
         console.error(`[Meshtastic] Auto-reconnect failed:`, err.message);
         this._scheduleReconnect();
       });
-    }, 10000);
+    }, delayMs);
+    this._reconnectDelayMs = Math.min(delayMs * 2, 60000);
   }
 
   _buildAuthInfo(conn) {

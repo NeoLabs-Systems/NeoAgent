@@ -7,8 +7,8 @@ class MeshtasticTcpTransport {
     this._connection = connection;
   }
 
-  static async create(hostname, port = 4403, timeout = 60000) {
-    const connection = new MeshtasticConnection();
+  static async create(hostname, port = 4403, timeout = 60000, options = {}) {
+    const connection = new MeshtasticConnection(options);
     await connection.connect(hostname, port, timeout);
     return new MeshtasticTcpTransport(connection);
   }

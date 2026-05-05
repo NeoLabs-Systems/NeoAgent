@@ -8,6 +8,7 @@ const FRAME_START_1 = 0x94;
 const FRAME_START_2 = 0xC3;
 
 const BROADCAST_NUM = 0xFFFFFFFF;
+const NODELESS_WANT_CONFIG_ID = 69420;
 
 // PortNum values from public protocol specification
 const PortNum = Object.freeze({
@@ -174,6 +175,21 @@ function encodeToRadioWantConfig(configId) {
   return new Uint8Array(encodeVarintField(3, configId));
 }
 
+function resolveWantConfigId(options = {}) {
+  if (Number.isInteger(options.wantConfigId) && options.wantConfigId >= 0) {
+    return options.wantConfigId >>> 0;
+  }
+  if (options.noNodes) {
+    return NODELESS_WANT_CONFIG_ID;
+  }
+
+  let configId = (Math.random() * 0xFFFFFFFF) >>> 0;
+  if (configId === NODELESS_WANT_CONFIG_ID) {
+    configId = (configId + 1) >>> 0;
+  }
+  return configId;
+}
+
 function decodeUser(buf) {
   const fields = decodeFields(buf);
   return {
@@ -288,10 +304,10 @@ function createFrameParser(onPacket) {
 // --------------------------------------------------------------------------
 
 class MeshtasticConnection extends EventEmitter {
-  constructor() {
+  constructor(options = {}) {
     super();
     this._socket = null;
-    this._configId = (Math.random() * 0x7FFFFFFF) >>> 0;
+    this._configId = resolveWantConfigId(options);
     this._myNodeNum = 0;
     this._configured = false;
     this._closing = false;
@@ -315,6 +331,9 @@ class MeshtasticConnection extends EventEmitter {
       const socket = new Socket();
       let settled = false;
       let timer = null;
+
+      socket.setKeepAlive(true, 15000);
+      socket.setNoDelay(true);
 
       const cleanupHandshake = () => {
         if (timer) {
@@ -487,6 +506,8 @@ class MeshtasticConnection extends EventEmitter {
     this._socket = null;
     if (socket) {
       socket.removeAllListeners();
+      socket.end();
+      socket.destroySoon?.();
       socket.destroy();
     }
   }
@@ -496,12 +517,14 @@ module.exports = {
   MeshtasticConnection,
   PortNum,
   BROADCAST_NUM,
+  NODELESS_WANT_CONFIG_ID,
   encodeVarint,
   decodeVarint,
   decodeFields,
   decodeFromRadio,
   decodeMeshPacket,
   decodeUser,
+  encodeToRadioWantConfig,
   framePacket,
   createFrameParser,
 };
