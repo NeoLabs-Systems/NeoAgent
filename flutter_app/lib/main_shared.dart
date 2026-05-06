@@ -242,6 +242,7 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
     AppSection.settings,
+    AppSection.agents,
     AppSection.messaging,
   ];
 }
