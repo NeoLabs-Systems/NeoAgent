@@ -30,32 +30,59 @@ Color get _danger => _palette.danger;
 Color get _info => _palette.info;
 
 LinearGradient get _appBackgroundGradient => LinearGradient(
-  colors: <Color>[_bgPrimary, _bgSecondary.withValues(alpha: 0.96), _bgPrimary],
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
+  colors: <Color>[
+    _bgPrimary,
+    Color.lerp(_bgSecondary, _accentAlt, 0.08)!.withValues(alpha: 0.98),
+    Color.lerp(_bgPrimary, _accent, 0.05)!,
+  ],
+  stops: const <double>[0, 0.52, 1],
+  begin: const Alignment(-0.95, -1),
+  end: const Alignment(1, 0.92),
 );
 
 LinearGradient get _panelGradient => LinearGradient(
   colors: <Color>[
-    _bgCard.withValues(alpha: 0.96),
-    _bgSecondary.withValues(alpha: 0.92),
+    Colors.white.withValues(alpha: 0.08),
+    _bgCard.withValues(alpha: 0.9),
+    _bgSecondary.withValues(alpha: 0.82),
   ],
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
+  stops: const <double>[0, 0.18, 1],
+  begin: const Alignment(-0.85, -1),
+  end: const Alignment(1, 1),
 );
 
 List<BoxShadow> get _softPanelShadow => <BoxShadow>[
   BoxShadow(
-    color: Colors.black.withValues(alpha: 0.16),
-    blurRadius: 40,
-    offset: const Offset(0, 16),
+    color: Colors.black.withValues(alpha: 0.22),
+    blurRadius: 52,
+    offset: const Offset(0, 22),
   ),
   BoxShadow(
-    color: _accent.withValues(alpha: 0.05),
-    blurRadius: 28,
-    offset: const Offset(0, 6),
+    color: _accent.withValues(alpha: 0.08),
+    blurRadius: 30,
+    offset: const Offset(0, 8),
   ),
 ];
+
+Color get _glassFill =>
+    _bgCard.withValues(alpha: _palette == _darkPalette ? 0.58 : 0.72);
+Color get _glassOverlay =>
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.08 : 0.24);
+Color get _glassBorder =>
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.15 : 0.42);
+Color get _glassHighlight =>
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.18 : 0.4);
+
+LinearGradient get _liquidMetalGradient => LinearGradient(
+  colors: <Color>[
+    _glassOverlay,
+    Colors.white.withValues(alpha: 0.02),
+    _accentMuted.withValues(alpha: 0.16),
+  ],
+  stops: const <double>[0, 0.44, 1],
+  begin: const Alignment(-1, -1),
+  end: const Alignment(1, 1),
+);
 
 TextStyle _displayTitleStyle([double size = 28]) => GoogleFonts.spaceGrotesk(
   fontSize: size,
@@ -95,35 +122,39 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
     ).apply(bodyColor: palette.textPrimary, displayColor: palette.textPrimary),
     cardTheme: CardThemeData(
       color: palette.bgCard.withValues(
-        alpha: brightness == Brightness.dark ? 0.9 : 0.94,
+        alpha: brightness == Brightness.dark ? 0.58 : 0.78,
       ),
       shadowColor: Colors.black.withValues(
-        alpha: brightness == Brightness.dark ? 0.24 : 0.08,
+        alpha: brightness == Brightness.dark ? 0.24 : 0.12,
       ),
       surfaceTintColor: Colors.transparent,
-      elevation: brightness == Brightness.dark ? 8 : 3,
+      elevation: brightness == Brightness.dark ? 10 : 5,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: palette.borderLight),
+        borderRadius: BorderRadius.circular(28),
+        side: BorderSide(
+          color: Colors.white.withValues(
+            alpha: brightness == Brightness.dark ? 0.12 : 0.3,
+          ),
+        ),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: palette.bgSecondary.withValues(
-        alpha: brightness == Brightness.dark ? 0.76 : 0.68,
+        alpha: brightness == Brightness.dark ? 0.54 : 0.52,
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: palette.border),
+        borderSide: BorderSide(color: palette.borderLight),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: palette.border),
+        borderSide: BorderSide(color: palette.borderLight),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: palette.accent, width: 1.4),
+        borderSide: BorderSide(color: palette.accentHover, width: 1.4),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       labelStyle: TextStyle(
@@ -144,9 +175,17 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
             : Colors.white,
         disabledBackgroundColor: palette.bgTertiary,
         disabledForegroundColor: palette.textMuted,
+        shadowColor: palette.accent.withValues(alpha: 0.3),
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: Colors.white.withValues(
+              alpha: brightness == Brightness.dark ? 0.14 : 0.26,
+            ),
+          ),
+        ),
         textStyle: GoogleFonts.manrope(
           fontSize: 14,
           fontWeight: FontWeight.w700,
@@ -157,7 +196,14 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: palette.textPrimary,
-        side: BorderSide(color: palette.borderLight),
+        side: BorderSide(
+          color: Colors.white.withValues(
+            alpha: brightness == Brightness.dark ? 0.12 : 0.26,
+          ),
+        ),
+        backgroundColor: palette.bgCard.withValues(
+          alpha: brightness == Brightness.dark ? 0.2 : 0.5,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         textStyle: GoogleFonts.manrope(
@@ -165,6 +211,15 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
           fontWeight: FontWeight.w700,
         ),
       ),
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+      },
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(

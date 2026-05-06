@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
@@ -36,6 +37,7 @@ import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
 import 'src/recording_payloads.dart';
 import 'src/theme/palette.dart';
+import 'src/web_app_update_monitor.dart';
 import 'src/widget_bridge.dart';
 import 'src/android_auto_bridge.dart';
 

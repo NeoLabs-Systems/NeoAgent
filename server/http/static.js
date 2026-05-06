@@ -7,6 +7,35 @@ const { DATA_DIR } = require('../../runtime/paths');
 const { requireAuth } = require('../middleware/auth');
 
 const FLUTTER_WEB_DIR = path.join(__dirname, '..', 'public');
+const BUILD_ID_PATH = path.join(FLUTTER_WEB_DIR, '.last_build_id');
+
+function setNoStoreHeaders(res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+  res.set('CDN-Cache-Control', 'no-store');
+}
+
+function readCurrentBuildId() {
+  try {
+    return fs.readFileSync(BUILD_ID_PATH, 'utf8').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function setFlutterStaticHeaders(res, filePath) {
+  const relativePath = path.relative(FLUTTER_WEB_DIR, filePath).replaceAll('\\', '/');
+  if (
+    relativePath === 'index.html' ||
+    relativePath === 'flutter_bootstrap.js' ||
+    relativePath === 'flutter_service_worker.js' ||
+    relativePath === 'version.json'
+  ) {
+    setNoStoreHeaders(res);
+  }
+}
 
 function registerStaticRoutes(app) {
   app.use(
@@ -27,7 +56,17 @@ function registerStaticRoutes(app) {
     express.static(path.join(DATA_DIR, 'screenshots'))
   );
 
-  app.use(express.static(FLUTTER_WEB_DIR, { index: false }));
+  app.get('/app-build.json', (req, res) => {
+    setNoStoreHeaders(res);
+    res.json({
+      buildId: readCurrentBuildId(),
+    });
+  });
+
+  app.use(express.static(FLUTTER_WEB_DIR, {
+    index: false,
+    setHeaders: setFlutterStaticHeaders,
+  }));
   app.get(/^\/(?!api|screenshots|telnyx-audio).*/, serveFlutterApp);
 }
 
@@ -40,6 +79,7 @@ function serveFlutterApp(req, res) {
         'Flutter web build not found. Run "npm run flutter:build:web" to generate the bundled client.'
       );
   }
+  setNoStoreHeaders(res);
   return res.sendFile(entry);
 }
 

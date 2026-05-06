@@ -74,106 +74,115 @@ class _BackendSetupViewState extends State<BackendSetupView> {
               padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: _panelGradient,
+                child: _EntranceMotion(
+                  child: _GlassSurface(
                     borderRadius: BorderRadius.circular(34),
-                    border: Border.all(color: _borderLight),
+                    blurSigma: 28,
                     boxShadow: _softPanelShadow,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(34, 32, 34, 30),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        const _BrandLockup(logoSize: 60),
-                        const SizedBox(height: 22),
-                        Text('FIRST-RUN SETUP', style: _sectionEyebrowStyle()),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Connect this build to your NeoAgent backend',
-                          style: _displayTitleStyle(34),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'This build was not bundled with a backend endpoint. Enter your NeoAgent server URL once and the app will store it locally for future launches.',
-                          style: TextStyle(color: _textSecondary, height: 1.55),
-                        ),
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: _backendUrlController,
-                          keyboardType: TextInputType.url,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => _submit(),
-                          decoration: const InputDecoration(
-                            labelText: 'Backend URL',
-                            hintText: 'https://neoagent.example.com',
-                            prefixIcon: Icon(Icons.cloud_outlined),
+                    overlayGradient: _panelGradient,
+                    fillColor: _glassFill,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(34, 32, 34, 30),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const _BrandLockup(logoSize: 60),
+                          const SizedBox(height: 22),
+                          Text(
+                            'FIRST-RUN SETUP',
+                            style: _sectionEyebrowStyle(),
                           ),
-                        ),
-                        const SizedBox(height: 14),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: _bgSecondary.withValues(alpha: 0.72),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: _borderLight),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Connect this build to your NeoAgent backend',
+                            style: _displayTitleStyle(34),
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Icon(
-                                Icons.privacy_tip_outlined,
-                                color: _accent,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Use your hosted NeoAgent URL. If you enter a hostname without a scheme, the app will infer `https://` for remote hosts and `http://` for local addresses.',
-                                  style: TextStyle(
-                                    color: _textSecondary,
-                                    height: 1.45,
+                          const SizedBox(height: 12),
+                          Text(
+                            'This build was not bundled with a backend endpoint. Enter your NeoAgent server URL once and the app will store it locally for future launches.',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              height: 1.55,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          TextField(
+                            controller: _backendUrlController,
+                            keyboardType: TextInputType.url,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _submit(),
+                            decoration: const InputDecoration(
+                              labelText: 'Backend URL',
+                              hintText: 'https://neoagent.example.com',
+                              prefixIcon: Icon(Icons.cloud_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: _bgSecondary.withValues(alpha: 0.72),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: _borderLight),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Icon(
+                                  Icons.privacy_tip_outlined,
+                                  color: _accent,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Use your hosted NeoAgent URL. If you enter a hostname without a scheme, the app will infer `https://` for remote hosts and `http://` for local addresses.',
+                                    style: TextStyle(
+                                      color: _textSecondary,
+                                      height: 1.45,
+                                    ),
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
+                          if (controller.errorMessage
+                              case final message?) ...<Widget>[
+                            const SizedBox(height: 16),
+                            _InlineError(message: message),
+                          ],
+                          const SizedBox(height: 22),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: controller.isSavingBackendUrl
+                                  ? null
+                                  : _submit,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: _accent,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                               ),
-                            ],
+                              icon: controller.isSavingBackendUrl
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.arrow_forward_rounded),
+                              label: Text(
+                                controller.isSavingBackendUrl
+                                    ? 'Connecting...'
+                                    : 'Connect Backend',
+                              ),
+                            ),
                           ),
-                        ),
-                        if (controller.errorMessage
-                            case final message?) ...<Widget>[
-                          const SizedBox(height: 16),
-                          _InlineError(message: message),
                         ],
-                        const SizedBox(height: 22),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: controller.isSavingBackendUrl
-                                ? null
-                                : _submit,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: _accent,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            icon: controller.isSavingBackendUrl
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_forward_rounded),
-                            label: Text(
-                              controller.isSavingBackendUrl
-                                  ? 'Connecting...'
-                                  : 'Connect Backend',
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -964,61 +973,62 @@ class _AuthViewState extends State<AuthView> {
                         constraints: BoxConstraints(
                           maxWidth: showQrLogin ? 980 : 468,
                         ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: _panelGradient,
+                        child: _EntranceMotion(
+                          child: _GlassSurface(
                             borderRadius: BorderRadius.circular(32),
-                            border: Border.all(color: _borderLight),
+                            blurSigma: 28,
                             boxShadow: _softPanelShadow,
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              viewportConstraints.maxWidth < 480 ? 18 : 34,
-                              viewportConstraints.maxWidth < 480 ? 20 : 30,
-                              viewportConstraints.maxWidth < 480 ? 18 : 34,
-                              viewportConstraints.maxWidth < 480 ? 20 : 30,
-                            ),
-                            child: LayoutBuilder(
-                              builder: (context, panelConstraints) {
-                                final useWideQrLayout =
-                                    showQrLogin &&
-                                    panelConstraints.maxWidth >= 820;
-                                final formPane = _buildAuthFormPane(
-                                  controller: controller,
-                                  availableProviders: availableProviders,
-                                  awaitingTwoFactor: awaitingTwoFactor,
-                                  showRegisterToggle: showRegisterToggle,
-                                  title: title,
-                                  subtitle: subtitle,
-                                );
-                                if (!showQrLogin) {
-                                  return formPane;
-                                }
-                                if (useWideQrLayout) {
-                                  return Row(
+                            overlayGradient: _panelGradient,
+                            fillColor: _glassFill,
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                viewportConstraints.maxWidth < 480 ? 18 : 34,
+                                viewportConstraints.maxWidth < 480 ? 20 : 30,
+                                viewportConstraints.maxWidth < 480 ? 18 : 34,
+                                viewportConstraints.maxWidth < 480 ? 20 : 30,
+                              ),
+                              child: LayoutBuilder(
+                                builder: (context, panelConstraints) {
+                                  final useWideQrLayout =
+                                      showQrLogin &&
+                                      panelConstraints.maxWidth >= 820;
+                                  final formPane = _buildAuthFormPane(
+                                    controller: controller,
+                                    availableProviders: availableProviders,
+                                    awaitingTwoFactor: awaitingTwoFactor,
+                                    showRegisterToggle: showRegisterToggle,
+                                    title: title,
+                                    subtitle: subtitle,
+                                  );
+                                  if (!showQrLogin) {
+                                    return formPane;
+                                  }
+                                  if (useWideQrLayout) {
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Expanded(flex: 11, child: formPane),
+                                        const SizedBox(width: 24),
+                                        Expanded(
+                                          flex: 10,
+                                          child: _buildQrLoginPane(controller),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.stretch,
                                     children: <Widget>[
-                                      Expanded(flex: 11, child: formPane),
-                                      const SizedBox(width: 24),
-                                      Expanded(
-                                        flex: 10,
-                                        child: _buildQrLoginPane(controller),
-                                      ),
+                                      formPane,
+                                      const SizedBox(height: 22),
+                                      _buildQrLoginPane(controller),
                                     ],
                                   );
-                                }
-                                return Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: <Widget>[
-                                    formPane,
-                                    const SizedBox(height: 22),
-                                    _buildQrLoginPane(controller),
-                                  ],
-                                );
-                              },
+                                },
+                              ),
                             ),
                           ),
                         ),
@@ -1052,18 +1062,29 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize Proactive Context Features for mobile
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       final backendUrl = widget.controller.backendUrl;
-      final sessionCookie = widget.controller.sessionCookie ?? '';
-      
-      LocationService().initialize(context).then((_) {
-        LocationService().startGeofenceTracking(backendUrl, sessionCookie);
+      final sessionCookie = widget.controller.sessionCookie;
+      final locationService = LocationService();
+
+      locationService.initialize(context).then((_) {
+        if (mounted) {
+          locationService.startGeofenceTracking(backendUrl, sessionCookie);
+        }
+      }).catchError((error) {
+        if (mounted) {
+          debugPrint('LocationService initialization failed: $error');
+        }
       });
-      
+
       if (Platform.isAndroid) {
-        NotificationInterceptor().initialize(context, backendUrl, sessionCookie);
+        NotificationInterceptor().initialize(
+          context,
+          backendUrl,
+          sessionCookie,
+        );
       }
     }
 
@@ -1157,13 +1178,12 @@ class _HomeViewState extends State<HomeView> {
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: _panelGradient,
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: _borderLight),
-                        boxShadow: _softPanelShadow,
-                      ),
+                    child: _GlassSurface(
+                      borderRadius: BorderRadius.circular(32),
+                      blurSigma: 28,
+                      boxShadow: _softPanelShadow,
+                      overlayGradient: _panelGradient,
+                      fillColor: _glassFill,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(32),
                         child: AnimatedSwitcher(
@@ -1216,13 +1236,12 @@ class _HomeViewState extends State<HomeView> {
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: _panelGradient,
-                borderRadius: BorderRadius.circular(26),
-                border: Border.all(color: _borderLight),
-                boxShadow: _softPanelShadow,
-              ),
+            child: _GlassSurface(
+              borderRadius: BorderRadius.circular(26),
+              blurSigma: 24,
+              boxShadow: _softPanelShadow,
+              overlayGradient: _panelGradient,
+              fillColor: _glassFill,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(26),
                 child: AnimatedSwitcher(
@@ -1288,10 +1307,11 @@ class _HomeViewState extends State<HomeView> {
                             child: FilledButton.icon(
                               onPressed: () async {
                                 Navigator.of(dialogContext).pop();
-                                await widget.controller.allowMessagingSuggestion(
-                                  notice.platform,
-                                  suggestion,
-                                );
+                                await widget.controller
+                                    .allowMessagingSuggestion(
+                                      notice.platform,
+                                      suggestion,
+                                    );
                               },
                               icon: Icon(Icons.verified_user_outlined),
                               label: Text(suggestion.label),
@@ -1344,20 +1364,19 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return _GlassSurface(
       width: 254,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            _bgSecondary.withValues(alpha: 0.96),
-            _bgTertiary.withValues(alpha: 0.92),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: _borderLight),
-        boxShadow: _softPanelShadow,
+      borderRadius: BorderRadius.circular(30),
+      blurSigma: 26,
+      boxShadow: _softPanelShadow,
+      fillColor: _bgSecondary.withValues(alpha: 0.34),
+      overlayGradient: LinearGradient(
+        colors: <Color>[
+          _bgSecondary.withValues(alpha: 0.96),
+          _bgTertiary.withValues(alpha: 0.88),
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
       ),
       child: Column(
         children: <Widget>[

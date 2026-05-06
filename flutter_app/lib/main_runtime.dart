@@ -12,6 +12,7 @@ class NeoAgentApp extends StatefulWidget {
 class _NeoAgentAppState extends State<NeoAgentApp>
     with WindowListener, TrayListener {
   late final NeoAgentController _controller;
+  late final WebAppUpdateMonitor _webAppUpdateMonitor;
   final AppLaunchBridge _appLaunchBridge = AppLaunchBridge();
   StreamSubscription<String>? _appLaunchSubscription;
   StreamSubscription<String>? _widgetOpenSubscription;
@@ -53,6 +54,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       widgetBridge: WidgetBridge(),
       recordingBridge: createRecordingBridge(),
     )..bootstrap();
+    _webAppUpdateMonitor = createWebAppUpdateMonitor()..start();
     _controller.addListener(_handleControllerChanged);
     _appLaunchSubscription = _appLaunchBridge.launchRequests.listen(
       _handleAppLaunchRequest,
@@ -79,6 +81,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       }
       unawaited(trayManager.destroy());
     }
+    _webAppUpdateMonitor.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -545,7 +548,10 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge(<Listenable>[
+        _controller,
+        _webAppUpdateMonitor,
+      ]),
       builder: (context, _) {
         final rootStateSignature =
             'boot:${_controller.isBooting}'
@@ -592,6 +598,29 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                             constraints: const BoxConstraints(maxWidth: 980),
                             child: _GlobalNetworkBanner(
                               controller: _controller,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!_desktopToolbarWindowMode &&
+                    !_desktopAssistantPopupWindowMode &&
+                    _webAppUpdateMonitor.isSupported &&
+                    _webAppUpdateMonitor.updateAvailable)
+                  Positioned(
+                    top: _controller.showOfflineBanner ? 84 : 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 980),
+                            child: _GlobalWebUpdateBanner(
+                              monitor: _webAppUpdateMonitor,
                             ),
                           ),
                         ),

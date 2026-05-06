@@ -11,54 +11,216 @@ EdgeInsets _pagePadding(BuildContext context) {
   return const EdgeInsets.fromLTRB(20, 20, 20, 28);
 }
 
-class _AmbientBackdrop extends StatelessWidget {
+class _AmbientBackdrop extends StatefulWidget {
   const _AmbientBackdrop({required this.child});
 
   final Widget child;
 
   @override
+  State<_AmbientBackdrop> createState() => _AmbientBackdropState();
+}
+
+class _AmbientBackdropState extends State<_AmbientBackdrop>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 24),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(gradient: _appBackgroundGradient),
-      child: Stack(
-        children: <Widget>[
-          Positioned(
-            top: -120,
-            left: -90,
-            child: _BlurOrb(size: 340, color: _accent.withValues(alpha: 0.9)),
-          ),
-          Positioned(
-            top: 90,
-            right: -120,
-            child: _BlurOrb(
-              size: 280,
-              color: _accentAlt.withValues(alpha: 0.85),
-            ),
-          ),
-          Positioned(
-            bottom: -140,
-            left: 100,
-            child: _BlurOrb(size: 360, color: _accent.withValues(alpha: 0.45)),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final t = Curves.easeInOut.transform(_controller.value);
+          return Stack(
+            children: <Widget>[
+              Positioned(
+                top: -120 + (t * 22),
+                left: -90 + (t * 18),
+                child: _BlurOrb(
+                  size: 340,
+                  color: _accent.withValues(alpha: 0.9),
+                ),
+              ),
+              Positioned(
+                top: 90 - (t * 26),
+                right: -120 + (t * 22),
+                child: _BlurOrb(
+                  size: 280,
+                  color: _accentAlt.withValues(alpha: 0.85),
+                ),
+              ),
+              Positioned(
+                bottom: -140 + (t * 16),
+                left: 100 - (t * 24),
+                child: _BlurOrb(
+                  size: 360,
+                  color: _accent.withValues(alpha: 0.45),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: <Color>[
+                          Colors.white.withValues(alpha: 0.05),
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.12),
+                        ],
+                        stops: const <double>[0, 0.32, 1],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment(0.75 - (t * 0.15), -0.9 + (t * 0.1)),
+                        radius: 0.95,
+                        colors: <Color>[
+                          _glassHighlight.withValues(alpha: 0.14),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              widget.child,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _EntranceMotion extends StatefulWidget {
+  const _EntranceMotion({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_EntranceMotion> createState() => _EntranceMotionState();
+}
+
+class _EntranceMotionState extends State<_EntranceMotion> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _visible = true;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      offset: _visible ? Offset.zero : const Offset(0, 0.035),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 700),
+        curve: Curves.easeOutCubic,
+        opacity: _visible ? 1 : 0,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _GlassSurface extends StatelessWidget {
+  const _GlassSurface({
+    required this.child,
+    this.width,
+    this.padding,
+    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
+    this.blurSigma = 22,
+    this.fillColor,
+    this.borderColor,
+    this.overlayGradient,
+    this.boxShadow,
+  });
+
+  final Widget child;
+  final double? width;
+  final EdgeInsetsGeometry? padding;
+  final BorderRadius borderRadius;
+  final double blurSigma;
+  final Color? fillColor;
+  final Color? borderColor;
+  final Gradient? overlayGradient;
+  final List<BoxShadow>? boxShadow;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          boxShadow: boxShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: fillColor ?? _glassFill,
+                gradient: overlayGradient ?? _liquidMetalGradient,
+                borderRadius: borderRadius,
+                border: Border.all(color: borderColor ?? _glassBorder),
+              ),
               child: DecoratedBox(
                 decoration: BoxDecoration(
+                  borderRadius: borderRadius,
                   gradient: LinearGradient(
                     colors: <Color>[
-                      Colors.white.withValues(alpha: 0.02),
+                      _glassHighlight.withValues(alpha: 0.2),
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.08),
+                      Colors.black.withValues(alpha: 0.06),
                     ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+                    stops: const <double>[0, 0.22, 1],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                ),
+                child: Padding(
+                  padding: padding ?? EdgeInsets.zero,
+                  child: child,
                 ),
               ),
             ),
           ),
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -223,53 +385,58 @@ class _PageTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 760;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
-                const SizedBox(height: 8),
-                Text(title, style: _displayTitleStyle(30)),
-                const SizedBox(height: 10),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Text(
-                    subtitle,
-                    style: TextStyle(color: _textSecondary, height: 1.5),
+    return _EntranceMotion(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: compact
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
+                  const SizedBox(height: 8),
+                  Text(title, style: _displayTitleStyle(30)),
+                  const SizedBox(height: 10),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Text(
+                      subtitle,
+                      style: TextStyle(color: _textSecondary, height: 1.5),
+                    ),
                   ),
-                ),
-                if (trailing != null) ...<Widget>[
-                  const SizedBox(height: 18),
-                  trailing!,
+                  if (trailing != null) ...<Widget>[
+                    const SizedBox(height: 18),
+                    trailing!,
+                  ],
                 ],
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
-                      const SizedBox(height: 8),
-                      Text(title, style: _displayTitleStyle(32)),
-                      const SizedBox(height: 10),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 760),
-                        child: Text(
-                          subtitle,
-                          style: TextStyle(color: _textSecondary, height: 1.5),
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
+                        const SizedBox(height: 8),
+                        Text(title, style: _displayTitleStyle(32)),
+                        const SizedBox(height: 10),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 760),
+                          child: Text(
+                            subtitle,
+                            style: TextStyle(
+                              color: _textSecondary,
+                              height: 1.5,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                if (trailing != null) trailing!,
-              ],
-            ),
+                  if (trailing != null) trailing!,
+                ],
+              ),
+      ),
     );
   }
 }
@@ -515,35 +682,45 @@ class _OverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Container(
-              width: 34,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _accent,
-                borderRadius: BorderRadius.circular(999),
+    return _EntranceMotion(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 34,
+                height: 4,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      _accentHover,
+                      _accentAlt.withValues(alpha: 0.9),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title.toUpperCase(),
-              style: TextStyle(
-                color: _textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
+              const SizedBox(height: 16),
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Text(value, style: _displayTitleStyle(28)),
-            const SizedBox(height: 12),
-            Text(helper, style: TextStyle(color: _textSecondary, height: 1.45)),
-          ],
+              const SizedBox(height: 10),
+              Text(value, style: _displayTitleStyle(28)),
+              const SizedBox(height: 12),
+              Text(
+                helper,
+                style: TextStyle(color: _textSecondary, height: 1.45),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -558,10 +735,12 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(34),
-        child: _EmptyState(title: title, subtitle: subtitle),
+    return _EntranceMotion(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(34),
+          child: _EmptyState(title: title, subtitle: subtitle),
+        ),
       ),
     );
   }
@@ -594,13 +773,12 @@ class _DotStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return _GlassSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _border),
-      ),
+      borderRadius: BorderRadius.circular(999),
+      blurSigma: 16,
+      fillColor: _bgSecondary.withValues(alpha: 0.28),
+      borderColor: _glassBorder.withValues(alpha: 0.8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -642,66 +820,79 @@ class _SidebarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          gradient: active
-              ? LinearGradient(
-                  colors: <Color>[
-                    _accentMuted,
-                    _accentMuted.withValues(alpha: 0.06),
-                  ],
-                )
-              : null,
+        scale: active ? 1.01 : 1,
+        child: _GlassSurface(
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: active
-                ? _accent.withValues(alpha: 0.35)
-                : Colors.transparent,
-          ),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: onTap,
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(12 + indent, 12, 12, 12),
-              child: Row(
-                children: <Widget>[
-                  if (active)
-                    Container(
-                      width: 6,
-                      height: 26,
-                      margin: const EdgeInsets.only(right: 10),
-                      decoration: BoxDecoration(
-                        color: _accent,
-                        borderRadius: BorderRadius.circular(999),
+          blurSigma: 18,
+          fillColor: active
+              ? _accentMuted.withValues(alpha: 0.32)
+              : _bgCard.withValues(alpha: 0.2),
+          borderColor: active
+              ? _accent.withValues(alpha: 0.32)
+              : Colors.white.withValues(alpha: 0.03),
+          boxShadow: active
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: _accent.withValues(alpha: 0.12),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: onTap,
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(12 + indent, 12, 12, 12),
+                child: Row(
+                  children: <Widget>[
+                    if (active)
+                      Container(
+                        width: 6,
+                        height: 26,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: <Color>[
+                              _accentHover,
+                              _accentAlt.withValues(alpha: 0.9),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    Icon(
+                      icon,
+                      size: iconSize,
+                      color: active ? _accentHover : _textSecondary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: fontSize,
+                          fontWeight: active
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                          color: active ? _textPrimary : _textSecondary,
+                        ),
                       ),
                     ),
-                  Icon(
-                    icon,
-                    size: iconSize,
-                    color: active ? _accentHover : _textSecondary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: fontSize,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                        color: active ? _textPrimary : _textSecondary,
-                      ),
-                    ),
-                  ),
-                  if (trailing != null) ...<Widget>[
-                    const SizedBox(width: 8),
-                    trailing!,
+                    if (trailing != null) ...<Widget>[
+                      const SizedBox(width: 8),
+                      trailing!,
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -726,16 +917,21 @@ class _SidebarIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: _bgCard.withValues(alpha: 0.8),
-        shape: CircleBorder(side: BorderSide(color: _borderLight)),
-        child: InkWell(
-          customBorder: CircleBorder(),
-          onTap: onTap,
-          child: SizedBox(
-            width: 38,
-            height: 38,
-            child: Icon(icon, size: 17, color: _textSecondary),
+      child: _GlassSurface(
+        borderRadius: BorderRadius.circular(999),
+        blurSigma: 18,
+        fillColor: _bgCard.withValues(alpha: 0.3),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Icon(icon, size: 17, color: _textSecondary),
+            ),
           ),
         ),
       ),
@@ -1184,14 +1380,11 @@ class _MessageRunCardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return _GlassSurface(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _bgPrimary,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
+      borderRadius: BorderRadius.circular(14),
+      blurSigma: 18,
+      fillColor: _bgPrimary.withValues(alpha: 0.34),
       child: child,
     );
   }
@@ -1541,6 +1734,87 @@ class _GlobalNetworkBanner extends StatelessWidget {
                           ),
                         ),
                         child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GlobalWebUpdateBanner extends StatelessWidget {
+  const _GlobalWebUpdateBanner({required this.monitor});
+
+  final WebAppUpdateMonitor monitor;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 560;
+        final content = Text(
+          'A newer web build is available on the server. Reload to fetch the latest bundle.',
+          style: TextStyle(color: _textPrimary, height: 1.35),
+        );
+        return Material(
+          color: Colors.transparent,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: _accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _accent.withValues(alpha: 0.3)),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Icon(
+                            Icons.system_update_alt,
+                            color: _accent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(child: content),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton(
+                        onPressed: monitor.isReloading
+                            ? null
+                            : monitor.reloadToLatest,
+                        child: Text(
+                          monitor.isReloading ? 'Reloading...' : 'Reload now',
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: <Widget>[
+                      Icon(Icons.system_update_alt, color: _accent, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(child: content),
+                      const SizedBox(width: 12),
+                      FilledButton(
+                        onPressed: monitor.isReloading
+                            ? null
+                            : monitor.reloadToLatest,
+                        child: Text(
+                          monitor.isReloading ? 'Reloading...' : 'Reload now',
+                        ),
                       ),
                     ],
                   ),
