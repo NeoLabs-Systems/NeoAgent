@@ -104,12 +104,14 @@ class OnboardingOptionCard extends StatelessWidget {
     required this.selected,
     this.onTap,
     this.accent,
+    this.compact = false,
   });
 
   final Widget child;
   final bool selected;
   final VoidCallback? onTap;
   final Color? accent;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -118,16 +120,16 @@ class OnboardingOptionCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(compact ? 22 : 28),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.all(22),
+          padding: EdgeInsets.all(compact ? 16 : 22),
           decoration: BoxDecoration(
             color: selected
                 ? highlight.withValues(alpha: 0.16)
                 : Colors.white.withValues(alpha: 0.055),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(compact ? 22 : 28),
             border: Border.all(
               color: selected
                   ? highlight.withValues(alpha: 0.92)

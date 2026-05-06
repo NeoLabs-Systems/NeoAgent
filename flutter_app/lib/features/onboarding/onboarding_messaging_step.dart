@@ -27,6 +27,9 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
     final platforms = messagingPlatforms.length > 5
         ? messagingPlatforms.take(5).toList()
         : messagingPlatforms;
+    final width = MediaQuery.sizeOf(context).width;
+    final useGrid = width >= 700;
+    final columns = width >= 1050 ? 3 : (useGrid ? 2 : 1);
 
     return OnboardingScaffold(
       step: 2,
@@ -74,84 +77,199 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
           ),
         ],
       ),
-      child: ListView.separated(
-        itemCount: platforms.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(height: 14),
-        itemBuilder: (context, index) {
-          if (index == platforms.length) {
-            return const SizedBox.shrink();
-          }
+      child: useGrid
+          ? GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                childAspectRatio: width >= 1050 ? 1.5 : 1.35,
+              ),
+              itemCount: platforms.length,
+              itemBuilder: (context, index) {
+                final platform = platforms[index];
+                return _MessagingPlatformCard(
+                      platform: platform,
+                      selected: _selectedPlatform?.id == platform.id,
+                      compact: true,
+                      onTap: () => setState(() => _selectedPlatform = platform),
+                    )
+                    .animate()
+                    .fadeIn(duration: 420.ms, delay: (180 + (index * 80)).ms)
+                    .slideY(begin: 0.16, end: 0);
+              },
+            )
+          : ListView.separated(
+              itemCount: platforms.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 14),
+              itemBuilder: (context, index) {
+                final platform = platforms[index];
+                return _MessagingPlatformCard(
+                      platform: platform,
+                      selected: _selectedPlatform?.id == platform.id,
+                      onTap: () => setState(() => _selectedPlatform = platform),
+                    )
+                    .animate()
+                    .fadeIn(duration: 420.ms, delay: (180 + (index * 80)).ms)
+                    .slideY(begin: 0.16, end: 0);
+              },
+            ),
+    );
+  }
+}
 
-          final platform = platforms[index];
-          final selected = _selectedPlatform?.id == platform.id;
-          return OnboardingOptionCard(
-                selected: selected,
-                accent: platform.accent,
-                onTap: () => setState(() => _selectedPlatform = platform),
-                child: Row(
+class _MessagingPlatformCard extends StatelessWidget {
+  const _MessagingPlatformCard({
+    required this.platform,
+    required this.selected,
+    required this.onTap,
+    this.compact = false,
+  });
+
+  final MessagingPlatformDescriptor platform;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconSize = compact ? 24.0 : 30.0;
+    final shellSize = compact ? 48.0 : 58.0;
+    return OnboardingOptionCard(
+      selected: selected,
+      accent: platform.accent,
+      compact: compact,
+      onTap: onTap,
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
                   children: <Widget>[
                     Container(
-                      width: 58,
-                      height: 58,
+                      width: shellSize,
+                      height: shellSize,
                       decoration: BoxDecoration(
                         color: platform.accent.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
                         platform.icon,
                         color: platform.accent,
-                        size: 30,
+                        size: iconSize,
                       ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            platform.label,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            platform.subtitle,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.68),
-                              fontSize: 14,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: selected
-                          ? Icon(
-                              Icons.check_circle_rounded,
-                              key: ValueKey<String>(platform.id),
-                              color: platform.accent,
-                              size: 28,
-                            )
-                          : Icon(
-                              Icons.add_circle_outline_rounded,
-                              key: ValueKey<String>('idle-${platform.id}'),
-                              color: Colors.white.withValues(alpha: 0.26),
-                              size: 28,
-                            ),
+                    const Spacer(),
+                    _SelectionIcon(
+                      selected: selected,
+                      color: platform.accent,
+                      id: platform.id,
                     ),
                   ],
                 ),
-              )
-              .animate()
-              .fadeIn(duration: 420.ms, delay: (180 + (index * 80)).ms)
-              .slideY(begin: 0.16, end: 0);
-        },
-      ),
+                const SizedBox(height: 14),
+                Text(
+                  platform.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  platform.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: <Widget>[
+                Container(
+                  width: shellSize,
+                  height: shellSize,
+                  decoration: BoxDecoration(
+                    color: platform.accent.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Icon(
+                    platform.icon,
+                    color: platform.accent,
+                    size: iconSize,
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        platform.label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        platform.subtitle,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.68),
+                          fontSize: 14,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _SelectionIcon(
+                  selected: selected,
+                  color: platform.accent,
+                  id: platform.id,
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _SelectionIcon extends StatelessWidget {
+  const _SelectionIcon({
+    required this.selected,
+    required this.color,
+    required this.id,
+  });
+
+  final bool selected;
+  final Color color;
+  final String id;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: selected
+          ? Icon(
+              Icons.check_circle_rounded,
+              key: ValueKey<String>(id),
+              color: color,
+              size: 28,
+            )
+          : Icon(
+              Icons.add_circle_outline_rounded,
+              key: ValueKey<String>('idle-$id'),
+              color: Colors.white.withValues(alpha: 0.26),
+              size: 28,
+            ),
     );
   }
 }
