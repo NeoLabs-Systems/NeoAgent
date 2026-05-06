@@ -1066,25 +1066,36 @@ class _HomeViewState extends State<HomeView> {
     // Initialize Proactive Context Features for mobile
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       final backendUrl = widget.controller.backendUrl;
-      final sessionCookie = widget.controller.sessionCookie;
-      final locationService = LocationService();
+      final sessionCookie = widget.controller.sessionCookie?.trim() ?? '';
+      final canInitializeMobileAutomation =
+          backendUrl.trim().isNotEmpty && sessionCookie.isNotEmpty;
 
-      locationService.initialize(context).then((_) {
-        if (mounted) {
-          locationService.startGeofenceTracking(backendUrl, sessionCookie);
-        }
-      }).catchError((error) {
-        if (mounted) {
-          debugPrint('LocationService initialization failed: $error');
-        }
-      });
+      if (canInitializeMobileAutomation) {
+        final locationService = LocationService();
 
-      if (Platform.isAndroid) {
-        NotificationInterceptor().initialize(
-          context,
-          backendUrl,
-          sessionCookie,
-        );
+        locationService
+            .initialize(context)
+            .then((_) {
+              if (mounted) {
+                locationService.startGeofenceTracking(
+                  backendUrl,
+                  sessionCookie,
+                );
+              }
+            })
+            .catchError((error) {
+              if (mounted) {
+                debugPrint('LocationService initialization failed: $error');
+              }
+            });
+
+        if (Platform.isAndroid) {
+          NotificationInterceptor().initialize(
+            context,
+            backendUrl,
+            sessionCookie,
+          );
+        }
       }
     }
 
