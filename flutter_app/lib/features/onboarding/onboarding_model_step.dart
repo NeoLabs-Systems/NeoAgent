@@ -78,45 +78,8 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       step: 3,
       totalSteps: 4,
       eyebrow: 'INTELLIGENCE',
-      title: 'Choose the model\nthat should feel like default.',
-      description:
-          'This selection shapes the tone of the product from the first message onward. You can change it later, but the first default should already feel intentional.',
-      sidePanel: OnboardingPanel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const Text(
-              'Selection notes',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Favor the model you want to live with every day. Speed, tone, and reliability matter more here than benchmark theater.',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
-                fontSize: 15,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: <Widget>[
-                OnboardingMetricPill(label: 'Priority', value: 'Daily default'),
-                OnboardingMetricPill(
-                  label: 'Flexibility',
-                  value: 'Editable later',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ).animate().fadeIn(duration: 620.ms, delay: 220.ms),
+      title: 'Choose your\ndefault model.',
+      description: 'Pick the model NeoOS should use by default.',
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[

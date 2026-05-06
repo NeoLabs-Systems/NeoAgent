@@ -75,48 +75,55 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
     final orientation = MediaQuery.orientationOf(context);
 
     if (_hasError) {
-      return OnboardingScaffold(
-        step: 0,
-        totalSteps: 4,
-        eyebrow: 'INTRO',
-        title: 'A cinematic intro belongs here.',
-        description:
-            'If the video asset is unavailable, the experience falls back cleanly so setup never feels broken or unfinished.',
-        sidePanel: const _VideoFallbackPanel(),
-        footer: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: <Widget>[
-            OnboardingPrimaryButton(
-              label: 'Continue',
-              icon: Icons.arrow_forward_rounded,
-              onPressed: widget.onComplete,
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(
+                  Icons.play_circle_outline_rounded,
+                  color: Colors.white70,
+                  size: 56,
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Continue to setup',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'The intro is not available on this device.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                OnboardingPrimaryButton(
+                  label: 'Continue',
+                  icon: Icons.arrow_forward_rounded,
+                  onPressed: widget.onComplete,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-        child: const SizedBox.shrink(),
       );
     }
 
     if (!_isInitialized || _controller == null) {
-      return OnboardingScaffold(
-        step: 0,
-        totalSteps: 4,
-        eyebrow: 'INTRO',
-        title: 'Preparing the opening sequence.',
-        description:
-            'The first impression should feel immediate and polished, so the transition in is staged before the rest of setup appears.',
-        sidePanel: const _VideoFallbackPanel(),
-        footer: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            OnboardingGhostButton(
-              label: 'Skip intro',
-              onPressed: widget.onComplete,
-            ),
-            const SizedBox.shrink(),
-          ],
-        ),
-        child: const Center(child: CircularProgressIndicator()),
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
@@ -127,108 +134,46 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
       _controller!.play();
     }
 
-    return OnboardingScaffold(
-      step: 0,
-      totalSteps: 4,
-      eyebrow: 'INTRO',
-      title: 'See the product\nbefore you configure it.',
-      description:
-          'The opening sequence sets tone and expectation: quiet motion, deliberate materials, and a system that feels already alive.',
-      dense: true,
-      sidePanel: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: const <Widget>[
-          OnboardingMetricPill(label: 'Feel', value: 'Editorial motion'),
-          OnboardingMetricPill(label: 'Pacing', value: 'Fast, never rushed'),
-        ],
-      ).animate().fadeIn(duration: 500.ms, delay: 220.ms),
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          OnboardingGhostButton(
-            label: 'Skip intro',
-            onPressed: widget.onComplete,
-          ),
-          Text(
-            'Auto-continues when the video ends',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.56),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-      child: portrait
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: portrait
           ? const _RotatePrompt()
-          : ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: Stack(
-                fit: StackFit.expand,
-                children: <Widget>[
-                  DecoratedBox(
+          : Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _controller!.value.size.width,
+                    height: _controller!.value.size.height,
+                    child: VideoPlayer(_controller!),
+                  ),
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      color: const Color(0xFF060709),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: _controller!.value.size.width,
-                        height: _controller!.value.size.height,
-                        child: VideoPlayer(_controller!),
+                      gradient: LinearGradient(
+                        colors: <Color>[
+                          Colors.transparent,
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.22),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
                     ),
                   ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: <Color>[
-                            Colors.black.withValues(alpha: 0.04),
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.42),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(duration: 700.ms).scaleXY(begin: 0.98, end: 1),
-    );
-  }
-}
-
-class _VideoFallbackPanel extends StatelessWidget {
-  const _VideoFallbackPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return const OnboardingPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(Icons.movie_creation_outlined, color: Colors.white, size: 30),
-          SizedBox(height: 16),
-          Text(
-            'Fallback mode',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
+                ),
+                Positioned(
+                  top: 28,
+                  right: 28,
+                  child: OnboardingGhostButton(
+                    label: 'Skip',
+                    onPressed: widget.onComplete,
+                  ).animate().fadeIn(duration: 280.ms, delay: 220.ms),
+                ),
+              ],
             ),
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Paste a real `onboarding_intro.mp4` into `assets/branding/` to restore the cinematic first step.',
-            style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -239,14 +184,15 @@ class _RotatePrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: OnboardingPanel(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             const Icon(Icons.screen_rotation, color: Colors.white, size: 54),
             const SizedBox(height: 18),
             const Text(
-              'Rotate for the full-screen intro',
+              'Rotate to continue',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
@@ -256,7 +202,7 @@ class _RotatePrompt extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'The opening video is composed for landscape so it feels cinematic instead of cramped.',
+              'This intro is designed for full-screen landscape playback.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),

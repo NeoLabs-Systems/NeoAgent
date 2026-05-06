@@ -32,42 +32,8 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
       step: 2,
       totalSteps: 4,
       eyebrow: 'COMMUNICATION',
-      title: 'Connect the channels\nyou actually use.',
-      description:
-          'Choose one messaging surface to start. NeoOS can prepare context, monitor the right signals, and keep the interaction layer close to your real workflow.',
-      sidePanel: OnboardingPanel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const Text(
-              'Setup principle',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Start with one high-value integration first. The product feels smarter when the first connection is relevant, not exhaustive.',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
-                fontSize: 15,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: <Widget>[
-                OnboardingMetricPill(label: 'Signal', value: 'Relevant only'),
-                OnboardingMetricPill(label: 'Access', value: 'Configurable'),
-              ],
-            ),
-          ],
-        ),
-      ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
+      title: 'Connect a\nmessaging platform.',
+      description: 'Choose one to get started now. You can add more later.',
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
@@ -113,17 +79,7 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
         separatorBuilder: (_, __) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
           if (index == platforms.length) {
-            return Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 10),
-              child: Text(
-                'More providers stay available later in Settings.',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.52),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            );
+            return const SizedBox.shrink();
           }
 
           final platform = platforms[index];
