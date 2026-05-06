@@ -342,6 +342,22 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ),
               ],
             ),
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: controller.reopenOnboarding,
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+                icon: const Icon(Icons.replay_rounded, size: 18),
+                label: const Text('Redo onboarding'),
+              ),
+            ),
           ],
         ),
       ),

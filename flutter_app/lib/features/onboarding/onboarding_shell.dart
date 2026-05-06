@@ -40,7 +40,8 @@ class _OnboardingShellState extends State<OnboardingShell> {
       backgroundColor: Colors.black, // Deep black for video and transitions
       body: PageView(
         controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(), // Managed programmatically
+        physics:
+            const NeverScrollableScrollPhysics(), // Managed programmatically
         children: <Widget>[
           OnboardingVideoStep(onComplete: _nextStep),
           OnboardingWelcomeStep(onNext: _nextStep),
@@ -48,10 +49,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
             onNext: _nextStep,
             controller: widget.controller,
           ),
-          OnboardingModelStep(
-            onNext: _finish,
-            controller: widget.controller,
-          ),
+          OnboardingModelStep(onNext: _finish, controller: widget.controller),
         ],
       ),
     );

@@ -443,6 +443,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                     if (_isDesktop) ...<Widget>[
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedDesktopDevice?['deviceId']
                             ?.toString(),
                         decoration: const InputDecoration(
@@ -464,7 +465,12 @@ class _DevicesPanelState extends State<DevicesPanel> {
                               : 'offline';
                           return DropdownMenuItem<String>(
                             value: deviceId,
-                            child: Text('$label · $os · $state'),
+                            child: Text(
+                              '$label · $os · $state',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                            ),
                           );
                         }).toList(),
                         onChanged: controller.isRunningDeviceAction
@@ -652,94 +658,96 @@ class _DeviceSurfaceHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final androidStarting = androidRuntime['starting'] == true;
-    final androidVersion = _androidRuntimeVersionLabel(androidRuntime);
-    final selectedDesktop = desktopDevices
-        .where((device) => device['deviceId'] == selectedDesktopDeviceId)
-        .cast<Map<String, dynamic>?>()
-        .firstWhere((device) => device != null, orElse: () => null);
-    final desktopOnlineCount = desktopDevices
-        .where((device) => device['online'] == true)
-        .length;
-    final title = switch (surface) {
-      _DeviceSurface.browser =>
-        (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
-            ? browserPageInfo['title'].toString()
-            : 'Live Browser',
-      _DeviceSurface.android => 'Android Phone',
-      _DeviceSurface.desktop =>
-        selectedDesktop?['label']?.toString().trim().isNotEmpty == true
-            ? selectedDesktop!['label'].toString()
-            : 'Desktop Companion',
-    };
-    final subtitle = switch (surface) {
-      _DeviceSurface.browser =>
-        browserExtensionPreferred && !browserExtensionActive
-            ? 'No extension device is active. Using the $browserFallbackLabel browser fallback.'
-            : (browserPageInfo['url']?.toString() ?? 'Ready for navigation'),
-      _DeviceSurface.android =>
-        androidOnline
-            ? androidVersion == null
-                  ? 'Tap and swipe directly on the preview.'
-                  : '$androidVersion · Tap and swipe directly on the preview.'
-            : androidStarting
-            ? (androidRuntime['startupPhase']?.toString().trim().isNotEmpty ??
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 720;
+        final androidStarting = androidRuntime['starting'] == true;
+        final androidVersion = _androidRuntimeVersionLabel(androidRuntime);
+        final selectedDesktop = desktopDevices
+            .where((device) => device['deviceId'] == selectedDesktopDeviceId)
+            .cast<Map<String, dynamic>?>()
+            .firstWhere((device) => device != null, orElse: () => null);
+        final desktopOnlineCount = desktopDevices
+            .where((device) => device['online'] == true)
+            .length;
+        final title = switch (surface) {
+          _DeviceSurface.browser =>
+            (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
+                ? browserPageInfo['title'].toString()
+                : 'Live Browser',
+          _DeviceSurface.android => 'Android Phone',
+          _DeviceSurface.desktop =>
+            selectedDesktop?['label']?.toString().trim().isNotEmpty == true
+                ? selectedDesktop!['label'].toString()
+                : 'Desktop Companion',
+        };
+        final subtitle = switch (surface) {
+          _DeviceSurface.browser =>
+            browserExtensionPreferred && !browserExtensionActive
+                ? 'No extension device is active. Using the $browserFallbackLabel browser fallback.'
+                : (browserPageInfo['url']?.toString() ??
+                      'Ready for navigation'),
+          _DeviceSurface.android =>
+            androidOnline
+                ? androidVersion == null
+                      ? 'Tap and swipe directly on the preview.'
+                      : '$androidVersion · Tap and swipe directly on the preview.'
+                : androidStarting
+                ? (androidRuntime['startupPhase']
+                              ?.toString()
+                              .trim()
+                              .isNotEmpty ??
+                          false)
+                      ? androidRuntime['startupPhase'].toString()
+                      : 'Starting the phone. This can take a little while.'
+                : (androidRuntime['lastLogLine']
+                          ?.toString()
+                          .trim()
+                          .isNotEmpty ??
                       false)
-                  ? androidRuntime['startupPhase'].toString()
-                  : 'Starting the phone. This can take a little while.'
-            : (androidRuntime['lastLogLine']?.toString().trim().isNotEmpty ??
-                  false)
-            ? androidRuntime['lastLogLine'].toString()
-            : androidVersion != null
-            ? '$androidVersion selected. Phone is offline.'
-            : 'Phone is offline. Open or start it from below.',
-      _DeviceSurface.desktop =>
-        selectedDesktop == null
-            ? desktopOnlineCount > 1
-                  ? 'Multiple desktop companions are online. Pick the machine you want to control.'
-                  : desktopOnlineCount == 1
-                  ? 'One desktop companion is online. Open the surface to fetch the latest frame.'
-                  : 'No desktop companion is online. Enable Companion Mode on a signed-in desktop app.'
-            : '${selectedDesktop['platform'] ?? 'desktop'} · ${selectedDesktop['hostname'] ?? 'unknown host'}',
-    };
-    final statusLabel = surface == _DeviceSurface.browser
-        ? browserExtensionPreferred && !browserExtensionActive
-              ? 'Fallback'
-              : browserExtensionActive
-              ? 'Extension'
-              : (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
-        : surface == _DeviceSurface.desktop
-        ? selectedDesktop == null
-              ? (desktopOnlineCount > 0 ? 'Select Device' : 'Offline')
-              : (selectedDesktop['paused'] == true
-                    ? 'Paused'
-                    : (selectedDesktop['online'] == true ? 'Live' : 'Offline'))
-        : (androidOnline
-              ? 'Live'
-              : androidStarting
-              ? 'Starting'
-              : 'Offline');
-    final statusColor = surface == _DeviceSurface.browser
-        ? (browserStatus['launched'] == true ? _success : _warning)
-        : surface == _DeviceSurface.desktop
-        ? (selectedDesktop?['paused'] == true
-              ? _warning
-              : (selectedDesktop?['online'] == true ? _success : _warning))
-        : (androidOnline ? _success : (androidStarting ? _accent : _warning));
+                ? androidRuntime['lastLogLine'].toString()
+                : androidVersion != null
+                ? '$androidVersion selected. Phone is offline.'
+                : 'Phone is offline. Open or start it from below.',
+          _DeviceSurface.desktop =>
+            selectedDesktop == null
+                ? desktopOnlineCount > 1
+                      ? 'Multiple desktop companions are online. Pick the machine you want to control.'
+                      : desktopOnlineCount == 1
+                      ? 'One desktop companion is online. Open the surface to fetch the latest frame.'
+                      : 'No desktop companion is online. Enable Companion Mode on a signed-in desktop app.'
+                : '${selectedDesktop['platform'] ?? 'desktop'} · ${selectedDesktop['hostname'] ?? 'unknown host'}',
+        };
+        final statusLabel = surface == _DeviceSurface.browser
+            ? browserExtensionPreferred && !browserExtensionActive
+                  ? 'Fallback'
+                  : browserExtensionActive
+                  ? 'Extension'
+                  : (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
+            : surface == _DeviceSurface.desktop
+            ? selectedDesktop == null
+                  ? (desktopOnlineCount > 0 ? 'Select Device' : 'Offline')
+                  : (selectedDesktop['paused'] == true
+                        ? 'Paused'
+                        : (selectedDesktop['online'] == true
+                              ? 'Live'
+                              : 'Offline'))
+            : (androidOnline
+                  ? 'Live'
+                  : androidStarting
+                  ? 'Starting'
+                  : 'Offline');
+        final statusColor = surface == _DeviceSurface.browser
+            ? (browserStatus['launched'] == true ? _success : _warning)
+            : surface == _DeviceSurface.desktop
+            ? (selectedDesktop?['paused'] == true
+                  ? _warning
+                  : (selectedDesktop?['online'] == true ? _success : _warning))
+            : (androidOnline
+                  ? _success
+                  : (androidStarting ? _accent : _warning));
 
-    return Row(
-      children: <Widget>[
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: _accentMuted,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(surface.icon, color: _textPrimary),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
+        final textColumn = Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -758,10 +766,59 @@ class _DeviceSurfaceHeader extends StatelessWidget {
               ),
             ],
           ),
-        ),
-        const SizedBox(width: 12),
-        _DotStatus(label: statusLabel, color: statusColor),
-      ],
+        );
+
+        final statusChip = Flexible(
+          child: Align(
+            alignment: compact ? Alignment.centerLeft : Alignment.centerRight,
+            child: _DotStatus(label: statusLabel, color: statusColor),
+          ),
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: _accentMuted,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(surface.icon, color: _textPrimary),
+                  ),
+                  const SizedBox(width: 14),
+                  textColumn,
+                ],
+              ),
+              const SizedBox(height: 12),
+              statusChip,
+            ],
+          );
+        }
+
+        return Row(
+          children: <Widget>[
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: _accentMuted,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(surface.icon, color: _textPrimary),
+            ),
+            const SizedBox(width: 14),
+            textColumn,
+            const SizedBox(width: 12),
+            statusChip,
+          ],
+        );
+      },
     );
   }
 }
@@ -1047,31 +1104,69 @@ class _SurfaceSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        IconButton.filledTonal(
-          onPressed: onPrevious,
-          icon: Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        const SizedBox(width: 14),
-        Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        final labelColumn = Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
               surface.label,
+              textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
-            Text(surface.helper, style: TextStyle(color: _textSecondary)),
+            Text(
+              surface.helper,
+              textAlign: TextAlign.center,
+              maxLines: compact ? 3 : 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: _textSecondary),
+            ),
           ],
-        ),
-        const SizedBox(width: 14),
-        IconButton.filledTonal(
-          onPressed: onNext,
-          icon: Icon(Icons.arrow_forward_ios_rounded),
-        ),
-      ],
+        );
+
+        if (compact) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  IconButton.filledTonal(
+                    onPressed: onPrevious,
+                    icon: Icon(Icons.arrow_back_ios_new_rounded),
+                  ),
+                  const SizedBox(width: 14),
+                  Flexible(child: labelColumn),
+                  const SizedBox(width: 14),
+                  IconButton.filledTonal(
+                    onPressed: onNext,
+                    icon: Icon(Icons.arrow_forward_ios_rounded),
+                  ),
+                ],
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            IconButton.filledTonal(
+              onPressed: onPrevious,
+              icon: Icon(Icons.arrow_back_ios_new_rounded),
+            ),
+            const SizedBox(width: 14),
+            labelColumn,
+            const SizedBox(width: 14),
+            IconButton.filledTonal(
+              onPressed: onNext,
+              icon: Icon(Icons.arrow_forward_ios_rounded),
+            ),
+          ],
+        );
+      },
     );
   }
 }

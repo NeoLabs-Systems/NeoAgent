@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import 'onboarding_chrome.dart';
 
 class OnboardingWelcomeStep extends StatelessWidget {
   const OnboardingWelcomeStep({super.key, required this.onNext});
@@ -9,156 +10,97 @@ class OnboardingWelcomeStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = theme.colorScheme.primary;
-
-    return Stack(
-      children: <Widget>[
-        // Abstract animated background
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _AbstractBackgroundPainter(accentColor: accent),
-          ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-           .scaleXY(begin: 1.0, end: 1.1, curve: Curves.easeInOutSine, duration: 6000.ms)
-           .shimmer(duration: 8000.ms, color: accent.withValues(alpha: 0.1)),
-        ),
-        
-        // Grid pattern overlay
-        Positioned.fill(
-          child: Opacity(
-            opacity: 0.05,
-            child: CustomPaint(
-              painter: _GridPainter(),
+    return OnboardingScaffold(
+      step: 1,
+      totalSteps: 4,
+      eyebrow: 'WELCOME',
+      title: 'A private\noperating layer\nfor your day.',
+      description:
+          'NeoOS watches the right signals, stays out of the way, and surfaces context exactly when you need it. The experience should feel calm, tactile, and immediate.',
+      sidePanel: _WelcomeSidePanel(),
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: <Widget>[
+          OnboardingPrimaryButton(
+                label: 'Continue',
+                icon: Icons.arrow_forward_rounded,
+                onPressed: onNext,
+              )
+              .animate()
+              .fadeIn(duration: 600.ms, delay: 600.ms)
+              .slideY(begin: 0.2),
+        ],
+      ),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Wrap(
+          spacing: 14,
+          runSpacing: 14,
+          children: const <Widget>[
+            OnboardingMetricPill(label: 'Memory', value: 'Context retained'),
+            OnboardingMetricPill(
+              label: 'Privacy',
+              value: 'Local-first controls',
             ),
-          ),
-        ),
-        
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                const Spacer(flex: 3),
-                
-                // Welcome text
-                Text(
-                  'Welcome to\nNeoOS',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 72,
-                    fontWeight: FontWeight.w800,
-                    height: 1.05,
-                    letterSpacing: -2.5,
-                    color: Colors.white,
-                  ),
-                ).animate()
-                 .fadeIn(duration: 800.ms, delay: 200.ms)
-                 .slideY(begin: 0.2, end: 0, curve: Curves.easeOutCubic),
-                 
-                const SizedBox(height: 24),
-                
-                Text(
-                  'A new era of intelligent interaction.\nPrivate, powerful, and deeply integrated into your workflow.',
-                  style: TextStyle(
-                    fontSize: 20,
-                    color: Colors.white.withValues(alpha: 0.7),
-                    height: 1.5,
-                  ),
-                ).animate()
-                 .fadeIn(duration: 800.ms, delay: 400.ms)
-                 .slideY(begin: 0.2, end: 0, curve: Curves.easeOutCubic),
-                 
-                const Spacer(flex: 4),
-                
-                // Action Button
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: accent.withValues(alpha: 0.4),
-                          blurRadius: 30,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: FilledButton.icon(
-                      onPressed: onNext,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                      ),
-                      icon: const Icon(Icons.arrow_forward_rounded),
-                      label: const Text(
-                        'Get Started',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ).animate()
-                   .fadeIn(duration: 800.ms, delay: 800.ms)
-                   .slideX(begin: 0.2, end: 0, curve: Curves.easeOutCubic),
-                ),
-              ],
+            OnboardingMetricPill(
+              label: 'Automation',
+              value: 'Reactive by design',
             ),
-          ),
-        ),
-      ],
+          ],
+        ).animate().fadeIn(duration: 600.ms, delay: 380.ms),
+      ),
     );
   }
 }
 
-class _AbstractBackgroundPainter extends CustomPainter {
-  _AbstractBackgroundPainter({required this.accentColor});
-  final Color accentColor;
-
+class _WelcomeSidePanel extends StatelessWidget {
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = accentColor.withValues(alpha: 0.15)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100);
-
-    canvas.drawCircle(
-      Offset(size.width * 0.8, size.height * 0.2),
-      size.width * 0.4,
-      paint,
-    );
-
-    paint.color = const Color(0xFF6EDBFF).withValues(alpha: 0.1);
-    canvas.drawCircle(
-      Offset(size.width * 0.2, size.height * 0.8),
-      size.width * 0.5,
-      paint,
-    );
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return OnboardingPanel(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: <Color>[accent, const Color(0xFF6EDBFF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(
+              Icons.layers_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Designed to feel premium,\nnot noisy.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              height: 1.15,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Borrowing from Apple’s hierarchy guidance: stronger content contrast, fewer competing layers, and motion that explains rather than distracts.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 15,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 700.ms, delay: 260.ms).slideX(begin: 0.12);
   }
-
-  @override
-  bool shouldRepaint(covariant _AbstractBackgroundPainter oldDelegate) {
-    return oldDelegate.accentColor != accentColor;
-  }
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-      
-    const double spacing = 40.0;
-    
-    for (double i = 0; i < size.width; i += spacing) {
-      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
-    }
-    for (double i = 0; i < size.height; i += spacing) {
-      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

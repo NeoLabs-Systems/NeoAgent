@@ -16,7 +16,7 @@ class NeoAgentController extends ChangeNotifier {
     _recordingBridge.onRecordingStopped = _handleRecordingStopped;
     _recordingBridge.addListener(_handleRecordingBridgeChanged);
     _desktopCompanion.addListener(notifyListeners);
-    
+
     AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
     AndroidAutoBridge.instance.onStopVoiceMode = interruptLiveVoiceAssistant;
 
@@ -1210,10 +1210,11 @@ class NeoAgentController extends ChangeNotifier {
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
     password = '';
-    
-    final bool backendCompletedOnboarding = user?['hasCompletedOnboarding'] == true;
+
+    final bool backendCompletedOnboarding =
+        user?['hasCompletedOnboarding'] == true;
     showOnboarding = isRegistration || !backendCompletedOnboarding;
-    
+
     _clearQrLoginChallenge();
     await _persistCredentials();
     await refresh();
@@ -1458,6 +1459,10 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  void reopenOnboarding() {
+    showOnboarding = true;
+    notifyListeners();
+  }
 
   void _clearAuthenticatedState() {
     _disconnectSocket();
@@ -3923,10 +3928,11 @@ class NeoAgentController extends ChangeNotifier {
     if (_isStartingLiveVoice || _isStoppingLiveVoice) {
       return;
     }
-    
+
     bool routingStarted = false;
     try {
-      routingStarted = await AndroidAutoBridge.instance.startTelecomCallRouting();
+      routingStarted = await AndroidAutoBridge.instance
+          .startTelecomCallRouting();
     } catch (_) {
       // Swallowed safely
     }

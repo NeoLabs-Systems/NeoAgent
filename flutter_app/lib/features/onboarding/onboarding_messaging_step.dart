@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import '../../main.dart';
+import 'onboarding_chrome.dart';
 
 class OnboardingMessagingStep extends StatefulWidget {
   const OnboardingMessagingStep({
@@ -14,7 +15,8 @@ class OnboardingMessagingStep extends StatefulWidget {
   final NeoAgentController controller;
 
   @override
-  State<OnboardingMessagingStep> createState() => _OnboardingMessagingStepState();
+  State<OnboardingMessagingStep> createState() =>
+      _OnboardingMessagingStepState();
 }
 
 class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
@@ -22,240 +24,177 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
+    final platforms = messagingPlatforms.length > 5
+        ? messagingPlatforms.take(5).toList()
+        : messagingPlatforms;
+
+    return OnboardingScaffold(
+      step: 2,
+      totalSteps: 4,
+      eyebrow: 'COMMUNICATION',
+      title: 'Connect the channels\nyou actually use.',
+      description:
+          'Choose one messaging surface to start. NeoOS can prepare context, monitor the right signals, and keep the interaction layer close to your real workflow.',
+      sidePanel: OnboardingPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const SizedBox(height: 40),
-            Text(
-              'Connect your\nCommunication',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 48,
-                fontWeight: FontWeight.w800,
-                height: 1.1,
-                letterSpacing: -1.5,
-                color: Colors.white,
-              ),
-            ).animate()
-             .fadeIn(duration: 600.ms)
-             .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
-             
-            const SizedBox(height: 16),
-            Text(
-              'NeoOS works where you do. Connect a platform to allow Neo to intercept and assist with your messages securely.',
+            const Text(
+              'Setup principle',
               style: TextStyle(
-                fontSize: 18,
-                color: Colors.white.withValues(alpha: 0.7),
-                height: 1.5,
-              ),
-            ).animate()
-             .fadeIn(duration: 600.ms, delay: 200.ms)
-             .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
-             
-            const SizedBox(height: 60),
-            
-            Expanded(
-              child: ListView.separated(
-                itemCount: messagingPlatforms.length > 5 ? 6 : messagingPlatforms.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final platformCount = messagingPlatforms.length > 5 ? 5 : messagingPlatforms.length;
-                  if (index == platformCount) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 16, bottom: 32),
-                      child: Center(
-                        child: Text(
-                          'More providers available in Settings',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ).animate().fadeIn(delay: 1000.ms);
-                  }
-                  
-                  final platform = messagingPlatforms[index];
-                  final isSelected = _selectedPlatform?.id == platform.id;
-                  
-                  return _PlatformCard(
-                    platform: platform,
-                    isSelected: isSelected,
-                    onTap: () {
-                      setState(() {
-                        _selectedPlatform = platform;
-                      });
-                    },
-                  ).animate()
-                   .fadeIn(duration: 500.ms, delay: (400 + index * 100).ms)
-                   .slideY(begin: 0.2, end: 0, curve: Curves.easeOutCubic);
-                },
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            
-            // Bottom Action
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const SizedBox(height: 10),
+            Text(
+              'Start with one high-value integration first. The product feels smarter when the first connection is relevant, not exhaustive.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: <Widget>[
-                TextButton(
-                  onPressed: widget.onNext,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white54,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  ),
-                  child: const Text('Skip for now', style: TextStyle(fontSize: 16)),
-                ).animate().fadeIn(delay: 800.ms),
-                
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_selectedPlatform != null)
-                      FilledButton.icon(
-                        onPressed: () async {
-                          try {
-                            await openMessagingConfig(context, widget.controller, _selectedPlatform!);
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Failed to connect: $e'),
-                                  backgroundColor: Colors.redAccent,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        icon: const Icon(Icons.settings_rounded),
-                        label: const Text(
-                          'Configure',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                        ),
-                      ).animate().fadeIn(delay: 800.ms),
-                    
-                    if (_selectedPlatform != null)
-                      const SizedBox(width: 8),
-                    
-                    FilledButton.icon(
-                      onPressed: widget.onNext,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        backgroundColor: _selectedPlatform != null 
-                            ? Colors.white.withValues(alpha: 0.1) 
-                            : Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.arrow_forward_rounded),
-                      label: Text(
-                        _selectedPlatform != null ? 'Next' : 'Continue',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
-                    ).animate().fadeIn(delay: 800.ms),
-                  ],
-                ),
+                OnboardingMetricPill(label: 'Signal', value: 'Relevant only'),
+                OnboardingMetricPill(label: 'Access', value: 'Configurable'),
               ],
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PlatformCard extends StatelessWidget {
-  const _PlatformCard({
-    required this.platform,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final MessagingPlatformDescriptor platform;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = platform.accent;
-    
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? color.withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected ? color : Colors.white.withValues(alpha: 0.1),
-            width: isSelected ? 2 : 1,
+      ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          OnboardingGhostButton(
+            label: 'Skip for now',
+            onPressed: widget.onNext,
           ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: color.withValues(alpha: 0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            )
-          ] : [],
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: <Widget>[
+              if (_selectedPlatform != null)
+                OnboardingGhostButton(
+                  label: 'Configure',
+                  icon: Icons.settings_rounded,
+                  onPressed: () async {
+                    try {
+                      await openMessagingConfig(
+                        context,
+                        widget.controller,
+                        _selectedPlatform!,
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to connect: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              OnboardingPrimaryButton(
+                label: _selectedPlatform == null ? 'Continue' : 'Next',
+                icon: Icons.arrow_forward_rounded,
+                onPressed: widget.onNext,
               ),
-              child: Icon(
-                platform.icon,
-                color: color,
-                size: 32,
+            ],
+          ),
+        ],
+      ),
+      child: ListView.separated(
+        itemCount: platforms.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(height: 14),
+        itemBuilder: (context, index) {
+          if (index == platforms.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 10),
+              child: Text(
+                'More providers stay available later in Settings.',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.52),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    platform.label,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+            );
+          }
+
+          final platform = platforms[index];
+          final selected = _selectedPlatform?.id == platform.id;
+          return OnboardingOptionCard(
+                selected: selected,
+                accent: platform.accent,
+                onTap: () => setState(() => _selectedPlatform = platform),
+                child: Row(
+                  children: <Widget>[
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: platform.accent.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        platform.icon,
+                        color: platform.accent,
+                        size: 30,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    platform.subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.6),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            platform.label,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            platform.subtitle,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.68),
+                              fontSize: 14,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle_rounded, color: color, size: 28)
-                .animate().scale(curve: Curves.elasticOut),
-          ],
-        ),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: selected
+                          ? Icon(
+                              Icons.check_circle_rounded,
+                              key: ValueKey<String>(platform.id),
+                              color: platform.accent,
+                              size: 28,
+                            )
+                          : Icon(
+                              Icons.add_circle_outline_rounded,
+                              key: ValueKey<String>('idle-${platform.id}'),
+                              color: Colors.white.withValues(alpha: 0.26),
+                              size: 28,
+                            ),
+                    ),
+                  ],
+                ),
+              )
+              .animate()
+              .fadeIn(duration: 420.ms, delay: (180 + (index * 80)).ms)
+              .slideY(begin: 0.16, end: 0);
+        },
       ),
     );
   }
