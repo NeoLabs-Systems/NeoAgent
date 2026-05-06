@@ -265,6 +265,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ],
         _buildSettingsOverview(controller, availableModels.length),
         const SizedBox(height: 16),
+        _buildManagementSection(controller),
+        const SizedBox(height: 16),
         _buildWorkspaceSection(controller),
         const SizedBox(height: 16),
         _buildModelsSection(
@@ -444,6 +446,81 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   'Automatically choose the best enabled model for each task type.',
               value: _smarterSelector,
               onChanged: (value) => setState(() => _smarterSelector = value),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildManagementSection(NeoAgentController controller) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Subcategories'),
+            const SizedBox(height: 10),
+            Text(
+              'Open settings areas that have their own dedicated management screens.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: () => controller.setSelectedSection(AppSection.agents),
+              borderRadius: BorderRadius.circular(20),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: _bgSecondary.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _border),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: <Widget>[
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: _accentMuted,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          Icons.smart_toy_outlined,
+                          color: _accentHover,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Agents',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: _textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Manage specialist agents, routing roles, memory separation, and account assignment.',
+                              style: TextStyle(
+                                color: _textSecondary,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(Icons.chevron_right_rounded, color: _textSecondary),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),

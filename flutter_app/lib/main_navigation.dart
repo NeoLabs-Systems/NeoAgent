@@ -32,15 +32,13 @@ enum AppSection {
   health,
 }
 
-enum SidebarGroup { chat, agents, recordings, activity, automation, settings }
+enum SidebarGroup { chat, recordings, activity, automation, settings }
 
 extension SidebarGroupX on SidebarGroup {
   String get label {
     switch (this) {
       case SidebarGroup.chat:
         return 'Chat';
-      case SidebarGroup.agents:
-        return 'Agents';
       case SidebarGroup.recordings:
         return 'Recordings';
       case SidebarGroup.activity:
@@ -56,8 +54,6 @@ extension SidebarGroupX on SidebarGroup {
     switch (this) {
       case SidebarGroup.chat:
         return Icons.chat_bubble_outline;
-      case SidebarGroup.agents:
-        return Icons.smart_toy_outlined;
       case SidebarGroup.recordings:
         return Icons.fiber_smart_record_outlined;
       case SidebarGroup.activity:
@@ -171,9 +167,8 @@ extension AppSectionX on AppSection {
       case AppSection.settings:
       case AppSection.accountSettings:
       case AppSection.messaging:
-        return SidebarGroup.settings;
       case AppSection.agents:
-        return SidebarGroup.agents;
+        return SidebarGroup.settings;
     }
   }
 

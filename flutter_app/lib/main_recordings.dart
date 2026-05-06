@@ -59,83 +59,107 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
-        const _SectionTitle('Recordings'),
-        const SizedBox(height: 12),
+        const _PageTitle(
+          title: 'Recordings',
+          subtitle:
+              'Capture sessions, monitor device state, and review transcripts with clearer status and playback controls.',
+        ),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(22),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    _DotStatus(
-                      label: statusLabel,
-                      color: statusColor,
-                    ),
-                    if (runtime.platformLabel != null &&
-                        runtime.platformLabel!.isNotEmpty)
-                      Text(
-                        runtime.platformLabel!,
-                        style: TextStyle(color: _textSecondary),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Capture controls',
+                            style: _displayTitleStyle(24),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            runtime.platformLabel?.trim().isNotEmpty == true
+                                ? runtime.platformLabel!
+                                : 'Browser screen + microphone recorder',
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 15,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(width: 16),
+                    _StatusPill(label: statusLabel, color: statusColor),
                   ],
                 ),
                 const SizedBox(height: 16),
-                if (isStarting) ...<Widget>[
-                  const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _bgSecondary.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _borderLight),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: isStarting
+                      ? _GlassSurface(
+                          key: const ValueKey<String>('starting'),
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          blurSigma: 10,
+                          fillColor: _bgCard.withValues(alpha: 0.88),
+                          borderColor: _borderLight,
+                          child: Row(
+                            children: <Widget>[
+                              const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Starting recording. This can take a few seconds while the session and permissions are prepared.',
+                                  style: TextStyle(
+                                    color: _textSecondary,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : isStopping
+                      ? _GlassSurface(
+                          key: const ValueKey<String>('stopping'),
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          blurSigma: 10,
+                          fillColor: _bgCard.withValues(alpha: 0.88),
+                          borderColor: _borderLight,
                           child: Text(
-                            'Starting recording. This can take a few seconds while the session and permissions are prepared.',
+                            'Finalizing recording...',
                             style: TextStyle(
                               color: _textSecondary,
                               height: 1.4,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (isStopping) ...<Widget>[
-                  const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _bgSecondary.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _borderLight),
-                    ),
-                    child: Text(
-                      'Finalizing recording...',
-                      style: TextStyle(color: _textSecondary, height: 1.4),
-                    ),
-                  ),
-                ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                if (isStarting || isStopping) const SizedBox(height: 14),
                 const SizedBox(height: 18),
                 Wrap(
                   spacing: 12,
@@ -240,14 +264,13 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
                 ),
                 if (runtime.supportsSystemAudio) ...<Widget>[
                   const SizedBox(height: 20),
-                  Container(
+                  _GlassSurface(
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: _bgSecondary.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: _borderLight),
-                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    blurSigma: 10,
+                    fillColor: _bgCard.withValues(alpha: 0.9),
+                    borderColor: _borderLight,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
@@ -370,7 +393,6 @@ class _RecordingsPanelState extends State<RecordingsPanel> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
         const _SectionTitle('Transcripts'),
         const SizedBox(height: 12),
         if (widget.controller.recordingSessions.isEmpty)
@@ -426,296 +448,312 @@ class _RecordingSessionCard extends StatelessWidget {
     final runtime = controller.recordingRuntime;
     final isLiveSession = runtime.active && runtime.sessionId == session.id;
     final canDeleteRecording = onDeleteRecording != null && !isLiveSession;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          session.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${session.startedAtLabel} • ${session.platformLabel} • ${session.durationLabel}',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _StatusPill(
+                    label: session.statusLabel,
+                    color: session.statusColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: session.sources
+                    .map(
+                      (source) => _GlassSurface(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                        blurSigma: 8,
+                        fillColor: _bgCard.withValues(alpha: 0.82),
+                        borderColor: _border,
+                        child: Text(
+                          '${source.label} • ${source.durationLabel}',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              if (session.sources.any(
+                (source) => source.mediaKind == 'audio',
+              )) ...<Widget>[
+                const SizedBox(height: 12),
+                _RecordingSourceAudioControls(
+                  controller: controller,
+                  session: session,
+                ),
+              ],
+              if (session.lastError != null &&
+                  session.lastError!.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    session.lastError!,
+                    style: TextStyle(color: _danger),
+                  ),
+                ),
+              if (session.structuredContent.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 16),
+                _GlassSurface(
+                  padding: const EdgeInsets.all(16),
+                  borderRadius: BorderRadius.circular(18),
+                  blurSigma: 8,
+                  fillColor: _accentMuted.withValues(alpha: 0.16),
+                  borderColor: _accent.withValues(alpha: 0.26),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(
-                        session.title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                      Row(
+                        children: <Widget>[
+                          Icon(Icons.auto_awesome, size: 16, color: _accent),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Insights',
+                            style: TextStyle(
+                              color: _accent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (session.structuredContent['summary'] !=
+                          null) ...<Widget>[
+                        const SizedBox(height: 10),
+                        Text(
+                          'Summary',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: _textSecondary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${session.startedAtLabel} • ${session.platformLabel} • ${session.durationLabel}',
-                        style: TextStyle(color: _textSecondary),
-                      ),
+                        const SizedBox(height: 4),
+                        Text(
+                          session.structuredContent['summary'].toString(),
+                          style: TextStyle(height: 1.55, fontSize: 15),
+                        ),
+                      ],
+                      if (session.structuredContent['action_items'] != null &&
+                          _getStructuredList(
+                            session,
+                            'action_items',
+                          ).isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 10),
+                        Text(
+                          'Action Items',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: _textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        ..._getStructuredList(session, 'action_items').map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '• ',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: _accent,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    item.toString(),
+                                    style: TextStyle(height: 1.35),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (session.structuredContent['events'] != null &&
+                          _getStructuredList(
+                            session,
+                            'events',
+                          ).isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 10),
+                        Text(
+                          'Events Mentioned',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: _textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        ..._getStructuredList(session, 'events').map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '• ',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: _accent,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    item.toString(),
+                                    style: TextStyle(height: 1.35),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
-                ),
-                _StatusPill(
-                  label: session.statusLabel,
-                  color: session.statusColor,
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: session.sources
-                  .map(
-                    (source) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _bgSecondary,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: _border),
-                      ),
-                      child: Text(
-                        '${source.label} • ${source.durationLabel}',
-                        style: TextStyle(fontSize: 12),
+              if (session.transcriptSegments.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 16),
+                ...session.transcriptSegments.map(
+                  (segment) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _GlassSurface(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                      borderRadius: BorderRadius.circular(16),
+                      blurSigma: 6,
+                      fillColor: _bgCard.withValues(alpha: 0.9),
+                      borderColor: _border,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SizedBox(
+                            width: 88,
+                            child: Text(
+                              segment.timestampLabel,
+                              style: TextStyle(
+                                color: _textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              segment.displayText,
+                              style: const TextStyle(
+                                height: 1.55,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          if (onDeleteSegment != null &&
+                              segment.id > 0) ...<Widget>[
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () async {
+                                await onDeleteSegment!(segment);
+                              },
+                              icon: Icon(Icons.delete_outline),
+                              tooltip: 'Delete segment',
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  )
-                  .toList(),
-            ),
-            if (session.sources.any(
-              (source) => source.mediaKind == 'audio',
-            )) ...<Widget>[
-              const SizedBox(height: 12),
-              _RecordingSourceAudioControls(
-                controller: controller,
-                session: session,
-              ),
-            ],
-            if (session.lastError != null &&
-                session.lastError!.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(
-                  session.lastError!,
-                  style: TextStyle(color: _danger),
-                ),
-              ),
-            if (session.structuredContent.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _accent.withValues(alpha: 0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Icon(Icons.auto_awesome, size: 16, color: _accent),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Insights',
-                          style: TextStyle(
-                            color: _accent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (session.structuredContent['summary'] !=
-                        null) ...<Widget>[
-                      const SizedBox(height: 10),
-                      Text(
-                        'Summary',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          color: _textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        session.structuredContent['summary'].toString(),
-                        style: TextStyle(height: 1.45),
-                      ),
-                    ],
-                    if (session.structuredContent['action_items'] != null &&
-                        _getStructuredList(
-                          session,
-                          'action_items',
-                        ).isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 10),
-                      Text(
-                        'Action Items',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          color: _textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      ..._getStructuredList(session, 'action_items').map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '• ',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: _accent,
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  item.toString(),
-                                  style: TextStyle(height: 1.35),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (session.structuredContent['events'] != null &&
-                        _getStructuredList(
-                          session,
-                          'events',
-                        ).isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 10),
-                      Text(
-                        'Events Mentioned',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          color: _textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      ..._getStructuredList(session, 'events').map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '• ',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: _accent,
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  item.toString(),
-                                  style: TextStyle(height: 1.35),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-            if (session.transcriptSegments.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 16),
-              ...session.transcriptSegments.map(
-                (segment) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      SizedBox(
-                        width: 88,
-                        child: Text(
-                          segment.timestampLabel,
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          segment.displayText,
-                          style: TextStyle(height: 1.45),
-                        ),
-                      ),
-                      if (onDeleteSegment != null &&
-                          segment.id > 0) ...<Widget>[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () async {
-                            await onDeleteSegment!(segment);
-                          },
-                          icon: Icon(Icons.delete_outline),
-                          tooltip: 'Delete segment',
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ],
-                    ],
                   ),
                 ),
-              ),
-            ] else if (session.transcriptText.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _border),
+              ] else if (session.transcriptText.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 16),
+                _GlassSurface(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  borderRadius: BorderRadius.circular(16),
+                  blurSigma: 8,
+                  fillColor: _bgCard.withValues(alpha: 0.92),
+                  borderColor: _border,
+                  child: SelectableText(
+                    session.transcriptText,
+                    style: const TextStyle(height: 1.6, fontSize: 15),
+                  ),
                 ),
-                child: SelectableText(
-                  session.transcriptText,
-                  style: TextStyle(height: 1.45),
+              ] else ...<Widget>[
+                const SizedBox(height: 16),
+                Text(
+                  session.status == 'processing'
+                      ? 'Transcribing...'
+                      : session.status == 'failed'
+                      ? 'Transcription failed. Check the error above and retry.'
+                      : session.status == 'completed'
+                      ? 'No transcript text was returned. You can retry transcription.'
+                      : 'Transcript is not available yet.',
+                  style: TextStyle(color: _textSecondary),
                 ),
-              ),
-            ] else ...<Widget>[
-              const SizedBox(height: 16),
-              Text(
-                session.status == 'processing'
-                    ? 'Transcribing...'
-                    : session.status == 'failed'
-                    ? 'Transcription failed. Check the error above and retry.'
-                    : session.status == 'completed'
-                    ? 'No transcript text was returned. You can retry transcription.'
-                    : 'Transcript is not available yet.',
-                style: TextStyle(color: _textSecondary),
-              ),
+              ],
+              if (onRetry != null || canDeleteRecording) ...<Widget>[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    if (onRetry != null)
+                      OutlinedButton.icon(
+                        onPressed: onRetry,
+                        icon: Icon(Icons.replay),
+                        label: Text('Retry transcription'),
+                      ),
+                    if (canDeleteRecording)
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await onDeleteRecording!();
+                        },
+                        icon: Icon(Icons.delete_forever_outlined),
+                        label: Text('Delete recording'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _danger,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ],
-            if (onRetry != null || canDeleteRecording) ...<Widget>[
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: <Widget>[
-                  if (onRetry != null)
-                    OutlinedButton.icon(
-                      onPressed: onRetry,
-                      icon: Icon(Icons.replay),
-                      label: Text('Retry transcription'),
-                    ),
-                  if (canDeleteRecording)
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        await onDeleteRecording!();
-                      },
-                      icon: Icon(Icons.delete_forever_outlined),
-                      label: Text('Delete recording'),
-                      style: OutlinedButton.styleFrom(foregroundColor: _danger),
-                    ),
-                ],
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -857,11 +895,23 @@ class _RecordingSourceAudioControlsState
       runSpacing: 8,
       children: audioSources.map((source) {
         final isActive = _isPlaying && _activeSourceKey == source.sourceKey;
-        return OutlinedButton.icon(
-          onPressed: () => _toggleSource(source),
-          icon: Icon(isActive ? Icons.stop_circle_outlined : Icons.play_arrow),
-          label: Text(
-            isActive ? 'Stop ${source.label}' : 'Play ${source.label}',
+        return AnimatedScale(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          scale: isActive ? 1.02 : 1,
+          child: OutlinedButton.icon(
+            onPressed: () => _toggleSource(source),
+            icon: Icon(
+              isActive ? Icons.stop_circle_outlined : Icons.play_arrow,
+            ),
+            label: Text(
+              isActive ? 'Stop ${source.label}' : 'Play ${source.label}',
+            ),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: isActive
+                  ? _accentMuted.withValues(alpha: 0.2)
+                  : null,
+            ),
           ),
         );
       }).toList(),

@@ -65,13 +65,13 @@ List<BoxShadow> get _softPanelShadow => <BoxShadow>[
 ];
 
 Color get _glassFill =>
-    _bgCard.withValues(alpha: _palette == _darkPalette ? 0.58 : 0.72);
+    _bgCard.withValues(alpha: _palette == _darkPalette ? 0.78 : 0.88);
 Color get _glassOverlay =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.08 : 0.24);
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.04 : 0.12);
 Color get _glassBorder =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.15 : 0.42);
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.12 : 0.26);
 Color get _glassHighlight =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.18 : 0.4);
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.1 : 0.18);
 
 LinearGradient get _liquidMetalGradient => LinearGradient(
   colors: <Color>[
@@ -84,18 +84,18 @@ LinearGradient get _liquidMetalGradient => LinearGradient(
   end: const Alignment(1, 1),
 );
 
-TextStyle _displayTitleStyle([double size = 28]) => GoogleFonts.spaceGrotesk(
+TextStyle _displayTitleStyle([double size = 28]) => TextStyle(
   fontSize: size,
   fontWeight: FontWeight.w700,
-  height: 1.05,
-  letterSpacing: -0.6,
+  height: 1.08,
+  letterSpacing: -0.8,
   color: _textPrimary,
 );
 
-TextStyle _sectionEyebrowStyle() => GoogleFonts.spaceGrotesk(
-  fontSize: 11,
+TextStyle _sectionEyebrowStyle() => TextStyle(
+  fontSize: 12,
   fontWeight: FontWeight.w700,
-  letterSpacing: 1.6,
+  letterSpacing: 1.0,
   color: _accentHover,
 );
 
@@ -117,24 +117,25 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
       onSurface: palette.textPrimary,
       error: palette.danger,
     ),
-    textTheme: GoogleFonts.manropeTextTheme(
-      base.textTheme,
-    ).apply(bodyColor: palette.textPrimary, displayColor: palette.textPrimary),
+    textTheme: base.textTheme.apply(
+      bodyColor: palette.textPrimary,
+      displayColor: palette.textPrimary,
+    ),
     cardTheme: CardThemeData(
       color: palette.bgCard.withValues(
-        alpha: brightness == Brightness.dark ? 0.58 : 0.78,
+        alpha: brightness == Brightness.dark ? 0.86 : 0.96,
       ),
       shadowColor: Colors.black.withValues(
         alpha: brightness == Brightness.dark ? 0.24 : 0.12,
       ),
       surfaceTintColor: Colors.transparent,
-      elevation: brightness == Brightness.dark ? 10 : 5,
+      elevation: brightness == Brightness.dark ? 8 : 3,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
         side: BorderSide(
           color: Colors.white.withValues(
-            alpha: brightness == Brightness.dark ? 0.12 : 0.3,
+            alpha: brightness == Brightness.dark ? 0.08 : 0.22,
           ),
         ),
       ),
@@ -142,7 +143,7 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: palette.bgSecondary.withValues(
-        alpha: brightness == Brightness.dark ? 0.54 : 0.52,
+        alpha: brightness == Brightness.dark ? 0.82 : 0.84,
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
@@ -186,10 +187,10 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
             ),
           ),
         ),
-        textStyle: GoogleFonts.manrope(
-          fontSize: 14,
+        textStyle: const TextStyle(
+          fontSize: 15,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.15,
+          letterSpacing: -0.1,
         ),
       ),
     ),
@@ -206,10 +207,7 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        textStyle: GoogleFonts.manrope(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
       ),
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
@@ -224,10 +222,10 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: palette.accentHover,
-        textStyle: GoogleFonts.manrope(
-          fontSize: 13,
+        textStyle: const TextStyle(
+          fontSize: 14,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.15,
+          letterSpacing: -0.05,
         ),
       ),
     ),
@@ -236,11 +234,11 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
       surfaceTintColor: Colors.transparent,
       foregroundColor: palette.textPrimary,
       elevation: 0,
-      titleTextStyle: GoogleFonts.spaceGrotesk(
+      titleTextStyle: TextStyle(
         color: palette.textPrimary,
         fontSize: 18,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.2,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
       ),
     ),
     dialogTheme: DialogThemeData(

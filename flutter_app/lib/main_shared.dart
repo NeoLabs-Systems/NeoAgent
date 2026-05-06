@@ -158,6 +158,7 @@ class _EntranceMotionState extends State<_EntranceMotion> {
 
 class _GlassSurface extends StatelessWidget {
   const _GlassSurface({
+    super.key,
     required this.child,
     this.width,
     this.padding,
@@ -241,7 +242,6 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
     AppSection.settings,
-    AppSection.agents,
     AppSection.messaging,
   ];
 }
@@ -1513,11 +1513,13 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.14),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Text(
         label,
@@ -1539,14 +1541,13 @@ class _MetaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = color ?? const Color(0xFF5EEAD4);
-    return Container(
+    final accentColor = color ?? _accentAlt;
+    return _GlassSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _border),
-      ),
+      borderRadius: BorderRadius.circular(999),
+      blurSigma: 10,
+      fillColor: _bgCard.withValues(alpha: 0.86),
+      borderColor: _borderLight,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -1573,14 +1574,13 @@ class _InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return _GlassSurface(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
+      borderRadius: BorderRadius.circular(16),
+      blurSigma: 12,
+      fillColor: _bgCard.withValues(alpha: 0.72),
+      borderColor: _borderLight,
       child: Row(
         children: <Widget>[
           Icon(icon, size: 16, color: Colors.white.withValues(alpha: 0.72)),
@@ -1871,13 +1871,12 @@ class _RecordingPermissionBadge extends StatelessWidget {
       ),
     };
 
-    return Container(
+    return _GlassSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
-      ),
+      borderRadius: BorderRadius.circular(16),
+      blurSigma: 10,
+      fillColor: color.withValues(alpha: 0.09),
+      borderColor: color.withValues(alpha: 0.22),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -1950,8 +1949,13 @@ class _AudioLevelBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = ((valueDb + 72) / 72).clamp(0.0, 1.0);
-    return SizedBox(
-      width: compact ? 148 : 220,
+    return _GlassSurface(
+      width: compact ? 168 : 240,
+      padding: const EdgeInsets.all(12),
+      borderRadius: BorderRadius.circular(18),
+      blurSigma: 10,
+      fillColor: _bgCard.withValues(alpha: 0.88),
+      borderColor: _borderLight,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1976,14 +1980,21 @@ class _AudioLevelBar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: compact ? 7 : 8,
-              color: color,
-              backgroundColor: _borderLight,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              builder: (context, animatedValue, _) {
+                return LinearProgressIndicator(
+                  value: animatedValue,
+                  minHeight: compact ? 7 : 8,
+                  color: color,
+                  backgroundColor: _borderLight,
+                );
+              },
             ),
           ),
         ],
