@@ -1587,7 +1587,7 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
                 gradient: LinearGradient(
@@ -1619,12 +1619,13 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                   _AgentGlyph(
                     agent: selectedAgent,
                     selected: true,
-                    compact: false,
+                    compact: true,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Row(
                           children: <Widget>[
@@ -1634,7 +1635,7 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: -0.15,
                                 ),
@@ -1650,14 +1651,14 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                             ],
                           ],
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Text(
                           _agentSwitcherSubtitle(selectedAgent),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: _textSecondary,
-                            fontSize: 11.5,
+                            fontSize: 10.8,
                             fontWeight: FontWeight.w500,
                             height: 1.2,
                           ),
@@ -1665,13 +1666,14 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   AnimatedRotation(
                     turns: isMenuOpen ? 0.5 : 0,
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOutCubic,
                     child: Icon(
                       Icons.keyboard_arrow_down_rounded,
+                      size: 20,
                       color: isMenuOpen ? _accentHover : _textSecondary,
                     ),
                   ),
