@@ -1477,37 +1477,457 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-class _AgentSwitcher extends StatelessWidget {
+class _AgentSwitcher extends StatefulWidget {
   const _AgentSwitcher({required this.controller, this.onChanged});
 
   final NeoAgentController controller;
   final VoidCallback? onChanged;
 
   @override
+  State<_AgentSwitcher> createState() => _AgentSwitcherState();
+}
+
+class _AgentSwitcherState extends State<_AgentSwitcher> {
+  final MenuController _menuController = MenuController();
+
+  void _toggleMenu() {
+    if (_menuController.isOpen) {
+      _menuController.close();
+    } else {
+      _menuController.open();
+    }
+    setState(() {});
+  }
+
+  Future<void> _selectAgent(String agentId) async {
+    if (widget.controller.selectedAgentId == agentId) {
+      _menuController.close();
+      setState(() {});
+      return;
+    }
+    widget.onChanged?.call();
+    _menuController.close();
+    setState(() {});
+    await widget.controller.switchAgent(agentId);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      initialValue: controller.selectedAgentId,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Agent',
-        prefixIcon: Icon(Icons.smart_toy_outlined, size: 18),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+    final controller = widget.controller;
+    final selectedAgent =
+        controller.activeAgent ?? controller.agentProfiles.first;
+    final isMenuOpen = _menuController.isOpen;
+
+    return MenuAnchor(
+      controller: _menuController,
+      style: MenuStyle(
+        backgroundColor: WidgetStateProperty.all(Colors.transparent),
+        surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
+        shadowColor: WidgetStateProperty.all(Colors.transparent),
+        elevation: WidgetStateProperty.all(0),
+        padding: WidgetStateProperty.all(EdgeInsets.zero),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        ),
       ),
-      items: controller.agentProfiles
-          .map(
-            (agent) => DropdownMenuItem<String>(
-              value: agent.id,
-              child: Text(agent.label, overflow: TextOverflow.ellipsis),
+      crossAxisUnconstrained: false,
+      onOpen: () => setState(() {}),
+      onClose: () => setState(() {}),
+      menuChildren: <Widget>[
+        SizedBox(
+          width: 320,
+          child: _GlassSurface(
+            borderRadius: BorderRadius.circular(24),
+            blurSigma: 28,
+            fillColor: _bgCard.withValues(alpha: 0.9),
+            overlayGradient: LinearGradient(
+              colors: <Color>[
+                Colors.white.withValues(alpha: 0.1),
+                _bgSecondary.withValues(alpha: 0.92),
+                _bgPrimary.withValues(alpha: 0.94),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          )
-          .toList(),
-      onChanged: (value) {
-        if (value == null) return;
-        onChanged?.call();
-        unawaited(controller.switchAgent(value));
+            boxShadow: <BoxShadow>[
+              ..._softPanelShadow,
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
+              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: controller.agentProfiles
+                    .map(
+                      (agent) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: _AgentSwitcherMenuItem(
+                          agent: agent,
+                          selected: agent.id == controller.selectedAgentId,
+                          onTap: () => _selectAgent(agent.id),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+        ),
+      ],
+      builder: (context, menuController, child) {
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: _toggleMenu,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  colors: <Color>[
+                    Colors.white.withValues(alpha: isMenuOpen ? 0.13 : 0.08),
+                    _accentMuted.withValues(alpha: isMenuOpen ? 0.24 : 0.14),
+                    _bgSecondary.withValues(alpha: isMenuOpen ? 0.92 : 0.84),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(
+                  color: isMenuOpen
+                      ? _accent.withValues(alpha: 0.65)
+                      : _borderLight,
+                ),
+                boxShadow: isMenuOpen
+                    ? <BoxShadow>[
+                        BoxShadow(
+                          color: _accent.withValues(alpha: 0.16),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                children: <Widget>[
+                  _AgentGlyph(
+                    agent: selectedAgent,
+                    selected: true,
+                    compact: false,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Flexible(
+                              child: Text(
+                                selectedAgent.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.15,
+                                ),
+                              ),
+                            ),
+                            if (selectedAgent.isDefault) ...<Widget>[
+                              const SizedBox(width: 8),
+                              _AgentTag(
+                                label: 'DEFAULT',
+                                color: _accent,
+                                foreground: _accentHover,
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          _agentSwitcherSubtitle(selectedAgent),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  AnimatedRotation(
+                    turns: isMenuOpen ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: isMenuOpen ? _accentHover : _textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
       },
     );
   }
+}
+
+String _agentSwitcherSubtitle(AgentProfile agent) {
+  if (agent.description.trim().isNotEmpty) {
+    return agent.description.trim();
+  }
+  if (agent.responsibilities.trim().isNotEmpty) {
+    return agent.responsibilities.trim();
+  }
+  return agent.canDelegate
+      ? 'Can coordinate delegated work'
+      : 'Focused execution profile';
+}
+
+class _AgentSwitcherMenuItem extends StatelessWidget {
+  const _AgentSwitcherMenuItem({
+    required this.agent,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AgentProfile agent;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: selected
+                ? LinearGradient(
+                    colors: <Color>[
+                      _accent.withValues(alpha: 0.18),
+                      _accentMuted.withValues(alpha: 0.3),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: selected ? null : Colors.white.withValues(alpha: 0.025),
+            border: Border.all(
+              color: selected ? _accent.withValues(alpha: 0.5) : _borderLight,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _AgentGlyph(agent: agent, selected: selected, compact: true),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              agent.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontSize: 13.5,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                letterSpacing: -0.1,
+                              ),
+                            ),
+                          ),
+                          if (agent.isDefault) ...<Widget>[
+                            const SizedBox(width: 8),
+                            _AgentTag(
+                              label: 'DEFAULT',
+                              color: _accent,
+                              foreground: _accentHover,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _agentSwitcherSubtitle(agent),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 11.5,
+                          height: 1.3,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 140),
+                  opacity: selected ? 1 : 0,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _accent.withValues(alpha: 0.2),
+                      border: Border.all(
+                        color: _accent.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.check_rounded,
+                      size: 15,
+                      color: _accentHover,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentGlyph extends StatelessWidget {
+  const _AgentGlyph({
+    required this.agent,
+    required this.selected,
+    required this.compact,
+  });
+
+  final AgentProfile agent;
+  final bool selected;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = agent.isDefault ? _accent : _accentAlt;
+    final initials = _agentInitials(agent.displayName);
+    final size = compact ? 42.0 : 44.0;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: <Color>[
+            baseColor.withValues(alpha: selected ? 0.85 : 0.65),
+            Color.lerp(
+              baseColor,
+              _bgSecondary,
+              0.35,
+            )!.withValues(alpha: selected ? 0.9 : 0.78),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: selected ? 0.34 : 0.2),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: baseColor.withValues(alpha: selected ? 0.22 : 0.12),
+            blurRadius: compact ? 12 : 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          Icon(
+            agent.canDelegate ? Icons.hub_rounded : Icons.smart_toy_outlined,
+            size: compact ? 17 : 18,
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
+          Text(
+            initials,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: compact ? 12 : 12.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentTag extends StatelessWidget {
+  const _AgentTag({
+    required this.label,
+    required this.color,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color color;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.14),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+String _agentInitials(String label) {
+  final parts = label
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList(growable: false);
+  if (parts.isEmpty) return 'A';
+  if (parts.length == 1) {
+    return parts.first.characters.take(2).toString().toUpperCase();
+  }
+  return (parts.first.characters.first + parts.last.characters.first)
+      .toUpperCase();
 }
 
 class _ProfileSettingsButton extends StatelessWidget {
