@@ -51,6 +51,7 @@ class NeoAgentController extends ChangeNotifier {
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
   );
+  static const String _selectedSectionPrefsKey = 'ui.selectedSection';
 
   SharedPreferences? _prefs;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
@@ -689,6 +690,7 @@ class NeoAgentController extends ChangeNotifier {
         _prefs?.getBool('desktop.autoShowFloatingToolbar') ?? true;
     _desktopAssistantHotkeyEnabled =
         _prefs?.getBool('desktop.assistantHotkeyEnabled') ?? true;
+    _restoreSelectedSectionFromPrefs();
     _voiceAssistantIncludeScreenContext =
         (_prefs?.getBool('voiceAssistant.includeScreenContext') ?? false) &&
         canCaptureVoiceAssistantScreenContext;
@@ -1529,6 +1531,9 @@ class NeoAgentController extends ChangeNotifier {
     toolEvents = const <ToolEventItem>[];
     streamingAssistant = '';
     selectedSection = AppSection.chat;
+    unawaited(
+      _prefs?.setString(_selectedSectionPrefsKey, AppSection.chat.name),
+    );
     _selectedWidgetId = null;
     _pendingChatDraft = null;
     _runDetailsCache.clear();
@@ -1576,6 +1581,20 @@ class NeoAgentController extends ChangeNotifier {
     unawaited(_syncHomeWidgetConfig());
   }
 
+  void _restoreSelectedSectionFromPrefs() {
+    final rawSection =
+        _prefs?.getString(_selectedSectionPrefsKey)?.trim() ?? '';
+    if (rawSection.isEmpty) {
+      return;
+    }
+
+    final restoredSection = AppSection.values.firstWhere(
+      (section) => section.name == rawSection,
+      orElse: () => AppSection.chat,
+    );
+    selectedSection = restoredSection;
+  }
+
   Future<void> _syncDesktopCompanionSession() {
     return _desktopCompanion.updateSession(
       backendUrl: backendUrl,
@@ -1586,6 +1605,7 @@ class NeoAgentController extends ChangeNotifier {
 
   void setSelectedSection(AppSection section) {
     selectedSection = section;
+    unawaited(_prefs?.setString(_selectedSectionPrefsKey, section.name));
     if (section == AppSection.devices) {
       unawaited(refreshDevices());
     }
