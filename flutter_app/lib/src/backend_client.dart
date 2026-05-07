@@ -463,6 +463,10 @@ class BackendClient {
     return getMap(baseUrl, '/api/version');
   }
 
+  Future<Map<String, dynamic>> fetchRuntimeConfig(String baseUrl) async {
+    return getMap(baseUrl, '/api/runtime/config', allowUnauthorized: true);
+  }
+
   Future<Map<String, dynamic>> fetchBrowserStatus(String baseUrl) async {
     return getMap(baseUrl, '/api/browser/status');
   }

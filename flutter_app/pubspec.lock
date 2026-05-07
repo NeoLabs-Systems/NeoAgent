@@ -574,6 +574,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.16.0"
+  mixpanel_flutter:
+    dependency: "direct main"
+    description:
+      name: mixpanel_flutter
+      sha256: "6962b8ce61eb6202d6545bee648e21a7bc9f7e804fa293912e9673329f499ece"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.7.0"
   mobile_scanner:
     dependency: "direct main"
     description:

@@ -1826,6 +1826,167 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
   }
 }
 
+class _GlobalAnalyticsConsentBanner extends StatelessWidget {
+  const _GlobalAnalyticsConsentBanner({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 700;
+        final body = Text(
+          'NeoAgent uses anonymous analytics to understand startup, navigation, and setup flows. No messages, credentials, or personal content are collected.',
+          style: TextStyle(color: _textSecondary, height: 1.35),
+        );
+        return Material(
+          color: Colors.transparent,
+          child: _GlassSurface(
+            borderRadius: BorderRadius.circular(22),
+            blurSigma: 26,
+            fillColor: _bgCard.withValues(alpha: 0.94),
+            borderColor: _accent.withValues(alpha: 0.18),
+            overlayGradient: LinearGradient(
+              colors: <Color>[
+                _accent.withValues(alpha: 0.12),
+                _bgCard.withValues(alpha: 0.88),
+                _bgSecondary.withValues(alpha: 0.86),
+              ],
+              stops: const <double>[0, 0.22, 1],
+              begin: const Alignment(-1, -1),
+              end: const Alignment(1, 1),
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 34,
+                offset: const Offset(0, 18),
+              ),
+              BoxShadow(
+                color: _accent.withValues(alpha: 0.1),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: _accent.withValues(alpha: 0.16),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _accent.withValues(alpha: 0.24),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.cookie_outlined,
+                              color: _accent,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  'Analytics cookies',
+                                  style: TextStyle(
+                                    color: _textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                body,
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: controller.declineAnalyticsConsent,
+                              child: const Text('Decline'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: controller.acceptAnalyticsConsent,
+                              child: const Text('Allow analytics'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: _accent.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _accent.withValues(alpha: 0.24),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.cookie_outlined,
+                          color: _accent,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Analytics cookies',
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            body,
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      OutlinedButton(
+                        onPressed: controller.declineAnalyticsConsent,
+                        child: const Text('Decline'),
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton(
+                        onPressed: controller.acceptAnalyticsConsent,
+                        child: const Text('Allow analytics'),
+                      ),
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _DesktopCloseDecision {
   const _DesktopCloseDecision({
     required this.keepRunning,

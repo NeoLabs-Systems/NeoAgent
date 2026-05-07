@@ -627,6 +627,28 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                       ),
                     ),
                   ),
+                if (!_desktopToolbarWindowMode &&
+                    !_desktopAssistantPopupWindowMode &&
+                    _controller.showAnalyticsConsentBanner)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 980),
+                            child: _GlobalAnalyticsConsentBanner(
+                              controller: _controller,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (_supportsDesktopShell &&
                     !_desktopToolbarWindowMode &&
                     !_desktopAssistantPopupWindowMode)

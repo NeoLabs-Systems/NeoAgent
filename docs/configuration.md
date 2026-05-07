@@ -18,6 +18,17 @@ AI provider credentials, OAuth client secrets, and deployment controls are not c
 | `NEOAGENT_DEPLOYMENT_MODE` | `self_hosted` | `self_hosted` enables in-app update controls; `managed` hides operator-only controls for SaaS deployments. |
 | `NEOAGENT_RELEASE_CHANNEL` | `stable` | Release track used by the self-hosted updater. |
 
+## Analytics
+
+NeoAgent can send anonymous Mixpanel usage events from the Flutter client. The events cover app startup, section navigation, auth success, backend setup, onboarding dismissal, chat sends, recording start/stop, task runs, update checks, and update triggers. They do not include message content, credentials, or other app data.
+
+Set `NEOAGENT_MIXPANEL_TOKEN` to your own public Mixpanel project token to enable analytics. Leave it blank to disable analytics entirely.
+When analytics is enabled, the web client shows a dismissible cookie-consent banner until the user accepts or declines.
+
+| Variable | Default | Description |
+|---|---:|---|
+| `NEOAGENT_MIXPANEL_TOKEN` | optional | Public Mixpanel project token used by the Flutter client. |
+
 ## Service Email
 
 Service email is optional. When `NEOAGENT_EMAIL_FROM` and `NEOAGENT_EMAIL_SMTP_HOST` are set, NeoAgent uses SMTP for account security flows: signup confirmation, password reset, unusual login notifications, password change notifications, and email change notifications. Confirmation and reset links use the same `PUBLIC_URL` base as the other server-generated links.
