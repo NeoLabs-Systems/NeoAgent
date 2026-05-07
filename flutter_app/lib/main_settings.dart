@@ -195,11 +195,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final modelChoices = <DropdownMenuItem<String>>[
       const DropdownMenuItem<String>(
         value: 'auto',
-        child: Text('Smart Selector (Auto)'),
+        child: Text(
+          'Smart Selector (Auto)',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
       ...routingModels.map(
-        (model) =>
-            DropdownMenuItem<String>(value: model.id, child: Text(model.label)),
+        (model) => DropdownMenuItem<String>(
+          value: model.id,
+          child: Text(
+            model.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ),
     ];
     final enabledSmartModels = _enabledModels
@@ -634,7 +644,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
                               .map(
                                 (model) => DropdownMenuItem<String>(
                                   value: model.id,
-                                  child: Text(model.label),
+                                  child: Text(
+                                    model.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -2030,6 +2044,7 @@ class _RoutingSelectCard extends StatelessWidget {
           DropdownButtonFormField<String>(
             initialValue: value,
             items: items,
+            isExpanded: true,
             decoration: const InputDecoration(isDense: true),
             onChanged: onChanged,
           ),
