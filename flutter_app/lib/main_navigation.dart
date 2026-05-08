@@ -32,7 +32,7 @@ enum AppSection {
   health,
 }
 
-enum SidebarGroup { chat, recordings, activity, automation, settings }
+enum SidebarGroup { chat, recordings, automation, settings }
 
 extension SidebarGroupX on SidebarGroup {
   String get label {
@@ -41,8 +41,6 @@ extension SidebarGroupX on SidebarGroup {
         return 'Chat';
       case SidebarGroup.recordings:
         return 'Recordings';
-      case SidebarGroup.activity:
-        return 'Activity';
       case SidebarGroup.automation:
         return 'Automation';
       case SidebarGroup.settings:
@@ -56,8 +54,6 @@ extension SidebarGroupX on SidebarGroup {
         return Icons.chat_bubble_outline;
       case SidebarGroup.recordings:
         return Icons.fiber_smart_record_outlined;
-      case SidebarGroup.activity:
-        return Icons.insights_outlined;
       case SidebarGroup.automation:
         return Icons.auto_awesome_outlined;
       case SidebarGroup.settings:
@@ -80,7 +76,7 @@ extension AppSectionX on AppSection {
       case AppSection.messaging:
         return 'Messaging';
       case AppSection.runs:
-        return 'Runs';
+        return 'Runs & Logs';
       case AppSection.settings:
         return 'Settings';
       case AppSection.accountSettings:
@@ -92,7 +88,7 @@ extension AppSectionX on AppSection {
       case AppSection.agents:
         return 'Agents';
       case AppSection.integrations:
-        return 'Integrations';
+        return 'Tools';
       case AppSection.memory:
         return 'Memory';
       case AppSection.tasks:
@@ -119,7 +115,7 @@ extension AppSectionX on AppSection {
       case AppSection.messaging:
         return Icons.forum_outlined;
       case AppSection.runs:
-        return Icons.history;
+        return Icons.monitor_heart_outlined;
       case AppSection.settings:
         return Icons.tune;
       case AppSection.accountSettings:
@@ -131,7 +127,7 @@ extension AppSectionX on AppSection {
       case AppSection.agents:
         return Icons.smart_toy_outlined;
       case AppSection.integrations:
-        return Icons.integration_instructions_outlined;
+        return Icons.handyman_outlined;
       case AppSection.memory:
         return Icons.psychology_outlined;
       case AppSection.tasks:
@@ -152,9 +148,6 @@ extension AppSectionX on AppSection {
         return SidebarGroup.chat;
       case AppSection.recordings:
         return SidebarGroup.recordings;
-      case AppSection.runs:
-      case AppSection.logs:
-        return SidebarGroup.activity;
       case AppSection.devices:
       case AppSection.skills:
       case AppSection.integrations:
@@ -164,6 +157,8 @@ extension AppSectionX on AppSection {
       case AppSection.mcp:
       case AppSection.health:
         return SidebarGroup.automation;
+      case AppSection.runs:
+      case AppSection.logs:
       case AppSection.settings:
       case AppSection.accountSettings:
       case AppSection.messaging:
@@ -172,17 +167,31 @@ extension AppSectionX on AppSection {
     }
   }
 
+  AppSection get canonicalSection {
+    switch (this) {
+      case AppSection.logs:
+        return AppSection.runs;
+      case AppSection.skills:
+      case AppSection.mcp:
+        return AppSection.integrations;
+      default:
+        return this;
+    }
+  }
+
   String get navigationTitle {
-    final groupLabel = group.label;
-    if (this == AppSection.voiceAssistant) {
-      return label;
+    final effectiveSection = canonicalSection;
+    final groupLabel = effectiveSection.group.label;
+    if (effectiveSection == AppSection.voiceAssistant) {
+      return effectiveSection.label;
     }
-    if (group == SidebarGroup.chat || group == SidebarGroup.recordings) {
+    if (effectiveSection.group == SidebarGroup.chat ||
+        effectiveSection.group == SidebarGroup.recordings) {
       return groupLabel;
     }
-    if (groupLabel == label) {
+    if (groupLabel == effectiveSection.label) {
       return groupLabel;
     }
-    return '$groupLabel · $label';
+    return '$groupLabel · ${effectiveSection.label}';
   }
 }

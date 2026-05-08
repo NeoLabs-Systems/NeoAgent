@@ -1,9 +1,14 @@
 part of 'main.dart';
 
 class SettingsPanel extends StatefulWidget {
-  const SettingsPanel({super.key, required this.controller});
+  const SettingsPanel({
+    super.key,
+    required this.controller,
+    this.embedded = false,
+  });
 
   final NeoAgentController controller;
+  final bool embedded;
 
   @override
   State<SettingsPanel> createState() => _SettingsPanelState();
@@ -69,7 +74,99 @@ const Map<String, List<String>> _voiceLiveVoicesByProvider =
       ],
     };
 
+class _SettingsSection {
+  const _SettingsSection(
+    this.title,
+    this.keywords, {
+    this.requiresDesktop = false,
+  });
+
+  final String title;
+  final List<String> keywords;
+  final bool requiresDesktop;
+}
+
+const _overviewSettingsSection = _SettingsSection('overview', <String>[
+  'overview',
+  'summary',
+  'onboarding',
+  'platform',
+  'providers',
+]);
+
+const _workspaceSettingsSection = _SettingsSection('workspace', <String>[
+  'workspace',
+  'browser',
+  'extension',
+  'headless',
+  'routing',
+]);
+
+const _modelsSettingsSection = _SettingsSection('models', <String>[
+  'models',
+  'providers',
+  'routing',
+  'fallback',
+  'chat',
+  'sub-agent',
+  'subagent',
+  'smart selector',
+]);
+
+const _voiceRecordingSettingsSection = _SettingsSection(
+  'voice recording',
+  <String>[
+    'voice',
+    'recording',
+    'transcription',
+    'summary',
+    'speech',
+    'tts',
+    'stt',
+    'live',
+  ],
+);
+
+const _desktopSettingsSection = _SettingsSection('desktop', <String>[
+  'desktop',
+  'permissions',
+  'capture',
+  'companion',
+  'screen recording',
+  'accessibility',
+  'input',
+], requiresDesktop: true);
+
+const _updatesSettingsSection = _SettingsSection('updates', <String>[
+  'updates',
+  'release',
+  'channel',
+  'version',
+  'self update',
+  'upgrade',
+]);
+
+const _diagnosticsSettingsSection = _SettingsSection('diagnostics', <String>[
+  'diagnostics',
+  'logs',
+  'token',
+  'usage',
+  'debug',
+  'health',
+]);
+
+const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
+  _overviewSettingsSection,
+  _workspaceSettingsSection,
+  _modelsSettingsSection,
+  _voiceRecordingSettingsSection,
+  _desktopSettingsSection,
+  _updatesSettingsSection,
+  _diagnosticsSettingsSection,
+];
+
 class _SettingsPanelState extends State<SettingsPanel> {
+  late final TextEditingController _searchController;
   late bool _headlessBrowser;
   late String _browserBackend;
   late bool _smarterSelector;
@@ -91,11 +188,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
   @override
   void initState() {
     super.initState();
+    _searchController = TextEditingController();
     _hydrate();
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     for (final controller in _providerBaseUrlControllers.values) {
       controller.dispose();
     }
@@ -186,6 +285,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
+    final searchQuery = _searchController.text.trim().toLowerCase();
     final availableModels = controller.supportedModels
         .where((model) => model.available)
         .toList();
@@ -215,90 +315,187 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final enabledSmartModels = _enabledModels
         .where((id) => routingModels.any((model) => model.id == id))
         .length;
+    final visibleSearchSections = _settingsSearchSections
+        .where((section) => !section.requiresDesktop || _supportsDesktopShell)
+        .toSet();
 
     return ListView(
-      padding: _pagePadding(context),
+      padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
       children: <Widget>[
-        _PageTitle(
-          title: 'Settings',
-          subtitle:
-              'Workspace, models, recording, update, and diagnostics controls.',
-          trailing: FilledButton.icon(
-            onPressed: controller.isSavingSettings
-                ? null
-                : () => controller.saveSettings(
-                    headlessBrowser: _headlessBrowser,
-                    browserBackend: _browserBackend == 'extension'
-                        ? 'extension'
-                        : controller.cloudBrowserBackend,
-                    smarterSelector: _smarterSelector,
-                    enabledModels: _enabledModels.toList(),
-                    defaultChatModel: _defaultChatModel,
-                    defaultSubagentModel: _defaultSubagentModel,
-                    defaultRecordingTranscriptionProvider: 'deepgram',
-                    defaultRecordingTranscriptionModel:
-                        _defaultRecordingTranscriptionModel,
-                    defaultRecordingSummaryProvider: _providerForSelectedModel(
-                      _defaultRecordingSummaryModel,
-                      controller.supportedModels,
-                    ),
-                    defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
-                    fallbackModel: _fallbackModel,
-                    defaultSpeechModel: _defaultSpeechModel,
-                    voiceSttProvider: controller.voiceSttProvider,
-                    voiceSttModel: controller.voiceSttModel,
-                    voiceTtsProvider: controller.voiceTtsProvider,
-                    voiceTtsModel: controller.voiceTtsModel,
-                    voiceTtsVoice: controller.voiceTtsVoice,
-                    voiceRuntimeMode: 'live',
-                    voiceLiveProvider: _voiceLiveProvider,
-                    voiceLiveModel: _voiceLiveModel,
-                    voiceLiveVoice: _voiceLiveVoice,
-                    aiProviderConfigs: _buildProviderPayload(),
-                  ),
-            style: FilledButton.styleFrom(backgroundColor: _accent),
-            icon: controller.isSavingSettings
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Icon(Icons.save_outlined),
-            label: Text('Save'),
+        if (!widget.embedded)
+          _PageTitle(
+            title: 'Settings',
+            subtitle:
+                'Workspace, models, recording, update, and diagnostics controls.',
+            trailing: _settingsSaveButton(controller),
+          )
+        else
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _settingsSaveButton(controller),
+            ),
           ),
-        ),
         if (controller.errorMessage != null) ...<Widget>[
           _InlineError(message: controller.errorMessage!),
           const SizedBox(height: 16),
         ],
-        _buildSettingsOverview(controller, availableModels.length),
-        const SizedBox(height: 16),
-        _buildWorkspaceSection(controller),
-        const SizedBox(height: 16),
-        _buildModelsSection(
-          controller: controller,
-          modelChoices: modelChoices,
-          routingModels: routingModels,
-          availableModels: availableModels,
-          enabledSmartModels: enabledSmartModels,
+        TextField(
+          controller: _searchController,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            labelText: 'Search settings',
+            hintText: 'Models, browser, voice, updates, diagnostics...',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: searchQuery.isEmpty
+                ? null
+                : IconButton(
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.close),
+                  ),
+          ),
         ),
         const SizedBox(height: 16),
-        _buildVoiceAndRecordingSection(
-          controller: controller,
-          modelChoices: modelChoices,
-          routingModels: routingModels,
-        ),
-        const SizedBox(height: 16),
-        if (_supportsDesktopShell) ...<Widget>[
+        if (_matchesSettingsSection(
+          searchQuery,
+          _overviewSettingsSection,
+        )) ...<Widget>[
+          _buildSettingsOverview(controller, availableModels.length),
+          const SizedBox(height: 16),
+        ],
+        if (_matchesSettingsSection(
+          searchQuery,
+          _workspaceSettingsSection,
+        )) ...<Widget>[
+          _buildWorkspaceSection(controller),
+          const SizedBox(height: 16),
+        ],
+        if (_matchesSettingsSection(
+          searchQuery,
+          _modelsSettingsSection,
+        )) ...<Widget>[
+          _buildModelsSection(
+            controller: controller,
+            modelChoices: modelChoices,
+            routingModels: routingModels,
+            availableModels: availableModels,
+            enabledSmartModels: enabledSmartModels,
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (_matchesSettingsSection(
+          searchQuery,
+          _voiceRecordingSettingsSection,
+        )) ...<Widget>[
+          _buildVoiceAndRecordingSection(
+            controller: controller,
+            modelChoices: modelChoices,
+            routingModels: routingModels,
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (visibleSearchSections.contains(_desktopSettingsSection) &&
+            _matchesSettingsSection(
+              searchQuery,
+              _desktopSettingsSection,
+            )) ...<Widget>[
           _buildDesktopSection(controller),
           const SizedBox(height: 16),
         ],
-        _buildUpdatesSection(controller),
-        const SizedBox(height: 16),
-        _buildDiagnosticsSection(controller),
+        if (_matchesSettingsSection(
+          searchQuery,
+          _updatesSettingsSection,
+        )) ...<Widget>[
+          _buildUpdatesSection(controller),
+          const SizedBox(height: 16),
+        ],
+        if (_matchesSettingsSection(
+          searchQuery,
+          _diagnosticsSettingsSection,
+        )) ...<Widget>[_buildDiagnosticsSection(controller)],
+        if (_noSettingsMatches(searchQuery, visibleSearchSections)) ...<Widget>[
+          const _EmptyCard(
+            title: 'No matching settings',
+            subtitle:
+                'Try a broader search like models, browser, voice, or updates.',
+          ),
+        ],
       ],
+    );
+  }
+
+  bool _matchesSettingsSection(String query, _SettingsSection section) {
+    if (query.isEmpty) {
+      return true;
+    }
+    final haystack = <String>[
+      section.title,
+      ...section.keywords,
+    ].join(' ').toLowerCase();
+    return haystack.contains(query);
+  }
+
+  bool _noSettingsMatches(
+    String query,
+    Iterable<_SettingsSection> visibleSections,
+  ) {
+    if (query.isEmpty) {
+      return false;
+    }
+    return !visibleSections.any(
+      (section) => _matchesSettingsSection(query, section),
+    );
+  }
+
+  Widget _settingsSaveButton(NeoAgentController controller) {
+    return FilledButton.icon(
+      onPressed: controller.isSavingSettings
+          ? null
+          : () => controller.saveSettings(
+              headlessBrowser: _headlessBrowser,
+              browserBackend: _browserBackend == 'extension'
+                  ? 'extension'
+                  : controller.cloudBrowserBackend,
+              smarterSelector: _smarterSelector,
+              enabledModels: _enabledModels.toList(),
+              defaultChatModel: _defaultChatModel,
+              defaultSubagentModel: _defaultSubagentModel,
+              defaultRecordingTranscriptionProvider: 'deepgram',
+              defaultRecordingTranscriptionModel:
+                  _defaultRecordingTranscriptionModel,
+              defaultRecordingSummaryProvider: _providerForSelectedModel(
+                _defaultRecordingSummaryModel,
+                controller.supportedModels,
+              ),
+              defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
+              fallbackModel: _fallbackModel,
+              defaultSpeechModel: _defaultSpeechModel,
+              voiceSttProvider: controller.voiceSttProvider,
+              voiceSttModel: controller.voiceSttModel,
+              voiceTtsProvider: controller.voiceTtsProvider,
+              voiceTtsModel: controller.voiceTtsModel,
+              voiceTtsVoice: controller.voiceTtsVoice,
+              voiceRuntimeMode: 'live',
+              voiceLiveProvider: _voiceLiveProvider,
+              voiceLiveModel: _voiceLiveModel,
+              voiceLiveVoice: _voiceLiveVoice,
+              aiProviderConfigs: _buildProviderPayload(),
+            ),
+      style: FilledButton.styleFrom(backgroundColor: _accent),
+      icon: controller.isSavingSettings
+          ? const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : Icon(Icons.save_outlined),
+      label: Text('Save'),
     );
   }
 

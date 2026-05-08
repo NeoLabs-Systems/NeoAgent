@@ -1,26 +1,34 @@
 part of 'main.dart';
 
 class IntegrationsPanel extends StatelessWidget {
-  const IntegrationsPanel({super.key, required this.controller});
+  const IntegrationsPanel({
+    super.key,
+    required this.controller,
+    this.embedded = false,
+  });
 
   final NeoAgentController controller;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: _pagePadding(context),
-      child: Column(
-        children: <Widget>[
+    final body = Column(
+      children: <Widget>[
+        if (!embedded) ...<Widget>[
           _PageTitle(
             title: 'Integrations',
             subtitle:
                 'Connect and manage official integrations separately from reusable skills.',
           ),
           const SizedBox(height: 12),
-          Expanded(child: OfficialIntegrationsTab(controller: controller)),
         ],
-      ),
+        Expanded(child: OfficialIntegrationsTab(controller: controller)),
+      ],
     );
+    if (embedded) {
+      return body;
+    }
+    return Padding(padding: _pagePadding(context), child: body);
   }
 }
 

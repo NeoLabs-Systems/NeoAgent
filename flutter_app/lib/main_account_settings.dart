@@ -150,16 +150,23 @@ class _PasswordStrengthIndicator extends StatelessWidget {
 enum AccountSettingsTab { account, security }
 
 class AccountSettingsPanel extends StatefulWidget {
-  const AccountSettingsPanel({super.key, required this.controller});
+  const AccountSettingsPanel({
+    super.key,
+    required this.controller,
+    this.embedded = false,
+    this.initialTab,
+  });
 
   final NeoAgentController controller;
+  final bool embedded;
+  final AccountSettingsTab? initialTab;
 
   @override
   State<AccountSettingsPanel> createState() => _AccountSettingsPanelState();
 }
 
 class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
-  AccountSettingsTab _selectedTab = AccountSettingsTab.account;
+  late AccountSettingsTab _selectedTab;
   late final TextEditingController _emailController;
   late final TextEditingController _emailPasswordController;
   late final TextEditingController _setupPasswordController;
@@ -179,6 +186,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   @override
   void initState() {
     super.initState();
+    _selectedTab = widget.initialTab ?? AccountSettingsTab.account;
     _emailController = TextEditingController(
       text: widget.controller.user?['email']?.toString() ?? '',
     );
@@ -196,6 +204,10 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   @override
   void didUpdateWidget(covariant AccountSettingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != null &&
+        oldWidget.initialTab != widget.initialTab) {
+      _selectedTab = widget.initialTab!;
+    }
     final email = widget.controller.user?['email']?.toString() ?? '';
     if (_emailController.text.isEmpty && email.isNotEmpty) {
       _emailController.text = email;
@@ -291,42 +303,43 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 860;
+    final showTabSwitcher = widget.initialTab == null;
     return ListView(
-      padding: _pagePadding(context),
+      padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
       children: <Widget>[
-        _PageTitle(
-          title: 'Account settings',
-          subtitle:
-              'Manage your account email, two-factor authentication, and active sessions.',
-          trailing: OutlinedButton.icon(
-            onPressed: widget.controller.isLoadingAccountSettings
-                ? null
-                : widget.controller.refreshAccountSettings,
-            icon: widget.controller.isLoadingAccountSettings
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(Icons.refresh),
-            label: Text('Refresh'),
+        if (!widget.embedded)
+          _PageTitle(
+            title: 'Account settings',
+            subtitle:
+                'Manage your account email, two-factor authentication, and active sessions.',
+            trailing: _refreshButton(),
+          )
+        else
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _refreshButton(),
+            ),
           ),
-        ),
         if (widget.controller.errorMessage != null) ...<Widget>[
           _InlineError(message: widget.controller.errorMessage!),
           const SizedBox(height: 16),
         ],
-        if (compact)
+        if (showTabSwitcher && compact)
           _AccountSettingsTabs(
             selected: _selectedTab,
             onSelected: (value) => setState(() => _selectedTab = value),
           )
         else
           const SizedBox.shrink(),
-        if (compact) const SizedBox(height: 16),
+        if (showTabSwitcher && compact) const SizedBox(height: 16),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
-            child: compact
+            child: !showTabSwitcher
+                ? _buildSelectedPanel()
+                : compact
                 ? _buildSelectedPanel()
                 : Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,6 +370,21 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       case AccountSettingsTab.security:
         return _buildSecurityPanel();
     }
+  }
+
+  Widget _refreshButton() {
+    return OutlinedButton.icon(
+      onPressed: widget.controller.isLoadingAccountSettings
+          ? null
+          : widget.controller.refreshAccountSettings,
+      icon: widget.controller.isLoadingAccountSettings
+          ? const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(Icons.refresh),
+      label: Text('Refresh'),
+    );
   }
 
   Widget _buildAccountPanel() {

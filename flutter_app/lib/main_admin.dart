@@ -367,24 +367,38 @@ class AgentsPanel extends StatelessWidget {
 }
 
 class McpPanel extends StatelessWidget {
-  const McpPanel({super.key, required this.controller});
+  const McpPanel({super.key, required this.controller, this.embedded = false});
 
   final NeoAgentController controller;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: _pagePadding(context),
+      padding: embedded ? EdgeInsets.zero : _pagePadding(context),
       children: <Widget>[
-        _PageTitle(
-          title: 'MCP',
-          subtitle: 'Configured MCP servers and live server status.',
-          trailing: FilledButton.icon(
-            onPressed: () => _openMcpEditor(context),
-            icon: Icon(Icons.add),
-            label: Text('Add Server'),
+        if (!embedded)
+          _PageTitle(
+            title: 'MCP',
+            subtitle: 'Configured MCP servers and live server status.',
+            trailing: FilledButton.icon(
+              onPressed: () => _openMcpEditor(context),
+              icon: Icon(Icons.add),
+              label: Text('Add Server'),
+            ),
+          )
+        else
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: FilledButton.icon(
+                onPressed: () => _openMcpEditor(context),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Server'),
+              ),
+            ),
           ),
-        ),
         if (controller.mcpServers.isEmpty)
           const _EmptyCard(
             title: 'No MCP servers configured',

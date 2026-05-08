@@ -3778,7 +3778,8 @@ class NeoAgentController extends ChangeNotifier {
       _desktopFloatingToolbarPopupRequested = false;
       unawaited(
         _analytics.trackRecordingStopped(
-          kind: recordingRuntime.supportsBackgroundMic &&
+          kind:
+              recordingRuntime.supportsBackgroundMic &&
                   !recordingRuntime.supportsScreenAndMic
               ? 'background'
               : 'desktop',

@@ -1120,10 +1120,11 @@ class _HomeViewState extends State<HomeView> {
   }
 
   SidebarGroup? _sidebarGroupForSection(AppSection section) {
-    if (!_mainSections(widget.controller).contains(section)) {
+    final visibleSection = section.canonicalSection;
+    if (!_mainSections(widget.controller).contains(visibleSection)) {
       return null;
     }
-    return section.group;
+    return visibleSection.group;
   }
 
   void _handleControllerChanged() {
@@ -2104,19 +2105,19 @@ class _SectionBody extends StatelessWidget {
       case AppSection.messaging:
         return MessagingPanel(controller: controller);
       case AppSection.runs:
-        return RunsPanel(controller: controller);
+        return RunsAndLogsPanel(controller: controller);
       case AppSection.settings:
-        return SettingsPanel(controller: controller);
+        return SettingsWorkspacePanel(controller: controller);
       case AppSection.accountSettings:
-        return AccountSettingsPanel(controller: controller);
+        return SettingsWorkspacePanel(controller: controller);
       case AppSection.logs:
-        return LogsPanel(controller: controller);
+        return RunsAndLogsPanel(controller: controller);
       case AppSection.skills:
-        return SkillsPanel(controller: controller);
+        return ToolsPanel(controller: controller);
       case AppSection.agents:
         return AgentsPanel(controller: controller);
       case AppSection.integrations:
-        return IntegrationsPanel(controller: controller);
+        return ToolsPanel(controller: controller);
       case AppSection.memory:
         return MemoryPanel(controller: controller);
       case AppSection.tasks:
@@ -2124,7 +2125,7 @@ class _SectionBody extends StatelessWidget {
       case AppSection.widgets:
         return WidgetsPanel(controller: controller);
       case AppSection.mcp:
-        return McpPanel(controller: controller);
+        return ToolsPanel(controller: controller);
       case AppSection.health:
         return controller.showHealthSection
             ? HealthPanel(controller: controller)

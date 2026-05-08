@@ -1,9 +1,10 @@
 part of 'main.dart';
 
 class LogsPanel extends StatefulWidget {
-  const LogsPanel({super.key, required this.controller});
+  const LogsPanel({super.key, required this.controller, this.embedded = false});
 
   final NeoAgentController controller;
+  final bool embedded;
 
   @override
   State<LogsPanel> createState() => _LogsPanelState();
@@ -350,46 +351,89 @@ class _LogsPanelState extends State<LogsPanel> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: _pagePadding(context),
+      padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
       children: <Widget>[
-        _PageTitle(
-          title: 'Logs',
-          subtitle:
-              'Merged server and Flutter runtime logs for this app session.',
-          trailing: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: <Widget>[
-              OutlinedButton.icon(
-                onPressed: _isExportingRecentMessages
-                    ? null
-                    : _exportRecentMessages,
-                icon: _isExportingRecentMessages
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(Icons.ios_share_outlined),
-                label: Text('Export last 5 messages'),
+        if (!widget.embedded)
+          _PageTitle(
+            title: 'Logs',
+            subtitle:
+                'Merged server and Flutter runtime logs for this app session.',
+            trailing: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: <Widget>[
+                OutlinedButton.icon(
+                  onPressed: _isExportingRecentMessages
+                      ? null
+                      : _exportRecentMessages,
+                  icon: _isExportingRecentMessages
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.ios_share_outlined),
+                  label: Text('Export last 5 messages'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _copyDebugInfo,
+                  icon: Icon(Icons.bug_report_outlined),
+                  label: Text('Copy debug info'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: widget.controller.logs.isEmpty ? null : _copyLogs,
+                  icon: Icon(Icons.copy_all_outlined),
+                  label: Text('Copy logs'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: widget.controller.clearLogs,
+                  icon: Icon(Icons.clear_all),
+                  label: Text('Clear'),
+                ),
+              ],
+            ),
+          )
+        else
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: <Widget>[
+                  OutlinedButton.icon(
+                    onPressed: _isExportingRecentMessages
+                        ? null
+                        : _exportRecentMessages,
+                    icon: _isExportingRecentMessages
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.ios_share_outlined),
+                    label: const Text('Export last 5 messages'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _copyDebugInfo,
+                    icon: const Icon(Icons.bug_report_outlined),
+                    label: const Text('Copy debug info'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: widget.controller.logs.isEmpty
+                        ? null
+                        : _copyLogs,
+                    icon: const Icon(Icons.copy_all_outlined),
+                    label: const Text('Copy logs'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: widget.controller.clearLogs,
+                    icon: const Icon(Icons.clear_all),
+                    label: const Text('Clear'),
+                  ),
+                ],
               ),
-              OutlinedButton.icon(
-                onPressed: _copyDebugInfo,
-                icon: Icon(Icons.bug_report_outlined),
-                label: Text('Copy debug info'),
-              ),
-              OutlinedButton.icon(
-                onPressed: widget.controller.logs.isEmpty ? null : _copyLogs,
-                icon: Icon(Icons.copy_all_outlined),
-                label: Text('Copy logs'),
-              ),
-              OutlinedButton.icon(
-                onPressed: widget.controller.clearLogs,
-                icon: Icon(Icons.clear_all),
-                label: Text('Clear'),
-              ),
-            ],
+            ),
           ),
-        ),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -440,9 +484,14 @@ class _LogsPanelState extends State<LogsPanel> {
 }
 
 class SkillsPanel extends StatefulWidget {
-  const SkillsPanel({super.key, required this.controller});
+  const SkillsPanel({
+    super.key,
+    required this.controller,
+    this.embedded = false,
+  });
 
   final NeoAgentController controller;
+  final bool embedded;
 
   @override
   State<SkillsPanel> createState() => _SkillsPanelState();
@@ -493,10 +542,9 @@ class _SkillsPanelState extends State<SkillsPanel>
           return a.name.toLowerCase().compareTo(b.name.toLowerCase());
         });
 
-    return Padding(
-      padding: _pagePadding(context),
-      child: Column(
-        children: <Widget>[
+    final body = Column(
+      children: <Widget>[
+        if (!widget.embedded)
           _PageTitle(
             title: 'Skills',
             subtitle:
@@ -506,38 +554,53 @@ class _SkillsPanelState extends State<SkillsPanel>
               icon: Icon(Icons.add),
               label: Text('New Skill'),
             ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: _bgSecondary,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              dividerColor: Colors.transparent,
-              indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: TextStyle(fontWeight: FontWeight.w700),
-              tabs: <Widget>[
-                Tab(text: 'Installed Skills (${controller.skills.length})'),
-                Tab(text: 'Store (${filteredStore.length})'),
-              ],
+          )
+        else
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: FilledButton.icon(
+                onPressed: () => _openCreateSkill(context),
+                icon: const Icon(Icons.add),
+                label: const Text('New Skill'),
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: <Widget>[
-                _buildInstalledTab(controller),
-                _buildStoreTab(controller, categories, filteredStore),
-              ],
-            ),
+        if (!widget.embedded) const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: _bgSecondary,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _border),
           ),
-        ],
-      ),
+          child: TabBar(
+            controller: _tabController,
+            dividerColor: Colors.transparent,
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelStyle: TextStyle(fontWeight: FontWeight.w700),
+            tabs: <Widget>[
+              Tab(text: 'Installed Skills (${controller.skills.length})'),
+              Tab(text: 'Store (${filteredStore.length})'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: <Widget>[
+              _buildInstalledTab(controller),
+              _buildStoreTab(controller, categories, filteredStore),
+            ],
+          ),
+        ),
+      ],
     );
+    if (widget.embedded) {
+      return body;
+    }
+    return Padding(padding: _pagePadding(context), child: body);
   }
 
   Widget _buildInstalledTab(NeoAgentController controller) {

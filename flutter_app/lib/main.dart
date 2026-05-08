@@ -63,6 +63,7 @@ part 'main_account_settings.dart';
 part 'main_settings.dart';
 part 'main_operations.dart';
 part 'main_admin.dart';
+part 'main_unified.dart';
 
 Future<void> main() async {
   await runNeoAgentApp(mode: _appModeFromEnvironment());

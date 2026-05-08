@@ -232,13 +232,10 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.chat,
     AppSection.recordings,
     AppSection.runs,
-    AppSection.logs,
     AppSection.devices,
     AppSection.tasks,
     AppSection.widgets,
-    AppSection.skills,
     AppSection.integrations,
-    AppSection.mcp,
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
     AppSection.settings,
@@ -256,7 +253,7 @@ List<Widget> _buildSidebarItems(
   final widgets = <Widget>[];
   final mainSections = _mainSections(controller);
   final selectedSidebarSection = mainSections.contains(
-    controller.selectedSection,
+    controller.selectedSection.canonicalSection,
   );
   for (final group in SidebarGroup.values) {
     final sections = mainSections
@@ -267,7 +264,8 @@ List<Widget> _buildSidebarItems(
     }
 
     final active =
-        selectedSidebarSection && controller.selectedSection.group == group;
+        selectedSidebarSection &&
+        controller.selectedSection.canonicalSection.group == group;
     final defaultSection = sections.first;
     final hasChildren = sections.length > 1;
     final expanded = expandedGroup == group;
@@ -299,7 +297,7 @@ List<Widget> _buildSidebarItems(
         _SidebarButton(
           label: section.label,
           icon: section.icon,
-          active: controller.selectedSection == section,
+          active: controller.selectedSection.canonicalSection == section,
           indent: 18,
           iconSize: 16,
           fontSize: 12,
