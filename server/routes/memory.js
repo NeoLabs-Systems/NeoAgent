@@ -33,6 +33,59 @@ function findOwnedMemoryIds(db, userId, agentId, ids) {
   ).all(userId, agentId, ...ids).map((row) => row.id);
 }
 
+function parsePlainObject(input, fieldName) {
+  if (input == null) return null;
+  if (typeof input === 'string') {
+    try {
+      input = JSON.parse(input);
+    } catch {
+      throw new Error(`${fieldName} must be valid JSON.`);
+    }
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error(`${fieldName} must be an object.`);
+  }
+  return input;
+}
+
+function normalizeOptionalStringField(value, fieldName, maxLength, pattern = null) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string.`);
+  }
+  const normalized = value.trim().slice(0, maxLength);
+  if (!normalized) return null;
+  if (pattern && !pattern.test(normalized)) {
+    throw new Error(`${fieldName} has an invalid format.`);
+  }
+  return normalized;
+}
+
+function normalizeSourceRef(input) {
+  const raw = parsePlainObject(input, 'sourceRef');
+  if (!raw) return undefined;
+  return {
+    sourceType: normalizeOptionalStringField(raw.sourceType ?? raw.type, 'sourceRef.sourceType', 48, /^[a-z0-9_:-]+$/i),
+    sourceId: normalizeOptionalStringField(raw.sourceId ?? raw.id, 'sourceRef.sourceId', 128),
+    sourceLabel: normalizeOptionalStringField(raw.sourceLabel ?? raw.label, 'sourceRef.sourceLabel', 160),
+  };
+}
+
+function normalizeScope(input) {
+  const raw = parsePlainObject(input, 'scope');
+  if (!raw) return undefined;
+  const scopeType = normalizeOptionalStringField(raw.scopeType ?? raw.type, 'scope.scopeType', 32, /^(agent|conversation|task|channel|shared)$/i);
+  return {
+    scopeType: scopeType ? scopeType.toLowerCase() : null,
+    scopeId: normalizeOptionalStringField(raw.scopeId ?? raw.id, 'scope.scopeId', 128),
+  };
+}
+
+function normalizeMetadata(input) {
+  const raw = parsePlainObject(input, 'metadata');
+  return raw == null ? undefined : raw;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Overview (for initial page load)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,6 +99,7 @@ router.get('/', (req, res) => {
   res.json({
     agentId,
     assistantBehaviorNotes: mm.getAssistantBehaviorNotes(userId, { agentId }),
+    assistantSelfState: mm.getAssistantSelfState(userId, { agentId }),
     dailyLogs: mm.listDailyLogs(7, userId),
     apiKeys: Object.keys(mm.readApiKeys(userId)),
     coreMemory
@@ -81,13 +135,31 @@ router.post('/memories', async (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
-  const { content, category = 'episodic', importance = 5 } = req.body;
+  const { content, category = 'episodic', importance = 5, sourceRef, scope, staleAfterDays, metadata } = req.body;
   if (!content || !content.trim()) return res.status(400).json({ error: 'content is required' });
   try {
-    const id = await mm.saveMemory(userId, content, category, importance, { agentId });
+    let normalizedStaleAfterDays;
+    if (staleAfterDays != null && staleAfterDays !== '') {
+      normalizedStaleAfterDays = Number.parseInt(staleAfterDays, 10);
+      if (!Number.isInteger(normalizedStaleAfterDays) || normalizedStaleAfterDays <= 0) {
+        return res.status(400).json({ error: 'staleAfterDays must be a positive integer.' });
+      }
+    }
+
+    const id = await mm.saveMemory(userId, content, category, importance, {
+      agentId,
+      sourceRef: normalizeSourceRef(sourceRef),
+      scope: normalizeScope(scope),
+      staleAfterDays: normalizedStaleAfterDays,
+      metadata: normalizeMetadata(metadata),
+    });
     res.json({ success: true, id });
   } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
+    const message = sanitizeError(err);
+    if (/must be valid JSON|must be an object|must be a string|has an invalid format/i.test(message)) {
+      return res.status(400).json({ error: message });
+    }
+    res.status(500).json({ error: message });
   }
 });
 

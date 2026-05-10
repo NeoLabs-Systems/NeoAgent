@@ -2048,16 +2048,18 @@ class WidgetsPanel extends StatelessWidget {
                         spacing: 10,
                         runSpacing: 10,
                         children: <Widget>[
-                          OutlinedButton(
-                            onPressed: () =>
-                                controller.openWidgetEditFlow(item),
-                            child: Text('Edit With AI'),
-                          ),
-                          OutlinedButton(
-                            onPressed: () =>
-                                controller.toggleWidgetEnabled(item),
-                            child: Text(item.enabled ? 'Pause' : 'Enable'),
-                          ),
+                          if (!item.isSystem)
+                            OutlinedButton(
+                              onPressed: () =>
+                                  controller.openWidgetEditFlow(item),
+                              child: Text('Edit With AI'),
+                            ),
+                          if (!item.isSystem)
+                            OutlinedButton(
+                              onPressed: () =>
+                                  controller.toggleWidgetEnabled(item),
+                              child: Text(item.enabled ? 'Pause' : 'Enable'),
+                            ),
                           FilledButton(
                             onPressed: remaining > 0
                                 ? null
@@ -2066,16 +2068,18 @@ class WidgetsPanel extends StatelessWidget {
                               _manualRunButtonLabel('Run Now', remaining),
                             ),
                           ),
-                          OutlinedButton(
-                            onPressed: () => _confirmDelete(
-                              context,
-                              title: 'Delete widget?',
-                              message:
-                                  'This removes "${item.name}" and its refresh job.',
-                              onConfirm: () => controller.deleteWidget(item.id),
+                          if (!item.isSystem)
+                            OutlinedButton(
+                              onPressed: () => _confirmDelete(
+                                context,
+                                title: 'Delete widget?',
+                                message:
+                                    'This removes "${item.name}" and its refresh job.',
+                                onConfirm: () =>
+                                    controller.deleteWidget(item.id),
+                              ),
+                              child: Text('Delete'),
                             ),
-                            child: Text('Delete'),
-                          ),
                         ],
                       ),
                     ),
@@ -2248,7 +2252,11 @@ class _AiWidgetCardState extends State<_AiWidgetCard> {
                           ),
                           const SizedBox(width: 12),
                           _StatusPill(
-                            label: item.enabled ? 'Live' : 'Paused',
+                            label: item.isSystem
+                                ? (item.enabled
+                                      ? 'System live'
+                                      : 'System paused')
+                                : (item.enabled ? 'Live' : 'Paused'),
                             color: item.enabled ? _success : _textSecondary,
                           ),
                         ],

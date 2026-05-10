@@ -832,7 +832,7 @@ class MessagingAccessCapabilities {
   });
 
   factory MessagingAccessCapabilities.fromJson(Map<String, dynamic> json) {
-    List<String> _stringList(dynamic value) {
+    List<String> stringList(dynamic value) {
       if (value is! List) return const <String>[];
       return value
           .map((item) => item.toString())
@@ -845,9 +845,9 @@ class MessagingAccessCapabilities {
       supportsSharedPolicy: json['supportsSharedPolicy'] != false,
       supportsMentionGate: json['supportsMentionGate'] == true,
       supportsDiscovery: json['supportsDiscovery'] == true,
-      directRuleScopes: _stringList(json['directRuleScopes']),
-      sharedSpaceRuleScopes: _stringList(json['sharedSpaceRuleScopes']),
-      sharedActorRuleScopes: _stringList(json['sharedActorRuleScopes']),
+      directRuleScopes: stringList(json['directRuleScopes']),
+      sharedSpaceRuleScopes: stringList(json['sharedSpaceRuleScopes']),
+      sharedActorRuleScopes: stringList(json['sharedActorRuleScopes']),
       manualEntryHint: json['manualEntryHint']?.toString() ?? '',
     );
   }
@@ -932,7 +932,7 @@ class MessagingAccessCatalog {
     String platform,
     Map<String, dynamic> json,
   ) {
-    List<MessagingAccessTarget> _targets(dynamic raw) {
+    List<MessagingAccessTarget> parseTargets(dynamic raw) {
       if (raw is! List) return const <MessagingAccessTarget>[];
       return raw
           .whereType<Map>()
@@ -950,8 +950,8 @@ class MessagingAccessCatalog {
       capabilities: MessagingAccessCapabilities.fromJson(
         _jsonMap(json['capabilities']),
       ),
-      discoveredTargets: _targets(json['discoveredTargets']),
-      suggestedTargets: _targets(json['suggestedTargets']),
+      discoveredTargets: parseTargets(json['discoveredTargets']),
+      suggestedTargets: parseTargets(json['suggestedTargets']),
       summary: json['summary']?.toString() ?? 'Access policy',
     );
   }
@@ -1434,6 +1434,7 @@ class RunDetailSnapshot {
   const RunDetailSnapshot({
     required this.run,
     required this.steps,
+    required this.events,
     required this.response,
   });
 
@@ -1444,12 +1445,17 @@ class RunDetailSnapshot {
         json['steps'],
         fallbackToMapValues: true,
       ).map(RunStepItem.fromJson).toList(),
+      events: _jsonMapList(
+        json['events'],
+        fallbackToMapValues: true,
+      ).map(RunEventItem.fromJson).toList(),
       response: json['response']?.toString() ?? '',
     );
   }
 
   final RunSummary run;
   final List<RunStepItem> steps;
+  final List<RunEventItem> events;
   final String response;
 
   int get completedTools => steps
@@ -1467,6 +1473,95 @@ class RunDetailSnapshot {
 
   int get planningStepCount =>
       steps.where((step) => step.isPlanningRelated).length;
+}
+
+class RunEventItem {
+  const RunEventItem({
+    required this.id,
+    required this.eventType,
+    required this.sequenceIndex,
+    required this.requestId,
+    required this.stepId,
+    required this.payload,
+    required this.createdAt,
+  });
+
+  factory RunEventItem.fromJson(Map<dynamic, dynamic> json) {
+    return RunEventItem(
+      id: _asInt(json['id']),
+      eventType:
+          json['eventType']?.toString().ifEmpty(
+            json['event_type']?.toString() ?? 'event',
+          ) ??
+          'event',
+      sequenceIndex: _asInt(json['sequenceIndex'] ?? json['sequence_index']),
+      requestId:
+          json['requestId']?.toString() ?? json['request_id']?.toString(),
+      stepId: json['stepId']?.toString() ?? json['step_id']?.toString(),
+      payload: json['payload'] is Map
+          ? Map<String, dynamic>.from(json['payload'] as Map)
+          : (json['payload_json'] is Map
+                ? Map<String, dynamic>.from(json['payload_json'] as Map)
+                : const <String, dynamic>{}),
+      createdAt: _parseOptionalTimestamp(
+        json['createdAt']?.toString() ?? json['created_at']?.toString(),
+      ),
+    );
+  }
+
+  final int id;
+  final String eventType;
+  final int sequenceIndex;
+  final String? requestId;
+  final String? stepId;
+  final Map<String, dynamic> payload;
+  final DateTime? createdAt;
+
+  String get title {
+    switch (eventType) {
+      case 'run_started':
+        return 'Run started';
+      case 'memory_injected':
+        return 'Memory injected';
+      case 'model_turn_started':
+        return 'Model turn started';
+      case 'model_turn_completed':
+        return 'Model turn completed';
+      case 'tool_started':
+        return 'Tool started';
+      case 'tool_completed':
+        return 'Tool completed';
+      case 'tool_failed':
+        return 'Tool failed';
+      case 'run_completed':
+        return 'Run completed';
+      case 'run_failed':
+        return 'Run failed';
+      case 'run_stopped':
+        return 'Run stopped';
+      default:
+        return _titleCase(eventType.replaceAll('_', ' '));
+    }
+  }
+
+  String get detail {
+    final toolName = payload['toolName']?.toString() ?? '';
+    if (toolName.trim().isNotEmpty) return toolName;
+    final preview =
+        payload['contentPreview']?.toString() ??
+        payload['recallPreview']?.toString() ??
+        '';
+    if (preview.trim().isNotEmpty) return preview;
+    final error = payload['error']?.toString() ?? '';
+    if (error.trim().isNotEmpty) return error;
+    final titleValue = payload['title']?.toString() ?? '';
+    return titleValue;
+  }
+
+  String get createdAtLabel =>
+      createdAt == null ? '' : _formatTimestamp(createdAt!);
+
+  bool get isFailure => eventType == 'tool_failed' || eventType == 'run_failed';
 }
 
 class RunStepItem {
@@ -2802,6 +2897,9 @@ class AiWidgetItem {
     required this.userId,
     required this.agentId,
     required this.name,
+    required this.widgetKind,
+    required this.systemKey,
+    required this.isSystem,
     required this.template,
     required this.layoutVariant,
     required this.definition,
@@ -2823,6 +2921,14 @@ class AiWidgetItem {
       userId: _asInt(json['userId'] ?? json['user_id']),
       agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
       name: json['name']?.toString().ifEmpty('Widget') ?? 'Widget',
+      widgetKind:
+          json['widgetKind']?.toString().ifEmpty(
+            json['widget_kind']?.toString() ?? 'custom',
+          ) ??
+          'custom',
+      systemKey:
+          json['systemKey']?.toString() ?? json['system_key']?.toString(),
+      isSystem: json['isSystem'] == true || json['is_system'] == true,
       template: json['template']?.toString().ifEmpty('summary') ?? 'summary',
       layoutVariant:
           json['layoutVariant']?.toString().ifEmpty(
@@ -2876,6 +2982,9 @@ class AiWidgetItem {
   final int userId;
   final String? agentId;
   final String name;
+  final String widgetKind;
+  final String? systemKey;
+  final bool isSystem;
   final String template;
   final String layoutVariant;
   final Map<String, dynamic> definition;

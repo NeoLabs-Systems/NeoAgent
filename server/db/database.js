@@ -442,6 +442,9 @@ db.exec(`
     user_id INTEGER NOT NULL,
     agent_id TEXT,
     name TEXT NOT NULL,
+    widget_kind TEXT DEFAULT 'custom',
+    system_key TEXT,
+    is_system INTEGER DEFAULT 0,
     template TEXT NOT NULL,
     layout_variant TEXT NOT NULL,
     definition_json TEXT DEFAULT '{}',
@@ -493,6 +496,13 @@ db.exec(`
     user_id INTEGER NOT NULL,
     agent_id TEXT,
     category TEXT DEFAULT 'episodic',
+    scope_type TEXT DEFAULT 'agent',
+    scope_id TEXT,
+    source_type TEXT,
+    source_id TEXT,
+    source_label TEXT,
+    stale_after_days INTEGER,
+    metadata_json TEXT DEFAULT '{}',
     content TEXT NOT NULL,
     importance INTEGER DEFAULT 5,
     embedding TEXT,
@@ -516,6 +526,36 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_memories_user ON memories(user_id, archived, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(user_id, category, archived);
+
+  CREATE TABLE IF NOT EXISTS assistant_self_state (
+    user_id INTEGER NOT NULL,
+    agent_id TEXT NOT NULL,
+    identity_json TEXT DEFAULT '{}',
+    focus_json TEXT DEFAULT '{}',
+    updated_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, agent_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS agent_run_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    event_type TEXT NOT NULL,
+    request_id TEXT,
+    step_id TEXT,
+    sequence_index INTEGER DEFAULT 0,
+    payload_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_agent_run_events_run ON agent_run_events(run_id, sequence_index, id);
+  CREATE INDEX IF NOT EXISTS idx_agent_run_events_user ON agent_run_events(user_id, created_at DESC);
 
   CREATE TABLE IF NOT EXISTS agent_settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -837,6 +877,16 @@ for (const col of [
   "ALTER TABLE conversation_history ADD COLUMN agent_id TEXT",
   "ALTER TABLE memories ADD COLUMN agent_id TEXT",
   "ALTER TABLE core_memory ADD COLUMN agent_id TEXT",
+  "ALTER TABLE ai_widgets ADD COLUMN widget_kind TEXT DEFAULT 'custom'",
+  "ALTER TABLE ai_widgets ADD COLUMN system_key TEXT",
+  "ALTER TABLE ai_widgets ADD COLUMN is_system INTEGER DEFAULT 0",
+  "ALTER TABLE memories ADD COLUMN scope_type TEXT DEFAULT 'agent'",
+  "ALTER TABLE memories ADD COLUMN scope_id TEXT",
+  "ALTER TABLE memories ADD COLUMN source_type TEXT",
+  "ALTER TABLE memories ADD COLUMN source_id TEXT",
+  "ALTER TABLE memories ADD COLUMN source_label TEXT",
+  "ALTER TABLE memories ADD COLUMN stale_after_days INTEGER",
+  "ALTER TABLE memories ADD COLUMN metadata_json TEXT DEFAULT '{}'",
   "ALTER TABLE scheduled_tasks ADD COLUMN run_at TEXT",
   "ALTER TABLE scheduled_tasks ADD COLUMN one_time INTEGER DEFAULT 0",
   "ALTER TABLE scheduled_tasks ADD COLUMN execution_mode TEXT DEFAULT 'prompt'",
@@ -895,7 +945,9 @@ function createAgentScopedIndexes() {
     ['scheduled_tasks', 'CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_agent ON scheduled_tasks(user_id, agent_id)'],
     ['conversation_history', 'CREATE INDEX IF NOT EXISTS idx_conv_history_agent ON conversation_history(user_id, agent_id, created_at DESC)'],
     ['memories', 'CREATE INDEX IF NOT EXISTS idx_memories_agent ON memories(user_id, agent_id, archived, updated_at DESC)'],
+    ['memories', 'CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(user_id, agent_id, scope_type, scope_id, archived, updated_at DESC)'],
     ['core_memory', 'CREATE INDEX IF NOT EXISTS idx_core_memory_agent ON core_memory(user_id, agent_id, key)'],
+    ['ai_widgets', 'CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_widgets_system_key ON ai_widgets(user_id, agent_id, system_key) WHERE system_key IS NOT NULL'],
   ];
   for (const [table, statement] of statements) {
     if (!tableHasColumn(table, 'agent_id')) continue;

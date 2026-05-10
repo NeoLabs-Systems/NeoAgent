@@ -78,7 +78,7 @@ router.delete('/:id', (req, res) => {
   }
 });
 
-router.post('/:id/refresh', (req, res) => {
+router.post('/:id/refresh', async (req, res) => {
   try {
     const service = widgetService(req);
     const taskRuntime = req.app?.locals?.taskRuntime;
@@ -89,10 +89,10 @@ router.post('/:id/refresh', (req, res) => {
     if (!widget) {
       return res.status(404).json({ error: 'Widget not found.' });
     }
-    if (!widget.scheduledTaskId) {
-      return res.status(400).json({ error: 'Widget is missing its refresh task.' });
+    if (widget.isSystem || !widget.scheduledTaskId) {
+      return res.json(await service.refreshWidget(req.session.userId, req.params.id));
     }
-    res.json(taskRuntime.runTaskNow(widget.scheduledTaskId, req.session.userId));
+    res.json(await taskRuntime.runTaskNow(widget.scheduledTaskId, req.session.userId));
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }

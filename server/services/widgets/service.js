@@ -2,8 +2,13 @@ const crypto = require('crypto');
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
 const { findNextRun, getMinimumIntervalMinutes } = require('../tasks/schedule_utils');
+const {
+  buildAssistantFocusSnapshot,
+  buildAssistantFocusWidgetPayload,
+} = require('./focus_widget');
 
 const MIN_WIDGET_REFRESH_MINUTES = 60;
+const SYSTEM_WIDGET_KEY_ASSISTANT_FOCUS = 'assistant_focus';
 
 const TEMPLATE_VARIANTS = {
   stat: ['hero', 'split', 'compact'],
@@ -102,6 +107,9 @@ function normalizeWidgetInput(input = {}, userId) {
     layoutVariant,
     refreshCron,
     enabled: input.enabled !== false,
+    widgetKind: normalizeText(input.widgetKind || input.widget_kind || 'custom', 40).toLowerCase() || 'custom',
+    systemKey: normalizeOptionalText(input.systemKey || input.system_key, 80),
+    isSystem: input.isSystem === true || input.is_system === true,
     definition: normalizeDefinition(input.definition || input.definition_json || {
       prompt: input.prompt || input.refreshPrompt || input.refresh_prompt || '',
       description: input.description || '',
@@ -226,6 +234,8 @@ function validateSnapshotPayload(widget, snapshot = {}) {
 class WidgetService {
   constructor({ app }) {
     this.app = app;
+    this._pendingSystemWidgetTaskSetup = new Set();
+    this._pendingSystemWidgetRefresh = new Set();
   }
 
   get taskRuntime() {
@@ -237,6 +247,7 @@ class WidgetService {
   }
 
   getWidget(userId, widgetId) {
+    this.ensureSystemFocusWidget(userId);
     const row = db.prepare(
       `SELECT *
        FROM ai_widgets
@@ -251,7 +262,11 @@ class WidgetService {
   }
 
   listWidgets(userId, { agentId = null } = {}) {
+    this.ensureSystemFocusWidget(userId);
     const scopedAgentId = agentId ? resolveAgentId(userId, agentId) : null;
+    if (scopedAgentId) {
+      this.ensureSystemFocusWidget(userId, { agentId: scopedAgentId });
+    }
     const rows = scopedAgentId
       ? db.prepare(
         `SELECT *
@@ -287,14 +302,17 @@ class WidgetService {
     const tx = db.transaction(() => {
       db.prepare(
         `INSERT INTO ai_widgets (
-          id, user_id, agent_id, name, template, layout_variant, definition_json,
+          id, user_id, agent_id, name, widget_kind, system_key, is_system, template, layout_variant, definition_json,
           refresh_cron, enabled, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
       ).run(
         widgetId,
         userId,
         normalized.agentId,
         normalized.name,
+        normalized.widgetKind,
+        normalized.systemKey,
+        normalized.isSystem ? 1 : 0,
         normalized.template,
         normalized.layoutVariant,
         JSON.stringify(normalized.definition),
@@ -346,6 +364,9 @@ class WidgetService {
     const existingRow = db.prepare('SELECT * FROM ai_widgets WHERE id = ? AND user_id = ?').get(widgetId, userId);
     if (!existingRow) {
       throw new Error('Widget not found.');
+    }
+    if (existingRow.is_system) {
+      throw new Error('System widgets cannot be edited directly.');
     }
 
     const current = this._serializeWidget(existingRow, null, []);
@@ -441,6 +462,9 @@ class WidgetService {
     if (!existingRow) {
       throw new Error('Widget not found.');
     }
+    if (existingRow.is_system) {
+      throw new Error('System widgets cannot be deleted.');
+    }
 
     const taskRuntime = this.taskRuntime;
     const tx = db.transaction(() => {
@@ -494,6 +518,31 @@ class WidgetService {
       return { skipped: true, reason: 'disabled' };
     }
     const engine = this.agentEngine;
+    if (widget.isSystem && widget.systemKey === SYSTEM_WIDGET_KEY_ASSISTANT_FOCUS) {
+      const memoryManager = this.app?.locals?.memoryManager || null;
+      const snapshot = buildAssistantFocusSnapshot(memoryManager, userId, widget.agentId);
+      if (memoryManager?.updateAssistantSelfState) {
+        memoryManager.updateAssistantSelfState(userId, {
+          focus: {
+            currentFocus: snapshot.currentFocus,
+            activeThreads: snapshot.activeThreads,
+            nearTermPriorities: snapshot.nearTermPriorities,
+            recentSignals: snapshot.recentSignals,
+            rememberedContext: snapshot.rememberedContext,
+            generatedAt: snapshot.generatedAt,
+          },
+        }, { agentId: widget.agentId });
+      }
+      return {
+        widgetId,
+        snapshot: this.saveSnapshot(
+          userId,
+          widgetId,
+          buildAssistantFocusWidgetPayload(snapshot),
+          { sourceRunId: null, status: 'ready' },
+        ),
+      };
+    }
     if (!engine) {
       throw new Error('Agent engine not available.');
     }
@@ -635,6 +684,9 @@ class WidgetService {
       userId: row.user_id,
       agentId: row.agent_id || null,
       name: row.name,
+      widgetKind: row.widget_kind || 'custom',
+      systemKey: row.system_key || null,
+      isSystem: row.is_system !== 0 && row.is_system !== false,
       template: row.template,
       layoutVariant: row.layout_variant,
       definition,
@@ -650,10 +702,86 @@ class WidgetService {
       tasks,
     };
   }
+
+  ensureSystemFocusWidget(userId, { agentId = null } = {}) {
+    const scopedAgentId = resolveAgentId(userId, agentId || null);
+    const ensureKey = `${userId}:${scopedAgentId || 'default'}:${SYSTEM_WIDGET_KEY_ASSISTANT_FOCUS}`;
+    const ensured = db.transaction(() => {
+      db.prepare(
+        `INSERT OR IGNORE INTO ai_widgets (
+          id, user_id, agent_id, name, widget_kind, system_key, is_system, template, layout_variant,
+          definition_json, refresh_cron, enabled, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
+      ).run(
+        crypto.randomUUID(),
+        userId,
+        scopedAgentId,
+        'Today / Focus',
+        'system',
+        SYSTEM_WIDGET_KEY_ASSISTANT_FOCUS,
+        'summary',
+        'focus',
+        JSON.stringify({
+          prompt: 'System-managed assistant focus widget.',
+          description: 'Always-visible assistant continuity widget.',
+        }),
+        '0 * * * *',
+      );
+      const row = db.prepare(
+        `SELECT * FROM ai_widgets
+         WHERE user_id = ? AND agent_id = ? AND system_key = ?`
+      ).get(userId, scopedAgentId, SYSTEM_WIDGET_KEY_ASSISTANT_FOCUS);
+      return {
+        widgetId: row?.id || null,
+        scheduledTaskId: row?.scheduled_task_id || null,
+        lastSnapshotAt: row?.last_snapshot_at || null,
+      };
+    })();
+
+    if (!ensured.widgetId) return null;
+    const taskRuntime = this.taskRuntime;
+    if (taskRuntime && !ensured.scheduledTaskId && !this._pendingSystemWidgetTaskSetup.has(ensureKey)) {
+      this._pendingSystemWidgetTaskSetup.add(ensureKey);
+      Promise.resolve(taskRuntime.createTask(userId, {
+        name: buildWidgetRefreshTaskName('Today / Focus'),
+        triggerType: 'schedule',
+        triggerConfig: {
+          mode: 'recurring',
+          cronExpression: '0 * * * *',
+        },
+        enabled: true,
+        agentId: scopedAgentId,
+        taskType: 'widget_refresh',
+        taskConfig: { widgetId: ensured.widgetId },
+      })).then((task) => {
+        db.prepare(
+          `UPDATE ai_widgets
+           SET scheduled_task_id = COALESCE(scheduled_task_id, ?), updated_at = datetime('now')
+           WHERE id = ?`
+        ).run(task.id, ensured.widgetId);
+      }).catch((error) => {
+        console.error('[widgets] Failed to create Today / Focus refresh task:', error);
+      }).finally(() => {
+        this._pendingSystemWidgetTaskSetup.delete(ensureKey);
+      });
+    }
+
+    if (!ensured.lastSnapshotAt && !this._pendingSystemWidgetRefresh.has(ensureKey)) {
+      this._pendingSystemWidgetRefresh.add(ensureKey);
+      Promise.resolve(this.refreshWidget(userId, ensured.widgetId)).catch((error) => {
+        console.error('[widgets] Failed to refresh Today / Focus widget:', error);
+      }).finally(() => {
+        this._pendingSystemWidgetRefresh.delete(ensureKey);
+      });
+    }
+
+    return ensured.widgetId;
+  }
 }
 
 module.exports = {
   MIN_WIDGET_REFRESH_MINUTES,
+  SYSTEM_WIDGET_KEY_ASSISTANT_FOCUS,
   TEMPLATE_VARIANTS,
   WidgetService,
   buildWidgetRefreshTaskName,

@@ -4,6 +4,7 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { listRunEvents } = require('../services/ai/runEvents');
 const { isInterimAssistantMetadata } = require('../services/ai/interim');
 const { buildAgentRunContext } = require('./_helpers/agentRunContext');
 
@@ -176,7 +177,7 @@ router.get('/:id/steps', (req, res) => {
     || run.final_response
     || null;
 
-  res.json({ run, steps, response });
+  res.json({ run, steps, events: listRunEvents(run.id), response });
 });
 
 // Abort a run

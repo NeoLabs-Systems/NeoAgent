@@ -37,6 +37,7 @@ const {
   buildInterimSignature,
   normalizeInterimKind,
 } = require('./interim');
+const { recordRunEvent } = require('./runEvents');
 
 const MAX_CONSECUTIVE_TOOL_FAILURES = 5;
 const WIDGET_REFRESH_MAX_ITERATIONS = 30;
@@ -673,6 +674,22 @@ class AgentEngine {
     const next = { ...current, ...patch };
     db.prepare('UPDATE agent_runs SET metadata_json = ? WHERE id = ?')
       .run(JSON.stringify(next), runId);
+  }
+
+  recordRunEvent(userId, runId, eventType, payload = {}, options = {}) {
+    try {
+      return recordRunEvent({
+        runId,
+        userId,
+        agentId: options.agentId || null,
+        eventType,
+        requestId: options.requestId || null,
+        stepId: options.stepId || null,
+        payload,
+      });
+    } catch {
+      return null;
+    }
   }
 
   async publishInterimUpdate({
@@ -1533,6 +1550,12 @@ class AgentEngine {
       toolPids: new Set(),
     });
     this.emit(userId, 'run:start', { runId, agentId, title: runTitle, model, triggerType, triggerSource });
+    this.recordRunEvent(userId, runId, 'run_started', {
+      title: runTitle,
+      model,
+      triggerType,
+      triggerSource,
+    }, { agentId });
     console.info(
       `[Run ${shortenRunId(runId)}] started trigger=${triggerSource} type=${triggerType} model=${model} title=${summarizeForLog(runTitle, 120)}`
     );
@@ -1593,6 +1616,11 @@ class AgentEngine {
     if (threadStateMessage) {
       messages.push({ role: 'system', content: threadStateMessage });
     }
+    this.recordRunEvent(userId, runId, 'memory_injected', {
+      hasRecallContext: Boolean(recallMsg),
+      hasThreadState: Boolean(threadStateMessage),
+      recallPreview: recallMsg ? String(recallMsg).slice(0, 240) : '',
+    }, { agentId });
     messages.push(this.buildUserMessage(userMessage, options));
     messages = sanitizeConversationMessages(messages);
 
@@ -1746,6 +1774,10 @@ class AgentEngine {
         promptMetrics = this.mergePromptMetrics(promptMetrics, metrics, iteration, tools.length);
         this.persistPromptMetrics(runId, promptMetrics).catch(() => { });
         this.emit(userId, 'run:thinking', { runId, iteration });
+        this.recordRunEvent(userId, runId, 'model_turn_started', {
+          iteration,
+          toolCount: tools.length,
+        }, { agentId });
 
         let response;
         let responseModel = model;
@@ -1879,6 +1911,12 @@ class AgentEngine {
           }
         }
 
+        this.recordRunEvent(userId, runId, 'model_turn_completed', {
+          iteration,
+          toolCallCount: response.toolCalls?.length || 0,
+          contentPreview: String(lastContent || streamContent || '').slice(0, 240),
+        }, { agentId });
+
         const assistantMessage = { role: 'assistant', content: lastContent };
         if (response.toolCalls?.length) assistantMessage.tool_calls = response.toolCalls;
         if (response.providerContentBlocks?.length) assistantMessage.providerContentBlocks = response.providerContentBlocks;
@@ -1972,6 +2010,12 @@ class AgentEngine {
             runId, stepId, stepIndex, toolName, toolArgs,
             type: this.getStepType(toolName)
           });
+          this.recordRunEvent(userId, runId, 'tool_started', {
+            stepIndex,
+            toolName,
+            toolArgs,
+            type: this.getStepType(toolName),
+          }, { agentId, stepId });
           console.info(
             `[Run ${shortenRunId(runId)}] step=${stepIndex} start tool=${toolName} args=${summarizeForLog(toolArgs)}`
           );
@@ -2006,11 +2050,24 @@ class AgentEngine {
               .run(stepStatus, JSON.stringify(toolResult).slice(0, 20000), toolErrorMessage || null, screenshotPath, stepId);
             if (toolErrorMessage) {
               this.emit(userId, 'run:tool_end', { runId, stepId, toolName, error: toolErrorMessage, result: toolResult, screenshotPath, status: stepStatus });
+              this.recordRunEvent(userId, runId, 'tool_failed', {
+                toolName,
+                status: stepStatus,
+                error: toolErrorMessage,
+                durationMs: Date.now() - stepStartedAt,
+                resultPreview: summarizeForLog(toolResult),
+              }, { agentId, stepId });
               console.warn(
                 `[Run ${shortenRunId(runId)}] step=${stepIndex} failed tool=${toolName} durationMs=${Date.now() - stepStartedAt} error=${summarizeForLog(toolErrorMessage, 160)}`
               );
             } else {
               this.emit(userId, 'run:tool_end', { runId, stepId, toolName, result: toolResult, screenshotPath, status: stepStatus });
+              this.recordRunEvent(userId, runId, 'tool_completed', {
+                toolName,
+                status: stepStatus,
+                durationMs: Date.now() - stepStartedAt,
+                resultPreview: summarizeForLog(toolResult),
+              }, { agentId, stepId });
               console.info(
                 `[Run ${shortenRunId(runId)}] step=${stepIndex} done tool=${toolName} status=${stepStatus} durationMs=${Date.now() - stepStartedAt} result=${summarizeForLog(toolResult)}`
               );
@@ -2023,6 +2080,12 @@ class AgentEngine {
             db.prepare('UPDATE agent_steps SET status = ?, error = ?, completed_at = datetime(\'now\') WHERE id = ?')
               .run('failed', err.message, stepId);
             this.emit(userId, 'run:tool_end', { runId, stepId, toolName, error: err.message, status: 'failed' });
+            this.recordRunEvent(userId, runId, 'tool_failed', {
+              toolName,
+              status: 'failed',
+              error: err.message,
+              durationMs: Date.now() - stepStartedAt,
+            }, { agentId, stepId });
             console.warn(
               `[Run ${shortenRunId(runId)}] step=${stepIndex} failed tool=${toolName} durationMs=${Date.now() - stepStartedAt} error=${summarizeForLog(err.message, 160)}`
             );
@@ -2134,6 +2197,11 @@ class AgentEngine {
         );
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:stopped', { runId, triggerSource });
+        this.recordRunEvent(userId, runId, 'run_stopped', {
+          triggerSource,
+          totalTokens,
+          iterations: iteration,
+        }, { agentId });
         return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
       }
 
@@ -2337,6 +2405,14 @@ class AgentEngine {
         executionMode: analysis?.mode || 'execute',
         verificationStatus: verification?.status || 'skipped',
       });
+      this.recordRunEvent(userId, runId, 'run_completed', {
+        contentPreview: String(finalResponseText || lastContent || '').slice(0, 240),
+        totalTokens,
+        iterations: iteration,
+        triggerSource,
+        executionMode: analysis?.mode || 'execute',
+        verificationStatus: verification?.status || 'skipped',
+      }, { agentId });
 
       return { runId, content: lastContent, totalTokens, iterations: iteration, status: 'completed' };
     } catch (err) {
@@ -2349,6 +2425,11 @@ class AgentEngine {
         this.cleanupSubagentsForRun(runId, { cancelRunning: true });
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:stopped', { runId, triggerSource });
+        this.recordRunEvent(userId, runId, 'run_stopped', {
+          triggerSource,
+          totalTokens,
+          iterations: iteration,
+        }, { agentId });
         return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
       }
 
@@ -2478,6 +2559,11 @@ class AgentEngine {
       this.cleanupSubagentsForRun(runId, { cancelRunning: true });
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:error', { runId, error: err.message });
+      this.recordRunEvent(userId, runId, 'run_failed', {
+        error: err.message,
+        totalTokens,
+        iterations: iteration,
+      }, { agentId });
 
       if (messagingFailureContent) {
         return {

@@ -1,5 +1,6 @@
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
+const { listRunEvents } = require('./ai/runEvents');
 const { resolveAgentId } = require('./agents/manager');
 
 const MAX_VOICE_SCREENSHOT_BYTES = 3 * 1024 * 1024;
@@ -352,7 +353,8 @@ function setupWebSocket(io, services) {
         const run = db.prepare('SELECT * FROM agent_runs WHERE id = ? AND user_id = ?').get(runId, userId);
         const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(runId);
         const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? ORDER BY created_at ASC').all(runId);
-        socket.emit('agent:run_detail', { run, steps, history });
+        const events = listRunEvents(runId);
+        socket.emit('agent:run_detail', { run, steps, history, events });
       } catch (err) {
         console.error(`[WS] agent:run_detail failed for user ${userId}:`, err);
         socket.emit('error', { message: sanitizeError(err) });

@@ -2611,6 +2611,12 @@ class _RunDetailWorkspace extends StatelessWidget {
                 helper: 'Subagents or helpers',
                 color: _accentHover,
               ),
+              _RunMetricCard(
+                title: 'Trace events',
+                value: '${snapshot.events.length}',
+                helper: 'Structured run timeline',
+                color: _warning,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -2620,6 +2626,8 @@ class _RunDetailWorkspace extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _RunTimelineCard(steps: snapshot.steps, loading: loading),
+          const SizedBox(height: 16),
+          _RunEventTimelineCard(events: snapshot.events, loading: loading),
         ] else
           const _EmptyCard(
             title: 'No detail available',
@@ -2843,6 +2851,105 @@ class _RunTimelineCard extends StatelessWidget {
               }),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RunEventTimelineCard extends StatelessWidget {
+  const _RunEventTimelineCard({required this.events, required this.loading});
+
+  final List<RunEventItem> events;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(child: _SectionTitle('Execution Trace')),
+                if (loading)
+                  const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (events.isEmpty)
+              Text(
+                'No structured run events recorded yet.',
+                style: TextStyle(color: _textSecondary),
+              )
+            else
+              ...events.map((event) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _RunEventCard(event: event),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RunEventCard extends StatelessWidget {
+  const _RunEventCard({required this.event});
+
+  final RunEventItem event;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = event.isFailure ? _danger : _info;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  event.title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (event.createdAtLabel.isNotEmpty)
+                Text(
+                  event.createdAtLabel,
+                  style: TextStyle(color: _textSecondary, fontSize: 12),
+                ),
+            ],
+          ),
+          if (event.detail.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              event.detail,
+              style: TextStyle(color: _textSecondary, height: 1.4),
+            ),
+          ],
+        ],
       ),
     );
   }

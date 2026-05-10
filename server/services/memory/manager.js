@@ -46,11 +46,111 @@ const MEMORY_DIR = path.join(DATA_DIR, 'memory');
 const SKILLS_DIR = path.join(DATA_DIR, 'skills');
 const USERS_DIR = path.join(DATA_DIR, 'users');
 
-// Memory categories
-const CATEGORIES = ['user_fact', 'preference', 'personality', 'episodic'];
+// Memory categories / v2 types
+const CATEGORIES = [
+  'identity',
+  'preferences',
+  'projects',
+  'contacts',
+  'events',
+  'tasks',
+  'episodic',
+  'assistant_self',
+  'user_fact',
+  'preference',
+  'personality',
+];
 
 // Core memory keys (always injected into every prompt)
 const CORE_KEYS = ['user_profile', 'preferences', 'ai_personality'];
+
+const CATEGORY_ALIASES = {
+  user_fact: 'identity',
+  preference: 'preferences',
+  personality: 'assistant_self',
+};
+
+function normalizeMemoryCategory(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (CATEGORY_ALIASES[normalized]) return CATEGORY_ALIASES[normalized];
+  return CATEGORIES.includes(normalized) ? normalized : 'episodic';
+}
+
+function normalizeScope(input, fallbackAgentId) {
+  const raw = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const scopeType = String(raw.scopeType || raw.type || 'agent').trim().toLowerCase();
+  const scopeId = String(raw.scopeId || raw.id || '').trim() || null;
+  switch (scopeType) {
+    case 'conversation':
+    case 'task':
+    case 'channel':
+    case 'shared':
+      return { scopeType, scopeId };
+    default:
+      return { scopeType: 'agent', scopeId: fallbackAgentId || null };
+  }
+}
+
+function normalizeSourceRef(input = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return { sourceType: null, sourceId: null, sourceLabel: null };
+  }
+  return {
+    sourceType: String(input.sourceType || input.type || '').trim().slice(0, 48) || null,
+    sourceId: String(input.sourceId || input.id || '').trim().slice(0, 128) || null,
+    sourceLabel: String(input.sourceLabel || input.label || '').trim().slice(0, 160) || null,
+  };
+}
+
+function parseJsonObject(value, fallback = {}) {
+  if (!value) return { ...fallback };
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return { ...value };
+  }
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : { ...fallback };
+  } catch {
+    return { ...fallback };
+  }
+}
+
+function computeFreshnessMultiplier(row) {
+  const staleAfterDays = Number(row?.stale_after_days);
+  if (!Number.isFinite(staleAfterDays) || staleAfterDays <= 0) return 1;
+  const updatedAt = Date.parse(row?.updated_at || row?.created_at || '');
+  if (!Number.isFinite(updatedAt)) return 1;
+  const ageDays = Math.max(0, (Date.now() - updatedAt) / (1000 * 60 * 60 * 24));
+  if (ageDays <= staleAfterDays) return 1;
+  return Math.max(0.35, 1 - ((ageDays - staleAfterDays) / Math.max(staleAfterDays, 1)) * 0.2);
+}
+
+function serializeMemoryRow(row) {
+  const metadata = parseJsonObject(row?.metadata_json, {});
+  return {
+    id: row.id,
+    category: normalizeMemoryCategory(row.category),
+    content: row.content,
+    importance: Number(row.importance || 0),
+    access_count: Number(row.access_count || 0),
+    archived: Number(row.archived || 0),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    sourceRef: {
+      sourceType: row.source_type || null,
+      sourceId: row.source_id || null,
+      sourceLabel: row.source_label || null,
+    },
+    scope: {
+      scopeType: row.scope_type || 'agent',
+      scopeId: row.scope_id || null,
+    },
+    staleAfterDays: row.stale_after_days == null ? null : Number(row.stale_after_days),
+    metadata,
+  };
+}
 
 function parseStringSetting(value) {
   if (typeof value !== 'string') return '';
@@ -165,6 +265,49 @@ class MemoryManager {
     ).run(userId, agentId, 'assistant_behavior_notes', String(content || ''));
   }
 
+  getAssistantSelfState(userId, options = {}) {
+    if (userId == null) {
+      return { identity: {}, focus: {} };
+    }
+    const agentId = this._agentId(userId, options);
+    const row = db.prepare(
+      'SELECT identity_json, focus_json, updated_at FROM assistant_self_state WHERE user_id = ? AND agent_id = ?'
+    ).get(userId, agentId);
+    return {
+      identity: parseJsonObject(row?.identity_json, {}),
+      focus: parseJsonObject(row?.focus_json, {}),
+      updatedAt: row?.updated_at || null,
+    };
+  }
+
+  updateAssistantSelfState(userId, patch = {}, options = {}) {
+    if (userId == null) return this.getAssistantSelfState(userId, options);
+    const agentId = this._agentId(userId, options);
+    const current = this.getAssistantSelfState(userId, { agentId });
+    const nextIdentity = {
+      ...current.identity,
+      ...parseJsonObject(patch.identity, {}),
+    };
+    const nextFocus = {
+      ...current.focus,
+      ...parseJsonObject(patch.focus, {}),
+    };
+    db.prepare(
+      `INSERT INTO assistant_self_state (user_id, agent_id, identity_json, focus_json, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(user_id, agent_id) DO UPDATE SET
+         identity_json = excluded.identity_json,
+         focus_json = excluded.focus_json,
+         updated_at = excluded.updated_at`
+    ).run(
+      userId,
+      agentId,
+      JSON.stringify(nextIdentity),
+      JSON.stringify(nextFocus),
+    );
+    return this.getAssistantSelfState(userId, { agentId });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Semantic Memories (SQLite + embeddings)
   // ─────────────────────────────────────────────────────────────────────────
@@ -178,15 +321,25 @@ class MemoryManager {
     const decision = getMemoryStorageDecision(content);
     if (!decision.allow) return null;
     content = decision.normalized;
-    category = CATEGORIES.includes(category) ? category : 'episodic';
+    category = normalizeMemoryCategory(category);
     importance = Math.max(1, Math.min(10, Number(importance) || 5));
+    const scope = normalizeScope(options.scope, agentId);
+    const sourceRef = normalizeSourceRef(options.sourceRef);
+    const staleAfterDays = Number.isFinite(Number(options.staleAfterDays))
+      ? Math.max(1, Number(options.staleAfterDays))
+      : null;
+    const metadata = parseJsonObject(options.metadata, {});
 
     const embedding = await getEmbedding(content, await getActiveProvider(userId, agentId));
 
-    // Dedup check: compare against existing non-archived memories for this user
+    // Dedup check: compare against existing non-archived memories in the same scope
     const existing = db.prepare(
-      `SELECT id, content, embedding FROM memories WHERE user_id = ? AND agent_id = ? AND archived = 0`
-    ).all(userId, agentId);
+      `SELECT id, content, embedding, metadata_json
+       FROM memories
+       WHERE user_id = ? AND agent_id = ? AND archived = 0
+         AND COALESCE(scope_type, 'agent') = ?
+         AND COALESCE(scope_id, '') = COALESCE(?, '')`
+    ).all(userId, agentId, scope.scopeType, scope.scopeId);
 
     for (const mem of existing) {
       let sim = 0;
@@ -200,10 +353,27 @@ class MemoryManager {
       if (sim > 0.85) {
         // Very similar — update in place if new content is longer, otherwise skip
         if (content.length > mem.content.length) {
+          const mergedMetadata = {
+            ...parseJsonObject(mem.metadata_json, {}),
+            ...metadata,
+          };
           db.prepare(
             `UPDATE memories SET content = ?, importance = MAX(importance, ?), embedding = ?,
+             source_type = COALESCE(?, source_type), source_id = COALESCE(?, source_id),
+             source_label = COALESCE(?, source_label), stale_after_days = COALESCE(?, stale_after_days),
+             metadata_json = ?,
              updated_at = datetime('now') WHERE id = ?`
-          ).run(content, importance, embedding ? serializeEmbedding(embedding) : mem.embedding, mem.id);
+          ).run(
+            content,
+            importance,
+            embedding ? serializeEmbedding(embedding) : mem.embedding,
+            sourceRef.sourceType,
+            sourceRef.sourceId,
+            sourceRef.sourceLabel,
+            staleAfterDays,
+            JSON.stringify(mergedMetadata),
+            mem.id,
+          );
           return mem.id;
         }
         return mem.id; // already covered, skip
@@ -213,9 +383,27 @@ class MemoryManager {
     // Save new
     const id = uuidv4();
     db.prepare(
-      `INSERT INTO memories (id, user_id, agent_id, category, content, importance, embedding)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(id, userId, agentId, category, content, importance, embedding ? serializeEmbedding(embedding) : null);
+      `INSERT INTO memories (
+        id, user_id, agent_id, category, scope_type, scope_id, source_type, source_id, source_label,
+        stale_after_days, metadata_json, content, importance, embedding
+      )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      userId,
+      agentId,
+      category,
+      scope.scopeType,
+      scope.scopeId,
+      sourceRef.sourceType,
+      sourceRef.sourceId,
+      sourceRef.sourceLabel,
+      staleAfterDays,
+      JSON.stringify(metadata),
+      content,
+      importance,
+      embedding ? serializeEmbedding(embedding) : null,
+    );
 
     return id;
   }
@@ -227,11 +415,19 @@ class MemoryManager {
   async recallMemory(userId, query, topK = 6, options = {}) {
     if (!query || !query.trim()) return [];
     const agentId = this._agentId(userId, options);
+    const scope = normalizeScope(options.scope, agentId);
 
     const all = db.prepare(
-      `SELECT id, category, content, importance, embedding, access_count, created_at
-       FROM memories WHERE user_id = ? AND agent_id = ? AND archived = 0 ORDER BY updated_at DESC`
-    ).all(userId, agentId);
+      `SELECT id, category, content, importance, embedding, access_count, created_at, updated_at,
+              scope_type, scope_id, source_type, source_id, source_label, stale_after_days, metadata_json
+       FROM memories
+       WHERE user_id = ? AND agent_id = ? AND archived = 0
+         AND (
+           (COALESCE(scope_type, 'agent') = ? AND COALESCE(scope_id, '') = COALESCE(?, ''))
+           OR COALESCE(scope_type, 'agent') = 'shared'
+         )
+       ORDER BY updated_at DESC`
+    ).all(userId, agentId, scope.scopeType, scope.scopeId);
 
     if (!all.length) return [];
 
@@ -247,15 +443,14 @@ class MemoryManager {
           score = score * (0.5 + mem.importance / 20);
         }
       }
-      if (!score) {
-        // Keyword fallback
-        score = keywordSimilarity(query, mem.content) * 0.7;
-      }
+      const lexicalScore = keywordSimilarity(query, mem.content) * 0.7;
+      score = Math.max(score, lexicalScore);
+      score *= computeFreshnessMultiplier(mem);
       return { ...mem, score };
     });
 
     const results = scored
-      .filter(m => m.score > 0.45)
+      .filter(m => m.score > 0.2)
       .sort((a, b) => b.score - a.score)
       .slice(0, topK);
 
@@ -266,8 +461,9 @@ class MemoryManager {
       db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id IN (${placeholders})`).run(...ids);
     }
 
-    return results.map(({ id, category, content, importance, created_at }) => ({
-      id, category, content, importance, created_at
+    return results.map((row) => ({
+      ...serializeMemoryRow(row),
+      score: row.score,
     }));
   }
 
@@ -276,16 +472,20 @@ class MemoryManager {
    */
   listMemories(userId, { category, limit = 50, offset = 0, includeArchived = false, agentId = null } = {}) {
     const scopedAgentId = this._agentId(userId, { agentId });
-    let sql = `SELECT id, category, content, importance, access_count, archived, created_at, updated_at
+    let sql = `SELECT id, category, content, importance, access_count, archived, created_at, updated_at,
+                      scope_type, scope_id, source_type, source_id, source_label, stale_after_days, metadata_json
                FROM memories WHERE user_id = ? AND agent_id = ? AND archived = ?`;
     const params = [userId, scopedAgentId, includeArchived ? 1 : 0];
-    if (category && CATEGORIES.includes(category)) {
+    if (category && !CATEGORIES.includes(category)) {
+      category = 'episodic';
+    }
+    if (category) {
       sql += ` AND category = ?`;
-      params.push(category);
+      params.push(normalizeMemoryCategory(category));
     }
     sql += ` ORDER BY importance DESC, updated_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
-    return db.prepare(sql).all(...params);
+    return db.prepare(sql).all(...params).map(serializeMemoryRow);
   }
 
   /**
@@ -297,7 +497,7 @@ class MemoryManager {
 
     const newContent = content ?? mem.content;
     const newImportance = importance != null ? Math.max(1, Math.min(10, Number(importance))) : mem.importance;
-    const newCategory = (category && CATEGORIES.includes(category)) ? category : mem.category;
+    const newCategory = category ? normalizeMemoryCategory(category) : mem.category;
 
     let newEmbed = mem.embedding;
     if (content && content !== mem.content) {
@@ -310,7 +510,9 @@ class MemoryManager {
        updated_at = datetime('now') WHERE id = ?`
     ).run(newContent, newImportance, newCategory, newEmbed, id);
 
-    return db.prepare(`SELECT id, category, content, importance, created_at, updated_at FROM memories WHERE id = ?`).get(id);
+    return serializeMemoryRow(db.prepare(
+      `SELECT * FROM memories WHERE id = ?`
+    ).get(id));
   }
 
   /**
@@ -892,6 +1094,20 @@ class MemoryManager {
       ctx += `## Assistant Behavior Notes\n`;
       ctx += `These are durable preferences for how the assistant should usually behave. Follow system rules and the active user request first.\n`;
       ctx += `${behaviorNotes}\n\n`;
+    }
+
+    if (userId != null) {
+      const selfState = this.getAssistantSelfState(userId, { agentId });
+      if (Object.keys(selfState.identity || {}).length || Object.keys(selfState.focus || {}).length) {
+        ctx += `## Assistant Self State\n`;
+        if (Object.keys(selfState.identity || {}).length) {
+          ctx += `Identity: ${JSON.stringify(selfState.identity)}\n`;
+        }
+        if (Object.keys(selfState.focus || {}).length) {
+          ctx += `Focus: ${JSON.stringify(selfState.focus)}\n`;
+        }
+        ctx += '\n';
+      }
     }
 
     // 2. Core memory — always-relevant user facts
