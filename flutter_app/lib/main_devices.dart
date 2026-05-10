@@ -378,9 +378,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final prefersExtension = controller.browserBackend == 'extension';
     final extensionConnected = controller.browserExtensionConnected;
     final usingExtension = prefersExtension && extensionConnected;
-    final browserFallbackLabel = controller.cloudBrowserBackend == 'vm'
-        ? 'cloud VM'
-        : 'local host';
+    final browserFallbackLabel = 'cloud browser runtime';
     final browserPageInfo = browserStatus['pageInfo'] is Map<dynamic, dynamic>
         ? Map<String, dynamic>.from(browserStatus['pageInfo'] as Map)
         : const <String, dynamic>{};
@@ -682,9 +680,9 @@ class _DeviceSurfaceHeader extends StatelessWidget {
                 : 'Desktop Companion',
         };
         final subtitle = switch (surface) {
-          _DeviceSurface.browser =>
-            browserExtensionPreferred && !browserExtensionActive
-                ? 'No extension device is active. Using the $browserFallbackLabel browser fallback.'
+            _DeviceSurface.browser =>
+                browserExtensionPreferred && !browserExtensionActive
+                ? 'No extension device is active. Using the $browserFallbackLabel.'
                 : (browserPageInfo['url']?.toString() ??
                       'Ready for navigation'),
           _DeviceSurface.android =>

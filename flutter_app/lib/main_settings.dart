@@ -279,7 +279,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   String _normalizeBrowserBackend(String value) {
     final normalized = value.trim().toLowerCase();
-    return normalized == 'extension' ? 'extension' : 'cloud';
+    return normalized == 'extension' ? 'extension' : 'vm';
   }
 
   @override
@@ -459,7 +459,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
               headlessBrowser: _headlessBrowser,
               browserBackend: _browserBackend == 'extension'
                   ? 'extension'
-                  : controller.cloudBrowserBackend,
+                  : 'vm',
               smarterSelector: _smarterSelector,
               enabledModels: _enabledModels.toList(),
               defaultChatModel: _defaultChatModel,
@@ -606,12 +606,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
               decoration: const InputDecoration(
                 labelText: 'Browser backend',
                 helperText:
-                    'Cloud uses this deployment. Extension uses a paired Chrome browser.',
+                    'Cloud uses the isolated browser runtime. Extension uses a paired Chrome browser on the remote machine.',
               ),
               items: const <DropdownMenuItem<String>>[
                 DropdownMenuItem<String>(
-                  value: 'cloud',
-                  child: Text('Cloud (local)'),
+                  value: 'vm',
+                  child: Text('Cloud'),
                 ),
                 DropdownMenuItem<String>(
                   value: 'extension',
@@ -630,9 +630,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ? (controller.browserExtensionConnected
                         ? 'Chrome extension connected.'
                         : 'Chrome extension selected. Download it here, load it unpacked in Chrome on the remote machine, then pair after login.')
-                  : controller.cloudBrowserBackend == 'vm'
-                  ? "Cloud uses this deployment's isolated VM browser runtime."
-                  : "Cloud uses this deployment's local host browser runtime.",
+                  : 'Cloud browser runtime is active.',
               style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const SizedBox(height: 10),

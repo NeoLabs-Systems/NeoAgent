@@ -13,20 +13,7 @@ async function getBrowserController(req) {
       return runtimeController;
     }
   }
-  const resolver = req.app?.locals?.getBrowserControllerForUser;
-  const userId = req.session?.userId;
-  let controller;
-  if (typeof resolver === "function") {
-    controller = await resolver(userId);
-  } else {
-    controller = req.app?.locals?.browserController;
-  }
-
-  if (!controller) {
-    throw new Error(`getBrowserController: missing browser controller for userId=${userId ?? 'unknown'}`);
-  }
-
-  return controller;
+  throw new Error('Browser controller is unavailable. VM runtime is required.');
 }
 
 // Get browser status

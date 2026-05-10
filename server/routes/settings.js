@@ -144,11 +144,7 @@ function getBrowserController(req) {
   if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
     return runtimeManager.getBrowserProviderForUser(req.session?.userId);
   }
-  const resolver = req.app?.locals?.getBrowserControllerForUser;
-  if (typeof resolver === 'function') {
-    return resolver(req.session?.userId);
-  }
-  return req.app?.locals?.browserController;
+  throw new Error('Browser controller is unavailable. VM runtime is required.');
 }
 
 function applyHeadlessSetting(req, value) {

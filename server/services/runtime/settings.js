@@ -21,7 +21,7 @@ function getEffectiveDefaults() {
 const BASE_FALLBACK_SETTINGS = Object.freeze({
   runtime_profile: 'trusted-host',
   runtime_backend: 'host',
-  browser_backend: 'host',
+  browser_backend: 'vm',
   android_backend: 'host',
   mcp_backend: 'host-remote',
 });
@@ -45,7 +45,7 @@ function deriveDefaultsForProfile(profile) {
     default:
       return {
         runtime_backend: 'host',
-        browser_backend: 'host',
+        browser_backend: 'vm',
         android_backend: 'host',
       };
   }
@@ -57,26 +57,20 @@ function normalizeRuntimeSettings(raw = {}) {
   const profile = normalizeChoice(raw.runtime_profile, ['secure-vm', 'trusted-host'], defaults.runtime_profile);
   const derived = deriveDefaultsForProfile(profile);
   const runtimeBackend = normalizeChoice(raw.runtime_backend, ['host', 'vm'], derived.runtime_backend);
-  const browserBackend = normalizeChoice(raw.browser_backend, ['host', 'vm', 'extension'], derived.browser_backend);
+  const browserBackend = normalizeChoice(raw.browser_backend, ['vm', 'extension'], derived.browser_backend);
   const androidBackend = normalizeChoice(raw.android_backend, ['host', 'vm'], derived.android_backend);
   return {
     runtime_profile: profile,
     runtime_backend: policy.allowHostRuntime ? runtimeBackend : (runtimeBackend === 'host' ? 'vm' : runtimeBackend),
-    browser_backend: policy.allowHostRuntime ? browserBackend : (browserBackend === 'host' ? 'vm' : browserBackend),
+    browser_backend: browserBackend === 'extension' ? 'extension' : 'vm',
     android_backend: policy.allowHostRuntime ? androidBackend : (androidBackend === 'host' ? 'vm' : androidBackend),
     mcp_backend: 'host-remote',
   };
 }
 
 function deriveCloudBrowserBackend(raw = {}) {
-  const settings = normalizeRuntimeSettings(raw);
-  if (settings.browser_backend === 'host' || settings.browser_backend === 'vm') {
-    return settings.browser_backend;
-  }
-  if (settings.runtime_profile === 'secure-vm' || settings.runtime_backend === 'vm') {
-    return 'vm';
-  }
-  return 'host';
+  normalizeRuntimeSettings(raw);
+  return 'vm';
 }
 
 function parseStoredRuntimeValue(key, value) {

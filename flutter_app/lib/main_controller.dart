@@ -5953,7 +5953,7 @@ class NeoAgentController extends ChangeNotifier {
       settings['headless_browser'] != 'false';
 
   String get browserBackend =>
-      settings['browser_backend']?.toString().trim().toLowerCase() ?? 'host';
+      settings['browser_backend']?.toString().trim().toLowerCase() ?? 'vm';
 
   String get cloudBrowserBackend {
     final browser = browserBackend;
@@ -5969,11 +5969,10 @@ class NeoAgentController extends ChangeNotifier {
         profile == 'secure-vm') {
       return 'vm';
     }
-    if (browser == 'host' || browser == 'vm') {
-      return browser;
-    }
+    if (browser == 'extension') return 'vm';
+    if (browser == 'vm') return 'vm';
     if (runtime == 'vm') return 'vm';
-    return 'host';
+    return 'vm';
   }
 
   bool get browserExtensionConnected =>

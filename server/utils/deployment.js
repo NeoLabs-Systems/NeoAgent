@@ -42,10 +42,11 @@ function parseDeploymentProfile(value) {
     case 'single':
     case 'single-user':
     case 'single_user':
+      return DEPLOYMENT_PROFILE_PRIVATE;
     case '':
-      return DEPLOYMENT_PROFILE_PRIVATE;
+      return DEPLOYMENT_PROFILE_PROD;
     default:
-      return DEPLOYMENT_PROFILE_PRIVATE;
+      return DEPLOYMENT_PROFILE_PROD;
   }
 }
 
@@ -66,7 +67,7 @@ function getDeploymentPolicy(env = process.env) {
     runtimeDefaults: {
       runtime_profile: isProdProfile ? 'secure-vm' : 'trusted-host',
       runtime_backend: isProdProfile ? 'vm' : 'host',
-      browser_backend: isProdProfile ? 'vm' : 'host',
+      browser_backend: 'vm',
       android_backend: isProdProfile ? 'vm' : 'host',
       mcp_backend: 'host-remote',
     },

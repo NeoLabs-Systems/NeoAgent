@@ -112,7 +112,7 @@ Runtime settings let operators choose where higher-risk work runs:
 
 | Profile | Runtime shape |
 |---|---|
-| `trusted-host` | CLI, browser, and Android tools run on the host |
+| `trusted-host` | CLI and Android tools run on the host; browser runs in the VM or paired extension |
 | `secure-vm` | CLI, browser, and Android tools run through the local VM backend |
 
 Production policy can require the secure VM profile and a strong VM guest token.

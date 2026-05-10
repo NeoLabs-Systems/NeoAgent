@@ -2345,7 +2345,7 @@ class UpdateStatusSnapshot {
       deploymentProfile.toLowerCase() == 'prod' ? 'Production' : 'Private';
 
   String get runtimeModeLabel => deploymentProfile.toLowerCase() == 'prod'
-      ? 'Per-user isolated VM runtime'
+      ? 'Cloud runtime'
       : 'Trusted host runtime';
 
   String get runtimeValidationLabel =>

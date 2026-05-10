@@ -78,16 +78,7 @@ async function getBrowserHealth(userId, app, engine) {
   }
 
   if (!controller) {
-    try {
-      const resolver = app?.locals?.getBrowserControllerForUser;
-      controller = await Promise.resolve(
-        typeof resolver === 'function'
-          ? resolver(userId)
-          : (app?.locals?.browserController || engine?.browserController || null)
-      );
-    } catch (err) {
-      resolutionError = resolutionError || err;
-    }
+    resolutionError = resolutionError || new Error('Browser provider is unavailable. VM runtime is required.');
   }
 
   if (!controller && resolutionError) {

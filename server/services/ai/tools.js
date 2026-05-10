@@ -1364,11 +1364,7 @@ async function executeTool(toolName, args, context, engine) {
         if (manager && typeof manager.getBrowserProviderForUser === 'function') {
             return manager.getBrowserProviderForUser(userId);
         }
-        const scoped = app?.locals?.getBrowserControllerForUser;
-        if (typeof scoped === 'function') {
-            return scoped(userId);
-        }
-        return app?.locals?.browserController || engine.browserController;
+        throw new Error('Browser provider is unavailable. VM runtime is required.');
     };
     const ac = () => {
         const manager = runtime();

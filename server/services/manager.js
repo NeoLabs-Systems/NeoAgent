@@ -3,7 +3,6 @@
 const db = require('../db/database');
 const { MemoryManager } = require('./memory/manager');
 const { MCPClient } = require('./mcp/client');
-const { BrowserController } = require('./browser/controller');
 const { AndroidController } = require('./android/controller');
 const { AgentEngine } = require('./ai/engine');
 const { MultiStepOrchestrator } = require('./ai/multiStep');
@@ -29,7 +28,6 @@ const { WearableService } = require('./wearable/service');
 const { assertRuntimeValidation, getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
-  restoreBrowserHeadlessPreference,
   runBackgroundTask,
 } = require('./bootstrap_helpers');
 
@@ -199,61 +197,12 @@ function createUserScopedControllerPool(app, {
 }
 
 function createBrowserController(app, artifactStore) {
-  function getUserHeadlessPreference(userId) {
-    try {
-      const row = db
-        .prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-        .get(userId, 'headless_browser');
-      if (!row) return true;
-      return row.value !== 'false' && row.value !== false && row.value !== '0';
-    } catch (err) {
-      console.warn('[Services] Failed to read user headless_browser setting, defaulting to true:', getErrorMessage(err));
-      return true;
-    }
-  }
-
-  createUserScopedControllerPool(app, {
-    controllersKey: 'browserControllers',
-    creationPromisesKey: 'browserControllerCreationPromises',
-    lastAccessKey: 'browserControllerLastAccess',
-    resolverKey: 'getBrowserControllerForUser',
-    defaultControllerKey: 'browserController',
-    createController: async (userId) => {
-      const controller = new BrowserController({
-        userId,
-        artifactStore,
-        runtimeBackend: 'host',
-      });
-      controller.headless = getUserHeadlessPreference(userId);
-      return controller;
-    },
-    closeController: async (controller) => {
-      if (typeof controller.closeBrowser === 'function') {
-        await controller.closeBrowser();
-      }
-    },
-    closeErrorLabel: '[Browser] Failed to close stale browser controller',
+  registerLocal(app, 'getBrowserControllerForUser', async () => {
+    throw new Error('Host browser controller is disabled. Use the VM browser backend or a paired extension.');
   });
-
-  const browserController = registerLocal(
-    app,
-    'browserController',
-    new BrowserController({
-      artifactStore,
-      runtimeBackend: 'host',
-    }),
-  );
-  const { restored, userCount, headless } = restoreBrowserHeadlessPreference(
-    browserController,
-    db,
-  );
-
-  if (restored) {
-    logServiceReady(`Browser headless setting restored to ${headless}`);
-  }
-
-  logServiceReady(`Browser controller ready for ${userCount} user(s)`);
-  return browserController;
+  registerLocal(app, 'browserController', null);
+  logServiceReady('Browser controller disabled in VM-only mode');
+  return null;
 }
 
 function createAndroidController(app, artifactStore) {
