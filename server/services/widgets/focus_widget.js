@@ -24,7 +24,10 @@ function formatRelativeTimestamp(value) {
   if (!value) return 'No recent activity';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return safeTrim(value, 80);
-  return date.toISOString();
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
 }
 
 function buildAssistantFocusSnapshot(memoryManager, userId, agentId) {

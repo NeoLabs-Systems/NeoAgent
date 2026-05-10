@@ -2484,6 +2484,9 @@ class _AiWidgetInfoPane extends StatelessWidget {
         hasUsefulRows ||
         chips.isNotEmpty ||
         body.trim().isNotEmpty;
+    final displayName = _widgetDisplayName(item.name);
+    final titleIsDuplicate =
+        _widgetSanitizedText(title).toLowerCase() == displayName.toLowerCase();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -2499,15 +2502,16 @@ class _AiWidgetInfoPane extends StatelessWidget {
           ),
           const SizedBox(height: 10),
         ],
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            height: 1.1,
-            letterSpacing: -0.4,
+        if (!titleIsDuplicate)
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+              letterSpacing: -0.4,
+            ),
           ),
-        ),
         if (subtitle.trim().isNotEmpty) ...<Widget>[
           const SizedBox(height: 8),
           Text(
@@ -2599,11 +2603,39 @@ class _AiWidgetInfoPane extends StatelessWidget {
         ],
         if (body.trim().isNotEmpty) ...<Widget>[
           const SizedBox(height: 10),
-          Text(
-            body,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: _textPrimary, height: 1.5, fontSize: 15),
+          MarkdownBody(
+            data: body,
+            selectable: false,
+            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                .copyWith(
+                  p: TextStyle(color: _textPrimary, height: 1.5, fontSize: 15),
+                  h1: TextStyle(
+                    color: _textPrimary,
+                    height: 1.3,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  h2: TextStyle(
+                    color: _textPrimary,
+                    height: 1.3,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  h3: TextStyle(
+                    color: _textPrimary,
+                    height: 1.3,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  listBullet: TextStyle(color: _textSecondary, height: 1.4),
+                  blockquoteDecoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                ),
           ),
         ],
         if (hasUsefulRows) ...<Widget>[
@@ -2808,6 +2840,7 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
               Expanded(
                 child: switch (item.template) {
                   'list' => _AiWidgetPreviewList(
+                    displayName: displayName,
                     title: title,
                     subtitle: subtitle,
                     rows: rows,
@@ -2817,6 +2850,7 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
                     compact: compact,
                   ),
                   'summary' => _AiWidgetPreviewSummary(
+                    displayName: displayName,
                     title: title,
                     subtitle: subtitle,
                     body: body,
@@ -2827,6 +2861,7 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
                     compact: compact,
                   ),
                   _ => _AiWidgetPreviewStat(
+                    displayName: displayName,
                     title: title,
                     subtitle: subtitle,
                     metric: metric,
@@ -2853,6 +2888,7 @@ class _AiWidgetAndroidPreview extends StatelessWidget {
 
 class _AiWidgetPreviewStat extends StatelessWidget {
   const _AiWidgetPreviewStat({
+    required this.displayName,
     required this.title,
     required this.subtitle,
     required this.metric,
@@ -2868,6 +2904,7 @@ class _AiWidgetPreviewStat extends StatelessWidget {
     required this.compact,
   });
 
+  final String displayName;
   final String title;
   final String subtitle;
   final String metric;
@@ -2884,6 +2921,8 @@ class _AiWidgetPreviewStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleIsDuplicate =
+        _widgetSanitizedText(title).toLowerCase() == displayName.toLowerCase();
     final values = rows
         .where(
           (row) =>
@@ -2915,17 +2954,18 @@ class _AiWidgetPreviewStat extends StatelessWidget {
                 ),
               ),
             SizedBox(height: dense ? 6 : 8),
-            Text(
-              title.trim().isNotEmpty ? title : 'Waiting for first update',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: palette.foreground,
-                fontSize: dense ? 15 : (compact ? 16 : 18),
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.35,
+            if (!titleIsDuplicate)
+              Text(
+                title.trim().isNotEmpty ? title : 'Waiting for first update',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.foreground,
+                  fontSize: dense ? 15 : (compact ? 16 : 18),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.35,
+                ),
               ),
-            ),
             SizedBox(height: dense ? 8 : 10),
             Text(
               hasMetric ? metric : 'Waiting for first update',
@@ -3049,6 +3089,7 @@ class _AiWidgetPreviewStat extends StatelessWidget {
 
 class _AiWidgetPreviewSummary extends StatelessWidget {
   const _AiWidgetPreviewSummary({
+    required this.displayName,
     required this.title,
     required this.subtitle,
     required this.body,
@@ -3059,6 +3100,7 @@ class _AiWidgetPreviewSummary extends StatelessWidget {
     required this.compact,
   });
 
+  final String displayName;
   final String title;
   final String subtitle;
   final String body;
@@ -3074,6 +3116,9 @@ class _AiWidgetPreviewSummary extends StatelessWidget {
     final headline = title.trim().isNotEmpty
         ? title
         : 'Waiting for first update';
+    final headlineIsDuplicate =
+        _widgetSanitizedText(headline).toLowerCase() ==
+        displayName.toLowerCase();
     final copy = body.trim().isNotEmpty ? body : headline;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3085,29 +3130,59 @@ class _AiWidgetPreviewSummary extends StatelessWidget {
           style: TextStyle(color: palette.muted, fontSize: compact ? 11 : 12),
         ),
         const SizedBox(height: 10),
-        Text(
-          headline,
-          maxLines: compact ? 3 : 4,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: palette.foreground,
-            fontSize: compact ? 20 : 24,
-            height: 1.12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.6,
-          ),
-        ),
-        if (copy != headline) ...<Widget>[
-          const SizedBox(height: 10),
+        if (!headlineIsDuplicate)
           Text(
-            copy,
+            headline,
             maxLines: compact ? 3 : 4,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: palette.foreground.withValues(alpha: 0.86),
-              fontSize: compact ? 13 : 14,
-              height: 1.34,
+              color: palette.foreground,
+              fontSize: compact ? 20 : 24,
+              height: 1.12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.6,
             ),
+          ),
+        if (copy != headline) ...<Widget>[
+          const SizedBox(height: 10),
+          MarkdownBody(
+            data: copy,
+            selectable: false,
+            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                .copyWith(
+                  p: TextStyle(
+                    color: palette.foreground.withValues(alpha: 0.86),
+                    fontSize: compact ? 13 : 14,
+                    height: 1.34,
+                  ),
+                  h1: TextStyle(
+                    color: palette.foreground.withValues(alpha: 0.92),
+                    fontSize: compact ? 16 : 17,
+                    height: 1.18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  h2: TextStyle(
+                    color: palette.foreground.withValues(alpha: 0.92),
+                    fontSize: compact ? 15 : 16,
+                    height: 1.18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  h3: TextStyle(
+                    color: palette.foreground.withValues(alpha: 0.92),
+                    fontSize: compact ? 14 : 15,
+                    height: 1.18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  listBullet: TextStyle(
+                    color: palette.muted,
+                    fontSize: compact ? 12 : 13,
+                    height: 1.28,
+                  ),
+                  blockquoteDecoration: BoxDecoration(
+                    color: palette.chip,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
           ),
         ],
         if (metric.isNotEmpty) ...<Widget>[
@@ -3149,6 +3224,7 @@ class _AiWidgetPreviewSummary extends StatelessWidget {
 
 class _AiWidgetPreviewList extends StatelessWidget {
   const _AiWidgetPreviewList({
+    required this.displayName,
     required this.title,
     required this.subtitle,
     required this.rows,
@@ -3158,6 +3234,7 @@ class _AiWidgetPreviewList extends StatelessWidget {
     required this.compact,
   });
 
+  final String displayName;
   final String title;
   final String subtitle;
   final List<Map<String, dynamic>> rows;
@@ -3168,6 +3245,8 @@ class _AiWidgetPreviewList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleIsDuplicate =
+        _widgetSanitizedText(title).toLowerCase() == displayName.toLowerCase();
     final entries = rows.isEmpty
         ? chips
               .map((chip) => <String, dynamic>{'label': chip, 'value': ''})
@@ -3192,7 +3271,7 @@ class _AiWidgetPreviewList extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: palette.muted, fontSize: compact ? 11 : 12),
           ),
-        if (title.trim().isNotEmpty) ...<Widget>[
+        if (!titleIsDuplicate && title.trim().isNotEmpty) ...<Widget>[
           const SizedBox(height: 6),
           Text(
             title,
