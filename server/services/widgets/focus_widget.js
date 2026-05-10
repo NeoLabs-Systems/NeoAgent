@@ -41,7 +41,7 @@ function buildAssistantFocusSnapshot(memoryManager, userId, agentId) {
      LIMIT 6`
   ).all(userId, scopedAgentId);
   const runs = db.prepare(
-    `SELECT id, title, status, trigger_source, created_at, completed_at, error
+    `SELECT id, title, status, trigger_source, created_at, completed_at, error, metadata_json
      FROM agent_runs
      WHERE user_id = ? AND agent_id = ?
      ORDER BY created_at DESC
@@ -60,7 +60,15 @@ function buildAssistantFocusSnapshot(memoryManager, userId, agentId) {
     value: safeTrim(task.trigger_type === 'schedule' ? 'Scheduled' : 'Triggered', 40),
   }));
   const recentSignals = runs.slice(0, 3).map((run) => ({
-    label: safeTrim(run.title || 'Run', 80),
+    label: (() => {
+      const metadata = parseJsonObject(run.metadata_json, {});
+      return safeTrim(
+        metadata.deliverable?.type
+          ? `${run.title || 'Run'} (${metadata.deliverable.type})`
+          : (run.title || 'Run'),
+        80,
+      );
+    })(),
     value: safeTrim(run.status || 'unknown', 32),
   }));
   const rememberedContext = memories.slice(0, 2).map((memory) => safeTrim(memory.content, 140));

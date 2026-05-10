@@ -38,6 +38,14 @@ const {
   normalizeInterimKind,
 } = require('./interim');
 const { recordRunEvent } = require('./runEvents');
+const {
+  buildDeliverableWorkflowGuidance,
+  DeliverableValidationError,
+  extractArtifactsFromResult,
+  getDeliverableWorkflow,
+  selectDeliverableWorkflow,
+  validateDeliverableExecution,
+} = require('./deliverables');
 
 const MAX_CONSECUTIVE_TOOL_FAILURES = 5;
 const WIDGET_REFRESH_MAX_ITERATIONS = 30;
@@ -689,6 +697,38 @@ class AgentEngine {
       });
     } catch {
       return null;
+    }
+  }
+
+  async persistDeliverableMemory(userId, runId, agentId, deliverableResult) {
+    if (!this.memoryManager?.saveMemory || !deliverableResult?.summary) return;
+    try {
+      await this.memoryManager.saveMemory(
+        userId,
+        deliverableResult.summary,
+        'tasks',
+        deliverableResult.validation?.status === 'passed' ? 7 : 5,
+        {
+          agentId,
+          sourceRef: {
+            sourceType: 'deliverable_run',
+            sourceId: runId,
+            sourceLabel: deliverableResult.type || 'deliverable',
+          },
+          metadata: {
+            deliverableType: deliverableResult.type,
+            status: deliverableResult.status,
+            artifactCount: Array.isArray(deliverableResult.artifacts)
+              ? deliverableResult.artifacts.length
+              : 0,
+            artifacts: Array.isArray(deliverableResult.artifacts)
+              ? deliverableResult.artifacts.slice(0, 6)
+              : [],
+          },
+        },
+      );
+    } catch (error) {
+      console.error('[Engine] Failed to persist deliverable memory:', error?.message || error);
     }
   }
 
@@ -1640,6 +1680,10 @@ class AgentEngine {
     let analysis = null;
     let plan = null;
     let verification = null;
+    let deliverableWorkflow = null;
+    let deliverablePlan = null;
+    let deliverableArtifacts = [];
+    let deliverableValidation = null;
     let directAnswerEligible = false;
     let analysisUsage = 0;
 
@@ -1692,6 +1736,54 @@ class AgentEngine {
         });
       }
 
+      if (options.skipDeliverableWorkflow !== true) {
+        const deliverableSelectionResult = await selectDeliverableWorkflow({
+          engine: this,
+          provider,
+          providerName,
+          model,
+          messages,
+          tools,
+          options,
+        });
+        totalTokens += deliverableSelectionResult.usage || 0;
+        const selectedWorkflow = getDeliverableWorkflow(deliverableSelectionResult.selection.type);
+        if (selectedWorkflow?.canHandle(deliverableSelectionResult.selection)) {
+          deliverableWorkflow = {
+            workflow: selectedWorkflow,
+            selection: deliverableSelectionResult.selection,
+            request: selectedWorkflow.normalizeRequest({
+              ...deliverableSelectionResult.selection,
+              userMessage,
+            }),
+          };
+          deliverablePlan = selectedWorkflow.buildExecutionPlan(deliverableWorkflow.request, {
+            analysis,
+            tools,
+            options,
+          });
+          await selectedWorkflow.run(deliverablePlan, {
+            engine: this,
+            userId,
+            runId,
+            agentId,
+            app,
+          });
+          this.persistRunMetadata(runId, {
+            deliverableWorkflow: {
+              ...deliverableWorkflow.selection,
+              plan: deliverablePlan,
+            },
+          });
+          this.recordRunEvent(userId, runId, 'deliverable_workflow_selected', {
+            type: deliverableWorkflow.selection.type,
+            confidence: deliverableWorkflow.selection.confidence,
+            goal: deliverableWorkflow.selection.goal,
+            requestedOutputs: deliverableWorkflow.selection.requestedOutputs,
+          }, { agentId });
+        }
+      }
+
       if (analysis.mode === 'plan_execute') {
         const planResult = await this.createExecutionPlan({
           provider,
@@ -1735,6 +1827,17 @@ class AgentEngine {
           capabilityHealth: capabilitySummary,
         }),
       });
+      if (deliverablePlan) {
+        messages.push({
+          role: 'system',
+          content: buildDeliverableWorkflowGuidance(deliverablePlan),
+        });
+        this.recordRunEvent(userId, runId, 'deliverable_execution_started', {
+          type: deliverableWorkflow?.selection?.type,
+          preferredTools: deliverablePlan.preferredTools || [],
+          expectedOutputs: deliverablePlan.expectedOutputs || [],
+        }, { agentId });
+      }
       messages = sanitizeConversationMessages(messages);
 
       directAnswerEligible = isDirectAnswerEligibleAnalysis(analysis)
@@ -2092,10 +2195,27 @@ class AgentEngine {
           }
 
           const execution = classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage);
+          execution.artifacts = await extractArtifactsFromResult(toolName, toolResult);
           toolExecutions.push(execution);
+          if (deliverableWorkflow && Array.isArray(execution.artifacts) && execution.artifacts.length > 0) {
+            for (const artifact of execution.artifacts) {
+              if (!deliverableArtifacts.some((existing) => (
+                (existing.path && artifact.path && existing.path === artifact.path)
+                || (existing.uri && artifact.uri && existing.uri === artifact.uri)
+              ))) {
+                deliverableArtifacts.push(artifact);
+                this.recordRunEvent(userId, runId, 'deliverable_artifact_produced', {
+                  type: deliverableWorkflow.selection.type,
+                  toolName,
+                  artifact,
+                }, { agentId, stepId });
+              }
+            }
+          }
           this.persistRunMetadata(runId, {
             evidenceSources: [...new Set(toolExecutions.map((item) => item.evidenceSource).filter(Boolean))],
             subagentState: this.listSubagents(runId),
+            deliverableArtifacts,
           });
 
           const toolMessage = {
@@ -2315,6 +2435,46 @@ class AgentEngine {
         });
       }
 
+      if (deliverableWorkflow && deliverablePlan) {
+        this.recordRunEvent(userId, runId, 'deliverable_validation_started', {
+          type: deliverableWorkflow.selection.type,
+          artifactCount: deliverableArtifacts.length,
+        }, { agentId });
+        const validationResult = await validateDeliverableExecution({
+          workflow: deliverableWorkflow.workflow,
+          request: deliverableWorkflow.request,
+          plan: deliverablePlan,
+          finalReply: finalResponseText,
+          artifacts: deliverableArtifacts,
+          toolExecutions,
+          runId,
+        });
+        deliverableValidation = validationResult.validation;
+        this.persistRunMetadata(runId, {
+          deliverable: validationResult.result,
+        });
+        if (deliverableValidation.status !== 'passed') {
+          this.recordRunEvent(userId, runId, 'deliverable_validation_failed', {
+            type: deliverableWorkflow.selection.type,
+            errors: deliverableValidation.errors,
+            warnings: deliverableValidation.warnings,
+          }, { agentId });
+          throw new DeliverableValidationError(
+            deliverableValidation.summary || `Deliverable validation failed for ${deliverableWorkflow.selection.type}.`,
+            {
+              validation: deliverableValidation,
+              result: validationResult.result,
+            },
+          );
+        }
+        await this.persistDeliverableMemory(userId, runId, agentId, validationResult.result);
+        this.recordRunEvent(userId, runId, 'deliverable_completed', {
+          type: deliverableWorkflow.selection.type,
+          artifactCount: validationResult.result.artifacts.length,
+          summary: validationResult.result.summary,
+        }, { agentId });
+      }
+
       db.prepare('UPDATE agent_runs SET status = ?, total_tokens = ?, final_response = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
         .run('completed', totalTokens, finalResponseText || null, runId);
 
@@ -2439,6 +2599,7 @@ class AgentEngine {
         triggerSource === 'messaging'
         && options.source
         && options.chatId
+        && err?.disableAutonomousRetry !== true
         && retryCount < this.getMessagingRetryLimit(maxIterations)
       );
 
@@ -2493,6 +2654,9 @@ class AgentEngine {
         return this.runWithModel(userId, userMessage, retryOptions, _modelOverride);
       }
 
+      const deliverableFailureResponse = err?.deliverableResult?.summary
+        || err?.deliverableValidation?.summary
+        || '';
       let messagingFailureContent = '';
       let sendSucceeded = false;
       if (triggerSource === 'messaging' && options.source && options.chatId) {
@@ -2551,7 +2715,14 @@ class AgentEngine {
       }
 
       db.prepare('UPDATE agent_runs SET status = ?, error = ?, final_response = ?, updated_at = datetime(\'now\') WHERE id = ?')
-        .run('failed', err.message, sendSucceeded ? (messagingFailureContent || null) : null, runId);
+        .run(
+          'failed',
+          err.message,
+          sendSucceeded
+            ? (messagingFailureContent || null)
+            : (deliverableFailureResponse || null),
+          runId,
+        );
       console.error(
         `[Run ${shortenRunId(runId)}] failed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} error=${summarizeForLog(err.message, 180)}`
       );
@@ -2563,6 +2734,7 @@ class AgentEngine {
         error: err.message,
         totalTokens,
         iterations: iteration,
+        deliverableType: deliverableWorkflow?.selection?.type || null,
       }, { agentId });
 
       if (messagingFailureContent) {

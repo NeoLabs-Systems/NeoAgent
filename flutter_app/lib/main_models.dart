@@ -1475,6 +1475,37 @@ class RunDetailSnapshot {
       steps.where((step) => step.isPlanningRelated).length;
 }
 
+class ArtifactContractItem {
+  const ArtifactContractItem({
+    required this.kind,
+    required this.path,
+    required this.uri,
+    required this.label,
+    required this.mimeType,
+    required this.size,
+  });
+
+  factory ArtifactContractItem.fromJson(Map<dynamic, dynamic> json) {
+    return ArtifactContractItem(
+      kind: json['kind']?.toString() ?? 'artifact',
+      path: json['path']?.toString() ?? '',
+      uri: json['uri']?.toString() ?? json['url']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      mimeType: json['mimeType']?.toString() ?? json['mime_type']?.toString() ?? '',
+      size: _asInt(json['size'] ?? json['byte_size']),
+    );
+  }
+
+  final String kind;
+  final String path;
+  final String uri;
+  final String label;
+  final String mimeType;
+  final int size;
+
+  String get displayLabel => label.ifEmpty(path.ifEmpty(uri.ifEmpty(kind)));
+}
+
 class RunEventItem {
   const RunEventItem({
     required this.id,
@@ -1519,6 +1550,18 @@ class RunEventItem {
 
   String get title {
     switch (eventType) {
+      case 'deliverable_workflow_selected':
+        return 'Deliverable selected';
+      case 'deliverable_execution_started':
+        return 'Deliverable execution started';
+      case 'deliverable_artifact_produced':
+        return 'Deliverable artifact produced';
+      case 'deliverable_validation_started':
+        return 'Deliverable validation started';
+      case 'deliverable_validation_failed':
+        return 'Deliverable validation failed';
+      case 'deliverable_completed':
+        return 'Deliverable completed';
       case 'run_started':
         return 'Run started';
       case 'memory_injected':
@@ -1552,8 +1595,15 @@ class RunEventItem {
         payload['recallPreview']?.toString() ??
         '';
     if (preview.trim().isNotEmpty) return preview;
-    final error = payload['error']?.toString() ?? '';
-    if (error.trim().isNotEmpty) return error;
+  final error = payload['error']?.toString() ?? '';
+  if (error.trim().isNotEmpty) return error;
+    final artifactLabel = payload['artifact'] is Map
+        ? (payload['artifact']['label']?.toString() ??
+            payload['artifact']['path']?.toString() ??
+            payload['artifact']['uri']?.toString() ??
+            '')
+        : '';
+    if (artifactLabel.trim().isNotEmpty) return artifactLabel;
     final titleValue = payload['title']?.toString() ?? '';
     return titleValue;
   }
@@ -1743,6 +1793,17 @@ dynamic _decodeMaybeJson(dynamic value) {
     } catch (_) {}
   }
   return value;
+}
+
+Map<String, dynamic> _decodeJsonMap(
+  String? value, {
+  Map<String, dynamic> fallback = const <String, dynamic>{},
+}) {
+  final decoded = _decodeMaybeJson(value);
+  if (decoded is Map) {
+    return Map<String, dynamic>.from(decoded);
+  }
+  return fallback;
 }
 
 class ChatEntry {
@@ -2059,9 +2120,16 @@ class RunSummary {
     required this.createdAt,
     this.completedAt,
     this.error = '',
+    this.metadata = const <String, dynamic>{},
   });
 
   factory RunSummary.fromJson(Map<dynamic, dynamic> json) {
+    final metadata = _decodeJsonMap(
+      json['metadata_json']?.toString(),
+      fallback: json['metadata'] is Map
+          ? Map<String, dynamic>.from(json['metadata'] as Map)
+          : const <String, dynamic>{},
+    );
     return RunSummary(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Untitled',
@@ -2072,6 +2140,7 @@ class RunSummary {
       createdAt: _parseTimestamp(json['created_at']?.toString()),
       completedAt: _parseOptionalTimestamp(json['completed_at']?.toString()),
       error: json['error']?.toString() ?? '',
+      metadata: metadata,
     );
   }
 
@@ -2084,6 +2153,25 @@ class RunSummary {
   final DateTime createdAt;
   final DateTime? completedAt;
   final String error;
+  final Map<String, dynamic> metadata;
+
+  Map<String, dynamic> get deliverable =>
+      metadata['deliverable'] is Map
+          ? Map<String, dynamic>.from(metadata['deliverable'] as Map)
+          : const <String, dynamic>{};
+
+  String get deliverableType => deliverable['type']?.toString() ?? '';
+
+  String get deliverableSummary => deliverable['summary']?.toString() ?? '';
+
+  List<ArtifactContractItem> get deliverableArtifacts {
+    final raw = deliverable['artifacts'];
+    if (raw is! List) return const <ArtifactContractItem>[];
+    return raw
+        .whereType<Map>()
+        .map(ArtifactContractItem.fromJson)
+        .toList(growable: false);
+  }
 
   bool get isFailure => status == 'failed' || status == 'error';
 

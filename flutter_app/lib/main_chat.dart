@@ -2493,6 +2493,13 @@ class _RunHistoryRow extends StatelessWidget {
                     '${run.modelLabel} • ${run.totalTokensLabel} tokens',
                     style: TextStyle(color: _textSecondary, fontSize: 12),
                   ),
+                  if (run.deliverableType.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Deliverable • ${run.deliverableType.replaceAll('_', ' ')}',
+                      style: TextStyle(color: _accent, fontSize: 12),
+                    ),
+                  ],
                   if (run.error.trim().isNotEmpty) ...<Widget>[
                     const SizedBox(height: 8),
                     Text(
@@ -2624,6 +2631,10 @@ class _RunDetailWorkspace extends StatelessWidget {
             response: snapshot.response,
             onCopy: () => onCopyResponse(snapshot.response),
           ),
+          if (snapshot.run.deliverableType.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 16),
+            _DeliverableSummaryCard(run: snapshot.run),
+          ],
           const SizedBox(height: 16),
           _RunTimelineCard(steps: snapshot.steps, loading: loading),
           const SizedBox(height: 16),
@@ -2687,6 +2698,11 @@ class _RunHeroCard extends StatelessWidget {
                           label: run.modelLabel,
                           icon: Icons.memory_outlined,
                         ),
+                        if (run.deliverableType.trim().isNotEmpty)
+                          _MetaPill(
+                            label: run.deliverableType.replaceAll('_', ' '),
+                            icon: Icons.inventory_2_outlined,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -2805,6 +2821,85 @@ class _RunResponseCard extends StatelessWidget {
                       ),
                     ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeliverableSummaryCard extends StatelessWidget {
+  const _DeliverableSummaryCard({required this.run});
+
+  final RunSummary run;
+
+  @override
+  Widget build(BuildContext context) {
+    final artifacts = run.deliverableArtifacts;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _SectionTitle('Deliverable'),
+            const SizedBox(height: 12),
+            Text(
+              run.deliverableSummary.ifEmpty(
+                'Workflow: ${run.deliverableType.replaceAll('_', ' ')}',
+              ),
+              style: TextStyle(color: _textPrimary, height: 1.45),
+            ),
+            if (artifacts.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 14),
+              ...artifacts.map((artifact) {
+                final meta = <String>[
+                  artifact.kind,
+                  if (artifact.mimeType.trim().isNotEmpty) artifact.mimeType,
+                  if (artifact.size > 0) '${artifact.size} bytes',
+                ].join(' • ');
+                final location = artifact.uri.ifEmpty(artifact.path);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _bgSecondary,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          artifact.displayLabel,
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        if (meta.trim().isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 4),
+                          Text(
+                            meta,
+                            style: TextStyle(color: _textSecondary, fontSize: 12),
+                          ),
+                        ],
+                        if (location.trim().isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 6),
+                          SelectableText(
+                            location,
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
           ],
         ),
       ),
