@@ -1120,7 +1120,7 @@ class _HomeViewState extends State<HomeView> {
   }
 
   SidebarGroup? _sidebarGroupForSection(AppSection section) {
-    final visibleSection = section.canonicalSection;
+    final visibleSection = section.sidebarSection;
     if (!_mainSections(widget.controller).contains(visibleSection)) {
       return null;
     }

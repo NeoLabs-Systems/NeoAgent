@@ -179,6 +179,15 @@ extension AppSectionX on AppSection {
     }
   }
 
+  AppSection get sidebarSection {
+    switch (this) {
+      case AppSection.accountSettings:
+        return AppSection.settings;
+      default:
+        return canonicalSection;
+    }
+  }
+
   String get navigationTitle {
     final effectiveSection = canonicalSection;
     final groupLabel = effectiveSection.group.label;

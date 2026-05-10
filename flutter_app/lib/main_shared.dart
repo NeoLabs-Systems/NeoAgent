@@ -253,7 +253,7 @@ List<Widget> _buildSidebarItems(
   final widgets = <Widget>[];
   final mainSections = _mainSections(controller);
   final selectedSidebarSection = mainSections.contains(
-    controller.selectedSection.canonicalSection,
+    controller.selectedSection.sidebarSection,
   );
   for (final group in SidebarGroup.values) {
     final sections = mainSections
@@ -265,7 +265,7 @@ List<Widget> _buildSidebarItems(
 
     final active =
         selectedSidebarSection &&
-        controller.selectedSection.canonicalSection.group == group;
+        controller.selectedSection.sidebarSection.group == group;
     final defaultSection = sections.first;
     final hasChildren = sections.length > 1;
     final expanded = expandedGroup == group;
@@ -297,7 +297,7 @@ List<Widget> _buildSidebarItems(
         _SidebarButton(
           label: section.label,
           icon: section.icon,
-          active: controller.selectedSection.canonicalSection == section,
+          active: controller.selectedSection.sidebarSection == section,
           indent: 18,
           iconSize: 16,
           fontSize: 12,
