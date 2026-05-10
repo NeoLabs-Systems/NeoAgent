@@ -43,6 +43,23 @@ class _ChatPanelState extends State<ChatPanel> {
       ..selection = TextSelection.collapsed(offset: draft.length);
   }
 
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      unawaited(
+        WidgetsBinding.instance.endOfFrame.then((_) {
+          if (!mounted || !_scrollController.hasClients) {
+            return;
+          }
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -53,15 +70,7 @@ class _ChatPanelState extends State<ChatPanel> {
       _lastMessageCount = messages.length;
       _lastToolCount = controller.toolEvents.length;
       _lastStream = controller.streamingAssistant;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      _scrollToBottom();
     }
 
     return Column(
@@ -252,6 +261,87 @@ class _ChatPanelState extends State<ChatPanel> {
                 ],
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TypingIndicatorBubble extends StatefulWidget {
+  const _TypingIndicatorBubble();
+
+  @override
+  State<_TypingIndicatorBubble> createState() => _TypingIndicatorBubbleState();
+}
+
+class _TypingIndicatorBubbleState extends State<_TypingIndicatorBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const _MessageAvatar(assistant: true),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: _bgCard,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List<Widget>.generate(3, (index) {
+                    final phase = ((_controller.value * 3) - index).clamp(
+                      0.0,
+                      1.0,
+                    );
+                    final offset = Curves.easeOut.transform(
+                      phase > 0.5 ? 1 - phase : phase,
+                    );
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        right: index == 2 ? 0 : 6,
+                        top: (1 - offset) * 6,
+                      ),
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _textSecondary.withValues(
+                            alpha: 0.45 + (offset * 0.5),
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    );
+                  }),
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -2880,7 +2970,10 @@ class _DeliverableSummaryCard extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             meta,
-                            style: TextStyle(color: _textSecondary, fontSize: 12),
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                         if (location.trim().isNotEmpty) ...<Widget>[
@@ -2890,7 +2983,8 @@ class _DeliverableSummaryCard extends StatelessWidget {
                             style: TextStyle(
                               color: _textSecondary,
                               fontSize: 12,
-                              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                              fontFamily:
+                                  GoogleFonts.jetBrainsMono().fontFamily,
                             ),
                           ),
                         ],

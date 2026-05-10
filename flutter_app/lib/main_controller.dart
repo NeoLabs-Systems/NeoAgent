@@ -5572,8 +5572,17 @@ class NeoAgentController extends ChangeNotifier {
       return;
     }
     _pendingChatDraft = normalized;
-    setSelectedSection(AppSection.chat);
+    if (!_isMobilePlatform) {
+      setSelectedSection(AppSection.chat);
+    } else {
+      notifyListeners();
+    }
   }
+
+  bool get _isMobilePlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   String? takePendingChatDraft() {
     final draft = _pendingChatDraft;
@@ -6157,7 +6166,19 @@ class NeoAgentController extends ChangeNotifier {
 
   List<ChatEntry> get visibleChatMessages {
     final entries = <ChatEntry>[...chatMessages];
-    if (streamingAssistant.trim().isNotEmpty) {
+    if (activeRun != null && streamingAssistant.trim().isEmpty) {
+      entries.add(
+        ChatEntry(
+          id: '',
+          role: 'assistant',
+          content: '',
+          platform: 'live',
+          createdAt: DateTime.now(),
+          transient: true,
+          typing: true,
+        ),
+      );
+    } else if (streamingAssistant.trim().isNotEmpty) {
       entries.add(
         ChatEntry(
           id: '',

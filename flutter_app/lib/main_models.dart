@@ -1491,7 +1491,8 @@ class ArtifactContractItem {
       path: json['path']?.toString() ?? '',
       uri: json['uri']?.toString() ?? json['url']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
-      mimeType: json['mimeType']?.toString() ?? json['mime_type']?.toString() ?? '',
+      mimeType:
+          json['mimeType']?.toString() ?? json['mime_type']?.toString() ?? '',
       size: _asInt(json['size'] ?? json['byte_size']),
     );
   }
@@ -1595,13 +1596,13 @@ class RunEventItem {
         payload['recallPreview']?.toString() ??
         '';
     if (preview.trim().isNotEmpty) return preview;
-  final error = payload['error']?.toString() ?? '';
-  if (error.trim().isNotEmpty) return error;
+    final error = payload['error']?.toString() ?? '';
+    if (error.trim().isNotEmpty) return error;
     final artifactLabel = payload['artifact'] is Map
         ? (payload['artifact']['label']?.toString() ??
-            payload['artifact']['path']?.toString() ??
-            payload['artifact']['uri']?.toString() ??
-            '')
+              payload['artifact']['path']?.toString() ??
+              payload['artifact']['uri']?.toString() ??
+              '')
         : '';
     if (artifactLabel.trim().isNotEmpty) return artifactLabel;
     final titleValue = payload['title']?.toString() ?? '';
@@ -1818,6 +1819,7 @@ class ChatEntry {
     this.metadata = const <String, dynamic>{},
     this.toolCalls = const <Map<String, dynamic>>[],
     this.transient = false,
+    this.typing = false,
   });
 
   factory ChatEntry.fromJson(Map<dynamic, dynamic> json) {
@@ -1847,6 +1849,7 @@ class ChatEntry {
   final List<Map<String, dynamic>> toolCalls;
   final DateTime createdAt;
   final bool transient;
+  final bool typing;
 
   String get createdAtLabel => _formatTimestamp(createdAt);
 
@@ -2155,10 +2158,9 @@ class RunSummary {
   final String error;
   final Map<String, dynamic> metadata;
 
-  Map<String, dynamic> get deliverable =>
-      metadata['deliverable'] is Map
-          ? Map<String, dynamic>.from(metadata['deliverable'] as Map)
-          : const <String, dynamic>{};
+  Map<String, dynamic> get deliverable => metadata['deliverable'] is Map
+      ? Map<String, dynamic>.from(metadata['deliverable'] as Map)
+      : const <String, dynamic>{};
 
   String get deliverableType => deliverable['type']?.toString() ?? '';
 

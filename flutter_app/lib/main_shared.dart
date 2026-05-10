@@ -1133,6 +1133,10 @@ class _ChatBubble extends StatelessWidget {
     final isUser = entry.role == 'user';
     final isTransient = entry.transient;
 
+    if (entry.typing) {
+      return const _TypingIndicatorBubble();
+    }
+
     return Opacity(
       opacity: isTransient ? 0.92 : 1,
       child: Row(
