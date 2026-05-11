@@ -17,6 +17,10 @@ const PID_FILE = path.join(DATA_DIR, 'neoagent.pid');
 const LEGACY_ENV_FILE = path.join(APP_DIR, '.env');
 const LEGACY_DATA_DIR = path.join(APP_DIR, 'data');
 const LEGACY_AGENT_DATA_DIR = path.join(APP_DIR, 'agent-data');
+const DEFAULT_VM_BASE_IMAGE_URLS = Object.freeze({
+  arm64: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img',
+  x64: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img',
+});
 
 function ensureRuntimeDirs() {
   for (const dir of [RUNTIME_HOME, DATA_DIR, LOG_DIR, AGENT_DATA_DIR]) {
@@ -131,6 +135,10 @@ function generateSecret(bytes = 32) {
   return crypto.randomBytes(bytes).toString('hex');
 }
 
+function getDefaultVmBaseImageUrl(arch = process.arch) {
+  return arch === 'arm64' ? DEFAULT_VM_BASE_IMAGE_URLS.arm64 : DEFAULT_VM_BASE_IMAGE_URLS.x64;
+}
+
 function isPlaceholderValue(value, placeholders) {
   const secret = String(value || '').trim();
   return !secret || placeholders.has(secret);
@@ -149,11 +157,44 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   const raw = readEnvFileRaw(envFile);
   const parsed = parseEnv(raw);
   const changes = [];
+  const defaultProfile = 'prod';
   const sessionPlaceholders = new Set([
     'neoagent-dev-secret-change-me',
     'change-this-to-a-random-secret-in-production',
     'change-me-to-something-random',
   ]);
+
+  let deploymentProfile = String(env.NEOAGENT_PROFILE || parsed.get('NEOAGENT_PROFILE') || '').trim();
+  if (!deploymentProfile) {
+    deploymentProfile = defaultProfile;
+    env.NEOAGENT_PROFILE = deploymentProfile;
+    upsertEnvValue(envFile, 'NEOAGENT_PROFILE', deploymentProfile);
+    changes.push('NEOAGENT_PROFILE');
+  }
+
+  let vmBaseImageUrl = String(env.NEOAGENT_VM_BASE_IMAGE_URL || parsed.get('NEOAGENT_VM_BASE_IMAGE_URL') || '').trim();
+  if (!vmBaseImageUrl) {
+    vmBaseImageUrl = getDefaultVmBaseImageUrl();
+    env.NEOAGENT_VM_BASE_IMAGE_URL = vmBaseImageUrl;
+    upsertEnvValue(envFile, 'NEOAGENT_VM_BASE_IMAGE_URL', vmBaseImageUrl);
+    changes.push('NEOAGENT_VM_BASE_IMAGE_URL');
+  }
+
+  let vmMemoryMb = String(env.NEOAGENT_VM_MEMORY_MB || parsed.get('NEOAGENT_VM_MEMORY_MB') || '').trim();
+  if (!vmMemoryMb) {
+    vmMemoryMb = '4096';
+    env.NEOAGENT_VM_MEMORY_MB = vmMemoryMb;
+    upsertEnvValue(envFile, 'NEOAGENT_VM_MEMORY_MB', vmMemoryMb);
+    changes.push('NEOAGENT_VM_MEMORY_MB');
+  }
+
+  let vmCpus = String(env.NEOAGENT_VM_CPUS || parsed.get('NEOAGENT_VM_CPUS') || '').trim();
+  if (!vmCpus) {
+    vmCpus = '2';
+    env.NEOAGENT_VM_CPUS = vmCpus;
+    upsertEnvValue(envFile, 'NEOAGENT_VM_CPUS', vmCpus);
+    changes.push('NEOAGENT_VM_CPUS');
+  }
 
   let sessionSecret = String(env.SESSION_SECRET || parsed.get('SESSION_SECRET') || '').trim();
   if (isPlaceholderValue(sessionSecret, sessionPlaceholders)) {
@@ -172,7 +213,7 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   }
 
   if (changes.length > 0 && logger) {
-    const message = `Initialized secure runtime secrets: ${changes.join(', ')}`;
+    const message = `Initialized runtime defaults: ${changes.join(', ')}`;
     if (typeof logger.info === 'function') {
       logger.info(message);
     } else if (typeof logger.log === 'function') {
@@ -200,7 +241,9 @@ module.exports = {
   LEGACY_ENV_FILE,
   LEGACY_DATA_DIR,
   LEGACY_AGENT_DATA_DIR,
+  DEFAULT_VM_BASE_IMAGE_URLS,
   ensureRuntimeDirs,
   ensureSecureRuntimeEnv,
+  getDefaultVmBaseImageUrl,
   migrateLegacyRuntime
 };
