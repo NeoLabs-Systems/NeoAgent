@@ -1,4 +1,3 @@
-const { HostExecutionBackend } = require('./backends/host');
 const { LocalVmExecutionBackend } = require('./backends/local-vm');
 const { QemuVmManager } = require('./qemu');
 const { getRuntimeSettings } = require('./settings');
@@ -7,11 +6,6 @@ const { ExtensionBrowserProvider } = require('../browser/extension/provider');
 class RuntimeManager {
   constructor(options = {}) {
     this.browserExtensionRegistry = options.browserExtensionRegistry || null;
-    this.hostBackend = new HostExecutionBackend({
-      cliExecutor: options.cliExecutor,
-      getBrowserProvider: options.getHostBrowserProvider,
-      getAndroidProvider: options.getHostAndroidProvider,
-    });
     this.vmBackend = new LocalVmExecutionBackend({
       vmManager: options.vmManager || new QemuVmManager(),
       artifactStore: options.artifactStore,
@@ -36,15 +30,22 @@ class RuntimeManager {
   }
 
   resolveBackend(userId, requested) {
-    const settings = this.getSettings(userId);
-    const effective = requested || settings.runtime_backend;
-    if (effective === 'vm') return this.vmBackend;
-    return this.hostBackend;
+    void userId;
+    void requested;
+    return this.vmBackend;
   }
 
   async executeCommand(userId, command, options = {}) {
     const backend = this.resolveBackend(userId, options.backend);
     return backend.executeCommand(userId, command, options);
+  }
+
+  async killCommand(userId, pid, reason = 'aborted') {
+    return this.vmBackend.killCommand(userId, pid, reason);
+  }
+
+  async getCommandExecutorForUser(userId) {
+    return this.vmBackend.getCommandExecutorForUser(userId);
   }
 
   async getBrowserProviderForUser(userId) {
@@ -56,16 +57,11 @@ class RuntimeManager {
   }
 
   async getAndroidProviderForUser(userId) {
-    const settings = this.getSettings(userId);
-    const backend = this.resolveBackend(userId, settings.android_backend);
-    return backend.getAndroidProviderForUser(userId);
+    return this.vmBackend.getAndroidProviderForUser(userId);
   }
 
   async shutdown() {
-    await Promise.allSettled([
-      this.hostBackend.shutdown(),
-      this.vmBackend.shutdown(),
-    ]);
+    await Promise.allSettled([this.vmBackend.shutdown()]);
   }
 }
 

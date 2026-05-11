@@ -20,10 +20,19 @@ function clampText(value, maxChars) {
   return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}...`;
 }
 
+function isValidUserId(userId) {
+  if (typeof userId === 'number') {
+    return Number.isInteger(userId) && userId > 0;
+  }
+  if (typeof userId === 'string') {
+    return userId.trim() !== '';
+  }
+  return false;
+}
+
 class SkillRunner {
   constructor(options = {}) {
     this.skills = new Map();
-    this.executor = options.executor || null;
     this.runtimeManager = options.runtimeManager || null;
   }
 
@@ -170,16 +179,35 @@ class SkillRunner {
     }
 
     if (skill.metadata.command) {
-      const { CLIExecutor } = require('../cli/executor');
       let command = skill.metadata.command;
       for (const [key, value] of Object.entries(args)) {
         command = command.replaceAll(`{${key}}`, shellEscape(value));
       }
-      if (this.runtimeManager && context.userId != null) {
-        return await this.runtimeManager.executeCommand(context.userId, command, { cwd: skill.dir });
+      if (!isValidUserId(context.userId)) {
+        return {
+          error: 'Missing or invalid userId',
+        };
       }
-      const executor = this.executor || new CLIExecutor();
-      return await executor.execute(command, { cwd: skill.dir });
+      if (!this.runtimeManager) {
+        return {
+          error: 'VM runtime is required',
+        };
+      }
+      try {
+        return await this.runtimeManager.executeCommand(context.userId, command);
+      } catch (err) {
+        const commandName = skill?.name || toolName || 'unknown';
+        console.error('[SkillRunner] Skill command execution failed:', {
+          userId: context.userId,
+          commandName,
+          command: String(command).slice(0, 200),
+          error: err?.message || String(err),
+        });
+        return {
+          error: 'Skill command execution failed',
+          details: err?.message || String(err),
+        };
+      }
     }
 
     return {

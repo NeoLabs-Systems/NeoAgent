@@ -150,17 +150,7 @@ async function getAndroidHealth(userId, app, engine) {
   }
 
   if (!controller) {
-    try {
-      const resolver = app?.locals?.getAndroidControllerForUser;
-      controller = await Promise.resolve(
-        typeof resolver === 'function'
-          ? resolver(userId)
-          : (app?.locals?.androidController || engine?.androidController || null)
-      );
-    } catch (err) {
-      resolutionError = resolutionError || err;
-      controller = null;
-    }
+    resolutionError = resolutionError || new Error('Android provider is unavailable. VM runtime is required.');
   }
 
   if (!controller || typeof controller.getStatus !== 'function') {
@@ -310,27 +300,27 @@ function getSkillHealth(app, engine) {
   });
 }
 
-function getFileHealth() {
+function getFileHealth(app, engine) {
+  const workspaceManager = app?.locals?.workspaceManager || engine?.workspaceManager || null;
   return capabilityEntry({
-    connected: true,
-    configured: true,
-    healthy: true,
-    summary: 'Filesystem access is available.',
+    connected: Boolean(workspaceManager),
+    configured: Boolean(workspaceManager),
+    healthy: Boolean(workspaceManager),
+    summary: workspaceManager
+      ? 'Per-user workspace access is available.'
+      : 'Per-user workspace service is not available.',
   });
 }
 
 function getCommandHealth(userId, app, engine) {
   const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
-  const backend = runtimeManager?.getSettings?.(userId)?.runtime_backend || 'host';
   return capabilityEntry({
-    connected: Boolean(runtimeManager || engine?.cliExecutor),
-    configured: true,
-    healthy: Boolean(runtimeManager || engine?.cliExecutor),
+    connected: Boolean(runtimeManager),
+    configured: Boolean(runtimeManager),
+    healthy: Boolean(runtimeManager),
     summary: runtimeManager
-      ? `Shell command execution is available through the ${backend} runtime backend.`
-      : engine?.cliExecutor
-        ? 'Shell command execution is available.'
-        : 'Shell executor is not available.',
+      ? 'Shell command execution is available through the per-user runtime capsule.'
+      : 'Shell executor is not available.',
   });
 }
 
@@ -367,7 +357,7 @@ async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
     providers,
     capabilities: {
       command: getCommandHealth(userId, app, engine),
-      files: getFileHealth(),
+      files: getFileHealth(app, engine),
       memory: getMemoryHealth(engine),
       search: getSearchHealth(),
       browser: await getBrowserHealth(userId, app, engine),

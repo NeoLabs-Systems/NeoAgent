@@ -3,9 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { APP_DIR, DATA_DIR } = require('../../../../runtime/paths');
-
-const TOOLING_ROOT = path.join(DATA_DIR, 'integrated-tools');
+const { APP_DIR } = require('../../../../runtime/paths');
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -36,13 +34,6 @@ function normalizeFilenameBase(value, fallback = 'artifact') {
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return normalized || fallback;
-}
-
-function createJobDir(toolName, filenameBase) {
-  const prefix = normalizeFilenameBase(toolName, 'tool');
-  const suffix = normalizeFilenameBase(filenameBase, 'output');
-  const jobId = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${suffix}`;
-  return ensureDir(path.join(TOOLING_ROOT, prefix, jobId));
 }
 
 function resolveRepoBinary(...segments) {
@@ -76,8 +67,11 @@ function writeJsonFile(filePath, payload) {
   return filePath;
 }
 
-function copyAssetIntoJob(sourcePath, targetDir, preferredName = 'asset') {
-  const absolutePath = assertExistingFile(sourcePath, 'asset');
+function copyAssetIntoJob(sourcePath, targetDir, preferredName = 'asset', workspaceManager = null, userId = null) {
+  if (!workspaceManager || userId == null) {
+    throw new Error('Workspace manager is required for integrated tool assets.');
+  }
+  const absolutePath = workspaceManager.resolvePath(userId, sourcePath, 'asset');
   ensureDir(targetDir);
   const extension = path.extname(absolutePath).toLowerCase();
   const basename = normalizeFilenameBase(path.basename(absolutePath, extension), preferredName);
@@ -111,6 +105,17 @@ async function runCheckedCommand(executor, command, options = {}) {
     );
   }
   return result;
+}
+
+async function createJobDir(toolName, filenameBase, workspaceManager = null, userId = null) {
+  const prefix = normalizeFilenameBase(toolName, 'tool');
+  const suffix = normalizeFilenameBase(filenameBase, 'output');
+  const jobId = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${suffix}`;
+  if (workspaceManager && userId != null) {
+    const toolingRoot = await workspaceManager.getToolingRoot(userId, prefix);
+    return ensureDir(path.join(toolingRoot, jobId));
+  }
+  throw new Error('Workspace manager is required for integrated tool jobs.');
 }
 
 function inferArtifactExtension(filePath) {

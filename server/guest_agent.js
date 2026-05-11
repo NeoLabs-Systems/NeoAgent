@@ -108,6 +108,21 @@ app.post('/exec', async (req, res) => {
   });
 });
 
+app.post('/exec/kill', async (req, res) => {
+  await handle(res, async () => {
+    const pid = Number(req.body?.pid);
+    if (!Number.isInteger(pid) || pid <= 0) {
+      return { error: 'pid is required' };
+    }
+    const reason = String(req.body?.reason || 'aborted').trim();
+    if (typeof cliExecutor.isManaged === 'function' && !cliExecutor.isManaged(pid)) {
+      return { error: 'pid not managed' };
+    }
+    const killed = cliExecutor.kill(pid, reason || 'aborted');
+    return { success: killed, pid };
+  });
+});
+
 app.post('/files/read', async (req, res) => {
   await handle(res, async () => {
     const filePath = String(req.body?.path || '').trim();

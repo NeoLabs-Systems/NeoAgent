@@ -649,10 +649,10 @@ class AgentEngine {
     this.activeRuns = new Map();
     this.subagents = new Map();
     this.app = services.app || null;
-    this.cliExecutor = services.cliExecutor || null;
     this.browserController = services.browserController || null;
     this.androidController = services.androidController || null;
     this.runtimeManager = services.runtimeManager || null;
+    this.workspaceManager = services.workspaceManager || null;
     this.messagingManager = services.messagingManager || null;
     this.mcpManager = services.mcpManager || services.mcpClient || null;
     this.skillRunner = services.skillRunner || null;
@@ -1380,8 +1380,10 @@ class AgentEngine {
     const runMeta = this.getRunMeta(runId);
     if (!runMeta || !pid) return;
     runMeta.toolPids.add(pid);
-    if (runMeta.aborted && this.cliExecutor) {
-      this.cliExecutor.kill(pid, 'aborted');
+    if (runMeta.aborted) {
+      if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
+        void this.runtimeManager.killCommand(runMeta.userId, pid, 'aborted');
+      }
     }
   }
 
@@ -2756,10 +2758,10 @@ class AgentEngine {
     const childRunId = uuidv4();
     const subEngine = new AgentEngine(this.io, {
       app: options.app || this.app,
-      cliExecutor: this.cliExecutor,
       browserController: this.browserController,
       androidController: this.androidController,
       runtimeManager: this.runtimeManager,
+      workspaceManager: this.workspaceManager,
       messagingManager: this.messagingManager,
       mcpManager: this.mcpManager,
       skillRunner: this.skillRunner,
@@ -3066,7 +3068,9 @@ class AgentEngine {
       runMeta.aborted = true;
       this.emit(runMeta.userId, 'run:stopping', { runId });
       for (const pid of runMeta.toolPids) {
-        this.cliExecutor?.kill(pid, 'aborted');
+        if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
+          void this.runtimeManager.killCommand(runMeta.userId, pid, 'aborted');
+        }
       }
       runMeta.toolPids.clear();
     }

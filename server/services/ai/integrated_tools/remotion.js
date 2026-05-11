@@ -42,7 +42,7 @@ function normalizeScene(scene = {}) {
   };
 }
 
-function normalizeProps(args, jobDir) {
+function normalizeProps(args, jobDir, workspaceManager, userId) {
   const assetsDir = ensureDir(path.join(jobDir, 'public', 'assets'));
   const scenes = (Array.isArray(args.scenes) ? args.scenes : [])
     .map(normalizeScene)
@@ -54,7 +54,7 @@ function normalizeProps(args, jobDir) {
   const preparedScenes = scenes.map((scene, index) => {
     let imageSrc = scene.imageUrl || '';
     if (!imageSrc && scene.imagePath) {
-      const asset = copyAssetIntoJob(scene.imagePath, assetsDir, `scene-${index + 1}`);
+      const asset = copyAssetIntoJob(scene.imagePath, assetsDir, `scene-${index + 1}`, workspaceManager, userId);
       imageSrc = `/assets/${asset.relativePath}`;
     }
     return {
@@ -65,7 +65,7 @@ function normalizeProps(args, jobDir) {
 
   let audioSrc = '';
   if (args.audio_path) {
-    const asset = copyAssetIntoJob(args.audio_path, assetsDir, 'soundtrack');
+    const asset = copyAssetIntoJob(args.audio_path, assetsDir, 'soundtrack', workspaceManager, userId);
     audioSrc = `/assets/${asset.relativePath}`;
   }
 
@@ -295,12 +295,20 @@ async function generateVideoWithRemotion(args, context = {}) {
     throw new Error('CLI executor is unavailable for Remotion rendering.');
   }
   const filenameBase = normalizeFilenameBase(args.filename_base || args.title || 'video', 'video');
-  const jobDir = createJobDir('remotion', filenameBase);
+  const workspaceManager = context.workspaceManager;
+  const userId = context.userId;
+  if (!workspaceManager || typeof workspaceManager.getToolingRoot !== 'function') {
+    throw new Error('Workspace manager is unavailable for Remotion rendering.');
+  }
+  if (!((typeof userId === 'string' && userId.trim()) || (typeof userId === 'number' && Number.isInteger(userId) && userId > 0))) {
+    throw new Error('Missing or invalid userId for Remotion rendering.');
+  }
+  const jobDir = await createJobDir('remotion', filenameBase, workspaceManager, userId);
   const entryPath = path.join(jobDir, 'index.js');
   const compositionPath = path.join(jobDir, 'VideoComposition.js');
   const propsPath = path.join(jobDir, 'props.json');
   const outputPath = path.join(jobDir, `${filenameBase}.mp4`);
-  const props = normalizeProps(args, jobDir);
+  const props = normalizeProps(args, jobDir, workspaceManager, userId);
   const size = ASPECT_RATIOS[props.aspectRatio] || ASPECT_RATIOS['16:9'];
   const durationInFrames = props.scenes.reduce((sum, scene) => (
     sum + Math.max(1, Math.round(scene.durationSeconds * props.fps))

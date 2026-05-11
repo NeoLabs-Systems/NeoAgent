@@ -258,6 +258,10 @@ class CLIExecutor {
     return false;
   }
 
+  isManaged(pid) {
+    return this.activeProcesses.has(pid);
+  }
+
   killAll(reason = 'aborted') {
     for (const [pid, proc] of this.activeProcesses) {
       proc.__neoagentKilled = true;

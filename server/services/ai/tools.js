@@ -1376,12 +1376,9 @@ async function executeTool(toolName, args, context, engine) {
         if (manager && typeof manager.getAndroidProviderForUser === 'function') {
             return manager.getAndroidProviderForUser(userId);
         }
-        const scoped = app?.locals?.getAndroidControllerForUser;
-        if (typeof scoped === 'function') {
-            return scoped(userId);
-        }
-        return app?.locals?.androidController || engine.androidController;
+        throw new Error('Android provider is unavailable. VM runtime is required.');
     };
+    const wc = () => app?.locals?.workspaceManager || engine.workspaceManager || null;
     const dc = () => {
         const scoped = app?.locals?.getDesktopProviderForUser;
         if (typeof scoped === 'function') {
@@ -1424,7 +1421,10 @@ async function executeTool(toolName, args, context, engine) {
     const integratedToolResult = await executeIntegratedTool(toolName, args, {
         userId,
         agentId,
-        cliExecutor: app?.locals?.cliExecutor || engine.cliExecutor || null,
+        cliExecutor: runtime() && typeof runtime().getCommandExecutorForUser === 'function'
+            ? await runtime().getCommandExecutorForUser(userId)
+            : null,
+        workspaceManager: wc(),
         artifactStore,
     });
     if (integratedToolResult !== null) {
@@ -1434,32 +1434,15 @@ async function executeTool(toolName, args, context, engine) {
     switch (toolName) {
         case 'execute_command': {
             const runtimeManager = runtime();
-            if (runtimeManager && typeof runtimeManager.executeCommand === 'function') {
-                const onSpawn = (pid) => engine.attachProcessToRun(runId, pid);
-                return await runtimeManager.executeCommand(userId, args.command, {
-                    cwd: args.cwd,
-                    timeout: args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000),
-                    stdinInput: args.stdin_input,
-                    pty: args.pty === true,
-                    inputs: args.inputs || [],
-                    onSpawn,
-                });
+            if (!runtimeManager || typeof runtimeManager.executeCommand !== 'function') {
+                return { error: 'Command execution is unavailable. VM runtime is required.' };
             }
-            const { CLIExecutor } = require('../cli/executor');
-            const executor = app?.locals?.cliExecutor || engine.cliExecutor || new CLIExecutor();
-            const onSpawn = (pid) => engine.attachProcessToRun(runId, pid);
-            if (args.pty) {
-                return await executor.executeInteractive(args.command, args.inputs || [], {
-                    cwd: args.cwd,
-                    timeout: args.timeout || 20 * 60 * 1000,
-                    onSpawn
-                });
-            }
-            return await executor.execute(args.command, {
+            return await runtimeManager.executeCommand(userId, args.command, {
                 cwd: args.cwd,
-                timeout: args.timeout || 15 * 60 * 1000,
+                timeout: args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000),
                 stdinInput: args.stdin_input,
-                onSpawn
+                pty: args.pty === true,
+                inputs: args.inputs || [],
             });
         }
 
@@ -2097,21 +2080,14 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'read_file': {
             try {
-                const encoding = args.encoding || 'utf-8';
-                if (args.start_line || args.end_line) {
-                    const content = fs.readFileSync(args.path, encoding);
-                    const lines = content.split('\n');
-                    const start = Math.max(0, (args.start_line || 1) - 1);
-                    const end = args.end_line || lines.length;
-                    const sliced = lines.slice(start, end).join('\n');
-                    return {
-                        content: sliced.length > 20000 ? sliced.slice(0, 20000) + '\n...[truncated]' : sliced,
-                        totalLines: lines.length,
-                        rangeShown: [start + 1, Math.min(end, lines.length)]
-                    };
-                }
-                const content = fs.readFileSync(args.path, encoding);
-                return { content: content.length > 20000 ? content.slice(0, 20000) + '\n...[truncated]' : content };
+                const workspace = wc();
+                if (!workspace) return { error: 'Workspace service is unavailable.' };
+                return workspace.readFile(userId, {
+                    path: args.path,
+                    encoding: args.encoding || 'utf-8',
+                    start_line: args.start_line,
+                    end_line: args.end_line,
+                });
             } catch (err) {
                 return { error: err.message };
             }
@@ -2119,14 +2095,13 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'write_file': {
             try {
-                const dir = path.dirname(args.path);
-                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                if (args.mode === 'append') {
-                    fs.appendFileSync(args.path, args.content);
-                } else {
-                    fs.writeFileSync(args.path, args.content);
-                }
-                return { success: true, path: args.path };
+                const workspace = wc();
+                if (!workspace) return { error: 'Workspace service is unavailable.' };
+                return workspace.writeFile(userId, {
+                    path: args.path,
+                    content: args.content,
+                    mode: args.mode,
+                });
             } catch (err) {
                 return { error: err.message };
             }
@@ -2134,23 +2109,12 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'edit_file': {
             try {
-                if (!fs.existsSync(args.path)) return { error: `File not found: ${args.path}` };
-                let content = fs.readFileSync(args.path, 'utf-8');
-                let modified = false;
-                const report = [];
-
-                for (const edit of args.edits) {
-                    if (content.includes(edit.oldText)) {
-                        content = content.replace(edit.oldText, edit.newText);
-                        modified = true;
-                        report.push({ success: true, edit: edit.oldText.slice(0, 50) + '...' });
-                    } else {
-                        report.push({ success: false, error: 'Target text not found', edit: edit.oldText.slice(0, 50) + '...' });
-                    }
-                }
-
-                if (modified) fs.writeFileSync(args.path, content);
-                return { success: modified, report, path: args.path };
+                const workspace = wc();
+                if (!workspace) return { error: 'Workspace service is unavailable.' };
+                return workspace.editFile(userId, {
+                    path: args.path,
+                    edits: args.edits,
+                });
             } catch (err) {
                 return { error: err.message };
             }
@@ -2158,28 +2122,13 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'list_directory': {
             try {
-                const maxDepth = Math.min(args.depth || (args.recursive ? 3 : 1), 5);
-                const recurse = (dir, currentDepth = 1) => {
-                    const entries = fs.readdirSync(dir, { withFileTypes: true });
-                    const result = [];
-                    for (const e of entries) {
-                        const fullPath = path.join(dir, e.name);
-                        const stats = fs.statSync(fullPath);
-                        const item = {
-                            name: e.name,
-                            type: e.isDirectory() ? 'directory' : 'file',
-                            path: fullPath,
-                            size: stats.size,
-                            mtime: stats.mtime.toISOString()
-                        };
-                        result.push(item);
-                        if (e.isDirectory() && currentDepth < maxDepth && !e.name.startsWith('.') && e.name !== 'node_modules') {
-                            result.push(...recurse(fullPath, currentDepth + 1));
-                        }
-                    }
-                    return result;
-                };
-                return { entries: recurse(args.path) };
+                const workspace = wc();
+                if (!workspace) return { error: 'Workspace service is unavailable.' };
+                return workspace.listDirectory(userId, {
+                    path: args.path,
+                    depth: args.depth,
+                    recursive: args.recursive,
+                });
             } catch (err) {
                 return { error: err.message };
             }
@@ -2187,23 +2136,13 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'search_files': {
             try {
-                const { CLIExecutor } = require('../cli/executor');
-                const executor = new CLIExecutor();
-                const includePattern = args.include ? `--include="${args.include}"` : '';
-                const command = `grep -rnE "${args.query.replace(/"/g, '\\"')}" "${args.path}" ${includePattern} | head -n 100`;
-                const result = await executor.execute(command);
-                if (result.exitCode === 1 && !result.stdout) return { results: [], message: 'No matches found' };
-
-                const lines = (result.stdout || '').split('\n').filter(Boolean);
-                const matches = lines.map(line => {
-                    const parts = line.split(':');
-                    return {
-                        file: parts[0],
-                        line: parseInt(parts[1]),
-                        content: parts.slice(2).join(':').trim()
-                    };
+                const workspace = wc();
+                if (!workspace) return { error: 'Workspace service is unavailable.' };
+                return workspace.searchFiles(userId, {
+                    path: args.path,
+                    query: args.query,
+                    include: args.include,
                 });
-                return { matches, count: matches.length };
             } catch (err) {
                 return { error: err.message };
             }

@@ -3,7 +3,6 @@
 const db = require('../db/database');
 const { MemoryManager } = require('./memory/manager');
 const { MCPClient } = require('./mcp/client');
-const { AndroidController } = require('./android/controller');
 const { AgentEngine } = require('./ai/engine');
 const { MultiStepOrchestrator } = require('./ai/multiStep');
 const { SkillRunner } = require('./ai/toolRunner');
@@ -15,11 +14,11 @@ const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
 const { VoiceRuntimeManager } = require('./voice/runtimeManager');
-const { CLIExecutor } = require('./cli/executor');
 const { AuthProviderManager } = require('./account/auth_provider_manager');
 const { IntegrationManager } = require('./integrations/manager');
 const { ArtifactStore } = require('./artifacts/store');
 const { RuntimeManager } = require('./runtime/manager');
+const { WorkspaceManager } = require('./workspace/manager');
 const { BrowserExtensionRegistry } = require('./browser/extension/registry');
 const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
@@ -40,16 +39,16 @@ function logServiceReady(message) {
   console.log(`[Services] ${message}`);
 }
 
-function createCliExecutor(app) {
-  const cliExecutor = registerLocal(app, 'cliExecutor', new CLIExecutor());
-  logServiceReady('CLI executor ready');
-  return cliExecutor;
-}
-
 function createArtifactStore(app) {
   const artifactStore = registerLocal(app, 'artifactStore', new ArtifactStore());
   logServiceReady('Artifact store ready');
   return artifactStore;
+}
+
+function createWorkspaceManager(app) {
+  const workspaceManager = registerLocal(app, 'workspaceManager', new WorkspaceManager());
+  logServiceReady('Workspace manager ready');
+  return workspaceManager;
 }
 
 function createBrowserExtensionRegistry(app) {
@@ -205,74 +204,24 @@ function createBrowserController(app, artifactStore) {
   return null;
 }
 
-function createAndroidController(app, artifactStore) {
-  createUserScopedControllerPool(app, {
-    controllersKey: 'androidControllers',
-    creationPromisesKey: 'androidControllerCreationPromises',
-    lastAccessKey: 'androidControllerLastAccess',
-    resolverKey: 'getAndroidControllerForUser',
-    defaultControllerKey: 'androidController',
-    createController: async (userId) => {
-      const controller = new AndroidController({
-        userId,
-        artifactStore,
-        runtimeBackend: 'host',
-      });
-      return controller;
-    },
-    closeController: async (controller) => {
-      if (typeof controller.close === 'function') {
-        await controller.close();
-      }
-    },
-    closeErrorLabel: '[Android] Failed to close stale Android controller',
-  });
-
-  const androidController = registerLocal(
-    app,
-    'androidController',
-    new AndroidController({
-      artifactStore,
-      runtimeBackend: 'host',
-    }),
-  );
-  logServiceReady('Android controller ready');
-  return androidController;
-}
-
-function createRuntimeManager(app, cliExecutor) {
+function createRuntimeManager(app) {
   const runtimeManager = registerLocal(
     app,
     'runtimeManager',
     new RuntimeManager({
-      cliExecutor,
       artifactStore: app.locals.artifactStore,
       browserExtensionRegistry: app.locals.browserExtensionRegistry,
-      getHostBrowserProvider: (userId) => {
-        const resolver = app.locals.getBrowserControllerForUser;
-        if (typeof resolver === 'function') {
-          return resolver(userId);
-        }
-        return app.locals.browserController;
-      },
-      getHostAndroidProvider: (userId) => {
-        const resolver = app.locals.getAndroidControllerForUser;
-        if (typeof resolver === 'function') {
-          return resolver(userId);
-        }
-        return app.locals.androidController;
-      },
     }),
   );
   logServiceReady('Runtime manager ready');
   return runtimeManager;
 }
 
-async function createSkillRunner(app, cliExecutor, runtimeManager) {
+async function createSkillRunner(app, runtimeManager) {
   const skillRunner = registerLocal(
     app,
     'skillRunner',
-    new SkillRunner({ executor: cliExecutor, runtimeManager }),
+    new SkillRunner({ runtimeManager }),
   );
   await skillRunner.loadSkills();
   logServiceReady('Skills loaded');
@@ -283,13 +232,13 @@ function createAgentEngine(
   app,
   io,
   {
-    cliExecutor,
     memoryManager,
     mcpClient,
     browserController,
     androidController,
     runtimeManager,
     skillRunner,
+    workspaceManager,
   },
 ) {
   const agentEngine = registerLocal(
@@ -297,12 +246,12 @@ function createAgentEngine(
     'agentEngine',
     new AgentEngine(io, {
       app,
-      cliExecutor,
       memoryManager,
       mcpClient,
       browserController,
       androidController,
       runtimeManager,
+      workspaceManager,
       messagingManager: null,
       skillRunner,
     }),
@@ -476,8 +425,8 @@ async function startServices(app, io) {
   console.log('[Services] Starting service initialization');
 
   try {
-    const cliExecutor = createCliExecutor(app);
     const artifactStore = createArtifactStore(app);
+    createWorkspaceManager(app);
     createBrowserExtensionRegistry(app);
     createDesktopCompanionRegistry(app);
     const memoryManager = createMemoryManager(app);
@@ -485,22 +434,21 @@ async function startServices(app, io) {
     createAuthProviderManager(app);
     const integrationManager = createIntegrationManager(app);
     const browserController = createBrowserController(app, artifactStore);
-    const androidController = createAndroidController(app, artifactStore);
-    const runtimeManager = createRuntimeManager(app, cliExecutor);
+    const runtimeManager = createRuntimeManager(app);
     const runtimeValidation = getRuntimeValidation(runtimeManager);
     registerLocal(app, 'runtimeValidation', runtimeValidation);
     if (!runtimeValidation.ready) {
       console.warn('[Services] Runtime validation is degraded:', runtimeValidation.issues.join(' '));
     }
-    const skillRunner = await createSkillRunner(app, cliExecutor, runtimeManager);
+    const skillRunner = await createSkillRunner(app, runtimeManager);
     const agentEngine = createAgentEngine(app, io, {
-      cliExecutor,
       memoryManager,
       mcpClient,
       browserController,
-      androidController,
+      androidController: null,
       runtimeManager,
       skillRunner,
+      workspaceManager: app.locals.workspaceManager,
     });
 
     createMultiStep(app, agentEngine, io);
@@ -596,24 +544,6 @@ async function stopServices(app) {
     }
   }
 
-  if (app.locals.androidController) {
-    tasks.push(
-      app.locals.androidController.close().catch((err) => {
-        console.error('[Android] Shutdown error:', getErrorMessage(err));
-      }),
-    );
-  }
-
-  if (app.locals.androidControllers instanceof Map) {
-    for (const controller of app.locals.androidControllers.values()) {
-      tasks.push(
-        controller.close().catch((err) => {
-          console.error('[Android] User-scoped shutdown error:', getErrorMessage(err));
-        }),
-      );
-    }
-  }
-
   if (app.locals.messagingManager) {
     tasks.push(
       app.locals.messagingManager.shutdown().catch((err) => {
@@ -673,15 +603,6 @@ async function stopServices(app) {
       logServiceReady('Desktop companion connections closed');
     } catch (err) {
       console.error('[DesktopCompanion] Shutdown error:', getErrorMessage(err));
-    }
-  }
-
-  if (app.locals.cliExecutor) {
-    try {
-      app.locals.cliExecutor.killAll('shutdown');
-      logServiceReady('CLI executor processes terminated');
-    } catch (err) {
-      console.error('[CLI] Shutdown error:', getErrorMessage(err));
     }
   }
 

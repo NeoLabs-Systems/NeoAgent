@@ -332,11 +332,31 @@ class LocalVmExecutionBackend {
     });
   }
 
+  async killCommand(userId, pid, reason = 'aborted') {
+    const client = await this.#clientForUser(userId);
+    return client.request('POST', '/exec/kill', {
+      pid,
+      reason,
+    });
+  }
+
   async getBrowserProviderForUser(userId) {
     return new VmBrowserProvider(await this.#clientForUser(userId), {
       userId,
       artifactStore: this.artifactStore,
     });
+  }
+
+  async getCommandExecutorForUser(userId) {
+    return {
+      execute: (command, options = {}) => this.executeCommand(userId, command, options),
+      executeInteractive: (command, inputs = [], options = {}) => this.executeCommand(userId, command, {
+        ...options,
+        pty: true,
+        inputs,
+      }),
+      kill: (pid, reason = 'aborted') => this.killCommand(userId, pid, reason),
+    };
   }
 
   async getAndroidProviderForUser(userId) {

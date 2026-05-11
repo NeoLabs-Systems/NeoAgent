@@ -47,11 +47,7 @@ async function getAndroidController(req) {
   if (runtimeManager && typeof runtimeManager.getAndroidProviderForUser === 'function') {
     return runtimeManager.getAndroidProviderForUser(req.session?.userId);
   }
-  const resolver = req.app?.locals?.getAndroidControllerForUser;
-  if (typeof resolver === 'function') {
-    return resolver(req.session?.userId);
-  }
-  return req.app.locals.androidController;
+  throw new Error('Android controller is unavailable. VM runtime is required.');
 }
 
 function handleAndroidAction(action) {

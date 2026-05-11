@@ -46,18 +46,18 @@ function buildFrontmatter(args = {}) {
   return lines.join('\n');
 }
 
-function materializeSlideAsset(value, assetsDir) {
+function materializeSlideAsset(value, assetsDir, workspaceManager, userId) {
   if (!value) return '';
   const text = String(value).trim();
   if (!text) return '';
   if (/^https?:\/\//i.test(text)) {
     return text;
   }
-  const asset = copyAssetIntoJob(text, assetsDir, 'slide-asset');
+  const asset = copyAssetIntoJob(text, assetsDir, 'slide-asset', workspaceManager, userId);
   return `./assets/${asset.relativePath}`;
 }
 
-function buildStructuredDeckMarkdown(args, jobDir) {
+function buildStructuredDeckMarkdown(args, jobDir, workspaceManager, userId) {
   const slides = normalizeArray(args.slides);
   if (slides.length === 0) {
     throw new Error('generate_slide_deck requires a non-empty slides array or deck_markdown.');
@@ -76,7 +76,7 @@ function buildStructuredDeckMarkdown(args, jobDir) {
     const bullets = normalizeArray(slide?.bullets)
       .map((item) => String(item || '').trim())
       .filter(Boolean);
-    const imageRef = materializeSlideAsset(slide?.image_path || slide?.image_url, assetsDir);
+    const imageRef = materializeSlideAsset(slide?.image_path || slide?.image_url, assetsDir, workspaceManager, userId);
     const slideLines = ['---'];
     if (layout !== 'default') slideLines.push(`layout: ${layout}`);
     if (slide?.className) slideLines.push(`class: ${JSON.stringify(String(slide.className).trim())}`);
@@ -99,7 +99,7 @@ function buildStructuredDeckMarkdown(args, jobDir) {
   return `${sections.join('\n\n')}\n`;
 }
 
-function buildDeckMarkdown(args, jobDir) {
+function buildDeckMarkdown(args, jobDir, workspaceManager, userId) {
   const rawMarkdown = String(args.deck_markdown || '').trim();
   if (rawMarkdown) {
     if (rawMarkdown.startsWith('---')) {
@@ -107,7 +107,7 @@ function buildDeckMarkdown(args, jobDir) {
     }
     return `${buildFrontmatter(args)}\n\n${rawMarkdown}\n`;
   }
-  return buildStructuredDeckMarkdown(args, jobDir);
+  return buildStructuredDeckMarkdown(args, jobDir, workspaceManager, userId);
 }
 
 function resolveExportPath(jobDir, filenameBase, format) {
@@ -134,11 +134,13 @@ async function generateSlideDeck(args, context = {}) {
     throw new Error('Slidev CLI is not installed.');
   }
   const filenameBase = normalizeFilenameBase(args.filename_base || args.title || 'slide-deck', 'slide-deck');
-  const jobDir = createJobDir('slidev', filenameBase);
+  const workspaceManager = context.workspaceManager;
+  const userId = context.userId;
+  const jobDir = await createJobDir('slidev', filenameBase, workspaceManager, userId);
   ensureRepoNodeModulesLink(jobDir);
   const markdownPath = path.join(jobDir, `${filenameBase}.md`);
   const exportFormats = normalizeExportFormats(args.export_formats);
-  const deckMarkdown = buildDeckMarkdown(args, jobDir);
+  const deckMarkdown = buildDeckMarkdown(args, jobDir, workspaceManager, userId);
   writeTextFile(markdownPath, deckMarkdown);
 
   const executor = context.cliExecutor;
