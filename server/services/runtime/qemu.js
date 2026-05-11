@@ -165,6 +165,22 @@ function commandExists(command) {
   return probe.status === 0;
 }
 
+function resolveCommandPath(command) {
+  const probe = spawnSync(
+    process.platform === 'win32' ? 'where' : 'bash',
+    process.platform === 'win32' ? [command] : ['-lc', `command -v "${command}"`],
+    {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  if (probe.status !== 0) {
+    return null;
+  }
+  const resolved = String(probe.stdout || '').trim().split('\n').find(Boolean);
+  return resolved || null;
+}
+
 function allocatePort() {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -192,29 +208,46 @@ function ensureUserVmDisk(userRoot, baseImagePath) {
   }
 
   const qemuImg = process.platform === 'win32' ? 'qemu-img.exe' : 'qemu-img';
-  if (!commandExists(qemuImg)) {
-    throw new Error('qemu-img is required to create per-user VM overlays.');
+  const qemuImgPath = resolveCommandPath(qemuImg);
+  if (!qemuImgPath) {
+    try {
+      fs.copyFileSync(baseImagePath, diskPath);
+      return diskPath;
+    } catch (error) {
+      throw new Error(`Failed to create VM disk copy: ${error.message}`);
+    }
   }
 
-  const result = spawnSync(
-    qemuImg,
-    ['create', '-f', 'qcow2', '-F', 'qcow2', '-b', baseImagePath, diskPath],
-    {
-      stdio: 'pipe',
-      encoding: 'utf8',
-    },
-  );
-  if (result.status === 0 && fs.existsSync(diskPath)) {
+  try {
+    const result = spawnSync(
+      qemuImgPath,
+      ['create', '-f', 'qcow2', '-F', 'qcow2', '-b', baseImagePath, diskPath],
+      {
+        stdio: 'pipe',
+        encoding: 'utf8',
+      },
+    );
+    if (result.status === 0 && fs.existsSync(diskPath)) {
+      return diskPath;
+    }
+
+    const detail = String(
+      result.stderr
+      || result.stdout
+      || result.error?.message
+      || `exit status ${result.status ?? 'unknown'}`
+    ).trim();
+    fs.copyFileSync(baseImagePath, diskPath);
     return diskPath;
+  } catch (error) {
+    try {
+      fs.copyFileSync(baseImagePath, diskPath);
+      return diskPath;
+    } catch (copyError) {
+      const detail = String(error?.message || copyError?.message || 'unknown error').trim();
+      throw new Error(`Failed to create VM overlay with qemu-img: ${detail}`);
+    }
   }
-
-  const detail = String(
-    result.stderr
-    || result.stdout
-    || result.error?.message
-    || `exit status ${result.status ?? 'unknown'}`
-  ).trim();
-  throw new Error(`Failed to create VM overlay with qemu-img: ${detail}`);
 }
 
 function formatReadinessIssues(readiness) {
@@ -224,9 +257,6 @@ function formatReadinessIssues(readiness) {
   const issues = [];
   if (!readiness.qemuAvailable) {
     issues.push(`Missing QEMU binary (${readiness.qemuBinary}).`);
-  }
-  if (!readiness.qemuImgAvailable) {
-    issues.push(`Missing qemu-img binary (${readiness.qemuImgBinary}).`);
   }
   if (!readiness.baseImageExists && !readiness.downloadConfigured) {
     issues.push('No VM base image is available for download or local reuse.');
@@ -303,9 +333,8 @@ class QemuVmManager {
     const baseImageExists = Boolean(resolvedBaseImagePath && fs.existsSync(resolvedBaseImagePath));
     const downloadConfigured = !this.baseImagePath && isHttpUrl(this.baseImageUrl);
     const qemuAvailable = commandExists(qemuBinary);
-    const qemuImgAvailable = commandExists(qemuImgBinary);
     return {
-      ready: qemuAvailable && qemuImgAvailable && (baseImageExists || downloadConfigured),
+      ready: qemuAvailable && (baseImageExists || downloadConfigured),
       baseImagePath: resolvedBaseImagePath || null,
       baseImageExists,
       baseImageUrl: this.baseImageUrl || null,
@@ -313,7 +342,7 @@ class QemuVmManager {
       qemuBinary,
       qemuAvailable,
       qemuImgBinary,
-      qemuImgAvailable,
+      qemuImgAvailable: commandExists(qemuImgBinary),
       acceleration: resolveAcceleration(),
       guestArch: this.guestArch,
       platform: process.platform,
@@ -340,6 +369,7 @@ class QemuVmManager {
     const agentPort = await allocatePort();
     const sshPort = await allocatePort();
     const qemuBinary = resolveQemuBinary({ arch: this.guestArch });
+    const qemuBinaryPath = resolveCommandPath(qemuBinary) || qemuBinary;
     const args = buildQemuArgs({
       imagePath: diskPath,
       sshPort,
@@ -349,7 +379,7 @@ class QemuVmManager {
       arch: this.guestArch,
     });
 
-    const child = spawn(qemuBinary, args, {
+    const child = spawn(qemuBinaryPath, args, {
       cwd: userRoot,
       detached: process.platform !== 'win32',
       stdio: ['ignore', 'ignore', 'pipe'],

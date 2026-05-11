@@ -38,9 +38,6 @@ function getRuntimeValidation(runtimeManager) {
         if (!vmReadiness.qemuAvailable) {
           issues.push(`prod profile requires QEMU (${vmReadiness.qemuBinary}) to be installed.`);
         }
-        if (!vmReadiness.qemuImgAvailable) {
-          issues.push(`prod profile requires qemu-img (${vmReadiness.qemuImgBinary}) to be installed.`);
-        }
         if (!vmReadiness.baseImageExists && !vmReadiness.downloadConfigured) {
           issues.push('prod profile requires a VM base image or a downloadable base image URL.');
         }
