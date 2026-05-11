@@ -1,6 +1,8 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
+const { parseEnv } = require('./env');
 
 const APP_DIR = path.resolve(__dirname, '..');
 const HOME_DIR = os.homedir();
@@ -95,6 +97,96 @@ function migrateLegacyRuntime(logger = () => {}) {
   return changed;
 }
 
+function readEnvFileRaw(envFile = ENV_FILE) {
+  try {
+    return fs.readFileSync(envFile, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function upsertEnvValue(envFile, key, value) {
+  const raw = readEnvFileRaw(envFile);
+  const lines = raw ? raw.split('\n') : [];
+  let replaced = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith(`${key}=`)) {
+      lines[i] = `${key}=${value}`;
+      replaced = true;
+      break;
+    }
+  }
+
+  if (!replaced) {
+    lines.push(`${key}=${value}`);
+  }
+
+  const output = lines.filter((line, idx, arr) => idx !== arr.length - 1 || line !== '').join('\n') + '\n';
+  fs.mkdirSync(path.dirname(envFile), { recursive: true });
+  fs.writeFileSync(envFile, output, { mode: 0o600 });
+}
+
+function generateSecret(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+function isPlaceholderValue(value, placeholders) {
+  const secret = String(value || '').trim();
+  return !secret || placeholders.has(secret);
+}
+
+function isValidVmGuestToken(value) {
+  const secret = String(value || '').trim();
+  if (!secret || secret.length < 32) return false;
+  if (/^(change|replace|set|your|example|sample|placeholder|token|secret)[-_a-z0-9]*$/i.test(secret)) return false;
+  if (/change-this-guest-token-before-prod/i.test(secret)) return false;
+  if (/^(.)\1+$/.test(secret)) return false;
+  return true;
+}
+
+function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger = console } = {}) {
+  const raw = readEnvFileRaw(envFile);
+  const parsed = parseEnv(raw);
+  const changes = [];
+  const sessionPlaceholders = new Set([
+    'neoagent-dev-secret-change-me',
+    'change-this-to-a-random-secret-in-production',
+    'change-me-to-something-random',
+  ]);
+
+  let sessionSecret = String(env.SESSION_SECRET || parsed.get('SESSION_SECRET') || '').trim();
+  if (isPlaceholderValue(sessionSecret, sessionPlaceholders)) {
+    sessionSecret = generateSecret(32);
+    env.SESSION_SECRET = sessionSecret;
+    upsertEnvValue(envFile, 'SESSION_SECRET', sessionSecret);
+    changes.push('SESSION_SECRET');
+  }
+
+  let guestToken = String(env.NEOAGENT_VM_GUEST_TOKEN || parsed.get('NEOAGENT_VM_GUEST_TOKEN') || '').trim();
+  if (!isValidVmGuestToken(guestToken)) {
+    guestToken = generateSecret(32);
+    env.NEOAGENT_VM_GUEST_TOKEN = guestToken;
+    upsertEnvValue(envFile, 'NEOAGENT_VM_GUEST_TOKEN', guestToken);
+    changes.push('NEOAGENT_VM_GUEST_TOKEN');
+  }
+
+  if (changes.length > 0 && logger) {
+    const message = `Initialized secure runtime secrets: ${changes.join(', ')}`;
+    if (typeof logger.info === 'function') {
+      logger.info(message);
+    } else if (typeof logger.log === 'function') {
+      logger.log(message);
+    }
+  }
+
+  return {
+    changes,
+    sessionSecret: env.SESSION_SECRET || null,
+    guestToken: env.NEOAGENT_VM_GUEST_TOKEN || null,
+  };
+}
+
 module.exports = {
   APP_DIR,
   HOME_DIR,
@@ -109,5 +201,6 @@ module.exports = {
   LEGACY_DATA_DIR,
   LEGACY_AGENT_DATA_DIR,
   ensureRuntimeDirs,
+  ensureSecureRuntimeEnv,
   migrateLegacyRuntime
 };

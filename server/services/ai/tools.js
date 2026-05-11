@@ -9,6 +9,10 @@ const {
     normalizeOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
 const { INTERIM_KINDS, normalizeInterimKind } = require('./interim');
+const {
+    executeIntegratedTool,
+    getIntegratedToolDefinitions,
+} = require('./integrated_tools');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -1167,6 +1171,7 @@ function getAvailableTools(app, options = {}) {
                 required: ['prompt']
             }
         },
+        ...getIntegratedToolDefinitions(),
         {
             name: 'generate_table',
             description: 'Format data into a markdown table. The resulting markdown will be returned to you. You MUST include it in your next message to the user so they can see it.',
@@ -1391,6 +1396,7 @@ async function executeTool(toolName, args, context, engine) {
     const taskRuntime = () => app?.locals?.taskRuntime || engine.taskRuntime;
     const rec = () => app?.locals?.recordingManager || null;
     const widgets = () => app?.locals?.widgetService || null;
+    const artifactStore = app?.locals?.artifactStore || null;
 
     const integrationManager = integrations();
     if (integrationManager) {
@@ -1413,6 +1419,16 @@ async function executeTool(toolName, args, context, engine) {
             }
             return integrationResult;
         }
+    }
+
+    const integratedToolResult = await executeIntegratedTool(toolName, args, {
+        userId,
+        agentId,
+        cliExecutor: app?.locals?.cliExecutor || engine.cliExecutor || null,
+        artifactStore,
+    });
+    if (integratedToolResult !== null) {
+        return integratedToolResult;
     }
 
     switch (toolName) {

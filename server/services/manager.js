@@ -25,7 +25,7 @@ const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
 const { ScreenRecorder } = require('./desktop/screenRecorder');
 const { WearableService } = require('./wearable/service');
-const { assertRuntimeValidation, getRuntimeValidation } = require('./runtime/validation');
+const { getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
   runBackgroundTask,
@@ -487,8 +487,11 @@ async function startServices(app, io) {
     const browserController = createBrowserController(app, artifactStore);
     const androidController = createAndroidController(app, artifactStore);
     const runtimeManager = createRuntimeManager(app, cliExecutor);
-    registerLocal(app, 'runtimeValidation', getRuntimeValidation(runtimeManager));
-    assertRuntimeValidation(runtimeManager);
+    const runtimeValidation = getRuntimeValidation(runtimeManager);
+    registerLocal(app, 'runtimeValidation', runtimeValidation);
+    if (!runtimeValidation.ready) {
+      console.warn('[Services] Runtime validation is degraded:', runtimeValidation.issues.join(' '));
+    }
     const skillRunner = await createSkillRunner(app, cliExecutor, runtimeManager);
     const agentEngine = createAgentEngine(app, io, {
       cliExecutor,

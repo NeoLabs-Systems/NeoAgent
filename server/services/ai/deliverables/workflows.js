@@ -43,6 +43,7 @@ function createWorkflow(config) {
         supportingCapabilities: request.supportingCapabilities,
         preferredTools: [...this.preferredTools],
         expectedOutputs: [...this.expectedOutputs],
+        summaryHints: [...this.summaryHints],
         validationRules: [
           `Produce deliverable artifacts of type "${config.type}" before finishing.`,
           'Mention output files or artifact links explicitly in the final response when available.',
@@ -110,10 +111,15 @@ const WORKFLOWS = [
   createWorkflow({
     type: 'slides',
     displayName: 'Slides',
-    preferredTools: ['write_file', 'edit_file', 'execute_command', 'browser_screenshot', 'generate_image'],
+    preferredTools: ['generate_slide_deck', 'write_file', 'edit_file', 'execute_command', 'browser_screenshot', 'generate_image'],
     expectedOutputs: ['presentation deck', 'exported slide file', 'visual proof'],
     expectedArtifactKinds: ['slides', 'document', 'image'],
     expectedExtensions: ['.ppt', '.pptx', '.pdf', '.html', '.png', '.jpg', '.jpeg'],
+    summaryHints: [
+      'Prefer generate_slide_deck for final deck creation and export.',
+      'Use 5-12 slides with clear titles and concise body copy.',
+      'Request pdf or pdf+pptx exports when the user wants a finished shareable deck.',
+    ],
   }),
   createWorkflow({
     type: 'document',
@@ -161,10 +167,15 @@ const WORKFLOWS = [
   createWorkflow({
     type: 'video',
     displayName: 'Video',
-    preferredTools: ['execute_command', 'write_file', 'edit_file'],
+    preferredTools: ['generate_video_with_remotion', 'execute_command', 'write_file', 'edit_file'],
     expectedOutputs: ['rendered video asset'],
     expectedArtifactKinds: ['video'],
     expectedExtensions: ['.mp4', '.mov', '.m4v', '.webm'],
+    summaryHints: [
+      'Prefer generate_video_with_remotion for the final rendered asset.',
+      'Use 3-10 scenes with explicit duration_seconds and concise on-screen text.',
+      'Attach local assets by absolute image_path or audio_path when available.',
+    ],
   }),
 ];
 
@@ -184,6 +195,7 @@ function buildDeliverableWorkflowGuidance(plan) {
     plan.requestedOutputs?.length ? `Requested outputs: ${plan.requestedOutputs.join(', ')}` : '',
     plan.preferredTools?.length ? `Preferred tools/capabilities: ${plan.preferredTools.join(', ')}` : '',
     plan.expectedOutputs?.length ? `Expected artifacts: ${plan.expectedOutputs.join(', ')}` : '',
+    plan.summaryHints?.length ? `Execution guidance: ${plan.summaryHints.join(' ')}` : '',
     'Before finishing, ensure the final deliverable exists, validate it, and summarize the produced artifacts clearly.',
   ].filter(Boolean).join('\n');
 }

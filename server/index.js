@@ -3,6 +3,7 @@
 const {
   ENV_FILE,
   LEGACY_ENV_FILE,
+  ensureSecureRuntimeEnv,
   migrateLegacyRuntime,
   ensureRuntimeDirs
 } = require('../runtime/paths');
@@ -11,6 +12,7 @@ const dotenv = require('dotenv');
 
 migrateLegacyRuntime();
 ensureRuntimeDirs();
+ensureSecureRuntimeEnv({ logger: console });
 dotenv.config({ path: LEGACY_ENV_FILE });
 dotenv.config({ path: ENV_FILE, override: true });
 
@@ -19,10 +21,6 @@ const { createServer } = require('http');
 
 const db = require('./db/database');
 const { setupConsoleInterceptor } = require('./utils/logger');
-const {
-  configuredSessionSecret,
-  isInsecureSessionSecret,
-} = require('./services/account/session_secret');
 const { validateOrigin } = require('./config/origins');
 const {
   applyHttpMiddleware,
@@ -86,16 +84,6 @@ function logStartupConfig() {
 }
 
 logStartupConfig();
-
-if (!configuredSessionSecret()) {
-  console.warn(
-    'WARNING: SESSION_SECRET not set — using a process-local random fallback. Set it in .env before exposing this server.'
-  );
-} else if (isInsecureSessionSecret()) {
-  console.warn(
-    'WARNING: SESSION_SECRET uses a known placeholder value. Replace it with a random secret before exposing this server.'
-  );
-}
 
 const app = express();
 app.disable('x-powered-by');
