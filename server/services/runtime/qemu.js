@@ -208,9 +208,30 @@ function ensureUserVmDisk(userRoot, baseImagePath) {
     return diskPath;
   }
 
-  throw new Error(
-    `Failed to create VM overlay with qemu-img: ${(result.stderr || result.stdout || 'unknown error').trim()}`,
-  );
+  const detail = String(
+    result.stderr
+    || result.stdout
+    || result.error?.message
+    || `exit status ${result.status ?? 'unknown'}`
+  ).trim();
+  throw new Error(`Failed to create VM overlay with qemu-img: ${detail}`);
+}
+
+function formatReadinessIssues(readiness) {
+  if (!readiness) {
+    return ['VM runtime is unavailable on this host.'];
+  }
+  const issues = [];
+  if (!readiness.qemuAvailable) {
+    issues.push(`Missing QEMU binary (${readiness.qemuBinary}).`);
+  }
+  if (!readiness.qemuImgAvailable) {
+    issues.push(`Missing qemu-img binary (${readiness.qemuImgBinary}).`);
+  }
+  if (!readiness.baseImageExists && !readiness.downloadConfigured) {
+    issues.push('No VM base image is available for download or local reuse.');
+  }
+  return issues.length > 0 ? issues : ['VM runtime is unavailable on this host.'];
 }
 
 class QemuVmManager {
@@ -253,7 +274,7 @@ class QemuVmManager {
     }
 
     if (!isHttpUrl(this.baseImageUrl)) {
-      throw new Error('VM base image is not configured. Set NEOAGENT_VM_BASE_IMAGE or NEOAGENT_VM_BASE_IMAGE_URL.');
+      throw new Error('VM base image is not configured and no downloadable base image URL is available.');
     }
 
     const cachePath = this.getBaseImageCachePath();
@@ -310,7 +331,7 @@ class QemuVmManager {
     }
     const readiness = this.getReadiness();
     if (!readiness.ready) {
-      throw new Error('VM runtime is not configured on this host. Set NEOAGENT_VM_BASE_IMAGE or NEOAGENT_VM_BASE_IMAGE_URL.');
+      throw new Error(formatReadinessIssues(readiness).join(' '));
     }
 
     const userRoot = path.join(this.rootDir, key);

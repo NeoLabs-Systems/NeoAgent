@@ -32,7 +32,19 @@ function getRuntimeValidation(runtimeManager) {
 
   if (policy.profile === 'prod' || nodeEnvIsProd) {
     if (!vmReadiness?.ready) {
-      issues.push('prod profile requires a configured local VM runtime (QEMU + base image).');
+      if (!vmReadiness) {
+        issues.push('prod profile requires a working local VM runtime.');
+      } else {
+        if (!vmReadiness.qemuAvailable) {
+          issues.push(`prod profile requires QEMU (${vmReadiness.qemuBinary}) to be installed.`);
+        }
+        if (!vmReadiness.qemuImgAvailable) {
+          issues.push(`prod profile requires qemu-img (${vmReadiness.qemuImgBinary}) to be installed.`);
+        }
+        if (!vmReadiness.baseImageExists && !vmReadiness.downloadConfigured) {
+          issues.push('prod profile requires a VM base image or a downloadable base image URL.');
+        }
+      }
     }
     if (!guestTokenValidation.valid) {
       issues.push(`prod profile requires a secure NEOAGENT_VM_GUEST_TOKEN. ${guestTokenValidation.reason}`);
