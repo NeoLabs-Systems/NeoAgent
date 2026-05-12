@@ -293,16 +293,18 @@ function buildQemuArgs({
   );
 
   if (hostShareRoot) {
+    const id = 'fsdev-host';
     args.push(
-      '-virtfs',
-      `local,path=${hostShareRoot},mount_tag=neoagent-host,security_model=none,readonly=on`,
+      '-fsdev', `local,path=${hostShareRoot},id=${id},security_model=none,readonly=on`,
+      '-device', `virtio-9p-pci,fsdev=${id},mount_tag=neoagent-host`,
     );
   }
 
   if (hostDataRoot) {
+    const id = 'fsdev-data';
     args.push(
-      '-virtfs',
-      `local,path=${hostDataRoot},mount_tag=neoagent-data,security_model=none`,
+      '-fsdev', `local,path=${hostDataRoot},id=${id},security_model=none`,
+      '-device', `virtio-9p-pci,fsdev=${id},mount_tag=neoagent-data`,
     );
   }
 
