@@ -294,17 +294,19 @@ function buildQemuArgs({
 
   if (hostShareRoot) {
     const id = 'fsdev-host';
+    const deviceType = arch === 'arm64' ? 'virtio-9p-device' : 'virtio-9p-pci';
     args.push(
       '-fsdev', `local,path=${hostShareRoot},id=${id},security_model=none,readonly=on`,
-      '-device', `virtio-9p-pci,fsdev=${id},mount_tag=neoagent-host`,
+      '-device', `${deviceType},fsdev=${id},mount_tag=neoagent-host`,
     );
   }
 
   if (hostDataRoot) {
     const id = 'fsdev-data';
+    const deviceType = arch === 'arm64' ? 'virtio-9p-device' : 'virtio-9p-pci';
     args.push(
       '-fsdev', `local,path=${hostDataRoot},id=${id},security_model=none`,
-      '-device', `virtio-9p-pci,fsdev=${id},mount_tag=neoagent-data`,
+      '-device', `${deviceType},fsdev=${id},mount_tag=neoagent-data`,
     );
   }
 
