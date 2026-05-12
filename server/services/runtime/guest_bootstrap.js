@@ -409,10 +409,14 @@ function ensureGuestBootstrapSeed({
     ? [
       '@echo -off',
       'map -r',
-      'fs0:',
+      'for %d in fs0 fs1 fs2 fs3 fs4 fs5',
+      '  if exist %d:\\EFI\\ubuntu\\shimaa64.efi then',
+      '    %d:\\EFI\\ubuntu\\shimaa64.efi',
+      '  endif',
+      'endfor',
+      '# Fallback',
       '\\EFI\\ubuntu\\shimaa64.efi',
       '\\EFI\\ubuntu\\grubaa64.efi',
-      '\\EFI\\BOOT\\BOOTAA64.EFI',
     ].join('\r\n')
     : [
       '@echo -off',
