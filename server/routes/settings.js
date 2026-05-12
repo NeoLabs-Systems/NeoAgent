@@ -147,16 +147,7 @@ function getBrowserController(req) {
   throw new Error('Browser controller is unavailable. VM runtime is required.');
 }
 
-function applyHeadlessSetting(req, value) {
-  Promise.resolve(getBrowserController(req))
-    .then((controller) => {
-      if (controller && typeof controller.setHeadless === 'function') {
-        return controller.setHeadless(value);
-      }
-      return null;
-    })
-    .catch(() => { });
-}
+
 
 function isEnvBackedSettingKey(key) {
   return ENV_BACKED_SETTING_KEYS.has(key);
@@ -249,6 +240,11 @@ router.get('/', (req, res) => {
   settings.agentId = agentId;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
   settings.meshtastic_enabled = readMeshtasticEnabled();
+  
+  // Normalize runtime settings for consistency across deployments
+  const normalizedRuntime = getRuntimeSettings(req.session.userId);
+  Object.assign(settings, normalizedRuntime);
+  
   res.json(settings);
 });
 
@@ -333,10 +329,7 @@ router.put('/', async (req, res) => {
     }
   }
 
-  // Apply headless toggle immediately without restarting
-  if ('headless_browser' in normalizedBody) {
-    applyHeadlessSetting(req, normalizedBody.headless_browser);
-  }
+
 
   res.json({ success: true });
 });
@@ -525,9 +518,7 @@ router.put('/:key', async (req, res) => {
     }
   }
 
-  if (req.params.key === 'headless_browser') {
-    applyHeadlessSetting(req, value);
-  }
+
   res.json({ success: true });
 });
 

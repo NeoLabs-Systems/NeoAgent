@@ -4510,7 +4510,7 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
 
     final payload = <String, dynamic>{
-      'headless_browser': headlessBrowser,
+      'headless_browser': true,
       'browser_backend': browserBackend,
       'smarter_model_selector': smarterSelector,
       'enabled_models': enabledModels,
@@ -5957,9 +5957,7 @@ class NeoAgentController extends ChangeNotifier {
         details.length <= 800;
   }
 
-  bool get headlessBrowser =>
-      settings['headless_browser'] != false &&
-      settings['headless_browser'] != 'false';
+  bool get headlessBrowser => true;
 
   String get browserBackend =>
       settings['browser_backend']?.toString().trim().toLowerCase() ?? 'vm';

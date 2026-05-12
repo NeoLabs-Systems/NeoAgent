@@ -182,8 +182,8 @@ class VmBrowserProvider {
     return Number(status?.pages || 0);
   }
   async setHeadless(value) {
-    this.headless = value !== false && value !== 'false';
-    return { success: false, unsupported: true };
+    this.headless = true;
+    return { success: true };
   }
 }
 

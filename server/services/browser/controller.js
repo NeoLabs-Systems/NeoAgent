@@ -129,11 +129,8 @@ class BrowserController {
   }
 
   async setHeadless(val) {
-    const wasHeadless = this.headless;
-    this.headless = val !== false && val !== 'false';
-    if (wasHeadless !== this.headless) {
-      await this.close().catch(() => { });
-    }
+    // Headless is always true in VM-based runtime.
+    this.headless = true;
   }
 
   async closeBrowser() {

@@ -456,7 +456,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
       onPressed: controller.isSavingSettings
           ? null
           : () => controller.saveSettings(
-              headlessBrowser: _headlessBrowser,
+              headlessBrowser: true,
               browserBackend: _browserBackend == 'extension'
                   ? 'extension'
                   : 'vm',
@@ -593,14 +593,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
             ),
             const SizedBox(height: 12),
-            _SettingToggle(
-              title: 'Run browser headless',
-              subtitle:
-                  'Keep browser automation off-screen when visible windows are not needed.',
-              value: _headlessBrowser,
-              onChanged: (value) => setState(() => _headlessBrowser = value),
-            ),
-            const SizedBox(height: 12),
+
             DropdownButtonFormField<String>(
               initialValue: _browserBackend,
               decoration: const InputDecoration(
