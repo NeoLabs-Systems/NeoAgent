@@ -1643,11 +1643,6 @@ class NeoAgentController extends ChangeNotifier {
     memoryTransferErrorMessage = null;
     isLoadingMemoryTransferPrompt = false;
     isImportingMemoryTransfer = false;
-    memoryTransferPrompt = '';
-    memoryTransferMeta = const <String, dynamic>{};
-    memoryTransferErrorMessage = null;
-    isLoadingMemoryTransferPrompt = false;
-    isImportingMemoryTransfer = false;
     taskItems = const <TaskItem>[];
     widgets = const <AiWidgetItem>[];
     mcpServers = const <McpServerItem>[];

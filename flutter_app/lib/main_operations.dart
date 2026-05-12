@@ -1537,7 +1537,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                       onPressed: controller.isLoadingMemoryTransferPrompt
                           ? null
                           : () => _copyMemoryTransferPrompt(controller),
-                      icon: Icon(Icons.copy_all_outlined),
+                      icon: const Icon(Icons.copy_all_outlined),
                       label: Text(
                         controller.isLoadingMemoryTransferPrompt
                             ? 'Preparing...'
@@ -1594,7 +1594,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                       onPressed: controller.isImportingMemoryTransfer
                           ? null
                           : () => _importMemoryTransfer(controller),
-                      icon: Icon(Icons.upload_outlined),
+                      icon: const Icon(Icons.upload_outlined),
                       label: Text(
                         controller.isImportingMemoryTransfer
                             ? 'Importing...'
