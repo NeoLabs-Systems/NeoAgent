@@ -92,6 +92,7 @@ async function handle(res, work) {
 app.use(requireToken);
 
 app.get('/health', (_req, res) => {
+  console.log('[Guest Agent] Health check requested');
   res.json({
     status: 'ok',
     runtime: 'guest-agent',
