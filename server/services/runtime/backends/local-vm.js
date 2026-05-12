@@ -31,7 +31,7 @@ class RuntimeHttpClient {
   }
 
   async waitForHealth(options = {}) {
-    const timeoutMs = Number(options.timeoutMs || 120000);
+    const timeoutMs = Number(options.timeoutMs || 600000); // Increased from 120s to 10m for bootstrap
     const intervalMs = Number(options.intervalMs || 1000);
     const checkLiveness = options.checkLiveness || (() => true);
     const startedAt = Date.now();

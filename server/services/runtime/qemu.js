@@ -285,29 +285,30 @@ function buildQemuArgs({
     }
   }
 
+  const isMmio = arch === 'arm64';
+  const blkDev = isMmio ? 'virtio-blk-device' : 'virtio-blk-pci';
+  const netDev = isMmio ? 'virtio-net-device' : 'virtio-net-pci';
+  const p9Dev = isMmio ? 'virtio-9p-device' : 'virtio-9p-pci';
+
   // OS disk — always first boot candidate
   args.push(
     '-drive', `if=none,id=os,file=${imagePath},format=qcow2`,
-    '-device', 'virtio-blk-pci,drive=os,bootindex=1',
+    '-device', `${blkDev},drive=os,bootindex=1`,
     '-netdev', `user,id=net0,hostfwd=tcp:127.0.0.1:${sshPort}-:22,hostfwd=tcp:127.0.0.1:${agentPort}-:8421`,
-    '-device', 'virtio-net-pci,netdev=net0',
+    '-device', `${netDev},netdev=net0`,
   );
 
   if (hostShareRoot) {
-    const id = 'fsdev-host';
-    const deviceType = arch === 'arm64' ? 'virtio-9p-pci,disable-legacy=on,disable-modern=off,romfile=' : 'virtio-9p-pci';
     args.push(
-      '-fsdev', `local,path=${hostShareRoot},id=${id},security_model=none,readonly=on`,
-      '-device', `${deviceType},fsdev=${id},mount_tag=neoagent-host`,
+      '-fsdev', `local,path=${hostShareRoot},id=fsdev-host,security_model=none,readonly=on`,
+      '-device', `${p9Dev},fsdev=fsdev-host,mount_tag=neoagent-host`,
     );
   }
 
   if (hostDataRoot) {
-    const id = 'fsdev-data';
-    const deviceType = arch === 'arm64' ? 'virtio-9p-pci,disable-legacy=on,disable-modern=off,romfile=' : 'virtio-9p-pci';
     args.push(
-      '-fsdev', `local,path=${hostDataRoot},id=${id},security_model=none`,
-      '-device', `${deviceType},fsdev=${id},mount_tag=neoagent-data`,
+      '-fsdev', `local,path=${hostDataRoot},id=fsdev-data,security_model=none`,
+      '-device', `${p9Dev},fsdev=fsdev-data,mount_tag=neoagent-data`,
     );
   }
 
@@ -316,7 +317,7 @@ function buildQemuArgs({
       // Raw FAT image — attach as a plain virtio block device
       args.push(
         '-drive', `if=none,id=cidata,file=${seedPath},format=raw,readonly=on`,
-        '-device', 'virtio-blk-pci,drive=cidata',
+        '-device', `${blkDev},drive=cidata`,
       );
     } else if (arch === 'arm64') {
       // ARM virt machine has no IDE controller; use virtio-scsi for the seed ISO
