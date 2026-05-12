@@ -623,8 +623,20 @@ class QemuVmManager {
     let lastError = '';
     const stderrDecoder = new StringDecoder('utf8');
     child.stderr.on('data', (chunk) => {
-      lastError = [...`${lastError}${stderrDecoder.write(chunk)}`].slice(-4000).join('');
+      const text = stderrDecoder.write(chunk);
+      if (text.trim()) console.error(`[VM:${key}:stderr] ${text.trim()}`);
+      lastError = [...`${lastError}${text}`].slice(-4000).join('');
     });
+
+    if (consoleLogPath) {
+      // Stream serial output to console for easier debugging on remote machines
+      const serialStream = fs.createReadStream(consoleLogPath, { flags: 'r' });
+      serialStream.on('data', (chunk) => {
+        const text = chunk.toString('utf8');
+        if (text.trim()) console.log(`[VM:${key}:serial] ${text.trim()}`);
+      });
+      child.on('exit', () => serialStream.destroy());
+    }
     child.stderr.on('close', () => {
       const remainder = stderrDecoder.end();
       if (remainder) {

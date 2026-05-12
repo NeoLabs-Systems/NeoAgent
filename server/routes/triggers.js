@@ -45,23 +45,23 @@ router.post('/notification', async (req, res) => {
   const { app_package, title, body, action_taken } = req.body;
 
   try {
-    const userRow = db.prepare('SELECT id FROM users WHERE id = ?').get(req.user.id);
+    const userRow = db.prepare('SELECT id FROM users WHERE id = ?').get(req.session.userId);
     if (!userRow) return res.status(401).json({ error: 'Unauthorized' });
 
-    console.log(`[Triggers] Notification received: ${app_package} - ${title}`);
+    console.log(`[Triggers] Notification received: ${app_package} - ${title} for user ${req.session.userId}`);
 
     db.prepare(`
       INSERT INTO notification_history (user_id, app_package, title, body, action_taken)
       VALUES (?, ?, ?, ?, ?)
-    `).run(req.user.id, app_package || 'unknown', title || '', body || '', action_taken || 'none');
+    `).run(req.session.userId, app_package || 'unknown', title || '', body || '', action_taken || 'none');
 
     // Notify agent engine to proactively evaluate the notification
     const agentEngine = req.app.locals.agentEngine;
     if (agentEngine) {
-      const defaultAgentId = db.prepare('SELECT id FROM agents WHERE user_id = ? ORDER BY is_default DESC LIMIT 1').get(req.user.id)?.id;
+      const defaultAgentId = db.prepare('SELECT id FROM agents WHERE user_id = ? ORDER BY is_default DESC LIMIT 1').get(req.session.userId)?.id;
       
       if (defaultAgentId) {
-        agentEngine.handleBackgroundTrigger(req.user.id, defaultAgentId, {
+        agentEngine.handleBackgroundTrigger(req.session.userId, defaultAgentId, {
           source: 'notification',
           app_package,
           title,

@@ -33,10 +33,14 @@ class RuntimeHttpClient {
   async waitForHealth(options = {}) {
     const timeoutMs = Number(options.timeoutMs || 120000);
     const intervalMs = Number(options.intervalMs || 1000);
+    const checkLiveness = options.checkLiveness || (() => true);
     const startedAt = Date.now();
     let lastError = null;
 
     while (Date.now() - startedAt < timeoutMs) {
+      if (!checkLiveness()) {
+        throw new Error('Guest runtime process exited unexpectedly during bootstrap.');
+      }
       const elapsed = Math.round((Date.now() - startedAt) / 1000);
       try {
         const health = await this.request('GET', '/health', undefined, { timeoutMs: 2000 });
@@ -368,6 +372,10 @@ class LocalVmExecutionBackend {
     try {
       await client.waitForHealth({
         timeoutMs: Number(process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 20 * 60 * 1000),
+        checkLiveness: () => {
+          const session = this.vmManager.instances.get(userId);
+          return session && session.process && !session.process.killed && session.process.exitCode === null;
+        },
       });
     } catch (error) {
       const runtimeError = typeof session.getLastError === 'function' ? session.getLastError() : '';
