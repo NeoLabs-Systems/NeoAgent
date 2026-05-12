@@ -21,6 +21,10 @@ The Flutter client exposes the main operator surfaces:
 | Health | Android Health Connect sync status and synced metrics |
 | Settings | AI providers, model routing, runtime settings, messaging, and service controls |
 
+## Memory Transfer
+
+The Memory section includes a Memory Transfer card that helps move memory from other LLMs into NeoAgent. Copy the export prompt, paste it into the other LLM, and then paste the response back into NeoAgent to import. API keys are never exported or imported.
+
 ## Recordings
 
 NeoAgent records audio as server-side sessions with one or more sources. The web client can record browser microphone and screen audio, and the Android app can record phone microphone audio through a foreground service.

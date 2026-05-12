@@ -794,6 +794,12 @@ class MemoryManager {
     return fs.readFileSync(fp, 'utf-8');
   }
 
+  writeDailyLog(date, content, userId = null) {
+    const fp = this._dailyPath(date, userId);
+    fs.writeFileSync(fp, String(content || ''), 'utf-8');
+    return fp;
+  }
+
   appendDailyLog(entry, date, userId = null) {
     const fp = this._dailyPath(date, userId);
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -821,6 +827,10 @@ class MemoryManager {
         date: f.replace('.md', ''),
         content: fs.readFileSync(path.join(dailyDir, f), 'utf-8')
       }));
+  }
+
+  listAllDailyLogs(userId = null) {
+    return this.listDailyLogs(Number.MAX_SAFE_INTEGER, userId);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -1243,6 +1243,32 @@ class BackendClient {
     return getMap(baseUrl, _withAgentQuery('/api/memory', agentId));
   }
 
+  Future<Map<String, dynamic>> fetchMemoryTransferPrompt(
+    String baseUrl, {
+    String? agentId,
+    bool includeBundle = false,
+  }) async {
+    final params = <String>[
+      if (agentId != null && agentId.isNotEmpty)
+        'agentId=${Uri.encodeQueryComponent(agentId)}',
+      if (includeBundle) 'includeBundle=true',
+    ];
+    final query = params.isEmpty ? '' : '?${params.join('&')}';
+    return getMap(baseUrl, '/api/memory/transfer/export$query');
+  }
+
+  Future<Map<String, dynamic>> importMemoryTransfer(
+    String baseUrl, {
+    required String text,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/memory/transfer/import',
+      _withAgentId(<String, dynamic>{'text': text}, agentId),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> fetchMemories(
     String baseUrl, {
     String? category,

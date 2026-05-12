@@ -56,3 +56,7 @@ neoagent restart
 | `~/.neoagent/agent-data/` | Skills, memory, and daily data |
 
 Back up these paths before moving a server or doing manual repair work.
+
+## Memory Transfers
+
+Use the Memory Transfer card in the Memory section to import memory from other LLMs. The export prompt never includes API key values, and imports merge into existing memory rather than deleting it.

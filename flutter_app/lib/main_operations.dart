@@ -1242,6 +1242,7 @@ class MemoryPanel extends StatefulWidget {
 
 class _MemoryPanelState extends State<MemoryPanel> {
   late final TextEditingController _searchController;
+  late final TextEditingController _memoryTransferImportController;
   final Set<String> _selectedMemoryIds = <String>{};
   bool _bulkActionInFlight = false;
 
@@ -1249,11 +1250,13 @@ class _MemoryPanelState extends State<MemoryPanel> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _memoryTransferImportController = TextEditingController();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _memoryTransferImportController.dispose();
     super.dispose();
   }
 
@@ -1313,6 +1316,82 @@ class _MemoryPanelState extends State<MemoryPanel> {
     _searchController.clear();
     _clearMemorySelection();
     controller.clearMemorySearch();
+  }
+
+  Future<void> _copyMemoryTransferPrompt(
+    NeoAgentController controller,
+  ) async {
+    if (controller.isLoadingMemoryTransferPrompt) {
+      return;
+    }
+    try {
+      await controller.fetchMemoryTransferPrompt();
+      final prompt = controller.memoryTransferPrompt.trim();
+      if (prompt.isEmpty) {
+        throw Exception('Export prompt is empty.');
+      }
+      await Clipboard.setData(ClipboardData(text: prompt));
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Copied memory export prompt')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Copy failed: ${controller.friendlyErrorMessage(error)}',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _importMemoryTransfer(
+    NeoAgentController controller,
+  ) async {
+    if (controller.isImportingMemoryTransfer) {
+      return;
+    }
+    final text = _memoryTransferImportController.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Paste an export before importing.')),
+      );
+      return;
+    }
+    try {
+      final response = await controller.importMemoryTransfer(text);
+      if (!mounted) {
+        return;
+      }
+      _memoryTransferImportController.clear();
+      final summary = response['summary'];
+      final memoryCount = summary is Map ? summary['memoriesImported'] : null;
+      final coreCount = summary is Map ? summary['coreMemoryUpdated'] : null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Imported ${memoryCount ?? 0} memories, ${coreCount ?? 0} core entries.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Import failed: ${controller.friendlyErrorMessage(error)}',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _deleteSingleMemory(
@@ -1435,6 +1514,103 @@ class _MemoryPanelState extends State<MemoryPanel> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Memory Transfer'),
+                const SizedBox(height: 8),
+                Text(
+                  'Copy a prompt to ask another AI for its memory export. Paste the response below to import it into NeoAgent.',
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    FilledButton.icon(
+                      onPressed: controller.isLoadingMemoryTransferPrompt
+                          ? null
+                          : () => _copyMemoryTransferPrompt(controller),
+                      icon: Icon(Icons.copy_all_outlined),
+                      label: Text(
+                        controller.isLoadingMemoryTransferPrompt
+                            ? 'Preparing...'
+                            : 'Copy Export Prompt',
+                      ),
+                    ),
+                  ],
+                ),
+                if (controller.memoryTransferMeta.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      _MetaPill(
+                        label:
+                            '${controller.memoryTransferMeta['coreCount'] ?? 0} core',
+                        icon: Icons.memory_outlined,
+                      ),
+                      _MetaPill(
+                        label:
+                            '${controller.memoryTransferMeta['memoryCount'] ?? 0} memories',
+                        icon: Icons.auto_stories_outlined,
+                      ),
+                      _MetaPill(
+                        label:
+                            '${controller.memoryTransferMeta['dailyLogCount'] ?? 0} logs',
+                        icon: Icons.event_note_outlined,
+                      ),
+                      _MetaPill(
+                        label:
+                            '${controller.memoryTransferMeta['apiKeyCount'] ?? 0} API keys (excluded)',
+                        icon: Icons.key_off_outlined,
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _memoryTransferImportController,
+                  minLines: 6,
+                  maxLines: 12,
+                  decoration: const InputDecoration(
+                    labelText: 'Paste memory export from another LLM',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    FilledButton.icon(
+                      onPressed: controller.isImportingMemoryTransfer
+                          ? null
+                          : () => _importMemoryTransfer(controller),
+                      icon: Icon(Icons.upload_outlined),
+                      label: Text(
+                        controller.isImportingMemoryTransfer
+                            ? 'Importing...'
+                            : 'Import Memory Export',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Imports merge into existing memory. API keys are never imported.',
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         Card(

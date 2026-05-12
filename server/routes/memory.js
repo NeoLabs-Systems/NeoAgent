@@ -4,6 +4,13 @@ const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const {
+  buildMemoryTransferBundle,
+  buildMemoryTransferMeta,
+  buildMemoryTransferPrompt,
+  importMemoryTransfer,
+  MemoryTransferError,
+} = require('../services/memory/transfer');
 
 router.use(requireAuth);
 
@@ -104,6 +111,50 @@ router.get('/', (req, res) => {
     apiKeys: Object.keys(mm.readApiKeys(userId)),
     coreMemory
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Memory Transfer (Export / Import)
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get('/transfer/export', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const includeBundle = req.query?.includeBundle === 'true';
+  try {
+    const bundle = buildMemoryTransferBundle(mm, userId, agentId);
+    const prompt = buildMemoryTransferPrompt();
+    const apiKeyCount = Object.keys(mm.readApiKeys(userId)).length;
+    const meta = buildMemoryTransferMeta(bundle, prompt, agentId, apiKeyCount);
+    res.json({
+      prompt,
+      meta,
+      bundle: includeBundle ? bundle : undefined,
+    });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/transfer/import', async (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const text = String(req.body?.text || '').trim();
+  if (!text) {
+    return res.status(400).json({ error: 'text is required' });
+  }
+  try {
+    const result = await importMemoryTransfer(mm, userId, agentId, text);
+    res.json(result);
+  } catch (err) {
+    const message = sanitizeError(err);
+    if (err instanceof MemoryTransferError) {
+      return res.status(400).json({ error: message });
+    }
+    res.status(500).json({ error: message });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

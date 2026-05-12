@@ -162,6 +162,11 @@ class NeoAgentController extends ChangeNotifier {
   List<MemoryItem> memories = const <MemoryItem>[];
   List<MemoryItem> memoryRecallResults = const <MemoryItem>[];
   List<ConversationItem> memoryConversations = const <ConversationItem>[];
+  String memoryTransferPrompt = '';
+  Map<String, dynamic> memoryTransferMeta = const <String, dynamic>{};
+  String? memoryTransferErrorMessage;
+  bool isLoadingMemoryTransferPrompt = false;
+  bool isImportingMemoryTransfer = false;
   List<TaskItem> taskItems = const <TaskItem>[];
   List<AiWidgetItem> widgets = const <AiWidgetItem>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
@@ -1633,6 +1638,16 @@ class NeoAgentController extends ChangeNotifier {
     memories = const <MemoryItem>[];
     memoryRecallResults = const <MemoryItem>[];
     memoryConversations = const <ConversationItem>[];
+    memoryTransferPrompt = '';
+    memoryTransferMeta = const <String, dynamic>{};
+    memoryTransferErrorMessage = null;
+    isLoadingMemoryTransferPrompt = false;
+    isImportingMemoryTransfer = false;
+    memoryTransferPrompt = '';
+    memoryTransferMeta = const <String, dynamic>{};
+    memoryTransferErrorMessage = null;
+    isLoadingMemoryTransferPrompt = false;
+    isImportingMemoryTransfer = false;
     taskItems = const <TaskItem>[];
     widgets = const <AiWidgetItem>[];
     mcpServers = const <McpServerItem>[];
@@ -5366,6 +5381,56 @@ class NeoAgentController extends ChangeNotifier {
       platform: saved,
     };
     notifyListeners();
+  }
+
+  Future<void> fetchMemoryTransferPrompt({bool includeBundle = false}) async {
+    if (isLoadingMemoryTransferPrompt) {
+      return;
+    }
+    isLoadingMemoryTransferPrompt = true;
+    memoryTransferErrorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.fetchMemoryTransferPrompt(
+        backendUrl,
+        agentId: _scopedAgentId,
+        includeBundle: includeBundle,
+      );
+      memoryTransferPrompt = response['prompt']?.toString() ?? '';
+      final meta = response['meta'];
+      memoryTransferMeta =
+          meta is Map ? Map<String, dynamic>.from(meta) : const <String, dynamic>{};
+    } catch (error) {
+      memoryTransferErrorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    } finally {
+      isLoadingMemoryTransferPrompt = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> importMemoryTransfer(String text) async {
+    if (isImportingMemoryTransfer) {
+      return const <String, dynamic>{};
+    }
+    isImportingMemoryTransfer = true;
+    memoryTransferErrorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.importMemoryTransfer(
+        backendUrl,
+        text: text,
+        agentId: _scopedAgentId,
+      );
+      await refreshMemory();
+      return response;
+    } catch (error) {
+      memoryTransferErrorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    } finally {
+      isImportingMemoryTransfer = false;
+      notifyListeners();
+    }
   }
 
   Future<void> createMemory({
