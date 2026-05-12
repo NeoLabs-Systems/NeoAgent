@@ -98,7 +98,6 @@ const _workspaceSettingsSection = _SettingsSection('workspace', <String>[
   'workspace',
   'browser',
   'extension',
-  'headless',
   'routing',
 ]);
 
@@ -167,7 +166,6 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
 
 class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
-  late bool _headlessBrowser;
   late String _browserBackend;
   late bool _smarterSelector;
   late Set<String> _enabledModels;
@@ -221,7 +219,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .where((model) => model.available)
         .map((model) => model.id)
         .toSet();
-    _headlessBrowser = controller.headlessBrowser;
     _browserBackend = _normalizeBrowserBackend(controller.browserBackend);
     _smarterSelector = controller.smarterSelector;
     _enabledModels = controller.enabledModelIds
@@ -456,7 +453,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
       onPressed: controller.isSavingSettings
           ? null
           : () => controller.saveSettings(
-              headlessBrowser: true,
               browserBackend: _browserBackend == 'extension'
                   ? 'extension'
                   : 'vm',

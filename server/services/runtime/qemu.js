@@ -568,6 +568,7 @@ class QemuVmManager {
     const bootstrap = ensureGuestBootstrapSeed({
       userRoot,
       guestToken,
+      guestArch: this.guestArch,
     });
     const guestDataRoot = path.join(userRoot, 'guest-data');
     const consoleLogPath = path.join(userRoot, 'console.log');
@@ -629,6 +630,12 @@ class QemuVmManager {
     });
 
     if (consoleLogPath) {
+      // Ensure file exists before reading to avoid race condition
+      try {
+        fs.closeSync(fs.openSync(consoleLogPath, 'a'));
+      } catch (err) {
+        console.warn(`[VM] Failed to pre-create console log at ${consoleLogPath}: ${err.message}`);
+      }
       // Stream serial output to console for easier debugging on remote machines
       const serialStream = fs.createReadStream(consoleLogPath, { flags: 'r' });
       serialStream.on('data', (chunk) => {

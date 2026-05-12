@@ -373,7 +373,8 @@ class LocalVmExecutionBackend {
       await client.waitForHealth({
         timeoutMs: Number(process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 20 * 60 * 1000),
         checkLiveness: () => {
-          const session = this.vmManager.instances.get(userId);
+          const key = String(userId || '').trim();
+          const session = this.vmManager.instances.get(key);
           return session && session.process && !session.process.killed && session.process.exitCode === null;
         },
       });

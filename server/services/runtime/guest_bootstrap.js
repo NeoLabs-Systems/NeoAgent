@@ -389,6 +389,7 @@ function ensureGuestBootstrapSeed({
   guestToken,
   hostShareMount = '/mnt/neoagent-host',
   guestAgentPort = 8421,
+  guestArch = 'x64',
 }) {
   const seedRoot = path.join(userRoot, 'cloud-init');
   const seedDir = path.join(seedRoot, 'seed');
@@ -404,14 +405,23 @@ function ensureGuestBootstrapSeed({
     instanceId: `neoagent-${path.basename(userRoot)}`,
     localHostName: `neoagent-${path.basename(userRoot)}`,
   });
-  const startupNsh = [
-    '@echo -off',
-    'map -r',
-    'fs0:',
-    '\\EFI\\ubuntu\\shimx64.efi',
-    '\\EFI\\ubuntu\\grubx64.efi',
-    '\\EFI\\BOOT\\BOOTX64.EFI',
-  ].join('\r\n');
+  const startupNsh = guestArch === 'arm64'
+    ? [
+      '@echo -off',
+      'map -r',
+      'fs0:',
+      '\\EFI\\ubuntu\\shimaa64.efi',
+      '\\EFI\\ubuntu\\grubaa64.efi',
+      '\\EFI\\BOOT\\BOOTAA64.EFI',
+    ].join('\r\n')
+    : [
+      '@echo -off',
+      'map -r',
+      'fs0:',
+      '\\EFI\\ubuntu\\shimx64.efi',
+      '\\EFI\\ubuntu\\grubx64.efi',
+      '\\EFI\\BOOT\\BOOTX64.EFI',
+    ].join('\r\n');
 
   fs.writeFileSync(userDataPath, userData);
   fs.writeFileSync(metaDataPath, metaData);

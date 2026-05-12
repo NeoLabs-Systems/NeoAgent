@@ -4482,7 +4482,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> saveSettings({
-    required bool headlessBrowser,
     required String browserBackend,
     required bool smarterSelector,
     required List<String> enabledModels,
