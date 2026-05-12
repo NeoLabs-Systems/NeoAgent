@@ -156,7 +156,6 @@ function createCloudInitScript({
     'echo "NeoAgent guest bootstrap completed."',
     '',
   ].join('\n');
-  ].join('\n');
 }
 
 function createCloudInitUserData({
