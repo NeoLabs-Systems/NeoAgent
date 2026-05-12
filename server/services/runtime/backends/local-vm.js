@@ -37,14 +37,19 @@ class RuntimeHttpClient {
     let lastError = null;
 
     while (Date.now() - startedAt < timeoutMs) {
+      const elapsed = Math.round((Date.now() - startedAt) / 1000);
       try {
-        const health = await this.request('GET', '/health');
+        const health = await this.request('GET', '/health', undefined, { timeoutMs: 2000 });
         if (health?.status === 'ok') {
+          console.log(`[Runtime] Guest agent ready after ${elapsed}s`);
           return health;
         }
         lastError = new Error('Guest agent health check returned a non-ok status.');
       } catch (error) {
         lastError = error;
+        if (elapsed % 10 === 0) {
+          console.log(`[Runtime] Waiting for guest agent health... (${elapsed}s elapsed, last error: ${error.message})`);
+        }
       }
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }

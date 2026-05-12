@@ -9,7 +9,12 @@ router.use(requireAuth);
 async function getBrowserController(req) {
   const runtimeManager = req.app?.locals?.runtimeManager;
   if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
+    const start = Date.now();
     const runtimeController = await runtimeManager.getBrowserProviderForUser(req.session?.userId);
+    const duration = Date.now() - start;
+    if (duration > 1000) {
+      console.log(`[HTTP] Browser controller acquired for user ${req.session?.userId} in ${duration}ms`);
+    }
     if (runtimeController) {
       return runtimeController;
     }

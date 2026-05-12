@@ -10,7 +10,7 @@ class BackendClient {
   BackendClient({AppHttpClient? httpClient})
     : _httpClient = httpClient ?? createAppHttpClient();
 
-  static const Duration _requestTimeout = Duration(seconds: 60);
+  static const Duration _requestTimeout = Duration(seconds: 120);
 
   final AppHttpClient _httpClient;
 

@@ -34,6 +34,9 @@ const QEMU_SHARE_ROOT_CANDIDATES = [
 ];
 
 function guestArchForHost() {
+  if (process.arch === 'arm64' || process.arch === 'x64') {
+    return process.arch;
+  }
   return 'x64';
 }
 
@@ -610,6 +613,7 @@ class QemuVmManager {
       firmwareVarsPath,
     });
 
+    console.log(`[VM] Starting QEMU for user ${key} (${this.guestArch}): ${qemuBinaryPath} ${args.join(' ')}`);
     const child = spawn(qemuBinaryPath, args, {
       cwd: userRoot,
       detached: process.platform !== 'win32',
