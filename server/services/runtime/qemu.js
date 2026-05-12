@@ -269,6 +269,7 @@ function buildQemuArgs({
   firmwareCodePath = null,
   firmwareVarsPath = null,
 }) {
+  console.log(`[QEMU] Building args for ${arch} (MMIO 9p ENABLED)`);
   const accel = resolveAcceleration({ platform, arch });
   const args = ['-display', 'none', '-m', String(memoryMb), '-smp', String(cpus)];
 
