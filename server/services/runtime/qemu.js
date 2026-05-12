@@ -294,21 +294,33 @@ function buildQemuArgs({
   );
 
   if (hostShareRoot) {
-    const id = 'fsdev-host';
-    const deviceType = arch === 'arm64' ? 'virtio-9p-pci,disable-legacy=on,disable-modern=off,romfile=' : 'virtio-9p-pci';
-    args.push(
-      '-fsdev', `local,path=${hostShareRoot},id=${id},security_model=none,readonly=on`,
-      '-device', `${deviceType},fsdev=${id},mount_tag=neoagent-host`,
-    );
+    const devices = arch === 'arm64'
+      ? [
+        { id: 'fsdev-host-mmio', type: 'virtio-9p-device', tag: 'neoagent-host' },
+        { id: 'fsdev-host-pci', type: 'virtio-9p-pci', tag: 'neoagent-host-pci' },
+      ]
+      : [{ id: 'fsdev-host', type: 'virtio-9p-pci', tag: 'neoagent-host' }];
+    for (const device of devices) {
+      args.push(
+        '-fsdev', `local,path=${hostShareRoot},id=${device.id},security_model=none,readonly=on`,
+        '-device', `${device.type},fsdev=${device.id},mount_tag=${device.tag}`,
+      );
+    }
   }
 
   if (hostDataRoot) {
-    const id = 'fsdev-data';
-    const deviceType = arch === 'arm64' ? 'virtio-9p-pci,disable-legacy=on,disable-modern=off,romfile=' : 'virtio-9p-pci';
-    args.push(
-      '-fsdev', `local,path=${hostDataRoot},id=${id},security_model=none`,
-      '-device', `${deviceType},fsdev=${id},mount_tag=neoagent-data`,
-    );
+    const devices = arch === 'arm64'
+      ? [
+        { id: 'fsdev-data-mmio', type: 'virtio-9p-device', tag: 'neoagent-data' },
+        { id: 'fsdev-data-pci', type: 'virtio-9p-pci', tag: 'neoagent-data-pci' },
+      ]
+      : [{ id: 'fsdev-data', type: 'virtio-9p-pci', tag: 'neoagent-data' }];
+    for (const device of devices) {
+      args.push(
+        '-fsdev', `local,path=${hostDataRoot},id=${device.id},security_model=none`,
+        '-device', `${device.type},fsdev=${device.id},mount_tag=${device.tag}`,
+      );
+    }
   }
 
   if (seedPath) {
