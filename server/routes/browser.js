@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { getRuntimeValidation } = require('../services/runtime/validation');
 
 router.use(requireAuth);
 
@@ -16,9 +17,33 @@ async function getBrowserController(req) {
   throw new Error('Browser controller is unavailable. VM runtime is required.');
 }
 
+function getBrowserStatusSnapshot(req) {
+  const runtimeValidation = getRuntimeValidation(req.app?.locals?.runtimeManager);
+  const ready = Boolean(runtimeValidation?.ready);
+  return {
+    launched: false,
+    pages: 0,
+    headless: true,
+    pageInfo: null,
+    bootstrapped: false,
+    canBootstrap: ready,
+    runtimeReady: ready,
+    lastStartError: ready ? null : (runtimeValidation?.issues?.[0] || 'VM runtime is not ready.'),
+  };
+}
+
 // Get browser status
 router.get('/status', async (req, res) => {
   try {
+    const runtimeManager = req.app?.locals?.runtimeManager;
+    if (!runtimeManager?.hasVmForUser?.(req.session?.userId)) {
+      res.json(getBrowserStatusSnapshot(req));
+      return;
+    }
+    if (!await runtimeManager?.isGuestAgentReadyForUser?.(req.session?.userId, 1000)) {
+      res.json(getBrowserStatusSnapshot(req));
+      return;
+    }
     const bc = await getBrowserController(req);
     const pageInfo = await bc.getPageInfo();
     res.json({
@@ -26,6 +51,10 @@ router.get('/status', async (req, res) => {
       pages: await Promise.resolve(bc.getPageCount()),
       headless: bc.headless,
       pageInfo,
+      bootstrapped: true,
+      canBootstrap: true,
+      runtimeReady: true,
+      lastStartError: null,
     });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });

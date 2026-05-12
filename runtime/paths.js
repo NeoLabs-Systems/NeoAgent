@@ -135,7 +135,7 @@ function generateSecret(bytes = 32) {
   return crypto.randomBytes(bytes).toString('hex');
 }
 
-function getDefaultVmBaseImageUrl(arch = process.arch) {
+function getDefaultVmBaseImageUrl(arch = 'x64') {
   return arch === 'arm64' ? DEFAULT_VM_BASE_IMAGE_URLS.arm64 : DEFAULT_VM_BASE_IMAGE_URLS.x64;
 }
 
@@ -173,8 +173,9 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   }
 
   let vmBaseImageUrl = String(env.NEOAGENT_VM_BASE_IMAGE_URL || parsed.get('NEOAGENT_VM_BASE_IMAGE_URL') || '').trim();
-  if (!vmBaseImageUrl) {
-    vmBaseImageUrl = getDefaultVmBaseImageUrl();
+  const preferredVmBaseImageUrl = getDefaultVmBaseImageUrl();
+  if (!vmBaseImageUrl || /arm64|aarch64/i.test(vmBaseImageUrl)) {
+    vmBaseImageUrl = preferredVmBaseImageUrl;
     env.NEOAGENT_VM_BASE_IMAGE_URL = vmBaseImageUrl;
     upsertEnvValue(envFile, 'NEOAGENT_VM_BASE_IMAGE_URL', vmBaseImageUrl);
     changes.push('NEOAGENT_VM_BASE_IMAGE_URL');

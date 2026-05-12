@@ -5,9 +5,26 @@ NeoAgent installs as a Node CLI and runs a self-hosted server with a bundled Flu
 ## Requirements
 
 - Node.js 20 or newer.
+- QEMU for VM-backed browser and Android runs.
 - A reachable server URL if you want OAuth callbacks, mobile access, or messaging webhooks.
 - At least one hosted AI provider API key, unless you only use local Ollama.
 - Android Studio or a Flutter Android toolchain if you build the Android client yourself.
+
+### QEMU Installation
+
+NeoAgent uses a per-user x86_64 VM for browser and Android execution. Install QEMU before starting the service:
+
+```bash
+# macOS
+brew install qemu
+
+# Ubuntu / Debian
+sudo apt-get update
+sudo apt-get install -y qemu-system qemu-utils
+```
+
+The first VM boot also downloads the Ubuntu base image and seeds the guest runtime automatically.
+That guest bootstrap installs the browser and Android runtime dependencies it needs, including Java and the emulator support packages.
 
 ## Install
 

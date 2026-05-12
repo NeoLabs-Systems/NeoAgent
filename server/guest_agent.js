@@ -10,7 +10,19 @@ const { AndroidController } = require('./services/android/controller');
 const { RUNTIME_HOME } = require('../runtime/paths');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
-const AUTH_TOKEN = String(process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim();
+function resolveGuestToken() {
+  const raw = String(process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim();
+  if (raw) return raw;
+  const b64 = String(process.env.NEOAGENT_VM_GUEST_TOKEN_B64 || '').trim();
+  if (!b64) return '';
+  try {
+    return Buffer.from(b64, 'base64').toString('utf8').trim();
+  } catch {
+    return '';
+  }
+}
+
+const AUTH_TOKEN = resolveGuestToken();
 const FILE_ROOT = path.join(RUNTIME_HOME, 'guest-agent-files');
 const MAX_APK_STREAM_BYTES = Number(process.env.NEOAGENT_GUEST_MAX_APK_STREAM_BYTES || 512 * 1024 * 1024);
 

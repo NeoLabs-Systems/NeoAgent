@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const { DATA_DIR } = require('../../../runtime/paths');
 
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
@@ -28,6 +29,19 @@ function resolveBrowserExecutablePath() {
 
   if (explicitPath && fs.existsSync(explicitPath)) return explicitPath;
 
+  const bundledCandidates = [
+    () => require('playwright-chromium').chromium.executablePath(),
+    () => require('playwright').chromium.executablePath(),
+  ];
+  for (const resolveBundled of bundledCandidates) {
+    try {
+      const bundledPath = resolveBundled();
+      if (bundledPath && fs.existsSync(bundledPath)) {
+        return bundledPath;
+      }
+    } catch {}
+  }
+
   const platformCandidates = process.platform === 'darwin'
     ? [
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -51,6 +65,37 @@ function resolveBrowserExecutablePath() {
         ];
 
   return platformCandidates.find((candidate) => fs.existsSync(candidate)) || null;
+}
+
+function installPlaywrightChromiumBinary() {
+  const packageRoot = path.dirname(require.resolve('playwright-chromium/package.json'));
+  const cliPath = path.join(packageRoot, 'cli.js');
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cliPath, 'install', 'chromium'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    child.on('error', (error) => {
+      const detail = String(error?.message || 'playwright install chromium failed').trim();
+      reject(new Error(detail));
+    });
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      const detail = String(stderr || stdout || `playwright install chromium exited with code ${code ?? 'unknown'}`).trim();
+      reject(new Error(detail));
+    });
+  });
 }
 
 function rand(min, max) {
@@ -77,6 +122,7 @@ class BrowserController {
     this.browser = null;
     this.page = null;
     this.launching = false;
+    this.browserBinaryInstallPromise = null;
     this.headless = true;
     this._viewport = VIEWPORTS[0];
     this._userAgent = USER_AGENTS[0];
@@ -205,16 +251,31 @@ class BrowserController {
 
     this.launching = true;
     try {
-      const puppeteer = require('puppeteer-extra');
-      const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-      puppeteer.use(StealthPlugin());
+      const puppeteer = require('puppeteer-core');
 
       this._userAgent = USER_AGENTS[rand(0, USER_AGENTS.length - 1)];
       this._viewport = VIEWPORTS[rand(0, VIEWPORTS.length - 1)];
 
+      let executablePath = resolveBrowserExecutablePath();
+      if (!executablePath) {
+        if (!this.browserBinaryInstallPromise) {
+          this.browserBinaryInstallPromise = installPlaywrightChromiumBinary();
+        }
+        try {
+          await this.browserBinaryInstallPromise;
+        } finally {
+          this.browserBinaryInstallPromise = null;
+        }
+        executablePath = resolveBrowserExecutablePath();
+      }
+
+      if (!executablePath) {
+        throw new Error('No browser executable found for puppeteer-core; set PUPPETEER_EXECUTABLE_PATH or install a browser.');
+      }
+
       this.browser = await puppeteer.launch({
         headless: this.headless ? 'new' : false,
-        executablePath: resolveBrowserExecutablePath() || undefined,
+        executablePath,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',

@@ -40,6 +40,10 @@ class RuntimeManager {
     return backend.executeCommand(userId, command, options);
   }
 
+  hasVmForUser(userId) {
+    return Boolean(this.vmBackend?.vmManager?.hasVm?.(userId));
+  }
+
   async killCommand(userId, pid, reason = 'aborted') {
     return this.vmBackend.killCommand(userId, pid, reason);
   }
@@ -58,6 +62,13 @@ class RuntimeManager {
 
   async getAndroidProviderForUser(userId) {
     return this.vmBackend.getAndroidProviderForUser(userId);
+  }
+
+  async isGuestAgentReadyForUser(userId, timeoutMs = 1000) {
+    if (typeof this.vmBackend?.isGuestAgentReadyForUser !== 'function') {
+      return false;
+    }
+    return this.vmBackend.isGuestAgentReadyForUser(userId, timeoutMs);
   }
 
   async shutdown() {

@@ -134,6 +134,8 @@ Runtime profile and backend selection are stored in user settings, not normally 
 
 Production policy can require the VM backend. In that case, set a strong `NEOAGENT_VM_GUEST_TOKEN` of at least 32 characters and avoid placeholder values.
 
+The VM backend requires QEMU on the host machine. It runs an x86_64 Ubuntu guest so the Android emulator can run in the same isolated runtime as the browser. On macOS, install QEMU with `brew install qemu`. On Ubuntu or Debian, install `qemu-system` and `qemu-utils` from apt before starting NeoAgent.
+
 The app exposes two browser backend choices: VM and Chrome extension. VM uses the local isolated runtime. Chrome extension uses the paired extension connection on the remote machine instead of the server-local browser. To install only the extension on a remote machine, open NeoAgent, download `/api/browser-extension/download`, unzip it, load the folder through `chrome://extensions` with Developer mode enabled, then pair after logging in to NeoAgent. Unpacked Chrome extensions cannot replace themselves automatically; use the extension popup's update check to compare against the server bundle, then download and reload the latest ZIP when needed.
 
 ## Secrets Guidance

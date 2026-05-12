@@ -6,9 +6,12 @@ const path = require('path');
 const { StringDecoder } = require('string_decoder');
 const { spawn, spawnSync } = require('child_process');
 const { DATA_DIR } = require('../../../runtime/paths');
+const { ensureGuestBootstrapSeed } = require('./guest_bootstrap');
 
 const VM_ROOT = path.join(DATA_DIR, 'runtime-vms');
 const BASE_IMAGE_CACHE_ROOT = path.join(VM_ROOT, 'base-images');
+const REPO_ROOT = path.resolve(__dirname, '../../../');
+const HOST_SHARE_ROOT = path.join(VM_ROOT, 'host-share');
 fs.mkdirSync(VM_ROOT, { recursive: true });
 fs.mkdirSync(BASE_IMAGE_CACHE_ROOT, { recursive: true });
 
@@ -17,8 +20,21 @@ const DEFAULT_UBUNTU_BASE_IMAGE_URLS = Object.freeze({
   arm64: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img',
 });
 
-function guestArchForHost(hostArch = process.arch) {
-  return hostArch === 'arm64' ? 'arm64' : 'x64';
+const HOST_SHARE_LINKS = [
+  { name: 'server', source: path.join(REPO_ROOT, 'server') },
+  { name: 'runtime', source: path.join(REPO_ROOT, 'runtime') },
+];
+
+const QEMU_SHARE_ROOT_CANDIDATES = [
+  path.resolve(process.execPath, '..', '..', 'share', 'qemu'),
+  path.resolve(process.execPath, '..', '..', '..', 'share', 'qemu'),
+  '/opt/homebrew/share/qemu',
+  '/usr/local/share/qemu',
+  '/usr/share/qemu',
+];
+
+function guestArchForHost() {
+  return 'x64';
 }
 
 function resolveQemuBinary({ arch = guestArchForHost(), platform = process.platform } = {}) {
@@ -30,6 +46,20 @@ function resolveQemuBinary({ arch = guestArchForHost(), platform = process.platf
 
 function defaultBaseImageUrlForArch(arch = guestArchForHost()) {
   return DEFAULT_UBUNTU_BASE_IMAGE_URLS[arch] || DEFAULT_UBUNTU_BASE_IMAGE_URLS.x64;
+}
+
+function normalizeBaseImageUrlForArch(baseImageUrl, arch = guestArchForHost()) {
+  const candidate = String(baseImageUrl || '').trim();
+  if (!candidate) {
+    return defaultBaseImageUrlForArch(arch);
+  }
+  if (arch === 'x64' && /arm64|aarch64/i.test(candidate)) {
+    return defaultBaseImageUrlForArch('x64');
+  }
+  if (arch === 'arm64' && /amd64|x86_64/i.test(candidate)) {
+    return defaultBaseImageUrlForArch('arm64');
+  }
+  return candidate;
 }
 
 function isHttpUrl(value) {
@@ -103,7 +133,7 @@ function downloadFile(sourceUrl, destinationPath, redirectCount = 0) {
       });
     });
 
-    request.setTimeout(30000, () => {
+    request.setTimeout(15 * 60 * 1000, () => {
       request.destroy(new Error('Timed out while downloading VM base image.'));
     });
     request.on('timeout', () => {
@@ -118,11 +148,106 @@ function downloadFile(sourceUrl, destinationPath, redirectCount = 0) {
   });
 }
 
-function resolveAcceleration({ platform = process.platform } = {}) {
-  if (platform === 'linux') return 'kvm';
-  if (platform === 'darwin') return 'hvf';
-  if (platform === 'win32') return 'whpx';
+function resolveAcceleration({ platform = process.platform, arch = guestArchForHost() } = {}) {
+  if (platform === 'linux') return arch === process.arch ? 'kvm' : 'tcg';
+  if (platform === 'darwin') return arch === process.arch ? 'hvf' : 'tcg';
+  if (platform === 'win32') return arch === process.arch ? 'whpx' : 'tcg';
   return 'tcg';
+}
+
+function resolveQemuShareRoot() {
+  for (const candidate of QEMU_SHARE_ROOT_CANDIDATES) {
+    if (candidate && fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function ensureHostShareRoot() {
+  fs.mkdirSync(HOST_SHARE_ROOT, { recursive: true });
+
+  for (const entry of HOST_SHARE_LINKS) {
+    const sourcePath = path.resolve(entry.source);
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`Host share source is missing: ${sourcePath}`);
+    }
+
+    const linkPath = path.join(HOST_SHARE_ROOT, entry.name);
+    let needsLink = true;
+    if (fs.existsSync(linkPath)) {
+      try {
+        const resolved = fs.realpathSync.native ? fs.realpathSync.native(linkPath) : fs.realpathSync(linkPath);
+        needsLink = resolved !== sourcePath;
+      } catch {
+        needsLink = true;
+      }
+      if (needsLink) {
+        fs.rmSync(linkPath, { recursive: true, force: true });
+      }
+    }
+
+    if (needsLink) {
+      fs.symlinkSync(sourcePath, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
+    }
+  }
+
+  return HOST_SHARE_ROOT;
+}
+
+function resolveAarch64FirmwarePaths() {
+  const shareRoot = resolveQemuShareRoot();
+  if (!shareRoot) {
+    return null;
+  }
+
+  const codePath = path.join(shareRoot, 'edk2-aarch64-code.fd');
+  const varsTemplatePathCandidates = [
+    path.join(shareRoot, 'edk2-aarch64-vars.fd'),
+    path.join(shareRoot, 'edk2-arm-vars.fd'),
+  ];
+  const varsTemplatePath = varsTemplatePathCandidates.find((candidate) => fs.existsSync(candidate)) || null;
+
+  if (!fs.existsSync(codePath) || !varsTemplatePath) {
+    return null;
+  }
+
+  return {
+    shareRoot,
+    codePath,
+    varsTemplatePath,
+  };
+}
+
+function resolveX86_64FirmwarePaths() {
+  const shareRoot = resolveQemuShareRoot();
+  if (!shareRoot) {
+    return null;
+  }
+
+  // edk2-x86_64-code.fd is the UEFI code ROM; edk2-i386-vars.fd is the
+  // correct writable vars companion (Homebrew QEMU does not ship an
+  // edk2-x86_64-vars.fd — they share the i386 vars image).
+  const codePathCandidates = [
+    path.join(shareRoot, 'edk2-x86_64-code.fd'),
+    path.join(shareRoot, 'edk2-x86_64-secure-code.fd'),
+  ];
+  const codePath = codePathCandidates.find((candidate) => fs.existsSync(candidate)) || null;
+  const varsTemplatePathCandidates = [
+    path.join(shareRoot, 'edk2-i386-vars.fd'),
+    path.join(shareRoot, 'edk2-x86_64-vars.fd'),
+  ];
+  const varsTemplatePath = varsTemplatePathCandidates.find((candidate) => fs.existsSync(candidate)) || null;
+
+  if (!codePath || !varsTemplatePath) {
+    return null;
+  }
+
+  return {
+    shareRoot,
+    codePath,
+    varsTemplatePath,
+  };
 }
 
 function buildQemuArgs({
@@ -133,8 +258,15 @@ function buildQemuArgs({
   cpus = 2,
   arch = guestArchForHost(),
   platform = process.platform,
+  hostShareRoot = null,
+  hostDataRoot = null,
+  seedPath = null,
+  seedIsRaw = false,
+  consoleLogPath = null,
+  firmwareCodePath = null,
+  firmwareVarsPath = null,
 }) {
-  const accel = resolveAcceleration({ platform });
+  const accel = resolveAcceleration({ platform, arch });
   const args = ['-display', 'none', '-m', String(memoryMb), '-smp', String(cpus)];
 
   if (arch === 'arm64') {
@@ -145,15 +277,66 @@ function buildQemuArgs({
   } else {
     args.push('-machine', `q35,accel=${accel}`);
     if (platform !== 'win32') {
-      args.push('-cpu', 'host');
+      args.push('-cpu', process.arch === arch ? 'host' : 'max');
     }
   }
 
+  // OS disk — always first boot candidate
   args.push(
-    '-drive', `if=virtio,file=${imagePath},format=qcow2`,
+    '-drive', `if=none,id=os,file=${imagePath},format=qcow2`,
+    '-device', 'virtio-blk-pci,drive=os,bootindex=1',
     '-netdev', `user,id=net0,hostfwd=tcp:127.0.0.1:${sshPort}-:22,hostfwd=tcp:127.0.0.1:${agentPort}-:8421`,
     '-device', 'virtio-net-pci,netdev=net0',
   );
+
+  if (hostShareRoot) {
+    args.push(
+      '-virtfs',
+      `local,path=${hostShareRoot},mount_tag=neoagent-host,security_model=none,readonly=on`,
+    );
+  }
+
+  if (hostDataRoot) {
+    args.push(
+      '-virtfs',
+      `local,path=${hostDataRoot},mount_tag=neoagent-data,security_model=none`,
+    );
+  }
+
+  if (seedPath) {
+    if (seedIsRaw) {
+      // Raw FAT image — attach as a plain virtio block device
+      args.push(
+        '-drive', `if=none,id=cidata,file=${seedPath},format=raw,readonly=on`,
+        '-device', 'virtio-blk-pci,drive=cidata',
+      );
+    } else if (arch === 'arm64') {
+      // ARM virt machine has no IDE controller; use virtio-scsi for the seed ISO
+      args.push(
+        '-device', 'virtio-scsi-pci,id=scsi0',
+        '-drive', `if=none,id=cidata,media=cdrom,readonly=on,file=${seedPath}`,
+        '-device', 'scsi-cd,drive=cidata,bus=scsi0.0',
+      );
+    } else {
+      // x86_64 q35 machine: plain IDE CD-ROM is the most reliably detected
+      // path for cloud-init NoCloud discovery without extra guest drivers.
+      args.push(
+        '-drive', `if=none,id=cidata,media=cdrom,readonly=on,file=${seedPath}`,
+        '-device', 'ide-cd,drive=cidata,bus=ide.0',
+      );
+    }
+  }
+
+  if (firmwareCodePath && firmwareVarsPath) {
+    args.push(
+      '-drive', `if=pflash,format=raw,readonly=on,file=${firmwareCodePath}`,
+      '-drive', `if=pflash,format=raw,file=${firmwareVarsPath}`,
+    );
+  }
+
+  if (consoleLogPath) {
+    args.push('-serial', `file:${consoleLogPath}`);
+  }
 
   return args;
 }
@@ -221,7 +404,7 @@ function ensureUserVmDisk(userRoot, baseImagePath) {
   try {
     const result = spawnSync(
       qemuImgPath,
-      ['create', '-f', 'qcow2', '-F', 'qcow2', '-b', baseImagePath, diskPath],
+      ['create', '-f', 'qcow2', '-F', 'qcow2', '-b', baseImagePath, diskPath, '32G'],
       {
         stdio: 'pipe',
         encoding: 'utf8',
@@ -268,10 +451,13 @@ class QemuVmManager {
   constructor(options = {}) {
     this.rootDir = path.resolve(options.rootDir || VM_ROOT);
     this.baseImagePath = options.baseImagePath || process.env.NEOAGENT_VM_BASE_IMAGE || '';
-    this.baseImageUrl = options.baseImageUrl || process.env.NEOAGENT_VM_BASE_IMAGE_URL || defaultBaseImageUrlForArch(options.guestArch || guestArchForHost());
+    this.guestArch = options.guestArch || guestArchForHost();
+    this.baseImageUrl = normalizeBaseImageUrlForArch(
+      options.baseImageUrl || process.env.NEOAGENT_VM_BASE_IMAGE_URL || defaultBaseImageUrlForArch(this.guestArch),
+      this.guestArch,
+    );
     this.memoryMb = Number(options.memoryMb || process.env.NEOAGENT_VM_MEMORY_MB || 4096);
     this.cpus = Number(options.cpus || process.env.NEOAGENT_VM_CPUS || 2);
-    this.guestArch = options.guestArch || guestArchForHost();
     this.instances = new Map();
     this.baseImagePromise = null;
     fs.mkdirSync(this.rootDir, { recursive: true });
@@ -343,7 +529,7 @@ class QemuVmManager {
       qemuAvailable,
       qemuImgBinary,
       qemuImgAvailable: commandExists(qemuImgBinary),
-      acceleration: resolveAcceleration(),
+      acceleration: resolveAcceleration({ arch: this.guestArch }),
       guestArch: this.guestArch,
       platform: process.platform,
     };
@@ -355,21 +541,59 @@ class QemuVmManager {
       throw new Error('VM runtime requires a user ID.');
     }
     const existing = this.instances.get(key);
-    if (existing?.process && !existing.process.killed) {
+    if (existing?.process && !existing.process.killed && existing.guestArch === this.guestArch) {
       return existing;
+    }
+    if (existing?.process && existing.guestArch !== this.guestArch) {
+      try {
+        existing.process.kill('SIGTERM');
+      } catch {}
+      this.instances.delete(key);
     }
     const readiness = this.getReadiness();
     if (!readiness.ready) {
       throw new Error(formatReadinessIssues(readiness).join(' '));
     }
 
-    const userRoot = path.join(this.rootDir, key);
+    const userRoot = path.join(this.rootDir, key, this.guestArch);
     const baseImagePath = await this.ensureBaseImageAvailable();
     const diskPath = ensureUserVmDisk(userRoot, baseImagePath);
+    const guestToken = String(process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim();
+    if (!guestToken) {
+      throw new Error('NEOAGENT_VM_GUEST_TOKEN is required to bootstrap the guest runtime.');
+    }
+    const bootstrap = ensureGuestBootstrapSeed({
+      userRoot,
+      guestToken,
+    });
+    const guestDataRoot = path.join(userRoot, 'guest-data');
+    const consoleLogPath = path.join(userRoot, 'console.log');
+    const firmware = this.guestArch === 'arm64'
+      ? resolveAarch64FirmwarePaths()
+      : resolveX86_64FirmwarePaths();
+    const firmwareVarsPath = firmware ? path.join(userRoot, 'uefi-vars.fd') : null;
+    if (firmware && !fs.existsSync(firmwareVarsPath)) {
+      if (!fs.existsSync(firmware.varsTemplatePath)) {
+        throw new Error(`Firmware vars template is missing: ${firmware.varsTemplatePath}`);
+      }
+      try {
+        fs.copyFileSync(firmware.varsTemplatePath, firmwareVarsPath);
+      } catch (error) {
+        const detail = error?.message || error;
+        console.error('[VM] Failed to copy firmware vars template', {
+          source: firmware.varsTemplatePath,
+          destination: firmwareVarsPath,
+          error: detail,
+        });
+        throw new Error(`Failed to copy firmware vars template: ${detail}`);
+      }
+    }
+    fs.mkdirSync(guestDataRoot, { recursive: true });
     const agentPort = await allocatePort();
     const sshPort = await allocatePort();
     const qemuBinary = resolveQemuBinary({ arch: this.guestArch });
     const qemuBinaryPath = resolveCommandPath(qemuBinary) || qemuBinary;
+    const hostShareRoot = ensureHostShareRoot();
     const args = buildQemuArgs({
       imagePath: diskPath,
       sshPort,
@@ -377,6 +601,13 @@ class QemuVmManager {
       memoryMb: this.memoryMb,
       cpus: this.cpus,
       arch: this.guestArch,
+      hostShareRoot,
+      hostDataRoot: guestDataRoot,
+      seedPath: bootstrap.seedImagePath || bootstrap.isoPath,
+      seedIsRaw: Boolean(bootstrap.seedImagePath && bootstrap.seedImagePath.endsWith('.img')),
+      consoleLogPath,
+      firmwareCodePath: firmware?.codePath || null,
+      firmwareVarsPath,
     });
 
     const child = spawn(qemuBinaryPath, args, {
@@ -405,6 +636,7 @@ class QemuVmManager {
       process: child,
       qemuBinary,
       qemuArgs: args,
+      guestArch: this.guestArch,
       userRoot,
       diskPath,
       agentPort,
@@ -414,6 +646,31 @@ class QemuVmManager {
     };
     this.instances.set(key, session);
     return session;
+  }
+
+  hasVm(userId) {
+    const key = String(userId || '').trim();
+    return Boolean(key && this.instances.has(key));
+  }
+
+  async killVm(userId) {
+    const key = String(userId || '').trim();
+    const session = this.instances.get(key);
+    if (!session) return;
+
+    try {
+      if (process.platform === 'win32') {
+        spawnSync('taskkill', ['/F', '/T', '/PID', session.process.pid]);
+      } else {
+        process.kill(-session.process.pid, 'SIGKILL');
+      }
+    } catch (err) {
+      try {
+        session.process.kill('SIGKILL');
+      } catch {}
+    }
+
+    this.instances.delete(key);
   }
 
   async shutdown() {

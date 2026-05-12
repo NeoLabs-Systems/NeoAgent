@@ -6,6 +6,7 @@ const router = express.Router();
 const { DATA_DIR } = require('../../runtime/paths');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { getRuntimeValidation } = require('../services/runtime/validation');
 
 router.use(requireAuth);
 
@@ -50,6 +51,18 @@ async function getAndroidController(req) {
   throw new Error('Android controller is unavailable. VM runtime is required.');
 }
 
+function getAndroidStatusSnapshot(req) {
+  const runtimeValidation = getRuntimeValidation(req.app?.locals?.runtimeManager);
+  const ready = Boolean(runtimeValidation?.ready);
+  return {
+    bootstrapped: false,
+    canBootstrap: ready,
+    devices: [],
+    lastStartError: ready ? null : (runtimeValidation?.issues?.[0] || 'VM runtime is not ready.'),
+    runtimeReady: ready,
+  };
+}
+
 function handleAndroidAction(action) {
   return async (req, res) => {
     try {
@@ -62,7 +75,23 @@ function handleAndroidAction(action) {
   };
 }
 
-router.get('/status', handleAndroidAction((controller) => controller.getStatus()));
+router.get('/status', async (req, res) => {
+  try {
+    const runtimeManager = req.app?.locals?.runtimeManager;
+    if (!runtimeManager?.hasVmForUser?.(req.session?.userId)) {
+      res.json(getAndroidStatusSnapshot(req));
+      return;
+    }
+    if (!await runtimeManager?.isGuestAgentReadyForUser?.(req.session?.userId, 1000)) {
+      res.json(getAndroidStatusSnapshot(req));
+      return;
+    }
+    const controller = await getAndroidController(req);
+    res.json(await controller.getStatus());
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
 
 router.post('/start', handleAndroidAction((controller, req) =>
   controller.requestStartEmulator(req.body || {})));

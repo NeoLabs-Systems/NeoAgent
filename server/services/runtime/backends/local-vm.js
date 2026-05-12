@@ -7,6 +7,7 @@ const APK_UPLOAD_ROOT = path.resolve(
     || path.join(DATA_DIR, 'uploads', 'android-apks'),
 );
 const MAX_APK_BYTES = Number(process.env.NEOAGENT_ANDROID_APK_MAX_BYTES || 512 * 1024 * 1024);
+const IDLE_TIMEOUT_MS = Number(process.env.NEOAGENT_VM_IDLE_TIMEOUT_MS || 10 * 60 * 1000);
 
 function assertPathInside(baseDir, candidatePath, label) {
   const resolvedBase = path.resolve(baseDir);
@@ -23,9 +24,10 @@ function assertPathInside(baseDir, candidatePath, label) {
 }
 
 class RuntimeHttpClient {
-  constructor(baseUrl, token = '') {
+  constructor(baseUrl, token = '', options = {}) {
     this.baseUrl = String(baseUrl || '').replace(/\/+$/, '');
     this.token = String(token || '').trim();
+    this.onActivity = options.onActivity || null;
   }
 
   async waitForHealth(options = {}) {
@@ -53,26 +55,38 @@ class RuntimeHttpClient {
     throw new Error('Timed out waiting for the guest runtime to become ready.');
   }
 
-  async request(method, pathname, body) {
-    const response = await fetch(`${this.baseUrl}${pathname}`, {
-      method,
-      headers: {
-        'content-type': 'application/json',
-        ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+  async request(method, pathname, body, options = {}) {
+    const controller = options.timeoutMs ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(new Error(`Request timed out after ${options.timeoutMs} ms.`)), options.timeoutMs) : null;
+    try {
+      const response = await fetch(`${this.baseUrl}${pathname}`, {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: controller?.signal,
+      });
 
-    const contentType = response.headers.get('content-type') || '';
-    const payload = contentType.includes('application/json')
-      ? await response.json().catch(() => ({}))
-      : { text: await response.text().catch(() => '') };
+      const contentType = response.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json')
+        ? await response.json().catch(() => ({}))
+        : { text: await response.text().catch(() => '') };
 
-    if (!response.ok) {
-      const errorMessage = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
-      throw new Error(errorMessage);
+      if (!response.ok) {
+        const errorMessage = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
+        throw new Error(errorMessage);
+      }
+      if (response.ok && typeof this.onActivity === 'function') {
+        this.onActivity();
+      }
+      return payload;
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
     }
-    return payload;
   }
 
   async requestStream(method, pathname, stream, options = {}) {
@@ -87,6 +101,10 @@ class RuntimeHttpClient {
       body: stream,
       duplex: 'half',
     });
+
+    if (response.ok && typeof this.onActivity === 'function') {
+      this.onActivity();
+    }
 
     const contentType = response.headers.get('content-type') || '';
     const payload = contentType.includes('application/json')
@@ -300,6 +318,37 @@ class LocalVmExecutionBackend {
     this.vmManager = options.vmManager;
     this.token = options.token || process.env.NEOAGENT_VM_GUEST_TOKEN || '';
     this.artifactStore = options.artifactStore || null;
+    this.lastActivity = new Map();
+    this.reaperInterval = null;
+
+    if (IDLE_TIMEOUT_MS > 0) {
+      this.#startIdleReaper();
+    }
+  }
+
+  #touch(userId) {
+    const key = String(userId || '').trim();
+    if (key) {
+      this.lastActivity.set(key, Date.now());
+    }
+  }
+
+  #startIdleReaper() {
+    if (this.reaperInterval) return;
+    this.reaperInterval = setInterval(async () => {
+      const now = Date.now();
+      for (const [userId, lastUsed] of this.lastActivity.entries()) {
+        if (now - lastUsed > IDLE_TIMEOUT_MS) {
+          console.log(`[Runtime] User ${userId} runtime idle for ${Math.round((now - lastUsed) / 1000)}s, shutting down VM.`);
+          this.lastActivity.delete(userId);
+          try {
+            await this.vmManager?.killVm?.(userId);
+          } catch (err) {
+            console.error(`[Runtime] Failed to shut down idle VM for user ${userId}:`, err.message);
+          }
+        }
+      }
+    }, Math.min(IDLE_TIMEOUT_MS, 60 * 1000));
   }
 
   async #clientForUser(userId) {
@@ -307,10 +356,13 @@ class LocalVmExecutionBackend {
       throw new Error('Local VM manager is not available.');
     }
     const session = await this.vmManager.ensureVm(userId);
-    const client = new RuntimeHttpClient(session.baseUrl, this.token);
+    this.#touch(userId);
+    const client = new RuntimeHttpClient(session.baseUrl, this.token, {
+      onActivity: () => this.#touch(userId),
+    });
     try {
       await client.waitForHealth({
-        timeoutMs: Number(process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 120000),
+        timeoutMs: Number(process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 20 * 60 * 1000),
       });
     } catch (error) {
       const runtimeError = typeof session.getLastError === 'function' ? session.getLastError() : '';
@@ -366,7 +418,32 @@ class LocalVmExecutionBackend {
     });
   }
 
+  async isGuestAgentReadyForUser(userId, timeoutMs = 1000) {
+    if (!this.vmManager) {
+      return false;
+    }
+    const key = String(userId || '').trim();
+    if (!key) {
+      return false;
+    }
+    const session = this.vmManager.instances?.get?.(key);
+    if (!session?.baseUrl) {
+      return false;
+    }
+    const client = new RuntimeHttpClient(session.baseUrl, this.token);
+    try {
+      await client.request('GET', '/health', undefined, { timeoutMs });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async shutdown() {
+    if (this.reaperInterval) {
+      clearInterval(this.reaperInterval);
+      this.reaperInterval = null;
+    }
     await this.vmManager?.shutdown?.();
   }
 }

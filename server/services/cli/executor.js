@@ -7,6 +7,38 @@ const FORCE_KILL_GRACE_MS = 5000;
 const MAX_STDOUT_CHARS = 50000;
 const MAX_STDERR_CHARS = 10000;
 
+function resolveDefaultShell() {
+  const candidates = [
+    process.env.SHELL,
+    '/bin/zsh',
+    '/bin/bash',
+    '/bin/sh',
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      execFileSync(candidate, ['-lc', 'printf ok'], {
+        timeout: 3000,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      return candidate;
+    } catch {}
+  }
+
+  try {
+    execFileSync('/bin/sh', ['-lc', 'printf ok'], {
+      timeout: 3000,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return '/bin/sh';
+  } catch (error) {
+    console.warn('[CLI] No usable shell found for executor:', error?.message || error);
+    return null;
+  }
+}
+
 function clampTimeout(value, fallback) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
@@ -46,7 +78,10 @@ function wrapCommandForShell(command, shellPath) {
 class CLIExecutor {
   constructor() {
     this.activeProcesses = new Map();
-    this.defaultShell = process.env.SHELL || '/bin/zsh';
+    this.defaultShell = resolveDefaultShell();
+    if (!this.defaultShell) {
+      throw new Error('No usable shell found for CLI execution.');
+    }
   }
 
   _getLoginPath() {

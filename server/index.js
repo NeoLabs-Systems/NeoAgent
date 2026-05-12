@@ -210,8 +210,17 @@ function closeHttpServer(server, sockets, timeoutMs = 5000) {
   });
 }
 
+function normalizeShutdownExitCode(value) {
+  const code = Number(value);
+  if (Number.isFinite(code)) {
+    return code;
+  }
+  return 1;
+}
+
 async function shutdown(exitCode = 0) {
-  shutdownExitCode = Math.max(shutdownExitCode, exitCode);
+  const normalizedExitCode = normalizeShutdownExitCode(exitCode);
+  shutdownExitCode = Math.max(shutdownExitCode, normalizedExitCode);
   if (shuttingDown) return;
   shuttingDown = true;
 
@@ -224,7 +233,7 @@ async function shutdown(exitCode = 0) {
   ]);
 
   db.close();
-  process.exit(shutdownExitCode);
+  process.exit(normalizeShutdownExitCode(shutdownExitCode));
 }
 
 httpServer.listen(PORT, () => {
