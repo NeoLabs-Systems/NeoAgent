@@ -70,6 +70,8 @@ function toUserPayload(user) {
   return {
     id: user.id,
     username: user.username,
+    displayName: user.display_name || null,
+    display_name: user.display_name || null,
     email: user.email || null,
     emailVerifiedAt: user.email_verified_at || null,
     createdAt: user.created_at || null,
@@ -120,7 +122,7 @@ function readAuthenticatedUser(req) {
     return null;
   }
   const user = db.prepare(
-    `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
+    `SELECT id, username, display_name, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
      FROM users
      WHERE id = ?`,
   ).get(req.session.userId);
@@ -323,7 +325,7 @@ router.get('/api/auth/providers/complete', async (req, res) => {
     }
 
     const user = db.prepare(
-      `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
+      `SELECT id, username, display_name, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
        FROM users
        WHERE id = ?`,
     ).get(completion.result.userId);
@@ -450,7 +452,7 @@ router.post('/api/auth/login', authLimiter, async (req, res) => {
     }
 
     const user = db.prepare(
-      `SELECT id, username, email, email_verified_at, password, password_login_enabled, created_at, last_login, has_completed_onboarding
+      `SELECT id, username, display_name, email, email_verified_at, password, password_login_enabled, created_at, last_login, has_completed_onboarding
        FROM users
        WHERE username = ?`,
     ).get(username);
@@ -501,7 +503,7 @@ router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
     }
 
     const user = db.prepare(
-      `SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
+      `SELECT id, username, display_name, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
        FROM users
        WHERE id = ?`,
     ).get(pendingUserId);

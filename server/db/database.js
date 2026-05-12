@@ -1589,6 +1589,19 @@ function migrateUsersOnboarding() {
 }
 migrateUsersOnboarding();
 
+function migrateUsersDisplayName() {
+  try {
+    const columns = db.pragma('table_info(users)');
+    const hasDisplayNameCol = columns.some((c) => c.name === 'display_name');
+    if (!hasDisplayNameCol) {
+      db.exec('ALTER TABLE users ADD COLUMN display_name TEXT');
+    }
+  } catch (err) {
+    console.warn('Could not add display_name column:', err.message);
+  }
+}
+migrateUsersDisplayName();
+
 try {
   db.exec(`
     INSERT OR REPLACE INTO conversation_history_fts(rowid, content, role, user_id, agent_id, agent_run_id)

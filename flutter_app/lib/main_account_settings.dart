@@ -167,6 +167,7 @@ class AccountSettingsPanel extends StatefulWidget {
 
 class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   late AccountSettingsTab _selectedTab;
+  late final TextEditingController _displayNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _emailPasswordController;
   late final TextEditingController _setupPasswordController;
@@ -178,6 +179,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   late final TextEditingController _confirmNewPasswordController;
   Map<String, dynamic>? _pendingSetup;
   List<String> _recoveryCodes = const <String>[];
+  String? _displayNameSuccessMessage;
+  String? _displayNameInlineError;
   String? _emailSuccessMessage;
   String? _emailInlineError;
   String? _passwordSuccessMessage;
@@ -187,6 +190,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab ?? AccountSettingsTab.account;
+    _displayNameController = TextEditingController(
+      text: widget.controller.user?['display_name']?.toString() ?? '',
+    );
     _emailController = TextEditingController(
       text: widget.controller.user?['email']?.toString() ?? '',
     );
@@ -208,6 +214,11 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         oldWidget.initialTab != widget.initialTab) {
       _selectedTab = widget.initialTab!;
     }
+    final displayName =
+        widget.controller.user?['display_name']?.toString() ?? '';
+    if (_displayNameController.text.isEmpty && displayName.isNotEmpty) {
+      _displayNameController.text = displayName;
+    }
     final email = widget.controller.user?['email']?.toString() ?? '';
     if (_emailController.text.isEmpty && email.isNotEmpty) {
       _emailController.text = email;
@@ -216,6 +227,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
 
   @override
   void dispose() {
+    _displayNameController.dispose();
     _emailController.dispose();
     _emailPasswordController.dispose();
     _setupPasswordController.dispose();
@@ -409,6 +421,56 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         const SizedBox(height: 12),
         _MetaPill(label: username, icon: Icons.person_outline),
         const SizedBox(height: 18),
+        TextField(
+          controller: _displayNameController,
+          decoration: const InputDecoration(
+            labelText: 'Display name',
+            helperText: 'Shown in the sidebar. Leave blank to use your username.',
+          ),
+        ),
+        if (_displayNameInlineError != null) ...<Widget>[
+          const SizedBox(height: 10),
+          _InlineError(message: _displayNameInlineError!),
+        ],
+        if (_displayNameSuccessMessage != null) ...<Widget>[
+          const SizedBox(height: 10),
+          _InlineSuccess(message: _displayNameSuccessMessage!),
+        ],
+        const SizedBox(height: 14),
+        FilledButton.icon(
+          onPressed: controller.isSavingAccountSettings
+              ? null
+              : () async {
+                  setState(() {
+                    _displayNameInlineError = null;
+                    _displayNameSuccessMessage = null;
+                  });
+                  final trimmed = _displayNameController.text.trim();
+                  if (trimmed.length > 64) {
+                    setState(() {
+                      _displayNameInlineError =
+                          'Display name must be 64 characters or fewer.';
+                    });
+                    return;
+                  }
+                  final saved = await controller.updateAccountDisplayName(
+                    displayName: trimmed,
+                  );
+                  if (saved && mounted) {
+                    setState(() {
+                      _displayNameSuccessMessage = 'Display name saved.';
+                    });
+                  }
+                },
+          icon: controller.isSavingAccountSettings
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.save_outlined),
+          label: Text('Save name'),
+        ),
+        const SizedBox(height: 22),
         Text('Current email: $currentEmail'),
         const SizedBox(height: 16),
         TextField(

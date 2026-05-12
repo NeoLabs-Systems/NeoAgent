@@ -246,6 +246,15 @@ class BackendClient {
     });
   }
 
+  Future<Map<String, dynamic>> updateAccountDisplayName({
+    required String baseUrl,
+    required String displayName,
+  }) async {
+    return putMap(baseUrl, '/api/account/display-name', <String, dynamic>{
+      'displayName': displayName,
+    });
+  }
+
   Future<Map<String, dynamic>> beginTwoFactorSetup({
     required String baseUrl,
     required String currentPassword,

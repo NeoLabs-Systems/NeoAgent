@@ -57,7 +57,7 @@ function accountPayload(req) {
   recordCurrentSession(req, req.session.userId);
   const user = db
     .prepare(
-      `SELECT id, username, email, email_verified_at, created_at, last_login, password_login_enabled
+      `SELECT id, username, display_name, email, email_verified_at, created_at, last_login, password_login_enabled
        FROM users
        WHERE id = ?`,
     )
@@ -68,6 +68,7 @@ function accountPayload(req) {
       ? {
           id: user.id,
           username: user.username,
+          display_name: user.display_name,
           email: user.email,
           email_verified_at: user.email_verified_at,
           created_at: user.created_at,
@@ -90,8 +91,32 @@ function sendRouteError(res, err) {
   res.status(statusCode).json({ error: sanitizeError(err) });
 }
 
+function normalizeDisplayName(value) {
+  const name = String(value || '').trim();
+  if (!name) return null;
+  if (name.length > 64) {
+    const error = new Error('Display name must be 64 characters or fewer.');
+    error.statusCode = 400;
+    throw error;
+  }
+  return name;
+}
+
 router.get('/', (req, res) => {
   try {
+    res.json(accountPayload(req));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.put('/display-name', accountLimiter, (req, res) => {
+  try {
+    const displayName = normalizeDisplayName(req.body?.displayName);
+    db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(
+      displayName,
+      req.session.userId,
+    );
     res.json(accountPayload(req));
   } catch (err) {
     sendRouteError(res, err);

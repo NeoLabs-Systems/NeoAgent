@@ -4645,6 +4645,29 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateAccountDisplayName({
+    required String displayName,
+  }) async {
+    isSavingAccountSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.updateAccountDisplayName(
+          baseUrl: backendUrl,
+          displayName: displayName,
+        ),
+      );
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      isSavingAccountSettings = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> linkAccountProvider(String provider) async {
     isSavingAccountSettings = true;
     errorMessage = null;
@@ -6097,8 +6120,11 @@ class NeoAgentController extends ChangeNotifier {
 
   DateTime? get liveVoiceCaptureStartedAt => _liveVoiceCaptureStartedAt;
 
-  String get accountLabel =>
-      user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
+  String get accountLabel {
+    final displayName = user?['display_name']?.toString().trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+    return user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
+  }
 
   String get modelIndicator {
     if (defaultChatModel != 'auto') {
