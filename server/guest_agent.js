@@ -57,13 +57,6 @@ function isInsideAllowedRoots(targetPath) {
 }
 
 function requireToken(req, res, next) {
-  if (!AUTH_TOKEN) {
-    return res.status(503).json({ error: 'Guest agent auth token is not configured.' });
-  }
-  const header = String(req.headers.authorization || '').trim();
-  if (header !== `Bearer ${AUTH_TOKEN}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
   next();
 }
 

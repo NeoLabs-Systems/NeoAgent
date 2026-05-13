@@ -5,6 +5,16 @@ const { DATA_DIR } = require('../../../runtime/paths');
 
 const VM_ROOT = path.join(DATA_DIR, 'runtime-vms');
 const GUEST_BOOTSTRAP_ROOT = path.join(VM_ROOT, 'guest-bootstrap');
+const REPO_ROOT = path.resolve(__dirname, '../../..');
+const GUEST_PAYLOAD_ENTRIES = Object.freeze([
+  { source: 'server/guest-agent.package.json', target: 'package.json' },
+  { source: 'runtime/env.js', target: 'runtime/env.js' },
+  { source: 'runtime/paths.js', target: 'runtime/paths.js' },
+  { source: 'server/guest_agent.js', target: 'server/guest_agent.js' },
+  { source: 'server/services/cli', target: 'server/services/cli' },
+  { source: 'server/services/browser', target: 'server/services/browser' },
+  { source: 'server/services/android', target: 'server/services/android' },
+]);
 
 fs.mkdirSync(GUEST_BOOTSTRAP_ROOT, { recursive: true });
 
@@ -12,16 +22,50 @@ function encodeGuestToken(value) {
   return Buffer.from(String(value || ''), 'utf8').toString('base64');
 }
 
+function createGuestPayloadArchive(seedDir) {
+  const seedRoot = path.dirname(seedDir);
+  const stagingRoot = path.join(seedRoot, 'guest-payload');
+  const archivePath = path.join(seedRoot, 'guest-payload.tar.gz');
+  fs.rmSync(stagingRoot, { recursive: true, force: true });
+  fs.rmSync(archivePath, { force: true });
+  fs.mkdirSync(stagingRoot, { recursive: true });
+
+  for (const entry of GUEST_PAYLOAD_ENTRIES) {
+    const sourcePath = path.join(REPO_ROOT, entry.source);
+    const targetPath = path.join(stagingRoot, entry.target);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    if (fs.statSync(sourcePath).isDirectory()) {
+      fs.cpSync(sourcePath, targetPath, { recursive: true, force: true });
+    } else {
+      fs.copyFileSync(sourcePath, targetPath);
+    }
+  }
+
+  const tarResult = spawnSync('tar', ['-czf', archivePath, '-C', stagingRoot, '.'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (tarResult.status !== 0 || !fs.existsSync(archivePath)) {
+    throw new Error(
+      String(tarResult.stderr || tarResult.stdout || tarResult.error?.message || 'Failed to create guest payload archive.')
+        .trim(),
+    );
+  }
+  fs.rmSync(stagingRoot, { recursive: true, force: true });
+  return archivePath;
+}
+
 function createCloudInitScript({
   guestToken,
-  hostShareMount,
-  hostDataMount = '/mnt/neoagent-data',
+  guestPayloadPath = '/var/lib/neoagent/guest-payload.tar.gz',
   guestAgentPort = 8421,
 }) {
   const guestTokenB64 = encodeGuestToken(guestToken);
   const envFile = '/etc/neoagent/neoagent.env';
   const appDir = '/opt/neoagent';
   const bootstrapMarker = '/var/lib/neoagent/bootstrap-complete';
+  const browserReadyMarker = '/var/lib/neoagent/browser-runtime-ready';
+  const browserDepsMarker = '/var/lib/neoagent/browser-deps-installed';
   const nodeSourceSetupUrl = 'https://deb.nodesource.com/setup_20.x';
 
   return [
@@ -29,43 +73,20 @@ function createCloudInitScript({
     'set -uo pipefail', // Removed -e to handle non-critical failures gracefully
     '',
     'export DEBIAN_FRONTEND=noninteractive',
-    `HOST_SHARE_MOUNT=${JSON.stringify(hostShareMount)}`,
-    `HOST_DATA_MOUNT=${JSON.stringify(hostDataMount)}`,
-    'HOST_SHARE_TAG=neoagent-host',
-    'HOST_DATA_TAG=neoagent-data',
     `APP_DIR=${JSON.stringify(appDir)}`,
     `BOOTSTRAP_MARKER=${JSON.stringify(bootstrapMarker)}`,
+    `BROWSER_READY_MARKER=${JSON.stringify(browserReadyMarker)}`,
+    `BROWSER_DEPS_MARKER=${JSON.stringify(browserDepsMarker)}`,
     `ENV_FILE=${JSON.stringify(envFile)}`,
+    `GUEST_PAYLOAD_PATH=${JSON.stringify(guestPayloadPath)}`,
     '',
-    'mkdir -p /etc/neoagent /var/lib/neoagent "$HOST_SHARE_MOUNT" "$HOST_DATA_MOUNT" "$APP_DIR"',
+    'mkdir -p /etc/neoagent /var/lib/neoagent "$APP_DIR"',
     '',
-    '# Ensure the 9p virtio filesystem driver is loaded',
-    'modprobe 9p 2>/dev/null || true',
-    'modprobe 9pnet_virtio 2>/dev/null || true',
-    '',
-    'function mount_9p_tag() {',
-    '  local tag="$1"',
-    '  local target="$2"',
-    '  local mode="$3"',
-    '  mount -t 9p -o "trans=virtio,version=9p2000.L,msize=131072,${mode}" "$tag" "$target" >/dev/null 2>&1',
-    '}',
-    '',
-    'mount_9p_tag "$HOST_SHARE_TAG" "$HOST_SHARE_MOUNT" ro',
-    'mount_9p_tag "$HOST_DATA_TAG" "$HOST_DATA_MOUNT" rw',
-    '',
-    'if ! grep -qs "${HOST_SHARE_MOUNT}" /etc/fstab; then',
-    '  echo "${HOST_SHARE_TAG} ${HOST_SHARE_MOUNT} 9p trans=virtio,version=9p2000.L,msize=262144,ro 0 0" >> /etc/fstab',
-    'fi',
-    'if ! grep -qs "${HOST_DATA_MOUNT}" /etc/fstab; then',
-    '  echo "${HOST_DATA_TAG} ${HOST_DATA_MOUNT} 9p trans=virtio,version=9p2000.L,msize=262144,rw 0 0" >> /etc/fstab',
-    'fi',
-    '',
-    'mount -a >/dev/null 2>&1 || true',
-    '',
-    '# Redirect logs to both host-writable share and console',
-    'LOG_FILE="${HOST_DATA_MOUNT}/bootstrap.log"',
+    '# Redirect logs to a guest-local file and console',
+    'LOG_FILE="/var/log/neoagent-bootstrap.log"',
     'exec > >(tee -a "$LOG_FILE" >/dev/console) 2>&1',
     'echo "NeoAgent guest bootstrap starting..."',
+    'rm -f "$BOOTSTRAP_MARKER" "$BROWSER_READY_MARKER"',
     '',
     'function retry_cmd() {',
     '  local n=1',
@@ -85,49 +106,14 @@ function createCloudInitScript({
     '  done',
     '}',
     '',
-    'echo "Updating package lists..."',
-    'retry_cmd apt-get update || echo "Warning: apt-get update failed, proceeding with cached lists."',
-    '',
-    'echo "Installing dependencies..."',
-    'retry_cmd apt-get install -y --no-install-recommends \\',
-    '  curl ca-certificates gnupg openjdk-17-jre-headless git rsync build-essential \\',
-    '  python3 unzip libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcups2 \\',
-    '  libx11-xcb1 libgtk-3-0 libnss3 libnspr4 libxcomposite1 libxdamage1 \\',
-    '  libxrandr2 libxkbcommon0 libasound2t64 libgbm1 libdrm2 libdbus-1-3 \\',
-    '  libpango-1.0-0 libpangocairo-1.0-0 libxshmfence1 || echo "Warning: Some dependencies failed to install."',
-    '',
-    'if [ -d "$HOST_SHARE_MOUNT" ]; then',
-    '  echo "Syncing guest agent sources..."',
-    '  SYNC_PATHS=(',
-    '    server/guest-agent.package.json:package.json',
-    '    runtime/env.js',
-    '    runtime/paths.js',
-    '    server/guest_agent.js',
-    '    server/services/cli',
-    '    server/services/browser',
-    '    server/services/android',
-    '  )',
-    '  for relPath in "${SYNC_PATHS[@]}"; do',
-    '    sourceRelPath="${relPath%%:*}"',
-    '    targetRelPath="${relPath##*:}"',
-    '    sourcePath="$HOST_SHARE_MOUNT/$sourceRelPath"',
-    '    targetPath="$APP_DIR/$targetRelPath"',
-    '    if [ -e "$sourcePath" ]; then',
-    '      mkdir -p "$(dirname "$targetPath")"',
-    '      if [ -d "$sourcePath" ]; then',
-    '        mkdir -p "$targetPath"',
-    '        rsync -a --delete "$sourcePath"/ "$targetPath"/',
-    '      else',
-    '        rsync -a "$sourcePath" "$targetPath"',
-    '      fi',
-    '    else',
-    '      echo "Warning: Optional source path missing: $relPath"',
-    '    fi',
-    '  done',
-    'else',
-    '  echo "Error: Host repo share is not available. Bootstrap cannot continue." >&2',
+    'if [ ! -f "$GUEST_PAYLOAD_PATH" ]; then',
+    '  echo "Error: Guest payload archive is missing at $GUEST_PAYLOAD_PATH." >&2',
     '  exit 1',
     'fi',
+    'echo "Extracting guest runtime payload..."',
+    'rm -rf "$APP_DIR"',
+    'mkdir -p "$APP_DIR"',
+    'tar -xzf "$GUEST_PAYLOAD_PATH" -C "$APP_DIR" || { echo "Error: Failed to extract guest runtime payload." >&2; exit 1; }',
     '',
     'if ! command -v node >/dev/null 2>&1 || ! node -e "process.exit(Number(process.versions.node.split(\'.\')[0]) >= 20 ? 0 : 1)"; then',
     '  echo "Installing Node.js..."',
@@ -140,28 +126,50 @@ function createCloudInitScript({
     'chmod 0600 "$ENV_FILE"',
     '',
     'cd "$APP_DIR"',
+    'export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1',
     'if [ ! -d node_modules ] || [ ! -f node_modules/.neoagent-bootstrap-stamp ] || [ package.json -nt node_modules/.neoagent-bootstrap-stamp ]; then',
     '  echo "Installing npm dependencies..."',
-    '  export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1',
-    '  retry_cmd npm install --omit=dev --no-audit --no-fund || echo "Warning: npm install failed."',
+    '  retry_cmd npm cache clean --force',
+    '  retry_cmd npm install --omit=dev --no-audit --no-fund || { echo "Error: npm install failed." >&2; exit 1; }',
     '  mkdir -p node_modules',
     '  date > node_modules/.neoagent-bootstrap-stamp',
     'fi',
     '',
-    '# Install Playwright browser binaries',
-    'PLAYWRIGHT_BROWSERS_PATH="$APP_DIR/.playwright-browsers"',
-    'PLAYWRIGHT_STAMP="$PLAYWRIGHT_BROWSERS_PATH/.chromium-installed"',
-    'if [ ! -f "$PLAYWRIGHT_STAMP" ]; then',
-    '  echo "Installing Playwright browsers..."',
-    '  mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"',
-    '  PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" npx playwright install chromium --with-deps || \\',
-    '    PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" node ./node_modules/playwright-chromium/install.js || true',
-    '  date > "$PLAYWRIGHT_STAMP"',
+    'if [ ! -f "$BROWSER_DEPS_MARKER" ]; then',
+    '  echo "Updating package lists..."',
+    '  retry_cmd apt-get update || echo "Warning: apt-get update failed, proceeding with cached lists."',
+    '',
+    '  echo "Installing browser runtime dependencies..."',
+    '  retry_cmd apt-get install -y --no-install-recommends \\',
+    '    curl ca-certificates gnupg git rsync unzip \\',
+    '    dbus-x11 \\',
+    '    xvfb \\',
+    '    libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcups2 \\',
+    '    libx11-xcb1 libgtk-3-0 libnss3 libnspr4 libxcomposite1 libxdamage1 \\',
+    '    libxrandr2 libxkbcommon0 libasound2t64 libgbm1 libdrm2 libdbus-1-3 \\',
+    '    libpango-1.0-0 libpangocairo-1.0-0 libxshmfence1 || echo "Warning: Some browser dependencies failed to install."',
+    '  touch "$BROWSER_DEPS_MARKER"',
+    'else',
+    '  echo "Browser runtime dependencies already installed; skipping apt install."',
     'fi',
     '',
     'systemctl daemon-reload',
     'systemctl enable neoagent-guest-agent.service || true',
-    'systemctl restart neoagent-guest-agent.service || true',
+    'if ! systemctl is-active --quiet neoagent-guest-agent.service; then',
+    '  systemctl start neoagent-guest-agent.service || true',
+    'fi',
+    'echo "NeoAgent guest agent is available; continuing browser runtime provisioning..."',
+    '',
+    'PLAYWRIGHT_BROWSERS_PATH="$APP_DIR/.playwright-browsers"',
+    'PLAYWRIGHT_STAMP="$PLAYWRIGHT_BROWSERS_PATH/.firefox-installed"',
+    'mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"',
+    'if [ ! -f "$PLAYWRIGHT_STAMP" ] || [ package.json -nt "$PLAYWRIGHT_STAMP" ]; then',
+    '  echo "Installing Playwright browsers..."',
+    '  PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" retry_cmd npx playwright install firefox || { echo "Error: Playwright browser install failed." >&2; exit 1; }',
+    '  date > "$PLAYWRIGHT_STAMP"',
+    'fi',
+    '',
+    'touch "$BROWSER_READY_MARKER"',
     'touch "$BOOTSTRAP_MARKER"',
     'echo "NeoAgent guest bootstrap completed."',
     '',
@@ -170,15 +178,13 @@ function createCloudInitScript({
 
 function createCloudInitUserData({
   guestToken,
-  hostShareMount = '/mnt/neoagent-host',
-  hostDataMount = '/mnt/neoagent-data',
+  guestPayloadBase64,
   guestAgentPort = 8421,
 }) {
   const guestTokenB64 = encodeGuestToken(guestToken);
   const bootstrapScript = createCloudInitScript({
     guestToken,
-    hostShareMount,
-    hostDataMount,
+    guestPayloadPath: '/var/lib/neoagent/guest-payload.tar.gz',
     guestAgentPort,
   });
 
@@ -190,8 +196,14 @@ function createCloudInitUserData({
     "    permissions: '0600'",
     '    owner: root:root',
     '    content: |',
-    `      NEOAGENT_VM_GUEST_TOKEN_B64=${guestTokenB64}`,
-    `      NEOAGENT_GUEST_AGENT_PORT=${guestAgentPort}`,
+      `      NEOAGENT_VM_GUEST_TOKEN_B64=${guestTokenB64}`,
+      `      NEOAGENT_GUEST_AGENT_PORT=${guestAgentPort}`,
+    '  - path: /var/lib/neoagent/guest-payload.tar.gz',
+    "    permissions: '0644'",
+    '    owner: root:root',
+    "    encoding: 'b64'",
+    '    content: |',
+      `      ${guestPayloadBase64}`,
     '  - path: /usr/local/bin/neoagent-guest-bootstrap.sh',
     "    permissions: '0755'",
     '    owner: root:root',
@@ -399,7 +411,6 @@ function createSeedIso(sourceDir, isoPath) {
 function ensureGuestBootstrapSeed({
   userRoot,
   guestToken,
-  hostShareMount = '/mnt/neoagent-host',
   guestAgentPort = 8421,
   guestArch = 'x64',
 }) {
@@ -412,7 +423,13 @@ function ensureGuestBootstrapSeed({
   const userDataPath = path.join(seedDir, 'user-data');
   const metaDataPath = path.join(seedDir, 'meta-data');
   const startupNshPath = path.join(seedDir, 'startup.nsh');
-  const userData = createCloudInitUserData({ guestToken, hostShareMount, guestAgentPort });
+  const guestPayloadArchivePath = createGuestPayloadArchive(seedDir);
+  const guestPayloadBase64 = fs.readFileSync(guestPayloadArchivePath).toString('base64');
+  const userData = createCloudInitUserData({
+    guestToken,
+    guestPayloadBase64,
+    guestAgentPort,
+  });
   const metaData = createCloudInitMetaData({
     instanceId: `neoagent-${path.basename(userRoot)}`,
     localHostName: `neoagent-${path.basename(userRoot)}`,
@@ -457,7 +474,6 @@ function ensureGuestBootstrapSeed({
     userDataPath,
     metaDataPath,
     startupNshPath,
-    hostShareMount,
   };
 }
 

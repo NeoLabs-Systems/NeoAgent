@@ -1385,7 +1385,7 @@ class AndroidController {
       'full',
     ];
 
-    if (options.headless !== false) {
+    if (options.headless === true) {
       args.push('-no-window', '-no-audio');
     }
 
@@ -1507,7 +1507,7 @@ class AndroidController {
         NEOAGENT_ANDROID_BOOTSTRAP_WORKER: '1',
         NEOAGENT_ANDROID_BOOTSTRAP_USER_ID: this.userId || '',
         NEOAGENT_ANDROID_BOOTSTRAP_SCOPE_KEY: this.scopeKey,
-        NEOAGENT_ANDROID_BOOTSTRAP_HEADLESS: String(options.headless !== false),
+        NEOAGENT_ANDROID_BOOTSTRAP_HEADLESS: String(options.headless === true),
         NEOAGENT_ANDROID_BOOTSTRAP_TIMEOUT_MS: String(options.timeoutMs || 240000),
       };
       const child = spawn(process.execPath, [ANDROID_BOOTSTRAP_WORKER], {

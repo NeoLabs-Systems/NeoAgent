@@ -5,6 +5,9 @@ const { DATA_DIR } = require('../../../runtime/paths');
 
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+const BROWSER_PROFILE_ROOT = path.join(DATA_DIR, 'browser-profiles');
+if (!fs.existsSync(BROWSER_PROFILE_ROOT)) fs.mkdirSync(BROWSER_PROFILE_ROOT, { recursive: true });
+const BROWSER_READY_MARKER = '/var/lib/neoagent/browser-runtime-ready';
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
@@ -37,6 +40,12 @@ function resolveBrowserExecutablePath() {
     try {
       const bundledPath = resolveBundled();
       if (bundledPath && fs.existsSync(bundledPath)) {
+        if (process.platform === 'linux') {
+          const wrappedPath = path.join(path.dirname(bundledPath), 'chrome-wrapper');
+          if (fs.existsSync(wrappedPath)) {
+            return wrappedPath;
+          }
+        }
         return bundledPath;
       }
     } catch {}
@@ -67,11 +76,23 @@ function resolveBrowserExecutablePath() {
   return platformCandidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
-function installPlaywrightChromiumBinary() {
-  const packageRoot = path.dirname(require.resolve('playwright-chromium/package.json'));
+function resolveFirefoxExecutablePath() {
+  try {
+    const bundledPath = require('playwright').firefox.executablePath();
+    return bundledPath && fs.existsSync(bundledPath) ? bundledPath : null;
+  } catch {
+    return null;
+  }
+}
+
+function installPlaywrightBrowserBinary(browserName) {
+  const packageRoot = path.dirname(require.resolve('playwright/package.json'));
   const cliPath = path.join(packageRoot, 'cli.js');
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [cliPath, 'install', 'chromium'], {
+    const args = browserName === 'chromium'
+      ? [cliPath, 'install', '--no-shell', 'chromium']
+      : [cliPath, 'install', browserName];
+    const child = spawn(process.execPath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -84,7 +105,7 @@ function installPlaywrightChromiumBinary() {
       stderr += data.toString();
     });
     child.on('error', (error) => {
-      const detail = String(error?.message || 'playwright install chromium failed').trim();
+      const detail = String(error?.message || `playwright install ${browserName} failed`).trim();
       reject(new Error(detail));
     });
     child.on('close', (code) => {
@@ -92,7 +113,7 @@ function installPlaywrightChromiumBinary() {
         resolve();
         return;
       }
-      const detail = String(stderr || stdout || `playwright install chromium exited with code ${code ?? 'unknown'}`).trim();
+      const detail = String(stderr || stdout || `playwright install ${browserName} exited with code ${code ?? 'unknown'}`).trim();
       reject(new Error(detail));
     });
   });
@@ -106,11 +127,38 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+async function waitForFile(filePath, options = {}) {
+  const timeoutMs = Math.max(0, Number(options.timeoutMs || 0));
+  const intervalMs = Math.max(100, Number(options.intervalMs || 500));
+  if (!filePath || timeoutMs <= 0 || fs.existsSync(filePath)) {
+    return fs.existsSync(filePath);
+  }
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    await sleep(intervalMs);
+    if (fs.existsSync(filePath)) {
+      return true;
+    }
+  }
+  return fs.existsSync(filePath);
+}
+
 function buildIsolatedEvaluationExpression(script) {
   const source = String(script || 'undefined');
   // Evaluate each snippet inside a fresh function scope so repeated calls do not
   // leak top-level const/let bindings into later browser_evaluate steps.
   return `(() => eval(${JSON.stringify(source)}))()`;
+}
+
+function normalizeWaitUntil(waitUntil) {
+  const value = String(waitUntil || '').trim().toLowerCase();
+  if (value === 'networkidle0' || value === 'networkidle2') {
+    return 'networkidle';
+  }
+  if (value === 'load' || value === 'domcontentloaded' || value === 'networkidle' || value === 'commit') {
+    return value;
+  }
+  return 'domcontentloaded';
 }
 
 class BrowserController {
@@ -119,18 +167,26 @@ class BrowserController {
     this.userId = options.userId != null ? String(options.userId) : null;
     this.artifactStore = options.artifactStore || null;
     this.runtimeBackend = options.runtimeBackend || 'host';
+    this.engine = this.runtimeBackend === 'vm' && process.platform === 'linux' ? 'firefox' : 'chromium';
     this.browser = null;
+    this.context = null;
     this.page = null;
+    this.displayProcess = null;
+    this.displayValue = process.env.DISPLAY || null;
     this.launching = false;
+    this.launchPromise = null;
     this.browserBinaryInstallPromise = null;
-    this.headless = true;
+    this.headless = false;
     this._viewport = VIEWPORTS[0];
     this._userAgent = USER_AGENTS[0];
+    this.profileDir = path.join(BROWSER_PROFILE_ROOT, this.userId || 'default');
+    if (!fs.existsSync(this.profileDir)) fs.mkdirSync(this.profileDir, { recursive: true });
   }
 
   async setHeadless(val) {
-    // Headless is always true in VM-based runtime.
-    this.headless = true;
+    void val;
+    // Browser sessions inside the VM always run headed.
+    this.headless = false;
   }
 
   async closeBrowser() {
@@ -141,14 +197,20 @@ class BrowserController {
     const ua = this._userAgent;
     const vp = this._viewport;
 
-    await page.setUserAgent(ua);
-    await page.setViewport(vp);
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'en-US,en;q=0.9',
-    });
+    if (typeof page.setUserAgent === 'function') {
+      await page.setUserAgent(ua);
+    }
+    if (typeof page.setViewport === 'function') {
+      await page.setViewport(vp);
+    }
+    if (typeof page.setExtraHTTPHeaders === 'function') {
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+      });
+    }
 
     // Inject fingerprint overrides before any page script runs
-    await page.evaluateOnNewDocument(`
+    const script = `
       (() => {
         // Remove webdriver flag
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -236,61 +298,115 @@ class BrowserController {
             };
         }
       })();
-    `);
+    `;
+    if (typeof page.evaluateOnNewDocument === 'function') {
+      await page.evaluateOnNewDocument(script);
+    } else if (typeof page.addInitScript === 'function') {
+      await page.addInitScript(script);
+    }
   }
 
   async ensureBrowser() {
     if (this.browser && this.browser.isConnected()) return;
-    if (this.launching) {
-      await sleep(2000);
+    if (this.launchPromise) {
+      await this.launchPromise;
       return;
     }
 
     this.launching = true;
-    try {
-      const puppeteer = require('puppeteer-core');
+    this.launchPromise = (async () => {
+      const runtimeReady = await waitForFile(BROWSER_READY_MARKER, {
+        timeoutMs: 10 * 60 * 1000,
+        intervalMs: 1000,
+      });
+      if (!runtimeReady) {
+        throw new Error('Browser runtime provisioning is still in progress inside the VM. Retry shortly.');
+      }
+      await this.ensureVirtualDisplay();
 
       this._userAgent = USER_AGENTS[rand(0, USER_AGENTS.length - 1)];
       this._viewport = VIEWPORTS[rand(0, VIEWPORTS.length - 1)];
 
-      let executablePath = resolveBrowserExecutablePath();
+      let executablePath = this.engine === 'firefox'
+        ? resolveFirefoxExecutablePath()
+        : resolveBrowserExecutablePath();
       if (!executablePath) {
         if (!this.browserBinaryInstallPromise) {
-          this.browserBinaryInstallPromise = installPlaywrightChromiumBinary();
+          this.browserBinaryInstallPromise = installPlaywrightBrowserBinary(this.engine);
         }
         try {
           await this.browserBinaryInstallPromise;
         } finally {
           this.browserBinaryInstallPromise = null;
         }
-        executablePath = resolveBrowserExecutablePath();
+        executablePath = this.engine === 'firefox'
+          ? resolveFirefoxExecutablePath()
+          : resolveBrowserExecutablePath();
       }
 
       if (!executablePath) {
-        throw new Error('No browser executable found for puppeteer-core; set PUPPETEER_EXECUTABLE_PATH or install a browser.');
+        throw new Error(`No ${this.engine} executable found for the VM browser runtime.`);
       }
 
-      this.browser = await puppeteer.launch({
-        headless: this.headless ? 'new' : false,
-        executablePath,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-infobars',
-          '--no-first-run',
-          '--no-default-browser-check',
-          '--lang=en-US,en',
-          `--window-size=${this._viewport.width},${this._viewport.height}`,
-        ],
-        defaultViewport: this._viewport,
-        ignoreDefaultArgs: ['--enable-automation'],
-      });
+      const launchEnv = {
+        ...process.env,
+        ...(this.displayValue ? { DISPLAY: this.displayValue } : {}),
+      };
 
-      this.page = await this.browser.newPage();
+      if (this.engine === 'firefox') {
+        const { firefox } = require('playwright');
+        this.context = await firefox.launchPersistentContext(this.profileDir, {
+          headless: false,
+          executablePath,
+          env: launchEnv,
+          viewport: this._viewport,
+          userAgent: this._userAgent,
+          locale: 'en-US',
+          extraHTTPHeaders: {
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          firefoxUserPrefs: {
+            'browser.shell.checkDefaultBrowser': false,
+            'browser.startup.homepage': 'about:blank',
+          },
+        });
+        this.browser = typeof this.context.browser === 'function' ? this.context.browser() : null;
+        this.page = this.context.pages()[0] || await this.context.newPage();
+      } else {
+        const puppeteer = require('puppeteer-core');
+        this.browser = await puppeteer.launch({
+          headless: false,
+          executablePath,
+          userDataDir: this.profileDir,
+          env: launchEnv,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-crash-reporter',
+            '--disable-background-networking',
+            '--disable-component-update',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-infobars',
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-gpu',
+            '--lang=en-US,en',
+            `--window-size=${this._viewport.width},${this._viewport.height}`,
+          ],
+          defaultViewport: this._viewport,
+          ignoreDefaultArgs: ['--enable-automation'],
+          timeout: 120000,
+        });
+        this.page = await this.browser.newPage();
+      }
       await this._applyStealthToPage(this.page);
+    })();
+
+    try {
+      await this.launchPromise;
     } finally {
+      this.launchPromise = null;
       this.launching = false;
     }
   }
@@ -298,7 +414,11 @@ class BrowserController {
   async ensurePage() {
     await this.ensureBrowser();
     if (!this.page || this.page.isClosed()) {
-      this.page = await this.browser.newPage();
+      if (this.context && typeof this.context.newPage === 'function') {
+        this.page = await this.context.newPage();
+      } else {
+        this.page = await this.browser.newPage();
+      }
       await this._applyStealthToPage(this.page);
     }
     return this.page;
@@ -355,7 +475,7 @@ class BrowserController {
 
     try {
       const response = await page.goto(url, {
-        waitUntil: 'networkidle2',
+        waitUntil: normalizeWaitUntil(options.waitUntil),
         timeout: 30000
       });
 
@@ -622,15 +742,20 @@ class BrowserController {
   }
 
   async launch(options = {}) {
+    void options;
     await this.ensureBrowser();
     return { success: true };
   }
 
   isLaunched() {
-    return !!(this.browser && this.browser.isConnected());
+    if (this.context) return true;
+    return !!(this.browser && typeof this.browser.isConnected === 'function' && this.browser.isConnected());
   }
 
   getPageCount() {
+    if (this.context && typeof this.context.pages === 'function') {
+      try { return this.context.pages().length; } catch { return 0; }
+    }
     if (!this.browser) return 0;
     try { return this.browser.pages ? 1 : 0; } catch { return 0; }
   }
@@ -659,12 +784,49 @@ class BrowserController {
     if (this.page && !this.page.isClosed()) {
       await this.page.close().catch(() => { });
     }
+    if (this.context) {
+      await this.context.close().catch(() => { });
+      this.context = null;
+      this.browser = null;
+      this.page = null;
+      return;
+    }
     if (this.browser) {
       await this.browser.close().catch(() => { });
       this.browser = null;
       this.page = null;
     }
   }
+
+  async ensureVirtualDisplay() {
+    if (process.platform !== 'linux') {
+      return;
+    }
+    if (this.displayProcess && !this.displayProcess.killed) {
+      return;
+    }
+    if (this.displayValue && String(this.displayValue).trim()) {
+      return;
+    }
+
+    const display = ':99';
+    const child = spawn('Xvfb', [display, '-screen', '0', '1440x900x24', '-ac', '-nolisten', 'tcp'], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+
+    let launchError = '';
+    child.stderr.on('data', (chunk) => {
+      launchError += chunk.toString();
+    });
+
+    await sleep(1000);
+    if (child.exitCode != null) {
+      throw new Error(`Failed to start Xvfb: ${String(launchError || `exit code ${child.exitCode}`).trim()}`);
+    }
+
+    this.displayProcess = child;
+    this.displayValue = display;
+  }
 }
 
-module.exports = { BrowserController, resolveBrowserExecutablePath, buildIsolatedEvaluationExpression };
+module.exports = { BrowserController, resolveBrowserExecutablePath, buildIsolatedEvaluationExpression, normalizeWaitUntil };

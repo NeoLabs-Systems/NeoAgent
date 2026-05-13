@@ -1,4 +1,5 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
 const net = require('net');
@@ -10,20 +11,15 @@ const { ensureGuestBootstrapSeed } = require('./guest_bootstrap');
 
 const VM_ROOT = path.join(DATA_DIR, 'runtime-vms');
 const BASE_IMAGE_CACHE_ROOT = path.join(VM_ROOT, 'base-images');
-const REPO_ROOT = path.resolve(__dirname, '../../../');
-const HOST_SHARE_ROOT = path.join(VM_ROOT, 'host-share');
+const TEMPLATE_ROOT = path.join(VM_ROOT, 'templates');
 fs.mkdirSync(VM_ROOT, { recursive: true });
 fs.mkdirSync(BASE_IMAGE_CACHE_ROOT, { recursive: true });
+fs.mkdirSync(TEMPLATE_ROOT, { recursive: true });
 
 const DEFAULT_UBUNTU_BASE_IMAGE_URLS = Object.freeze({
   x64: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img',
   arm64: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img',
 });
-
-const HOST_SHARE_LINKS = [
-  { name: 'server', source: path.join(REPO_ROOT, 'server') },
-  { name: 'runtime', source: path.join(REPO_ROOT, 'runtime') },
-];
 
 const QEMU_SHARE_ROOT_CANDIDATES = [
   path.resolve(process.execPath, '..', '..', 'share', 'qemu'),
@@ -34,10 +30,7 @@ const QEMU_SHARE_ROOT_CANDIDATES = [
 ];
 
 function guestArchForHost() {
-  if (process.arch === 'arm64' || process.arch === 'x64') {
-    return process.arch;
-  }
-  return 'x64';
+  return process.arch === 'arm64' ? 'arm64' : 'x64';
 }
 
 function resolveQemuBinary({ arch = guestArchForHost(), platform = process.platform } = {}) {
@@ -68,6 +61,26 @@ function normalizeBaseImageUrlForArch(baseImageUrl, arch = guestArchForHost()) {
 function isHttpUrl(value) {
   const candidate = String(value || '').trim();
   return /^https?:\/\//i.test(candidate);
+}
+
+function generateGuestToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function resolveGuestToken(userRoot) {
+  const tokenPath = path.join(userRoot, 'guest-token.txt');
+  try {
+    const existing = String(fs.readFileSync(tokenPath, 'utf8') || '').trim();
+    if (existing.length >= 32) {
+      return existing;
+    }
+  } catch {}
+
+  const candidate = String(process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim();
+  const token = candidate.length >= 32 ? candidate : generateGuestToken();
+  fs.mkdirSync(path.dirname(tokenPath), { recursive: true });
+  fs.writeFileSync(tokenPath, `${token}\n`, { mode: 0o600 });
+  return token;
 }
 
 function downloadFile(sourceUrl, destinationPath, redirectCount = 0) {
@@ -167,37 +180,6 @@ function resolveQemuShareRoot() {
   return null;
 }
 
-function ensureHostShareRoot() {
-  fs.mkdirSync(HOST_SHARE_ROOT, { recursive: true });
-
-  for (const entry of HOST_SHARE_LINKS) {
-    const sourcePath = path.resolve(entry.source);
-    if (!fs.existsSync(sourcePath)) {
-      throw new Error(`Host share source is missing: ${sourcePath}`);
-    }
-
-    const linkPath = path.join(HOST_SHARE_ROOT, entry.name);
-    let needsLink = true;
-    if (fs.existsSync(linkPath)) {
-      try {
-        const resolved = fs.realpathSync.native ? fs.realpathSync.native(linkPath) : fs.realpathSync(linkPath);
-        needsLink = resolved !== sourcePath;
-      } catch {
-        needsLink = true;
-      }
-      if (needsLink) {
-        fs.rmSync(linkPath, { recursive: true, force: true });
-      }
-    }
-
-    if (needsLink) {
-      fs.symlinkSync(sourcePath, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
-    }
-  }
-
-  return HOST_SHARE_ROOT;
-}
-
 function resolveAarch64FirmwarePaths() {
   const shareRoot = resolveQemuShareRoot();
   if (!shareRoot) {
@@ -261,8 +243,6 @@ function buildQemuArgs({
   cpus = 2,
   arch = guestArchForHost(),
   platform = process.platform,
-  hostShareRoot = null,
-  hostDataRoot = null,
   seedPath = null,
   seedIsRaw = false,
   consoleLogPath = null,
@@ -281,7 +261,7 @@ function buildQemuArgs({
   } else {
     args.push('-machine', `q35,accel=${accel}`);
     if (platform !== 'win32') {
-      args.push('-cpu', process.arch === arch ? 'host' : 'max');
+      args.push('-cpu', process.arch === arch ? 'host' : 'qemu64');
     }
   }
 
@@ -297,20 +277,6 @@ function buildQemuArgs({
     '-netdev', `user,id=net0,hostfwd=tcp:127.0.0.1:${sshPort}-:22,hostfwd=tcp:127.0.0.1:${agentPort}-:8421`,
     '-device', `${netDev},netdev=net0`,
   );
-
-  if (hostShareRoot) {
-    args.push(
-      '-fsdev', `local,path=${hostShareRoot},id=fsdev-host,security_model=none,readonly=on`,
-      '-device', `${p9Dev},fsdev=fsdev-host,mount_tag=neoagent-host`,
-    );
-  }
-
-  if (hostDataRoot) {
-    args.push(
-      '-fsdev', `local,path=${hostDataRoot},id=fsdev-data,security_model=none`,
-      '-device', `${p9Dev},fsdev=fsdev-data,mount_tag=neoagent-data`,
-    );
-  }
 
   if (seedPath) {
     if (seedIsRaw) {
@@ -387,6 +353,135 @@ function allocatePort() {
       });
     });
   });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForPath(targetPath, timeoutMs, intervalMs = 1000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (fs.existsSync(targetPath)) {
+      return true;
+    }
+    await sleep(intervalMs);
+  }
+  return fs.existsSync(targetPath);
+}
+
+function writeLockMetadata(lockDir) {
+  try {
+    fs.writeFileSync(
+      path.join(lockDir, 'owner.json'),
+      JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }, null, 2),
+      'utf8',
+    );
+  } catch {}
+}
+
+function readLockMetadata(lockDir) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(lockDir, 'owner.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false;
+  }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function requestGuestAgent(baseUrl, token, pathname, body, options = {}) {
+  const controller = new AbortController();
+  const timeoutMs = Math.max(1000, Number(options.timeoutMs || 5000));
+  const timer = setTimeout(() => {
+    controller.abort(new Error(`Request timed out after ${timeoutMs} ms.`));
+  }, timeoutMs);
+  try {
+    const response = await fetch(`${String(baseUrl || '').replace(/\/+$/, '')}${pathname}`, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+      ? await response.json().catch(() => ({}))
+      : { text: await response.text().catch(() => '') };
+    if (!response.ok) {
+      const detail = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
+      throw new Error(detail);
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function waitForGuestAgentHealth(baseUrl, token, options = {}) {
+  const timeoutMs = Math.max(1000, Number(options.timeoutMs || 5 * 60 * 1000));
+  const intervalMs = Math.max(250, Number(options.intervalMs || 1000));
+  const checkLiveness = options.checkLiveness || (() => true);
+  const startedAt = Date.now();
+  let lastError = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (!checkLiveness()) {
+      throw new Error('Guest runtime process exited unexpectedly during bootstrap.');
+    }
+    try {
+      const health = await requestGuestAgent(baseUrl, token, '/health', undefined, { timeoutMs: 2000 });
+      if (health?.status === 'ok') {
+        return health;
+      }
+      lastError = new Error('Guest agent health check returned a non-ok status.');
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(intervalMs);
+  }
+
+  throw new Error(`Timed out waiting for guest agent health: ${lastError?.message || 'unknown error'}`);
+}
+
+async function waitForGuestMarker(baseUrl, token, markerPath, options = {}) {
+  const timeoutMs = Math.max(1000, Number(options.timeoutMs || 15 * 60 * 1000));
+  const intervalMs = Math.max(250, Number(options.intervalMs || 2000));
+  const checkLiveness = options.checkLiveness || (() => true);
+  const startedAt = Date.now();
+  let lastError = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (!checkLiveness()) {
+      throw new Error('Guest runtime process exited unexpectedly while waiting for guest marker.');
+    }
+    try {
+      const result = await requestGuestAgent(baseUrl, token, '/exec', {
+        command: `test -f ${JSON.stringify(String(markerPath || ''))} && printf ready || printf pending`,
+        timeout: 15000,
+      }, { timeoutMs: 20000 });
+      if (String(result?.stdout || '').trim() === 'ready') {
+        return true;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(intervalMs);
+  }
+
+  throw new Error(`Timed out waiting for guest marker ${markerPath}: ${lastError?.message || 'unknown error'}`);
 }
 
 function ensureUserVmDisk(userRoot, baseImagePath) {
@@ -469,7 +564,13 @@ class QemuVmManager {
     this.cpus = Number(options.cpus || process.env.NEOAGENT_VM_CPUS || 2);
     this.instances = new Map();
     this.baseImagePromise = null;
+    this.runtimeTemplatePromise = null;
     fs.mkdirSync(this.rootDir, { recursive: true });
+    setTimeout(() => {
+      this.ensureRuntimeTemplateAvailable().catch((error) => {
+        console.warn(`[VM] Background runtime template warmup failed: ${error.message}`);
+      });
+    }, 0);
   }
 
   getBaseImageCachePath() {
@@ -515,6 +616,174 @@ class QemuVmManager {
     }
 
     return this.baseImagePromise;
+  }
+
+  getRuntimeTemplateRoot() {
+    return path.join(TEMPLATE_ROOT, this.guestArch);
+  }
+
+  getRuntimeTemplateDiskPath() {
+    return path.join(this.getRuntimeTemplateRoot(), 'disk.qcow2');
+  }
+
+  getRuntimeTemplateLockDir() {
+    return `${this.getRuntimeTemplateRoot()}.lock`;
+  }
+
+  getRuntimeTemplateReadyMarker() {
+    return '/var/lib/neoagent/browser-runtime-ready';
+  }
+
+  async ensureRuntimeTemplateAvailable() {
+    const readyDiskPath = this.getRuntimeTemplateDiskPath();
+    const readySentinelPath = path.join(this.getRuntimeTemplateRoot(), '.runtime-template-ready');
+    if (fs.existsSync(readyDiskPath) && fs.existsSync(readySentinelPath)) {
+      return readyDiskPath;
+    }
+    if (!this.runtimeTemplatePromise) {
+      this.runtimeTemplatePromise = this.#ensureRuntimeTemplateAvailableWithLock().finally(() => {
+        this.runtimeTemplatePromise = null;
+      });
+    }
+    return this.runtimeTemplatePromise;
+  }
+
+  async #ensureRuntimeTemplateAvailableWithLock() {
+    const readyDiskPath = this.getRuntimeTemplateDiskPath();
+    const readySentinelPath = path.join(this.getRuntimeTemplateRoot(), '.runtime-template-ready');
+    const lockDir = this.getRuntimeTemplateLockDir();
+    const acquireStartedAt = Date.now();
+
+    while (true) {
+      if (fs.existsSync(readyDiskPath) && fs.existsSync(readySentinelPath)) {
+        return readyDiskPath;
+      }
+
+      try {
+        fs.mkdirSync(lockDir, { recursive: false });
+        writeLockMetadata(lockDir);
+        try {
+          if (fs.existsSync(readyDiskPath) && fs.existsSync(readySentinelPath)) {
+            return readyDiskPath;
+          }
+          return await this.#buildRuntimeTemplate();
+        } finally {
+          fs.rmSync(lockDir, { recursive: true, force: true });
+        }
+      } catch (error) {
+        if (error?.code !== 'EEXIST') {
+          throw error;
+        }
+      }
+
+      const lockStats = fs.existsSync(lockDir) ? fs.statSync(lockDir) : null;
+      const lockMetadata = readLockMetadata(lockDir);
+      const lockAgeMs = lockStats ? Date.now() - lockStats.mtimeMs : 0;
+      const staleLock = lockAgeMs > 45 * 60 * 1000 || (lockMetadata?.pid && !isPidAlive(lockMetadata.pid));
+      if (staleLock) {
+        fs.rmSync(lockDir, { recursive: true, force: true });
+        continue;
+      }
+
+      if (Date.now() - acquireStartedAt > 30 * 60 * 1000) {
+        throw new Error('Timed out waiting for the shared runtime template build lock.');
+      }
+
+      await sleep(2000);
+    }
+  }
+
+  async #buildRuntimeTemplate() {
+    const templateRoot = this.getRuntimeTemplateRoot();
+    const templateDiskPath = this.getRuntimeTemplateDiskPath();
+    const readyMarkerPath = this.getRuntimeTemplateReadyMarker();
+    const readySentinelPath = path.join(templateRoot, '.runtime-template-ready');
+
+    fs.rmSync(templateRoot, { recursive: true, force: true });
+    fs.mkdirSync(templateRoot, { recursive: true });
+
+    const baseImagePath = await this.ensureBaseImageAvailable();
+    const diskPath = ensureUserVmDisk(templateRoot, baseImagePath);
+    const guestToken = resolveGuestToken(templateRoot);
+    const bootstrap = ensureGuestBootstrapSeed({
+      userRoot: templateRoot,
+      guestToken,
+      guestArch: this.guestArch,
+    });
+    const consoleLogPath = path.join(templateRoot, 'console.log');
+    const firmware = this.guestArch === 'arm64'
+      ? resolveAarch64FirmwarePaths()
+      : resolveX86_64FirmwarePaths();
+    const firmwareVarsPath = firmware ? path.join(templateRoot, 'uefi-vars.fd') : null;
+    if (firmware && !fs.existsSync(firmwareVarsPath)) {
+      fs.copyFileSync(firmware.varsTemplatePath, firmwareVarsPath);
+    }
+    const agentPort = await allocatePort();
+    const sshPort = await allocatePort();
+    const qemuBinary = resolveQemuBinary({ arch: this.guestArch });
+    const qemuBinaryPath = resolveCommandPath(qemuBinary) || qemuBinary;
+    const args = buildQemuArgs({
+      imagePath: diskPath,
+      sshPort,
+      agentPort,
+      memoryMb: this.memoryMb,
+      cpus: this.cpus,
+      arch: this.guestArch,
+      seedPath: bootstrap.seedImagePath || bootstrap.isoPath,
+      seedIsRaw: Boolean(bootstrap.seedImagePath && bootstrap.seedImagePath.endsWith('.img')),
+      consoleLogPath,
+      firmwareCodePath: firmware?.codePath || null,
+      firmwareVarsPath,
+    });
+
+    console.log(`[VM] Building runtime template for ${this.guestArch}: ${qemuBinaryPath} ${args.join(' ')}`);
+    const child = spawn(qemuBinaryPath, args, {
+      cwd: templateRoot,
+      detached: process.platform !== 'win32',
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+
+    let stderrText = '';
+    child.stderr.on('data', (chunk) => {
+      stderrText += chunk.toString('utf8');
+    });
+
+    const baseUrl = `http://127.0.0.1:${agentPort}`;
+    const checkLiveness = () => !child.killed && child.exitCode === null;
+    try {
+      await waitForGuestAgentHealth(baseUrl, guestToken, {
+        timeoutMs: 30 * 60 * 1000,
+        intervalMs: 1000,
+        checkLiveness,
+      });
+      await waitForGuestMarker(baseUrl, guestToken, readyMarkerPath, {
+        timeoutMs: 45 * 60 * 1000,
+        intervalMs: 2000,
+        checkLiveness,
+      });
+      fs.writeFileSync(readySentinelPath, `${new Date().toISOString()}\n`, 'utf8');
+    } finally {
+      try {
+        if (process.platform === 'win32') {
+          spawnSync('taskkill', ['/F', '/T', '/PID', child.pid]);
+        } else {
+          process.kill(-child.pid, 'SIGKILL');
+        }
+      } catch {
+        try {
+          child.kill('SIGKILL');
+        } catch {}
+      }
+    }
+
+    if (!fs.existsSync(templateDiskPath)) {
+      throw new Error('Runtime template disk was not created.');
+    }
+    return templateDiskPath;
+  }
+
+  async ensureRuntimeImageAvailable() {
+    return this.ensureRuntimeTemplateAvailable();
   }
 
   isConfigured() {
@@ -565,18 +834,14 @@ class QemuVmManager {
     }
 
     const userRoot = path.join(this.rootDir, key, this.guestArch);
-    const baseImagePath = await this.ensureBaseImageAvailable();
+    const baseImagePath = await this.ensureRuntimeImageAvailable();
     const diskPath = ensureUserVmDisk(userRoot, baseImagePath);
-    const guestToken = String(process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim();
-    if (!guestToken) {
-      throw new Error('NEOAGENT_VM_GUEST_TOKEN is required to bootstrap the guest runtime.');
-    }
+    const guestToken = resolveGuestToken(userRoot);
     const bootstrap = ensureGuestBootstrapSeed({
       userRoot,
       guestToken,
       guestArch: this.guestArch,
     });
-    const guestDataRoot = path.join(userRoot, 'guest-data');
     const consoleLogPath = path.join(userRoot, 'console.log');
     const firmware = this.guestArch === 'arm64'
       ? resolveAarch64FirmwarePaths()
@@ -598,12 +863,10 @@ class QemuVmManager {
         throw new Error(`Failed to copy firmware vars template: ${detail}`);
       }
     }
-    fs.mkdirSync(guestDataRoot, { recursive: true });
     const agentPort = await allocatePort();
     const sshPort = await allocatePort();
     const qemuBinary = resolveQemuBinary({ arch: this.guestArch });
     const qemuBinaryPath = resolveCommandPath(qemuBinary) || qemuBinary;
-    const hostShareRoot = ensureHostShareRoot();
     const args = buildQemuArgs({
       imagePath: diskPath,
       sshPort,
@@ -611,8 +874,6 @@ class QemuVmManager {
       memoryMb: this.memoryMb,
       cpus: this.cpus,
       arch: this.guestArch,
-      hostShareRoot,
-      hostDataRoot: guestDataRoot,
       seedPath: bootstrap.seedImagePath || bootstrap.isoPath,
       seedIsRaw: Boolean(bootstrap.seedImagePath && bootstrap.seedImagePath.endsWith('.img')),
       consoleLogPath,
@@ -657,7 +918,10 @@ class QemuVmManager {
       }
     });
     child.on('exit', () => {
-      this.instances.delete(key);
+      const current = this.instances.get(key);
+      if (current?.process === child) {
+        this.instances.delete(key);
+      }
     });
 
     const session = {
@@ -668,6 +932,7 @@ class QemuVmManager {
       guestArch: this.guestArch,
       userRoot,
       diskPath,
+      guestToken,
       agentPort,
       sshPort,
       baseUrl: `http://127.0.0.1:${agentPort}`,

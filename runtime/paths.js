@@ -167,51 +167,51 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   let deploymentProfile = String(env.NEOAGENT_PROFILE || parsed.get('NEOAGENT_PROFILE') || '').trim();
   if (!deploymentProfile) {
     deploymentProfile = defaultProfile;
-    env.NEOAGENT_PROFILE = deploymentProfile;
     upsertEnvValue(envFile, 'NEOAGENT_PROFILE', deploymentProfile);
     changes.push('NEOAGENT_PROFILE');
   }
+  env.NEOAGENT_PROFILE = deploymentProfile;
 
   let vmBaseImageUrl = String(env.NEOAGENT_VM_BASE_IMAGE_URL || parsed.get('NEOAGENT_VM_BASE_IMAGE_URL') || '').trim();
   const preferredVmBaseImageUrl = getDefaultVmBaseImageUrl();
   if (!vmBaseImageUrl || /arm64|aarch64/i.test(vmBaseImageUrl)) {
     vmBaseImageUrl = preferredVmBaseImageUrl;
-    env.NEOAGENT_VM_BASE_IMAGE_URL = vmBaseImageUrl;
     upsertEnvValue(envFile, 'NEOAGENT_VM_BASE_IMAGE_URL', vmBaseImageUrl);
     changes.push('NEOAGENT_VM_BASE_IMAGE_URL');
   }
+  env.NEOAGENT_VM_BASE_IMAGE_URL = vmBaseImageUrl;
 
   let vmMemoryMb = String(env.NEOAGENT_VM_MEMORY_MB || parsed.get('NEOAGENT_VM_MEMORY_MB') || '').trim();
   if (!vmMemoryMb) {
     vmMemoryMb = '4096';
-    env.NEOAGENT_VM_MEMORY_MB = vmMemoryMb;
     upsertEnvValue(envFile, 'NEOAGENT_VM_MEMORY_MB', vmMemoryMb);
     changes.push('NEOAGENT_VM_MEMORY_MB');
   }
+  env.NEOAGENT_VM_MEMORY_MB = vmMemoryMb;
 
   let vmCpus = String(env.NEOAGENT_VM_CPUS || parsed.get('NEOAGENT_VM_CPUS') || '').trim();
   if (!vmCpus) {
     vmCpus = '2';
-    env.NEOAGENT_VM_CPUS = vmCpus;
     upsertEnvValue(envFile, 'NEOAGENT_VM_CPUS', vmCpus);
     changes.push('NEOAGENT_VM_CPUS');
   }
+  env.NEOAGENT_VM_CPUS = vmCpus;
 
   let sessionSecret = String(env.SESSION_SECRET || parsed.get('SESSION_SECRET') || '').trim();
   if (isPlaceholderValue(sessionSecret, sessionPlaceholders)) {
     sessionSecret = generateSecret(32);
-    env.SESSION_SECRET = sessionSecret;
     upsertEnvValue(envFile, 'SESSION_SECRET', sessionSecret);
     changes.push('SESSION_SECRET');
   }
+  env.SESSION_SECRET = sessionSecret;
 
   let guestToken = String(env.NEOAGENT_VM_GUEST_TOKEN || parsed.get('NEOAGENT_VM_GUEST_TOKEN') || '').trim();
   if (!isValidVmGuestToken(guestToken)) {
     guestToken = generateSecret(32);
-    env.NEOAGENT_VM_GUEST_TOKEN = guestToken;
     upsertEnvValue(envFile, 'NEOAGENT_VM_GUEST_TOKEN', guestToken);
     changes.push('NEOAGENT_VM_GUEST_TOKEN');
   }
+  env.NEOAGENT_VM_GUEST_TOKEN = guestToken;
 
   if (changes.length > 0 && logger) {
     const message = `Initialized runtime defaults: ${changes.join(', ')}`;

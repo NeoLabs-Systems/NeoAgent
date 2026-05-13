@@ -65,37 +65,53 @@ class RuntimeHttpClient {
   }
 
   async request(method, pathname, body, options = {}) {
-    const controller = options.timeoutMs ? new AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort(new Error(`Request timed out after ${options.timeoutMs} ms.`)), options.timeoutMs) : null;
-    try {
-      const response = await fetch(`${this.baseUrl}${pathname}`, {
-        method,
-        headers: {
-          'content-type': 'application/json',
-          ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: controller?.signal,
-      });
+    const retryCount = Math.max(0, Number(options.retryCount ?? 6));
+    const retryDelayMs = Math.max(100, Number(options.retryDelayMs ?? 1000));
+    let lastError = null;
 
-      const contentType = response.headers.get('content-type') || '';
-      const payload = contentType.includes('application/json')
-        ? await response.json().catch(() => ({}))
-        : { text: await response.text().catch(() => '') };
+    for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+      const controller = options.timeoutMs ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(new Error(`Request timed out after ${options.timeoutMs} ms.`)), options.timeoutMs) : null;
+      try {
+        const response = await fetch(`${this.baseUrl}${pathname}`, {
+          method,
+          headers: {
+            'content-type': 'application/json',
+            ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal: controller?.signal,
+        });
 
-      if (!response.ok) {
-        const errorMessage = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
-        throw new Error(errorMessage);
-      }
-      if (response.ok && typeof this.onActivity === 'function') {
-        this.onActivity();
-      }
-      return payload;
-    } finally {
-      if (timer) {
-        clearTimeout(timer);
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json')
+          ? await response.json().catch(() => ({}))
+          : { text: await response.text().catch(() => '') };
+
+        if (!response.ok) {
+          const errorMessage = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
+          throw new Error(errorMessage);
+        }
+        if (typeof this.onActivity === 'function') {
+          this.onActivity();
+        }
+        return payload;
+      } catch (error) {
+        lastError = error;
+        const message = String(error?.message || error);
+        const retryable = /fetch failed|ECONNREFUSED|ECONNRESET|socket hang up|timed out/i.test(message);
+        if (!retryable || attempt === retryCount) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      } finally {
+        if (timer) {
+          clearTimeout(timer);
+        }
       }
     }
+
+    throw lastError || new Error('Runtime request failed.');
   }
 
   async requestStream(method, pathname, stream, options = {}) {
@@ -366,7 +382,7 @@ class LocalVmExecutionBackend {
     }
     const session = await this.vmManager.ensureVm(userId);
     this.#touch(userId);
-    const client = new RuntimeHttpClient(session.baseUrl, this.token, {
+    const client = new RuntimeHttpClient(session.baseUrl, session.guestToken || this.token, {
       onActivity: () => this.#touch(userId),
     });
     try {
