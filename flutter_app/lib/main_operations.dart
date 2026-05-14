@@ -1242,19 +1242,155 @@ class MemoryPanel extends StatefulWidget {
 
 class _MemoryPanelState extends State<MemoryPanel> {
   late final TextEditingController _searchController;
+  late final TextEditingController _llmPromptController;
+  late final TextEditingController _llmImportController;
   final Set<String> _selectedMemoryIds = <String>{};
   bool _bulkActionInFlight = false;
+  bool _llmPromptLoading = false;
+  bool _llmImporting = false;
+  bool _llmApplyBehaviorNotes = true;
+  bool _llmApplyCoreMemory = true;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _llmPromptController = TextEditingController();
+    _llmImportController = TextEditingController();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _llmPromptController.dispose();
+    _llmImportController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLlmPrompt(NeoAgentController controller) async {
+    if (_llmPromptLoading) {
+      return;
+    }
+    setState(() {
+      _llmPromptLoading = true;
+    });
+    try {
+      final prompt = await controller.fetchMemoryTransferPrompt();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _llmPromptController.text = prompt;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to generate prompt: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _llmPromptLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _copyLlmPrompt() async {
+    final prompt = _llmPromptController.text.trim();
+    if (prompt.isEmpty) {
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: prompt));
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Prompt copied.')));
+  }
+
+  Future<void> _importLlmMemories(NeoAgentController controller) async {
+    if (_llmImporting) {
+      return;
+    }
+    final text = _llmImportController.text.trim();
+    if (text.isEmpty) {
+      return;
+    }
+    final confirmImport = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final applyTargets = <String>[
+          if (_llmApplyBehaviorNotes) 'behavior notes',
+          if (_llmApplyCoreMemory) 'core memory',
+          'memories',
+        ];
+        final targetLabel = applyTargets.join(', ');
+        return AlertDialog(
+          backgroundColor: _bgCard,
+          title: Text('Import memory transfer?'),
+          content: Text(
+            'This will import the response into $targetLabel.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('Import'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmImport != true) {
+      return;
+    }
+    setState(() {
+      _llmImporting = true;
+    });
+    try {
+      final result = await controller.importMemoryTransfer(
+        text,
+        applyBehaviorNotes: _llmApplyBehaviorNotes,
+        applyCoreMemory: _llmApplyCoreMemory,
+      );
+      if (!mounted) {
+        return;
+      }
+      _llmImportController.clear();
+      final warningText = result.warnings.isEmpty
+          ? ''
+          : ' ${result.warnings.join(' ')}';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Imported ${result.importedCount} memories, '
+            '${result.coreUpdatedCount} core entries.'
+            '${result.behaviorNotesUpdated ? ' Behavior notes updated.' : ''}'
+            '$warningText',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _llmImporting = false;
+        });
+      }
+    }
   }
 
   List<MemoryItem> get _visibleMemories {
@@ -1467,6 +1603,118 @@ class _MemoryPanelState extends State<MemoryPanel> {
                       child: Text('Reset'),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: false,
+              tilePadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 6,
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              leading: Icon(Icons.swap_horiz_outlined, color: _textSecondary),
+              title: const _SectionTitle('LLM Memory Transfer'),
+              subtitle: Text(
+                'Export/import memories with another AI in one shot.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              children: <Widget>[
+                Text(
+                  'Generate a prompt to use in another AI, then paste the response here to import memories.',
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    FilledButton.icon(
+                      onPressed: _llmPromptLoading
+                          ? null
+                          : () => _loadLlmPrompt(controller),
+                      icon: Icon(Icons.auto_awesome_outlined),
+                      label: Text(
+                        _llmPromptLoading ? 'Generating...' : 'Generate Prompt',
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _llmPromptController.text.trim().isEmpty
+                          ? null
+                          : _copyLlmPrompt,
+                      icon: Icon(Icons.copy_all_outlined),
+                      label: Text('Copy Prompt'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _llmPromptController,
+                  minLines: 6,
+                  maxLines: 10,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Prompt to paste into another AI',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _llmApplyBehaviorNotes,
+                  onChanged: _llmImporting
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _llmApplyBehaviorNotes = value;
+                          });
+                        },
+                  title: Text('Apply behavior notes'),
+                  subtitle: Text(
+                    'Overwrite assistant behavior notes from the import.',
+                  ),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _llmApplyCoreMemory,
+                  onChanged: _llmImporting
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _llmApplyCoreMemory = value;
+                          });
+                        },
+                  title: Text('Apply core memory'),
+                  subtitle: Text(
+                    'Update core memory key/value entries from the import.',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Paste the response from the other AI below, then import.',
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _llmImportController,
+                  minLines: 6,
+                  maxLines: 12,
+                  decoration: const InputDecoration(
+                    labelText: 'LLM memory export response',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _llmImporting
+                      ? null
+                      : () => _importLlmMemories(controller),
+                  icon: Icon(Icons.file_download_outlined),
+                  label: Text(_llmImporting ? 'Importing...' : 'Import'),
                 ),
               ],
             ),

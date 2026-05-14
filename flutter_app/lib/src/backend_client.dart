@@ -1243,6 +1243,34 @@ class BackendClient {
     return getMap(baseUrl, _withAgentQuery('/api/memory', agentId));
   }
 
+  Future<Map<String, dynamic>> fetchMemoryTransferPrompt(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/memory/transfer-prompt', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> importMemoryTransfer(
+    String baseUrl, {
+    required String text,
+    bool applyBehaviorNotes = true,
+    bool applyCoreMemory = true,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/memory/transfer-import',
+      _withAgentId(<String, dynamic>{
+        'text': text,
+        'applyBehaviorNotes': applyBehaviorNotes,
+        'applyCoreMemory': applyCoreMemory,
+      }, agentId),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> fetchMemories(
     String baseUrl, {
     String? category,

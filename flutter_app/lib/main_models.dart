@@ -1321,6 +1321,32 @@ class VoiceAssistantTurnResult {
   final String? ttsError;
 }
 
+class MemoryTransferImportResult {
+  const MemoryTransferImportResult({
+    required this.importedCount,
+    required this.skippedCount,
+    required this.coreUpdatedCount,
+    required this.behaviorNotesUpdated,
+    required this.warnings,
+  });
+
+  factory MemoryTransferImportResult.fromJson(Map<dynamic, dynamic> json) {
+    return MemoryTransferImportResult(
+      importedCount: _asInt(json['importedCount']),
+      skippedCount: _asInt(json['skippedCount']),
+      coreUpdatedCount: _asInt(json['coreUpdatedCount']),
+      behaviorNotesUpdated: json['behaviorNotesUpdated'] == true,
+      warnings: _jsonStringList(json['warnings']),
+    );
+  }
+
+  final int importedCount;
+  final int skippedCount;
+  final int coreUpdatedCount;
+  final bool behaviorNotesUpdated;
+  final List<String> warnings;
+}
+
 class LiveVoiceBufferedChunk {
   LiveVoiceBufferedChunk({
     required this.sequence,

@@ -4,6 +4,11 @@ const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const {
+  buildLlmTransferPrompt,
+  parseLlmTransferText,
+  importanceForCategory,
+} = require('../services/memory/llm_transfer');
 
 router.use(requireAuth);
 
@@ -14,6 +19,16 @@ const apiKeyMutationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+const transferImportLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many memory imports, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const MAX_TRANSFER_TEXT_BYTES = 60 * 1024;
 
 function normalizeMemoryIds(value) {
   return [...new Set(
@@ -260,6 +275,81 @@ router.get('/core', (req, res) => {
   const coreMemory = { ...(mm.getCoreMemory(userId, { agentId }) || {}) };
   delete coreMemory.active_context;
   res.json(coreMemory);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LLM Transfer (prompt + import)
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get('/transfer-prompt', (req, res) => {
+  const prompt = buildLlmTransferPrompt({ agentLabel: 'NeoAgent' });
+  res.json({ prompt });
+});
+
+router.post('/transfer-import', transferImportLimiter, async (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const text = String(req.body?.text || '').trim();
+  if (!text) {
+    return res.status(400).json({ error: 'text is required' });
+  }
+  if (Buffer.byteLength(text, 'utf8') > MAX_TRANSFER_TEXT_BYTES) {
+    return res.status(413).json({ error: 'text exceeds 60KB limit' });
+  }
+
+  const applyBehaviorNotes = req.body?.applyBehaviorNotes !== false;
+  const applyCoreMemory = req.body?.applyCoreMemory !== false;
+
+  try {
+    const parsed = parseLlmTransferText(text);
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    for (const memory of parsed.memories) {
+      const content = String(memory.content || '').trim();
+      if (!content) {
+        skippedCount += 1;
+        continue;
+      }
+      await mm.saveMemory(userId, content, memory.category, importanceForCategory(memory.category), {
+        agentId,
+        sourceRef: {
+          sourceType: 'llm_import',
+          sourceLabel: 'LLM memory transfer',
+        },
+        metadata: {
+          importedFrom: 'llm_transfer',
+        },
+      });
+      importedCount += 1;
+    }
+
+    let coreUpdatedCount = 0;
+    if (applyCoreMemory && parsed.coreEntries) {
+      for (const [key, value] of Object.entries(parsed.coreEntries)) {
+        if (!key || key === 'active_context') continue;
+        mm.updateCore(userId, key, value, { agentId });
+        coreUpdatedCount += 1;
+      }
+    }
+
+    let behaviorNotesUpdated = false;
+    if (applyBehaviorNotes && parsed.behaviorNotes) {
+      mm.setAssistantBehaviorNotes(userId, parsed.behaviorNotes, { agentId });
+      behaviorNotesUpdated = true;
+    }
+
+    res.json({
+      importedCount,
+      skippedCount,
+      coreUpdatedCount,
+      behaviorNotesUpdated,
+      warnings: parsed.warnings || [],
+    });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
 });
 
 router.put('/core/:key', (req, res) => {
