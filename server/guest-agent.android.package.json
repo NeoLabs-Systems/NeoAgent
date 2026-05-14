@@ -1,0 +1,13 @@
+{
+  "name": "neoagent-guest-agent-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Guest runtime for NeoAgent Android and CLI services",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "proper-lockfile": "^4.1.2"
+  }
+}

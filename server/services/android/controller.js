@@ -17,16 +17,20 @@ const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 const UI_DUMPS_DIR = path.join(ARTIFACTS_DIR, 'ui-dumps');
 const LOGS_DIR = path.join(ARTIFACTS_DIR, 'logs');
 const TMP_DIR = path.join(ARTIFACTS_DIR, 'tmp');
+const EMULATOR_HOME = path.join(ANDROID_ROOT, 'home');
+const EMULATOR_ADVANCED_FEATURES_FILE = path.join(EMULATOR_HOME, 'advancedFeatures.ini');
 const AVD_HOME = path.join(ANDROID_ROOT, 'avd');
+const EMULATOR_READY_SNAPSHOT = 'neoagent-ready';
 const STATE_DIR = path.join(ARTIFACTS_DIR, 'state');
 const STATE_FILE = path.join(ARTIFACTS_DIR, 'state.json');
 const OWNERSHIP_FILE = path.join(ARTIFACTS_DIR, 'device-ownership.json');
 const ANDROID_BOOTSTRAP_WORKER = path.join(__dirname, 'android_bootstrap_worker.js');
 const ANDROID_JAVA_TOOL_TIMEOUT_MS = 20 * 60 * 1000;
 const DEFAULT_AVD_NAME = 'neoagent-default';
-const DEFAULT_DATA_PARTITION = '1024M';
-const DEFAULT_SDCARD_SIZE = '128M';
-const DEFAULT_RAM_SIZE = '1024';
+const DEFAULT_DATA_PARTITION_BYTES = 1024 * 1024 * 1024;
+const DEFAULT_PARTITION_SIZE_MB = 1024;
+const DEFAULT_SDCARD_SIZE_BYTES = 32 * 1024 * 1024;
+const DEFAULT_RAM_SIZE_MB = 768;
 const DEFAULT_KEYEVENTS = Object.freeze({
   home: 3,
   back: 4,
@@ -44,8 +48,25 @@ const DEFAULT_KEYEVENTS = Object.freeze({
   tab: 61,
 });
 
-for (const dir of [ANDROID_ROOT, SDK_ROOT, ARTIFACTS_DIR, SCREENSHOTS_DIR, UI_DUMPS_DIR, LOGS_DIR, TMP_DIR, AVD_HOME, STATE_DIR]) {
+for (const dir of [ANDROID_ROOT, SDK_ROOT, EMULATOR_HOME, ARTIFACTS_DIR, SCREENSHOTS_DIR, UI_DUMPS_DIR, LOGS_DIR, TMP_DIR, AVD_HOME, STATE_DIR]) {
   fs.mkdirSync(dir, { recursive: true });
+}
+
+function ensureEmulatorAdvancedFeaturesFile() {
+  const content = [
+    'Vulkan = off',
+    'GLDirectMem = off',
+    '',
+  ].join('\n');
+  try {
+    if (fs.existsSync(EMULATOR_ADVANCED_FEATURES_FILE)) {
+      const current = fs.readFileSync(EMULATOR_ADVANCED_FEATURES_FILE, 'utf8');
+      if (current.trim() === content.trim()) {
+        return;
+      }
+    }
+    fs.writeFileSync(EMULATOR_ADVANCED_FEATURES_FILE, content);
+  } catch {}
 }
 
 function sanitizeScopeKey(value) {
@@ -82,9 +103,22 @@ function readOwnershipUnlocked() {
     if (!parsed || typeof parsed !== 'object') {
       return {};
     }
-    return parsed;
+  return parsed;
   } catch {
     return {};
+  }
+}
+
+function ensureSparseFile(filePath, sizeBytes) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const fd = fs.openSync(filePath, 'a');
+  try {
+    const currentSize = fs.statSync(filePath).size;
+    if (currentSize !== sizeBytes) {
+      fs.ftruncateSync(fd, sizeBytes);
+    }
+  } finally {
+    fs.closeSync(fd);
   }
 }
 
@@ -219,8 +253,35 @@ function platformTag() {
 }
 
 function systemImageArch() {
+  if (process.platform === 'darwin') return 'arm64-v8a';
   if (process.arch === 'arm64') return 'arm64-v8a';
   return 'x86_64';
+}
+
+function emulatorHostArch() {
+  if (process.platform === 'darwin') return process.arch === 'arm64' ? 'aarch64' : 'x64';
+  if (process.arch === 'arm64') return 'aarch64';
+  return 'x64';
+}
+
+function emulatorGpuMode() {
+  return 'swiftshader_indirect';
+}
+
+function emulatorSnapshotStoragePath(avdName) {
+  return path.join(AVD_HOME, `${avdName}.avd`, 'snapshots.img');
+}
+
+function emulatorLaunchArgs(avdName) {
+  if (process.platform === 'darwin' && process.arch === 'arm64') {
+    return ['-no-snapshot'];
+  }
+  return [
+    '-snapshot',
+    EMULATOR_READY_SNAPSHOT,
+    '-snapstorage',
+    emulatorSnapshotStoragePath(avdName),
+  ];
 }
 
 function parseCsvEnv(value) {
@@ -252,6 +313,28 @@ function systemImageArchCandidates() {
   return [preferred, ...fallbacks].filter((arch, index, list) => list.indexOf(arch) === index);
 }
 
+function installedEmulatorMatchesHost() {
+  const binary = emulatorBinary();
+  if (!isExecutable(binary)) {
+    return false;
+  }
+
+  const probe = spawnSync('file', [binary], { encoding: 'utf8' });
+  if (probe.status !== 0) {
+    return false;
+  }
+
+  const output = `${probe.stdout || ''}${probe.stderr || ''}`.toLowerCase();
+  const hostArch = emulatorHostArch();
+  if (hostArch === 'aarch64') {
+    return output.includes('arm64') || output.includes('aarch64');
+  }
+  if (hostArch === 'x64') {
+    return output.includes('x86_64');
+  }
+  return true;
+}
+
 function parseSystemImagePlatform(platformId) {
   const stable = String(platformId || '').match(/^android-(\d+)$/);
   if (stable) {
@@ -279,38 +362,107 @@ function parseSystemImagePlatform(platformId) {
 }
 
 function sdkEnv() {
+  ensureEmulatorAdvancedFeaturesFile();
+  const sdkRoot = activeAndroidSdkRoot();
   const base = {
     ...process.env,
-    ANDROID_HOME: SDK_ROOT,
-    ANDROID_SDK_ROOT: SDK_ROOT,
+    ANDROID_HOME: sdkRoot,
+    ANDROID_SDK_ROOT: sdkRoot,
+    ANDROID_EMULATOR_HOME: EMULATOR_HOME,
+    ANDROID_USER_HOME: EMULATOR_HOME,
     ANDROID_AVD_HOME: AVD_HOME,
     AVD_HOME,
     JAVA_TOOL_OPTIONS: process.env.JAVA_TOOL_OPTIONS || '-Xint',
   };
   const pathParts = [
-    path.join(SDK_ROOT, 'platform-tools'),
-    path.join(SDK_ROOT, 'emulator'),
-    path.join(CMDLINE_LATEST, 'bin'),
+    path.join(sdkRoot, 'platform-tools'),
+    path.join(sdkRoot, 'emulator'),
+    path.join(sdkRoot, 'cmdline-tools', 'latest', 'bin'),
     process.env.PATH || '',
   ].filter(Boolean);
   base.PATH = pathParts.join(path.delimiter);
   return base;
 }
 
+function systemAdbBinary() {
+  if (process.platform === 'win32') return null;
+  return '/usr/bin/adb';
+}
+
+function hostAdbBinary() {
+  const probe = spawnSync('bash', ['-lc', 'command -v adb'], { encoding: 'utf8' });
+  if (probe.status !== 0) {
+    return null;
+  }
+  const binary = String(probe.stdout || '').trim();
+  return binary && isExecutable(binary) ? binary : null;
+}
+
+function hostAndroidSdkRoot() {
+  const adb = hostAdbBinary();
+  if (!adb) {
+    return null;
+  }
+
+  const root = path.dirname(path.dirname(adb));
+  const sdkmanager = path.join(root, 'cmdline-tools', 'latest', 'bin', process.platform === 'win32' ? 'sdkmanager.bat' : 'sdkmanager');
+  const avdmanager = path.join(root, 'cmdline-tools', 'latest', 'bin', process.platform === 'win32' ? 'avdmanager.bat' : 'avdmanager');
+  const emulator = path.join(root, 'emulator', process.platform === 'win32' ? 'emulator.exe' : 'emulator');
+  if (isExecutable(sdkmanager) && isExecutable(avdmanager) && isExecutable(emulator)) {
+    return root;
+  }
+
+  return null;
+}
+
+const SHARED_ANDROID_SDK_ROOT = hostAndroidSdkRoot();
+
+function activeAndroidSdkRoot() {
+  return SHARED_ANDROID_SDK_ROOT || SDK_ROOT;
+}
+
+function sharedAndroidSdkReady() {
+  if (!SHARED_ANDROID_SDK_ROOT) {
+    return false;
+  }
+  const adb = path.join(SHARED_ANDROID_SDK_ROOT, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
+  const sdkmanager = path.join(SHARED_ANDROID_SDK_ROOT, 'cmdline-tools', 'latest', 'bin', process.platform === 'win32' ? 'sdkmanager.bat' : 'sdkmanager');
+  const avdmanager = path.join(SHARED_ANDROID_SDK_ROOT, 'cmdline-tools', 'latest', 'bin', process.platform === 'win32' ? 'avdmanager.bat' : 'avdmanager');
+  const emulator = path.join(SHARED_ANDROID_SDK_ROOT, 'emulator', process.platform === 'win32' ? 'emulator.exe' : 'emulator');
+  return [adb, sdkmanager, avdmanager, emulator].every(isExecutable);
+}
+
 function adbBinary() {
-  return process.env.ANDROID_ADB_PATH || path.join(SDK_ROOT, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
+  if (process.env.ANDROID_ADB_PATH) {
+    return process.env.ANDROID_ADB_PATH;
+  }
+  if (SHARED_ANDROID_SDK_ROOT) {
+    const sharedAdb = path.join(SHARED_ANDROID_SDK_ROOT, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
+    if (isExecutable(sharedAdb)) {
+      return sharedAdb;
+    }
+  }
+  const hostAdb = hostAdbBinary();
+  if (hostAdb) {
+    return hostAdb;
+  }
+  const distroAdb = systemAdbBinary();
+  if (process.platform === 'linux' && process.arch === 'arm64' && distroAdb && isExecutable(distroAdb)) {
+    return distroAdb;
+  }
+  return path.join(SDK_ROOT, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
 }
 
 function sdkManagerBinary() {
-  return path.join(CMDLINE_LATEST, 'bin', process.platform === 'win32' ? 'sdkmanager.bat' : 'sdkmanager');
+  return path.join(activeAndroidSdkRoot(), 'cmdline-tools', 'latest', 'bin', process.platform === 'win32' ? 'sdkmanager.bat' : 'sdkmanager');
 }
 
 function avdManagerBinary() {
-  return path.join(CMDLINE_LATEST, 'bin', process.platform === 'win32' ? 'avdmanager.bat' : 'avdmanager');
+  return path.join(activeAndroidSdkRoot(), 'cmdline-tools', 'latest', 'bin', process.platform === 'win32' ? 'avdmanager.bat' : 'avdmanager');
 }
 
 function emulatorBinary() {
-  return path.join(SDK_ROOT, 'emulator', process.platform === 'win32' ? 'emulator.exe' : 'emulator');
+  return path.join(activeAndroidSdkRoot(), 'emulator', process.platform === 'win32' ? 'emulator.exe' : 'emulator');
 }
 
 function isExecutable(filePath) {
@@ -341,6 +493,47 @@ function fetchText(url) {
 }
 
 function downloadFile(url, dest) {
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  const curlBin = process.platform === 'win32' ? 'curl.exe' : 'curl';
+  if (commandExists(curlBin)) {
+    const curlResult = spawnSync(curlBin, [
+      '--fail',
+      '--location',
+      '--silent',
+      '--show-error',
+      '--retry', '3',
+      '--retry-delay', '2',
+      '--output', dest,
+      url,
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'ignore', 'inherit'],
+    });
+    if (curlResult.status === 0) {
+      return waitForReadyFile(dest);
+    }
+    const detail = String(curlResult.stderr || curlResult.stdout || curlResult.error?.message || `curl exited with code ${curlResult.status ?? 'unknown'}`).trim();
+    console.warn(`[Android] curl download failed for ${url}; falling back to Node HTTPS (${detail || 'no detail'})`);
+  }
+
+  return downloadFileViaHttps(url, dest);
+}
+
+async function waitForReadyFile(filePath, timeoutMs = 600000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const stats = fs.statSync(filePath);
+      if (stats.isFile() && stats.size > 0) {
+        return;
+      }
+    } catch {}
+    await sleep(250);
+  }
+  throw new Error(`Downloaded file was not ready at ${filePath}`);
+}
+
+function downloadFileViaHttps(url, dest) {
   return new Promise((resolve, reject) => {
     const out = fs.createWriteStream(dest);
     https.get(url, (res) => {
@@ -356,7 +549,13 @@ function downloadFile(url, dest) {
         return;
       }
       res.pipe(out);
-      out.on('finish', () => out.close(resolve));
+      out.on('finish', () => out.close((closeErr) => {
+        if (closeErr) {
+          reject(closeErr);
+          return;
+        }
+        resolve(waitForReadyFile(dest));
+      }));
     }).on('error', (err) => {
       out.close();
       fs.rmSync(dest, { force: true });
@@ -366,19 +565,33 @@ function downloadFile(url, dest) {
 }
 
 function extractZip(zipPath, destDir) {
+  if (process.platform === 'darwin' && commandExists('ditto')) {
+    const res = spawnSync('ditto', ['-x', '-k', zipPath, destDir], { encoding: 'utf8' });
+    if (res.status === 0) return;
+    console.warn(`[Android] ditto failed for ${zipPath}; falling back to unzip`);
+  }
+
   if (commandExists('unzip')) {
     const res = spawnSync('unzip', ['-qo', zipPath, '-d', destDir], { encoding: 'utf8' });
     if (res.status === 0) return;
     throw new Error(res.stderr || `unzip failed for ${zipPath}`);
   }
 
-  if (process.platform === 'darwin' && commandExists('ditto')) {
-    const res = spawnSync('ditto', ['-x', '-k', zipPath, destDir], { encoding: 'utf8' });
-    if (res.status === 0) return;
-    throw new Error(res.stderr || `ditto failed for ${zipPath}`);
-  }
-
   throw new Error('Neither unzip nor ditto is available to extract Android SDK archives');
+}
+
+function clearQuarantineAttribute(targetPath) {
+  if (process.platform !== 'darwin' || !commandExists('xattr')) {
+    return;
+  }
+  spawnSync('xattr', ['-dr', 'com.apple.quarantine', targetPath], { encoding: 'utf8' });
+}
+
+function codesignAdHoc(targetPath) {
+  if (process.platform !== 'darwin' || !commandExists('codesign')) {
+    return;
+  }
+  spawnSync('codesign', ['--force', '--deep', '--sign', '-', targetPath], { encoding: 'utf8' });
 }
 
 function listFilesRecursive(rootDir, predicate, bucket = []) {
@@ -441,13 +654,14 @@ function parseLatestCmdlineToolsUrl(xml) {
 
 function parseLatestEmulatorUrl(xml) {
   const tag = platformTag() === 'mac' ? 'macosx' : 'linux';
+  const hostArch = emulatorHostArch();
   const packageMatch = xml.match(new RegExp(`<remotePackage\\s+path="emulator">([\\s\\S]*?)<\\/remotePackage>`));
   if (!packageMatch) throw new Error('Could not locate emulator in Android repository metadata');
 
   const archiveBlocks = packageMatch[1].match(/<archive>[\s\S]*?<\/archive>/g) || [];
   for (const block of archiveBlocks) {
     if (!new RegExp(`<host-os>${tag}<\\/host-os>`).test(block)) continue;
-    if (!/<host-bits>64<\/host-bits>/.test(block)) continue;
+    if (!new RegExp(`<host-arch>${hostArch}<\\/host-arch>`).test(block)) continue;
     const urlMatch = block.match(/<url>\s*([^<]*emulator-[^<]+\.zip)\s*<\/url>/);
     if (urlMatch) return `https://dl.google.com/android/repository/${urlMatch[1]}`;
   }
@@ -479,7 +693,7 @@ function findDirectoryContainingFiles(rootDir, requiredFiles) {
 }
 
 function parseLatestPlatformToolsUrl(xml) {
-  const tag = platformTag() === 'mac' ? 'darwin' : 'linux';
+  const tag = platformTag() === 'mac' ? 'macosx' : 'linux';
   const packageMatch = xml.match(new RegExp(`<remotePackage\\s+path="platform-tools">([\\s\\S]*?)<\\/remotePackage>`));
   if (!packageMatch) throw new Error('Could not locate platform-tools in Android repository metadata');
 
@@ -526,83 +740,109 @@ function parseLatestSystemImageUrl(xml, packageName) {
   throw new Error(`Could not find a system image archive for ${packageName}`);
 }
 
+async function fetchEmulatorMetadata() {
+  const urls = [
+    'https://dl.google.com/android/repository/repository2-3.xml',
+    'https://dl.google.com/android/repository/repository2-1.xml',
+  ];
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      return await fetchText(url);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('Could not fetch Android emulator repository metadata');
+}
+
 async function installEmulatorArchive(metadata) {
   const url = parseLatestEmulatorUrl(metadata);
   const zipPath = path.join(TMP_DIR, path.basename(url));
-  const extractDir = path.join(TMP_DIR, `emulator-${Date.now()}`);
+  const installDir = path.join(activeAndroidSdkRoot(), 'emulator');
 
-  fs.mkdirSync(extractDir, { recursive: true });
   await downloadFile(url, zipPath);
-  extractZip(zipPath, extractDir);
+  fs.rmSync(installDir, { recursive: true, force: true });
+  extractZip(zipPath, activeAndroidSdkRoot());
 
-  const extractedRoot = findDirectoryContainingFiles(extractDir, [
+  const extractedRoot = findDirectoryContainingFiles(installDir, [
     process.platform === 'win32' ? 'emulator.exe' : 'emulator',
   ]);
   if (!extractedRoot) {
     throw new Error('Downloaded Android emulator archive did not contain an emulator binary');
   }
+  clearQuarantineAttribute(installDir);
+  codesignAdHoc(installDir);
 
-  fs.rmSync(path.join(SDK_ROOT, 'emulator'), { recursive: true, force: true });
-  fs.mkdirSync(path.join(SDK_ROOT, 'emulator'), { recursive: true });
-  fs.cpSync(extractedRoot, path.join(SDK_ROOT, 'emulator'), { recursive: true });
   fs.rmSync(zipPath, { force: true });
-  fs.rmSync(extractDir, { recursive: true, force: true });
 }
 
 async function installPlatformToolsArchive(metadata) {
   const url = parseLatestPlatformToolsUrl(metadata);
   const zipPath = path.join(TMP_DIR, path.basename(url));
-  const extractDir = path.join(TMP_DIR, `platform-tools-${Date.now()}`);
+  const installDir = path.join(activeAndroidSdkRoot(), 'platform-tools');
 
-  fs.mkdirSync(extractDir, { recursive: true });
   await downloadFile(url, zipPath);
-  extractZip(zipPath, extractDir);
+  fs.rmSync(installDir, { recursive: true, force: true });
+  extractZip(zipPath, activeAndroidSdkRoot());
 
-  const extractedRoot = findDirectoryContainingFiles(extractDir, [
+  const extractedRoot = findDirectoryContainingFiles(installDir, [
     process.platform === 'win32' ? 'adb.exe' : 'adb',
   ]);
   if (!extractedRoot) {
     throw new Error('Downloaded platform-tools archive did not contain adb');
   }
 
-  fs.rmSync(path.join(SDK_ROOT, 'platform-tools'), { recursive: true, force: true });
-  fs.mkdirSync(path.join(SDK_ROOT, 'platform-tools'), { recursive: true });
-  fs.cpSync(extractedRoot, path.join(SDK_ROOT, 'platform-tools'), { recursive: true });
   fs.rmSync(zipPath, { force: true });
-  fs.rmSync(extractDir, { recursive: true, force: true });
+}
+
+function shouldInstallPlatformToolsArchive() {
+  if (SHARED_ANDROID_SDK_ROOT) {
+    return false;
+  }
+  if (hostAdbBinary()) {
+    return false;
+  }
+  const distroAdb = systemAdbBinary();
+  if (process.platform === 'linux' && process.arch === 'arm64' && distroAdb && isExecutable(distroAdb)) {
+    return false;
+  }
+  return true;
 }
 
 async function installSystemImageArchive(metadata, packageName) {
   const url = parseLatestSystemImageUrl(metadata, packageName);
   const zipPath = path.join(TMP_DIR, path.basename(url));
-  const extractDir = path.join(TMP_DIR, `system-image-${Date.now()}`);
-  const targetRoot = path.join(SDK_ROOT, ...String(packageName).split(';').filter(Boolean));
+  const targetRoot = path.join(activeAndroidSdkRoot(), ...String(packageName).split(';').filter(Boolean));
+  const extractDir = fs.mkdtempSync(path.join(TMP_DIR, 'system-image-'));
 
-  fs.mkdirSync(extractDir, { recursive: true });
-  await downloadFile(url, zipPath);
-  extractZip(zipPath, extractDir);
+  try {
+    await downloadFile(url, zipPath);
+    extractZip(zipPath, extractDir);
 
-  const extractedRoot = findDirectoryContainingFiles(extractDir, ['userdata.img']) ||
-    findDirectoryContainingFiles(extractDir, ['system.img']) ||
-    findDirectoryContainingFiles(extractDir, ['package.xml']);
-  if (!extractedRoot) {
-    throw new Error(`Downloaded Android system image archive for ${packageName} did not contain the expected files`);
+    const extractedRoot = findDirectoryContainingFiles(extractDir, ['userdata.img']) ||
+      findDirectoryContainingFiles(extractDir, ['system.img']) ||
+      findDirectoryContainingFiles(extractDir, ['package.xml']);
+    if (!extractedRoot) {
+      throw new Error(`Downloaded Android system image archive for ${packageName} did not contain the expected files`);
+    }
+
+    fs.rmSync(targetRoot, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(targetRoot), { recursive: true });
+    fs.cpSync(extractedRoot, targetRoot, { recursive: true, force: true });
+  } finally {
+    fs.rmSync(zipPath, { force: true });
+    fs.rmSync(extractDir, { recursive: true, force: true });
   }
-
-  fs.rmSync(targetRoot, { recursive: true, force: true });
-  fs.mkdirSync(targetRoot, { recursive: true });
-  fs.cpSync(extractedRoot, targetRoot, { recursive: true });
-  fs.rmSync(zipPath, { force: true });
-  fs.rmSync(extractDir, { recursive: true, force: true });
 }
 
 function systemImageTagScore(tag) {
   const value = String(tag || '').toLowerCase();
-  if (value.startsWith('google_apis_playstore')) return 50;
-  if (value.startsWith('google_apis')) return 40;
-  if (value === 'google_atd') return 30;
-  if (value === 'aosp_atd') return 20;
-  if (value === 'default') return 10;
+  if (value.startsWith('google_apis_playstore')) return 60;
+  if (value.startsWith('google_apis')) return 50;
+  if (value === 'default') return 40;
+  if (value === 'google_atd') return 20;
+  if (value === 'aosp_atd') return 10;
   return 0;
 }
 
@@ -639,7 +879,7 @@ function parseSystemImages(listOutput) {
 }
 
 function parseInstalledSystemImages() {
-  const root = path.join(SDK_ROOT, 'system-images');
+  const root = path.join(activeAndroidSdkRoot(), 'system-images');
   if (!fs.existsSync(root)) {
     return [];
   }
@@ -847,7 +1087,39 @@ class AndroidController {
     this.ownerKey = normalizeOwnerKey(this.userId);
     this.stateFile = resolveStateFile(this.scopeKey);
     this.cli = new CLIExecutor();
-    this.avdName = this.#readState().avdName || (this.userId ? `neoagent-${this.scopeKey}` : DEFAULT_AVD_NAME);
+    const state = this.#readState();
+    const desiredArchTag = sanitizeScopeKey(systemImageArch());
+    const stateMatchesArch = state?.systemImageArch === systemImageArch() && String(state?.avdName || '').includes(desiredArchTag);
+    this.previousAvdName = String(state?.avdName || '').trim() || null;
+    this.avdName = stateMatchesArch
+      ? state.avdName
+      : `neoagent-${this.scopeKey}-${desiredArchTag}`;
+    if (this.previousAvdName !== this.avdName) {
+      this.#appendState({
+        avdName: this.avdName,
+        serial: null,
+        emulatorPid: null,
+        starting: false,
+        startupPhase: null,
+        lastStartError: null,
+        lastLogLine: null,
+      });
+    }
+    if (String(state?.systemImageArch || '').trim() && state.systemImageArch !== systemImageArch()) {
+      this.#appendState({
+        serial: null,
+        emulatorPid: null,
+        bootstrapped: false,
+        systemImage: null,
+        apiLevel: null,
+        systemImageArch: null,
+        avdSystemImage: null,
+        starting: false,
+        startupPhase: null,
+        lastStartError: null,
+        lastLogLine: null,
+      });
+    }
     this.bootstrapPromise = null;
     this.startPromise = null;
     this.#registerProcessCleanup();
@@ -973,6 +1245,39 @@ class AndroidController {
     process.once('unhandledRejection', cleanup);
   }
 
+  async #terminateStaleEmulatorProcesses(names = [this.avdName]) {
+    const avdNames = [...new Set((Array.isArray(names) ? names : [names]).map((name) => String(name || '').trim()).filter(Boolean))];
+    const pids = [];
+    for (const avdName of avdNames) {
+      const probe = spawnSync('pgrep', ['-f', `@${avdName}`], { encoding: 'utf8' });
+      if (probe.status !== 0) {
+        continue;
+      }
+      const found = String(probe.stdout || '')
+        .split(/\s+/)
+        .map((pid) => Number(pid))
+        .filter((pid) => Number.isInteger(pid) && pid > 0);
+      pids.push(...found);
+    }
+    const uniquePids = [...new Set(pids)];
+    if (uniquePids.length === 0) {
+      return;
+    }
+
+    for (const pid of uniquePids) {
+      try { process.kill(pid, 'SIGTERM'); } catch {}
+    }
+
+    await sleep(1500);
+
+    for (const pid of uniquePids) {
+      try {
+        process.kill(pid, 0);
+        process.kill(pid, 'SIGKILL');
+      } catch {}
+    }
+  }
+
   #stopTrackedEmulatorSync() {
     const state = this.#readState();
     const serial = state.serial;
@@ -1018,10 +1323,80 @@ class AndroidController {
   }
 
   async ensureBootstrapped() {
+    const desiredArch = systemImageArch();
+    const state = this.#readState();
+    const installedImages = parseInstalledSystemImages();
+    const preferredInstalled =
+      chooseConfiguredSystemImage(installedImages) ||
+      chooseLatestSystemImage(installedImages, [desiredArch]) ||
+      chooseLatestSystemImage(installedImages);
+    const systemImageMetadata = await fetchText('https://dl.google.com/android/repository/sys-img/android/sys-img2-1.xml');
+    const available = parseRepositorySystemImages(systemImageMetadata);
+    const preferredAvailable =
+      chooseConfiguredSystemImage(available) ||
+      chooseLatestSystemImage(available, [desiredArch]) ||
+      chooseLatestSystemImage(available);
+    const stateApiLevel = Number(state.apiLevel || 0) || 0;
+
+    if (!shouldForceSdkRefresh() && sharedAndroidSdkReady() && preferredInstalled && preferredAvailable) {
+      const stateAligned =
+        preferredInstalled.packageName === state.systemImage &&
+        preferredInstalled.apiLevel === stateApiLevel &&
+        preferredInstalled.arch === state.systemImageArch &&
+        state.avdName === this.avdName;
+
+      if (stateAligned && preferredInstalled.packageName === preferredAvailable.packageName) {
+        return;
+      }
+
+      if (preferredInstalled.packageName !== preferredAvailable.packageName) {
+        const changeSummary = describeAutoFixChanges(
+          {
+            avdName: state.avdName || null,
+            systemImage: state.systemImage || null,
+            apiLevel: stateApiLevel || null,
+            systemImageArch: state.systemImageArch || null,
+          },
+          {
+            avdName: this.avdName,
+            systemImage: preferredAvailable.packageName,
+            apiLevel: preferredAvailable.apiLevel,
+            systemImageArch: preferredAvailable.arch,
+          },
+          ['avdName', 'systemImage', 'apiLevel', 'systemImageArch']
+        );
+        if (changeSummary) {
+          console.log(`[Android] Auto-fixed host SDK state (${changeSummary})`);
+        }
+        await installSystemImageArchive(systemImageMetadata, preferredAvailable.packageName);
+        this.#appendState({
+          bootstrapped: true,
+          avdName: this.avdName,
+          serial: null,
+          emulatorPid: null,
+          systemImage: preferredAvailable.packageName,
+          apiLevel: preferredAvailable.apiLevel,
+          systemImageArch: preferredAvailable.arch,
+        });
+        return;
+      }
+
+      this.#appendState({
+        bootstrapped: true,
+        avdName: this.avdName,
+        serial: null,
+        emulatorPid: null,
+        systemImage: preferredInstalled.packageName,
+        apiLevel: preferredInstalled.apiLevel,
+        systemImageArch: preferredInstalled.arch,
+      });
+      return;
+    }
+
     const binariesReady =
       isExecutable(adbBinary()) &&
-      isExecutable(emulatorBinary());
-
+      isExecutable(emulatorBinary()) &&
+      installedEmulatorMatchesHost();
     if (!binariesReady) {
       if (this.bootstrapPromise) {
         await this.bootstrapPromise;
@@ -1035,70 +1410,74 @@ class AndroidController {
       }
     }
 
-    const state = this.#readState();
+    const runtimeNeedsRefresh =
+      state.systemImageArch !== desiredArch ||
+      !installedEmulatorMatchesHost();
     if (!shouldForceSdkRefresh()) {
-      const installedImages = parseInstalledSystemImages();
-      if (installedImages.length > 0) {
-        const preferredInstalled =
-          chooseConfiguredSystemImage(installedImages) ||
-          chooseLatestSystemImage(installedImages);
-        if (!preferredInstalled) {
-          throw new Error(formatSystemImageError(installedImages));
-        }
-        const stateApiLevel = Number(state.apiLevel || 0) || 0;
+      if (!runtimeNeedsRefresh && preferredInstalled) {
         const stateNeedsRefresh =
           preferredInstalled.packageName !== state.systemImage ||
           preferredInstalled.apiLevel !== stateApiLevel ||
-          preferredInstalled.arch !== state.systemImageArch;
+          preferredInstalled.arch !== state.systemImageArch ||
+          state.avdName !== this.avdName;
         if (stateNeedsRefresh) {
           const changeSummary = describeAutoFixChanges(
             {
+              avdName: state.avdName || null,
               systemImage: state.systemImage || null,
               apiLevel: stateApiLevel || null,
               systemImageArch: state.systemImageArch || null,
             },
             {
+              avdName: this.avdName,
               systemImage: preferredInstalled.packageName,
               apiLevel: preferredInstalled.apiLevel,
               systemImageArch: preferredInstalled.arch,
             },
-            ['systemImage', 'apiLevel', 'systemImageArch']
+            ['avdName', 'systemImage', 'apiLevel', 'systemImageArch']
           );
           if (changeSummary) {
             console.log(`[Android] Auto-fixed preferred system image (${changeSummary})`);
           }
           this.#appendState({
             bootstrapped: true,
+            avdName: this.avdName,
+            serial: null,
+            emulatorPid: null,
             systemImage: preferredInstalled.packageName,
             apiLevel: preferredInstalled.apiLevel,
             systemImageArch: preferredInstalled.arch,
           });
         }
         return;
-      } else if (state.bootstrapped === true && state.systemImage) {
+      }
+      if (!runtimeNeedsRefresh && state.bootstrapped === true && state.systemImage) {
         return;
       }
     }
 
     this.#appendState({ bootstrapped: true });
-    const systemImageMetadata = await fetchText('https://dl.google.com/android/repository/sys-img/android/sys-img2-1.xml');
-    const available = parseRepositorySystemImages(systemImageMetadata);
-    const latestSystemImage = chooseConfiguredSystemImage(available) || chooseLatestSystemImage(available);
-    if (!latestSystemImage) throw new Error(formatSystemImageError(available));
-    const metadata = await fetchText('https://dl.google.com/android/repository/repository2-1.xml');
-    await installPlatformToolsArchive(metadata);
+    const metadata = await fetchEmulatorMetadata();
+    if (shouldInstallPlatformToolsArchive()) {
+      await installPlatformToolsArchive(metadata);
+    }
     await installEmulatorArchive(metadata);
-    await installSystemImageArchive(systemImageMetadata, latestSystemImage.packageName);
+    await installSystemImageArchive(systemImageMetadata, preferredAvailable?.packageName || preferredInstalled?.packageName);
+    const selectedImage = preferredAvailable || preferredInstalled;
+    if (!selectedImage) {
+      throw new Error(formatSystemImageError(available));
+    }
     this.#appendState({
       bootstrapped: true,
-      systemImage: latestSystemImage.packageName,
-      apiLevel: latestSystemImage.apiLevel,
-      systemImageArch: latestSystemImage.arch,
+      avdName: this.avdName,
+      systemImage: selectedImage.packageName,
+      apiLevel: selectedImage.apiLevel,
+      systemImageArch: selectedImage.arch,
     });
   }
 
   async #bootstrapRuntime() {
-    const metadata = await fetchText('https://dl.google.com/android/repository/repository2-1.xml');
+    const metadata = await fetchEmulatorMetadata();
     const url = parseLatestCmdlineToolsUrl(metadata);
     const zipPath = path.join(TMP_DIR, path.basename(url));
     const extractDir = path.join(TMP_DIR, `cmdline-tools-${Date.now()}`);
@@ -1120,7 +1499,9 @@ class AndroidController {
     fs.cpSync(extractedRoot, CMDLINE_LATEST, { recursive: true });
     fs.rmSync(zipPath, { force: true });
     fs.rmSync(extractDir, { recursive: true, force: true });
-    await installPlatformToolsArchive(metadata);
+    if (shouldInstallPlatformToolsArchive()) {
+      await installPlatformToolsArchive(metadata);
+    }
     await installEmulatorArchive(metadata);
 
     const systemImageMetadata = await fetchText('https://dl.google.com/android/repository/sys-img/android/sys-img2-1.xml');
@@ -1177,6 +1558,14 @@ class AndroidController {
         const expectedAbi = systemImagePackageToAbi(pkg);
         const currentCpuArch = readIniValue(config, 'hw.cpu.arch');
         const expectedCpuArch = systemImagePackageToCpuArch(pkg);
+        const currentDataPartitionSize = readIniValue(config, 'disk.dataPartition.size');
+        const expectedDataPartitionSize = String(DEFAULT_DATA_PARTITION_BYTES);
+        const currentSdcardSize = readIniValue(config, 'sdcard.size');
+        const expectedSdcardSize = String(DEFAULT_SDCARD_SIZE_BYTES);
+        const currentRamSize = readIniValue(config, 'hw.ramSize');
+        const expectedRamSize = String(DEFAULT_RAM_SIZE_MB);
+        const currentGpuMode = readIniValue(config, 'hw.gpu.mode');
+        const expectedGpuMode = emulatorGpuMode();
         if (expectedImageDir && currentImageDir && currentImageDir !== expectedImageDir) {
           avdNeedsRecreate = true;
           avdRecreateReasons.push(`image.sysdir.1: ${currentImageDir} -> ${expectedImageDir}`);
@@ -1189,6 +1578,22 @@ class AndroidController {
           avdNeedsRecreate = true;
           avdRecreateReasons.push(`hw.cpu.arch: ${currentCpuArch} -> ${expectedCpuArch}`);
         }
+        if (currentDataPartitionSize && currentDataPartitionSize !== expectedDataPartitionSize) {
+          avdNeedsRecreate = true;
+          avdRecreateReasons.push(`disk.dataPartition.size: ${currentDataPartitionSize} -> ${expectedDataPartitionSize}`);
+        }
+        if (currentSdcardSize && currentSdcardSize !== expectedSdcardSize) {
+          avdNeedsRecreate = true;
+          avdRecreateReasons.push(`sdcard.size: ${currentSdcardSize} -> ${expectedSdcardSize}`);
+        }
+        if (currentRamSize && currentRamSize !== expectedRamSize) {
+          avdNeedsRecreate = true;
+          avdRecreateReasons.push(`hw.ramSize: ${currentRamSize} -> ${expectedRamSize}`);
+        }
+        if (currentGpuMode && currentGpuMode !== expectedGpuMode) {
+          avdNeedsRecreate = true;
+          avdRecreateReasons.push(`hw.gpu.mode: ${currentGpuMode} -> ${expectedGpuMode}`);
+        }
       } catch {}
     }
 
@@ -1199,7 +1604,10 @@ class AndroidController {
       await this.stopEmulator().catch(() => {});
       fs.rmSync(avdDir, { recursive: true, force: true });
       fs.rmSync(path.join(AVD_HOME, `${this.avdName}.ini`), { force: true });
+      fs.rmSync(path.join(avdDir, 'userdata-qemu.img'), { force: true });
+      fs.rmSync(emulatorSnapshotStoragePath(this.avdName), { force: true });
     } else if (avdExists) {
+      ensureSparseFile(path.join(avdDir, 'userdata-qemu.img'), DEFAULT_DATA_PARTITION_BYTES);
       return;
     }
 
@@ -1224,6 +1632,7 @@ class AndroidController {
     }
 
     fs.mkdirSync(avdDir, { recursive: true });
+    ensureSparseFile(path.join(avdDir, 'userdata-qemu.img'), DEFAULT_DATA_PARTITION_BYTES);
     fs.writeFileSync(
       path.join(AVD_HOME, `${this.avdName}.ini`),
       [
@@ -1247,19 +1656,19 @@ class AndroidController {
       'hw.dPad=no',
       'hw.gps=yes',
       'hw.gpu.enabled=yes',
-      'hw.gpu.mode=auto',
+      `hw.gpu.mode=${emulatorGpuMode()}`,
       'hw.initialOrientation=Portrait',
       'hw.keyboard=yes',
       'hw.lcd.density=440',
       'hw.lcd.height=1920',
       'hw.lcd.width=1080',
       'hw.mainKeys=no',
-      `hw.ramSize=${DEFAULT_RAM_SIZE}`,
+      `hw.ramSize=${DEFAULT_RAM_SIZE_MB}`,
       'hw.sensors.orientation=yes',
       'hw.sensors.proximity=yes',
       'hw.trackBall=no',
-      `disk.dataPartition.size=${DEFAULT_DATA_PARTITION}`,
-      `sdcard.size=${DEFAULT_SDCARD_SIZE}`,
+      `disk.dataPartition.size=${DEFAULT_DATA_PARTITION_BYTES}`,
+      `sdcard.size=${DEFAULT_SDCARD_SIZE_BYTES}`,
       'runtime.network.latency=none',
       'runtime.network.speed=full',
       'vm.heapSize=256',
@@ -1269,11 +1678,12 @@ class AndroidController {
     ];
     fs.writeFileSync(path.join(avdDir, 'config.ini'), configLines.join('\n'));
 
-    const systemImageRoot = path.join(SDK_ROOT, ...String(packageName).split(';').filter(Boolean));
+    const systemImageRoot = path.join(activeAndroidSdkRoot(), ...String(packageName).split(';').filter(Boolean));
     const userdataImage = path.join(systemImageRoot, 'userdata.img');
     if (fs.existsSync(userdataImage)) {
       fs.copyFileSync(userdataImage, path.join(avdDir, 'userdata.img'));
     }
+    fs.rmSync(emulatorSnapshotStoragePath(this.avdName), { force: true });
   }
 
   #normalizeAvdConfig() {
@@ -1281,9 +1691,10 @@ class AndroidController {
     if (!fs.existsSync(configPath)) return;
 
     let content = fs.readFileSync(configPath, 'utf8');
-    content = updateIniValue(content, 'disk.dataPartition.size', DEFAULT_DATA_PARTITION);
-    content = updateIniValue(content, 'sdcard.size', DEFAULT_SDCARD_SIZE);
-    content = updateIniValue(content, 'hw.ramSize', DEFAULT_RAM_SIZE);
+    content = updateIniValue(content, 'disk.dataPartition.size', DEFAULT_DATA_PARTITION_BYTES);
+    content = updateIniValue(content, 'sdcard.size', DEFAULT_SDCARD_SIZE_BYTES);
+    content = updateIniValue(content, 'hw.ramSize', DEFAULT_RAM_SIZE_MB);
+    content = updateIniValue(content, 'hw.gpu.mode', emulatorGpuMode());
     fs.writeFileSync(configPath, content);
   }
 
@@ -1348,6 +1759,7 @@ class AndroidController {
       startRequestedAt: this.#readState().startRequestedAt || new Date().toISOString(),
     });
     console.log('[Android] Preparing emulator start');
+    await this.#terminateStaleEmulatorProcesses([this.avdName, this.previousAvdName]).catch(() => {});
     await this.ensureAvd();
     this.#appendState({
       starting: true,
@@ -1377,17 +1789,20 @@ class AndroidController {
     const args = [
       `@${this.avdName}`,
       '-no-boot-anim',
+      ...emulatorLaunchArgs(this.avdName),
+      '-data',
+      path.join(AVD_HOME, `${this.avdName}.avd`, 'userdata-qemu.img'),
       '-gpu',
-      process.platform === 'darwin' ? 'host' : 'swiftshader_indirect',
+      emulatorGpuMode(),
+      '-accel',
+      'auto',
+      '-partition-size',
+      String(DEFAULT_PARTITION_SIZE_MB),
       '-netdelay',
       'none',
       '-netspeed',
       'full',
     ];
-
-    if (options.headless === true) {
-      args.push('-no-window', '-no-audio');
-    }
 
     const child = spawn(emulatorBinary(), args, {
       detached: true,
@@ -1405,39 +1820,20 @@ class AndroidController {
       lastStartError: null,
       lastLogLine: 'Android emulator process started. Waiting for boot completion...',
     });
-
-    const processExit = new Promise((resolve) => {
-      child.once('exit', (code, signal) => {
-        resolve({ code, signal });
-      });
-      child.once('error', (error) => {
-        resolve({ code: null, signal: null, error });
-      });
-    });
-
     child.unref();
-
-    const bootResult = await Promise.race([
-      this.waitForDevice({ timeoutMs: options.timeoutMs || 240000 }).then((serial) => ({
-        serial,
-        exited: false,
-      })),
-      processExit.then((result) => ({
-        exited: true,
-        ...result,
-      })),
-    ]);
-
-    if (bootResult.exited) {
+    let onlineSerial;
+    try {
+      onlineSerial = await this.waitForDevice({ timeoutMs: options.timeoutMs || 600000 });
+    } catch (error) {
       const recentLogLines = tailFile(logPath, 12);
       const lastLine =
-        bootResult.error?.message ||
         recentLogLines[recentLogLines.length - 1] ||
-        `Emulator process exited before boot completed (code ${bootResult.code ?? 'unknown'}, signal ${bootResult.signal ?? 'none'}).`;
+        error?.message ||
+        String(error || 'Android emulator did not finish booting.');
+      await this.stopEmulator().catch(() => {});
+      this.markBootstrapFailure(lastLine);
       throw new Error(lastLine);
     }
-
-    const onlineSerial = bootResult.serial;
     this.#appendState({
       serial: onlineSerial,
       emulatorPid: child.pid,
@@ -1508,7 +1904,7 @@ class AndroidController {
         NEOAGENT_ANDROID_BOOTSTRAP_USER_ID: this.userId || '',
         NEOAGENT_ANDROID_BOOTSTRAP_SCOPE_KEY: this.scopeKey,
         NEOAGENT_ANDROID_BOOTSTRAP_HEADLESS: String(options.headless === true),
-        NEOAGENT_ANDROID_BOOTSTRAP_TIMEOUT_MS: String(options.timeoutMs || 240000),
+        NEOAGENT_ANDROID_BOOTSTRAP_TIMEOUT_MS: String(options.timeoutMs || 600000),
       };
       const child = spawn(process.execPath, [ANDROID_BOOTSTRAP_WORKER], {
         detached: true,
@@ -1576,7 +1972,7 @@ class AndroidController {
 
   async stopEmulator() {
     const state = this.#readState();
-    const serial = await this.getPrimarySerial();
+    const serial = await this.getPrimarySerial({ ensureBootstrapped: false }).catch(() => null);
     if (serial) {
       this.#assertSerialAccess(serial, { claimIfUnowned: true });
       await this.#runAllowFailure(`${quoteShell(adbBinary())} -s ${quoteShell(serial)} emu kill`, { timeout: 15000 });
@@ -1597,7 +1993,7 @@ class AndroidController {
 
     const deadline = Date.now() + 30000;
     while (Date.now() < deadline) {
-      const devices = await this.listDevices().catch(() => []);
+      const devices = await this.listDevices({ ensureBootstrapped: false }).catch(() => []);
       const stillPresent = devices.some((device) => device.emulator && device.status === 'device');
       let pidAlive = false;
       if (state.emulatorPid) {
@@ -2115,7 +2511,7 @@ class AndroidController {
       startupPhase: state.startupPhase || null,
       startRequestedAt: state.startRequestedAt || null,
       lastStartError: state.lastStartError || null,
-      sdkRoot: SDK_ROOT,
+      sdkRoot: activeAndroidSdkRoot(),
       avdHome: AVD_HOME,
       avdName: this.avdName,
       adbPath: adbBinary(),

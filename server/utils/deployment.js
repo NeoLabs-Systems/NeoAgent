@@ -65,13 +65,13 @@ function getDeploymentPolicy(env = process.env) {
     allowSelfUpdate: mode !== DEPLOYMENT_MODE_MANAGED,
     registrationOpen: isProdProfile,
     runtimeDefaults: {
-      runtime_profile: isProdProfile ? 'secure-vm' : 'trusted-host',
-      runtime_backend: isProdProfile ? 'vm' : 'host',
+      runtime_profile: 'secure-vm',
+      runtime_backend: 'vm',
       browser_backend: 'vm',
-      android_backend: isProdProfile ? 'vm' : 'host',
+      android_backend: 'host',
       mcp_backend: 'host-remote',
     },
-    allowHostRuntime: !isProdProfile,
+    allowHostRuntime: false,
   };
 }
 

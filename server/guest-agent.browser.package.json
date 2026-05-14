@@ -1,0 +1,14 @@
+{
+  "name": "neoagent-guest-agent-browser",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Guest runtime for NeoAgent browser and CLI services",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "playwright-chromium": "^1.59.1",
+    "proper-lockfile": "^4.1.2"
+  }
+}

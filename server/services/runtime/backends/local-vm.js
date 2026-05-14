@@ -23,6 +23,18 @@ function assertPathInside(baseDir, candidatePath, label) {
   return resolvedCandidate;
 }
 
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false;
+  }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 class RuntimeHttpClient {
   constructor(baseUrl, token = '', options = {}) {
     this.baseUrl = String(baseUrl || '').replace(/\/+$/, '');
@@ -341,6 +353,7 @@ class VmAndroidProvider {
 class LocalVmExecutionBackend {
   constructor(options = {}) {
     this.vmManager = options.vmManager;
+    this.runtimeProfile = options.runtimeProfile === 'android' ? 'android' : 'browser_cli';
     this.token = options.token || process.env.NEOAGENT_VM_GUEST_TOKEN || '';
     this.artifactStore = options.artifactStore || null;
     this.lastActivity = new Map();
@@ -364,12 +377,12 @@ class LocalVmExecutionBackend {
       const now = Date.now();
       for (const [userId, lastUsed] of this.lastActivity.entries()) {
         if (now - lastUsed > IDLE_TIMEOUT_MS) {
-          console.log(`[Runtime] User ${userId} runtime idle for ${Math.round((now - lastUsed) / 1000)}s, shutting down VM.`);
+          console.log(`[Runtime:${this.runtimeProfile}] User ${userId} runtime idle for ${Math.round((now - lastUsed) / 1000)}s, shutting down VM.`);
           this.lastActivity.delete(userId);
           try {
             await this.vmManager?.killVm?.(userId);
           } catch (err) {
-            console.error(`[Runtime] Failed to shut down idle VM for user ${userId}:`, err.message);
+            console.error(`[Runtime:${this.runtimeProfile}] Failed to shut down idle VM for user ${userId}:`, err.message);
           }
         }
       }
@@ -391,7 +404,7 @@ class LocalVmExecutionBackend {
         checkLiveness: () => {
           const key = String(userId || '').trim();
           const session = this.vmManager.instances.get(key);
-          return session && session.process && !session.process.killed && session.process.exitCode === null;
+          return Boolean(session && session.process && isPidAlive(session.process.pid));
         },
       });
     } catch (error) {

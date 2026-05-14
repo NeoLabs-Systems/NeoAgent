@@ -41,11 +41,11 @@ function getBrowserStatusSnapshot(req) {
 router.get('/status', async (req, res) => {
   try {
     const runtimeManager = req.app?.locals?.runtimeManager;
-    if (!runtimeManager?.hasVmForUser?.(req.session?.userId)) {
+    if (!runtimeManager?.hasVmForUser?.(req.session?.userId, 'browser')) {
       res.json(getBrowserStatusSnapshot(req));
       return;
     }
-    if (!await runtimeManager?.isGuestAgentReadyForUser?.(req.session?.userId, 1000)) {
+    if (!await runtimeManager?.isGuestAgentReadyForUser?.(req.session?.userId, 1000, 'browser')) {
       res.json(getBrowserStatusSnapshot(req));
       return;
     }

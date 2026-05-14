@@ -5,8 +5,6 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { CLIExecutor } = require('./services/cli/executor');
-const { BrowserController } = require('./services/browser/controller');
-const { AndroidController } = require('./services/android/controller');
 const { RUNTIME_HOME } = require('../runtime/paths');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
@@ -23,6 +21,9 @@ function resolveGuestToken() {
 }
 
 const AUTH_TOKEN = resolveGuestToken();
+const GUEST_PROFILE = String(process.env.NEOAGENT_GUEST_PROFILE || 'browser_cli').trim() === 'android'
+  ? 'android'
+  : 'browser_cli';
 const FILE_ROOT = path.join(RUNTIME_HOME, 'guest-agent-files');
 const MAX_APK_STREAM_BYTES = Number(process.env.NEOAGENT_GUEST_MAX_APK_STREAM_BYTES || 512 * 1024 * 1024);
 
@@ -32,8 +33,12 @@ const app = express();
 app.use(express.json({ limit: '100mb' }));
 
 const cliExecutor = new CLIExecutor();
-const browserController = new BrowserController({ runtimeBackend: 'vm' });
-const androidController = new AndroidController({ runtimeBackend: 'vm' });
+const browserController = GUEST_PROFILE === 'browser_cli'
+  ? new (require('./services/browser/controller').BrowserController)({ runtimeBackend: 'vm' })
+  : null;
+const androidController = GUEST_PROFILE === 'android'
+  ? new (require('./services/android/controller').AndroidController)({ runtimeBackend: 'vm' })
+  : null;
 
 const ALLOWED_READABLE_ROOTS = [
   FILE_ROOT,
@@ -85,10 +90,10 @@ async function handle(res, work) {
 app.use(requireToken);
 
 app.get('/health', (_req, res) => {
-  console.log('[Guest Agent] Health check requested');
   res.json({
     status: 'ok',
     runtime: 'guest-agent',
+    profile: GUEST_PROFILE,
     platform: process.platform,
     arch: process.arch,
   });
@@ -151,45 +156,56 @@ app.post('/files/read', async (req, res) => {
 });
 
 app.get('/browser/status', async (_req, res) => {
-  await handle(res, async () => ({
-    launched: await Promise.resolve(browserController.isLaunched()),
-    pages: await Promise.resolve(browserController.getPageCount()),
-    headless: browserController.headless,
-    pageInfo: await browserController.getPageInfo(),
-  }));
+  await handle(res, async () => {
+    const controller = requireCapability(browserController, 'browser');
+    return {
+      launched: await Promise.resolve(controller.isLaunched()),
+      pages: await Promise.resolve(controller.getPageCount()),
+      headless: controller.headless,
+      pageInfo: await controller.getPageInfo(),
+    };
+  });
 });
-app.post('/browser/launch', async (req, res) => handle(res, () => browserController.launch(req.body || {})));
-app.post('/browser/navigate', async (req, res) => handle(res, () => browserController.navigate(req.body?.url, req.body || {})));
-app.post('/browser/screenshot', async (req, res) => handle(res, () => browserController.screenshot(req.body || {})));
-app.post('/browser/click', async (req, res) => handle(res, () => browserController.click(req.body?.selector, req.body?.text, req.body?.screenshot !== false)));
-app.post('/browser/click-point', async (req, res) => handle(res, () => browserController.clickPoint(req.body?.x, req.body?.y, req.body?.screenshot !== false)));
-app.post('/browser/fill', async (req, res) => handle(res, () => browserController.type(req.body?.selector, String(req.body?.value ?? req.body?.text ?? ''), req.body || {})));
-app.post('/browser/type-text', async (req, res) => handle(res, () => browserController.typeText(String(req.body?.text || ''), req.body || {})));
-app.post('/browser/press-key', async (req, res) => handle(res, () => browserController.pressKey(req.body?.key, req.body?.screenshot !== false)));
-app.post('/browser/scroll', async (req, res) => handle(res, () => browserController.scroll(req.body?.deltaX ?? 0, req.body?.deltaY ?? 0, req.body?.screenshot !== false)));
-app.post('/browser/extract', async (req, res) => handle(res, () => browserController.extractContent(req.body || {})));
-app.post('/browser/execute', async (req, res) => handle(res, () => browserController.executeJS(req.body?.code)));
-app.post('/browser/close', async (_req, res) => handle(res, () => browserController.closeBrowser().then(() => ({ success: true }))));
+function requireCapability(controller, name) {
+  if (!controller) {
+    throw new Error(`${name} runtime is unavailable in this guest profile.`);
+  }
+  return controller;
+}
 
-app.get('/android/status', async (_req, res) => handle(res, () => androidController.getStatus()));
-app.post('/android/start', async (req, res) => handle(res, () => androidController.requestStartEmulator(req.body || {})));
-app.post('/android/stop', async (_req, res) => handle(res, () => androidController.stopEmulator()));
-app.get('/android/devices', async (_req, res) => handle(res, async () => ({ devices: await androidController.listDevices() })));
-app.post('/android/screenshot', async (req, res) => handle(res, () => androidController.screenshot(req.body || {})));
-app.post('/android/observe', async (req, res) => handle(res, () => androidController.observe(req.body || {})));
-app.post('/android/ui-dump', async (req, res) => handle(res, () => androidController.dumpUi(req.body || {})));
-app.get('/android/apps', async (req, res) => handle(res, () => androidController.listApps({ includeSystem: req.query.includeSystem === 'true' })));
-app.post('/android/open-app', async (req, res) => handle(res, () => androidController.openApp(req.body || {})));
-app.post('/android/open-intent', async (req, res) => handle(res, () => androidController.openIntent(req.body || {})));
-app.post('/android/tap', async (req, res) => handle(res, () => androidController.tap(req.body || {})));
-app.post('/android/long-press', async (req, res) => handle(res, () => androidController.longPress(req.body || {})));
-app.post('/android/type', async (req, res) => handle(res, () => androidController.type(req.body || {})));
-app.post('/android/swipe', async (req, res) => handle(res, () => androidController.swipe(req.body || {})));
-app.post('/android/press-key', async (req, res) => handle(res, () => androidController.pressKey(req.body || {})));
-app.post('/android/wait-for', async (req, res) => handle(res, () => androidController.waitFor(req.body || {})));
-app.post('/android/shell', async (req, res) => handle(res, () => androidController.shell(req.body || {})));
+app.post('/browser/launch', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').launch(req.body || {})));
+app.post('/browser/navigate', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').navigate(req.body?.url, req.body || {})));
+app.post('/browser/screenshot', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').screenshot(req.body || {})));
+app.post('/browser/click', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').click(req.body?.selector, req.body?.text, req.body?.screenshot !== false)));
+app.post('/browser/click-point', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').clickPoint(req.body?.x, req.body?.y, req.body?.screenshot !== false)));
+app.post('/browser/fill', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').type(req.body?.selector, String(req.body?.value ?? req.body?.text ?? ''), req.body || {})));
+app.post('/browser/type-text', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').typeText(String(req.body?.text || ''), req.body || {})));
+app.post('/browser/press-key', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').pressKey(req.body?.key, req.body?.screenshot !== false)));
+app.post('/browser/scroll', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').scroll(req.body?.deltaX ?? 0, req.body?.deltaY ?? 0, req.body?.screenshot !== false)));
+app.post('/browser/extract', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').extractContent(req.body || {})));
+app.post('/browser/execute', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').executeJS(req.body?.code)));
+app.post('/browser/close', async (_req, res) => handle(res, () => requireCapability(browserController, 'browser').closeBrowser().then(() => ({ success: true }))));
+
+app.get('/android/status', async (_req, res) => handle(res, () => requireCapability(androidController, 'android').getStatus()));
+app.post('/android/start', async (req, res) => handle(res, () => requireCapability(androidController, 'android').requestStartEmulator(req.body || {})));
+app.post('/android/stop', async (_req, res) => handle(res, () => requireCapability(androidController, 'android').stopEmulator()));
+app.get('/android/devices', async (_req, res) => handle(res, async () => ({ devices: await requireCapability(androidController, 'android').listDevices() })));
+app.post('/android/screenshot', async (req, res) => handle(res, () => requireCapability(androidController, 'android').screenshot(req.body || {})));
+app.post('/android/observe', async (req, res) => handle(res, () => requireCapability(androidController, 'android').observe(req.body || {})));
+app.post('/android/ui-dump', async (req, res) => handle(res, () => requireCapability(androidController, 'android').dumpUi(req.body || {})));
+app.get('/android/apps', async (req, res) => handle(res, () => requireCapability(androidController, 'android').listApps({ includeSystem: req.query.includeSystem === 'true' })));
+app.post('/android/open-app', async (req, res) => handle(res, () => requireCapability(androidController, 'android').openApp(req.body || {})));
+app.post('/android/open-intent', async (req, res) => handle(res, () => requireCapability(androidController, 'android').openIntent(req.body || {})));
+app.post('/android/tap', async (req, res) => handle(res, () => requireCapability(androidController, 'android').tap(req.body || {})));
+app.post('/android/long-press', async (req, res) => handle(res, () => requireCapability(androidController, 'android').longPress(req.body || {})));
+app.post('/android/type', async (req, res) => handle(res, () => requireCapability(androidController, 'android').type(req.body || {})));
+app.post('/android/swipe', async (req, res) => handle(res, () => requireCapability(androidController, 'android').swipe(req.body || {})));
+app.post('/android/press-key', async (req, res) => handle(res, () => requireCapability(androidController, 'android').pressKey(req.body || {})));
+app.post('/android/wait-for', async (req, res) => handle(res, () => requireCapability(androidController, 'android').waitFor(req.body || {})));
+app.post('/android/shell', async (req, res) => handle(res, () => requireCapability(androidController, 'android').shell(req.body || {})));
 app.post('/android/install-apk', async (req, res) => {
   await handle(res, async () => {
+    requireCapability(androidController, 'android');
     const filename = String(req.body?.filename || 'upload.apk').trim() || 'upload.apk';
     const contentBase64 = String(req.body?.contentBase64 || '').trim();
     if (!contentBase64) {
@@ -255,6 +271,7 @@ app.post('/android/install-apk-stream', async (req, res) => {
       return;
     }
     try {
+      requireCapability(androidController, 'android');
       const result = await androidController.installApk({ apkPath: tempPath });
       finished = true;
       await cleanup();
@@ -267,18 +284,18 @@ app.post('/android/install-apk-stream', async (req, res) => {
   req.pipe(output);
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`NeoAgent guest agent listening on http://127.0.0.1:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`NeoAgent guest agent listening on http://0.0.0.0:${PORT}`);
 });
 
 async function shutdown() {
   try {
-    await browserController.closeBrowser();
+    await browserController?.closeBrowser?.();
   } catch (err) {
     console.warn('[GuestAgent] Failed to close browser:', err?.message);
   }
   try {
-    await androidController.close();
+    await androidController?.close?.();
   } catch (err) {
     console.warn('[GuestAgent] Failed to close android controller:', err?.message);
   }

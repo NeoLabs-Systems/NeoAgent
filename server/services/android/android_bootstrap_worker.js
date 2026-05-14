@@ -10,10 +10,10 @@ function parseBoolean(value) {
 async function main() {
   const controller = new AndroidController({
     userId: process.env.NEOAGENT_ANDROID_BOOTSTRAP_USER_ID || null,
-    runtimeBackend: 'vm',
+    runtimeBackend: 'host',
   });
   const headless = parseBoolean(process.env.NEOAGENT_ANDROID_BOOTSTRAP_HEADLESS);
-  const timeoutMs = Math.max(120000, Number(process.env.NEOAGENT_ANDROID_BOOTSTRAP_TIMEOUT_MS) || 240000);
+  const timeoutMs = Math.max(120000, Number(process.env.NEOAGENT_ANDROID_BOOTSTRAP_TIMEOUT_MS) || 600000);
 
   try {
     await controller.bootstrapEmulator({ headless, timeoutMs });

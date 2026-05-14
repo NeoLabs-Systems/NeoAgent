@@ -5,20 +5,19 @@ const { getDeploymentPolicy } = require('../../utils/deployment');
 function getRuntimeValidation(runtimeManager) {
   const policy = getDeploymentPolicy();
   const nodeEnvIsProd = String(process.env.NODE_ENV || '').trim().toLowerCase() === 'prod';
-  const vmReadiness = runtimeManager?.vmBackend?.vmManager?.getReadiness?.() || null;
+  const browserVmReadiness = runtimeManager?.browserBackend?.vmManager?.getReadiness?.() || null;
+  const vmReadiness = browserVmReadiness || null;
   const issues = [];
 
   if (policy.profile === 'prod' || nodeEnvIsProd) {
-    if (!vmReadiness?.ready) {
-      if (!vmReadiness) {
-        issues.push('prod profile requires a working local VM runtime.');
-      } else {
-        if (!vmReadiness.qemuAvailable) {
-          issues.push(`prod profile requires QEMU (${vmReadiness.qemuBinary}) to be installed.`);
-        }
-        if (!vmReadiness.baseImageExists && !vmReadiness.downloadConfigured) {
-          issues.push('prod profile requires a VM base image or a downloadable base image URL.');
-        }
+    if (!browserVmReadiness) {
+      issues.push('prod profile requires a working local VM runtime for browser/CLI.');
+    } else if (!browserVmReadiness.ready) {
+      if (!browserVmReadiness.qemuAvailable) {
+        issues.push(`prod profile requires QEMU (${browserVmReadiness.qemuBinary}) to be installed for browser/CLI.`);
+      }
+      if (!browserVmReadiness.baseImageExists && !browserVmReadiness.downloadConfigured) {
+        issues.push('prod profile requires a VM base image or a downloadable base image URL for browser/CLI.');
       }
     }
   }

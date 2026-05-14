@@ -26,6 +26,7 @@ const VIEWPORTS = [
 
 function resolveBrowserExecutablePath() {
   const explicitPath =
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
     process.env.PUPPETEER_EXECUTABLE_PATH ||
     process.env.CHROME_BIN ||
     process.env.CHROMIUM_BIN;
@@ -34,7 +35,6 @@ function resolveBrowserExecutablePath() {
 
   const bundledCandidates = [
     () => require('playwright-chromium').chromium.executablePath(),
-    () => require('playwright').chromium.executablePath(),
   ];
   for (const resolveBundled of bundledCandidates) {
     try {
@@ -76,22 +76,11 @@ function resolveBrowserExecutablePath() {
   return platformCandidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
-function resolveFirefoxExecutablePath() {
-  try {
-    const bundledPath = require('playwright').firefox.executablePath();
-    return bundledPath && fs.existsSync(bundledPath) ? bundledPath : null;
-  } catch {
-    return null;
-  }
-}
-
 function installPlaywrightBrowserBinary(browserName) {
-  const packageRoot = path.dirname(require.resolve('playwright/package.json'));
+  const packageRoot = path.dirname(require.resolve('playwright-chromium/package.json'));
   const cliPath = path.join(packageRoot, 'cli.js');
   return new Promise((resolve, reject) => {
-    const args = browserName === 'chromium'
-      ? [cliPath, 'install', '--no-shell', 'chromium']
-      : [cliPath, 'install', browserName];
+    const args = [cliPath, 'install', '--no-shell', browserName];
     const child = spawn(process.execPath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -161,13 +150,29 @@ function normalizeWaitUntil(waitUntil) {
   return 'domcontentloaded';
 }
 
+function clearChromiumSingletonLocks(profileDir) {
+  const lockEntries = [
+    'SingletonLock',
+    'SingletonSocket',
+    'SingletonCookie',
+    'SingletonStartupLock',
+    'DevToolsActivePort',
+  ];
+  for (const entry of lockEntries) {
+    const targetPath = path.join(profileDir, entry);
+    try {
+      fs.rmSync(targetPath, { force: true, recursive: true });
+    } catch {}
+  }
+}
+
 class BrowserController {
   constructor(options = {}) {
     this.io = options.io || null;
     this.userId = options.userId != null ? String(options.userId) : null;
     this.artifactStore = options.artifactStore || null;
     this.runtimeBackend = options.runtimeBackend || 'host';
-    this.engine = this.runtimeBackend === 'vm' && process.platform === 'linux' ? 'firefox' : 'chromium';
+    this.engine = 'chromium';
     this.browser = null;
     this.context = null;
     this.page = null;
@@ -327,9 +332,7 @@ class BrowserController {
       this._userAgent = USER_AGENTS[rand(0, USER_AGENTS.length - 1)];
       this._viewport = VIEWPORTS[rand(0, VIEWPORTS.length - 1)];
 
-      let executablePath = this.engine === 'firefox'
-        ? resolveFirefoxExecutablePath()
-        : resolveBrowserExecutablePath();
+      let executablePath = resolveBrowserExecutablePath();
       if (!executablePath) {
         if (!this.browserBinaryInstallPromise) {
           this.browserBinaryInstallPromise = installPlaywrightBrowserBinary(this.engine);
@@ -339,9 +342,7 @@ class BrowserController {
         } finally {
           this.browserBinaryInstallPromise = null;
         }
-        executablePath = this.engine === 'firefox'
-          ? resolveFirefoxExecutablePath()
-          : resolveBrowserExecutablePath();
+        executablePath = resolveBrowserExecutablePath();
       }
 
       if (!executablePath) {
@@ -353,53 +354,35 @@ class BrowserController {
         ...(this.displayValue ? { DISPLAY: this.displayValue } : {}),
       };
 
-      if (this.engine === 'firefox') {
-        const { firefox } = require('playwright');
-        this.context = await firefox.launchPersistentContext(this.profileDir, {
-          headless: false,
-          executablePath,
-          env: launchEnv,
-          viewport: this._viewport,
-          userAgent: this._userAgent,
-          locale: 'en-US',
-          extraHTTPHeaders: {
-            'Accept-Language': 'en-US,en;q=0.9',
-          },
-          firefoxUserPrefs: {
-            'browser.shell.checkDefaultBrowser': false,
-            'browser.startup.homepage': 'about:blank',
-          },
-        });
-        this.browser = typeof this.context.browser === 'function' ? this.context.browser() : null;
-        this.page = this.context.pages()[0] || await this.context.newPage();
-      } else {
-        const puppeteer = require('puppeteer-core');
-        this.browser = await puppeteer.launch({
-          headless: false,
-          executablePath,
-          userDataDir: this.profileDir,
-          env: launchEnv,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-crash-reporter',
-            '--disable-background-networking',
-            '--disable-component-update',
-            '--disable-blink-features=AutomationControlled',
-            '--disable-infobars',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--disable-gpu',
-            '--lang=en-US,en',
-            `--window-size=${this._viewport.width},${this._viewport.height}`,
-          ],
-          defaultViewport: this._viewport,
-          ignoreDefaultArgs: ['--enable-automation'],
-          timeout: 120000,
-        });
-        this.page = await this.browser.newPage();
-      }
+      const launchArgs = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-crash-reporter',
+        '--disable-background-networking',
+        '--disable-component-update',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-infobars',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-gpu',
+        '--lang=en-US,en',
+        `--window-size=${this._viewport.width},${this._viewport.height}`,
+      ];
+
+      const playwright = require('playwright-chromium');
+      clearChromiumSingletonLocks(this.profileDir);
+      this.context = await playwright.chromium.launchPersistentContext(this.profileDir, {
+        headless: false,
+        executablePath,
+        env: launchEnv,
+        args: launchArgs,
+        viewport: this._viewport,
+        ignoreHTTPSErrors: false,
+        timeout: 120000,
+      });
+      this.browser = typeof this.context.browser === 'function' ? this.context.browser() : null;
+      this.page = this.context.pages()[0] || await this.context.newPage();
       await this._applyStealthToPage(this.page);
     })();
 

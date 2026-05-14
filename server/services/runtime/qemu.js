@@ -9,12 +9,9 @@ const { spawn, spawnSync } = require('child_process');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { ensureGuestBootstrapSeed } = require('./guest_bootstrap');
 
+const REPO_ROOT = path.resolve(__dirname, '../../..');
 const VM_ROOT = path.join(DATA_DIR, 'runtime-vms');
-const BASE_IMAGE_CACHE_ROOT = path.join(VM_ROOT, 'base-images');
-const TEMPLATE_ROOT = path.join(VM_ROOT, 'templates');
 fs.mkdirSync(VM_ROOT, { recursive: true });
-fs.mkdirSync(BASE_IMAGE_CACHE_ROOT, { recursive: true });
-fs.mkdirSync(TEMPLATE_ROOT, { recursive: true });
 
 const DEFAULT_UBUNTU_BASE_IMAGE_URLS = Object.freeze({
   x64: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img',
@@ -65,6 +62,47 @@ function isHttpUrl(value) {
 
 function generateGuestToken() {
   return crypto.randomBytes(32).toString('hex');
+}
+
+function computeRuntimeTemplateSignature(guestArch, runtimeProfile = 'browser_cli') {
+  const hash = crypto.createHash('sha256');
+  const normalizedProfile = runtimeProfile === 'android' ? 'android' : 'browser_cli';
+  const trackedFiles = normalizedProfile === 'android'
+    ? [
+      'server/guest-agent.android.package.json',
+      'server/guest_agent.js',
+      'server/services/android/controller.js',
+      'server/services/cli/executor.js',
+      'server/services/runtime/guest_bootstrap.js',
+      'runtime/env.js',
+      'runtime/paths.js',
+    ]
+    : [
+      'server/guest-agent.browser.package.json',
+      'server/guest_agent.js',
+      'server/services/browser/controller.js',
+      'server/services/cli/executor.js',
+      'server/services/runtime/guest_bootstrap.js',
+      'runtime/env.js',
+      'runtime/paths.js',
+    ];
+
+  hash.update(String(guestArch || 'x64'));
+  hash.update('\0');
+  hash.update(normalizedProfile);
+  for (const relativePath of trackedFiles) {
+    const filePath = path.join(REPO_ROOT, relativePath);
+    hash.update('\0');
+    hash.update(relativePath);
+    hash.update('\0');
+    try {
+      hash.update(fs.readFileSync(filePath));
+    } catch (error) {
+      hash.update(`missing:${error?.code || 'unknown'}`);
+    }
+  }
+
+  return hash.digest('hex');
 }
 
 function resolveGuestToken(userRoot) {
@@ -551,9 +589,22 @@ function formatReadinessIssues(readiness) {
   return issues.length > 0 ? issues : ['VM runtime is unavailable on this host.'];
 }
 
+function readTemplateReadyMetadata(readySentinelPath) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(readySentinelPath, 'utf8'));
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch {}
+  return null;
+}
+
 class QemuVmManager {
   constructor(options = {}) {
-    this.rootDir = path.resolve(options.rootDir || VM_ROOT);
+    this.runtimeProfile = options.runtimeProfile === 'android' ? 'android' : 'browser_cli';
+    this.rootDir = path.resolve(options.rootDir || path.join(VM_ROOT, this.runtimeProfile));
+    this.baseImageCacheRoot = path.resolve(options.baseImageCacheRoot || path.join(this.rootDir, 'base-images'));
+    this.templateRootDir = path.resolve(options.templateRootDir || path.join(this.rootDir, 'templates'));
     this.baseImagePath = options.baseImagePath || process.env.NEOAGENT_VM_BASE_IMAGE || '';
     this.guestArch = options.guestArch || guestArchForHost();
     this.baseImageUrl = normalizeBaseImageUrlForArch(
@@ -565,12 +616,17 @@ class QemuVmManager {
     this.instances = new Map();
     this.baseImagePromise = null;
     this.runtimeTemplatePromise = null;
+    this.warmupEnabled = options.warmup === true;
     fs.mkdirSync(this.rootDir, { recursive: true });
-    setTimeout(() => {
-      this.ensureRuntimeTemplateAvailable().catch((error) => {
-        console.warn(`[VM] Background runtime template warmup failed: ${error.message}`);
-      });
-    }, 0);
+    fs.mkdirSync(this.baseImageCacheRoot, { recursive: true });
+    fs.mkdirSync(this.templateRootDir, { recursive: true });
+    if (this.warmupEnabled) {
+      setTimeout(() => {
+        this.ensureRuntimeTemplateAvailable().catch((error) => {
+          console.warn(`[VM:${this.runtimeProfile}] Background runtime template warmup failed: ${error.message}`);
+        });
+      }, 0);
+    }
   }
 
   getBaseImageCachePath() {
@@ -579,7 +635,7 @@ class QemuVmManager {
     }
     const parsed = new URL(this.baseImageUrl);
     const filename = path.basename(parsed.pathname || '') || `${this.guestArch}-base.img`;
-    return path.join(BASE_IMAGE_CACHE_ROOT, filename);
+    return path.join(this.baseImageCacheRoot, filename);
   }
 
   resolveBaseImagePath() {
@@ -619,7 +675,7 @@ class QemuVmManager {
   }
 
   getRuntimeTemplateRoot() {
-    return path.join(TEMPLATE_ROOT, this.guestArch);
+    return path.join(this.templateRootDir, this.guestArch);
   }
 
   getRuntimeTemplateDiskPath() {
@@ -631,13 +687,24 @@ class QemuVmManager {
   }
 
   getRuntimeTemplateReadyMarker() {
-    return '/var/lib/neoagent/browser-runtime-ready';
+    return this.runtimeProfile === 'android'
+      ? '/var/lib/neoagent/bootstrap-complete'
+      : '/var/lib/neoagent/browser-runtime-ready';
+  }
+
+  getRuntimeTemplateSignature() {
+    return computeRuntimeTemplateSignature(this.guestArch, this.runtimeProfile);
   }
 
   async ensureRuntimeTemplateAvailable() {
     const readyDiskPath = this.getRuntimeTemplateDiskPath();
     const readySentinelPath = path.join(this.getRuntimeTemplateRoot(), '.runtime-template-ready');
-    if (fs.existsSync(readyDiskPath) && fs.existsSync(readySentinelPath)) {
+    const readyMetadata = readTemplateReadyMetadata(readySentinelPath);
+    if (
+      fs.existsSync(readyDiskPath)
+      && readyMetadata
+      && readyMetadata.signature === this.getRuntimeTemplateSignature()
+    ) {
       return readyDiskPath;
     }
     if (!this.runtimeTemplatePromise) {
@@ -653,9 +720,15 @@ class QemuVmManager {
     const readySentinelPath = path.join(this.getRuntimeTemplateRoot(), '.runtime-template-ready');
     const lockDir = this.getRuntimeTemplateLockDir();
     const acquireStartedAt = Date.now();
+    const expectedSignature = this.getRuntimeTemplateSignature();
 
     while (true) {
-      if (fs.existsSync(readyDiskPath) && fs.existsSync(readySentinelPath)) {
+      const readyMetadata = readTemplateReadyMetadata(readySentinelPath);
+      if (
+        fs.existsSync(readyDiskPath)
+        && readyMetadata
+        && readyMetadata.signature === expectedSignature
+      ) {
         return readyDiskPath;
       }
 
@@ -698,8 +771,8 @@ class QemuVmManager {
     const templateDiskPath = this.getRuntimeTemplateDiskPath();
     const readyMarkerPath = this.getRuntimeTemplateReadyMarker();
     const readySentinelPath = path.join(templateRoot, '.runtime-template-ready');
+    const templateSignature = this.getRuntimeTemplateSignature();
 
-    fs.rmSync(templateRoot, { recursive: true, force: true });
     fs.mkdirSync(templateRoot, { recursive: true });
 
     const baseImagePath = await this.ensureBaseImageAvailable();
@@ -709,6 +782,8 @@ class QemuVmManager {
       userRoot: templateRoot,
       guestToken,
       guestArch: this.guestArch,
+      runtimeMode: 'template',
+      runtimeProfile: this.runtimeProfile,
     });
     const consoleLogPath = path.join(templateRoot, 'console.log');
     const firmware = this.guestArch === 'arm64'
@@ -736,7 +811,7 @@ class QemuVmManager {
       firmwareVarsPath,
     });
 
-    console.log(`[VM] Building runtime template for ${this.guestArch}: ${qemuBinaryPath} ${args.join(' ')}`);
+    console.log(`[VM:${this.runtimeProfile}] Building runtime template for ${this.guestArch}: ${qemuBinaryPath} ${args.join(' ')}`);
     const child = spawn(qemuBinaryPath, args, {
       cwd: templateRoot,
       detached: process.platform !== 'win32',
@@ -749,7 +824,7 @@ class QemuVmManager {
     });
 
     const baseUrl = `http://127.0.0.1:${agentPort}`;
-    const checkLiveness = () => !child.killed && child.exitCode === null;
+    const checkLiveness = () => isPidAlive(child.pid);
     try {
       await waitForGuestAgentHealth(baseUrl, guestToken, {
         timeoutMs: 30 * 60 * 1000,
@@ -761,7 +836,31 @@ class QemuVmManager {
         intervalMs: 2000,
         checkLiveness,
       });
-      fs.writeFileSync(readySentinelPath, `${new Date().toISOString()}\n`, 'utf8');
+      try {
+        await requestGuestAgent(baseUrl, guestToken, '/exec', {
+          command: [
+            'cloud-init clean --logs --seed --machine-id || true',
+            'rm -rf /var/lib/cloud/instances/* /var/lib/cloud/seed/* || true',
+            'rm -f /var/lib/neoagent/bootstrap-complete /var/lib/neoagent/browser-runtime-ready || true',
+            'rm -f /var/lib/systemd/random-seed || true',
+            'truncate -s 0 /etc/machine-id || true',
+            'sync',
+          ].join('; '),
+          timeout: 120000,
+        }, { timeoutMs: 120000 });
+      } catch (cleanupError) {
+        console.warn(`[VM:${this.runtimeProfile}] Template cleanup after bootstrap failed: ${cleanupError.message}`);
+      }
+      fs.writeFileSync(
+        readySentinelPath,
+        JSON.stringify({
+          signature: templateSignature,
+          runtimeProfile: this.runtimeProfile,
+          guestArch: this.guestArch,
+          builtAt: new Date().toISOString(),
+        }, null, 2),
+        'utf8',
+      );
     } finally {
       try {
         if (process.platform === 'win32') {
@@ -841,6 +940,8 @@ class QemuVmManager {
       userRoot,
       guestToken,
       guestArch: this.guestArch,
+      runtimeMode: 'user',
+      runtimeProfile: this.runtimeProfile,
     });
     const consoleLogPath = path.join(userRoot, 'console.log');
     const firmware = this.guestArch === 'arm64'
@@ -881,7 +982,7 @@ class QemuVmManager {
       firmwareVarsPath,
     });
 
-    console.log(`[VM] Starting QEMU for user ${key} (${this.guestArch}): ${qemuBinaryPath} ${args.join(' ')}`);
+    console.log(`[VM:${this.runtimeProfile}] Starting QEMU for user ${key} (${this.guestArch}): ${qemuBinaryPath} ${args.join(' ')}`);
     const child = spawn(qemuBinaryPath, args, {
       cwd: userRoot,
       detached: process.platform !== 'win32',
@@ -926,6 +1027,7 @@ class QemuVmManager {
 
     const session = {
       userId: key,
+      runtimeProfile: this.runtimeProfile,
       process: child,
       qemuBinary,
       qemuArgs: args,
@@ -953,12 +1055,36 @@ class QemuVmManager {
     if (!session) return;
 
     try {
+      try {
+        await requestGuestAgent(session.baseUrl, session.guestToken, '/browser/close', {}, { timeoutMs: 10000 });
+      } catch {}
+      try {
+        await requestGuestAgent(session.baseUrl, session.guestToken, '/android/stop', {}, { timeoutMs: 10000 });
+      } catch {}
+      try {
+        await requestGuestAgent(session.baseUrl, session.guestToken, '/exec', {
+          command: 'sync || true',
+          timeout: 15000,
+        }, { timeoutMs: 20000 });
+      } catch {}
+
       if (process.platform === 'win32') {
-        spawnSync('taskkill', ['/F', '/T', '/PID', session.process.pid]);
+        spawnSync('taskkill', ['/T', '/PID', session.process.pid]);
       } else {
-        process.kill(-session.process.pid, 'SIGKILL');
+        process.kill(-session.process.pid, 'SIGTERM');
       }
-    } catch (err) {
+      const shutdownStartedAt = Date.now();
+      while (isPidAlive(session.process.pid) && Date.now() - shutdownStartedAt < 10000) {
+        await sleep(250);
+      }
+      if (isPidAlive(session.process.pid)) {
+        if (process.platform === 'win32') {
+          spawnSync('taskkill', ['/F', '/T', '/PID', session.process.pid]);
+        } else {
+          process.kill(-session.process.pid, 'SIGKILL');
+        }
+      }
+    } catch {
       try {
         session.process.kill('SIGKILL');
       } catch {}
@@ -978,7 +1104,6 @@ class QemuVmManager {
 }
 
 module.exports = {
-  BASE_IMAGE_CACHE_ROOT,
   DEFAULT_UBUNTU_BASE_IMAGE_URLS,
   QemuVmManager,
   VM_ROOT,

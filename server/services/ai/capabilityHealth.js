@@ -1,6 +1,5 @@
 const db = require('../../db/database');
 const { getProviderHealthCatalog } = require('./models');
-const { resolveBrowserExecutablePath } = require('../browser/controller');
 const { deriveCloudBrowserBackend } = require('../runtime/settings');
 
 function capabilityEntry(overrides = {}) {
@@ -38,7 +37,6 @@ function summarizeCapabilityHealth(health) {
 
 async function getBrowserHealth(userId, app, engine) {
   const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
-  const executablePath = resolveBrowserExecutablePath();
   const runtimeSettings = typeof runtimeManager?.getSettings === 'function'
     ? runtimeManager.getSettings(userId)
     : null;
@@ -83,12 +81,11 @@ async function getBrowserHealth(userId, app, engine) {
 
   if (!controller && resolutionError) {
     return capabilityEntry({
-      configured: Boolean(executablePath),
+      configured: true,
       healthy: false,
       degraded: true,
       summary: `Browser controller resolution failed: ${resolutionError.message}`,
       details: {
-        executablePath: executablePath || null,
         error: resolutionError.message,
       },
     });
@@ -108,20 +105,15 @@ async function getBrowserHealth(userId, app, engine) {
 
   return capabilityEntry({
     connected: launched,
-    configured: Boolean(executablePath),
-    healthy: Boolean(executablePath) && !error,
+    configured: true,
+    healthy: !error,
     degraded: Boolean(error) || runtimeSettings?.browser_backend === 'extension',
     summary: error
       ? `Browser runtime error: ${error}`
       : runtimeSettings?.browser_backend === 'extension'
-        ? executablePath
-          ? `No extension device is active. Falling back to the ${deriveCloudBrowserBackend(runtimeSettings)} browser runtime.`
-          : 'No extension device is active and no browser executable was found for Puppeteer.'
-        : executablePath
-          ? (launched ? 'Browser runtime is ready.' : 'Browser executable is available but not launched.')
-          : 'No browser executable was found for Puppeteer.',
+        ? `No extension device is active. Falling back to the ${deriveCloudBrowserBackend(runtimeSettings)} browser runtime.`
+        : (launched ? 'Browser runtime is ready.' : 'Browser runtime is available but not launched.'),
     details: {
-      executablePath: executablePath || null,
       preferredBackend: runtimeSettings?.browser_backend || null,
       backend: runtimeSettings?.browser_backend === 'extension'
         ? deriveCloudBrowserBackend(runtimeSettings)
@@ -175,7 +167,7 @@ async function getAndroidHealth(userId, app, engine) {
       summary: status.lastStartError
         ? `Android tooling reported: ${status.lastStartError}`
         : bootstrapped
-          ? 'Android environment is bootstrapped.'
+          ? 'Android environment is ready on this host.'
           : (canBootstrap ? 'Android environment can be bootstrapped on this host.' : 'Android tooling cannot bootstrap on this host.'),
       details: status,
     });

@@ -48,7 +48,7 @@ async function getAndroidController(req) {
   if (runtimeManager && typeof runtimeManager.getAndroidProviderForUser === 'function') {
     return runtimeManager.getAndroidProviderForUser(req.session?.userId);
   }
-  throw new Error('Android controller is unavailable. VM runtime is required.');
+  throw new Error('Android controller is unavailable.');
 }
 
 function getAndroidStatusSnapshot(req) {
@@ -77,17 +77,8 @@ function handleAndroidAction(action) {
 
 router.get('/status', async (req, res) => {
   try {
-    const runtimeManager = req.app?.locals?.runtimeManager;
-    if (!runtimeManager?.hasVmForUser?.(req.session?.userId)) {
-      res.json(getAndroidStatusSnapshot(req));
-      return;
-    }
-    if (!await runtimeManager?.isGuestAgentReadyForUser?.(req.session?.userId, 1000)) {
-      res.json(getAndroidStatusSnapshot(req));
-      return;
-    }
     const controller = await getAndroidController(req);
-    res.json(await controller.getStatus());
+    res.json(await controller.getStatus().catch(() => getAndroidStatusSnapshot(req)));
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }

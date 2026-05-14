@@ -19,8 +19,8 @@ function getEffectiveDefaults() {
 }
 
 const BASE_FALLBACK_SETTINGS = Object.freeze({
-  runtime_profile: 'trusted-host',
-  runtime_backend: 'host',
+  runtime_profile: 'secure-vm',
+  runtime_backend: 'vm',
   browser_backend: 'vm',
   android_backend: 'host',
   mcp_backend: 'host-remote',
@@ -36,15 +36,10 @@ function normalizeChoice(value, allowed, fallback) {
 function deriveDefaultsForProfile(profile) {
   switch (profile) {
     case 'secure-vm':
-      return {
-        runtime_backend: 'vm',
-        browser_backend: 'vm',
-        android_backend: 'vm',
-      };
     case 'trusted-host':
     default:
       return {
-        runtime_backend: 'host',
+        runtime_backend: 'vm',
         browser_backend: 'vm',
         android_backend: 'host',
       };
@@ -56,14 +51,14 @@ function normalizeRuntimeSettings(raw = {}) {
   const defaults = getEffectiveDefaults();
   const profile = normalizeChoice(raw.runtime_profile, ['secure-vm', 'trusted-host'], defaults.runtime_profile);
   const derived = deriveDefaultsForProfile(profile);
-  const runtimeBackend = normalizeChoice(raw.runtime_backend, ['host', 'vm'], derived.runtime_backend);
+  const runtimeBackend = normalizeChoice(raw.runtime_backend, ['vm'], derived.runtime_backend);
   const browserBackend = normalizeChoice(raw.browser_backend, ['vm', 'extension'], derived.browser_backend);
   const androidBackend = normalizeChoice(raw.android_backend, ['host', 'vm'], derived.android_backend);
   return {
-    runtime_profile: profile,
-    runtime_backend: policy.allowHostRuntime ? runtimeBackend : (runtimeBackend === 'host' ? 'vm' : runtimeBackend),
+    runtime_profile: profile === 'trusted-host' ? 'secure-vm' : profile,
+    runtime_backend: runtimeBackend,
     browser_backend: browserBackend === 'extension' ? 'extension' : 'vm',
-    android_backend: policy.allowHostRuntime ? androidBackend : (androidBackend === 'host' ? 'vm' : androidBackend),
+    android_backend: androidBackend === 'vm' ? 'host' : androidBackend,
     mcp_backend: 'host-remote',
   };
 }
@@ -107,8 +102,8 @@ function validateRuntimeSettings(raw = {}) {
     if (settings.browser_backend !== 'vm' && settings.browser_backend !== 'extension') {
       issues.push('This deployment requires the VM browser backend or a paired browser extension backend.');
     }
-    if (settings.android_backend !== 'vm') {
-      issues.push('This deployment requires the VM Android backend.');
+    if (settings.android_backend !== 'host') {
+      issues.push('This deployment requires the host Android backend.');
     }
   }
 
