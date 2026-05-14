@@ -27,9 +27,11 @@ const ANDROID_BOOTSTRAP_WORKER = path.join(__dirname, 'android_bootstrap_worker.
 const ANDROID_JAVA_TOOL_TIMEOUT_MS = 20 * 60 * 1000;
 const DEFAULT_AVD_NAME = 'neoagent-default';
 const DEFAULT_DATA_PARTITION_BYTES = 1024 * 1024 * 1024;
-const DEFAULT_PARTITION_SIZE_MB = 1024;
 const DEFAULT_SDCARD_SIZE_BYTES = 32 * 1024 * 1024;
-const DEFAULT_RAM_SIZE_MB = 768;
+const DEFAULT_RAM_SIZE_MB = 1536;
+const MIN_SYSTEM_IMAGE_INSTALL_FREE_BYTES = 5 * 1024 * 1024 * 1024;
+const EMULATOR_CONSOLE_PORT_MIN = 5554;
+const EMULATOR_CONSOLE_PORT_MAX = 5584;
 const DEFAULT_KEYEVENTS = Object.freeze({
   home: 3,
   back: 4,
@@ -59,6 +61,9 @@ function ensureEmulatorAdvancedFeaturesFile() {
       [
         'QuickbootFileBacked=off',
         'QuickbootSupport=off',
+        // Disable FBE so Android doesn't boot into Before-First-Unlock state,
+        // which blocks ADB from transitioning offline → device.
+        'EncryptUserData=off',
         '',
       ].join('\n'),
       'utf8',
@@ -207,6 +212,40 @@ function tailFile(filePath, maxLines = 40) {
   }
 }
 
+function buildAndroidBootstrapError(message, details = {}) {
+  const error = new Error(message);
+  error.code = details.code || 'ANDROID_BOOTSTRAP_FAILED';
+  error.details = details;
+  return error;
+}
+
+function selectAndroidFailureMessage(logPath, error) {
+  const structuredTail = Array.isArray(error?.details?.logTail) ? error.details.logTail : null;
+  if (structuredTail && structuredTail.length > 0) {
+    return structuredTail.slice(-100).join(' | ');
+  }
+
+  const errorMessage = error?.message || (error ? String(error) : '');
+  const sanitizedErrorMessage = errorMessage
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && line !== 'null' && !/^Picked up JAVA_TOOL_OPTIONS:/i.test(line))
+    .join('\n');
+  if (sanitizedErrorMessage && !/^INFO\s+\|/i.test(sanitizedErrorMessage) && !/^WARNING\s+\|/i.test(sanitizedErrorMessage)) {
+    return sanitizedErrorMessage;
+  }
+
+  const seriousLine = tailFile(logPath, 100)
+    .reverse()
+    .find((line) => /FATAL|PANIC|ERROR|disk full|broken avd|failed|exited/i.test(line));
+  if (seriousLine) {
+    return seriousLine;
+  }
+
+  return sanitizedErrorMessage || tailFile(logPath, 100).at(-1) || 'Android bootstrap failed.';
+}
+
+
 function isLikelyPng(buffer) {
   return Buffer.isBuffer(buffer)
     && buffer.length > 24
@@ -214,6 +253,58 @@ function isLikelyPng(buffer) {
     && buffer[1] === 0x50
     && buffer[2] === 0x4e
     && buffer[3] === 0x47;
+}
+
+function freeBytesForPath(targetPath) {
+  try {
+    const stats = fs.statfsSync(targetPath);
+    return Number(stats.bavail || 0) * Number(stats.bsize || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function pruneAndroidRuntimeCache(keepPackageName = null) {
+  fs.rmSync(TMP_DIR, { recursive: true, force: true });
+  fs.mkdirSync(TMP_DIR, { recursive: true });
+
+  for (const orphan of ['arm64-v8a', 'x86_64', 'x86']) {
+    fs.rmSync(path.join(activeAndroidSdkRoot(), orphan), { recursive: true, force: true });
+  }
+
+  const keep = String(keepPackageName || '').trim();
+  const root = path.join(activeAndroidSdkRoot(), 'system-images');
+  if (!fs.existsSync(root)) return;
+
+  for (const candidate of parseInstalledSystemImages()) {
+    if (keep && candidate.packageName === keep) continue;
+    const candidateRoot = path.join(activeAndroidSdkRoot(), ...String(candidate.packageName).split(';').filter(Boolean));
+    const notSelectedImage = Boolean(keep && candidate.packageName !== keep);
+    const wrongArch = candidate.arch !== systemImageArch();
+    const oldProblemImage = /system-images;android-30;default;arm64-v8a/i.test(candidate.packageName);
+    if (notSelectedImage || wrongArch || oldProblemImage || !isValidInstalledSystemImage(candidate.packageName)) {
+      console.warn('[Android][runtime_cache_prune]', {
+        packageName: candidate.packageName,
+        reason: notSelectedImage ? 'not_selected_image' : wrongArch ? 'wrong_arch' : oldProblemImage ? 'known_unstable_image' : 'invalid_image',
+      });
+      fs.rmSync(candidateRoot, { recursive: true, force: true });
+    }
+  }
+}
+
+function isBlankSparseFile(filePath) {
+  try {
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) return false;
+    if (stats.size === 0) return true;
+    if (stats.blocks !== 0) return false;
+    // Sparse backing file is normal when a qcow2 overlay exists alongside it.
+    const qcow2Path = `${filePath}.qcow2`;
+    const qcow2Stats = fs.statSync(qcow2Path);
+    return !qcow2Stats.isFile() || qcow2Stats.size < 8192;
+  } catch {
+    return false;
+  }
 }
 
 function commandExists(command) {
@@ -284,38 +375,14 @@ function emulatorHostArch() {
 }
 
 function emulatorGpuMode() {
-  if (process.platform === 'darwin' && process.arch === 'arm64') {
-    return 'swiftshader_indirect';
-  }
-  if (process.platform === 'linux' && process.arch === 'arm64') {
-    return 'swiftshader_indirect';
+  if (process.platform === 'darwin') {
+    return 'host';
   }
   return 'auto';
 }
 
-function emulatorLaunchArgs() {
-  return [
-    '-no-snapshot',
-    '-no-snapshot-save',
-    '-no-window',
-    '-no-audio',
-    '-no-metrics',
-    '-skip-adb-auth',
-    '-crash-report-mode',
-    'disabled',
-  ];
-}
-
-function isRecoverableEmulatorStartError(message) {
-  const value = String(message || '').toLowerCase();
-  return (
-    value.includes('failed to restore previous context') ||
-    value.includes('emulator exited before boot completed') ||
-    value.includes('android framework did not become ready') ||
-    value.includes('package manager service did not become ready') ||
-    value.includes('failed to process .ini file') ||
-    value.includes('error while loading state for instance')
-  );
+function logAndroidIssue(event, details = {}) {
+  console.warn(`[Android][${event}]`, details);
 }
 
 function parseCsvEnv(value) {
@@ -415,6 +482,7 @@ function sdkEnv() {
     ANDROID_USER_HOME: EMULATOR_HOME,
     ANDROID_AVD_HOME: AVD_HOME,
     AVD_HOME,
+    ADB_VENDOR_KEYS: EMULATOR_HOME,
     JAVA_TOOL_OPTIONS: process.env.JAVA_TOOL_OPTIONS || '-Xint',
   };
   const pathParts = [
@@ -752,7 +820,11 @@ function parseRepositorySystemImages(xml) {
   return parseSystemImageCandidates(matches);
 }
 
-function parseLatestSystemImageUrl(xml, packageName) {
+function parseLatestSystemImageUrl(source, packageName) {
+  const xml = typeof source === 'string' ? source : source?.xml;
+  const baseUrl = typeof source === 'string'
+    ? 'https://dl.google.com/android/repository/sys-img/android/'
+    : source?.baseUrl || 'https://dl.google.com/android/repository/sys-img/android/';
   const packageMatch = xml.match(new RegExp(`<remotePackage\\s+path="${packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">([\\s\\S]*?)<\\/remotePackage>`));
   if (!packageMatch) throw new Error(`Could not locate ${packageName} in Android repository metadata`);
 
@@ -762,11 +834,50 @@ function parseLatestSystemImageUrl(xml, packageName) {
     if (urlMatch) {
       const urlPart = urlMatch[1];
       if (urlPart.startsWith('http')) return urlPart;
-      return `https://dl.google.com/android/repository/sys-img/android/${urlPart}`;
+      return `${baseUrl}${urlPart}`;
     }
   }
 
   throw new Error(`Could not find a system image archive for ${packageName}`);
+}
+
+async function fetchSystemImageRepositories() {
+  const sources = [
+    {
+      url: 'https://dl.google.com/android/repository/sys-img/android/sys-img2-1.xml',
+      baseUrl: 'https://dl.google.com/android/repository/sys-img/android/',
+    },
+    {
+      url: 'https://dl.google.com/android/repository/sys-img/google_apis/sys-img2-1.xml',
+      baseUrl: 'https://dl.google.com/android/repository/sys-img/google_apis/',
+    },
+    {
+      url: 'https://dl.google.com/android/repository/sys-img/google_apis_playstore/sys-img2-1.xml',
+      baseUrl: 'https://dl.google.com/android/repository/sys-img/google_apis_playstore/',
+    },
+  ];
+  const results = [];
+  for (const source of sources) {
+    try {
+      results.push({
+        ...source,
+        xml: await fetchText(source.url),
+      });
+    } catch (error) {
+      logAndroidIssue('system_image_repository_fetch_failed', {
+        url: source.url,
+        message: String(error?.message || error),
+      });
+    }
+  }
+  if (results.length === 0) {
+    throw new Error('Could not fetch Android system image repository metadata.');
+  }
+  return results;
+}
+
+function parseRepositorySystemImagesFromSources(sources) {
+  return sources.flatMap((source) => parseRepositorySystemImages(source.xml));
 }
 
 async function fetchEmulatorMetadata() {
@@ -831,15 +942,43 @@ function shouldInstallPlatformToolsArchive() {
 }
 
 async function installSystemImageArchive(metadata, packageName) {
-  const url = parseLatestSystemImageUrl(metadata, packageName);
+  const sources = Array.isArray(metadata) ? metadata : [{ xml: metadata }];
+  const source = sources.find((entry) => {
+    try {
+      parseLatestSystemImageUrl(entry, packageName);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!source) {
+    throw new Error(`Could not locate ${packageName} in Android repository metadata`);
+  }
+  const url = parseLatestSystemImageUrl(source, packageName);
   const zipPath = path.join(TMP_DIR, path.basename(url));
   const targetRoot = path.join(activeAndroidSdkRoot(), ...String(packageName).split(';').filter(Boolean));
   const extractDir = fs.mkdtempSync(path.join(TMP_DIR, 'system-image-'));
 
   try {
+    pruneAndroidRuntimeCache(packageName);
+    fs.mkdirSync(extractDir, { recursive: true });
+    let freeBytes = freeBytesForPath(ANDROID_ROOT);
+    if (freeBytes < MIN_SYSTEM_IMAGE_INSTALL_FREE_BYTES) {
+      throw new Error(
+        `Not enough disk space to install Android system image ${packageName}. ` +
+        `Free ${Math.round(freeBytes / 1024 / 1024)} MB, need at least ${Math.round(MIN_SYSTEM_IMAGE_INSTALL_FREE_BYTES / 1024 / 1024)} MB.`
+      );
+    }
     fs.rmSync(targetRoot, { recursive: true, force: true });
     fs.mkdirSync(path.dirname(targetRoot), { recursive: true });
     await downloadFile(url, zipPath);
+    freeBytes = freeBytesForPath(ANDROID_ROOT);
+    if (freeBytes < MIN_SYSTEM_IMAGE_INSTALL_FREE_BYTES / 2) {
+      throw new Error(
+        `Not enough disk space to extract Android system image ${packageName}. ` +
+        `Free ${Math.round(freeBytes / 1024 / 1024)} MB after download.`
+      );
+    }
     extractZip(zipPath, extractDir);
 
     const extractedRoot = findDirectoryContainingFiles(extractDir, ['userdata.img']) ||
@@ -853,6 +992,13 @@ async function installSystemImageArchive(metadata, packageName) {
     try {
       fs.renameSync(extractedRoot, targetRoot);
     } catch (renameErr) {
+      freeBytes = freeBytesForPath(ANDROID_ROOT);
+      if (freeBytes < MIN_SYSTEM_IMAGE_INSTALL_FREE_BYTES / 2) {
+        throw new Error(
+          `Not enough disk space to move Android system image ${packageName}. ` +
+          `Free ${Math.round(freeBytes / 1024 / 1024)} MB.`
+        );
+      }
       fs.cpSync(extractedRoot, targetRoot, { recursive: true, force: true });
       if (renameErr) {
         console.warn(`[Android] Falling back to copy for ${packageName}: ${renameErr.message}`);
@@ -964,11 +1110,59 @@ function chooseStableRuntimeSystemImage(candidates, currentPackage) {
   return recommended;
 }
 
+function runtimeSystemImagePreferenceRank(candidate) {
+  if (!candidate) return Number.MAX_SAFE_INTEGER;
+  if (process.platform === 'darwin' && process.arch === 'arm64') {
+    const preferredApis = [31, 34, 35, 33, 32];
+    const index = preferredApis.indexOf(Number(candidate.apiLevel || 0));
+    return index === -1 ? 1000 + Math.abs(Number(candidate.apiLevel || 0) - 31) : index;
+  }
+  if (process.platform === 'linux' && process.arch === 'arm64') {
+    const preferredApis = [34, 35, 33, 31, 36];
+    const index = preferredApis.indexOf(Number(candidate.apiLevel || 0));
+    return index === -1 ? 1000 + Math.abs(Number(candidate.apiLevel || 0) - 34) : index;
+  }
+  return 0;
+}
+
+function preferredRuntimeSystemImageCandidate(candidates = []) {
+  if (!(process.platform === 'darwin' && process.arch === 'arm64')) {
+    return null;
+  }
+
+  const desired = [
+    ['android-31', 'google_apis', 'arm64-v8a'],
+    ['android-34', 'google_apis', 'arm64-v8a'],
+    ['android-33', 'google_apis', 'arm64-v8a'],
+    ['android-31', 'google_apis_playstore', 'arm64-v8a'],
+    ['android-34', 'google_apis_playstore', 'arm64-v8a'],
+    ['android-33', 'google_apis_playstore', 'arm64-v8a'],
+  ];
+  const parsed = Array.isArray(candidates) ? candidates : [];
+  for (const [platformId, tag, arch] of desired) {
+    const found = parsed.find((candidate) =>
+      candidate.platformId === platformId &&
+      candidate.tag === tag &&
+      candidate.arch === arch
+    );
+    if (found) return found;
+  }
+  const [platformId, tag, arch] = desired[0];
+  return parseSystemImageCandidates([{
+    packageName: `system-images;${platformId};${tag};${arch}`,
+    platformId,
+    tag,
+    arch,
+  }])[0];
+}
+
+
 function rankSystemImagePool(pool) {
   const preferredMatches = pool.filter((candidate) => candidate.tagScore > 0);
   const rankedPool = preferredMatches.length > 0 ? preferredMatches : pool;
 
   rankedPool.sort((a, b) =>
+    runtimeSystemImagePreferenceRank(a) - runtimeSystemImagePreferenceRank(b) ||
     Number(b.stable) - Number(a.stable) ||
     b.tagScore - a.tagScore ||
     b.apiLevel - a.apiLevel ||
@@ -1085,12 +1279,24 @@ function isValidInstalledSystemImage(packageName) {
   const relativeDir = systemImagePackageToRelativeDir(packageName);
   if (!relativeDir) return false;
   const root = path.join(activeAndroidSdkRoot(), relativeDir);
-  const required = [
-    path.join(root, 'package.xml'),
-    path.join(root, 'system.img'),
-    path.join(root, 'userdata.img'),
-  ];
-  return required.every((filePath) => fs.existsSync(filePath));
+  const hasMetadata = fs.existsSync(path.join(root, 'package.xml')) || fs.existsSync(path.join(root, 'source.properties'));
+  return hasMetadata
+    && fs.existsSync(path.join(root, 'system.img'))
+    && fs.existsSync(path.join(root, 'userdata.img'));
+}
+
+function systemImagePackageRoot(packageName) {
+  const relativeDir = systemImagePackageToRelativeDir(packageName);
+  if (!relativeDir) return null;
+  return path.join(activeAndroidSdkRoot(), relativeDir);
+}
+
+function ensureSystemImageUserdataImage(packageName) {
+  const root = systemImagePackageRoot(packageName);
+  if (!root) return;
+  const userdataImage = path.join(root, 'userdata.img');
+  if (fs.existsSync(userdataImage)) return;
+  ensureSparseFile(userdataImage, DEFAULT_DATA_PARTITION_BYTES);
 }
 
 function systemImagePackageToAbi(packageName) {
@@ -1371,7 +1577,30 @@ class AndroidController {
       cwd: options.cwd || ANDROID_ROOT,
     });
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || result.stdout || `Command failed: ${command}`);
+      const stderr = String(result.stderr || '').trim();
+      const stdout = String(result.stdout || '').trim();
+      const fragments = [];
+      if (result.timedOut) {
+        fragments.push(`Command timed out after ${result.durationMs || options.timeout || 120000}ms: ${command}`);
+      } else {
+        fragments.push(`Command failed (exit ${result.exitCode ?? 'unknown'}): ${command}`);
+      }
+      if (stderr) {
+        fragments.push(`stderr: ${stderr}`);
+      }
+      if (stdout) {
+        fragments.push(`stdout: ${stdout}`);
+      }
+      const error = new Error(fragments.join('\n'));
+      error.details = {
+        command,
+        exitCode: result.exitCode,
+        timedOut: result.timedOut === true,
+        durationMs: result.durationMs,
+        stderr,
+        stdout,
+      };
+      throw error;
     }
     return result.stdout || '';
   }
@@ -1385,6 +1614,11 @@ class AndroidController {
   }
 
   async ensureBootstrapped() {
+    this.#appendState({
+      starting: this.#readState().starting === true,
+      startupPhase: 'Checking Android runtime',
+      lastLogLine: 'Checking Android SDK, emulator, and system image.',
+    });
     const desiredArch = systemImageArch();
     const state = this.#readState();
     const installedImages = parseInstalledSystemImages();
@@ -1392,13 +1626,22 @@ class AndroidController {
       chooseConfiguredSystemImage(installedImages) ||
       chooseLatestSystemImage(installedImages, [desiredArch]) ||
       chooseLatestSystemImage(installedImages);
-    const systemImageMetadata = await fetchText('https://dl.google.com/android/repository/sys-img/android/sys-img2-1.xml');
-    const available = parseRepositorySystemImages(systemImageMetadata);
+    const systemImageMetadata = await fetchSystemImageRepositories();
+    const available = parseRepositorySystemImagesFromSources(systemImageMetadata);
     const preferredAvailable =
       chooseConfiguredSystemImage(available) ||
+      preferredRuntimeSystemImageCandidate(available) ||
       chooseLatestSystemImage(available, [desiredArch]) ||
       chooseLatestSystemImage(available);
-    const selectedImage = rankSystemImagePool([preferredInstalled, preferredAvailable].filter(Boolean))[0] || preferredInstalled || preferredAvailable;
+    const shouldPreferLighterAvailableImage =
+      process.platform === 'darwin' &&
+      process.arch === 'arm64' &&
+      preferredAvailable?.packageName &&
+      /;google_apis;/.test(preferredAvailable.packageName) &&
+      /;google_apis_playstore;/.test(String(preferredInstalled?.packageName || ''));
+    const selectedImage = shouldPreferLighterAvailableImage
+      ? preferredAvailable
+      : (rankSystemImagePool([preferredInstalled, preferredAvailable].filter(Boolean))[0] || preferredInstalled || preferredAvailable);
     const stateApiLevel = Number(state.apiLevel || 0) || 0;
     const legacyLinuxArm64Image =
       process.platform === 'linux'
@@ -1465,6 +1708,10 @@ class AndroidController {
       isExecutable(emulatorBinary()) &&
       installedEmulatorMatchesHost();
     if (!binariesReady) {
+      this.#appendState({
+        startupPhase: 'Installing Android tools',
+        lastLogLine: 'Installing Android platform tools and emulator.',
+      });
       if (this.bootstrapPromise) {
         await this.bootstrapPromise;
       } else {
@@ -1532,13 +1779,25 @@ class AndroidController {
     this.#appendState({ bootstrapped: true });
     const metadata = await fetchEmulatorMetadata();
     if (shouldInstallPlatformToolsArchive()) {
+      this.#appendState({
+        startupPhase: 'Installing Android platform tools',
+        lastLogLine: 'Installing Android platform tools.',
+      });
       await installPlatformToolsArchive(metadata);
     }
+    this.#appendState({
+      startupPhase: 'Installing Android emulator',
+      lastLogLine: 'Installing or updating the Android emulator.',
+    });
     await installEmulatorArchive(metadata);
     if (!effectiveSelectedImage) {
       throw new Error(formatSystemImageError(available));
     }
     if (effectiveSelectedImage?.packageName) {
+      this.#appendState({
+        startupPhase: 'Installing Android system image',
+        lastLogLine: `Installing ${effectiveSelectedImage.packageName}.`,
+      });
       await installSystemImageArchive(systemImageMetadata, effectiveSelectedImage.packageName);
     }
     this.#appendState({
@@ -1579,8 +1838,8 @@ class AndroidController {
     }
     await installEmulatorArchive(metadata);
 
-    const systemImageMetadata = await fetchText('https://dl.google.com/android/repository/sys-img/android/sys-img2-1.xml');
-    const available = parseRepositorySystemImages(systemImageMetadata);
+    const systemImageMetadata = await fetchSystemImageRepositories();
+    const available = parseRepositorySystemImagesFromSources(systemImageMetadata);
     const systemImage = chooseConfiguredSystemImage(available) || chooseLatestSystemImage(available);
     if (!systemImage) throw new Error(formatSystemImageError(available));
 
@@ -1599,14 +1858,19 @@ class AndroidController {
 
   markBootstrapFailure(error) {
     const state = this.#readState();
-    const recentLogLines = state.logPath ? tailFile(state.logPath, 12) : [];
-    const detailedMessage = recentLogLines[recentLogLines.length - 1] || error?.message || String(error || 'Android bootstrap failed.');
+    const detailedMessage = selectAndroidFailureMessage(state.logPath, error);
     this.#appendState({
       starting: false,
       startupPhase: 'Start failed',
       lastStartError: detailedMessage,
       lastLogLine: detailedMessage,
       bootstrapWorkerPid: null,
+    });
+    logAndroidIssue('bootstrap_failure', {
+      scopeKey: this.scopeKey,
+      avdName: this.avdName,
+      message: detailedMessage,
+      logPath: state.logPath || null,
     });
     return detailedMessage;
   }
@@ -1617,170 +1881,38 @@ class AndroidController {
     const state = this.#readState();
     let pkg = state.systemImage;
     if (!pkg) throw new Error('Android system image not installed');
-    if (process.platform === 'linux' && process.arch === 'arm64') {
-      const installedCandidates = parseInstalledSystemImages();
-      const migratedImage = chooseStableRuntimeSystemImage(installedCandidates, pkg);
-      if (migratedImage) {
-        pkg = migratedImage.packageName;
-        this.#appendState({
-          systemImage: pkg,
-          apiLevel: migratedImage.apiLevel,
-          systemImageArch: migratedImage.arch,
-          avdSystemImage: null,
-          lastLogLine: `Migrated Android runtime image to ${pkg} for stability.`,
-        });
-      }
-    }
     const avdDir = path.join(AVD_HOME, `${this.avdName}.avd`);
     const configPath = path.join(avdDir, 'config.ini');
     const avdExists = fs.existsSync(configPath);
-    let avdNeedsRecreate = avdExists && (!state.avdSystemImage || state.avdSystemImage !== pkg);
-    const avdRecreateReasons = [];
-    if (avdNeedsRecreate && state.avdSystemImage !== pkg) {
-      avdRecreateReasons.push(`systemImage: ${state.avdSystemImage || 'null'} -> ${pkg}`);
-    }
-    if (avdExists && fs.existsSync(configPath)) {
-      try {
-        const config = fs.readFileSync(configPath, 'utf8');
-        const currentImageDir = readIniValue(config, 'image.sysdir.1');
-        const expectedImageDir = systemImagePackageToRelativeDir(pkg);
-        const currentAbi = readIniValue(config, 'abi.type');
-        const expectedAbi = systemImagePackageToAbi(pkg);
-        const currentCpuArch = readIniValue(config, 'hw.cpu.arch');
-        const expectedCpuArch = systemImagePackageToCpuArch(pkg);
-        const currentDataPartitionSize = readIniValue(config, 'disk.dataPartition.size');
-        const expectedDataPartitionSize = String(DEFAULT_DATA_PARTITION_BYTES);
-        const currentSdcardSize = readIniValue(config, 'sdcard.size');
-        const expectedSdcardSize = String(DEFAULT_SDCARD_SIZE_BYTES);
-        const currentRamSize = readIniValue(config, 'hw.ramSize');
-        const expectedRamSize = String(DEFAULT_RAM_SIZE_MB);
-        const currentGpuMode = readIniValue(config, 'hw.gpu.mode');
-        const expectedGpuMode = emulatorGpuMode();
-        const currentPlayStoreEnabled = readIniValue(config, 'PlayStore.enabled');
-        const expectedPlayStoreEnabled = String(String(pkg || '').includes('playstore'));
-        if (expectedImageDir && currentImageDir && currentImageDir !== expectedImageDir) {
-          avdNeedsRecreate = true;
-          avdRecreateReasons.push(`image.sysdir.1: ${currentImageDir} -> ${expectedImageDir}`);
-        }
-        if (expectedAbi && currentAbi && currentAbi !== expectedAbi) {
-          avdNeedsRecreate = true;
-          avdRecreateReasons.push(`abi.type: ${currentAbi} -> ${expectedAbi}`);
-        }
-        if (expectedCpuArch && currentCpuArch && currentCpuArch !== expectedCpuArch) {
-          avdNeedsRecreate = true;
-          avdRecreateReasons.push(`hw.cpu.arch: ${currentCpuArch} -> ${expectedCpuArch}`);
-        }
-        if (currentDataPartitionSize && currentDataPartitionSize !== expectedDataPartitionSize) {
-          avdNeedsRecreate = true;
-          avdRecreateReasons.push(`disk.dataPartition.size: ${currentDataPartitionSize} -> ${expectedDataPartitionSize}`);
-        }
-        if (currentSdcardSize && currentSdcardSize !== expectedSdcardSize) {
-          avdNeedsRecreate = true;
-          avdRecreateReasons.push(`sdcard.size: ${currentSdcardSize} -> ${expectedSdcardSize}`);
-        }
-        if (currentRamSize && currentRamSize !== expectedRamSize) {
-          avdNeedsRecreate = true;
-          avdRecreateReasons.push(`hw.ramSize: ${currentRamSize} -> ${expectedRamSize}`);
-        }
-        if (currentGpuMode && currentGpuMode !== expectedGpuMode) {
-          avdNeedsRecreate = true;
-          avdRecreateReasons.push(`hw.gpu.mode: ${currentGpuMode} -> ${expectedGpuMode}`);
-        }
-        if (currentPlayStoreEnabled && currentPlayStoreEnabled !== expectedPlayStoreEnabled) {
-          avdNeedsRecreate = true;
-          avdRecreateReasons.push(`PlayStore.enabled: ${currentPlayStoreEnabled} -> ${expectedPlayStoreEnabled}`);
-        }
-      } catch {}
-    }
-
-    if (avdNeedsRecreate) {
-      if (avdRecreateReasons.length > 0) {
-        console.log(`[Android] Recreating AVD to repair config mismatch (${avdRecreateReasons.join(', ')})`);
-      }
-      await this.stopEmulator().catch(() => {});
-      fs.rmSync(avdDir, { recursive: true, force: true });
-      fs.rmSync(path.join(AVD_HOME, `${this.avdName}.ini`), { force: true });
-      fs.rmSync(path.join(avdDir, 'userdata-qemu.img'), { force: true });
-    } else if (avdExists) {
-      ensureSparseFile(path.join(avdDir, 'userdata-qemu.img'), DEFAULT_DATA_PARTITION_BYTES);
+    if (avdExists && state.avdSystemImage === pkg) {
       return;
     }
 
-    this.#writeAvdFiles(pkg);
+    ensureSystemImageUserdataImage(pkg);
+
+    const createAvdCommand =
+      `printf 'no\\n' | ${quoteShell(avdManagerBinary())} create avd -n ${quoteShell(this.avdName)} -k "${pkg}" --force`;
+    try {
+      await this.#run(createAvdCommand, { timeout: 300000 });
+    } catch (error) {
+      const message = String(error?.message || error || '');
+      if (/Unable to find a 'userdata\.img' file/i.test(message)) {
+        ensureSystemImageUserdataImage(pkg);
+        await this.#run(createAvdCommand, { timeout: 300000 });
+      } else if (/"emulator" package must be installed/i.test(message)) {
+        this.#appendState({
+          startupPhase: 'Repairing Android emulator package',
+          lastLogLine: 'Reinstalling Android emulator package.',
+        });
+        const metadata = await fetchEmulatorMetadata();
+        await installEmulatorArchive(metadata);
+        await this.#run(createAvdCommand, { timeout: 300000 });
+      } else {
+        throw error;
+      }
+    }
     this.#normalizeAvdConfig();
     this.#appendState({ avdSystemImage: pkg });
-  }
-
-  #writeAvdFiles(packageName) {
-    const parts = String(packageName || '').split(';').filter(Boolean);
-    if (parts.length !== 4 || parts[0] !== 'system-images') {
-      throw new Error(`Invalid Android system image package: ${packageName}`);
-    }
-    const apiLevel = parts[1].replace(/^android-/, '');
-    const tagId = parts[2];
-    const tagDisplay = tagId === 'google_apis' ? 'Google APIs' : tagId.replace(/_/g, ' ');
-    const abi = parts[3];
-    const playStoreEnabled = tagId.includes('playstore');
-    const avdDir = path.join(AVD_HOME, `${this.avdName}.avd`);
-    const imageSysDir = systemImagePackageToRelativeDir(packageName);
-    if (!imageSysDir) {
-      throw new Error(`Invalid Android system image directory for package: ${packageName}`);
-    }
-
-    fs.mkdirSync(avdDir, { recursive: true });
-    ensureSparseFile(path.join(avdDir, 'userdata-qemu.img'), DEFAULT_DATA_PARTITION_BYTES);
-    fs.writeFileSync(
-      path.join(AVD_HOME, `${this.avdName}.ini`),
-      [
-        'avd.ini.encoding=UTF-8',
-        `path=${avdDir}`,
-        `path.rel=avd/${this.avdName}.avd`,
-        `target=android-${apiLevel}`,
-        '',
-      ].join('\n')
-    );
-
-    const configLines = [
-      'avd.ini.encoding=UTF-8',
-      `AvdId=${this.avdName}`,
-      `avd.ini.displayname=${this.avdName}`,
-      `PlayStore.enabled=${playStoreEnabled}`,
-      `image.sysdir.1=${imageSysDir}`,
-      `abi.type=${abi}`,
-      `hw.cpu.arch=${systemImagePackageToCpuArch(packageName) || abi}`,
-      'hw.cpu.ncore=2',
-      'hw.dPad=no',
-      'hw.gps=yes',
-      'hw.gpu.enabled=yes',
-      `hw.gpu.mode=${emulatorGpuMode()}`,
-      'hw.initialOrientation=Portrait',
-      'hw.keyboard=yes',
-      'hw.lcd.density=440',
-      'hw.lcd.height=1920',
-      'hw.lcd.width=1080',
-      'hw.mainKeys=no',
-      `hw.ramSize=${DEFAULT_RAM_SIZE_MB}`,
-      'hw.sensors.orientation=yes',
-      'hw.sensors.proximity=yes',
-      'hw.trackBall=no',
-      `disk.dataPartition.size=${DEFAULT_DATA_PARTITION_BYTES}`,
-      `sdcard.size=${DEFAULT_SDCARD_SIZE_BYTES}`,
-      'runtime.network.latency=none',
-      'runtime.network.speed=full',
-      'fastboot.forceColdBoot=yes',
-      'fastboot.forceFastBoot=no',
-      'vm.heapSize=256',
-      `tag.display=${tagDisplay}`,
-      `tag.id=${tagId}`,
-      '',
-    ];
-    fs.writeFileSync(path.join(avdDir, 'config.ini'), configLines.join('\n'));
-
-    const systemImageRoot = path.join(activeAndroidSdkRoot(), ...String(packageName).split(';').filter(Boolean));
-    const userdataImage = path.join(systemImageRoot, 'userdata.img');
-    if (fs.existsSync(userdataImage)) {
-      fs.copyFileSync(userdataImage, path.join(avdDir, 'userdata.img'));
-    }
   }
 
   #normalizeAvdConfig() {
@@ -1792,58 +1924,7 @@ class AndroidController {
     content = updateIniValue(content, 'sdcard.size', DEFAULT_SDCARD_SIZE_BYTES);
     content = updateIniValue(content, 'hw.ramSize', DEFAULT_RAM_SIZE_MB);
     content = updateIniValue(content, 'hw.gpu.mode', emulatorGpuMode());
-    content = updateIniValue(content, 'fastboot.forceColdBoot', 'yes');
-    content = updateIniValue(content, 'fastboot.forceFastBoot', 'no');
-    content = updateIniValue(content, 'PlayStore.enabled', String(this.#readState()?.systemImage || '').includes('playstore'));
     fs.writeFileSync(configPath, content);
-  }
-
-  #cleanupAvdTransientState() {
-    const avdDir = path.join(AVD_HOME, `${this.avdName}.avd`);
-    const transientTargets = [
-      'cache.img',
-      'cache.img.qcow2',
-      'hardware-qemu.ini.lock',
-      'multiinstance.lock',
-      'snapshot.lock',
-      'quickbootChoice.ini',
-      'launchParams.txt',
-      'emu-launch-params.txt',
-      'bootcompleted.ini',
-      'userdata-qemu.img.lock',
-      'encryptionkey.img',
-    ];
-
-    for (const target of transientTargets) {
-      fs.rmSync(path.join(avdDir, target), { force: true, recursive: true });
-    }
-
-    for (const entry of ['snapshots', '.lock']) {
-      fs.rmSync(path.join(avdDir, entry), { force: true, recursive: true });
-    }
-
-    try {
-      for (const entry of fs.readdirSync(avdDir)) {
-        if (/\.lock$/i.test(entry) || /\.tmp$/i.test(entry)) {
-          fs.rmSync(path.join(avdDir, entry), { force: true, recursive: true });
-        }
-      }
-    } catch {}
-  }
-
-  async #forceRecreateAvdForRecovery() {
-    const avdDir = path.join(AVD_HOME, `${this.avdName}.avd`);
-    await this.stopEmulator().catch(() => {});
-    fs.rmSync(avdDir, { recursive: true, force: true });
-    fs.rmSync(path.join(AVD_HOME, `${this.avdName}.ini`), { force: true });
-    this.#appendState({
-      avdSystemImage: null,
-      serial: null,
-      emulatorPid: null,
-      lastLogLine: 'Recreating AVD after failed framework boot.',
-    });
-    await this.ensureAvd();
-    this.#cleanupAvdTransientState();
   }
 
   async listDevices(options = {}) {
@@ -1875,6 +1956,14 @@ class AndroidController {
     const devices = await this.listDevices(options);
     const owners = this.#readOwnership();
     const canUse = (device) => device.status === 'device' && !this.#isSerialOwnedByAnother(device.serial, owners);
+    const expected = state.expectedSerial
+      ? devices.find((device) => device.serial === state.expectedSerial && canUse(device))
+      : null;
+    if (expected) {
+      this.#claimSerial(expected.serial);
+      this.#appendState({ serial: expected.serial });
+      return expected.serial;
+    }
 
     const preferred = state.serial ? devices.find((device) => device.serial === state.serial && canUse(device)) : null;
     if (preferred) {
@@ -1907,15 +1996,22 @@ class AndroidController {
       startRequestedAt: this.#readState().startRequestedAt || new Date().toISOString(),
     });
     console.log('[Android] Preparing emulator start');
-    await this.#terminateStaleEmulatorProcesses([this.avdName, this.previousAvdName]).catch(() => {});
-    await this.ensureAvd();
-    this.#appendState({
-      starting: true,
-      startupPhase: 'Checking for an existing Android device',
-      lastStartError: null,
-    });
-    this.#normalizeAvdConfig();
-    const serial = await this.getPrimarySerial();
+    let serial = null;
+    try {
+      await this.ensureBootstrapped();
+      await this.#terminateStaleEmulatorProcesses([this.avdName, this.previousAvdName]).catch(() => {});
+      await this.ensureAvd();
+      this.#appendState({
+        starting: true,
+        startupPhase: 'Checking for an existing Android device',
+        lastStartError: null,
+      });
+      this.#normalizeAvdConfig();
+      serial = await this.getPrimarySerial();
+    } catch (error) {
+      this.markBootstrapFailure(error);
+      throw error;
+    }
     if (serial) {
       this.#appendState({
         starting: false,
@@ -1937,21 +2033,14 @@ class AndroidController {
     const args = [
       `@${this.avdName}`,
       '-no-boot-anim',
-      ...emulatorLaunchArgs(),
-      '-data',
-      path.join(AVD_HOME, `${this.avdName}.avd`, 'userdata-qemu.img'),
       '-gpu',
       emulatorGpuMode(),
-      '-accel',
-      'auto',
-      '-partition-size',
-      String(DEFAULT_PARTITION_SIZE_MB),
-      '-netdelay',
-      'none',
-      '-netspeed',
-      'full',
+      '-no-window',
+      '-no-audio',
     ];
 
+    await this.#runAllowFailure(`${quoteShell(adbBinary())} kill-server`, { timeout: 15000 });
+    await this.#runAllowFailure(`${quoteShell(adbBinary())} start-server`, { timeout: 15000 });
     const child = spawn(emulatorBinary(), args, {
       detached: true,
       stdio: ['ignore', out, out],
@@ -1973,23 +2062,12 @@ class AndroidController {
     try {
       onlineSerial = await this.waitForDevice({ timeoutMs: options.timeoutMs || 600000 });
     } catch (error) {
-      const recentLogLines = tailFile(logPath, 12);
-      const lastLine =
-        recentLogLines[recentLogLines.length - 1] ||
-        error?.message ||
-        String(error || 'Android emulator did not finish booting.');
+      const lastLine = selectAndroidFailureMessage(logPath, error);
       await this.stopEmulator().catch(() => {});
-      if (!options._recoveredOnce && isRecoverableEmulatorStartError(lastLine)) {
-        console.warn(`[Android] Recoverable emulator start failure detected. Cleaning transient AVD state and retrying once: ${lastLine}`);
-        this.#cleanupAvdTransientState();
-        return this.#startEmulatorBlocking({ ...options, _recoveredOnce: true });
-      }
-      if (!options._recreatedAvdOnce && isRecoverableEmulatorStartError(lastLine)) {
-        console.warn(`[Android] Emulator recovery escalation: recreating AVD and retrying once: ${lastLine}`);
-        await this.#forceRecreateAvdForRecovery();
-        return this.#startEmulatorBlocking({ ...options, _recoveredOnce: true, _recreatedAvdOnce: true });
-      }
       this.markBootstrapFailure(lastLine);
+      if (error?.details?.logTail) {
+        throw error;
+      }
       throw new Error(lastLine);
     }
     this.#appendState({
@@ -2065,6 +2143,8 @@ class AndroidController {
       this.#appendState({ bootstrapWorkerPid: null });
     }
 
+    await this.ensureBootstrapped();
+
     if (!this.startPromise) {
       const requestedAt = new Date().toISOString();
       this.#appendState({
@@ -2122,15 +2202,14 @@ class AndroidController {
   }
 
   async waitForDevice(options = {}) {
-    const timeoutMs = Math.max(10000, Number(options.timeoutMs) || 180000);
+    const timeoutMs = Math.max(10000, Number(options.timeoutMs) || 600000);
     const deadline = Date.now() + timeoutMs;
-    let reconnectCounter = 0;
     let missingPidSince = null;
     let firstOnlineAt = null;
-    let offlineSince = null;
+    let lastDiagnosticAt = 0;
 
     while (Date.now() < deadline) {
-      const serial = await this.getPrimarySerial();
+      const serial = await this.getPrimarySerial({ ensureBootstrapped: false });
       if (serial) {
         this.#assertSerialAccess(serial, { claimIfUnowned: true });
         if (!firstOnlineAt) {
@@ -2167,6 +2246,13 @@ class AndroidController {
         const shellReady = String(shellProbe.stdout || '').trim() === 'ready';
         const packageServiceReady = /found/i.test(String(packageServiceProbe.stdout || ''));
         const packageManagerReady = /^package:/m.test(String(pmProbe.stdout || '').trim());
+        if (Date.now() - lastDiagnosticAt > 15000) {
+          lastDiagnosticAt = Date.now();
+          this.#appendState({
+            startupPhase: 'Waiting for Android emulator to boot',
+            lastLogLine: `ADB connected to ${serial}; boot=${bootValue || 'unknown'}, devBoot=${devBootValue || 'unknown'}, packageService=${packageServiceReady}, packageManager=${packageManagerReady}.`,
+          });
+        }
         if (
           packageServiceReady
           && packageManagerReady
@@ -2178,18 +2264,7 @@ class AndroidController {
         ) {
           return serial;
         }
-        if (
-          firstOnlineAt
-          && Date.now() - firstOnlineAt > 120000
-          && (
-            !packageServiceReady
-            || !packageManagerReady
-          )
-        ) {
-          throw new Error('Android framework did not become ready (package manager service did not become ready).');
-        }
         missingPidSince = null;
-        offlineSince = null;
       } else {
         firstOnlineAt = null;
         const state = this.#readState();
@@ -2207,32 +2282,37 @@ class AndroidController {
         } else {
           missingPidSince = null;
           const devices = await this.listDevices({ ensureBootstrapped: false }).catch(() => []);
-          const hasOfflineEmulator = devices.some((device) => device.emulator && device.status === 'offline');
-          if (hasOfflineEmulator) {
-            if (!offlineSince) {
-              offlineSince = Date.now();
-            }
-            if (Date.now() - offlineSince > 30000) {
-              await this.#runAllowFailure(`${quoteShell(adbBinary())} kill-server`, { timeout: 10000 });
-              await sleep(600);
-              await this.#runAllowFailure(`${quoteShell(adbBinary())} start-server`, { timeout: 15000 });
-              await this.#runAllowFailure(`${quoteShell(adbBinary())} reconnect`, { timeout: 15000 });
-              await this.#runAllowFailure(`${quoteShell(adbBinary())} wait-for-device`, { timeout: 30000 });
-              offlineSince = Date.now();
-            }
-          } else {
-            offlineSince = null;
+          if (Date.now() - lastDiagnosticAt > 15000) {
+            lastDiagnosticAt = Date.now();
+            this.#appendState({
+              startupPhase: 'Waiting for Android emulator to connect',
+              lastLogLine: devices.length > 0
+                ? `Emulator process running; ADB: ${devices.map((d) => `${d.serial}:${d.status}`).join(', ')}.`
+                : 'Emulator running, no ADB transport yet.',
+            });
           }
         }
-      }
-      reconnectCounter += 1;
-      if (reconnectCounter % 5 === 0) {
-        await this.#runAllowFailure(`${quoteShell(adbBinary())} reconnect offline`, { timeout: 10000 });
       }
       await sleep(3000);
     }
 
-    throw new Error(`Android emulator did not finish booting within ${timeoutMs} ms`);
+    const state = this.#readState();
+    const logTail = tailFile(state.logPath || null, 100);
+    throw buildAndroidBootstrapError(
+      `Android emulator did not finish booting within ${timeoutMs} ms`,
+      {
+        code: 'ANDROID_BOOTSTRAP_TIMEOUT',
+        timeoutMs,
+        logPath: state.logPath || null,
+        logTail,
+        state: {
+          emulatorPid: state.emulatorPid || null,
+          serial: state.serial || null,
+          startupPhase: state.startupPhase || null,
+          lastStartError: state.lastStartError || null,
+        },
+      }
+    );
   }
 
   async ensureDevice() {
@@ -2338,12 +2418,22 @@ class AndroidController {
         captured = isLikelyPng(data);
       } catch {}
       if (!captured) {
+        logAndroidIssue('screenshot_attempt_failed', {
+          scopeKey: this.scopeKey,
+          serial,
+          attempt: attempt + 1,
+        });
         await sleep(500);
       }
     }
     fs.rmSync(localTmp, { force: true });
     await this.#adb(serial, `shell rm -f ${quoteShell(remoteTmp)}`, { timeout: 10000 }).catch(() => {});
     if (!captured) {
+      logAndroidIssue('screenshot_capture_failed', {
+        scopeKey: this.scopeKey,
+        serial,
+        fullPath,
+      });
       throw new Error('Failed to capture a valid Android screenshot.');
     }
     if (artifactRecord) {
@@ -2707,6 +2797,10 @@ class AndroidController {
     try {
       serial = await this.ensureDevice();
     } catch (error) {
+      logAndroidIssue('list_apps_device_not_ready', {
+        scopeKey: this.scopeKey,
+        message: String(error?.message || error || 'Android device is not ready.'),
+      });
       return {
         success: false,
         serial: null,
@@ -2724,6 +2818,12 @@ class AndroidController {
       try {
         out = await this.#adb(serial, cmd, { timeout: 30000 });
       } catch (retryError) {
+        logAndroidIssue('list_apps_command_failed', {
+          scopeKey: this.scopeKey,
+          serial,
+          command: cmd,
+          message: String(retryError?.message || error?.message || 'Failed to list Android apps.'),
+        });
         return {
           success: false,
           serial,
@@ -2846,7 +2946,9 @@ class AndroidController {
     return {
       bootstrapped: state.bootstrapped === true,
       starting: state.starting === true || this.startPromise != null || bootstrapWorkerAlive,
-      startupPhase: state.startupPhase || (bootstrapWorkerAlive ? 'Preparing Android runtime' : null),
+      startupPhase: (state.starting === true || this.startPromise != null || bootstrapWorkerAlive)
+        ? (state.startupPhase || (bootstrapWorkerAlive ? 'Preparing Android runtime' : null))
+        : null,
       startRequestedAt: state.startRequestedAt || null,
       lastStartError: state.lastStartError || null,
       sdkRoot: activeAndroidSdkRoot(),

@@ -360,11 +360,11 @@ class _AuthViewState extends State<AuthView> {
                             version: QrVersions.auto,
                             eyeStyle: const QrEyeStyle(
                               eyeShape: QrEyeShape.square,
-                              color: Color(0xFF04111D),
+                              color: _qrDarkColor,
                             ),
                             dataModuleStyle: const QrDataModuleStyle(
                               dataModuleShape: QrDataModuleShape.square,
-                              color: Color(0xFF04111D),
+                              color: _qrDarkColor,
                             ),
                           )
                         : controller.isPreparingQrLogin
@@ -818,13 +818,13 @@ class _AuthViewState extends State<AuthView> {
                                           version: QrVersions.auto,
                                           eyeStyle: const QrEyeStyle(
                                             eyeShape: QrEyeShape.square,
-                                            color: Color(0xFF04111D),
+                                            color: _qrDarkColor,
                                           ),
                                           dataModuleStyle:
                                               const QrDataModuleStyle(
                                                 dataModuleShape:
                                                     QrDataModuleShape.square,
-                                                color: Color(0xFF04111D),
+                                                color: _qrDarkColor,
                                               ),
                                         )
                                       : controller.isPreparingQrLogin
@@ -852,14 +852,14 @@ class _AuthViewState extends State<AuthView> {
                                 style: FilledButton.styleFrom(
                                   minimumSize: const Size.fromHeight(56),
                                   backgroundColor: Colors.white,
-                                  foregroundColor: const Color(0xFF04111D),
+                                  foregroundColor: _qrDarkColor,
                                 ),
                                 icon: controller.isPreparingQrLogin
                                     ? const SizedBox.square(
                                         dimension: 16,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          color: Color(0xFF04111D),
+                                          color: _qrDarkColor,
                                         ),
                                       )
                                     : const Icon(Icons.qr_code_2_rounded),
@@ -972,7 +972,7 @@ class _AuthViewState extends State<AuthView> {
                   ),
                   child: Padding(
                     padding: EdgeInsets.all(
-                      viewportConstraints.maxWidth < 480 ? 14 : 24,
+                      viewportConstraints.maxWidth < AppBreakpoints.mobile ? 14 : 24,
                     ),
                     child: Center(
                       child: ConstrainedBox(
@@ -988,10 +988,10 @@ class _AuthViewState extends State<AuthView> {
                             fillColor: _glassFill,
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
-                                viewportConstraints.maxWidth < 480 ? 18 : 34,
-                                viewportConstraints.maxWidth < 480 ? 20 : 30,
-                                viewportConstraints.maxWidth < 480 ? 18 : 34,
-                                viewportConstraints.maxWidth < 480 ? 20 : 30,
+                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 18 : 34,
+                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 20 : 30,
+                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 18 : 34,
+                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 20 : 30,
                               ),
                               child: LayoutBuilder(
                                 builder: (context, panelConstraints) {

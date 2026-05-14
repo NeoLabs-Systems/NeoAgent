@@ -9,28 +9,37 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-a855f7?style=flat-square" alt="License"></a>
 </p>
 
-<p align="center">A self-hosted, proactive AI agent with a Flutter client for web and Android.</p>
+<p align="center">Self-hosted AI agent — runs as a system service, controls Android over ADB, connects to 15+ messaging platforms, all credentials on your server.</p>
+
+<p align="center">
+  <img src="demo.gif" alt="NeoAgent demo" width="100%">
+</p>
 
 | | | | |
 | --- | --- | --- | --- |
 | <img alt="WebUI" src="https://github.com/user-attachments/assets/3c76d59a-b6e3-4698-929b-9c94741ccf1e" height="420"> | <img height="494" alt="Android" src="https://github.com/user-attachments/assets/e8a0af7a-6881-485d-ad52-f3bc6f2023ca"> | <img alt="Mobile Telegram" src="https://github.com/user-attachments/assets/1fd41a9b-5452-4aa4-9478-888c8ad7363a" height="420"> | <img height="494" alt="image" src="https://github.com/user-attachments/assets/d5a57282-0851-4902-9588-d8de4b82d45c"> |
 
-
+- **Android control** — screenshot, observe UI, tap, swipe, type, launch apps, install APKs, `adb shell` — the agent operates Android, not just an app running on it
+- **15+ messaging platforms** — Telegram, WhatsApp, Discord, Signal, Slack, Matrix, iMessage, IRC, LINE, Mattermost, Telnyx Voice
+- **Integrations** — Google Workspace, Microsoft 365, Notion, Home Assistant, Trello, Spotify, Figma
+- **Browser + shell** — VM-isolated server-side browser automation, full PTY terminal
+- **Runs locally** — Ollama support, no API key required; credentials stay in `~/.neoagent/.env`, never in the client
 
 ## Install
+
+Requires Node.js 20+ and QEMU — see [getting started](docs/getting-started.md) for details.
 
 ```bash
 npm install -g neoagent
 neoagent install
-
-neoagent migrate
 ```
 
-## Manage the Service
+Runs as a `launchd` user service on macOS and `systemd --user` on Linux.
+
+## Manage
 
 ```bash
 neoagent status
-neoagent channel beta
 neoagent update
 neoagent fix
 neoagent logs
@@ -38,7 +47,7 @@ neoagent logs
 
 ## Links
 
-[Docs](https://neolabs-systems.github.io/NeoAgent/docs/) | [Homepage](https://neolabs-systems.github.io/NeoAgent/) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
+[Docs](https://neolabs-systems.github.io/NeoAgent/docs/) | [Capabilities](docs/capabilities.md) | [Why NeoAgent](docs/why-neoagent.md) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
 
 ---
 

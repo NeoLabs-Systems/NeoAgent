@@ -109,6 +109,7 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
   );
 
   return base.copyWith(
+    focusColor: palette.accent.withValues(alpha: 0.2),
     scaffoldBackgroundColor: palette.bgPrimary,
     colorScheme: base.colorScheme.copyWith(
       primary: palette.accent,
@@ -226,6 +227,14 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
           fontSize: 14,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.05,
+        ),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
         ),
       ),
     ),

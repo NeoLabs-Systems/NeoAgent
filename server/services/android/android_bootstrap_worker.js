@@ -27,7 +27,12 @@ async function main() {
       } catch {}
     }
     try {
-      console.error('[Android] Bootstrap worker failed:', error?.message || error);
+      console.error('[Android] Bootstrap worker failed:', {
+        message: error?.message || String(error),
+        code: error?.code || null,
+        details: error?.details || null,
+        stack: error?.stack || null,
+      });
     } catch {}
     process.exit(1);
   }
@@ -35,14 +40,24 @@ async function main() {
 
 process.on('unhandledRejection', (error) => {
   try {
-    console.error('[Android] UnhandledRejection in bootstrap worker:', error?.message || error);
+    console.error('[Android] UnhandledRejection in bootstrap worker:', {
+      message: error?.message || String(error),
+      code: error?.code || null,
+      details: error?.details || null,
+      stack: error?.stack || null,
+    });
   } catch {}
   process.exit(1);
 });
 
 main().catch((error) => {
   try {
-    console.error('[Android] Bootstrap worker crashed:', error?.message || error);
+    console.error('[Android] Bootstrap worker crashed:', {
+      message: error?.message || String(error),
+      code: error?.code || null,
+      details: error?.details || null,
+      stack: error?.stack || null,
+    });
   } catch {}
   process.exit(1);
 });

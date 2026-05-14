@@ -2980,7 +2980,7 @@ class NeoAgentController extends ChangeNotifier {
     await _runDeviceAction(
       () => _backendClient.startAndroidEmulator(backendUrl),
       browser: false,
-      refreshAppsAfter: true,
+      refreshAppsAfter: false,
     );
   }
 

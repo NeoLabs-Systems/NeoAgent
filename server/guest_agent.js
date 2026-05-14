@@ -150,6 +150,7 @@ app.post('/files/read', async (req, res) => {
     }
     const realTarget = resolveReadablePath(filePath);
     if (!realTarget) {
+      console.warn('[GuestAgent] files/read rejected path', { requestedPath: filePath });
       return { error: 'path is outside guest-agent readable roots' };
     }
     const data = fs.readFileSync(realTarget);

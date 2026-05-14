@@ -47,6 +47,7 @@ import 'features/location/location_service.dart';
 import 'features/notifications/notification_interceptor.dart';
 import 'features/onboarding/onboarding_shell.dart';
 
+part 'main_spacing.dart';
 part 'main_theme.dart';
 part 'main_app_shell.dart';
 part 'main_launcher.dart';

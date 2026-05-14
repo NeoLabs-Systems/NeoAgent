@@ -326,9 +326,9 @@ Future<void> _showTrelloSetupDialog(
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: _danger.withOpacity(0.1),
+                        color: _danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: _danger.withOpacity(0.3)),
+                        border: Border.all(color: _danger.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         formError,
@@ -543,7 +543,7 @@ class _TrelloStatusItem extends StatelessWidget {
         color: _bgSecondary,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isConnected ? _success.withOpacity(0.3) : _border,
+          color: isConnected ? _success.withValues(alpha: 0.3) : _border,
         ),
       ),
       child: Row(

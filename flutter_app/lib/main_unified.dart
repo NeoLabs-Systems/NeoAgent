@@ -90,7 +90,7 @@ class _ToolsPanelState extends State<ToolsPanel>
             ),
             child: TabBar(
               controller: _tabController,
-              dividerColor: Colors.transparent,
+              dividerColor: _border,
               indicatorSize: TabBarIndicatorSize.tab,
               labelStyle: const TextStyle(fontWeight: FontWeight.w700),
               tabs: <Widget>[
@@ -190,7 +190,7 @@ class _RunsAndLogsPanelState extends State<RunsAndLogsPanel>
             ),
             child: TabBar(
               controller: _tabController,
-              dividerColor: Colors.transparent,
+              dividerColor: _border,
               indicatorSize: TabBarIndicatorSize.tab,
               labelStyle: const TextStyle(fontWeight: FontWeight.w700),
               tabs: <Widget>[
@@ -251,7 +251,7 @@ class _SettingsWorkspacePanelState extends State<SettingsWorkspacePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 960;
+    final compact = MediaQuery.sizeOf(context).width < AppBreakpoints.tablet;
     return Padding(
       padding: _pagePadding(context),
       child: Column(

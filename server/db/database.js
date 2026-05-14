@@ -50,6 +50,43 @@ function initializeDatabase(db, dbPath) {
   return db;
 }
 
+function sleepSync(ms) {
+  if (ms <= 0) return;
+  const buffer = new SharedArrayBuffer(4);
+  const view = new Int32Array(buffer);
+  Atomics.wait(view, 0, 0, ms);
+}
+
+function isSqliteBusyError(error) {
+  return Boolean(
+    error &&
+    (
+      error.code === 'SQLITE_BUSY' ||
+      error.code === 'SQLITE_LOCKED' ||
+      /database is locked|database table is locked/i.test(error.message || '')
+    ),
+  );
+}
+
+function runWithBusyRetry(action, { attempts = 5, delayMs = 50, label = 'SQLite operation' } = {}) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return action();
+    } catch (error) {
+      lastError = error;
+      if (!isSqliteBusyError(error) || attempt === attempts) {
+        throw error;
+      }
+      console.warn(
+        `[Database] ${label} hit a busy lock on attempt ${attempt}/${attempts}; retrying in ${delayMs}ms.`,
+      );
+      sleepSync(delayMs);
+    }
+  }
+  throw lastError;
+}
+
 let db = new Database(DB_PATH);
 db = initializeDatabase(db, DB_PATH);
 
@@ -1047,7 +1084,19 @@ function backfillAgentIds() {
       }
     }
   });
-  tx();
+
+  try {
+    runWithBusyRetry(
+      () => tx(),
+      { attempts: 8, label: 'backfillAgentIds' },
+    );
+  } catch (error) {
+    if (isSqliteBusyError(error)) {
+      console.warn('[Database] Skipping backfillAgentIds because the database stayed locked.');
+      return;
+    }
+    throw error;
+  }
 }
 
 function backfillAgentPolicies() {
@@ -1059,21 +1108,30 @@ function backfillAgentPolicies() {
     return;
   }
   try {
-    db.prepare(
-      `UPDATE agents
-       SET can_delegate = COALESCE(can_delegate, 1),
-           can_be_delegated_to = COALESCE(can_be_delegated_to, 0),
-           delegate_targets_json = COALESCE(delegate_targets_json, '[]')
-       WHERE slug = 'main'`
-    ).run();
-    db.prepare(
-      `UPDATE agents
-       SET can_delegate = COALESCE(can_delegate, 0),
-           can_be_delegated_to = COALESCE(can_be_delegated_to, 1),
-           delegate_targets_json = COALESCE(delegate_targets_json, '[]')
-       WHERE slug != 'main'`
-    ).run();
-  } catch {
+    runWithBusyRetry(
+      () => {
+        db.prepare(
+          `UPDATE agents
+           SET can_delegate = COALESCE(can_delegate, 1),
+               can_be_delegated_to = COALESCE(can_be_delegated_to, 0),
+               delegate_targets_json = COALESCE(delegate_targets_json, '[]')
+           WHERE slug = 'main'`
+        ).run();
+        db.prepare(
+          `UPDATE agents
+           SET can_delegate = COALESCE(can_delegate, 0),
+               can_be_delegated_to = COALESCE(can_be_delegated_to, 1),
+               delegate_targets_json = COALESCE(delegate_targets_json, '[]')
+           WHERE slug != 'main'`
+        ).run();
+      },
+      { attempts: 8, label: 'backfillAgentPolicies' },
+    );
+  } catch (error) {
+    if (isSqliteBusyError(error)) {
+      console.warn('[Database] Skipping backfillAgentPolicies because the database stayed locked.');
+      return;
+    }
     // Keep startup resilient for partially migrated databases.
   }
 }

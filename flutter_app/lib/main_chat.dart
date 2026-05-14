@@ -339,49 +339,52 @@ class _ChatPanelState extends State<ChatPanel> {
                       child: Icon(Icons.call_rounded, color: Colors.white),
                     ),
                     const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: _isSendingChatMessage
-                          ? null
-                          : () async {
-                              final task = _composerController.text;
-                              if ((task.trim().isEmpty &&
-                                      _pendingSharedAttachments.isEmpty) ||
-                                  _isSendingChatMessage) {
-                                return;
-                              }
-                              setState(() {
-                                _isSendingChatMessage = true;
-                              });
-                              _composerController.clear();
-                              final outgoingAttachments =
-                                  _pendingSharedAttachments;
-                              _clearSharedPayload();
-                              try {
-                                await controller.sendMessage(
-                                  task,
-                                  sharedAttachments: outgoingAttachments,
-                                );
-                              } finally {
-                                if (mounted) {
-                                  setState(() {
-                                    _isSendingChatMessage = false;
-                                  });
+                    Tooltip(
+                      message: 'Send (⌘↩)',
+                      child: FilledButton(
+                        onPressed: _isSendingChatMessage
+                            ? null
+                            : () async {
+                                final task = _composerController.text;
+                                if ((task.trim().isEmpty &&
+                                        _pendingSharedAttachments.isEmpty) ||
+                                    _isSendingChatMessage) {
+                                  return;
                                 }
-                              }
-                            },
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(46, 42),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        backgroundColor: _accent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                                setState(() {
+                                  _isSendingChatMessage = true;
+                                });
+                                _composerController.clear();
+                                final outgoingAttachments =
+                                    _pendingSharedAttachments;
+                                _clearSharedPayload();
+                                try {
+                                  await controller.sendMessage(
+                                    task,
+                                    sharedAttachments: outgoingAttachments,
+                                  );
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isSendingChatMessage = false;
+                                    });
+                                  }
+                                }
+                              },
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(46, 42),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          backgroundColor: _accent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                      ),
-                      child: Icon(
-                        controller.hasLiveRun
-                            ? Icons.alt_route_rounded
-                            : Icons.north_east_rounded,
-                        color: Colors.white,
+                        child: Icon(
+                          controller.hasLiveRun
+                              ? Icons.alt_route_rounded
+                              : Icons.north_east_rounded,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -1009,7 +1012,7 @@ class _MessagingMetricCard extends StatelessWidget {
                   value,
                   style: TextStyle(
                     color: _textPrimary,
-                    fontSize: 26,
+                    fontSize: 22,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -2244,6 +2247,7 @@ Future<_MessagingRuleSelection?> _showMessagingAccessRulePicker(
   required MessagingPlatformDescriptor platform,
   required MessagingAccessCatalog catalog,
 }) async {
+  // Use BottomSheet for contextual actions, AlertDialog for confirmations.
   return showModalBottomSheet<_MessagingRuleSelection>(
     context: context,
     isScrollControlled: true,

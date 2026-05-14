@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
 class LocationService {
   static final LocationService _instance = LocationService._internal();
   factory LocationService() => _instance;
@@ -78,8 +76,8 @@ class LocationService {
   void _trackLoop(String backendUrl, String token) async {
     while (_isTracking) {
       try {
-        Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.low); // low accuracy = approx position
+        await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.low));
 
         // Here we would normally fetch active geofences from local DB or backend
         // and calculate the distance. If inside a geofence, we trigger:

@@ -1080,6 +1080,7 @@ class _AndroidNavDock extends StatelessWidget {
           final disabled =
               busy || (!androidOnline && entry.key.startsWith('android_'));
           return IconButton.filledTonal(
+            tooltip: entry.key.replaceAll('_', ' '),
             onPressed: disabled ? null : () => onAction(entry.key),
             icon: Icon(entry.value),
           );
@@ -1132,6 +1133,7 @@ class _SurfaceSwitcher extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   IconButton.filledTonal(
+                    tooltip: 'Previous surface',
                     onPressed: onPrevious,
                     icon: Icon(Icons.arrow_back_ios_new_rounded),
                   ),
@@ -1139,6 +1141,7 @@ class _SurfaceSwitcher extends StatelessWidget {
                   Flexible(child: labelColumn),
                   const SizedBox(width: 14),
                   IconButton.filledTonal(
+                    tooltip: 'Next surface',
                     onPressed: onNext,
                     icon: Icon(Icons.arrow_forward_ios_rounded),
                   ),
@@ -1152,6 +1155,7 @@ class _SurfaceSwitcher extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             IconButton.filledTonal(
+              tooltip: 'Previous surface',
               onPressed: onPrevious,
               icon: Icon(Icons.arrow_back_ios_new_rounded),
             ),
@@ -1159,6 +1163,7 @@ class _SurfaceSwitcher extends StatelessWidget {
             labelColumn,
             const SizedBox(width: 14),
             IconButton.filledTonal(
+              tooltip: 'Next surface',
               onPressed: onNext,
               icon: Icon(Icons.arrow_forward_ios_rounded),
             ),
@@ -1386,7 +1391,10 @@ class _InteractiveSurfacePreviewState
                         onPressed: widget.onWakeRequested,
                       );
                     }
-                    return GestureDetector(
+                    return Semantics(
+                      button: true,
+                      label: 'Device surface preview — tap to interact, swipe to scroll',
+                      child: GestureDetector(
                       onTapUp: widget.busy
                           ? null
                           : (details) async {
@@ -1462,6 +1470,7 @@ class _InteractiveSurfacePreviewState
                             const Center(child: CircularProgressIndicator()),
                         ],
                       ),
+                    ),
                     );
                   },
                 ),

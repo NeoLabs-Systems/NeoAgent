@@ -9,6 +9,10 @@ const APK_UPLOAD_ROOT = path.resolve(
 const MAX_APK_BYTES = Number(process.env.NEOAGENT_ANDROID_APK_MAX_BYTES || 512 * 1024 * 1024);
 const IDLE_TIMEOUT_MS = Number(process.env.NEOAGENT_VM_IDLE_TIMEOUT_MS || 10 * 60 * 1000);
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function assertPathInside(baseDir, candidatePath, label) {
   const resolvedBase = path.resolve(baseDir);
   const resolvedCandidate = path.resolve(candidatePath);
@@ -181,19 +185,37 @@ class VmBrowserProvider {
     }
 
     let file = null;
-    for (const candidate of readablePathCandidates) {
-      try {
-        file = await this.client.request('POST', '/files/read', {
-          path: candidate,
-          encoding: 'base64',
-        });
-        if (file?.content) {
-          break;
+    const maxAttempts = 20;
+    for (let attempt = 0; attempt < maxAttempts && !file?.content; attempt += 1) {
+      for (const candidate of readablePathCandidates) {
+        try {
+          file = await this.client.request('POST', '/files/read', {
+            path: candidate,
+            encoding: 'base64',
+          });
+          if (file?.content) {
+            break;
+          }
+        } catch (error) {
+          if (attempt === maxAttempts - 1) {
+            console.warn('[Runtime:browser_vm] screenshot materialization read failed', {
+              userId: this.userId,
+              candidate,
+              error: String(error?.message || error),
+            });
+          }
         }
-      } catch {}
+      }
+      if (!file?.content) {
+        await sleep(250);
+      }
     }
     if (!file?.content) {
       if (typeof result.screenshotPath === 'string' && result.screenshotPath.startsWith('/screenshots/')) {
+        console.warn('[Runtime:browser_vm] unresolved VM screenshot path suppressed', {
+          userId: this.userId,
+          screenshotPath: result.screenshotPath,
+        });
         return {
           ...result,
           screenshotPath: null,
