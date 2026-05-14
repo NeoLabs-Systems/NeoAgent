@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { CLIExecutor } = require('./services/cli/executor');
-const { RUNTIME_HOME } = require('../runtime/paths');
+const { RUNTIME_HOME, DATA_DIR } = require('../runtime/paths');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
 function resolveGuestToken() {
@@ -71,6 +71,13 @@ function sanitizeError(err) {
 
 function resolveReadablePath(filePath) {
   try {
+    const rawPath = String(filePath || '').trim();
+    if (/^\/screenshots\//.test(rawPath)) {
+      const fileName = path.basename(rawPath);
+      const screenshotPath = path.join(DATA_DIR, 'screenshots', fileName);
+      const realScreenshotPath = fs.realpathSync.native(screenshotPath);
+      return isInsideAllowedRoots(realScreenshotPath) ? realScreenshotPath : null;
+    }
     const resolved = path.resolve(String(filePath || ''));
     const realTarget = fs.realpathSync.native(resolved);
     return isInsideAllowedRoots(realTarget) ? realTarget : null;

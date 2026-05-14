@@ -45,7 +45,7 @@ router.get('/status', async (req, res) => {
       res.json(getBrowserStatusSnapshot(req));
       return;
     }
-    if (!await runtimeManager?.isGuestAgentReadyForUser?.(req.session?.userId, 1000, 'browser')) {
+    if (!await runtimeManager?.isGuestAgentReadyForUser?.(req.session?.userId, 6000, 'browser')) {
       res.json(getBrowserStatusSnapshot(req));
       return;
     }

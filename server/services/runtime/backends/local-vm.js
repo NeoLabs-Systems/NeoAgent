@@ -165,13 +165,37 @@ class VmBrowserProvider {
   }
 
   async #materialize(result) {
-    if (!result || !result.fullPath || !this.artifactStore || this.userId == null) {
+    if (!result || !this.artifactStore || this.userId == null) {
       return result;
     }
-    const file = await this.client.request('POST', '/files/read', {
-      path: result.fullPath,
-      encoding: 'base64',
-    });
+
+    const readablePathCandidates = [];
+    if (result.fullPath) {
+      readablePathCandidates.push(String(result.fullPath));
+    }
+    if (typeof result.screenshotPath === 'string' && result.screenshotPath.startsWith('/screenshots/')) {
+      readablePathCandidates.push(result.screenshotPath);
+    }
+    if (readablePathCandidates.length === 0) {
+      return result;
+    }
+
+    let file = null;
+    for (const candidate of readablePathCandidates) {
+      try {
+        file = await this.client.request('POST', '/files/read', {
+          path: candidate,
+          encoding: 'base64',
+        });
+        if (file?.content) {
+          break;
+        }
+      } catch {}
+    }
+    if (!file?.content) {
+      return result;
+    }
+
     const allocation = this.artifactStore.allocateFile(this.userId, {
       kind: 'browser-screenshot',
       backend: 'vm',

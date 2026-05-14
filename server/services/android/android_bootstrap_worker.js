@@ -11,6 +11,7 @@ async function main() {
   const controller = new AndroidController({
     userId: process.env.NEOAGENT_ANDROID_BOOTSTRAP_USER_ID || null,
     runtimeBackend: 'host',
+    manageProcessCleanup: false,
   });
   const headless = parseBoolean(process.env.NEOAGENT_ANDROID_BOOTSTRAP_HEADLESS);
   const timeoutMs = Math.max(120000, Number(process.env.NEOAGENT_ANDROID_BOOTSTRAP_TIMEOUT_MS) || 600000);

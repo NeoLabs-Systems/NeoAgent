@@ -93,7 +93,7 @@ function readOwnershipUnlocked() {
     if (!parsed || typeof parsed !== 'object') {
       return {};
     }
-  return parsed;
+    return parsed;
   } catch {
     return {};
   }
@@ -173,6 +173,19 @@ function pruneOwnershipByDevices(owners, devices = []) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isProcessAlive(pid) {
+  const numericPid = Number(pid);
+  if (!Number.isInteger(numericPid) || numericPid <= 0) {
+    return false;
+  }
+  try {
+    process.kill(numericPid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function tailFile(filePath, maxLines = 40) {
@@ -255,11 +268,33 @@ function emulatorHostArch() {
 }
 
 function emulatorGpuMode() {
+  if (process.platform === 'darwin' && process.arch === 'arm64') {
+    return 'swiftshader_indirect';
+  }
   return 'auto';
 }
 
-function emulatorLaunchArgs(avdName) {
-  return ['-no-snapshot-load'];
+function emulatorLaunchArgs() {
+  return [
+    '-no-snapshot',
+    '-no-snapshot-save',
+    '-no-window',
+    '-no-audio',
+    '-no-metrics',
+    '-skip-adb-auth',
+    '-crash-report-mode',
+    'disabled',
+  ];
+}
+
+function isRecoverableEmulatorStartError(message) {
+  const value = String(message || '').toLowerCase();
+  return (
+    value.includes('failed to restore previous context') ||
+    value.includes('emulator exited before boot completed') ||
+    value.includes('failed to process .ini file') ||
+    value.includes('error while loading state for instance')
+  );
 }
 
 function parseCsvEnv(value) {
@@ -915,12 +950,27 @@ function parseInstalledSystemImages() {
 function rankSystemImagePool(pool) {
   const preferredMatches = pool.filter((candidate) => candidate.tagScore > 0);
   const rankedPool = preferredMatches.length > 0 ? preferredMatches : pool;
-  const preferLowerApiOnAppleSilicon = process.platform === 'darwin' && process.arch === 'arm64';
+  const appleSiliconPreferredApis = process.platform === 'darwin' && process.arch === 'arm64'
+    ? [30, 31, 35, 36]
+    : [];
+  const preferredApiRank = (apiLevel) => appleSiliconPreferredApis.indexOf(Number(apiLevel || 0));
 
   rankedPool.sort((a, b) =>
+    (
+      (() => {
+        const aRank = preferredApiRank(a.apiLevel);
+        const bRank = preferredApiRank(b.apiLevel);
+        if (aRank !== -1 || bRank !== -1) {
+          if (aRank === -1) return 1;
+          if (bRank === -1) return -1;
+          return aRank - bRank;
+        }
+        return 0;
+      })()
+    ) ||
     Number(b.stable) - Number(a.stable) ||
     b.tagScore - a.tagScore ||
-    (preferLowerApiOnAppleSilicon ? (a.apiLevel - b.apiLevel) : (b.apiLevel - a.apiLevel)) ||
+    b.apiLevel - a.apiLevel ||
     a.packageName.localeCompare(b.packageName)
   );
 
@@ -1079,6 +1129,7 @@ class AndroidController {
     this.userId = options?.userId != null ? String(options.userId) : null;
     this.artifactStore = options?.artifactStore || null;
     this.runtimeBackend = options?.runtimeBackend || 'host';
+    this.manageProcessCleanup = options?.manageProcessCleanup !== false;
     this.scopeKey = sanitizeScopeKey(this.userId ? `user-${this.userId}` : 'default');
     this.ownerKey = normalizeOwnerKey(this.userId);
     this.stateFile = resolveStateFile(this.scopeKey);
@@ -1118,7 +1169,9 @@ class AndroidController {
     }
     this.bootstrapPromise = null;
     this.startPromise = null;
-    this.#registerProcessCleanup();
+    if (this.manageProcessCleanup) {
+      this.#registerProcessCleanup();
+    }
   }
 
   static cleanupRegistered = false;
@@ -1523,6 +1576,7 @@ class AndroidController {
       startupPhase: 'Start failed',
       lastStartError: detailedMessage,
       lastLogLine: detailedMessage,
+      bootstrapWorkerPid: null,
     });
     return detailedMessage;
   }
@@ -1696,6 +1750,39 @@ class AndroidController {
     fs.writeFileSync(configPath, content);
   }
 
+  #cleanupAvdTransientState() {
+    const avdDir = path.join(AVD_HOME, `${this.avdName}.avd`);
+    const transientTargets = [
+      'cache.img',
+      'cache.img.qcow2',
+      'hardware-qemu.ini.lock',
+      'multiinstance.lock',
+      'snapshot.lock',
+      'quickbootChoice.ini',
+      'launchParams.txt',
+      'emu-launch-params.txt',
+      'bootcompleted.ini',
+      'userdata-qemu.img.lock',
+      'encryptionkey.img',
+    ];
+
+    for (const target of transientTargets) {
+      fs.rmSync(path.join(avdDir, target), { force: true, recursive: true });
+    }
+
+    for (const entry of ['snapshots', '.lock']) {
+      fs.rmSync(path.join(avdDir, entry), { force: true, recursive: true });
+    }
+
+    try {
+      for (const entry of fs.readdirSync(avdDir)) {
+        if (/\.lock$/i.test(entry) || /\.tmp$/i.test(entry)) {
+          fs.rmSync(path.join(avdDir, entry), { force: true, recursive: true });
+        }
+      }
+    } catch {}
+  }
+
   async listDevices(options = {}) {
     if (options.ensureBootstrapped !== false) {
       await this.ensureBootstrapped();
@@ -1787,7 +1874,7 @@ class AndroidController {
     const args = [
       `@${this.avdName}`,
       '-no-boot-anim',
-      ...emulatorLaunchArgs(this.avdName),
+      ...emulatorLaunchArgs(),
       '-data',
       path.join(AVD_HOME, `${this.avdName}.avd`, 'userdata-qemu.img'),
       '-gpu',
@@ -1829,6 +1916,11 @@ class AndroidController {
         error?.message ||
         String(error || 'Android emulator did not finish booting.');
       await this.stopEmulator().catch(() => {});
+      if (!options._recoveredOnce && isRecoverableEmulatorStartError(lastLine)) {
+        console.warn(`[Android] Recoverable emulator start failure detected. Cleaning transient AVD state and retrying once: ${lastLine}`);
+        this.#cleanupAvdTransientState();
+        return this.#startEmulatorBlocking({ ...options, _recoveredOnce: true });
+      }
       this.markBootstrapFailure(lastLine);
       throw new Error(lastLine);
     }
@@ -1887,6 +1979,24 @@ class AndroidController {
       };
     }
 
+    const currentState = this.#readState();
+    const existingWorkerPid = Number(currentState.bootstrapWorkerPid || 0);
+    if (isProcessAlive(existingWorkerPid)) {
+      return {
+        success: true,
+        pending: true,
+        bootstrapped: currentState.bootstrapped === true,
+        starting: true,
+        startupPhase: currentState.startupPhase || 'Preparing Android runtime',
+        startRequestedAt: currentState.startRequestedAt || null,
+        logPath: currentState.logPath || null,
+      };
+    }
+
+    if (existingWorkerPid) {
+      this.#appendState({ bootstrapWorkerPid: null });
+    }
+
     if (!this.startPromise) {
       const requestedAt = new Date().toISOString();
       this.#appendState({
@@ -1910,9 +2020,13 @@ class AndroidController {
         env: workerEnv,
       });
       child.unref();
+      this.#appendState({
+        bootstrapWorkerPid: child.pid,
+      });
       this.startPromise = new Promise((resolve) => {
         child.once('exit', (code, signal) => {
           this.startPromise = null;
+          this.#appendState({ bootstrapWorkerPid: null });
           if (code !== 0) {
             console.error('[Android] Emulator bootstrap worker exited', { code, signal });
           }
@@ -1920,6 +2034,7 @@ class AndroidController {
         });
         child.once('error', (error) => {
           this.startPromise = null;
+          this.#appendState({ bootstrapWorkerPid: null });
           console.error('[Android] Emulator bootstrap worker failed to spawn', error);
           resolve({ code: null, signal: null, error });
         });
@@ -1941,15 +2056,70 @@ class AndroidController {
   async waitForDevice(options = {}) {
     const timeoutMs = Math.max(10000, Number(options.timeoutMs) || 180000);
     const deadline = Date.now() + timeoutMs;
+    let reconnectCounter = 0;
+    let missingPidSince = null;
+    let firstOnlineAt = null;
 
     while (Date.now() < deadline) {
       const serial = await this.getPrimarySerial();
       if (serial) {
         this.#assertSerialAccess(serial, { claimIfUnowned: true });
-        const boot = await this.#runAllowFailure(`${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell getprop sys.boot_completed`, { timeout: 10000 });
-        if ((boot.stdout || '').trim() === '1') {
+        if (!firstOnlineAt) {
+          firstOnlineAt = Date.now();
+        }
+        const bootCompleted = await this.#runAllowFailure(
+          `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell getprop sys.boot_completed`,
+          { timeout: 10000 },
+        );
+        const devBootComplete = await this.#runAllowFailure(
+          `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell getprop dev.bootcomplete`,
+          { timeout: 10000 },
+        );
+        const bootAnim = await this.#runAllowFailure(
+          `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell getprop init.svc.bootanim`,
+          { timeout: 10000 },
+        );
+        const shellProbe = await this.#runAllowFailure(
+          `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell echo ready`,
+          { timeout: 10000 },
+        );
+
+        const bootValue = String(bootCompleted.stdout || '').trim();
+        const devBootValue = String(devBootComplete.stdout || '').trim();
+        const bootAnimValue = String(bootAnim.stdout || '').trim().toLowerCase();
+        const shellReady = String(shellProbe.stdout || '').trim() === 'ready';
+        if (
+          bootValue === '1' ||
+          devBootValue === '1' ||
+          (shellReady && (bootAnimValue === 'stopped' || bootAnimValue === ''))
+        ) {
           return serial;
         }
+        if (shellReady && firstOnlineAt && Date.now() - firstOnlineAt >= 45000) {
+          return serial;
+        }
+        missingPidSince = null;
+      } else {
+        firstOnlineAt = null;
+        const state = this.#readState();
+        const emulatorPid = Number(state.emulatorPid || 0);
+        if (emulatorPid > 0 && !isProcessAlive(emulatorPid)) {
+          throw new Error('Android emulator exited before boot completed.');
+        }
+        if (!emulatorPid) {
+          if (!missingPidSince) {
+            missingPidSince = Date.now();
+          }
+          if (Date.now() - missingPidSince > 20000) {
+            throw new Error('Android emulator is not running.');
+          }
+        } else {
+          missingPidSince = null;
+        }
+      }
+      reconnectCounter += 1;
+      if (reconnectCounter % 5 === 0) {
+        await this.#runAllowFailure(`${quoteShell(adbBinary())} reconnect offline`, { timeout: 10000 });
       }
       await sleep(3000);
     }
@@ -2472,8 +2642,7 @@ class AndroidController {
 
   async getStatus() {
     const state = this.#readState();
-    const shouldSkipDeviceProbe = state.starting === true || this.startPromise != null;
-    const devices = !shouldSkipDeviceProbe && isExecutable(adbBinary())
+    const devices = isExecutable(adbBinary())
       ? await this.listDevices({ ensureBootstrapped: false }).catch(() => [])
       : [];
     const serialInState = String(state.serial || '').trim();
@@ -2517,6 +2686,7 @@ class AndroidController {
       serial: state.serial,
       serialOwnedByCurrentUser,
       emulatorPid: state.emulatorPid,
+      bootstrapWorkerPid: Number(state.bootstrapWorkerPid || 0) || null,
       systemImage: state.systemImage || null,
       systemImageArch: state.systemImageArch || null,
       preferredSystemImageArchs: systemImageArchCandidates(),
