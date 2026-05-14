@@ -2860,6 +2860,7 @@ class NeoAgentController extends ChangeNotifier {
       () => _backendClient.launchBrowser(backendUrl),
       browser: true,
     );
+    browserScreenshotPath = null;
   }
 
   Future<void> navigateBrowserRuntime({
@@ -2971,6 +2972,8 @@ class NeoAgentController extends ChangeNotifier {
       () => _backendClient.closeBrowser(backendUrl),
       browser: true,
     );
+    browserScreenshotPath = null;
+    notifyListeners();
   }
 
   Future<void> startAndroidRuntime() async {

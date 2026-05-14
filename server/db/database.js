@@ -1,4 +1,5 @@
 const Database = require('better-sqlite3');
+const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { DATA_DIR, ensureRuntimeDirs } = require('../../runtime/paths');
@@ -9,11 +10,48 @@ const {
 ensureRuntimeDirs();
 
 const DB_PATH = path.join(DATA_DIR, 'neoagent.db');
-const db = new Database(DB_PATH);
 
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-db.pragma('busy_timeout = 5000');
+function removeWalSidecars(dbPath) {
+  for (const suffix of ['-wal', '-shm']) {
+    try {
+      fs.rmSync(`${dbPath}${suffix}`, { force: true });
+    } catch {}
+  }
+}
+
+function initializeDatabase(db, dbPath) {
+  try {
+    db.pragma('journal_mode = WAL');
+  } catch (error) {
+    console.warn(
+      `[Database] Failed to enable WAL for ${dbPath}: ${error.message}. ` +
+      'Retrying after clearing WAL sidecar files.',
+    );
+    try {
+      db.close();
+    } catch {}
+
+    removeWalSidecars(dbPath);
+
+    db = new Database(dbPath);
+    try {
+      db.pragma('journal_mode = WAL');
+    } catch (retryError) {
+      console.warn(
+        `[Database] WAL is unavailable for ${dbPath}: ${retryError.message}. ` +
+        'Falling back to DELETE journal mode.',
+      );
+      db.pragma('journal_mode = DELETE');
+    }
+  }
+
+  db.pragma('foreign_keys = ON');
+  db.pragma('busy_timeout = 5000');
+  return db;
+}
+
+let db = new Database(DB_PATH);
+db = initializeDatabase(db, DB_PATH);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (

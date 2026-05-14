@@ -1976,6 +1976,7 @@ async function executeTool(toolName, args, context, engine) {
             return await service.extractFromUrl(userId, sourceUrl, {
                 includeFrame: args.include_frame !== false,
                 forceStt: args.force_stt === true,
+                agentId,
             });
         }
 

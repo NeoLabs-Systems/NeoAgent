@@ -495,6 +495,20 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
+  Widget _inlineProgressIndicator() {
+    return SizedBox(
+      width: 28,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: LinearProgressIndicator(
+          minHeight: 3,
+          backgroundColor: Colors.white.withValues(alpha: 0.28),
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSettingsOverview(
     NeoAgentController controller,
     int availableModelCount,
@@ -1421,13 +1435,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       : () => controller.checkForAppUpdates(),
                   style: FilledButton.styleFrom(backgroundColor: _accent),
                   icon: controller.isCheckingAppUpdate
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                      ? _inlineProgressIndicator()
                       : const Icon(Icons.sync),
                   label: Text(
                     controller.isCheckingAppUpdate
@@ -1605,13 +1613,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                 backgroundColor: _accent,
                               ),
                               icon: controller.isOpeningAppUpdate
-                                  ? const SizedBox.square(
-                                      dimension: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
+                                  ? _inlineProgressIndicator()
                                   : const Icon(Icons.system_update_alt),
                               label: Text(
                                 controller.isOpeningAppUpdate

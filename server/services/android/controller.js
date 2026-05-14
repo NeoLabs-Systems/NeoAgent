@@ -20,7 +20,6 @@ const TMP_DIR = path.join(ARTIFACTS_DIR, 'tmp');
 const EMULATOR_HOME = path.join(ANDROID_ROOT, 'home');
 const EMULATOR_ADVANCED_FEATURES_FILE = path.join(EMULATOR_HOME, 'advancedFeatures.ini');
 const AVD_HOME = path.join(ANDROID_ROOT, 'avd');
-const EMULATOR_READY_SNAPSHOT = 'neoagent-ready';
 const STATE_DIR = path.join(ARTIFACTS_DIR, 'state');
 const STATE_FILE = path.join(ARTIFACTS_DIR, 'state.json');
 const OWNERSHIP_FILE = path.join(ARTIFACTS_DIR, 'device-ownership.json');
@@ -53,19 +52,10 @@ for (const dir of [ANDROID_ROOT, SDK_ROOT, EMULATOR_HOME, ARTIFACTS_DIR, SCREENS
 }
 
 function ensureEmulatorAdvancedFeaturesFile() {
-  const content = [
-    'Vulkan = off',
-    'GLDirectMem = off',
-    '',
-  ].join('\n');
   try {
     if (fs.existsSync(EMULATOR_ADVANCED_FEATURES_FILE)) {
-      const current = fs.readFileSync(EMULATOR_ADVANCED_FEATURES_FILE, 'utf8');
-      if (current.trim() === content.trim()) {
-        return;
-      }
+      fs.rmSync(EMULATOR_ADVANCED_FEATURES_FILE, { force: true });
     }
-    fs.writeFileSync(EMULATOR_ADVANCED_FEATURES_FILE, content);
   } catch {}
 }
 
@@ -265,23 +255,11 @@ function emulatorHostArch() {
 }
 
 function emulatorGpuMode() {
-  return 'swiftshader_indirect';
-}
-
-function emulatorSnapshotStoragePath(avdName) {
-  return path.join(AVD_HOME, `${avdName}.avd`, 'snapshots.img');
+  return 'auto';
 }
 
 function emulatorLaunchArgs(avdName) {
-  if (process.platform === 'darwin' && process.arch === 'arm64') {
-    return ['-no-snapshot'];
-  }
-  return [
-    '-snapshot',
-    EMULATOR_READY_SNAPSHOT,
-    '-snapstorage',
-    emulatorSnapshotStoragePath(avdName),
-  ];
+  return ['-no-snapshot-load'];
 }
 
 function parseCsvEnv(value) {
@@ -342,6 +320,15 @@ function parseSystemImagePlatform(platformId) {
       platformId,
       apiLevel: Number(stable[1] || 0),
       stable: true,
+    };
+  }
+
+  const released = String(platformId || '').match(/^android-(\d+(?:\.\d+)?)$/);
+  if (released) {
+    return {
+      platformId,
+      apiLevel: Math.floor(Number(released[1]) || 0),
+      stable: false,
     };
   }
 
@@ -817,6 +804,8 @@ async function installSystemImageArchive(metadata, packageName) {
   const extractDir = fs.mkdtempSync(path.join(TMP_DIR, 'system-image-'));
 
   try {
+    fs.rmSync(targetRoot, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(targetRoot), { recursive: true });
     await downloadFile(url, zipPath);
     extractZip(zipPath, extractDir);
 
@@ -827,9 +816,15 @@ async function installSystemImageArchive(metadata, packageName) {
       throw new Error(`Downloaded Android system image archive for ${packageName} did not contain the expected files`);
     }
 
-    fs.rmSync(targetRoot, { recursive: true, force: true });
-    fs.mkdirSync(path.dirname(targetRoot), { recursive: true });
-    fs.cpSync(extractedRoot, targetRoot, { recursive: true, force: true });
+    fs.rmSync(zipPath, { force: true });
+    try {
+      fs.renameSync(extractedRoot, targetRoot);
+    } catch (renameErr) {
+      fs.cpSync(extractedRoot, targetRoot, { recursive: true, force: true });
+      if (renameErr) {
+        console.warn(`[Android] Falling back to copy for ${packageName}: ${renameErr.message}`);
+      }
+    }
   } finally {
     fs.rmSync(zipPath, { force: true });
     fs.rmSync(extractDir, { recursive: true, force: true });
@@ -838,8 +833,8 @@ async function installSystemImageArchive(metadata, packageName) {
 
 function systemImageTagScore(tag) {
   const value = String(tag || '').toLowerCase();
-  if (value.startsWith('google_apis_playstore')) return 60;
-  if (value.startsWith('google_apis')) return 50;
+  if (value.startsWith('google_apis_playstore')) return 80;
+  if (value.startsWith('google_apis')) return 60;
   if (value === 'default') return 40;
   if (value === 'google_atd') return 20;
   if (value === 'aosp_atd') return 10;
@@ -920,11 +915,12 @@ function parseInstalledSystemImages() {
 function rankSystemImagePool(pool) {
   const preferredMatches = pool.filter((candidate) => candidate.tagScore > 0);
   const rankedPool = preferredMatches.length > 0 ? preferredMatches : pool;
+  const preferLowerApiOnAppleSilicon = process.platform === 'darwin' && process.arch === 'arm64';
 
   rankedPool.sort((a, b) =>
     Number(b.stable) - Number(a.stable) ||
     b.tagScore - a.tagScore ||
-    b.apiLevel - a.apiLevel ||
+    (preferLowerApiOnAppleSilicon ? (a.apiLevel - b.apiLevel) : (b.apiLevel - a.apiLevel)) ||
     a.packageName.localeCompare(b.packageName)
   );
 
@@ -1336,20 +1332,21 @@ class AndroidController {
       chooseConfiguredSystemImage(available) ||
       chooseLatestSystemImage(available, [desiredArch]) ||
       chooseLatestSystemImage(available);
+    const selectedImage = rankSystemImagePool([preferredInstalled, preferredAvailable].filter(Boolean))[0] || preferredInstalled || preferredAvailable;
     const stateApiLevel = Number(state.apiLevel || 0) || 0;
 
-    if (!shouldForceSdkRefresh() && sharedAndroidSdkReady() && preferredInstalled && preferredAvailable) {
+    if (!shouldForceSdkRefresh() && sharedAndroidSdkReady() && selectedImage) {
       const stateAligned =
-        preferredInstalled.packageName === state.systemImage &&
-        preferredInstalled.apiLevel === stateApiLevel &&
-        preferredInstalled.arch === state.systemImageArch &&
+        selectedImage.packageName === state.systemImage &&
+        selectedImage.apiLevel === stateApiLevel &&
+        selectedImage.arch === state.systemImageArch &&
         state.avdName === this.avdName;
 
-      if (stateAligned && preferredInstalled.packageName === preferredAvailable.packageName) {
+      if (stateAligned) {
         return;
       }
 
-      if (preferredInstalled.packageName !== preferredAvailable.packageName) {
+      if (selectedImage === preferredInstalled && selectedImage.packageName) {
         const changeSummary = describeAutoFixChanges(
           {
             avdName: state.avdName || null,
@@ -1359,38 +1356,26 @@ class AndroidController {
           },
           {
             avdName: this.avdName,
-            systemImage: preferredAvailable.packageName,
-            apiLevel: preferredAvailable.apiLevel,
-            systemImageArch: preferredAvailable.arch,
+            systemImage: selectedImage.packageName,
+            apiLevel: selectedImage.apiLevel,
+            systemImageArch: selectedImage.arch,
           },
           ['avdName', 'systemImage', 'apiLevel', 'systemImageArch']
         );
         if (changeSummary) {
           console.log(`[Android] Auto-fixed host SDK state (${changeSummary})`);
         }
-        await installSystemImageArchive(systemImageMetadata, preferredAvailable.packageName);
         this.#appendState({
           bootstrapped: true,
           avdName: this.avdName,
           serial: null,
           emulatorPid: null,
-          systemImage: preferredAvailable.packageName,
-          apiLevel: preferredAvailable.apiLevel,
-          systemImageArch: preferredAvailable.arch,
+          systemImage: selectedImage.packageName,
+          apiLevel: selectedImage.apiLevel,
+          systemImageArch: selectedImage.arch,
         });
         return;
       }
-
-      this.#appendState({
-        bootstrapped: true,
-        avdName: this.avdName,
-        serial: null,
-        emulatorPid: null,
-        systemImage: preferredInstalled.packageName,
-        apiLevel: preferredInstalled.apiLevel,
-        systemImageArch: preferredInstalled.arch,
-      });
-      return;
     }
 
     const binariesReady =
@@ -1414,11 +1399,11 @@ class AndroidController {
       state.systemImageArch !== desiredArch ||
       !installedEmulatorMatchesHost();
     if (!shouldForceSdkRefresh()) {
-      if (!runtimeNeedsRefresh && preferredInstalled) {
+      if (!runtimeNeedsRefresh && selectedImage && selectedImage === preferredInstalled) {
         const stateNeedsRefresh =
-          preferredInstalled.packageName !== state.systemImage ||
-          preferredInstalled.apiLevel !== stateApiLevel ||
-          preferredInstalled.arch !== state.systemImageArch ||
+          selectedImage.packageName !== state.systemImage ||
+          selectedImage.apiLevel !== stateApiLevel ||
+          selectedImage.arch !== state.systemImageArch ||
           state.avdName !== this.avdName;
         if (stateNeedsRefresh) {
           const changeSummary = describeAutoFixChanges(
@@ -1430,9 +1415,9 @@ class AndroidController {
             },
             {
               avdName: this.avdName,
-              systemImage: preferredInstalled.packageName,
-              apiLevel: preferredInstalled.apiLevel,
-              systemImageArch: preferredInstalled.arch,
+              systemImage: selectedImage.packageName,
+              apiLevel: selectedImage.apiLevel,
+              systemImageArch: selectedImage.arch,
             },
             ['avdName', 'systemImage', 'apiLevel', 'systemImageArch']
           );
@@ -1444,14 +1429,20 @@ class AndroidController {
             avdName: this.avdName,
             serial: null,
             emulatorPid: null,
-            systemImage: preferredInstalled.packageName,
-            apiLevel: preferredInstalled.apiLevel,
-            systemImageArch: preferredInstalled.arch,
+            systemImage: selectedImage.packageName,
+            apiLevel: selectedImage.apiLevel,
+            systemImageArch: selectedImage.arch,
           });
         }
         return;
       }
-      if (!runtimeNeedsRefresh && state.bootstrapped === true && state.systemImage) {
+      if (
+        !runtimeNeedsRefresh &&
+        state.bootstrapped === true &&
+        state.systemImage &&
+        selectedImage &&
+        selectedImage.packageName === state.systemImage
+      ) {
         return;
       }
     }
@@ -1462,10 +1453,11 @@ class AndroidController {
       await installPlatformToolsArchive(metadata);
     }
     await installEmulatorArchive(metadata);
-    await installSystemImageArchive(systemImageMetadata, preferredAvailable?.packageName || preferredInstalled?.packageName);
-    const selectedImage = preferredAvailable || preferredInstalled;
     if (!selectedImage) {
       throw new Error(formatSystemImageError(available));
+    }
+    if (selectedImage?.packageName) {
+      await installSystemImageArchive(systemImageMetadata, selectedImage.packageName);
     }
     this.#appendState({
       bootstrapped: true,
@@ -1566,6 +1558,8 @@ class AndroidController {
         const expectedRamSize = String(DEFAULT_RAM_SIZE_MB);
         const currentGpuMode = readIniValue(config, 'hw.gpu.mode');
         const expectedGpuMode = emulatorGpuMode();
+        const currentPlayStoreEnabled = readIniValue(config, 'PlayStore.enabled');
+        const expectedPlayStoreEnabled = String(String(pkg || '').includes('playstore'));
         if (expectedImageDir && currentImageDir && currentImageDir !== expectedImageDir) {
           avdNeedsRecreate = true;
           avdRecreateReasons.push(`image.sysdir.1: ${currentImageDir} -> ${expectedImageDir}`);
@@ -1594,6 +1588,10 @@ class AndroidController {
           avdNeedsRecreate = true;
           avdRecreateReasons.push(`hw.gpu.mode: ${currentGpuMode} -> ${expectedGpuMode}`);
         }
+        if (currentPlayStoreEnabled && currentPlayStoreEnabled !== expectedPlayStoreEnabled) {
+          avdNeedsRecreate = true;
+          avdRecreateReasons.push(`PlayStore.enabled: ${currentPlayStoreEnabled} -> ${expectedPlayStoreEnabled}`);
+        }
       } catch {}
     }
 
@@ -1605,7 +1603,6 @@ class AndroidController {
       fs.rmSync(avdDir, { recursive: true, force: true });
       fs.rmSync(path.join(AVD_HOME, `${this.avdName}.ini`), { force: true });
       fs.rmSync(path.join(avdDir, 'userdata-qemu.img'), { force: true });
-      fs.rmSync(emulatorSnapshotStoragePath(this.avdName), { force: true });
     } else if (avdExists) {
       ensureSparseFile(path.join(avdDir, 'userdata-qemu.img'), DEFAULT_DATA_PARTITION_BYTES);
       return;
@@ -1625,6 +1622,7 @@ class AndroidController {
     const tagId = parts[2];
     const tagDisplay = tagId === 'google_apis' ? 'Google APIs' : tagId.replace(/_/g, ' ');
     const abi = parts[3];
+    const playStoreEnabled = tagId.includes('playstore');
     const avdDir = path.join(AVD_HOME, `${this.avdName}.avd`);
     const imageSysDir = systemImagePackageToRelativeDir(packageName);
     if (!imageSysDir) {
@@ -1648,7 +1646,7 @@ class AndroidController {
       'avd.ini.encoding=UTF-8',
       `AvdId=${this.avdName}`,
       `avd.ini.displayname=${this.avdName}`,
-      'PlayStore.enabled=false',
+      `PlayStore.enabled=${playStoreEnabled}`,
       `image.sysdir.1=${imageSysDir}`,
       `abi.type=${abi}`,
       `hw.cpu.arch=${systemImagePackageToCpuArch(packageName) || abi}`,
@@ -1683,7 +1681,6 @@ class AndroidController {
     if (fs.existsSync(userdataImage)) {
       fs.copyFileSync(userdataImage, path.join(avdDir, 'userdata.img'));
     }
-    fs.rmSync(emulatorSnapshotStoragePath(this.avdName), { force: true });
   }
 
   #normalizeAvdConfig() {
@@ -1695,6 +1692,7 @@ class AndroidController {
     content = updateIniValue(content, 'sdcard.size', DEFAULT_SDCARD_SIZE_BYTES);
     content = updateIniValue(content, 'hw.ramSize', DEFAULT_RAM_SIZE_MB);
     content = updateIniValue(content, 'hw.gpu.mode', emulatorGpuMode());
+    content = updateIniValue(content, 'PlayStore.enabled', String(this.#readState()?.systemImage || '').includes('playstore'));
     fs.writeFileSync(configPath, content);
   }
 

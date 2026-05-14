@@ -490,7 +490,9 @@ class BrowserController {
         url: currentUrl,
         status: response?.status() || 0,
         bodyText,
-        screenshotPath: screenshot?.screenshotPath || null
+        screenshotPath: screenshot?.screenshotPath || null,
+        artifactId: screenshot?.artifactId || null,
+        fullPath: screenshot?.fullPath || null
       };
     } catch (err) {
       let screenshot = null;
@@ -498,7 +500,9 @@ class BrowserController {
       return {
         error: err.message,
         url,
-        screenshotPath: screenshot?.screenshotPath || null
+        screenshotPath: screenshot?.screenshotPath || null,
+        artifactId: screenshot?.artifactId || null,
+        fullPath: screenshot?.fullPath || null
       };
     }
   }
@@ -540,7 +544,9 @@ class BrowserController {
         success: true,
         url: page.url(),
         title: await page.title(),
-        screenshotPath: screenshotResult?.screenshotPath || null
+        screenshotPath: screenshotResult?.screenshotPath || null,
+        artifactId: screenshotResult?.artifactId || null,
+        fullPath: screenshotResult?.fullPath || null
       };
     } catch (err) {
       return { error: err.message };
@@ -569,7 +575,9 @@ class BrowserController {
         y: py,
         url: page.url(),
         title: await page.title(),
-        screenshotPath: screenshotResult?.screenshotPath || null
+        screenshotPath: screenshotResult?.screenshotPath || null,
+        artifactId: screenshotResult?.artifactId || null,
+        fullPath: screenshotResult?.fullPath || null
       };
     } catch (err) {
       return { error: err.message };
@@ -593,7 +601,9 @@ class BrowserController {
         success: true,
         url: page.url(),
         title: await page.title(),
-        screenshotPath: screenshotResult?.screenshotPath || null
+        screenshotPath: screenshotResult?.screenshotPath || null,
+        artifactId: screenshotResult?.artifactId || null,
+        fullPath: screenshotResult?.fullPath || null
       };
     } catch (err) {
       return { error: err.message };
@@ -624,7 +634,9 @@ class BrowserController {
       return {
         success: true,
         typed: text,
-        screenshotPath: screenshotResult?.screenshotPath || null
+        screenshotPath: screenshotResult?.screenshotPath || null,
+        artifactId: screenshotResult?.artifactId || null,
+        fullPath: screenshotResult?.fullPath || null
       };
     } catch (err) {
       return { error: err.message };
@@ -650,7 +662,9 @@ class BrowserController {
       return {
         success: true,
         typed: String(text || ''),
-        screenshotPath: screenshotResult?.screenshotPath || null
+        screenshotPath: screenshotResult?.screenshotPath || null,
+        artifactId: screenshotResult?.artifactId || null,
+        fullPath: screenshotResult?.fullPath || null
       };
     } catch (err) {
       return { error: err.message };
@@ -674,7 +688,9 @@ class BrowserController {
       return {
         success: true,
         key: normalized,
-        screenshotPath: screenshotResult?.screenshotPath || null
+        screenshotPath: screenshotResult?.screenshotPath || null,
+        artifactId: screenshotResult?.artifactId || null,
+        fullPath: screenshotResult?.fullPath || null
       };
     } catch (err) {
       return { error: err.message };

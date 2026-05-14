@@ -384,26 +384,30 @@ class _PageTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 760;
+    final titleStyle = compact
+        ? _displayTitleStyle(26)
+        : _displayTitleStyle(32);
+    final subtitleStyle = TextStyle(
+      color: _textSecondary,
+      height: compact ? 1.38 : 1.5,
+    );
     return _EntranceMotion(
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 24),
+        padding: EdgeInsets.only(bottom: compact ? 16 : 24),
         child: compact
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
+                  const SizedBox(height: 6),
+                  Text(title, style: titleStyle),
                   const SizedBox(height: 8),
-                  Text(title, style: _displayTitleStyle(30)),
-                  const SizedBox(height: 10),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 720),
-                    child: Text(
-                      subtitle,
-                      style: TextStyle(color: _textSecondary, height: 1.5),
-                    ),
+                    child: Text(subtitle, style: subtitleStyle),
                   ),
                   if (trailing != null) ...<Widget>[
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
                     trailing!,
                   ],
                 ],
@@ -417,17 +421,11 @@ class _PageTitle extends StatelessWidget {
                       children: <Widget>[
                         Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
                         const SizedBox(height: 8),
-                        Text(title, style: _displayTitleStyle(32)),
+                        Text(title, style: titleStyle),
                         const SizedBox(height: 10),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 760),
-                          child: Text(
-                            subtitle,
-                            style: TextStyle(
-                              color: _textSecondary,
-                              height: 1.5,
-                            ),
-                          ),
+                          child: Text(subtitle, style: subtitleStyle),
                         ),
                       ],
                     ),
@@ -1881,6 +1879,13 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
                           monitor.isReloading ? 'Reloading...' : 'Reload now',
                         ),
                       ),
+                      if (monitor.isReloading) ...<Widget>[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: const LinearProgressIndicator(minHeight: 3),
+                        ),
+                      ],
                     ],
                   )
                 : Row(

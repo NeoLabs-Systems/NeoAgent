@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { sanitizeError } = require('../utils/security');
 
 const router = express.Router();
@@ -39,9 +40,12 @@ router.post('/extract', async (req, res) => {
       return res.status(400).json({ error: 'url is required.' });
     }
 
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+
     const result = await service.extractFromUrl(req.session.userId, sourceUrl, {
       includeFrame: req.body?.include_frame !== false,
       forceStt: req.body?.force_stt === true,
+      agentId,
     });
 
     if (result?.setup?.ready === false) {

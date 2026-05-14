@@ -5,15 +5,17 @@ const fsp = require('fs/promises');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
+const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { CLIExecutor } = require('../cli/executor');
-const { isDeepgramConfigured, transcribeChunkWithDeepgram } = require('../recordings/deepgram');
 const { getAdapterForPlatform } = require('./adapters');
 const { decideTranscriptPath, parseCaptionText, pickCaptionTrack } = require('./captions');
 const { inferImageContentType, pickDeterministicFrameSecond } = require('./frame');
 const { extractPublicMetadataFromHtml } = require('./metadata');
 const { shapeSocialVideoResult } = require('./result');
 const { normalizeAndDetectPlatform } = require('./url');
+const { isMainAgent } = require('../agents/manager');
+const { resolveSttModel, transcribeVoiceInput } = require('../voice/providers');
 
 const SOCIAL_VIDEO_TMP_DIR = path.join(DATA_DIR, 'social-video-temp');
 fs.mkdirSync(SOCIAL_VIDEO_TMP_DIR, { recursive: true });
@@ -70,6 +72,60 @@ function unwrapBrowserExtractValue(payload) {
   return '';
 }
 
+function parseStoredSettingValue(value) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function readStoredSetting(userId, agentId, key) {
+  if (!userId) {
+    return null;
+  }
+
+  if (agentId) {
+    const agentRow = db.prepare(
+      'SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?',
+    ).get(userId, agentId, key);
+    if (agentRow) {
+      return parseStoredSettingValue(agentRow.value);
+    }
+  }
+
+  if (!agentId || isMainAgent(userId, agentId)) {
+    const userRow = db.prepare(
+      'SELECT value FROM user_settings WHERE user_id = ? AND key = ?',
+    ).get(userId, key);
+    if (userRow) {
+      return parseStoredSettingValue(userRow.value);
+    }
+  }
+
+  return null;
+}
+
+function resolveVoiceSttConfigFromSettings(settings = {}) {
+  const provider = String(
+    settings.voice_stt_provider
+    || settings.default_recording_transcription_provider
+    || '',
+  ).trim().toLowerCase() || 'openai';
+  const model = String(
+    settings.voice_stt_model
+    || settings.default_recording_transcription_model
+    || '',
+  ).trim();
+  return {
+    provider,
+    model: resolveSttModel(provider, model),
+  };
+}
+
 function fileExists(filePath) {
   try {
     return fs.statSync(filePath).isFile();
@@ -124,6 +180,8 @@ class SocialVideoService {
     this.artifactStore = options.artifactStore || null;
     this.runtimeManager = options.runtimeManager || null;
     this.cliExecutor = options.cliExecutor || new CLIExecutor();
+    this.voiceTranscriber = options.voiceTranscriber || transcribeVoiceInput;
+    this.voiceSettingsResolver = options.voiceSettingsResolver || ((userId, agentId) => this.#resolveVoiceSttConfig(userId, agentId));
     this.ytDlpBin = String(process.env.YT_DLP_BIN || 'yt-dlp').trim() || 'yt-dlp';
     this.ffmpegBin = String(process.env.FFMPEG_BIN || 'ffmpeg').trim() || 'ffmpeg';
     this._healthCache = {
@@ -148,10 +206,7 @@ class SocialVideoService {
       ready: ytDlp.available && ffmpeg.available,
       dependencies: [ytDlp, ffmpeg],
       speechToText: {
-        configured: isDeepgramConfigured(),
-        note: isDeepgramConfigured()
-          ? 'Deepgram is configured for speech-to-text fallback.'
-          : 'DEEPGRAM_API_KEY is not configured. Extraction still works when platform captions are available.',
+        note: 'Transcript fallback uses the configured voice STT provider from Flutter settings.',
       },
       checkedAt: new Date().toISOString(),
     };
@@ -167,6 +222,7 @@ class SocialVideoService {
     const warnings = [];
     const errors = [];
     const source = String(sourceUrl || '').trim();
+    const agentId = options.agentId || null;
     let jobDir = null;
 
     try {
@@ -208,6 +264,8 @@ class SocialVideoService {
         captionTrack,
         transcriptDecision,
         jobDir,
+        userId,
+        agentId,
         warnings,
       });
 
@@ -407,15 +465,10 @@ class SocialVideoService {
       context.warnings.push('Caption track was present but transcript text was empty. Falling back to speech-to-text.');
     }
 
-    if (!isDeepgramConfigured()) {
-      context.warnings.push('Captions unavailable and DEEPGRAM_API_KEY is not configured; transcript could not be generated.');
-      return {
-        text: '',
-        source: 'unavailable',
-      };
-    }
-
-    const transcript = await this.#transcribeViaStt(context.sourceUrl, context.jobDir);
+    const transcript = await this.#transcribeViaStt(context).catch((error) => {
+      context.warnings.push(`Speech-to-text fallback failed: ${error.message}`);
+      return '';
+    });
     return {
       text: transcript,
       source: transcript ? 'stt' : 'unavailable',
@@ -431,23 +484,41 @@ class SocialVideoService {
     return parseCaptionText(raw, captionTrack.ext);
   }
 
-  async #transcribeViaStt(sourceUrl, jobDir) {
-    const template = path.join(jobDir, 'audio.%(ext)s');
-    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist -o ${shellEscape(template)} -f bestaudio -- ${shellEscape(sourceUrl)}`;
-    await this.#runCommand(command, { cwd: jobDir, timeout: 10 * 60 * 1000 });
+  async #transcribeViaStt(context) {
+    const template = path.join(context.jobDir, 'audio.%(ext)s');
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist -o ${shellEscape(template)} -f bestaudio -- ${shellEscape(context.sourceUrl)}`;
+    await this.#runCommand(command, { cwd: context.jobDir, timeout: 10 * 60 * 1000 });
 
-    const audioPath = firstFileMatching(jobDir, 'audio.');
+    const audioPath = firstFileMatching(context.jobDir, 'audio.');
     if (!audioPath || !fileExists(audioPath)) {
       throw new Error('Audio download succeeded but no audio file was created.');
     }
 
-    const audioBytes = await fsp.readFile(audioPath);
-    const deepgramResult = await transcribeChunkWithDeepgram({
-      audioBytes,
+    const sttConfig = await Promise.resolve(
+      this.voiceSettingsResolver(context.userId, context.agentId),
+    );
+    return this.voiceTranscriber(audioPath, {
+      provider: sttConfig?.provider || 'openai',
+      model: sttConfig?.model || '',
       mimeType: detectMimeFromFile(audioPath),
     });
-    const transcript = deepgramResult?.results?.channels?.[0]?.alternatives?.[0]?.transcript;
-    return String(transcript || '').trim();
+  }
+
+  async #resolveVoiceSttConfig(userId, agentId) {
+    return resolveVoiceSttConfigFromSettings({
+      voice_stt_provider: readStoredSetting(userId, agentId, 'voice_stt_provider'),
+      voice_stt_model: readStoredSetting(userId, agentId, 'voice_stt_model'),
+      default_recording_transcription_provider: readStoredSetting(
+        userId,
+        agentId,
+        'default_recording_transcription_provider',
+      ),
+      default_recording_transcription_model: readStoredSetting(
+        userId,
+        agentId,
+        'default_recording_transcription_model',
+      ),
+    });
   }
 
   async #resolveFrameImage(context) {
@@ -574,5 +645,6 @@ module.exports = {
   firstFileMatching,
   pickBestThumbnail,
   classifyExtractionError,
+  resolveVoiceSttConfigFromSettings,
   shellEscape,
 };

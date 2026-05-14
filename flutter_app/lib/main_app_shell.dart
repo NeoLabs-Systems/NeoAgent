@@ -13,17 +13,23 @@ class SplashView extends StatelessWidget {
           colors: <Color>[_accent, _bgSecondary, _bgPrimary],
         ),
       ),
-      child: const Scaffold(
+      child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               _BrandLockup(logoSize: 52),
-              SizedBox(height: 18),
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Loading NeoOS'),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: 180,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: const LinearProgressIndicator(minHeight: 4),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text('Loading NeoOS'),
             ],
           ),
         ),
@@ -1090,11 +1096,7 @@ class _HomeViewState extends State<HomeView> {
             });
 
         if (Platform.isAndroid) {
-          NotificationInterceptor().initialize(
-            context,
-            backendUrl,
-            sessionCookie,
-          );
+          NotificationInterceptor().initialize(backendUrl, sessionCookie);
         }
       }
     }
@@ -1242,12 +1244,19 @@ class _HomeViewState extends State<HomeView> {
           onToggleGroup: _toggleSidebarGroup,
         ),
         appBar: AppBar(
+          toolbarHeight: 48,
+          titleSpacing: 0,
+          leadingWidth: 44,
+          centerTitle: false,
           title: Text(controller.selectedSection.navigationTitle),
+          titleTextStyle: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           elevation: 0,
         ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
             child: _GlassSurface(
               borderRadius: BorderRadius.circular(26),
               blurSigma: 24,
@@ -2014,7 +2023,7 @@ class _MobileDrawer extends StatelessWidget {
         child: Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -2032,7 +2041,7 @@ class _MobileDrawer extends StatelessWidget {
                     ],
                   ),
                   if (controller.agentProfiles.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     _AgentSwitcher(
                       controller: controller,
                       onChanged: () => Navigator.of(context).pop(),
@@ -2056,7 +2065,7 @@ class _MobileDrawer extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
               child: Row(
                 children: <Widget>[
                   const Spacer(),
