@@ -28,6 +28,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
   late final TextEditingController _textEntryController;
   Timer? _surfaceFrameTimer;
   _DeviceSurface _surface = _DeviceSurface.browser;
+  _DeviceSurface? _runningSurface;
 
   @override
   void initState() {
@@ -65,6 +66,20 @@ class _DevicesPanelState extends State<DevicesPanel> {
 
   bool get _isBrowser => _surface == _DeviceSurface.browser;
   bool get _isDesktop => _surface == _DeviceSurface.desktop;
+
+  bool get _isCurrentSurfaceBusy =>
+      widget.controller.isRunningDeviceAction &&
+      (_runningSurface == null || _runningSurface == _surface);
+
+  Future<T> _runOnSurface<T>(Future<T> Function() action) async {
+    final surface = _surface;
+    if (mounted) setState(() => _runningSurface = surface);
+    try {
+      return await action();
+    } finally {
+      if (mounted) setState(() => _runningSurface = null);
+    }
+  }
 
   bool get _androidOnline {
     final status = widget.controller.androidRuntime;
@@ -164,18 +179,14 @@ class _DevicesPanelState extends State<DevicesPanel> {
     await widget.controller.refreshAndroidFrameRuntime();
   }
 
-  Future<void> _switchSurface(int delta) async {
-    final surfaces = _DeviceSurface.values;
-    final currentIndex = surfaces.indexOf(_surface);
-    final nextIndex = (currentIndex + delta) % surfaces.length;
-    setState(
-      () =>
-          _surface = surfaces[nextIndex < 0 ? surfaces.length - 1 : nextIndex],
-    );
+  Future<void> _selectSurface(_DeviceSurface surface) async {
+    setState(() => _surface = surface);
     await _ensurePreview();
   }
 
-  Future<void> _openPrimary() async {
+  Future<void> _openPrimary() => _runOnSurface(_openPrimaryInner);
+
+  Future<void> _openPrimaryInner() async {
     final controller = widget.controller;
     if (_isBrowser) {
       await controller.navigateBrowserRuntime(
@@ -237,7 +248,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
     await controller.openAndroidAppRuntime(packageName: raw);
   }
 
-  Future<void> _sleepPrimary() async {
+  Future<void> _sleepPrimary() => _runOnSurface(_sleepPrimaryInner);
+
+  Future<void> _sleepPrimaryInner() async {
     final controller = widget.controller;
     if (_isBrowser) {
       if (controller.browserRuntime['launched'] != true) {
@@ -259,7 +272,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
     await controller.stopAndroidRuntime();
   }
 
-  Future<void> _sendText() async {
+  Future<void> _sendText() => _runOnSurface(() async {
     final text = _textEntryController.text;
     if (text.trim().isEmpty) {
       return;
@@ -274,9 +287,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
         'pressEnter': true,
       });
     }
-  }
+  });
 
-  Future<void> _handleTap(Offset point) async {
+  Future<void> _handleTap(Offset point) => _runOnSurface(() async {
     if (_isBrowser) {
       await widget.controller.clickBrowserPointRuntime(
         x: point.dx.round(),
@@ -302,9 +315,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
       'x': point.dx.round(),
       'y': point.dy.round(),
     });
-  }
+  });
 
-  Future<void> _handleSwipe(Offset start, Offset end) async {
+  Future<void> _handleSwipe(Offset start, Offset end) => _runOnSurface(() async {
     if (_isBrowser) {
       await widget.controller.scrollBrowserRuntime(
         deltaY: (start.dy - end.dy).round(),
@@ -333,9 +346,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
       'y2': end.dy.round(),
       'durationMs': 280,
     });
-  }
+  });
 
-  Future<void> _runQuickAction(String action) async {
+  Future<void> _runQuickAction(String action) => _runOnSurface(() async {
     final controller = widget.controller;
     switch (action) {
       case 'browser_refresh':
@@ -369,7 +382,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
         await _ensurePreview();
         break;
     }
-  }
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -471,7 +484,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                             ),
                           );
                         }).toList(),
-                        onChanged: controller.isRunningDeviceAction
+                        onChanged: _isCurrentSurfaceBusy
                             ? null
                             : (value) {
                                 if (value == null || value.isEmpty) {
@@ -533,7 +546,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                                 ? _desktopOnline
                                 : _androidOnline || _androidStarting),
                       starting: !_isBrowser && !_isDesktop && _androidStarting,
-                      busy: controller.isRunningDeviceAction,
+                      busy: _isCurrentSurfaceBusy,
                       onSubmit: _openPrimary,
                       onSleep: _sleepPrimary,
                     ),
@@ -542,7 +555,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       surface: _surface,
                       controller: controller,
                       screenshotPath: _activeScreenshotPath,
-                      busy: controller.isRunningDeviceAction,
+                      busy: _isCurrentSurfaceBusy,
                       wakingUp: !_isBrowser && !_isDesktop && _androidStarting,
                       enabled: _isBrowser || _isDesktop || _androidOnline,
                       connectRequired: _desktopRequiresSelection,
@@ -553,7 +566,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                     if (!_isBrowser && !_isDesktop) ...<Widget>[
                       const SizedBox(height: 12),
                       _AndroidNavDock(
-                        busy: controller.isRunningDeviceAction,
+                        busy: _isCurrentSurfaceBusy,
                         androidOnline: _androidOnline,
                         onAction: _runQuickAction,
                       ),
@@ -561,7 +574,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                         const SizedBox(height: 14),
                         AndroidApkDropZone(
                           enabled: _androidOnline,
-                          busy: controller.isRunningDeviceAction,
+                          busy: _isCurrentSurfaceBusy,
                           onInstall: ({required filename, required bytes}) {
                             return controller.installAndroidApkRuntime(
                               filename: filename,
@@ -574,7 +587,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                     const SizedBox(height: 18),
                     _DeviceTypeDock(
                       controller: _textEntryController,
-                      busy: controller.isRunningDeviceAction,
+                      busy: _isCurrentSurfaceBusy,
                       surface: _surface,
                       onSubmit: _sendText,
                     ),
@@ -583,15 +596,14 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       _DeviceQuickActions(
                         surface: _surface,
                         androidOnline: _androidOnline,
-                        busy: controller.isRunningDeviceAction,
+                        busy: _isCurrentSurfaceBusy,
                         onAction: _runQuickAction,
                       ),
                     ],
                     const SizedBox(height: 14),
                     _SurfaceSwitcher(
                       surface: _surface,
-                      onPrevious: () => _switchSurface(-1),
-                      onNext: () => _switchSurface(1),
+                      onSelect: _selectSurface,
                     ),
                   ],
                 ),
@@ -1093,83 +1105,54 @@ class _AndroidNavDock extends StatelessWidget {
 class _SurfaceSwitcher extends StatelessWidget {
   const _SurfaceSwitcher({
     required this.surface,
-    required this.onPrevious,
-    required this.onNext,
+    required this.onSelect,
   });
 
   final _DeviceSurface surface;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
+  final Future<void> Function(_DeviceSurface) onSelect;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 520;
-        final labelColumn = Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              surface.label,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              surface.helper,
-              textAlign: TextAlign.center,
-              maxLines: compact ? 3 : 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: _textSecondary),
-            ),
-          ],
-        );
-
-        if (compact) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  IconButton.filledTonal(
-                    tooltip: 'Previous surface',
-                    onPressed: onPrevious,
-                    icon: Icon(Icons.arrow_back_ios_new_rounded),
-                  ),
-                  const SizedBox(width: 14),
-                  Flexible(child: labelColumn),
-                  const SizedBox(width: 14),
-                  IconButton.filledTonal(
-                    tooltip: 'Next surface',
-                    onPressed: onNext,
-                    icon: Icon(Icons.arrow_forward_ios_rounded),
-                  ),
-                ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: _DeviceSurface.values.map((s) {
+            final selected = s == surface;
+            return ChoiceChip(
+              avatar: Icon(
+                s.icon,
+                size: 16,
+                color: selected ? _textPrimary : _textSecondary,
               ),
-            ],
-          );
-        }
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            IconButton.filledTonal(
-              tooltip: 'Previous surface',
-              onPressed: onPrevious,
-              icon: Icon(Icons.arrow_back_ios_new_rounded),
-            ),
-            const SizedBox(width: 14),
-            labelColumn,
-            const SizedBox(width: 14),
-            IconButton.filledTonal(
-              tooltip: 'Next surface',
-              onPressed: onNext,
-              icon: Icon(Icons.arrow_forward_ios_rounded),
-            ),
-          ],
-        );
-      },
+              label: Text(s.label),
+              selected: selected,
+              onSelected: (_) => onSelect(s),
+              selectedColor: _accentMuted,
+              backgroundColor: _bgCard,
+              side: BorderSide(
+                color: selected
+                    ? _accent.withValues(alpha: 0.42)
+                    : _borderLight,
+              ),
+              labelStyle: TextStyle(
+                color: selected ? _textPrimary : _textSecondary,
+                fontWeight:
+                    selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          surface.helper,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _textSecondary),
+        ),
+      ],
     );
   }
 }
