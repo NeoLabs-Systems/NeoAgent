@@ -186,6 +186,8 @@ class NeoAgentController extends ChangeNotifier {
       <String, RunDetailSnapshot>{};
   String? _selectedWidgetId;
   String? _pendingChatDraft;
+  List<SharedChatAttachment> _pendingSharedChatAttachments =
+      const <SharedChatAttachment>[];
 
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
@@ -2444,30 +2446,30 @@ class NeoAgentController extends ChangeNotifier {
       notifyListeners();
     } catch (_) {}
 
-  Future<String> fetchMemoryTransferPrompt() async {
-    final response = await _backendClient.fetchMemoryTransferPrompt(
-      backendUrl,
-      agentId: _scopedAgentId,
-    );
-    return response['prompt']?.toString() ?? '';
-  }
+    Future<String> fetchMemoryTransferPrompt() async {
+      final response = await _backendClient.fetchMemoryTransferPrompt(
+        backendUrl,
+        agentId: _scopedAgentId,
+      );
+      return response['prompt']?.toString() ?? '';
+    }
 
-  Future<MemoryTransferImportResult> importMemoryTransfer(
-    String text, {
-    bool applyBehaviorNotes = true,
-    bool applyCoreMemory = true,
-  }) async {
-    final response = await _backendClient.importMemoryTransfer(
-      backendUrl,
-      text: text,
-      applyBehaviorNotes: applyBehaviorNotes,
-      applyCoreMemory: applyCoreMemory,
-      agentId: _scopedAgentId,
-    );
-    final result = MemoryTransferImportResult.fromJson(response);
-    await refreshMemory();
-    return result;
-  }
+    Future<MemoryTransferImportResult> importMemoryTransfer(
+      String text, {
+      bool applyBehaviorNotes = true,
+      bool applyCoreMemory = true,
+    }) async {
+      final response = await _backendClient.importMemoryTransfer(
+        backendUrl,
+        text: text,
+        applyBehaviorNotes: applyBehaviorNotes,
+        applyCoreMemory: applyCoreMemory,
+        agentId: _scopedAgentId,
+      );
+      final result = MemoryTransferImportResult.fromJson(response);
+      await refreshMemory();
+      return result;
+    }
   }
 
   Future<void> refreshMessaging() async {
@@ -4458,10 +4460,21 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> sendMessage(String task) async {
+  Future<void> sendMessage(
+    String task, {
+    List<SharedChatAttachment> sharedAttachments =
+        const <SharedChatAttachment>[],
+  }) async {
     final trimmed = task.trim();
+    final normalizedAttachments = sharedAttachments
+        .where((item) => item.isValid)
+        .toList(growable: false);
+    final outgoingTask = _taskWithSharedAttachments(
+      trimmed,
+      normalizedAttachments,
+    );
     final canSteerLiveRun = hasLiveRun && _socket != null && socketConnected;
-    if (trimmed.isEmpty || (isSendingMessage && !canSteerLiveRun)) {
+    if (outgoingTask.isEmpty || (isSendingMessage && !canSteerLiveRun)) {
       return;
     }
     unawaited(
@@ -4474,9 +4487,20 @@ class NeoAgentController extends ChangeNotifier {
     final optimistic = ChatEntry(
       id: '',
       role: 'user',
-      content: trimmed,
+      content: trimmed.isNotEmpty
+          ? trimmed
+          : (normalizedAttachments.isNotEmpty
+                ? 'Sent shared attachments from mobile app.'
+                : outgoingTask),
       platform: 'flutter',
       createdAt: DateTime.now(),
+      metadata: normalizedAttachments.isEmpty
+          ? const <String, dynamic>{}
+          : <String, dynamic>{
+              'sharedAttachments': normalizedAttachments
+                  .map((item) => item.toJson())
+                  .toList(growable: false),
+            },
     );
     chatMessages = <ChatEntry>[...chatMessages, optimistic];
     errorMessage = null;
@@ -4484,14 +4508,14 @@ class NeoAgentController extends ChangeNotifier {
       isSendingMessage = true;
       toolEvents = const <ToolEventItem>[];
       streamingAssistant = '';
-      activeRun = ActiveRunState.pending(trimmed);
+      activeRun = ActiveRunState.pending(outgoingTask);
     }
     notifyListeners();
 
     try {
       if (_socket != null && socketConnected) {
         _socket!.emit('agent:run', <String, dynamic>{
-          'task': trimmed,
+          'task': outgoingTask,
           'agentId': _scopedAgentId,
           'options': <String, dynamic>{'agentId': _scopedAgentId},
         });
@@ -4500,7 +4524,7 @@ class NeoAgentController extends ChangeNotifier {
 
       final response = await _backendClient.runTask(
         backendUrl,
-        trimmed,
+        outgoingTask,
         agentId: _scopedAgentId,
       );
       final content = response['content']?.toString().trim();
@@ -4694,9 +4718,7 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateAccountDisplayName({
-    required String displayName,
-  }) async {
+  Future<bool> updateAccountDisplayName({required String displayName}) async {
     isSavingAccountSettings = true;
     errorMessage = null;
     notifyListeners();
@@ -5644,11 +5666,33 @@ class NeoAgentController extends ChangeNotifier {
       return;
     }
     _pendingChatDraft = normalized;
+    _pendingSharedChatAttachments = const <SharedChatAttachment>[];
     if (!_isMobilePlatform) {
       setSelectedSection(AppSection.chat);
     } else {
       notifyListeners();
     }
+  }
+
+  void queueSharedChatPayload({
+    String? text,
+    String? subject,
+    List<Map<String, dynamic>> files = const <Map<String, dynamic>>[],
+  }) {
+    final attachments = files
+        .map(SharedChatAttachment.fromJson)
+        .where((item) => item.isValid)
+        .toList(growable: false);
+    final textPart = (text ?? '').toString().trim();
+    final subjectPart = (subject ?? '').toString().trim();
+    final combined = <String>[
+      subjectPart,
+      textPart,
+    ].where((part) => part.isNotEmpty).join('\n').trim();
+
+    _pendingChatDraft = combined;
+    _pendingSharedChatAttachments = attachments;
+    setSelectedSection(AppSection.chat);
   }
 
   bool get _isMobilePlatform =>
@@ -5660,6 +5704,39 @@ class NeoAgentController extends ChangeNotifier {
     final draft = _pendingChatDraft;
     _pendingChatDraft = null;
     return draft;
+  }
+
+  List<SharedChatAttachment> takePendingSharedChatAttachments() {
+    final pending = _pendingSharedChatAttachments;
+    _pendingSharedChatAttachments = const <SharedChatAttachment>[];
+    return pending;
+  }
+
+  String _taskWithSharedAttachments(
+    String task,
+    List<SharedChatAttachment> attachments,
+  ) {
+    final base = task.trim();
+    if (attachments.isEmpty) {
+      return base;
+    }
+    final lines = attachments
+        .map((item) {
+          final type = item.mimeType.trim().isEmpty
+              ? 'unknown'
+              : item.mimeType.trim();
+          return '- ${item.name} ($type) [local uri: ${item.uri}]';
+        })
+        .join('\n');
+    final attachmentBlock = [
+      'Shared attachments from mobile app:',
+      lines,
+      'Use these for context. If the local URI is not directly accessible from the server, ask me to upload the file.',
+    ].join('\n');
+    if (base.isEmpty) {
+      return attachmentBlock;
+    }
+    return '$base\n\n$attachmentBlock';
   }
 
   void selectWidget(String? widgetId) {

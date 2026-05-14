@@ -12,6 +12,8 @@ class ChatPanel extends StatefulWidget {
 class _ChatPanelState extends State<ChatPanel> {
   late final TextEditingController _composerController;
   final ScrollController _scrollController = ScrollController();
+  List<SharedChatAttachment> _pendingSharedAttachments =
+      const <SharedChatAttachment>[];
   int _lastMessageCount = 0;
   int _lastToolCount = 0;
   String _lastStream = '';
@@ -35,12 +37,23 @@ class _ChatPanelState extends State<ChatPanel> {
 
   void _consumeQueuedDraft() {
     final draft = widget.controller.takePendingChatDraft();
+    final attachments = widget.controller.takePendingSharedChatAttachments();
     if (draft == null || draft.isEmpty) {
+      if (attachments.isNotEmpty) {
+        setState(() {
+          _pendingSharedAttachments = attachments;
+        });
+      }
       return;
     }
     _composerController
       ..text = draft
       ..selection = TextSelection.collapsed(offset: draft.length);
+    if (attachments.isNotEmpty) {
+      setState(() {
+        _pendingSharedAttachments = attachments;
+      });
+    }
   }
 
   void _scrollToBottom() {
@@ -151,6 +164,29 @@ class _ChatPanelState extends State<ChatPanel> {
           ),
           child: Column(
             children: <Widget>[
+              if (_pendingSharedAttachments.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _SharedAttachmentTray(
+                    attachments: _pendingSharedAttachments,
+                    onRemoveAt: (index) {
+                      setState(() {
+                        _pendingSharedAttachments = _pendingSharedAttachments
+                            .asMap()
+                            .entries
+                            .where((entry) => entry.key != index)
+                            .map((entry) => entry.value)
+                            .toList(growable: false);
+                      });
+                    },
+                    onClear: () {
+                      setState(() {
+                        _pendingSharedAttachments =
+                            const <SharedChatAttachment>[];
+                      });
+                    },
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
                 decoration: BoxDecoration(
@@ -199,7 +235,8 @@ class _ChatPanelState extends State<ChatPanel> {
                           ? null
                           : () async {
                               final task = _composerController.text;
-                              if (task.trim().isEmpty ||
+                              if ((task.trim().isEmpty &&
+                                      _pendingSharedAttachments.isEmpty) ||
                                   _isSendingChatMessage) {
                                 return;
                               }
@@ -207,8 +244,17 @@ class _ChatPanelState extends State<ChatPanel> {
                                 _isSendingChatMessage = true;
                               });
                               _composerController.clear();
+                              final outgoingAttachments =
+                                  _pendingSharedAttachments;
+                              setState(() {
+                                _pendingSharedAttachments =
+                                    const <SharedChatAttachment>[];
+                              });
                               try {
-                                await controller.sendMessage(task);
+                                await controller.sendMessage(
+                                  task,
+                                  sharedAttachments: outgoingAttachments,
+                                );
                               } finally {
                                 if (mounted) {
                                   setState(() {
@@ -264,6 +310,114 @@ class _ChatPanelState extends State<ChatPanel> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SharedAttachmentTray extends StatelessWidget {
+  const _SharedAttachmentTray({
+    required this.attachments,
+    required this.onRemoveAt,
+    required this.onClear,
+  });
+
+  final List<SharedChatAttachment> attachments;
+  final void Function(int index) onRemoveAt;
+  final VoidCallback onClear;
+
+  IconData _iconForMime(String mime) {
+    final normalized = mime.toLowerCase();
+    if (normalized.startsWith('image/')) return Icons.image_outlined;
+    if (normalized.startsWith('video/')) return Icons.videocam_outlined;
+    if (normalized.startsWith('audio/')) return Icons.audiotrack_outlined;
+    if (normalized.contains('pdf')) return Icons.picture_as_pdf_outlined;
+    return Icons.attach_file_rounded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.forward_to_inbox_outlined, size: 15, color: _info),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Shared from another app',
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(onPressed: onClear, child: const Text('Clear')),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: attachments
+                .asMap()
+                .entries
+                .map((entry) {
+                  final item = entry.value;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _bgCard,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: _border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          _iconForMime(item.mimeType),
+                          size: 14,
+                          color: _textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 170),
+                          child: Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: _textPrimary, fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => onRemoveAt(entry.key),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: _textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                })
+                .toList(growable: false),
+          ),
+        ],
+      ),
     );
   }
 }

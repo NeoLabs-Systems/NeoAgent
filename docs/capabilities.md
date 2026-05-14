@@ -33,6 +33,7 @@ Recording sessions support:
 - Retry transcription and delete transcript segment actions.
 - Full session deletion with storage cleanup.
 - Agent tools for listing, opening, and searching transcripts: `recordings_list`, `recordings_get`, and `recordings_search`.
+- A keyless social video extractor for public YouTube, TikTok, Instagram, and X URLs through `social_video_extract`, with metadata-first fetch, captions-first transcript strategy, STT fallback, and representative frame extraction.
 
 Transcription uses Deepgram when `DEEPGRAM_API_KEY` is configured. The default speech model is `nova-3`, and the default language mode is `multi`. When `auto_recording_insights` is enabled in AI settings, NeoAgent can generate structured recording insights such as a summary, action items, and events.
 
@@ -102,6 +103,7 @@ NeoAgent's agent tool surface includes more than basic chat:
 | Output | Generate markdown tables and Mermaid graphs |
 | Images | Generate images with Grok and analyze local image files with a vision-capable model |
 | Recordings | List, inspect, and search recording transcripts |
+| Social video | Extract title, description, transcript, and a representative frame from public social video URLs |
 | Health | Read synced mobile health metrics |
 
 Generated binary or text artifacts can be promoted into user-scoped artifact storage under `~/.neoagent/data/artifacts` and served through authenticated `/api/artifacts/:id/content` URLs.

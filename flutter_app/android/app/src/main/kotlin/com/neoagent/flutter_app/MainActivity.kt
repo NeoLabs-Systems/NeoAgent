@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
+import android.provider.OpenableColumns
 import android.view.KeyEvent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +56,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var widgetEventSink: EventChannel.EventSink? = null
     private var appLaunchEventSink: EventChannel.EventSink? = null
     private var pendingAppLaunchAction: String? = null
+    private var pendingSharePayload: Map<String, Any?>? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -590,6 +592,7 @@ class MainActivity : FlutterFragmentActivity() {
 
         captureWidgetIntent(intent)
         captureAppLaunchIntent(intent)
+        captureShareIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -597,6 +600,7 @@ class MainActivity : FlutterFragmentActivity() {
         setIntent(intent)
         captureWidgetIntent(intent)
         captureAppLaunchIntent(intent)
+        captureShareIntent(intent)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -723,9 +727,89 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun emitPendingAppLaunchIntent() {
         val sink = appLaunchEventSink ?: return
+        val sharePayload = pendingSharePayload
+        if (sharePayload != null) {
+            pendingSharePayload = null
+            sink.success(sharePayload)
+            return
+        }
         val action = pendingAppLaunchAction ?: return
         pendingAppLaunchAction = null
         sink.success(mapOf("action" to action))
+    }
+
+    private fun captureShareIntent(intent: Intent?) {
+        if (intent == null) {
+            return
+        }
+        if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) {
+            return
+        }
+
+        val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim().orEmpty()
+        val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)?.trim().orEmpty()
+        val fileUris = mutableListOf<Uri>()
+
+        @Suppress("DEPRECATION")
+        val single = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+        if (single != null) {
+            fileUris.add(single)
+        }
+        @Suppress("DEPRECATION")
+        val multiple = intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+        if (multiple != null) {
+            fileUris.addAll(multiple)
+        }
+        val clip = intent.clipData
+        if (clip != null) {
+            for (index in 0 until clip.itemCount) {
+                val uri = clip.getItemAt(index)?.uri ?: continue
+                fileUris.add(uri)
+            }
+        }
+
+        val uniqueUris = linkedSetOf<String>()
+        val files = mutableListOf<Map<String, Any?>>()
+        for (uri in fileUris) {
+            val key = uri.toString()
+            if (!uniqueUris.add(key)) continue
+            files.add(buildSharedFileDescriptor(uri))
+        }
+
+        pendingSharePayload = mapOf(
+            "action" to "share_to_chat",
+            "text" to sharedText,
+            "subject" to subject,
+            "files" to files,
+        )
+        emitPendingAppLaunchIntent()
+    }
+
+    private fun buildSharedFileDescriptor(uri: Uri): Map<String, Any?> {
+        var name: String? = null
+        var sizeBytes: Long? = null
+        val type = contentResolver.getType(uri)?.trim().orEmpty()
+        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (cursor.moveToFirst()) {
+                if (nameIndex >= 0) {
+                    name = cursor.getString(nameIndex)?.trim()
+                }
+                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                    sizeBytes = cursor.getLong(sizeIndex)
+                }
+            }
+        }
+        val fallbackName = uri.lastPathSegment?.substringAfterLast('/')?.trim().orEmpty()
+        val resolvedName = (name ?: fallbackName).ifBlank { "Attachment" }
+        return mapOf(
+            "uri" to uri.toString(),
+            "name" to resolvedName,
+            "mimeType" to if (type.isBlank()) "application/octet-stream" else type,
+            "sizeBytes" to sizeBytes,
+            "source" to "android_share_intent",
+        )
     }
 
     private fun buildVolumeState(audioManager: AudioManager): Map<String, Any> {

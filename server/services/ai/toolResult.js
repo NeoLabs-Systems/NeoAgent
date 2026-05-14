@@ -112,6 +112,26 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
+    case 'social_video_extract':
+      envelope = trimObject({
+        tool: toolName,
+        platform: toolResult?.platform,
+        sourceUrl: toolResult?.sourceUrl,
+        resolvedUrl: toolResult?.resolvedUrl,
+        title: clampText(toolResult?.title || '', Math.floor(softLimit * 0.25)),
+        description: clampText(toolResult?.description || '', Math.floor(softLimit * 0.25)),
+        transcriptSource: toolResult?.transcriptSource,
+        transcriptPreview: lineExcerpt(toolResult?.transcript || '', 6, Math.floor(softLimit * 0.35)),
+        frameImage: trimObject({
+          url: toolResult?.frameImage?.url,
+          source: toolResult?.frameImage?.source,
+        }),
+        setupReady: toolResult?.setup?.ready,
+        warningCount: Array.isArray(toolResult?.warnings) ? toolResult.warnings.length : 0,
+        errorCount: Array.isArray(toolResult?.errors) ? toolResult.errors.length : 0,
+      });
+      break;
+
     case 'android_dump_ui':
     case 'android_observe':
       envelope = trimObject({

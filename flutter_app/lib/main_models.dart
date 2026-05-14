@@ -1890,6 +1890,49 @@ class ChatEntry {
   }
 }
 
+class SharedChatAttachment {
+  const SharedChatAttachment({
+    required this.uri,
+    required this.name,
+    required this.mimeType,
+    this.sizeBytes,
+    this.source = 'share_intent',
+  });
+
+  factory SharedChatAttachment.fromJson(Map<dynamic, dynamic> json) {
+    return SharedChatAttachment(
+      uri: json['uri']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Attachment',
+      mimeType:
+          json['mimeType']?.toString().ifEmpty('application/octet-stream') ??
+          'application/octet-stream',
+      sizeBytes: json['sizeBytes'] is num
+          ? (json['sizeBytes'] as num).toInt()
+          : null,
+      source:
+          json['source']?.toString().ifEmpty('share_intent') ?? 'share_intent',
+    );
+  }
+
+  final String uri;
+  final String name;
+  final String mimeType;
+  final int? sizeBytes;
+  final String source;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'uri': uri,
+      'name': name,
+      'mimeType': mimeType,
+      if (sizeBytes != null) 'sizeBytes': sizeBytes,
+      'source': source,
+    };
+  }
+
+  bool get isValid => uri.trim().isNotEmpty;
+}
+
 class AgentProfile {
   const AgentProfile({
     required this.id,

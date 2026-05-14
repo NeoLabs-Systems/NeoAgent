@@ -14,7 +14,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   late final NeoAgentController _controller;
   late final WebAppUpdateMonitor _webAppUpdateMonitor;
   final AppLaunchBridge _appLaunchBridge = AppLaunchBridge();
-  StreamSubscription<String>? _appLaunchSubscription;
+  StreamSubscription<AppLaunchRequest>? _appLaunchSubscription;
   StreamSubscription<String>? _widgetOpenSubscription;
   GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _navigatorScopeSignature;
@@ -93,9 +93,18 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     unawaited(_syncDesktopShell());
   }
 
-  void _handleAppLaunchRequest(String action) {
+  void _handleAppLaunchRequest(AppLaunchRequest request) {
+    final action = request.action;
     if (action == AppLaunchBridge.voiceAssistantAction) {
       _controller.openVoiceAssistantSurface();
+      return;
+    }
+    if (action == AppLaunchBridge.shareToChatAction) {
+      _controller.queueSharedChatPayload(
+        text: request.text,
+        subject: request.subject,
+        files: request.files,
+      );
     }
   }
 

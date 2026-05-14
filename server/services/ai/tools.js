@@ -1267,6 +1267,19 @@ function getAvailableTools(app, options = {}) {
                 },
                 required: ['query']
             }
+        },
+        {
+            name: 'social_video_extract',
+            description: 'Extract title, description, transcript, and one representative frame image from a public social video URL (YouTube, TikTok, Instagram, or X) without social API keys.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    url: { type: 'string', description: 'Public social video URL.' },
+                    include_frame: { type: 'boolean', description: 'Whether to return one representative frame image artifact (default true).' },
+                    force_stt: { type: 'boolean', description: 'Force speech-to-text fallback even if captions are present.' }
+                },
+                required: ['url']
+            }
         }
     ];
 
@@ -1392,6 +1405,7 @@ async function executeTool(toolName, args, context, engine) {
     const sk = () => app?.locals?.skillRunner || engine.skillRunner;
     const taskRuntime = () => app?.locals?.taskRuntime || engine.taskRuntime;
     const rec = () => app?.locals?.recordingManager || null;
+    const socialVideo = () => app?.locals?.socialVideoService || null;
     const widgets = () => app?.locals?.widgetService || null;
     const artifactStore = app?.locals?.artifactStore || null;
 
@@ -1948,6 +1962,21 @@ async function executeTool(toolName, args, context, engine) {
                 count: matches.length,
                 matches,
             };
+        }
+
+        case 'social_video_extract': {
+            const service = socialVideo();
+            if (!service || typeof service.extractFromUrl !== 'function') {
+                return { error: 'Social video extraction service is unavailable.' };
+            }
+            const sourceUrl = String(args.url || '').trim();
+            if (!sourceUrl) {
+                return { error: 'url is required' };
+            }
+            return await service.extractFromUrl(userId, sourceUrl, {
+                includeFrame: args.include_frame !== false,
+                forceStt: args.force_stt === true,
+            });
         }
 
         case 'memory_write': {

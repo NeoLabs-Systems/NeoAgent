@@ -1132,6 +1132,13 @@ class _ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = entry.role == 'user';
     final isTransient = entry.transient;
+    final sharedAttachments = (entry.metadata['sharedAttachments'] is List)
+        ? (entry.metadata['sharedAttachments'] as List)
+              .whereType<Map>()
+              .map((item) => SharedChatAttachment.fromJson(item))
+              .where((item) => item.isValid)
+              .toList(growable: false)
+        : const <SharedChatAttachment>[];
 
     if (entry.typing) {
       return const _TypingIndicatorBubble();
@@ -1206,6 +1213,77 @@ class _ChatBubble extends StatelessWidget {
                           ),
                         ),
                   ),
+                  if (sharedAttachments.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: sharedAttachments
+                          .map((attachment) {
+                            final icon =
+                                attachment.mimeType.toLowerCase().startsWith(
+                                  'video/',
+                                )
+                                ? Icons.videocam_outlined
+                                : attachment.mimeType.toLowerCase().startsWith(
+                                    'image/',
+                                  )
+                                ? Icons.image_outlined
+                                : attachment.mimeType.toLowerCase().startsWith(
+                                    'audio/',
+                                  )
+                                ? Icons.audiotrack_outlined
+                                : Icons.attach_file_rounded;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isUser
+                                    ? const Color(0x1FFFFFFF)
+                                    : _bgSecondary,
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: isUser
+                                      ? const Color(0x40FFFFFF)
+                                      : _border,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    icon,
+                                    size: 14,
+                                    color: isUser
+                                        ? Colors.white
+                                        : _textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 180,
+                                    ),
+                                    child: Text(
+                                      attachment.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: isUser
+                                            ? Colors.white
+                                            : _textPrimary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
+                    ),
+                  ],
                   if (!isUser &&
                       entry.runId?.trim().isNotEmpty == true) ...<Widget>[
                     const SizedBox(height: 12),
