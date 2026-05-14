@@ -999,7 +999,7 @@ class NeoAgentController extends ChangeNotifier {
     unawaited(_analytics.trackAppUpdateCheck(silent: silent));
     if (!appUpdaterConfigured) {
       appUpdateErrorMessage = kIsWeb
-          ? 'Client app update checks are unavailable in the web app.'
+          ? null
           : 'App updates are not configured for this build.';
       if (!silent) {
         notifyListeners();
