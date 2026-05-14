@@ -14,6 +14,7 @@ class _ChatPanelState extends State<ChatPanel> {
   final ScrollController _scrollController = ScrollController();
   List<SharedChatAttachment> _pendingSharedAttachments =
       const <SharedChatAttachment>[];
+  String? _appliedSharedPayloadSignature;
   int _lastMessageCount = 0;
   int _lastToolCount = 0;
   String _lastStream = '';
@@ -28,6 +29,17 @@ class _ChatPanelState extends State<ChatPanel> {
   }
 
   @override
+  void didUpdateWidget(covariant ChatPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_consumeQueuedDraft);
+      widget.controller.addListener(_consumeQueuedDraft);
+      _appliedSharedPayloadSignature = null;
+      _consumeQueuedDraft();
+    }
+  }
+
+  @override
   void dispose() {
     widget.controller.removeListener(_consumeQueuedDraft);
     _composerController.dispose();
@@ -36,24 +48,114 @@ class _ChatPanelState extends State<ChatPanel> {
   }
 
   void _consumeQueuedDraft() {
-    final draft = widget.controller.takePendingChatDraft();
-    final attachments = widget.controller.takePendingSharedChatAttachments();
-    if (draft == null || draft.isEmpty) {
-      if (attachments.isNotEmpty) {
-        setState(() {
-          _pendingSharedAttachments = attachments;
-        });
-      }
+    final draft = widget.controller.peekPendingChatDraft();
+    final attachments = widget.controller.peekPendingSharedChatAttachments();
+    final signature = _sharedPayloadSignature(draft, attachments);
+    if (draft == null && attachments.isEmpty) {
       return;
     }
-    _composerController
-      ..text = draft
-      ..selection = TextSelection.collapsed(offset: draft.length);
-    if (attachments.isNotEmpty) {
-      setState(() {
-        _pendingSharedAttachments = attachments;
-      });
+    if (_appliedSharedPayloadSignature == signature) {
+      return;
     }
+    _appliedSharedPayloadSignature = signature;
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      if ((draft ?? '').isNotEmpty && _composerController.text.trim().isEmpty) {
+        _composerController
+          ..text = draft!
+          ..selection = TextSelection.collapsed(offset: draft.length);
+      }
+      _pendingSharedAttachments = attachments;
+    });
+  }
+
+  String _sharedPayloadSignature(
+    String? draft,
+    List<SharedChatAttachment> attachments,
+  ) {
+    final attachmentSignature = attachments
+        .map((item) => '${item.uri}|${item.name}|${item.mimeType}')
+        .join('::');
+    return '${draft ?? ''}::$attachmentSignature';
+  }
+
+  void _clearSharedPayload() {
+    widget.controller.clearPendingSharedChatPayload();
+    _appliedSharedPayloadSignature = null;
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _pendingSharedAttachments = const <SharedChatAttachment>[];
+    });
+  }
+
+  String _mimeTypeForFileName(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'm4v':
+        return 'video/x-m4v';
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'm4a':
+        return 'audio/mp4';
+      case 'wav':
+        return 'audio/wav';
+      case 'pdf':
+        return 'application/pdf';
+      case 'txt':
+        return 'text/plain';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  Future<void> _attachFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withData: false,
+      type: FileType.any,
+    );
+    if (!mounted || result == null || result.files.isEmpty) {
+      return;
+    }
+    final attachments = result.files
+        .where((file) => file.path?.trim().isNotEmpty == true)
+        .map(
+          (file) => SharedChatAttachment(
+            uri: file.path!,
+            name: file.name,
+            mimeType: _mimeTypeForFileName(file.name),
+            sizeBytes: file.size,
+            source: 'file_picker',
+          ),
+        )
+        .where((item) => item.isValid)
+        .toList(growable: false);
+    if (attachments.isEmpty) {
+      return;
+    }
+    setState(() {
+      _pendingSharedAttachments = <SharedChatAttachment>[
+        ..._pendingSharedAttachments,
+        ...attachments,
+      ];
+    });
   }
 
   void _scrollToBottom() {
@@ -178,12 +280,12 @@ class _ChatPanelState extends State<ChatPanel> {
                             .map((entry) => entry.value)
                             .toList(growable: false);
                       });
+                      if (_pendingSharedAttachments.isEmpty) {
+                        _clearSharedPayload();
+                      }
                     },
                     onClear: () {
-                      setState(() {
-                        _pendingSharedAttachments =
-                            const <SharedChatAttachment>[];
-                      });
+                      _clearSharedPayload();
                     },
                   ),
                 ),
@@ -215,6 +317,13 @@ class _ChatPanelState extends State<ChatPanel> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Attach files',
+                      onPressed: _attachFiles,
+                      icon: const Icon(Icons.attach_file_rounded),
+                      color: _textSecondary,
+                    ),
+                    const SizedBox(width: 2),
                     FilledButton(
                       onPressed: () => controller.setSelectedSection(
                         AppSection.voiceAssistant,
@@ -246,10 +355,7 @@ class _ChatPanelState extends State<ChatPanel> {
                               _composerController.clear();
                               final outgoingAttachments =
                                   _pendingSharedAttachments;
-                              setState(() {
-                                _pendingSharedAttachments =
-                                    const <SharedChatAttachment>[];
-                              });
+                              _clearSharedPayload();
                               try {
                                 await controller.sendMessage(
                                   task,

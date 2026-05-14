@@ -5695,21 +5695,29 @@ class NeoAgentController extends ChangeNotifier {
     setSelectedSection(AppSection.chat);
   }
 
+  bool get hasPendingSharedChatPayload =>
+      (_pendingChatDraft?.trim().isNotEmpty ?? false) ||
+      _pendingSharedChatAttachments.isNotEmpty;
+
   bool get _isMobilePlatform =>
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  String? takePendingChatDraft() {
-    final draft = _pendingChatDraft;
-    _pendingChatDraft = null;
-    return draft;
+  String? peekPendingChatDraft() {
+    final draft = _pendingChatDraft?.trim() ?? '';
+    return draft.isEmpty ? null : draft;
   }
 
-  List<SharedChatAttachment> takePendingSharedChatAttachments() {
-    final pending = _pendingSharedChatAttachments;
+  List<SharedChatAttachment> peekPendingSharedChatAttachments() {
+    return List<SharedChatAttachment>.unmodifiable(
+      _pendingSharedChatAttachments,
+    );
+  }
+
+  void clearPendingSharedChatPayload() {
+    _pendingChatDraft = null;
     _pendingSharedChatAttachments = const <SharedChatAttachment>[];
-    return pending;
   }
 
   String _taskWithSharedAttachments(

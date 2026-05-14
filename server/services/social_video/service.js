@@ -375,14 +375,14 @@ class SocialVideoService {
   }
 
   async #readMediaInfo(normalizedUrl, jobDir) {
-    const infoPath = path.join(jobDir, 'media-info.json');
-    const command = `${shellEscape(this.ytDlpBin)} --no-playlist --skip-download --dump-single-json -- ${shellEscape(normalizedUrl)}`;
-    const result = await this.#runCommand(command, { cwd: jobDir, timeout: 4 * 60 * 1000 });
-    const raw = String(result.stdout || '').trim();
-    if (!raw) {
-      throw new Error('yt-dlp returned empty media metadata output.');
+    const infoTemplate = path.join(jobDir, 'media.%(ext)s');
+    const infoPath = path.join(jobDir, 'media.info.json');
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist --skip-download --write-info-json --no-clean-infojson -o ${shellEscape(infoTemplate)} -- ${shellEscape(normalizedUrl)}`;
+    await this.#runCommand(command, { cwd: jobDir, timeout: 4 * 60 * 1000 });
+    if (!fileExists(infoPath)) {
+      throw new Error('yt-dlp did not produce an info JSON artifact.');
     }
-    await fsp.writeFile(infoPath, `${raw}\n`, 'utf8');
+    const raw = String(await fsp.readFile(infoPath, 'utf8')).trim();
     let parsed;
     try {
       parsed = JSON.parse(raw);
@@ -433,7 +433,7 @@ class SocialVideoService {
 
   async #transcribeViaStt(sourceUrl, jobDir) {
     const template = path.join(jobDir, 'audio.%(ext)s');
-    const command = `${shellEscape(this.ytDlpBin)} --no-playlist -f bestaudio -- ${shellEscape(sourceUrl)} -o ${shellEscape(template)}`;
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist -o ${shellEscape(template)} -f bestaudio -- ${shellEscape(sourceUrl)}`;
     await this.#runCommand(command, { cwd: jobDir, timeout: 10 * 60 * 1000 });
 
     const audioPath = firstFileMatching(jobDir, 'audio.');
@@ -469,7 +469,7 @@ class SocialVideoService {
 
   async #extractFrameFromVideo(context) {
     const template = path.join(context.jobDir, 'video.%(ext)s');
-    const downloadCommand = `${shellEscape(this.ytDlpBin)} --no-playlist -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)} -o ${shellEscape(template)}`;
+    const downloadCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist -o ${shellEscape(template)} -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)}`;
     await this.#runCommand(downloadCommand, { cwd: context.jobDir, timeout: 14 * 60 * 1000 });
 
     const videoPath = firstFileMatching(context.jobDir, 'video.');
@@ -479,7 +479,7 @@ class SocialVideoService {
 
     const framePath = path.join(context.jobDir, 'frame.jpg');
     const frameSecond = pickDeterministicFrameSecond(context.mediaInfo.duration);
-    const frameCommand = `${shellEscape(this.ffmpegBin)} -y -hide_banner -loglevel error -ss ${frameSecond} -i ${shellEscape(videoPath)} -frames:v 1 -q:v 2 ${shellEscape(framePath)}`;
+    const frameCommand = `${shellEscape(this.ffmpegBin)} -hwaccel none -y -hide_banner -loglevel error -ss ${frameSecond} -i ${shellEscape(videoPath)} -frames:v 1 -q:v 2 ${shellEscape(framePath)}`;
     await this.#runCommand(frameCommand, { cwd: context.jobDir, timeout: 2 * 60 * 1000 });
 
     if (!fileExists(framePath)) {
@@ -505,7 +505,7 @@ class SocialVideoService {
         source: 'thumbnail',
       };
     }
-    const allocation = this.artifactStore.allocateFile(userId, {
+    const allocation = await Promise.resolve(this.artifactStore.allocateFile(userId, {
       kind: 'social-video-frame',
       extension: guessedExtension,
       contentType: mimeType,
@@ -513,9 +513,11 @@ class SocialVideoService {
       metadata: {
         source: 'social-video-thumbnail',
       },
-    });
+    }));
     await fsp.writeFile(allocation.storagePath, buffer);
-    const finalized = this.artifactStore.finalizeFile(allocation.artifactId, allocation.storagePath);
+    const finalized = await Promise.resolve(
+      this.artifactStore.finalizeFile(allocation.artifactId, allocation.storagePath),
+    );
     return {
       url: finalized.url,
       artifactId: finalized.artifactId,
