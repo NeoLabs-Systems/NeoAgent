@@ -193,6 +193,14 @@ class VmBrowserProvider {
       } catch {}
     }
     if (!file?.content) {
+      if (typeof result.screenshotPath === 'string' && result.screenshotPath.startsWith('/screenshots/')) {
+        return {
+          ...result,
+          screenshotPath: null,
+          artifactId: result.artifactId || null,
+          fullPath: result.fullPath || null,
+        };
+      }
       return result;
     }
 

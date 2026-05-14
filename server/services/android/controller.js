@@ -53,9 +53,16 @@ for (const dir of [ANDROID_ROOT, SDK_ROOT, EMULATOR_HOME, ARTIFACTS_DIR, SCREENS
 
 function ensureEmulatorAdvancedFeaturesFile() {
   try {
-    if (fs.existsSync(EMULATOR_ADVANCED_FEATURES_FILE)) {
-      fs.rmSync(EMULATOR_ADVANCED_FEATURES_FILE, { force: true });
-    }
+    fs.mkdirSync(path.dirname(EMULATOR_ADVANCED_FEATURES_FILE), { recursive: true });
+    fs.writeFileSync(
+      EMULATOR_ADVANCED_FEATURES_FILE,
+      [
+        'QuickbootFileBacked=off',
+        'QuickbootSupport=off',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
   } catch {}
 }
 
@@ -200,6 +207,15 @@ function tailFile(filePath, maxLines = 40) {
   }
 }
 
+function isLikelyPng(buffer) {
+  return Buffer.isBuffer(buffer)
+    && buffer.length > 24
+    && buffer[0] === 0x89
+    && buffer[1] === 0x50
+    && buffer[2] === 0x4e
+    && buffer[3] === 0x47;
+}
+
 function commandExists(command) {
   const probe = spawnSync('bash', ['-lc', `command -v "${command}"`], { encoding: 'utf8' });
   return probe.status === 0;
@@ -271,6 +287,9 @@ function emulatorGpuMode() {
   if (process.platform === 'darwin' && process.arch === 'arm64') {
     return 'swiftshader_indirect';
   }
+  if (process.platform === 'linux' && process.arch === 'arm64') {
+    return 'swiftshader_indirect';
+  }
   return 'auto';
 }
 
@@ -292,6 +311,8 @@ function isRecoverableEmulatorStartError(message) {
   return (
     value.includes('failed to restore previous context') ||
     value.includes('emulator exited before boot completed') ||
+    value.includes('android framework did not become ready') ||
+    value.includes('package manager service did not become ready') ||
     value.includes('failed to process .ini file') ||
     value.includes('error while loading state for instance')
   );
@@ -437,10 +458,10 @@ function hostAndroidSdkRoot() {
   return null;
 }
 
-const SHARED_ANDROID_SDK_ROOT = hostAndroidSdkRoot();
+const SHARED_ANDROID_SDK_ROOT = null;
 
 function activeAndroidSdkRoot() {
-  return SHARED_ANDROID_SDK_ROOT || SDK_ROOT;
+  return SDK_ROOT;
 }
 
 function sharedAndroidSdkReady() {
@@ -457,20 +478,6 @@ function sharedAndroidSdkReady() {
 function adbBinary() {
   if (process.env.ANDROID_ADB_PATH) {
     return process.env.ANDROID_ADB_PATH;
-  }
-  if (SHARED_ANDROID_SDK_ROOT) {
-    const sharedAdb = path.join(SHARED_ANDROID_SDK_ROOT, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
-    if (isExecutable(sharedAdb)) {
-      return sharedAdb;
-    }
-  }
-  const hostAdb = hostAdbBinary();
-  if (hostAdb) {
-    return hostAdb;
-  }
-  const distroAdb = systemAdbBinary();
-  if (process.platform === 'linux' && process.arch === 'arm64' && distroAdb && isExecutable(distroAdb)) {
-    return distroAdb;
   }
   return path.join(SDK_ROOT, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
 }
@@ -819,17 +826,8 @@ async function installPlatformToolsArchive(metadata) {
 }
 
 function shouldInstallPlatformToolsArchive() {
-  if (SHARED_ANDROID_SDK_ROOT) {
-    return false;
-  }
-  if (hostAdbBinary()) {
-    return false;
-  }
-  const distroAdb = systemAdbBinary();
-  if (process.platform === 'linux' && process.arch === 'arm64' && distroAdb && isExecutable(distroAdb)) {
-    return false;
-  }
-  return true;
+  const localAdb = path.join(SDK_ROOT, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
+  return !isExecutable(localAdb);
 }
 
 async function installSystemImageArchive(metadata, packageName) {
@@ -947,27 +945,30 @@ function parseInstalledSystemImages() {
   return parseSystemImageCandidates(matches);
 }
 
+function chooseStableRuntimeSystemImage(candidates, currentPackage) {
+  const normalizedCurrent = String(currentPackage || '').trim();
+  const pool = Array.isArray(candidates)
+    ? candidates.filter((item) => item && item.packageName && isValidInstalledSystemImage(item.packageName))
+    : [];
+  if (pool.length === 0) return null;
+  const ranked = rankSystemImagePool(pool);
+  const recommended = ranked.find((item) =>
+    item.arch === 'arm64-v8a'
+    && item.stable
+    && item.apiLevel >= 33
+  ) || ranked[0];
+  if (!recommended) return null;
+  if (normalizedCurrent && recommended.packageName === normalizedCurrent) {
+    return null;
+  }
+  return recommended;
+}
+
 function rankSystemImagePool(pool) {
   const preferredMatches = pool.filter((candidate) => candidate.tagScore > 0);
   const rankedPool = preferredMatches.length > 0 ? preferredMatches : pool;
-  const appleSiliconPreferredApis = process.platform === 'darwin' && process.arch === 'arm64'
-    ? [30, 31, 35, 36]
-    : [];
-  const preferredApiRank = (apiLevel) => appleSiliconPreferredApis.indexOf(Number(apiLevel || 0));
 
   rankedPool.sort((a, b) =>
-    (
-      (() => {
-        const aRank = preferredApiRank(a.apiLevel);
-        const bRank = preferredApiRank(b.apiLevel);
-        if (aRank !== -1 || bRank !== -1) {
-          if (aRank === -1) return 1;
-          if (bRank === -1) return -1;
-          return aRank - bRank;
-        }
-        return 0;
-      })()
-    ) ||
     Number(b.stable) - Number(a.stable) ||
     b.tagScore - a.tagScore ||
     b.apiLevel - a.apiLevel ||
@@ -1078,6 +1079,18 @@ function systemImagePackageToRelativeDir(packageName) {
     return null;
   }
   return `${parts.join('/')}/`;
+}
+
+function isValidInstalledSystemImage(packageName) {
+  const relativeDir = systemImagePackageToRelativeDir(packageName);
+  if (!relativeDir) return false;
+  const root = path.join(activeAndroidSdkRoot(), relativeDir);
+  const required = [
+    path.join(root, 'package.xml'),
+    path.join(root, 'system.img'),
+    path.join(root, 'userdata.img'),
+  ];
+  return required.every((filePath) => fs.existsSync(filePath));
 }
 
 function systemImagePackageToAbi(packageName) {
@@ -1387,19 +1400,35 @@ class AndroidController {
       chooseLatestSystemImage(available);
     const selectedImage = rankSystemImagePool([preferredInstalled, preferredAvailable].filter(Boolean))[0] || preferredInstalled || preferredAvailable;
     const stateApiLevel = Number(state.apiLevel || 0) || 0;
+    const legacyLinuxArm64Image =
+      process.platform === 'linux'
+      && process.arch === 'arm64'
+      && /system-images;android-30;default;arm64-v8a/i.test(String(state.systemImage || ''));
+    const migrationTargetImage =
+      process.platform === 'linux' && process.arch === 'arm64'
+        ? (
+            rankSystemImagePool(
+              [preferredAvailable, preferredInstalled]
+                .filter(Boolean)
+                .filter((image) => image.arch === 'arm64-v8a' && image.stable && image.apiLevel >= 33)
+            )[0] || null
+          )
+        : null;
+    const effectiveSelectedImage = migrationTargetImage || selectedImage;
+    const selectedImageInvalid = effectiveSelectedImage?.packageName && !isValidInstalledSystemImage(effectiveSelectedImage.packageName);
 
-    if (!shouldForceSdkRefresh() && sharedAndroidSdkReady() && selectedImage) {
+    if (!shouldForceSdkRefresh() && !legacyLinuxArm64Image && !selectedImageInvalid && sharedAndroidSdkReady() && effectiveSelectedImage) {
       const stateAligned =
-        selectedImage.packageName === state.systemImage &&
-        selectedImage.apiLevel === stateApiLevel &&
-        selectedImage.arch === state.systemImageArch &&
+        effectiveSelectedImage.packageName === state.systemImage &&
+        effectiveSelectedImage.apiLevel === stateApiLevel &&
+        effectiveSelectedImage.arch === state.systemImageArch &&
         state.avdName === this.avdName;
 
       if (stateAligned) {
         return;
       }
 
-      if (selectedImage === preferredInstalled && selectedImage.packageName) {
+      if (effectiveSelectedImage === preferredInstalled && effectiveSelectedImage.packageName) {
         const changeSummary = describeAutoFixChanges(
           {
             avdName: state.avdName || null,
@@ -1409,9 +1438,9 @@ class AndroidController {
           },
           {
             avdName: this.avdName,
-            systemImage: selectedImage.packageName,
-            apiLevel: selectedImage.apiLevel,
-            systemImageArch: selectedImage.arch,
+            systemImage: effectiveSelectedImage.packageName,
+            apiLevel: effectiveSelectedImage.apiLevel,
+            systemImageArch: effectiveSelectedImage.arch,
           },
           ['avdName', 'systemImage', 'apiLevel', 'systemImageArch']
         );
@@ -1423,9 +1452,9 @@ class AndroidController {
           avdName: this.avdName,
           serial: null,
           emulatorPid: null,
-          systemImage: selectedImage.packageName,
-          apiLevel: selectedImage.apiLevel,
-          systemImageArch: selectedImage.arch,
+          systemImage: effectiveSelectedImage.packageName,
+          apiLevel: effectiveSelectedImage.apiLevel,
+          systemImageArch: effectiveSelectedImage.arch,
         });
         return;
       }
@@ -1451,12 +1480,12 @@ class AndroidController {
     const runtimeNeedsRefresh =
       state.systemImageArch !== desiredArch ||
       !installedEmulatorMatchesHost();
-    if (!shouldForceSdkRefresh()) {
-      if (!runtimeNeedsRefresh && selectedImage && selectedImage === preferredInstalled) {
+    if (!shouldForceSdkRefresh() && !legacyLinuxArm64Image && !selectedImageInvalid) {
+      if (!runtimeNeedsRefresh && effectiveSelectedImage && effectiveSelectedImage === preferredInstalled) {
         const stateNeedsRefresh =
-          selectedImage.packageName !== state.systemImage ||
-          selectedImage.apiLevel !== stateApiLevel ||
-          selectedImage.arch !== state.systemImageArch ||
+          effectiveSelectedImage.packageName !== state.systemImage ||
+          effectiveSelectedImage.apiLevel !== stateApiLevel ||
+          effectiveSelectedImage.arch !== state.systemImageArch ||
           state.avdName !== this.avdName;
         if (stateNeedsRefresh) {
           const changeSummary = describeAutoFixChanges(
@@ -1468,9 +1497,9 @@ class AndroidController {
             },
             {
               avdName: this.avdName,
-              systemImage: selectedImage.packageName,
-              apiLevel: selectedImage.apiLevel,
-              systemImageArch: selectedImage.arch,
+              systemImage: effectiveSelectedImage.packageName,
+              apiLevel: effectiveSelectedImage.apiLevel,
+              systemImageArch: effectiveSelectedImage.arch,
             },
             ['avdName', 'systemImage', 'apiLevel', 'systemImageArch']
           );
@@ -1482,9 +1511,9 @@ class AndroidController {
             avdName: this.avdName,
             serial: null,
             emulatorPid: null,
-            systemImage: selectedImage.packageName,
-            apiLevel: selectedImage.apiLevel,
-            systemImageArch: selectedImage.arch,
+            systemImage: effectiveSelectedImage.packageName,
+            apiLevel: effectiveSelectedImage.apiLevel,
+            systemImageArch: effectiveSelectedImage.arch,
           });
         }
         return;
@@ -1493,8 +1522,8 @@ class AndroidController {
         !runtimeNeedsRefresh &&
         state.bootstrapped === true &&
         state.systemImage &&
-        selectedImage &&
-        selectedImage.packageName === state.systemImage
+        effectiveSelectedImage &&
+        effectiveSelectedImage.packageName === state.systemImage
       ) {
         return;
       }
@@ -1506,18 +1535,19 @@ class AndroidController {
       await installPlatformToolsArchive(metadata);
     }
     await installEmulatorArchive(metadata);
-    if (!selectedImage) {
+    if (!effectiveSelectedImage) {
       throw new Error(formatSystemImageError(available));
     }
-    if (selectedImage?.packageName) {
-      await installSystemImageArchive(systemImageMetadata, selectedImage.packageName);
+    if (effectiveSelectedImage?.packageName) {
+      await installSystemImageArchive(systemImageMetadata, effectiveSelectedImage.packageName);
     }
     this.#appendState({
       bootstrapped: true,
       avdName: this.avdName,
-      systemImage: selectedImage.packageName,
-      apiLevel: selectedImage.apiLevel,
-      systemImageArch: selectedImage.arch,
+      systemImage: effectiveSelectedImage.packageName,
+      apiLevel: effectiveSelectedImage.apiLevel,
+      systemImageArch: effectiveSelectedImage.arch,
+      avdSystemImage: null,
     });
   }
 
@@ -1585,8 +1615,22 @@ class AndroidController {
     await this.ensureBootstrapped();
 
     const state = this.#readState();
-    const pkg = state.systemImage;
+    let pkg = state.systemImage;
     if (!pkg) throw new Error('Android system image not installed');
+    if (process.platform === 'linux' && process.arch === 'arm64') {
+      const installedCandidates = parseInstalledSystemImages();
+      const migratedImage = chooseStableRuntimeSystemImage(installedCandidates, pkg);
+      if (migratedImage) {
+        pkg = migratedImage.packageName;
+        this.#appendState({
+          systemImage: pkg,
+          apiLevel: migratedImage.apiLevel,
+          systemImageArch: migratedImage.arch,
+          avdSystemImage: null,
+          lastLogLine: `Migrated Android runtime image to ${pkg} for stability.`,
+        });
+      }
+    }
     const avdDir = path.join(AVD_HOME, `${this.avdName}.avd`);
     const configPath = path.join(avdDir, 'config.ini');
     const avdExists = fs.existsSync(configPath);
@@ -1723,6 +1767,8 @@ class AndroidController {
       `sdcard.size=${DEFAULT_SDCARD_SIZE_BYTES}`,
       'runtime.network.latency=none',
       'runtime.network.speed=full',
+      'fastboot.forceColdBoot=yes',
+      'fastboot.forceFastBoot=no',
       'vm.heapSize=256',
       `tag.display=${tagDisplay}`,
       `tag.id=${tagId}`,
@@ -1746,6 +1792,8 @@ class AndroidController {
     content = updateIniValue(content, 'sdcard.size', DEFAULT_SDCARD_SIZE_BYTES);
     content = updateIniValue(content, 'hw.ramSize', DEFAULT_RAM_SIZE_MB);
     content = updateIniValue(content, 'hw.gpu.mode', emulatorGpuMode());
+    content = updateIniValue(content, 'fastboot.forceColdBoot', 'yes');
+    content = updateIniValue(content, 'fastboot.forceFastBoot', 'no');
     content = updateIniValue(content, 'PlayStore.enabled', String(this.#readState()?.systemImage || '').includes('playstore'));
     fs.writeFileSync(configPath, content);
   }
@@ -1781,6 +1829,21 @@ class AndroidController {
         }
       }
     } catch {}
+  }
+
+  async #forceRecreateAvdForRecovery() {
+    const avdDir = path.join(AVD_HOME, `${this.avdName}.avd`);
+    await this.stopEmulator().catch(() => {});
+    fs.rmSync(avdDir, { recursive: true, force: true });
+    fs.rmSync(path.join(AVD_HOME, `${this.avdName}.ini`), { force: true });
+    this.#appendState({
+      avdSystemImage: null,
+      serial: null,
+      emulatorPid: null,
+      lastLogLine: 'Recreating AVD after failed framework boot.',
+    });
+    await this.ensureAvd();
+    this.#cleanupAvdTransientState();
   }
 
   async listDevices(options = {}) {
@@ -1921,6 +1984,11 @@ class AndroidController {
         this.#cleanupAvdTransientState();
         return this.#startEmulatorBlocking({ ...options, _recoveredOnce: true });
       }
+      if (!options._recreatedAvdOnce && isRecoverableEmulatorStartError(lastLine)) {
+        console.warn(`[Android] Emulator recovery escalation: recreating AVD and retrying once: ${lastLine}`);
+        await this.#forceRecreateAvdForRecovery();
+        return this.#startEmulatorBlocking({ ...options, _recoveredOnce: true, _recreatedAvdOnce: true });
+      }
       this.markBootstrapFailure(lastLine);
       throw new Error(lastLine);
     }
@@ -2059,6 +2127,7 @@ class AndroidController {
     let reconnectCounter = 0;
     let missingPidSince = null;
     let firstOnlineAt = null;
+    let offlineSince = null;
 
     while (Date.now() < deadline) {
       const serial = await this.getPrimarySerial();
@@ -2083,22 +2152,44 @@ class AndroidController {
           `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell echo ready`,
           { timeout: 10000 },
         );
+        const packageServiceProbe = await this.#runAllowFailure(
+          `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell service check package`,
+          { timeout: 10000 },
+        );
+        const pmProbe = await this.#runAllowFailure(
+          `${quoteShell(adbBinary())} -s ${quoteShell(serial)} shell pm path android`,
+          { timeout: 10000 },
+        );
 
         const bootValue = String(bootCompleted.stdout || '').trim();
         const devBootValue = String(devBootComplete.stdout || '').trim();
         const bootAnimValue = String(bootAnim.stdout || '').trim().toLowerCase();
         const shellReady = String(shellProbe.stdout || '').trim() === 'ready';
+        const packageServiceReady = /found/i.test(String(packageServiceProbe.stdout || ''));
+        const packageManagerReady = /^package:/m.test(String(pmProbe.stdout || '').trim());
         if (
-          bootValue === '1' ||
-          devBootValue === '1' ||
-          (shellReady && (bootAnimValue === 'stopped' || bootAnimValue === ''))
+          packageServiceReady
+          && packageManagerReady
+          && (
+            bootValue === '1'
+            || devBootValue === '1'
+            || (shellReady && (bootAnimValue === 'stopped' || bootAnimValue === ''))
+          )
         ) {
           return serial;
         }
-        if (shellReady && firstOnlineAt && Date.now() - firstOnlineAt >= 45000) {
-          return serial;
+        if (
+          firstOnlineAt
+          && Date.now() - firstOnlineAt > 120000
+          && (
+            !packageServiceReady
+            || !packageManagerReady
+          )
+        ) {
+          throw new Error('Android framework did not become ready (package manager service did not become ready).');
         }
         missingPidSince = null;
+        offlineSince = null;
       } else {
         firstOnlineAt = null;
         const state = this.#readState();
@@ -2115,6 +2206,23 @@ class AndroidController {
           }
         } else {
           missingPidSince = null;
+          const devices = await this.listDevices({ ensureBootstrapped: false }).catch(() => []);
+          const hasOfflineEmulator = devices.some((device) => device.emulator && device.status === 'offline');
+          if (hasOfflineEmulator) {
+            if (!offlineSince) {
+              offlineSince = Date.now();
+            }
+            if (Date.now() - offlineSince > 30000) {
+              await this.#runAllowFailure(`${quoteShell(adbBinary())} kill-server`, { timeout: 10000 });
+              await sleep(600);
+              await this.#runAllowFailure(`${quoteShell(adbBinary())} start-server`, { timeout: 15000 });
+              await this.#runAllowFailure(`${quoteShell(adbBinary())} reconnect`, { timeout: 15000 });
+              await this.#runAllowFailure(`${quoteShell(adbBinary())} wait-for-device`, { timeout: 30000 });
+              offlineSince = Date.now();
+            }
+          } else {
+            offlineSince = null;
+          }
         }
       }
       reconnectCounter += 1;
@@ -2184,8 +2292,17 @@ class AndroidController {
     return this.#run(`${quoteShell(adbBinary())} -s ${quoteShell(serial)} ${command}`, options);
   }
 
+  async #prepareScreenForCapture(serial) {
+    await this.#adb(serial, 'shell input keyevent 224', { timeout: 10000 }).catch(() => {});
+    await this.#adb(serial, 'shell wm dismiss-keyguard', { timeout: 10000 }).catch(() => {});
+    await this.#adb(serial, 'shell input keyevent 82', { timeout: 10000 }).catch(() => {});
+    await this.#adb(serial, 'shell input keyevent 3', { timeout: 10000 }).catch(() => {});
+    await sleep(350);
+  }
+
   async screenshot(options = {}) {
     const serial = options.serial || await this.ensureDevice();
+    await this.#prepareScreenForCapture(serial).catch(() => {});
     let artifactRecord = null;
     let filename = `android_${Date.now()}.png`;
     let fullPath = path.join(SCREENSHOTS_DIR, filename);
@@ -2203,7 +2320,32 @@ class AndroidController {
       fullPath = artifactRecord.storagePath;
       filename = path.basename(fullPath);
     }
-    await this.#adb(serial, `exec-out screencap -p > ${quoteShell(fullPath)}`, { timeout: 30000 });
+    let captured = false;
+    const localTmp = path.join(TMP_DIR, `shot-${Date.now()}-${Math.random().toString(16).slice(2)}.png`);
+    const remoteTmp = `/sdcard/neoagent-shot-${Date.now()}.png`;
+    for (let attempt = 0; attempt < 3 && !captured; attempt += 1) {
+      try {
+        if (attempt === 0) {
+          await this.#adb(serial, `exec-out screencap -p > ${quoteShell(fullPath)}`, { timeout: 30000 });
+        } else {
+          await this.#adb(serial, `shell screencap -p ${quoteShell(remoteTmp)}`, { timeout: 30000 });
+          await this.#adb(serial, `pull ${quoteShell(remoteTmp)} ${quoteShell(localTmp)}`, { timeout: 30000 });
+          if (fs.existsSync(localTmp)) {
+            fs.copyFileSync(localTmp, fullPath);
+          }
+        }
+        const data = fs.readFileSync(fullPath);
+        captured = isLikelyPng(data);
+      } catch {}
+      if (!captured) {
+        await sleep(500);
+      }
+    }
+    fs.rmSync(localTmp, { force: true });
+    await this.#adb(serial, `shell rm -f ${quoteShell(remoteTmp)}`, { timeout: 10000 }).catch(() => {});
+    if (!captured) {
+      throw new Error('Failed to capture a valid Android screenshot.');
+    }
     if (artifactRecord) {
       this.artifactStore.finalizeFile(artifactRecord.artifactId, fullPath);
     }
@@ -2561,9 +2703,36 @@ class AndroidController {
   }
 
   async listApps(args = {}) {
-    const serial = await this.ensureDevice();
+    let serial = null;
+    try {
+      serial = await this.ensureDevice();
+    } catch (error) {
+      return {
+        success: false,
+        serial: null,
+        count: 0,
+        packages: [],
+        error: String(error?.message || 'Android device is not ready.'),
+      };
+    }
     const cmd = args.includeSystem === true ? 'shell pm list packages' : 'shell pm list packages -3';
-    const out = await this.#adb(serial, cmd, { timeout: 30000 });
+    let out = '';
+    try {
+      out = await this.#adb(serial, cmd, { timeout: 30000 });
+    } catch (error) {
+      await sleep(1000);
+      try {
+        out = await this.#adb(serial, cmd, { timeout: 30000 });
+      } catch (retryError) {
+        return {
+          success: false,
+          serial,
+          count: 0,
+          packages: [],
+          error: String(retryError?.message || error?.message || 'Failed to list Android apps.'),
+        };
+      }
+    }
     const packages = out
       .split('\n')
       .map((line) => line.trim())
@@ -2642,6 +2811,8 @@ class AndroidController {
 
   async getStatus() {
     const state = this.#readState();
+    const bootstrapWorkerPid = Number(state.bootstrapWorkerPid || 0) || null;
+    const bootstrapWorkerAlive = isProcessAlive(bootstrapWorkerPid);
     const devices = isExecutable(adbBinary())
       ? await this.listDevices({ ensureBootstrapped: false }).catch(() => [])
       : [];
@@ -2674,8 +2845,8 @@ class AndroidController {
     }
     return {
       bootstrapped: state.bootstrapped === true,
-      starting: state.starting === true || this.startPromise != null,
-      startupPhase: state.startupPhase || null,
+      starting: state.starting === true || this.startPromise != null || bootstrapWorkerAlive,
+      startupPhase: state.startupPhase || (bootstrapWorkerAlive ? 'Preparing Android runtime' : null),
       startRequestedAt: state.startRequestedAt || null,
       lastStartError: state.lastStartError || null,
       sdkRoot: activeAndroidSdkRoot(),
@@ -2686,7 +2857,7 @@ class AndroidController {
       serial: state.serial,
       serialOwnedByCurrentUser,
       emulatorPid: state.emulatorPid,
-      bootstrapWorkerPid: Number(state.bootstrapWorkerPid || 0) || null,
+      bootstrapWorkerPid,
       systemImage: state.systemImage || null,
       systemImageArch: state.systemImageArch || null,
       preferredSystemImageArchs: systemImageArchCandidates(),
