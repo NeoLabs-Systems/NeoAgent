@@ -40,6 +40,9 @@ async function resolveServerUrl(preferred) {
 function websocketUrl(serverUrl, token) {
   const url = new URL('/api/browser-extension/ws', serverUrl);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  // Token in the URL is required for the HTTP upgrade handshake; the browser
+  // WebSocket API does not support custom headers. Ensure the server's access
+  // log scrubs query strings on this path to avoid persisting the token.
   url.searchParams.set('token', token);
   return url.toString();
 }
@@ -192,14 +195,19 @@ async function startPairing(serverUrl) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Pairing failed: ${response.status}`);
+  const approvalUrl = String(payload.approvalUrl || '');
+  const approvalParsed = (() => { try { return new URL(approvalUrl); } catch { return null; } })();
+  if (!approvalParsed || !['http:', 'https:'].includes(approvalParsed.protocol)) {
+    throw new Error('Invalid approval URL returned by server.');
+  }
   await setStorage({
     serverUrl: normalized,
     pairingId: payload.pairingId,
     pairingSecret: payload.pairingSecret,
-    approvalUrl: payload.approvalUrl,
+    approvalUrl,
     status: 'approval_pending',
   });
-  await chrome.tabs.create({ url: payload.approvalUrl, active: true });
+  await chrome.tabs.create({ url: approvalUrl, active: true });
   return payload;
 }
 
