@@ -54,16 +54,21 @@ function getDeploymentProfile(env = process.env) {
   return parseDeploymentProfile(env.NEOAGENT_PROFILE);
 }
 
+function getAllowSignup(env = process.env) {
+  const raw = String(env.NEOAGENT_ALLOW_SIGNUP ?? '').trim().toLowerCase();
+  if (raw === 'false' || raw === '0' || raw === 'no') return false;
+  return true;
+}
+
 function getDeploymentPolicy(env = process.env) {
   const profile = getDeploymentProfile(env);
   const mode = getDeploymentMode(env);
-  const isProdProfile = profile === DEPLOYMENT_PROFILE_PROD;
   return {
     mode,
     profile,
     managed: mode === DEPLOYMENT_MODE_MANAGED,
     allowSelfUpdate: mode !== DEPLOYMENT_MODE_MANAGED,
-    registrationOpen: isProdProfile,
+    registrationOpen: getAllowSignup(env),
     runtimeDefaults: {
       runtime_profile: 'secure-vm',
       runtime_backend: 'vm',
