@@ -1167,11 +1167,11 @@ class _ChatBubble extends StatelessWidget {
                 ),
                 border: isUser ? null : Border.all(color: _border),
                 boxShadow: isUser
-                    ? const <BoxShadow>[
+                    ? <BoxShadow>[
                         BoxShadow(
-                          color: Color(0x4D14B8A6),
+                          color: _accentAlt.withValues(alpha: 0.30),
                           blurRadius: 12,
-                          offset: Offset(0, 2),
+                          offset: const Offset(0, 2),
                         ),
                       ]
                     : null,
@@ -1566,11 +1566,11 @@ class _MessageAvatar extends StatelessWidget {
             : null,
         color: assistant ? null : _bgTertiary,
         boxShadow: assistant
-            ? const <BoxShadow>[
+            ? <BoxShadow>[
                 BoxShadow(
-                  color: Color(0x5914B8A6),
+                  color: _accentAlt.withValues(alpha: 0.35),
                   blurRadius: 10,
-                  offset: Offset(0, 2),
+                  offset: const Offset(0, 2),
                 ),
               ]
             : null,
@@ -1690,11 +1690,11 @@ class _InlineError extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0x19EF4444),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0x4CEF4444)),
+        color: _danger.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppRadius.tag),
+        border: Border.all(color: _danger.withValues(alpha: 0.30)),
       ),
-      child: Text(message, style: TextStyle(fontSize: 13)),
+      child: Text(message, style: TextStyle(color: _danger)),
     );
   }
 }

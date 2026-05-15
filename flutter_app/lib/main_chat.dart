@@ -398,7 +398,7 @@ class _ChatPanelState extends State<ChatPanel> {
                       controller.chatStatusLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: _textSecondary),
+                      style: TextStyle(fontSize: 12, color: _textSecondary),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -410,7 +410,7 @@ class _ChatPanelState extends State<ChatPanel> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.right,
-                      style: TextStyle(fontSize: 11, color: _textSecondary),
+                      style: TextStyle(fontSize: 12, color: _textSecondary),
                     ),
                   ),
                 ],
@@ -1071,6 +1071,7 @@ class _MessagingToolbar extends StatelessWidget {
               suffixIcon: controller.text.isEmpty
                   ? null
                   : IconButton(
+                      tooltip: 'Clear search',
                       onPressed: controller.clear,
                       icon: Icon(Icons.close_rounded),
                     ),
@@ -2717,6 +2718,7 @@ class _RunsFilterBar extends StatelessWidget {
                 suffixIcon: searchController.text.trim().isEmpty
                     ? null
                     : IconButton(
+                        tooltip: 'Clear search',
                         onPressed: searchController.clear,
                         icon: Icon(Icons.close),
                       ),

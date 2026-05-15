@@ -1,5 +1,13 @@
 part of 'main.dart';
 
+// QR login panel atmospheric colors — intentionally deeper than the standard
+// surface palette to create visual contrast during the auth flow. Named here
+// so they can be updated in one place rather than hunted across the widget tree.
+const Color _qrPanelGradientStart = Color(0xFF0A1D2E);
+const Color _qrPanelGradientEnd   = Color(0xFF112B43);
+const Color _qrPanelGlowBlue      = Color(0xFF6EDBFF);
+const Color _qrPanelGlowGreen     = Color(0xFF58E0A2);
+
 class SplashView extends StatelessWidget {
   const SplashView({super.key});
 
@@ -619,6 +627,8 @@ class _AuthViewState extends State<AuthView> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
+                            // Google brand blue — required by Google Sign-In
+                            // branding guidelines, not a palette deviation.
                             color: Color(0xFF4285F4),
                           ),
                         )
@@ -707,15 +717,15 @@ class _AuthViewState extends State<AuthView> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: <Color>[
-                const Color(0xFF0A1D2E),
+                _qrPanelGradientStart,
                 _bgSecondary.withValues(alpha: 0.96),
-                const Color(0xFF112B43),
+                _qrPanelGradientEnd,
               ],
             ),
             border: Border.all(color: _borderLight.withValues(alpha: 0.45)),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: const Color(0xFF6EDBFF).withValues(alpha: 0.12),
+                color: _qrPanelGlowBlue.withValues(alpha: 0.12),
                 blurRadius: 36,
                 spreadRadius: 2,
               ),
@@ -732,7 +742,7 @@ class _AuthViewState extends State<AuthView> {
                     height: compact ? 86 : 120,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF6EDBFF).withValues(alpha: 0.12),
+                      color: _qrPanelGlowBlue.withValues(alpha: 0.12),
                     ),
                   ),
                 ),
@@ -746,7 +756,7 @@ class _AuthViewState extends State<AuthView> {
                     height: compact ? 110 : 140,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF58E0A2).withValues(alpha: 0.10),
+                      color: _qrPanelGlowGreen.withValues(alpha: 0.10),
                     ),
                   ),
                 ),
@@ -1592,7 +1602,9 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
       builder: (context, menuController, child) {
         return Material(
           color: Colors.transparent,
-          child: InkWell(
+          child: Tooltip(
+            message: 'Switch agent',
+            child: InkWell(
             borderRadius: BorderRadius.circular(24),
             onTap: _toggleMenu,
             child: AnimatedContainer(
@@ -1669,8 +1681,8 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: _textSecondary,
-                            fontSize: 10.8,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                             height: 1.2,
                           ),
                         ),
@@ -1691,6 +1703,7 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                 ],
               ),
             ),
+          ),
           ),
         );
       },
@@ -1725,7 +1738,9 @@ class _AgentSwitcherMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: InkWell(
+      child: Tooltip(
+        message: agent.name,
+        child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Ink(
@@ -1791,9 +1806,9 @@ class _AgentSwitcherMenuItem extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: _textSecondary,
-                          fontSize: 11.5,
+                          fontSize: 12,
                           height: 1.3,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -1823,6 +1838,7 @@ class _AgentSwitcherMenuItem extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

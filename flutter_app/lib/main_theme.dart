@@ -92,6 +92,16 @@ TextStyle _displayTitleStyle([double size = 28]) => TextStyle(
   color: _textPrimary,
 );
 
+/// Heavy hero text — use for prominent numeric/stat displays, empty-state
+/// headlines, and splash copy where w700 reads too light.
+TextStyle _heroTitleStyle([double size = 24]) => TextStyle(
+  fontSize: size,
+  fontWeight: FontWeight.w800,
+  height: 1.1,
+  letterSpacing: -1.0,
+  color: _textPrimary,
+);
+
 TextStyle _sectionEyebrowStyle() => TextStyle(
   fontSize: 12,
   fontWeight: FontWeight.w700,
