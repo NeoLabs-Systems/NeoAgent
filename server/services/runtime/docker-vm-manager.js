@@ -45,11 +45,18 @@ function json(res, data, status) {
   res.end(body);
 }
 
+const MAX_BODY_BYTES = 1 * 1024 * 1024;
+
 function body(req) {
-  return new Promise(resolve => {
-    let s = '';
-    req.on('data', d => s += d);
+  return new Promise((resolve, reject) => {
+    let s = '', size = 0;
+    req.on('data', d => {
+      size += d.length;
+      if (size > MAX_BODY_BYTES) { req.destroy(); reject(Object.assign(new Error('Request body too large'), { status: 413 })); return; }
+      s += d;
+    });
     req.on('end', () => { try { resolve(JSON.parse(s)); } catch { resolve({}); } });
+    req.on('error', err => reject(err));
   });
 }
 
@@ -66,8 +73,15 @@ async function ensureBrowser() {
   if (!lib) throw new Error('Playwright not ready — container still installing dependencies. Retry in a moment.');
   const exec = chromiumExec();
   browser = await lib.chromium.launch({ headless: true, executablePath: exec || undefined, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-  page = await ctx.newPage();
+  try {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    page = await ctx.newPage();
+  } catch (err) {
+    await browser.close().catch(() => {});
+    browser = null;
+    page = null;
+    throw err;
+  }
 }
 
 const server = http.createServer(async (req, res) => {
@@ -192,7 +206,7 @@ const server = http.createServer(async (req, res) => {
 
     json(res, { error: 'Not found' }, 404);
   } catch (err) {
-    json(res, { error: err.message }, 500);
+    json(res, { error: err.message }, err.status || 500);
   }
 });
 
@@ -350,6 +364,7 @@ class DockerVMManager {
   }
 
   async shutdown() {
+    await Promise.allSettled([...this.#pending.values()]);
     await Promise.allSettled([...this.instances.keys()].map(k => this.killVm(k)));
   }
 

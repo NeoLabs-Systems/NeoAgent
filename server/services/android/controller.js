@@ -3,6 +3,7 @@
 const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const https = require('https');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 const { DATA_DIR } = require('../../../runtime/paths');
@@ -228,7 +229,7 @@ class AndroidController {
     this.userId   = String(options.userId || 'default').trim();
     this.avdName  = `neoagent_${this.userId}`;
     // Deterministic ADB console port per user, within documented range 5554–5682 (even only).
-    this.adbPort  = ADB_PORT_BASE + (Math.abs(hashCode(this.userId)) % ADB_PORT_SLOTS) * 2;
+    this.adbPort  = ADB_PORT_BASE + ((hashCode(this.userId) >>> 0) % ADB_PORT_SLOTS) * 2;
     this.adbSerial = `emulator-${this.adbPort}`;
     this.sdkDir   = options.sdkDir || findExistingSdk() || DEFAULT_SDK_DIR;
     this.artifactStore = options.artifactStore || null;
@@ -372,10 +373,8 @@ class AndroidController {
   async type({ text, pressEnter } = {}) {
     if (!text) return { success: true };
     // ADB input text encoding: %% = literal %, %s = space.
-    // Remaining shell metacharacters are escaped for mksh (Android's shell).
     const encoded = String(text).replace(/%/g, '%%').replace(/ /g, '%s');
-    const safe = encoded.replace(/(['"\\$`!&;|<>(){}\n\r\t])/g, '\\$1');
-    await this.shell(`input text '${safe}'`);
+    await this.shell(`input text '${shellEscape(encoded)}'`);
     if (pressEnter) await this.shell('input keyevent KEYCODE_ENTER');
     return { success: true };
   }
@@ -480,12 +479,32 @@ class AndroidController {
 
   // ── Setup pipeline ────────────────────────────────────────────────────────
 
+  async #resolveAdbPort() {
+    const base = (hashCode(this.userId) >>> 0) % ADB_PORT_SLOTS;
+    for (let i = 0; i < ADB_PORT_SLOTS; i++) {
+      const slot = (base + i) % ADB_PORT_SLOTS;
+      const port = ADB_PORT_BASE + slot * 2;
+      const free = await new Promise(resolve => {
+        const srv = net.createServer();
+        srv.listen(port, '127.0.0.1', () => srv.close(() => resolve(true)));
+        srv.on('error', () => resolve(false));
+      });
+      if (free) {
+        this.adbPort   = port;
+        this.adbSerial = `emulator-${port}`;
+        return;
+      }
+    }
+    throw new Error(`No free ADB port in range ${ADB_PORT_BASE}–${ADB_PORT_BASE + ADB_PORT_SLOTS * 2}`);
+  }
+
   async #setup() {
     const progress = msg => {
       console.log(`[Android] ${msg}`);
       writeState(this.userId, { startupPhase: msg });
     };
     try {
+      await this.#resolveAdbPort();
       const existing = findExistingSdk();
       if (existing) {
         this.sdkDir = existing;
