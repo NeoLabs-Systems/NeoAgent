@@ -183,6 +183,8 @@ router.get('/:id/steps', (req, res) => {
 // Abort a run
 router.post('/:id/abort', (req, res) => {
   try {
+    const run = db.prepare('SELECT id FROM agent_runs WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+    if (!run) return res.status(404).json({ error: 'Run not found' });
     const engine = req.app.locals.agentEngine;
     engine.abort(req.params.id);
     res.json({ success: true });
@@ -207,7 +209,8 @@ router.post('/multi-step', async (req, res) => {
   try {
     const { task, steps, options } = req.body;
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    if (!task) return res.status(400).json({ error: 'Task is required' });
+    if (!task || typeof task !== 'string') return res.status(400).json({ error: 'Task must be a non-empty string' });
+    if (task.length > 50000) return res.status(400).json({ error: 'Task exceeds maximum length of 50,000 characters' });
 
     const multiStep = req.app.locals.multiStep;
     if (!multiStep || typeof multiStep.planAndExecute !== 'function') {

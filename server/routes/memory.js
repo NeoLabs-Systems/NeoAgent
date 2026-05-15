@@ -204,7 +204,7 @@ router.delete('/memories/:id', (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ? AND agent_id = ?').get(req.params.id, req.session.userId, agentId);
   if (!existing) return res.status(404).json({ error: 'Memory not found' });
-  mm.deleteMemory(req.params.id);
+  mm.deleteMemories([req.params.id], req.session.userId);
   res.json({ success: true });
 });
 
@@ -221,7 +221,7 @@ router.post('/memories/bulk-delete', (req, res) => {
     if (!ownedIds.length) {
       return res.status(404).json({ error: 'Memory not found' });
     }
-    const deletedCount = mm.deleteMemories(ownedIds);
+    const deletedCount = mm.deleteMemories(ownedIds, req.session.userId);
     res.json({ success: true, deletedCount });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -242,7 +242,7 @@ router.post('/memories/bulk-archive', (req, res) => {
     if (!ownedIds.length) {
       return res.status(404).json({ error: 'Memory not found' });
     }
-    const archivedCount = mm.archiveMemories(ownedIds, archived);
+    const archivedCount = mm.archiveMemories(ownedIds, archived, req.session.userId);
     res.json({ success: true, archivedCount });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });

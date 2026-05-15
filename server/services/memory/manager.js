@@ -217,7 +217,12 @@ class MemoryManager {
   }
 
   _userDir(userId) {
-    return path.join(USERS_DIR, String(userId || 'shared'));
+    const segment = String(userId || 'shared');
+    const resolved = path.resolve(path.join(USERS_DIR, segment));
+    if (!resolved.startsWith(path.resolve(USERS_DIR) + path.sep) && resolved !== path.resolve(USERS_DIR)) {
+      throw new Error('Invalid user directory path');
+    }
+    return resolved;
   }
 
   _ensureUserDirs(userId) {
@@ -522,7 +527,7 @@ class MemoryManager {
     return this.deleteMemories([id]) > 0;
   }
 
-  deleteMemories(ids) {
+  deleteMemories(ids, userId = null) {
     const uniqueIds = [...new Set(
       (Array.isArray(ids) ? ids : [])
         .map((id) => String(id || '').trim())
@@ -530,7 +535,9 @@ class MemoryManager {
     )];
     if (!uniqueIds.length) return 0;
     const placeholders = uniqueIds.map(() => '?').join(', ');
-    const result = db.prepare(`DELETE FROM memories WHERE id IN (${placeholders})`).run(...uniqueIds);
+    const result = userId != null
+      ? db.prepare(`DELETE FROM memories WHERE id IN (${placeholders}) AND user_id = ?`).run(...uniqueIds, userId)
+      : db.prepare(`DELETE FROM memories WHERE id IN (${placeholders})`).run(...uniqueIds);
     return result.changes || 0;
   }
 
@@ -541,7 +548,7 @@ class MemoryManager {
     return this.archiveMemories([id], archived) > 0;
   }
 
-  archiveMemories(ids, archived = true) {
+  archiveMemories(ids, archived = true, userId = null) {
     const uniqueIds = [...new Set(
       (Array.isArray(ids) ? ids : [])
         .map((id) => String(id || '').trim())
@@ -549,9 +556,13 @@ class MemoryManager {
     )];
     if (!uniqueIds.length) return 0;
     const placeholders = uniqueIds.map(() => '?').join(', ');
-    const result = db.prepare(
-      `UPDATE memories SET archived = ? WHERE id IN (${placeholders})`
-    ).run(archived ? 1 : 0, ...uniqueIds);
+    const result = userId != null
+      ? db.prepare(
+          `UPDATE memories SET archived = ? WHERE id IN (${placeholders}) AND user_id = ?`
+        ).run(archived ? 1 : 0, ...uniqueIds, userId)
+      : db.prepare(
+          `UPDATE memories SET archived = ? WHERE id IN (${placeholders})`
+        ).run(archived ? 1 : 0, ...uniqueIds);
     return result.changes || 0;
   }
 

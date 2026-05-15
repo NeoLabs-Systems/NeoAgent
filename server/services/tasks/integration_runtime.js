@@ -268,7 +268,7 @@ async function pollIntegrationTask(runtime, task) {
   const existingFingerprint = String(task.last_trigger_fingerprint || '');
   const latestFingerprint = rows[rows.length - 1].fingerprint;
   if (!existingFingerprint) {
-    runtime.taskRepository.markTaskTriggerCheckpoint(task.id, latestFingerprint);
+    runtime.taskRepository.markTaskTriggerCheckpoint(task.id, latestFingerprint, task.user_id);
     return;
   }
 

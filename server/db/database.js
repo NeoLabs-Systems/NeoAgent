@@ -1667,7 +1667,6 @@ migrateIntegrationConnectionsTable();
 migrateIntegrationOauthStatesTable();
 migrateIntegrationProviderConfigsTable();
 createAgentScopedIndexes();
-backfillAgentIds();
 migrateIntegrationSecretStorage();
 backfillVerifiedAccountEmails();
 rebuildFtsForAgents();

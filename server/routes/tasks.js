@@ -32,8 +32,17 @@ router.post('/', async (req, res) => {
   try {
     const tasks = req.app.locals.taskRuntime;
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const {
+      name, triggerType, trigger_type, triggerConfig, trigger_config,
+      taskType, task_type, taskConfig, task_config, enabled,
+      prompt, callTo, callGreeting, model,
+      oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
+    } = req.body || {};
     const task = await tasks.createTask(req.session.userId, {
-      ...req.body,
+      name, triggerType, trigger_type, triggerConfig, trigger_config,
+      taskType, task_type, taskConfig, task_config, enabled,
+      prompt, callTo, callGreeting, model,
+      oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
       agentId,
     });
     res.status(201).json(task);
@@ -49,7 +58,18 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid task id' });
     }
     const tasks = req.app.locals.taskRuntime;
-    const task = await tasks.updateTask(taskId, req.session.userId, req.body);
+    const {
+      name, triggerType, trigger_type, triggerConfig, trigger_config,
+      taskType, task_type, taskConfig, task_config, enabled,
+      prompt, callTo, callGreeting, model,
+      oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
+    } = req.body || {};
+    const task = await tasks.updateTask(taskId, req.session.userId, {
+      name, triggerType, trigger_type, triggerConfig, trigger_config,
+      taskType, task_type, taskConfig, task_config, enabled,
+      prompt, callTo, callGreeting, model,
+      oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
+    });
     res.json(task);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });

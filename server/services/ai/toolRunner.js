@@ -13,6 +13,15 @@ function shellEscape(value) {
   return `'${text.replace(/'/g, `'\\''`)}'`;
 }
 
+// Shell metacharacters that must not appear in a skill command template.
+const SHELL_METACHAR_RE = /[;&|`$\n\r(){}\\<>]/;
+
+function isValidCommandTemplate(template) {
+  // Strip all {placeholder} tokens, then reject any remaining shell metacharacters.
+  const bare = String(template).replace(/\{[^{}]*\}/g, '');
+  return !SHELL_METACHAR_RE.test(bare);
+}
+
 function clampText(value, maxChars) {
   const text = String(value || '').trim().replace(/\s+/g, ' ');
   if (!text) return '';
@@ -179,6 +188,9 @@ class SkillRunner {
     }
 
     if (skill.metadata.command) {
+      if (!isValidCommandTemplate(skill.metadata.command)) {
+        return { error: `Skill '${toolName}' has an invalid command template` };
+      }
       let command = skill.metadata.command;
       for (const [key, value] of Object.entries(args)) {
         command = command.replaceAll(`{${key}}`, shellEscape(value));

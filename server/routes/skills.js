@@ -10,6 +10,12 @@ const {
 
 router.use(requireAuth);
 
+const SHELL_METACHAR_RE = /[;&|`$\n\r(){}\\<>]/;
+function isValidCommandTemplate(template) {
+  const bare = String(template).replace(/\{[^{}]*\}/g, '');
+  return !SHELL_METACHAR_RE.test(bare);
+}
+
 function parseSkillDocument(content) {
   const match = String(content || '').match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) {
@@ -79,6 +85,9 @@ router.post('/', async (req, res) => {
     const runner = await getSkillRunner(req.app);
     const parsed = parseSkillDocument(req.body.content);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
+    if (parsed.metadata?.command && !isValidCommandTemplate(parsed.metadata.command)) {
+      return res.status(400).json({ error: 'Skill command template contains invalid characters' });
+    }
 
     const result = runner.createSkill(
       req.body.filename || parsed.name,
@@ -105,6 +114,9 @@ router.put('/:name', async (req, res) => {
 
     const parsed = parseSkillDocument(req.body.content);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
+    if (parsed.metadata?.command && !isValidCommandTemplate(parsed.metadata.command)) {
+      return res.status(400).json({ error: 'Skill command template contains invalid characters' });
+    }
     const result = runner.updateSkill(req.params.name, {
       description: parsed.description,
       instructions: parsed.instructions,

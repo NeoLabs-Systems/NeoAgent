@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
@@ -106,7 +107,15 @@ function extractVoiceSettings(payload = {}) {
   };
 }
 
-router.get('/update/status', (req, res) => {
+const updateTriggerLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 3,
+  message: { success: false, error: 'Too many update requests, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.get('/update/status', requireAuth, (req, res) => {
   const status = readUpdateStatus();
   const version = getVersionInfo();
   res.json({
@@ -550,7 +559,7 @@ router.delete('/:key', (req, res) => {
 });
 
 // Trigger auto-update script
-router.post('/update', (req, res) => {
+router.post('/update', requireAuth, updateTriggerLimiter, (req, res) => {
   if (isManagedDeployment()) {
     return res.status(403).json({
       success: false,

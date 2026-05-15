@@ -53,9 +53,6 @@ class TaskRepository {
     db.prepare('DELETE FROM scheduled_tasks WHERE id = ? AND user_id = ?').run(taskId, userId);
   }
 
-  deleteById(taskId, userId) {
-    db.prepare('DELETE FROM scheduled_tasks WHERE id = ? AND user_id = ?').run(taskId, userId);
-  }
 
   getTaskById(taskId, userId) {
     return db.prepare('SELECT * FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
@@ -117,12 +114,12 @@ class TaskRepository {
     ).run(fingerprint, taskId, userId);
   }
 
-  markTaskTriggerCheckpoint(taskId, fingerprint) {
+  markTaskTriggerCheckpoint(taskId, fingerprint, userId) {
     db.prepare(
       `UPDATE scheduled_tasks
        SET last_triggered_at = datetime('now'), last_trigger_fingerprint = ?
-       WHERE id = ?`
-    ).run(fingerprint, taskId);
+       WHERE id = ? AND user_id = ?`
+    ).run(fingerprint, taskId, userId);
   }
 
   markTaskRun(taskId, userId) {
