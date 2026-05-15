@@ -34,7 +34,7 @@ npm install -g neoagent
 neoagent install
 ```
 
-Runs as a `launchd` user service on macOS and `systemd --user` on Linux.
+Opens at **http://localhost:3333** when complete. Runs as a `launchd` user service on macOS and `systemd --user` on Linux.
 
 ## Manage
 
@@ -47,7 +47,7 @@ neoagent logs
 
 ## Links
 
-[Docs](https://neolabs-systems.github.io/NeoAgent/docs/) | [Capabilities](docs/capabilities.md) | [Why NeoAgent](docs/why-neoagent.md) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
+[Docs](https://neolabs-systems.github.io/NeoAgent/docs/) | [Getting Started](docs/getting-started.md) | [Configuration](docs/configuration.md) | [Capabilities](docs/capabilities.md) | [Why NeoAgent](docs/why-neoagent.md) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
 
 ---
 

@@ -1,16 +1,16 @@
 # Skills
 
-Skills are Markdown files that teach the agent how to use local capabilities or follow a workflow. NeoAgent loads them at runtime from `~/.neoagent/agent-data/skills/` by default, so edits do not require a service restart.
+Skills are Markdown files that instruct the agent on how to use a local capability or follow a multi-step workflow. They load at runtime from `~/.neoagent/agent-data/skills/`, so edits take effect without restarting the service.
 
 ## Built-in Skills
 
 | Skill | Description |
 |---|---|
-| `browser.md` | Puppeteer-powered web browsing and scraping |
-| `cli.md` | Execute shell commands in a persistent terminal |
-| `files.md` | Read, write, and search files on the host |
-| `memory.md` | Store and recall long-term memories |
-| `messaging.md` | Send messages via connected messaging platforms such as WhatsApp, Telegram, Discord, Slack, Matrix, Teams, Google Chat, or webhook bridges |
+| `browser.md` | Web browsing and scraping with Puppeteer |
+| `cli.md` | Shell commands in a persistent PTY terminal |
+| `files.md` | Read, write, and search host files |
+| `memory.md` | Store and recall long-term facts |
+| `messaging.md` | Send via Telegram, WhatsApp, Discord, Slack, Matrix, Teams, Google Chat, or webhooks |
 | `system-stats.md` | CPU, memory, and disk usage |
 | `weather.md` | Current weather via wttr.in |
 | `ip-info.md` | Public IP and geolocation |
@@ -21,16 +21,16 @@ Skills are Markdown files that teach the agent how to use local capabilities or 
 | `find-large-files.md` | Locate large files |
 | `docker-status.md` | Docker container status |
 | `tail-log.md` | Tail any log file |
-| `news-hackernews.md` | Fetch Hacker News top stories |
+| `news-hackernews.md` | Fetch top Hacker News stories |
 | `qr-code.md` | Generate QR codes |
-| `pdf-toolkit.md` | Inspect, extract, merge, split, and compress PDF files |
+| `pdf-toolkit.md` | Inspect, extract, merge, split, compress PDFs |
 | `git-summary.md` | Summarize git status, branches, commits, and diffs |
-| `csv-toolkit.md` | Inspect and transform CSV or TSV data files |
-| `markdown-workbench.md` | Clean up, outline, and convert Markdown notes or docs |
+| `csv-toolkit.md` | Inspect and transform CSV or TSV files |
+| `markdown-workbench.md` | Clean up, outline, and convert Markdown documents |
 
-## Adding a Skill
+## Creating a Custom Skill
 
-Create a Markdown file in `~/.neoagent/agent-data/skills/`:
+Add a Markdown file to `~/.neoagent/agent-data/skills/`:
 
 ```markdown
 # My Skill Name
@@ -39,21 +39,21 @@ Brief description of what this skill does and when to use it.
 
 ## Usage
 
-Explain the steps or commands the agent should follow.
+Step-by-step instructions or exact commands the agent should follow.
 ```
 
-The agent reads all `.md` files in the skills directory on each conversation turn. Keep each skill focused, include exact commands or tool names when they matter, and avoid storing secrets in skill files.
+The agent reads all `.md` files in the skills directory on each turn. Keep skills focused. Include exact tool names or shell commands when precision matters. Don't store secrets in skill files.
+
+**When to use a custom skill** — repeated workflows involving specific local paths, commands, or multi-step procedures. For connecting to third-party services, prefer official integrations or MCP tools instead.
 
 ## Skill Store
 
-The **Skills** section also exposes a built-in catalog through `/api/store`. Catalog entries install into the same runtime skills directory, so they stay GitHub-readable Markdown files and can be edited or removed after installation.
+The **Skills** section in the UI includes a built-in catalog from `/api/store`. Skills install as Markdown files into the runtime skills directory — editable and removable after installation.
 
-The catalog includes system, network, info, document, data, and git helpers such as disk usage, process monitoring, tail logs, finding large files, ping, DNS lookup, SSL certificate checks, weather, crypto prices, PDFs, CSV or TSV data, Markdown cleanup, and git summaries.
+Catalog categories: system, network, info, document, data, and git helpers.
 
 ## MCP Tools
 
-External tools are connected via the [Model Context Protocol](https://modelcontextprotocol.io). Configure MCP servers in the Flutter app under **Models / Settings -> MCP**. Connected tools appear alongside built-in skills automatically.
+External tools connect via the [Model Context Protocol](https://modelcontextprotocol.io). Configure MCP servers in **Settings → MCP**. Connected tools appear alongside built-in skills automatically.
 
-Use official integrations or structured MCP tools when they exist. They are usually safer and more reliable than browser automation or shell scraping.
-
-See [Capabilities](capabilities.md) for the broader built-in agent tool surface beyond Markdown skills.
+Use official integrations or MCP tools when they exist — they are more reliable than browser automation or shell scraping and easier to audit.

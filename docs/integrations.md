@@ -1,83 +1,66 @@
 # Integrations
 
-NeoAgent has two integration layers: official integrations for structured app tools, and messaging platforms for talking to the agent.
+NeoAgent has two integration layers: official integrations for structured app tools, and messaging platforms for communicating with the agent.
 
 ## Official Integrations
 
-The built-in registry includes:
+Structured OAuth-backed tools the agent can use in chat and automation. Connect accounts in the Flutter app under **Integrations**.
 
-| Provider | Use |
+| Provider | What the agent can do |
 |---|---|
-| Google Workspace | Gmail, Calendar, Drive, Docs, and Sheets tools |
-| Notion | Search, pages, databases, blocks, comments, and raw Notion API requests |
-| Microsoft 365 | Outlook, Calendar, OneDrive, Teams, and Microsoft Graph requests |
-| Slack | Conversations, history, posting, search, user info, and Slack Web API requests |
-| Figma | Current user, files, nodes, rendered images, comments, and Figma REST requests |
-| Home Assistant | Entity/config reads, service calls, and Home Assistant REST API requests |
-| Trello | Boards, lists, cards, comments, search, and Trello REST API requests |
-| Weather | Keyless Open-Meteo current weather and forecast tools |
-| Spotify | Playback state, recently played, search, and playback controls |
+| **Google Workspace** | Search and send Gmail, read/create Calendar events, Drive upload/download/share, Docs create/append, Sheets read/write |
+| **Microsoft 365** | Outlook mail, Calendar, OneDrive, Teams messages, Graph API |
+| **Notion** | Search pages, read/write databases and blocks, manage comments |
+| **Slack** | Read and send messages, search conversations |
+| **Figma** | Read files and nodes, get rendered images, manage comments |
+| **Home Assistant** | Read entity state, call services |
+| **Trello** | Manage boards, lists, cards, comments, and search |
+| **Spotify** | Playback controls, search, queue management |
+| **Weather** | Current conditions and forecasts — no API key needed |
+| **Personal WhatsApp** | Per-account read and send with isolated access |
 
-OAuth app credentials are configured through server environment variables for most providers. Home Assistant and Trello can also be configured per-user in the Flutter **Integrations** UI without any server-side setup. Account connections are created in the Flutter UI under **Integrations**. Connected tools are exposed to the agent as structured tools, so prefer them over browser automation when they can do the job.
+### Access Modes
 
-### Per-Account Access Mode
+Each connected account can be set to **Read/Write** (default) or **Read Only**. Read-only blocks all write operations server-side — sending, creating, updating, and deleting.
 
-Each connected official integration account can be configured per connection as:
+### OAuth Setup
 
-- `Read / Write` (default)
-- `Read Only`
+Most providers require OAuth app credentials in server config before users can connect. See [Configuration: Official Integrations](configuration.md#official-integrations) for the required environment variables.
 
-When an account is set to `Read Only`, write operations are blocked for that connection (for example: sending email, posting messages, creating/updating/deleting resources, or write-method API requests).
+Home Assistant and Trello can be configured per-user in the **Integrations** UI without any server-side setup.
 
-This setting is managed in the Flutter **Integrations** UI on each connected account row and is enforced server-side during tool execution.
+The default OAuth callback URL is `PUBLIC_URL + /api/integrations/oauth/callback`.
 
-The default callback is:
-
-```text
-PUBLIC_URL + /api/integrations/oauth/callback
-```
-
-You can override it with provider-specific redirect URI variables listed in [Configuration](configuration.md).
+**If an OAuth connection fails:**
+1. Confirm `PUBLIC_URL` is reachable by the provider
+2. Confirm the redirect URI in your OAuth app matches NeoAgent's callback URL
+3. Confirm the client ID and secret are set in server config
+4. Restart after changing environment variables: `neoagent restart`
 
 ## Messaging Platforms
 
-NeoAgent can talk through:
+Channels through which users and the agent communicate. Configure credentials in the Flutter app under **Settings → Messaging** — not in `.env`.
 
 | Platform | Notes |
 |---|---|
-| WhatsApp | Messaging-platform bridge in app settings for talking to the agent; separate official personal WhatsApp integration for structured read/send tools |
-| Telegram | Bot token plus approved chats |
-| Discord | Bot token plus server or channel access |
-| Slack | Bot token sends plus Events API callbacks |
-| Google Chat | Space webhook sends plus app callback ingestion |
-| Microsoft Teams | Incoming webhook sends plus outgoing webhook ingestion |
-| Matrix | Homeserver access token with room send and polling |
-| Signal | signal-cli REST API bridge |
-| iMessage / BlueBubbles | BlueBubbles-compatible bridge for macOS-hosted iMessage |
-| IRC and Twitch | IRC-style channel connections |
-| LINE and Mattermost | Native send paths with webhook ingestion |
-| Feishu, Nextcloud Talk, Nostr, Synology Chat, Tlon, Zalo, Zalo Personal, WeChat, and WebChat | Configurable webhook bridges |
-| Telnyx Voice | Inbound and outbound calling with text-to-speech; tasks can call a number |
+| **WhatsApp** | Messaging bridge for agent chat; separate official integration for structured read/send tools |
+| **Telegram** | Bot token plus approved chat IDs |
+| **Discord** | Bot token plus server or channel access |
+| **Slack** | Bot token sends, Events API callbacks |
+| **Google Chat** | Space webhook sends, app callback ingestion |
+| **Microsoft Teams** | Incoming webhook sends, outgoing webhook ingestion |
+| **Matrix** | Homeserver access token, room send, polling |
+| **Signal** | signal-cli REST API bridge |
+| **iMessage / BlueBubbles** | BlueBubbles-compatible bridge on a macOS host |
+| **IRC and Twitch** | IRC-style channel connections |
+| **LINE and Mattermost** | Native send, webhook ingestion |
+| **Telnyx Voice** | Inbound and outbound calls with text-to-speech |
+| **Webhook bridges** | Feishu, Nextcloud Talk, Nostr, Synology Chat, Tlon, Zalo, WeChat, WebChat |
 
-Messaging channel credentials are configured through the Flutter app messaging tab (not `.env`) for channel setup and inbound callback routing. The generic inbound callback path is:
+Inbound webhook path: `PUBLIC_URL + /api/messaging/webhook/:platform`
 
-```text
-PUBLIC_URL + /api/messaging/webhook/:platform
-```
+`TELNYX_WEBHOOK_TOKEN` is the only messaging credential that goes in `.env` — all others are configured through the app messaging tab.
 
-Use the per-platform inbound secret or native signature fields in the messaging tab for webhook callbacks.
+## Security
 
-Telnyx exception: only the Telnyx voice webhook verification token stays in server environment variables as `TELNYX_WEBHOOK_TOKEN`, because webhook request verification is performed server-side. Other Telnyx and messaging channel credentials should be configured in the Flutter app messaging tab as part of channel/client configuration.
-
-## Credentials
-
-Keep provider API keys, OAuth client secrets, and messaging tokens on the server. Do not put them in docs, skill files, client-side code, screenshots, or logs.
-
-If an OAuth provider fails to connect, check:
-
-- `PUBLIC_URL` is reachable by the provider.
-- The provider redirect URI matches NeoAgent's callback URL.
-- The provider client ID and client secret are set on the server.
-- The NeoAgent service was restarted after changing environment variables.
-
-See [Capabilities](capabilities.md) for examples of the structured tools exposed by each provider.
+Keep OAuth client secrets, bot tokens, and API keys on the server. Don't put them in skill files, task prompts, screenshots, or logs. Rotate immediately if a credential is exposed.

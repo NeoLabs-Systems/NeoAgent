@@ -1,53 +1,94 @@
 # Automation
 
-NeoAgent is built for proactive work: tasks that run later, repeat on a schedule, use tools, and notify you when there is something useful to report.
+Tasks run on a schedule or integration trigger, use the same tools as chat, and can deliver results through any connected messaging platform.
 
-## Tasks
+## Creating a Task
 
-Use the **Tasks** section in the UI to create automations. Tasks can be time-based (Cron) or integration-triggered (for example email, messaging, and weather-event triggers). A task has:
+Open **Tasks** in the UI and fill in:
 
-| Field | Purpose |
+| Field | Description |
 |---|---|
-| Name | Human-readable task label |
-| Cron expression | Five-field cron schedule |
-| Prompt | Self-contained instruction for the future run |
-| Enabled state | Active or paused |
-| Model override | Optional model for this task |
+| **Name** | Human-readable label |
+| **Cron** | Five-field schedule expression |
+| **Prompt** | Self-contained instruction for the future run |
+| **Enabled** | Active or paused |
+| **Model** | Optional per-task model override |
 
-Scheduled prompts should include the condition for notifying you. For example, ask NeoAgent to message you only when a monitored thing changes, fails, or needs attention.
+## Cron Expressions
 
-## Tool Capabilities
+```
+┌───── minute (0–59)
+│  ┌──── hour (0–23)
+│  │  ┌─── day of month (1–31)
+│  │  │  ┌── month (1–12)
+│  │  │  │  ┌─ day of week (0–7, both 0 and 7 = Sunday)
+│  │  │  │  │
+*  *  *  *  *
+```
 
-Automation can use the same tool surface as normal chat runs:
+Common patterns:
+
+| Expression | Runs |
+|---|---|
+| `0 9 * * *` | Daily at 9:00 AM |
+| `0 9 * * 1-5` | Weekdays at 9:00 AM |
+| `0 8 * * 1` | Every Monday at 8:00 AM |
+| `0 18 * * 5` | Every Friday at 6:00 PM |
+| `0 9 1 * *` | First of every month at 9:00 AM |
+| `0 */4 * * *` | Every 4 hours |
+| `*/30 * * * *` | Every 30 minutes |
+
+## Writing Good Task Prompts
+
+Prompts run unattended. Be specific about what to check and when to notify — tasks that always send a message become noise, tasks that only notify on a condition are useful.
+
+**Daily news digest**
+```
+Search Hacker News for the top 5 stories today. Send me a brief summary of each via Telegram, including the title and link.
+```
+
+**Price monitor**
+```
+Check the price of Bitcoin and Ethereum on CoinGecko. If either has changed more than 5% in the last 24 hours, send me a Telegram message with the current prices and percentage change. If there are no significant changes, do nothing.
+```
+
+**Server health check**
+```
+Run `df -h` and `free -m`. If disk usage on any partition is above 85% or available memory is below 500MB, send me a Telegram alert with the details. Otherwise do nothing.
+```
+
+**Weekly email digest**
+```
+Search my Gmail for unread emails from the last 7 days. Group them by sender domain and summarize the main topics. Send the summary to my Telegram.
+```
+
+## Tool Access
+
+Automation can use everything available in chat:
 
 | Capability | Examples |
 |---|---|
-| Browser | Navigate, click, type, extract page content, take screenshots, evaluate page JavaScript |
-| Files | Read, write, search, and summarize host files through skills |
-| CLI | Run shell commands in a persistent terminal through skills |
-| Memory | Store durable facts and retrieve useful context |
-| Messaging | Send a proactive result through a connected platform |
-| MCP | Use tools exposed by configured remote MCP servers |
-| Official integrations | Use structured OAuth-backed app tools where available |
-| Recordings | List, open, and search recording transcripts |
-| Health | Read synced Android Health Connect metrics as summaries |
-| Android | Drive a server-attached emulator or device through UI and ADB tools |
-| Subagents | Spawn async helper agents inside a longer run |
-| Outputs | Generate artifacts, Grok images, Mermaid graphs, and markdown tables |
+| **Browser** | Navigate, extract content, screenshot, evaluate JavaScript |
+| **CLI** | Shell commands in a persistent terminal |
+| **Files** | Read, write, search host files |
+| **Memory** | Store and retrieve long-term facts |
+| **Messaging** | Send results through any connected platform |
+| **MCP** | Tools from configured remote MCP servers |
+| **Integrations** | Gmail, Calendar, Notion, Slack, and other OAuth tools |
+| **Recordings** | Search and read transcripts |
+| **Health** | Read synced Android Health Connect metrics |
+| **Android** | Control an emulator or device |
+| **Subagents** | Spawn parallel helpers inside a longer run |
+| **Outputs** | Artifacts, images, Mermaid graphs, markdown tables |
 
-Prefer official integrations and structured MCP tools over browser automation when both can answer the task. They are usually less brittle and easier to audit.
+Prefer official integrations and MCP tools over browser automation when both can do the job — they are more reliable and easier to audit.
 
-See [Capabilities](capabilities.md) for the broader tool inventory.
+## Safety
 
-## Safety Expectations
+NeoAgent runs on your server and can touch real files, messaging surfaces, connected accounts, and browser sessions. Keep prompts narrow.
 
-NeoAgent runs on your server and can touch real files, messaging surfaces, browser sessions, and connected services. Keep scheduled prompts narrow and self-contained.
-
-For sensitive automations:
-
-- Use allowlists for messaging platforms.
-- Keep secrets in server config, not prompts or skills.
-- Prefer read-only checks unless the task explicitly needs to mutate data.
-- Ask for notification only when a condition is met to avoid noisy repeated messages.
-- Review run history in **Runs** and service logs in **Logs** when behavior is surprising.
-- Remember that browser, CLI, Android runtime, and local file tools run on the NeoAgent server or configured worker, not necessarily on your current laptop.
+- Use messaging allowlists to restrict which chats receive automated messages
+- Keep secrets in server config, not in prompts or skill files
+- Prefer read-only checks unless the task explicitly needs to write data
+- Review run history in **Runs** and service logs in **Logs** when behavior is unexpected
+- Browser, CLI, Android, and file tools run on the NeoAgent server — not necessarily your current laptop

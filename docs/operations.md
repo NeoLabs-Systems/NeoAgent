@@ -1,26 +1,20 @@
 # Operations
 
-NeoAgent is a self-hosted service, so operations are part of the product. The CLI exposes the common service, release, and recovery tasks.
-
 ## Service State
 
 ```bash
-neoagent status
-neoagent logs
+neoagent status      # install root, config path, runtime paths, release channel, service state
+neoagent logs        # first stop for unexpected behavior in UI, messaging, OAuth, or tasks
 neoagent restart
 ```
-
-`neoagent status` reports the install root, config path, runtime data paths, release channel, and service state. `neoagent logs` is the first place to look when the service starts but the UI, messaging, OAuth, or tasks behave unexpectedly.
 
 ## Release Channels
 
 ```bash
-neoagent channel
-neoagent channel stable
-neoagent channel beta
+neoagent channel           # show current channel
+neoagent channel stable    # switch to stable releases (recommended for most installs)
+neoagent channel beta      # switch to prerelease builds
 ```
-
-The release channel controls what `neoagent update` follows. Use `stable` for normal self-hosted installs and `beta` when you intentionally want prerelease builds.
 
 ## Updates
 
@@ -28,9 +22,7 @@ The release channel controls what `neoagent update` follows. Use `stable` for no
 neoagent update
 ```
 
-On git installs, the updater follows the channel branch policy and reinstalls dependencies if the source changes. On npm installs, it attempts a global package reinstall from the matching npm tag.
-
-After updating, NeoAgent verifies that the bundled web client exists and restarts the service.
+Follows the configured release channel. On git installs, pulls the latest source and reinstalls dependencies when they change. On npm installs, reinstalls the global package from the matching npm tag. Verifies the bundled web client and restarts the service.
 
 ## Recovery
 
@@ -38,21 +30,32 @@ After updating, NeoAgent verifies that the bundled web client exists and restart
 neoagent fix
 ```
 
-Use `neoagent fix` if a self-edit or broken local install leaves NeoAgent in a bad state. On git installs it backs up runtime data, saves local tracked changes, resets tracked source files, reinstalls dependencies, and restarts the service.
+Use when NeoAgent is in a broken state after a self-edit or corrupted install. On git installs: backs up runtime data, saves local tracked changes, resets source files, reinstalls dependencies, and restarts.
 
-If the failure is configuration-only, rerun:
+For configuration-only issues:
 
 ```bash
 neoagent setup
 neoagent restart
 ```
 
+## Troubleshooting
+
+| Symptom | First step |
+|---|---|
+| Service won't start | `neoagent logs` — look for startup errors |
+| UI loads but agent doesn't respond | Confirm an AI provider key is set in **Settings → AI Providers** |
+| OAuth integration fails | Confirm `PUBLIC_URL` is reachable and the redirect URI matches |
+| Messaging not delivering | Check credentials in the messaging tab; confirm `PUBLIC_URL` for webhook-based platforms |
+| Tasks not running | Confirm the task is enabled; check **Runs** and **Logs** for error output |
+| Broken after update | `neoagent fix` — resets source, reinstalls, restarts |
+
 ## Runtime Data
 
-| Path | Purpose |
+| Path | Contents |
 |---|---|
 | `~/.neoagent/.env` | Server config and secrets |
-| `~/.neoagent/data/` | Database, session data, logs, and update status |
-| `~/.neoagent/agent-data/` | Skills, memory, and daily data |
+| `~/.neoagent/data/` | Database, session data, logs, update status |
+| `~/.neoagent/agent-data/` | Skills, memory, daily data |
 
-Back up these paths before moving a server or doing manual repair work.
+Back up these paths before moving a server or doing manual repairs.

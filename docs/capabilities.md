@@ -1,124 +1,118 @@
 # Capabilities
 
-This page lists the product surfaces that are easy to miss from the short README. It is based on the current server routes, agent tool registry, Flutter sections, Android bridge code, and integration providers in this repository.
+NeoAgent can operate real software on the machine it runs on — a browser, Android emulators and devices, and a terminal. It connects to your accounts, remembers context across sessions, and runs scheduled automations without you being present.
 
 ## Operator UI
 
-The Flutter client exposes the main operator surfaces:
-
-| Section | What it is for |
+| Section | What it's for |
 |---|---|
-| Chat | Normal agent runs with tools, memory, integrations, and messaging |
-| Runs | Live and historical run steps, including browser, Android, CLI, messaging, tasks, MCP, and subagent work |
-| Logs | Service logs and diagnostics from the server you are connected to |
-| Tasks | Schedule-triggered and integration-triggered automations |
-| Skills | Built-in and custom reusable workflows |
-| Integrations | OAuth account connections for structured app tools |
-| MCP | Remote MCP server registration and tool discovery |
-| Memory | Long-term memory, core memory, and session search |
-| Devices | Server-side browser and Android runtime controls |
-| Recordings | Recording sessions, transcripts, segments, and playback |
-| Health | Android Health Connect sync status and synced metrics |
-| Settings | AI providers, model routing, runtime settings, messaging, and service controls |
-
-## Recordings
-
-NeoAgent records audio as server-side sessions with one or more sources. The web client can record browser microphone and screen audio, and the Android app can record phone microphone audio through a foreground service.
-
-Recording sessions support:
-
-- Chunked uploads with per-source sequence checks.
-- Sources, chunks, transcript segments, session status, and playback URLs.
-- Statuses for recording, processing, completed, failed, and cancelled sessions.
-- Retry transcription and delete transcript segment actions.
-- Full session deletion with storage cleanup.
-- Agent tools for listing, opening, and searching transcripts: `recordings_list`, `recordings_get`, and `recordings_search`.
-- A keyless social video extractor for public YouTube, TikTok, Instagram, and X URLs through `social_video_extract`, with metadata-first fetch, captions-first transcript strategy, STT fallback, and representative frame extraction.
-
-Transcription uses Deepgram when `DEEPGRAM_API_KEY` is configured. The default speech model is `nova-3`, and the default language mode is `multi`. When `auto_recording_insights` is enabled in AI settings, NeoAgent can generate structured recording insights such as a summary, action items, and events.
-
-## Android Control
-
-NeoAgent can let the AI control an Android emulator or device attached to the NeoAgent server or configured worker. This is the Android capability in the comparison: the agent can observe and operate Android, not only run an Android companion app.
-
-Android control supports:
-
-- Starting and stopping the managed Android emulator.
-- Listing ADB-connected devices and installed apps.
-- Taking screenshots and UIAutomator XML dumps.
-- Observing visible UI nodes.
-- Opening apps and Android intents.
-- Tapping, long pressing, typing, swiping, and pressing Android navigation keys.
-- Waiting for text, resource IDs, descriptions, or classes to appear.
-- Installing `.apk` and universal `.apks` bundles.
-- Running `adb shell` commands when higher-level tools are not enough.
-
-These actions run where the NeoAgent backend is running. If NeoAgent is deployed on a remote server, the AI controls the Android runtime attached to that server, not the laptop where you are reading the docs.
-
-## Android App And Health
-
-The Flutter Android app is still useful as a client. It can sign in to the same self-hosted backend, run chat and operator UI flows, sync Health Connect data, and record audio locally.
-
-Android app capabilities include:
-
-- `NEOAGENT_BACKEND_URL` build/run configuration for real devices.
-- Health Connect permission flow and background sync.
-- Microphone recording through an Android foreground service.
-- Boot restore hooks for recording services when Android allows them.
-
-## Health Data
-
-Health data comes from the Android app through `/api/mobile/health`. NeoAgent stores sync runs and normalized metric samples. The built-in metric aliases include steps, heart rate, sleep sessions, exercise sessions, and weight.
-
-The agent tool `read_health_data` returns summaries and recent samples. It is designed to answer questions such as recent step totals or available health metrics without dumping every raw record.
-
-## Integrations And Messaging
-
-NeoAgent has two separate integration layers:
-
-- Official integrations expose structured tools for Google Workspace, Microsoft 365, Notion, Slack, Figma, Home Assistant, Trello, Weather, Spotify, and a separate personal WhatsApp connection.
-- Messaging platforms let the agent talk through WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Twitch, LINE, Mattermost, configurable webhook bridges, and Telnyx Voice.
-
-Official integration examples include Gmail thread search and send mail, Google Calendar events, Drive upload/download/export/share links, Docs create/append/replace, Sheets read/update/append/create, Microsoft Outlook/Calendar/OneDrive/Teams tools, Notion search/page/block/database tools, Slack conversation/message tools, Figma file/node/comment/image tools, Home Assistant entity/config reads and service calls, Trello board/list/card/comment/search tools, Weather current/forecast tools plus weather-event task triggers, Spotify playback/search/control tools, and a personal WhatsApp integration with isolated chat read/send tools and per-account read-only versus read/write access.
-
-Messaging examples include Telegram and Discord messages, Slack channel replies, Matrix room messages, Google Chat and Teams webhook delivery, Signal bridge delivery, iMessage/BlueBubbles sends, WhatsApp text and media sends, Telnyx inbound voice, Telnyx outbound calls, and scheduled-task call delivery.
+| **Chat** | Interactive agent runs with full tool access, memory, integrations, and messaging |
+| **Runs** | Live and historical step-by-step execution — browser, Android, CLI, messaging, tasks, MCP, subagents |
+| **Tasks** | Schedule-triggered and integration-triggered automations |
+| **Skills** | Built-in and custom reusable workflows |
+| **Integrations** | OAuth account connections for structured app tools |
+| **MCP** | Remote MCP server registration and tool discovery |
+| **Memory** | Long-term memory, core facts, and session search |
+| **Devices** | Server-side browser and Android runtime controls |
+| **Recordings** | Audio sessions, transcripts, segment playback, AI insights |
+| **Health** | Android Health Connect sync status and synced metrics |
+| **Settings** | AI providers, model routing, runtime settings, messaging credentials |
+| **Logs** | Service logs and diagnostics |
 
 ## Agent Tools
 
-NeoAgent's agent tool surface includes more than basic chat:
+What the agent can use in chat and automation runs:
 
-| Area | Examples |
+| Area | Capabilities |
 |---|---|
-| CLI | PTY-capable `execute_command` with stdin, timeout, stdout, stderr, exit code, and duration |
-| Browser | Navigate, click, type, extract, screenshot, and evaluate page JavaScript |
-| Android control | UI observation, input, screenshots, app launch, intent launch, APK install, and shell commands |
-| Web search | Brave Search API through `web_search` |
-| Files | Read, write, edit, list, and search files |
-| HTTP | Direct HTTP requests |
-| Memory | Semantic memory, session search, daily logs, API key name reads, and core memory |
-| Skills | Create, list, update, and delete persistent skills |
-| Tasks | Schedule-triggered and integration-triggered automations, one-time runs, model overrides, and optional Telnyx call delivery |
-| MCP | Add, list, and remove MCP servers, plus dynamic MCP tool use |
-| Subagents | Spawn, list, wait for, and cancel async subagents inside a run |
-| Output | Generate markdown tables and Mermaid graphs |
-| Images | Generate images with Grok and analyze local image files with a vision-capable model |
-| Recordings | List, inspect, and search recording transcripts |
-| Social video | Extract title, description, transcript, and a representative frame from public social video URLs |
-| Health | Read synced mobile health metrics |
+| **CLI** | PTY-capable `execute_command` with stdin, timeout, stdout/stderr, exit code |
+| **Browser** | Navigate, click, type, extract, screenshot, evaluate JavaScript |
+| **Android** | UI observation, input, screenshots, app launch, intent launch, APK install, `adb shell` |
+| **Web search** | Brave Search API |
+| **Files** | Read, write, edit, list, search |
+| **HTTP** | Direct requests |
+| **Memory** | Semantic search, session search, daily logs, core memory, API key name lookup |
+| **Skills** | Create, list, update, delete persistent skills |
+| **Tasks** | Create, update, delete, and one-time run automations |
+| **MCP** | Add/remove MCP servers, use dynamic MCP tools |
+| **Subagents** | Spawn, wait for, and cancel async helpers inside a run |
+| **Images** | Generate with Grok, analyze with vision models |
+| **Recordings** | List, inspect, search transcripts |
+| **Social video** | Extract transcript and metadata from public YouTube, TikTok, Instagram, and X URLs |
+| **Health** | Read synced mobile health metrics and summaries |
+| **Outputs** | Markdown tables, Mermaid graphs, downloadable artifacts |
 
-Generated binary or text artifacts can be promoted into user-scoped artifact storage under `~/.neoagent/data/artifacts` and served through authenticated `/api/artifacts/:id/content` URLs.
+## Android Control
+
+The agent operates Android — it is not an app that runs on Android. Controls run on a server-attached emulator or physical device over ADB.
+
+- Start and stop the managed emulator
+- List connected devices and installed apps
+- Screenshot and UIAutomator XML dump
+- Observe visible UI nodes
+- Open apps and launch Android intents
+- Tap, long press, type, swipe, press navigation keys
+- Wait for text, resource IDs, descriptions, or classes to appear
+- Install `.apk` and `.apks` bundles
+- Run `adb shell` commands directly
+
+These actions run on the NeoAgent server. If NeoAgent is deployed remotely, it controls the Android runtime on that machine — not your local device.
+
+## Recordings
+
+Audio sessions are recorded server-side. The web client captures browser microphone and screen audio; the Android app records phone microphone audio via a foreground service.
+
+- Chunked uploads with per-source sequence tracking
+- Session statuses: recording, processing, completed, failed, cancelled
+- Transcript segment retry and deletion
+- Transcript search across sessions
+- Agent tools: `recordings_list`, `recordings_get`, `recordings_search`
+- Social video extraction via `social_video_extract` — title, description, transcript, and a representative frame from YouTube, TikTok, Instagram, and X URLs
+
+Transcription uses Deepgram (`nova-3` model, multi-language by default). Enable `auto_recording_insights` in AI settings to generate summaries, action items, and events automatically after transcription.
 
 ## Runtime Modes
 
-Runtime settings let operators choose where higher-risk work runs:
-
-| Profile | Runtime shape |
+| Profile | What runs where |
 |---|---|
-| `trusted-host` | CLI and Android tools run on the host; browser runs in the VM or paired extension |
-| `secure-vm` | CLI, browser, and Android tools run through the local VM backend |
+| `trusted-host` | CLI and Android run on the host; browser runs in the VM or paired extension |
+| `secure-vm` | CLI, browser, and Android all run inside the isolated VM |
 
-Production policy can require the secure VM profile and a strong VM guest token.
+Production deployments can require `secure-vm` and a strong `NEOAGENT_VM_GUEST_TOKEN` (32+ characters).
 
-These controls matter operationally: the browser, Android emulator, local files, and shell commands run wherever the NeoAgent backend, VM, or paired browser extension is running, not necessarily on the computer where you are reading the docs. Logs from a different server or remote browser may not match the logs on the local machine.
+The browser always runs in isolation — either the local VM or a paired Chrome extension on a remote machine. To pair an extension: download `/api/browser-extension/download` from NeoAgent, unzip it, enable Developer Mode in `chrome://extensions`, load the folder, then pair after signing in.
 
-For extension-only remote browser control, download `/api/browser-extension/download` from NeoAgent, unzip it on the remote machine, load the folder in `chrome://extensions`, and pair after logging in. The extension uses Chrome's debugger permission for full browser control, so Chrome will show its normal debugging warning while attached. The popup can check whether the server has a newer extension bundle, but unpacked Developer Mode installs still need a manual download and reload.
+## Integrations and Messaging
+
+NeoAgent has two separate layers:
+
+**Official integrations** — structured OAuth-backed tools the agent can use:
+
+| Provider | Tools |
+|---|---|
+| Google Workspace | Gmail, Calendar, Drive, Docs, Sheets |
+| Microsoft 365 | Outlook, Calendar, OneDrive, Teams |
+| Notion | Pages, databases, blocks, search |
+| Slack | Messages, conversations, search |
+| Figma | Files, nodes, comments, rendered images |
+| Home Assistant | Entity state, service calls |
+| Trello | Boards, lists, cards, comments |
+| Spotify | Playback, search, queue |
+| Weather | Current conditions and forecasts (no API key needed) |
+| Personal WhatsApp | Per-account read and send |
+
+**Messaging platforms** — channels for communicating with the agent:
+
+WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Twitch, LINE, Mattermost, Telnyx Voice, plus webhook bridges for Feishu, Nextcloud Talk, Nostr, Synology Chat, Tlon, Zalo, WeChat, and WebChat.
+
+Each official integration account can be set to **Read/Write** (default) or **Read Only**. Write tools are blocked server-side for read-only accounts.
+
+## Android App and Health
+
+The Flutter Android app connects to the same self-hosted backend and can:
+
+- Run chat and operator UI
+- Sync Android Health Connect data (steps, heart rate, sleep, exercise, weight)
+- Record microphone audio via a foreground service
+
+Synced health data is available through the `read_health_data` agent tool and the **Health** UI section.

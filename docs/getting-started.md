@@ -1,30 +1,26 @@
 # Getting Started
 
-NeoAgent installs as a Node CLI and runs a self-hosted server with a bundled Flutter web client. The same server can be reached from the Android client when you point it at the deployed backend URL.
+Install takes about 5 minutes. The first VM boot downloads and configures an Ubuntu guest image, which adds a few more minutes on first run.
 
 ## Requirements
 
-- Node.js 20 or newer.
-- QEMU for VM-backed browser and Android runs.
-- A reachable server URL if you want OAuth callbacks, mobile access, or messaging webhooks.
-- At least one hosted AI provider API key, unless you only use local Ollama.
-- Android Studio or a Flutter Android toolchain if you build the Android client yourself.
+| | |
+|---|---|
+| Node.js | 20 or newer |
+| QEMU | for VM-isolated browser and Android |
+| AI provider key | Anthropic, OpenAI, Gemini, Grok, MiniMax, or local Ollama |
 
-### QEMU Installation
+No API key is required if you only use local Ollama.
 
-NeoAgent uses a per-user x86_64 VM for browser and Android execution. Install QEMU before starting the service:
+### Install QEMU
 
 ```bash
 # macOS
 brew install qemu
 
 # Ubuntu / Debian
-sudo apt-get update
-sudo apt-get install -y qemu-system qemu-utils
+sudo apt-get update && sudo apt-get install -y qemu-system qemu-utils
 ```
-
-The first VM boot also downloads the Ubuntu base image and seeds the guest runtime automatically.
-That guest bootstrap installs the browser and Android runtime dependencies it needs, including Java and the emulator support packages.
 
 ## Install
 
@@ -33,49 +29,55 @@ npm install -g neoagent
 neoagent install
 ```
 
-`neoagent install` runs setup if `~/.neoagent/.env` does not exist, installs dependencies, builds or verifies the bundled web client, and starts the service through the host service manager when available.
+This runs setup (if no existing config), installs dependencies, and starts the service.
 
-On macOS, NeoAgent uses a `launchd` user service. On Linux, it uses a `systemd --user` service. On unsupported platforms it falls back to a background Node process.
+Open **http://localhost:3333** in your browser when the install finishes.
 
-## Setup
+## First Run
 
-Run setup again whenever you need to regenerate server config:
+1. Create an account.
+2. Open **Settings → AI Providers** and add at least one API key.
+3. Send a message in **Chat** to confirm the agent responds.
+
+Everything else — integrations, messaging, tasks, Android control — is configured inside the app.
+
+## Service Commands
+
+```bash
+neoagent status      # check install root, config path, and service state
+neoagent start
+neoagent stop
+neoagent restart
+neoagent logs        # first stop when something behaves unexpectedly
+```
+
+## Re-running Setup
+
+Run this to regenerate config or change provider keys:
 
 ```bash
 neoagent setup
 ```
 
-The setup flow asks for the server port, public URL, release channel, AI provider keys, Ollama URL, and official integration OAuth settings. Provider credentials live in server-side config, not in the web client.
+The wizard prompts for port, public URL, release channel, AI keys, Ollama URL, and OAuth credentials.
 
-## Service Commands
-
-```bash
-neoagent status
-neoagent start
-neoagent stop
-neoagent restart
-neoagent logs
-```
-
-Use `neoagent status` to confirm the install root, config path, release channel, and service state. Use `neoagent logs` when the service starts but the UI or integrations do not behave as expected.
-
-## Updates And Recovery
+## Updates and Recovery
 
 ```bash
-neoagent channel stable
-neoagent channel beta
-neoagent update
-neoagent fix
+neoagent channel stable   # switch to stable releases
+neoagent channel beta     # switch to prerelease builds
+neoagent update           # update to latest on the current channel
+neoagent fix              # reset after a broken install or self-edit
 ```
 
-`neoagent update` follows the configured release channel. `neoagent fix` is for recovery after a self-edit or broken local install. On git installs it backs up runtime data, saves local tracked changes, resets tracked source files, reinstalls dependencies, and restarts the service.
+`neoagent fix` backs up runtime data, resets source files, reinstalls dependencies, and restarts the service. Use it when `neoagent setup && neoagent restart` hasn't resolved an issue.
 
 ## Runtime Paths
 
-| Path | Purpose |
+| Path | Contents |
 |---|---|
 | `~/.neoagent/.env` | Server config and secrets |
-| `~/.neoagent/data/` | Database, sessions, update status, and logs |
-| `~/.neoagent/agent-data/` | Skills, memory, and daily data files |
+| `~/.neoagent/data/` | Database, session data, logs |
+| `~/.neoagent/agent-data/` | Skills, memory, daily data |
 
-Set `NEOAGENT_HOME` if you need to move the runtime root.
+Set `NEOAGENT_HOME` to move the runtime root.
