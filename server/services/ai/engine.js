@@ -81,11 +81,12 @@ function buildSkipTaskAnalysisResult(forceMode) {
   };
 }
 
-function buildAnalyzeTaskFallback(forceMode) {
+function buildAnalyzeTaskFallback(forceMode, userMessage = '') {
   return {
     mode: forceMode || 'execute',
     verification_need: 'light',
     planning_depth: planningDepthForForceMode(forceMode),
+    goal: userMessage ? String(userMessage).trim().slice(0, 300) : '',
   };
 }
 
@@ -964,6 +965,7 @@ class AgentEngine {
     tools,
     capabilityHealth,
     forceMode,
+    userMessage,
     options,
   }) {
     const summary = summarizeCapabilityHealth(capabilityHealth);
@@ -979,7 +981,7 @@ class AgentEngine {
       }),
       maxTokens: 1100,
       normalize: normalizeTaskAnalysis,
-      fallback: buildAnalyzeTaskFallback(forceMode),
+      fallback: buildAnalyzeTaskFallback(forceMode, userMessage),
       reasoningEffort: this.getReasoningEffort(providerName, options),
     });
 
@@ -1704,11 +1706,15 @@ class AgentEngine {
           tools,
           capabilityHealth,
           forceMode: options.forceMode || null,
+          userMessage,
           options: { ...options, triggerSource },
         });
         analysisUsage = analysisResult.usage || 0;
         totalTokens += analysisUsage;
         analysis = applyForcedAnalysisMode({ ...analysisResult.analysis }, options.forceMode);
+        if (!analysis.goal && userMessage) {
+          analysis.goal = String(userMessage).trim().slice(0, 300);
+        }
         analysis.mode = promoteAnalysisMode(analysis.mode, {
           verificationNeed: analysis.verification_need,
           freshnessRisk: analysis.freshness_risk,

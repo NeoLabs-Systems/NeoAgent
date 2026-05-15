@@ -39,6 +39,7 @@ const ANALYSIS_PROMPT_INSTRUCTIONS = [
   'Use mode="execute" for normal tool-driven work without a separate planning step.',
   'Use mode="plan_execute" only when the task is genuinely multi-step, broad, or coordination-heavy.',
   'Set needs_verification=true when the final answer should be checked against tool evidence before it is sent.',
+  'Set goal to a concise restatement of what the user is asking for in this message. Never leave goal empty.',
   'Keep goal and success_criteria short and practical.',
   'suggested_tools are optional hints, not a required plan.',
 ];
