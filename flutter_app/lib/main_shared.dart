@@ -1191,7 +1191,7 @@ class _ChatBubble extends StatelessWidget {
                     ),
                   MarkdownBody(
                     data: entry.content,
-                    selectable: true,
+                    selectable: false,
                     styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
                         .copyWith(
                           p: Theme.of(context).textTheme.bodyMedium?.copyWith(

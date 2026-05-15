@@ -1733,14 +1733,13 @@ class BackendClient {
     }
     try {
       final response = await request.timeout(_requestTimeout);
-      if (!_isNoisySettingsStatusPoll(method, uri, response.statusCode)) {
+      if (response.statusCode >= 400) {
         _log(
-          'request.response',
+          'request.error',
           data: <String, Object?>{
             'method': method,
             'uri': uri.toString(),
             'statusCode': response.statusCode,
-            'allowUnauthorized': allowUnauthorized,
           },
         );
       }
@@ -1773,13 +1772,6 @@ class BackendClient {
       );
       throw BackendException(_describeTransportError(error, uri));
     }
-  }
-
-  bool _isNoisySettingsStatusPoll(String method, Uri uri, int statusCode) {
-    if (method != 'GET' || statusCode != 200) {
-      return false;
-    }
-    return uri.path == '/api/settings/update/status';
   }
 
   String _describeTransportError(Object error, Uri uri) {

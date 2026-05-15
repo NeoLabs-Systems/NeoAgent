@@ -10,9 +10,12 @@ class NotificationInterceptor {
   factory NotificationInterceptor() => _instance;
   NotificationInterceptor._internal();
 
+  static const Duration _perAppCooldown = Duration(seconds: 60);
+
   bool _isListening = false;
   String _backendUrl = '';
   String _token = '';
+  final Map<String, DateTime> _lastTriggerTimes = {};
 
   Future<void> initialize(String backendUrl, String token) async {
     _backendUrl = backendUrl;
@@ -29,14 +32,21 @@ class NotificationInterceptor {
     NotificationListenerService.notificationsStream.listen((
       ServiceNotificationEvent event,
     ) {
-      // Filter out noisy system notifications or ongoing foreground services
       if (event.packageName == null ||
           event.packageName!.contains('android.system')) {
         return;
       }
 
-      // We only want to intercept newly posted notifications, not removed ones
+      // Skip removed notifications and persistent ongoing ones
       if (event.hasRemoved == true) return;
+      if (event.onGoing == true) return;
+
+      // Per-app cooldown to avoid flooding the backend
+      final pkg = event.packageName!;
+      final now = DateTime.now();
+      final last = _lastTriggerTimes[pkg];
+      if (last != null && now.difference(last) < _perAppCooldown) return;
+      _lastTriggerTimes[pkg] = now;
 
       _sendToBackend(event);
     });

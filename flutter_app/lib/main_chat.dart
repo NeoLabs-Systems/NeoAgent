@@ -128,17 +128,22 @@ class _ChatPanelState extends State<ChatPanel> {
   Future<void> _attachFiles() async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
-      withData: false,
+      withData: kIsWeb,
       type: FileType.any,
     );
     if (!mounted || result == null || result.files.isEmpty) {
       return;
     }
     final attachments = result.files
-        .where((file) => file.path?.trim().isNotEmpty == true)
+        .where(
+          (file) =>
+              kIsWeb
+                  ? file.bytes != null
+                  : file.path?.trim().isNotEmpty == true,
+        )
         .map(
           (file) => SharedChatAttachment(
-            uri: file.path!,
+            uri: kIsWeb ? file.name : file.path!,
             name: file.name,
             mimeType: _mimeTypeForFileName(file.name),
             sizeBytes: file.size,
@@ -158,20 +163,20 @@ class _ChatPanelState extends State<ChatPanel> {
     });
   }
 
+  bool get _isNearBottom {
+    if (!_scrollController.hasClients) return true;
+    final pos = _scrollController.position;
+    if (!pos.hasContentDimensions) return true;
+    return pos.pixels >= pos.maxScrollExtent - 80;
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) {
-        return;
+      if (!mounted || !_scrollController.hasClients) return;
+      final pos = _scrollController.position;
+      if (pos.hasContentDimensions) {
+        _scrollController.jumpTo(pos.maxScrollExtent);
       }
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      unawaited(
-        WidgetsBinding.instance.endOfFrame.then((_) {
-          if (!mounted || !_scrollController.hasClients) {
-            return;
-          }
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }),
-      );
     });
   }
 
@@ -185,13 +190,14 @@ class _ChatPanelState extends State<ChatPanel> {
       _lastMessageCount = messages.length;
       _lastToolCount = controller.toolEvents.length;
       _lastStream = controller.streamingAssistant;
-      _scrollToBottom();
+      if (_isNearBottom) _scrollToBottom();
     }
 
     return Column(
       children: <Widget>[
         Expanded(
-          child: ListView(
+          child: SelectionArea(
+            child: ListView(
             controller: _scrollController,
             padding: _pagePadding(context),
             children: <Widget>[
@@ -256,6 +262,7 @@ class _ChatPanelState extends State<ChatPanel> {
                   ),
                 ),
             ],
+          ),
           ),
         ),
         Container(

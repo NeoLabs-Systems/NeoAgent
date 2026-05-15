@@ -69,6 +69,7 @@ class NeoAgentController extends ChangeNotifier {
   DateTime? _lastHomeWidgetSyncAt;
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
+  bool _socketHasConnectedOnce = false;
   List<LogEntry> _serverLogs = const <LogEntry>[];
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
@@ -6335,7 +6336,7 @@ class NeoAgentController extends ChangeNotifier {
 
   List<ChatEntry> get visibleChatMessages {
     final entries = <ChatEntry>[...chatMessages];
-    if (activeRun != null && streamingAssistant.trim().isEmpty) {
+    if (isSendingMessage && activeRun != null && streamingAssistant.trim().isEmpty) {
       entries.add(
         ChatEntry(
           id: '',
@@ -6381,6 +6382,7 @@ class NeoAgentController extends ChangeNotifier {
 
   void _disconnectSocket() {
     socketConnected = false;
+    _socketHasConnectedOnce = false;
     if (_liveVoiceSessionOpenCompleter != null &&
         !_liveVoiceSessionOpenCompleter!.isCompleted) {
       _liveVoiceSessionOpenCompleter!.completeError(
@@ -6417,6 +6419,10 @@ class NeoAgentController extends ChangeNotifier {
       socketConnected = true;
       socket.emit('client:request_logs');
       socket.emit('integrations:status');
+      if (_socketHasConnectedOnce && isAuthenticated) {
+        unawaited(refresh());
+      }
+      _socketHasConnectedOnce = true;
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         transportState: 'connected',
         clearError: _hasRecoverableLiveVoiceTurn(),
@@ -7110,6 +7116,7 @@ class NeoAgentController extends ChangeNotifier {
       }
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
+        unawaited(refreshMemory());
         notifyListeners();
         return;
       }
@@ -7136,6 +7143,7 @@ class NeoAgentController extends ChangeNotifier {
       }
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
+        unawaited(refreshMemory());
         notifyListeners();
         return;
       }
@@ -7178,6 +7186,24 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage =
           'I could not complete that request right now. Please try again in a moment.';
       notifyListeners();
+    });
+    socket.on('tasks:task_complete', (dynamic _) {
+      unawaited(refreshTasks());
+    });
+    socket.on('tasks:task_running', (dynamic _) {
+      unawaited(refreshTasks());
+    });
+    socket.on('tasks:task_error', (dynamic _) {
+      unawaited(refreshTasks());
+    });
+    socket.on('tasks:task_deleted', (dynamic _) {
+      unawaited(refreshTasks());
+    });
+    socket.on('tasks:task_skipped', (dynamic _) {
+      unawaited(refreshTasks());
+    });
+    socket.on('skill:draft_created', (dynamic _) {
+      unawaited(refreshSkills());
     });
     socket.connect();
     _socket = socket;
