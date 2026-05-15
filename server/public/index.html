@@ -34,41 +34,6 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script>
-    (() => {
-      const validPositive = (value) => Number.isFinite(value) && value > 0;
-
-      // Flutter web engine asserts when DPR/viewport metrics become invalid.
-      // On some host/browser setups this can transiently become 0/NaN.
-      try {
-        const currentDpr = Number(window.devicePixelRatio);
-        if (!validPositive(currentDpr)) {
-          Object.defineProperty(window, 'devicePixelRatio', {
-            configurable: true,
-            get: () => 1,
-          });
-        }
-      } catch (_) {}
-
-      try {
-        const viewport = window.visualViewport;
-        if (viewport) {
-          const patch = (key, fallback) => {
-            const current = Number(viewport[key]);
-            if (!validPositive(current)) {
-              Object.defineProperty(viewport, key, {
-                configurable: true,
-                get: () => fallback,
-              });
-            }
-          };
-          patch('scale', 1);
-          patch('width', Math.max(1, window.innerWidth || 1));
-          patch('height', Math.max(1, window.innerHeight || 1));
-        }
-      } catch (_) {}
-    })();
-  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

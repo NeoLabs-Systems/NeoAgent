@@ -1032,6 +1032,7 @@ class AgentEngine {
     toolExecutions,
     lastReply,
     triggerSource,
+    messagingSent,
     iteration,
     maxIterations,
     options,
@@ -1061,9 +1062,11 @@ class AgentEngine {
         '- A progress update is not complete.',
         '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
         '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
-        triggerSource === 'messaging'
-          ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked. If you already asked for missing user input, choose "blocked" and wait.'
-          : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
+        triggerSource === 'messaging' && messagingSent
+          ? '- A reply was already delivered to the user via send_message. Use "complete" unless there is concrete remaining work (e.g., a tool call you still need to make) before the task is truly done. Do not send follow-up elaborations or re-introductions.'
+          : triggerSource === 'messaging'
+            ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked. If you already asked for missing user input, choose "blocked" and wait.'
+            : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
         analysis?.goal ? `Goal: ${analysis.goal}` : '',
         successCriteria.length > 0 ? `Success criteria:\n${successCriteria.map((item, index) => `${index + 1}. ${item}`).join('\n')}` : '',
         `Current iteration: ${iteration} of ${maxIterations}.`,
@@ -2072,6 +2075,7 @@ class AgentEngine {
               toolExecutions,
               lastReply: lastContent,
               triggerSource,
+              messagingSent,
               iteration,
               maxIterations,
               options,
