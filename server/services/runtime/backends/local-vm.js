@@ -177,7 +177,7 @@ class VmBrowserProvider {
     if (result.fullPath) {
       readablePathCandidates.push(String(result.fullPath));
     }
-    if (typeof result.screenshotPath === 'string' && result.screenshotPath.startsWith('/screenshots/')) {
+    if (typeof result.screenshotPath === 'string' && result.screenshotPath.trim() !== '') {
       readablePathCandidates.push(result.screenshotPath);
     }
     if (readablePathCandidates.length === 0) {
@@ -211,7 +211,7 @@ class VmBrowserProvider {
       }
     }
     if (!file?.content) {
-      if (typeof result.screenshotPath === 'string' && result.screenshotPath.startsWith('/screenshots/')) {
+      if (typeof result.screenshotPath === 'string' && result.screenshotPath.trim() !== '') {
         console.warn('[Runtime:browser_vm] unresolved VM screenshot path suppressed', {
           userId: this.userId,
           screenshotPath: result.screenshotPath,
@@ -276,132 +276,6 @@ class VmBrowserProvider {
     this.headless = true;
     return { success: true };
   }
-}
-
-class VmAndroidProvider {
-  constructor(client, options = {}) {
-    this.client = client;
-    this.userId = options.userId;
-    this.artifactStore = options.artifactStore || null;
-  }
-
-  async #promoteBinary(pathname, kind, contentType, extension) {
-    if (!pathname || !this.artifactStore || this.userId == null || /^\/api\/artifacts\//.test(pathname)) {
-      return { url: pathname, artifactId: null, fullPath: null };
-    }
-    const file = await this.client.request('POST', '/files/read', {
-      path: pathname,
-      encoding: 'base64',
-    });
-    const allocation = this.artifactStore.allocateFile(this.userId, {
-      kind,
-      backend: 'vm',
-      extension,
-      contentType,
-      filenameBase: kind,
-    });
-    fs.writeFileSync(allocation.storagePath, Buffer.from(String(file.content || ''), 'base64'));
-    this.artifactStore.finalizeFile(allocation.artifactId, allocation.storagePath);
-    return {
-      url: allocation.url,
-      artifactId: allocation.artifactId,
-      fullPath: allocation.storagePath,
-    };
-  }
-
-  async #promoteText(pathname, kind, contentType, extension) {
-    if (!pathname || !this.artifactStore || this.userId == null || /^\/api\/artifacts\//.test(pathname)) {
-      return { url: pathname, artifactId: null };
-    }
-    const file = await this.client.request('POST', '/files/read', {
-      path: pathname,
-      encoding: 'utf8',
-    });
-    const artifact = this.artifactStore.createTextArtifact(this.userId, {
-      kind,
-      backend: 'vm',
-      extension,
-      contentType,
-      filenameBase: kind,
-      content: String(file.content || ''),
-    });
-    return {
-      url: artifact.url,
-      artifactId: artifact.artifactId,
-    };
-  }
-
-  async #materializeObservation(result = {}) {
-    if (!result || typeof result !== 'object') return result;
-    let next = { ...result };
-    if (result.fullPath) {
-      const screenshot = await this.#promoteBinary(result.fullPath, 'android-screenshot', 'image/png', 'png');
-      next = {
-        ...next,
-        screenshotPath: screenshot.url,
-        artifactId: screenshot.artifactId || next.artifactId || null,
-        fullPath: screenshot.fullPath,
-      };
-    }
-    if (result.uiDumpPath && !/^https?:|^\/api\/artifacts\//.test(String(result.uiDumpPath))) {
-      const dump = await this.#promoteText(result.uiDumpPath, 'android-ui-dump', 'application/xml', 'xml');
-      next = {
-        ...next,
-        uiDumpPath: dump.url,
-        uiDumpArtifactId: dump.artifactId || next.uiDumpArtifactId || null,
-      };
-    }
-    return next;
-  }
-
-  getStatus() { return this.client.request('GET', '/android/status'); }
-  requestStartEmulator(options = {}) { return this.client.request('POST', '/android/start', options); }
-  startEmulator(options = {}) { return this.requestStartEmulator(options); }
-  stopEmulator() { return this.client.request('POST', '/android/stop'); }
-  listDevices() { return this.client.request('GET', '/android/devices').then((result) => result.devices || []); }
-  async screenshot(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/screenshot', options)); }
-  async observe(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/observe', options)); }
-  async dumpUi(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/ui-dump', options)); }
-  listApps(options = {}) {
-    const query = options.includeSystem === true ? '?includeSystem=true' : '';
-    return this.client.request('GET', `/android/apps${query}`);
-  }
-  async openApp(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/open-app', options)); }
-  async openIntent(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/open-intent', options)); }
-  async tap(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/tap', options)); }
-  async longPress(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/long-press', options)); }
-  async type(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/type', options)); }
-  async swipe(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/swipe', options)); }
-  async pressKey(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/press-key', options)); }
-  async waitFor(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/wait-for', options)); }
-  async shell(options = {}) { return this.#materializeObservation(await this.client.request('POST', '/android/shell', options)); }
-  async installApk(options = {}) {
-    const apkPath = assertPathInside(
-      APK_UPLOAD_ROOT,
-      String(options.apkPath || ''),
-      'APK path',
-    );
-    const stat = await fs.promises.stat(apkPath).catch(() => null);
-    if (!stat || !stat.isFile()) {
-      throw new Error(`APK not found: ${apkPath}`);
-    }
-    if (stat.size > MAX_APK_BYTES) {
-      throw new Error(`APK is too large: ${stat.size} bytes (limit ${MAX_APK_BYTES}).`);
-    }
-    return this.client.requestStream(
-      'POST',
-      '/android/install-apk-stream',
-      fs.createReadStream(apkPath),
-      {
-        contentType: 'application/octet-stream',
-        contentLength: stat.size,
-        headers: {
-          'x-neoagent-filename': encodeURIComponent(path.basename(apkPath)),
-        },
-      },
-    );
-  }
-  close() { return Promise.resolve(); }
 }
 
 class LocalVmExecutionBackend {
@@ -508,13 +382,6 @@ class LocalVmExecutionBackend {
     };
   }
 
-  async getAndroidProviderForUser(userId) {
-    return new VmAndroidProvider(await this.#clientForUser(userId), {
-      userId,
-      artifactStore: this.artifactStore,
-    });
-  }
-
   async isGuestAgentReadyForUser(userId, timeoutMs = 1000) {
     if (!this.vmManager) {
       return false;
@@ -548,6 +415,5 @@ class LocalVmExecutionBackend {
 module.exports = {
   LocalVmExecutionBackend,
   RuntimeHttpClient,
-  VmAndroidProvider,
   VmBrowserProvider,
 };

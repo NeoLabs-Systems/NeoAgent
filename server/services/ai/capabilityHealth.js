@@ -1,6 +1,5 @@
 const db = require('../../db/database');
 const { getProviderHealthCatalog } = require('./models');
-const { deriveCloudBrowserBackend } = require('../runtime/settings');
 
 function capabilityEntry(overrides = {}) {
   return {
@@ -111,12 +110,12 @@ async function getBrowserHealth(userId, app, engine) {
     summary: error
       ? `Browser runtime error: ${error}`
       : runtimeSettings?.browser_backend === 'extension'
-        ? `No extension device is active. Falling back to the ${deriveCloudBrowserBackend(runtimeSettings)} browser runtime.`
+        ? `No extension device is active. Falling back to the vm browser runtime.`
         : (launched ? 'Browser runtime is ready.' : 'Browser runtime is available but not launched.'),
     details: {
       preferredBackend: runtimeSettings?.browser_backend || null,
       backend: runtimeSettings?.browser_backend === 'extension'
-        ? deriveCloudBrowserBackend(runtimeSettings)
+        ? 'vm'
         : runtimeSettings?.browser_backend || null,
       extensionConnected: extensionStatus?.connected === true,
       activeTokenCount: Array.isArray(extensionStatus?.tokens)

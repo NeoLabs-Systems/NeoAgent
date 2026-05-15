@@ -25,7 +25,10 @@ function getRuntimeValidation(runtimeManager) {
   return {
     ready: issues.length === 0,
     issues,
-    vm: vmReadiness,
+    vm: {
+      browser: vmReadiness,
+      android: null,
+    },
     guestTokenConfigured: true,
     policy,
   };

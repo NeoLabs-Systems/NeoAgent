@@ -1,30 +1,41 @@
+'use strict';
+
 const { LocalVmExecutionBackend } = require('./backends/local-vm');
-const { QemuVmManager } = require('./qemu');
+const { DockerVMManager } = require('./docker-vm-manager');
 const { getRuntimeSettings } = require('./settings');
 const { ExtensionBrowserProvider } = require('../browser/extension/provider');
 const { AndroidController } = require('../android/controller');
 
+// Resource defaults for Docker VMs (overridable via env).
+const DEFAULT_VM_MEMORY_MB = Number(process.env.NEOAGENT_VM_MEMORY_MB ?? 2048);
+const DEFAULT_VM_CPUS = Number(process.env.NEOAGENT_VM_CPUS ?? 2);
+
 class RuntimeManager {
   constructor(options = {}) {
     this.browserExtensionRegistry = options.browserExtensionRegistry || null;
-    const browserVmManager = options.browserVmManager || new QemuVmManager({
+
+    const browserVmManager = options.browserVmManager || new DockerVMManager({
       runtimeProfile: 'browser_cli',
-      memoryMb: 2048,
-      cpus: 2,
-      warmup: false,
+      image: 'mcr.microsoft.com/playwright:v1.44.0-focal',
+      memoryMb: DEFAULT_VM_MEMORY_MB,
+      cpus: DEFAULT_VM_CPUS,
     });
     this.browserBackend = new LocalVmExecutionBackend({
       runtimeProfile: 'browser_cli',
       vmManager: browserVmManager,
       artifactStore: options.artifactStore,
     });
-    this.androidControllers = new Map();
-    this.getExtensionBrowserProvider = options.getExtensionBrowserProvider || ((userId) => new ExtensionBrowserProvider({
-      registry: options.browserExtensionRegistry,
-      artifactStore: options.artifactStore,
-      userId,
-    }));
+
+    this.artifactStore = options.artifactStore || null;
+
+    this.getExtensionBrowserProvider = options.getExtensionBrowserProvider
+      || ((userId) => new ExtensionBrowserProvider({
+        registry: options.browserExtensionRegistry,
+        artifactStore: options.artifactStore,
+        userId,
+      }));
   }
+
 
   getSettings(userId) {
     return getRuntimeSettings(userId);
@@ -40,6 +51,7 @@ class RuntimeManager {
 
   resolveBackend(userId, requested) {
     void userId;
+    void requested;
     return this.browserBackend;
   }
 
@@ -49,9 +61,6 @@ class RuntimeManager {
   }
 
   hasVmForUser(userId, capability = 'browser') {
-    if (capability === 'android') {
-      return Boolean(this.androidControllers.get(String(userId || '').trim()));
-    }
     return Boolean(this.browserBackend?.vmManager?.hasVm?.(userId));
   }
 
@@ -72,33 +81,16 @@ class RuntimeManager {
   }
 
   async getAndroidProviderForUser(userId) {
-    const key = String(userId || '').trim();
-    if (!key) {
+    if (userId == null || String(userId).trim() === '') {
       throw new Error('Android provider requires a user ID.');
     }
-    if (!this.androidControllers.has(key)) {
-      this.androidControllers.set(key, new AndroidController({
-        userId: key,
-        runtimeBackend: 'host',
-        artifactStore: null,
-      }));
-    }
-    return this.androidControllers.get(key);
+    return new AndroidController({
+      userId: String(userId).trim(),
+      artifactStore: this.artifactStore,
+    });
   }
 
   async isGuestAgentReadyForUser(userId, timeoutMs = 1000, capability = 'browser') {
-    if (capability === 'android') {
-      const controller = this.androidControllers.get(String(userId || '').trim());
-      if (!controller || typeof controller.getStatus !== 'function') {
-        return false;
-      }
-      try {
-        const status = await controller.getStatus();
-        return Boolean(status?.bootstrapped || status?.serial || status?.starting);
-      } catch {
-        return false;
-      }
-    }
     if (typeof this.browserBackend?.isGuestAgentReadyForUser !== 'function') {
       return false;
     }
@@ -108,9 +100,7 @@ class RuntimeManager {
   async shutdown() {
     await Promise.allSettled([
       this.browserBackend?.shutdown?.(),
-      ...[...this.androidControllers.values()].map((controller) => controller?.stopEmulator?.().catch?.(() => {})),
     ]);
-    this.androidControllers.clear();
   }
 }
 

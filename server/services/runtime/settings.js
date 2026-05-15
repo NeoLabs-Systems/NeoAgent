@@ -53,19 +53,14 @@ function normalizeRuntimeSettings(raw = {}) {
   const derived = deriveDefaultsForProfile(profile);
   const runtimeBackend = normalizeChoice(raw.runtime_backend, ['vm'], derived.runtime_backend);
   const browserBackend = normalizeChoice(raw.browser_backend, ['vm', 'extension'], derived.browser_backend);
-  const androidBackend = normalizeChoice(raw.android_backend, ['host', 'vm'], derived.android_backend);
+  const androidBackend = 'host';
   return {
     runtime_profile: profile === 'trusted-host' ? 'secure-vm' : profile,
     runtime_backend: runtimeBackend,
     browser_backend: browserBackend === 'extension' ? 'extension' : 'vm',
-    android_backend: androidBackend === 'vm' ? 'host' : androidBackend,
+    android_backend: androidBackend,
     mcp_backend: 'host-remote',
   };
-}
-
-function deriveCloudBrowserBackend(raw = {}) {
-  normalizeRuntimeSettings(raw);
-  return 'vm';
 }
 
 function parseStoredRuntimeValue(key, value) {
@@ -102,8 +97,8 @@ function validateRuntimeSettings(raw = {}) {
     if (settings.browser_backend !== 'vm' && settings.browser_backend !== 'extension') {
       issues.push('This deployment requires the VM browser backend or a paired browser extension backend.');
     }
-    if (settings.android_backend !== 'host') {
-      issues.push('This deployment requires the host Android backend.');
+    if (settings.android_backend !== 'host' && settings.android_backend !== 'vm') {
+      issues.push('This deployment requires a supported Android backend.');
     }
   }
 
@@ -154,7 +149,6 @@ function getRuntimeSettings(userId) {
 module.exports = {
   DEFAULT_RUNTIME_SETTINGS,
   RUNTIME_SETTING_KEYS,
-  deriveCloudBrowserBackend,
   ensureDefaultRuntimeSettings,
   getRuntimeSettings,
   normalizeRuntimeSettings,
