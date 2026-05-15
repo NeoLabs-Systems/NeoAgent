@@ -889,8 +889,11 @@ class NeoAgentController extends ChangeNotifier {
           : null;
       _analyticsConfigured = token != null && token.trim().isNotEmpty;
       final consentState = _prefs?.getBool('analytics.cookieConsent');
-      _analyticsConsentResolved = consentState != null;
-      _analyticsConsentGranted = consentState == true;
+      // On web, require explicit opt-in (GDPR). On native, consent is implicit
+      // unless the user has previously declined.
+      _analyticsConsentResolved = consentState != null || !kIsWeb;
+      _analyticsConsentGranted =
+          kIsWeb ? consentState == true : consentState != false;
       await _analytics.initialize(
         token: token,
         consentGranted: _analyticsConsentGranted,
