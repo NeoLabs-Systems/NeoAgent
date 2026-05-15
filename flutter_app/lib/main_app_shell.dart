@@ -1739,7 +1739,7 @@ class _AgentSwitcherMenuItem extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Tooltip(
-        message: agent.name,
+        message: agent.displayName,
         child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
