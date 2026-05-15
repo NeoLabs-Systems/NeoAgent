@@ -5,6 +5,7 @@ const { DockerVMManager } = require('./docker-vm-manager');
 const { getRuntimeSettings } = require('./settings');
 const { ExtensionBrowserProvider } = require('../browser/extension/provider');
 const { AndroidController } = require('../android/controller');
+const { DesktopProvider } = require('../desktop/provider');
 
 // Resource defaults for Docker VMs (overridable via env).
 const DEFAULT_VM_MEMORY_MB = Number(process.env.NEOAGENT_VM_MEMORY_MB ?? 2048);
@@ -13,6 +14,7 @@ const DEFAULT_VM_CPUS = Number(process.env.NEOAGENT_VM_CPUS ?? 2);
 class RuntimeManager {
   constructor(options = {}) {
     this.browserExtensionRegistry = options.browserExtensionRegistry || null;
+    this.desktopCompanionRegistry = options.desktopCompanionRegistry || null;
 
     const browserVmManager = options.browserVmManager || new DockerVMManager({
       runtimeProfile: 'browser_cli',
@@ -34,6 +36,13 @@ class RuntimeManager {
         artifactStore: options.artifactStore,
         userId,
       }));
+
+    this.getDesktopCliProvider = options.getDesktopCliProvider
+      || ((userId) => new DesktopProvider({
+        registry: options.desktopCompanionRegistry,
+        artifactStore: options.artifactStore,
+        userId,
+      }));
   }
 
 
@@ -46,6 +55,14 @@ class RuntimeManager {
       this.browserExtensionRegistry
       && typeof this.browserExtensionRegistry.isConnected === 'function'
       && this.browserExtensionRegistry.isConnected(userId)
+    );
+  }
+
+  hasActiveDesktopCompanion(userId) {
+    return Boolean(
+      this.desktopCompanionRegistry
+      && typeof this.desktopCompanionRegistry.isConnected === 'function'
+      && this.desktopCompanionRegistry.isConnected(userId)
     );
   }
 
@@ -78,6 +95,14 @@ class RuntimeManager {
       return this.getExtensionBrowserProvider(userId);
     }
     return this.browserBackend.getBrowserProviderForUser(userId);
+  }
+
+  async getCliProviderForUser(userId) {
+    const settings = this.getSettings(userId);
+    if (settings.cli_backend === 'desktop' && this.hasActiveDesktopCompanion(userId)) {
+      return this.getDesktopCliProvider(userId);
+    }
+    return this.browserBackend.getCommandExecutorForUser(userId);
   }
 
   async getAndroidProviderForUser(userId) {

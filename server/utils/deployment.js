@@ -75,6 +75,7 @@ function getDeploymentPolicy(env = process.env) {
       browser_backend: 'vm',
       android_backend: 'host',
       mcp_backend: 'host-remote',
+      cli_backend: 'vm',
     },
     allowHostRuntime: false,
   };

@@ -1064,6 +1064,7 @@ class _HomeViewState extends State<HomeView> {
   bool _blockedDialogOpen = false;
   SidebarGroup? _expandedSidebarGroup;
   AppSection? _lastSelectedSection;
+  final GlobalKey _devicesPanelKey = GlobalKey();
 
   @override
   void initState() {
@@ -1221,7 +1222,7 @@ class _HomeViewState extends State<HomeView> {
                             key: ValueKey<AppSection>(
                               controller.selectedSection,
                             ),
-                            child: _SectionBody(controller: controller),
+                            child: _SectionBody(controller: controller, devicesPanelKey: _devicesPanelKey),
                           ),
                         ),
                       ),
@@ -1271,7 +1272,7 @@ class _HomeViewState extends State<HomeView> {
                   switchOutCurve: Curves.easeInCubic,
                   child: KeyedSubtree(
                     key: ValueKey<AppSection>(controller.selectedSection),
-                    child: _SectionBody(controller: controller),
+                    child: _SectionBody(controller: controller, devicesPanelKey: _devicesPanelKey),
                   ),
                 ),
               ),
@@ -2096,9 +2097,10 @@ class _MobileDrawer extends StatelessWidget {
 }
 
 class _SectionBody extends StatelessWidget {
-  const _SectionBody({required this.controller});
+  const _SectionBody({required this.controller, this.devicesPanelKey});
 
   final NeoAgentController controller;
+  final GlobalKey? devicesPanelKey;
 
   @override
   Widget build(BuildContext context) {
@@ -2108,7 +2110,7 @@ class _SectionBody extends StatelessWidget {
       case AppSection.voiceAssistant:
         return VoiceAssistantPanel(controller: controller);
       case AppSection.devices:
-        return DevicesPanel(controller: controller);
+        return DevicesPanel(key: devicesPanelKey, controller: controller);
       case AppSection.recordings:
         return RecordingsPanel(controller: controller);
       case AppSection.messaging:

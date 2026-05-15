@@ -98,6 +98,9 @@ const _workspaceSettingsSection = _SettingsSection('workspace', <String>[
   'workspace',
   'browser',
   'extension',
+  'cli',
+  'claude code',
+  'desktop',
   'routing',
 ]);
 
@@ -167,6 +170,7 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
 class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
   late String _browserBackend;
+  late String _cliBackend;
   late bool _smarterSelector;
   late Set<String> _enabledModels;
   late String _defaultChatModel;
@@ -220,6 +224,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .map((model) => model.id)
         .toSet();
     _browserBackend = _normalizeBrowserBackend(controller.browserBackend);
+    _cliBackend = _normalizeCliBackend(controller.cliBackend);
     _smarterSelector = controller.smarterSelector;
     _enabledModels = controller.enabledModelIds
         .where((id) => knownModels.contains(id))
@@ -277,6 +282,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
   String _normalizeBrowserBackend(String value) {
     final normalized = value.trim().toLowerCase();
     return normalized == 'extension' ? 'extension' : 'vm';
+  }
+
+  String _normalizeCliBackend(String value) {
+    final normalized = value.trim().toLowerCase();
+    return normalized == 'desktop' ? 'desktop' : 'vm';
   }
 
   @override
@@ -456,6 +466,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
               browserBackend: _browserBackend == 'extension'
                   ? 'extension'
                   : 'vm',
+              cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
               smarterSelector: _smarterSelector,
               enabledModels: _enabledModels.toList(),
               defaultChatModel: _defaultChatModel,
@@ -649,6 +660,45 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   label: Text('Refresh status'),
                 ),
               ],
+            ),
+            const Divider(height: 32),
+            Text(
+              'CLI Runtime',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            DropdownButtonFormField<String>(
+              initialValue: _cliBackend,
+              decoration: const InputDecoration(
+                labelText: 'CLI backend',
+                helperText:
+                    'Cloud runs the CLI in the isolated VM. Desktop app runs it through the connected desktop companion.',
+              ),
+              items: const <DropdownMenuItem<String>>[
+                DropdownMenuItem<String>(value: 'vm', child: Text('Cloud')),
+                DropdownMenuItem<String>(
+                  value: 'desktop',
+                  child: Text('Desktop app'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _cliBackend = value);
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _cliBackend == 'desktop'
+                  ? (controller.desktopCompanionConnected
+                        ? 'Desktop app connected.'
+                        : 'Desktop app selected. Make sure the desktop companion is running and connected on your machine.')
+                  : 'Cloud CLI runtime is active.',
+              style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const Divider(height: 32),
             Text(

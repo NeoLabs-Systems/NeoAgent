@@ -9,6 +9,7 @@ function createDefaultRuntimeSettings() {
     browser_backend: policy.runtimeDefaults.browser_backend,
     android_backend: policy.runtimeDefaults.android_backend,
     mcp_backend: policy.runtimeDefaults.mcp_backend,
+    cli_backend: policy.runtimeDefaults.cli_backend ?? 'vm',
   };
 }
 
@@ -24,6 +25,7 @@ const BASE_FALLBACK_SETTINGS = Object.freeze({
   browser_backend: 'vm',
   android_backend: 'host',
   mcp_backend: 'host-remote',
+  cli_backend: 'vm',
 });
 
 const RUNTIME_SETTING_KEYS = Object.freeze(Object.keys(DEFAULT_RUNTIME_SETTINGS));
@@ -42,6 +44,7 @@ function deriveDefaultsForProfile(profile) {
         runtime_backend: 'vm',
         browser_backend: 'vm',
         android_backend: 'host',
+        cli_backend: 'vm',
       };
   }
 }
@@ -53,6 +56,7 @@ function normalizeRuntimeSettings(raw = {}) {
   const derived = deriveDefaultsForProfile(profile);
   const runtimeBackend = normalizeChoice(raw.runtime_backend, ['vm'], derived.runtime_backend);
   const browserBackend = normalizeChoice(raw.browser_backend, ['vm', 'extension'], derived.browser_backend);
+  const cliBackend = normalizeChoice(raw.cli_backend, ['vm', 'desktop'], derived.cli_backend ?? 'vm');
   const androidBackend = 'host';
   return {
     runtime_profile: profile === 'trusted-host' ? 'secure-vm' : profile,
@@ -60,6 +64,7 @@ function normalizeRuntimeSettings(raw = {}) {
     browser_backend: browserBackend === 'extension' ? 'extension' : 'vm',
     android_backend: androidBackend,
     mcp_backend: 'host-remote',
+    cli_backend: cliBackend === 'desktop' ? 'desktop' : 'vm',
   };
 }
 
@@ -99,6 +104,9 @@ function validateRuntimeSettings(raw = {}) {
     }
     if (settings.android_backend !== 'host' && settings.android_backend !== 'vm') {
       issues.push('This deployment requires a supported Android backend.');
+    }
+    if (settings.cli_backend !== 'vm' && settings.cli_backend !== 'desktop') {
+      issues.push('This deployment requires a supported CLI backend.');
     }
   }
 
