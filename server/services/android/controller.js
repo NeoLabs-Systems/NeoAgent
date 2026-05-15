@@ -20,9 +20,9 @@ const ADB_PORT_SLOTS = 65;
 
 const CMDLINE_TOOLS_VERSION = '14742923';
 const CMDLINE_TOOLS_URLS = {
-  darwin: `https://edgedl.me.gvt1.com/android/studio/commandlinetools-mac-${CMDLINE_TOOLS_VERSION}_latest.zip`,
-  linux:  `https://edgedl.me.gvt1.com/android/studio/commandlinetools-linux-${CMDLINE_TOOLS_VERSION}_latest.zip`,
-  win32:  `https://edgedl.me.gvt1.com/android/studio/commandlinetools-win-${CMDLINE_TOOLS_VERSION}_latest.zip`,
+  darwin: `https://dl.google.com/android/repository/commandlinetools-mac-${CMDLINE_TOOLS_VERSION}_latest.zip`,
+  linux:  `https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_VERSION}_latest.zip`,
+  win32:  `https://dl.google.com/android/repository/commandlinetools-win-${CMDLINE_TOOLS_VERSION}_latest.zip`,
 };
 
 fs.mkdirSync(STATE_DIR, { recursive: true });
