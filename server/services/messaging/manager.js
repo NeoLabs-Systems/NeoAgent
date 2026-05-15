@@ -94,7 +94,9 @@ class MessagingManager extends EventEmitter {
   }
 
   registerHandler(handler) {
-    this.messageHandlers.push(handler);
+    if (!this.messageHandlers.includes(handler)) {
+      this.messageHandlers.push(handler);
+    }
   }
 
   async ingestMessage(userId, platformName, msg, options = {}) {
@@ -116,6 +118,18 @@ class MessagingManager extends EventEmitter {
       mediaType: msg.mediaType,
       ...(msg.metadata && typeof msg.metadata === 'object' ? msg.metadata : {}),
     };
+    // Deduplicate against platform_msg_id — webhook retries (at-least-once delivery)
+    // would otherwise trigger a second agent run for the same user message.
+    if (msg.messageId) {
+      const already = db.prepare(
+        "SELECT id FROM messages WHERE user_id = ? AND platform = ? AND platform_msg_id = ? AND role = 'user' LIMIT 1"
+      ).get(userId, platformName, msg.messageId);
+      if (already) {
+        console.warn(`[Messaging] Duplicate platform_msg_id ${msg.messageId} on ${platformName} for user ${userId} — skipping handlers`);
+        return { ...msg, agentId, platform: platformName };
+      }
+    }
+
     db.prepare('INSERT INTO messages (user_id, agent_id, role, content, platform, platform_msg_id, platform_chat_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(
         userId,

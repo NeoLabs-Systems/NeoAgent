@@ -508,6 +508,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
+  CREATE INDEX IF NOT EXISTS idx_messages_dedup ON messages(user_id, platform, platform_msg_id) WHERE platform_msg_id IS NOT NULL;
   CREATE INDEX IF NOT EXISTS idx_conv_messages ON conversation_messages(conversation_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_user ON scheduled_tasks(user_id);
