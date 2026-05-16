@@ -46,9 +46,8 @@ const {
   selectDeliverableWorkflow,
   validateDeliverableExecution,
 } = require('./deliverables');
-
-const MAX_CONSECUTIVE_TOOL_FAILURES = 5;
-const WIDGET_REFRESH_MAX_ITERATIONS = 30;
+const { buildLoopPolicy, resolveToolResultLimits } = require('./loopPolicy');
+const { globalHooks } = require('./hooks');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -1398,11 +1397,8 @@ class AgentEngine {
     runMeta.toolPids.delete(pid);
   }
 
-  getIterationLimit(triggerType, aiSettings, options = {}) {
-    if (triggerType === 'subagent') return aiSettings.subagent_max_iterations;
-    if (options.widgetId) return Math.min(this.maxIterations, WIDGET_REFRESH_MAX_ITERATIONS);
-    return this.maxIterations;
-  }
+  // getIterationLimit() removed — use buildLoopPolicy() directly.
+  // maxIterations is derived in runWithModel from loopPolicy.maxIterations.
 
   getReasoningEffort(providerName, options = {}) {
     if (providerName === 'google') return undefined;
@@ -1541,8 +1537,11 @@ class AgentEngine {
       1,
       Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
     );
-    const toolReplayBudget = aiSettings.tool_replay_budget_chars;
-    const maxIterations = this.getIterationLimit(triggerType, aiSettings, options);
+    // loopPolicy is built after task analysis so analysisMode can be passed in;
+    // we build a provisional policy now (with default mode) and rebuild after
+    // analysis when the mode is known. See the post-analysis policy rebuild below.
+    let loopPolicy = buildLoopPolicy(aiSettings, triggerType, 'execute', options);
+    let maxIterations = loopPolicy.maxIterations;
     const providerStatusConfig = {
       agentId,
       onStatus: (status) => {
@@ -1745,7 +1744,15 @@ class AgentEngine {
           ...analysis,
           capabilitySummary,
         });
+
       }
+
+      // Rebuild loop policy with the resolved analysis mode. Runs in both the
+      // normal path and the skipTaskAnalysis path so that forceMode='plan_execute'
+      // (or any mode set by buildSkipTaskAnalysisResult) raises the iteration
+      // ceiling correctly.
+      loopPolicy = buildLoopPolicy(aiSettings, triggerType, analysis.mode || 'execute', options);
+      maxIterations = loopPolicy.maxIterations;
 
       if (options.skipDeliverableWorkflow !== true) {
         const deliverableSelectionResult = await selectDeliverableWorkflow({
@@ -1864,10 +1871,15 @@ class AgentEngine {
         }
       }
 
+      // BUG FIX: consecutiveToolFailures was previously declared INSIDE the
+      // while loop (resetting each iteration). It is now tracked across the
+      // full run so the failure guard fires correctly after 5 consecutive failures
+      // regardless of which iteration they fall in.
+      let consecutiveToolFailures = 0;
+
       while (!directAnswerEligible && iteration < maxIterations) {
         if (this.isRunStopped(runId)) break;
         iteration++;
-        let consecutiveToolFailures = 0;
 
         const steeringAtLoopStart = this.applyQueuedSteering(runId, messages, {
           userId,
@@ -1878,7 +1890,7 @@ class AgentEngine {
 
         let metrics = this.estimatePromptMetrics(messages, tools);
         const contextWindow = provider.getContextWindow(model);
-        if (metrics.totalEstimatedTokens > contextWindow * 0.85) {
+        if (metrics.totalEstimatedTokens > contextWindow * loopPolicy.compactionThreshold) {
           messages = await compact(messages, provider, model, contextWindow);
           messages = sanitizeConversationMessages(messages);
           this.emit(userId, 'run:compaction', { runId, iteration });
@@ -1969,7 +1981,7 @@ class AgentEngine {
           const isFatalModelError = /no ai providers? are currently available|missing an api key|disabled in settings|unauthorized|forbidden|authentication failed/i
             .test(modelError);
 
-          if (!isFatalModelError && modelFailureRecoveries < 2) {
+          if (!isFatalModelError && modelFailureRecoveries < loopPolicy.maxModelFailureRecoveries) {
             modelFailureRecoveries += 1;
             failedStepCount += 1;
             const failedModel = model;
@@ -2118,6 +2130,44 @@ class AgentEngine {
             toolArgs = {};
           }
 
+          // ── task_complete: AI explicitly signals the task is fully done ──
+          // Handle before DB insert / before_tool_call hook — this is not a
+          // regular tool execution, it is a loop-exit signal.
+          if (toolName === 'task_complete') {
+            const finalMessage = String(toolArgs.message || '').trim();
+            this.recordRunEvent(userId, runId, 'task_complete_signaled', {
+              confidence: toolArgs.confidence || 'high',
+              iteration,
+              messageLength: finalMessage.length,
+            }, { agentId });
+            console.info(
+              `[Run ${shortenRunId(runId)}] task_complete signaled at iteration=${iteration} confidence=${toolArgs.confidence || 'high'}`
+            );
+            // Always honor task_complete as a stop signal, even with no message.
+            lastContent = finalMessage; // empty string is valid; downstream handles it
+            directAnswerEligible = true;
+            break; // exit the for-loop; the while condition will also exit
+          }
+
+          // ── before_tool_call hook ──
+          // Plugins can block a tool call (e.g. security policy) or mutate args.
+          if (globalHooks.has('before_tool_call')) {
+            const hookCtx = { toolName, toolArgs, runId, userId, agentId, iteration };
+            const hookResult = await globalHooks.run('before_tool_call', hookCtx);
+            if (hookResult.block) {
+              console.warn(`[Run ${shortenRunId(runId)}] before_tool_call hook blocked tool=${toolName}`);
+              // Treat as a soft skip — add a skipped tool message so the model knows
+              messages.push({
+                role: 'tool',
+                name: toolName,
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ tool: toolName, status: 'skipped', reason: 'Blocked by policy.' }),
+              });
+              continue;
+            }
+            if (hookResult.toolArgs) toolArgs = hookResult.toolArgs;
+          }
+
           db.prepare('INSERT INTO agent_steps (id, run_id, step_index, type, description, status, tool_name, tool_input, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))')
             .run(stepId, runId, stepIndex, this.getStepType(toolName), `${toolName}: ${JSON.stringify(toolArgs).slice(0, 200)} `, 'running', toolName, JSON.stringify(toolArgs));
 
@@ -2230,13 +2280,14 @@ class AgentEngine {
             deliverableArtifacts,
           });
 
+          const toolResultLimits = resolveToolResultLimits(toolName, loopPolicy);
           const toolMessage = {
             role: 'tool',
             name: toolName,
             tool_call_id: toolCall.id,
             content: compactToolResult(toolName, toolArgs, toolResult, {
-              softLimit: toolReplayBudget,
-              hardLimit: 3200
+              softLimit: toolResultLimits.softLimit,
+              hardLimit: toolResultLimits.hardLimit,
             })
           };
           messages.push(toolMessage);
@@ -2255,7 +2306,7 @@ class AgentEngine {
               ].filter(Boolean).join(' ')
             });
 
-            if (consecutiveToolFailures >= MAX_CONSECUTIVE_TOOL_FAILURES) {
+            if (consecutiveToolFailures >= loopPolicy.maxConsecutiveToolFailures) {
               messages.push({
                 role: 'system',
                 content: `There were ${consecutiveToolFailures} consecutive tool failures. Stop calling tools now and return a clear blocker response that summarizes attempted actions and concrete errors.`
@@ -2585,6 +2636,18 @@ class AgentEngine {
         executionMode: analysis?.mode || 'execute',
         verificationStatus: verification?.status || 'skipped',
       }, { agentId });
+
+      // ── on_loop_end hook ──
+      // Fire-and-forget: plugins can use this for self-improvement, memory
+      // consolidation, analytics, or other post-run housekeeping.
+      if (globalHooks.has('on_loop_end')) {
+        globalHooks.run('on_loop_end', {
+          userId, runId, agentId, status: 'completed',
+          iterations: iteration, totalTokens,
+          taskAnalysis: analysis,
+          finalContent: finalResponseText,
+        }).catch(() => {});
+      }
 
       return { runId, content: lastContent, totalTokens, iterations: iteration, status: 'completed' };
     } catch (err) {

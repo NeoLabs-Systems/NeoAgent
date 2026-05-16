@@ -61,6 +61,7 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
   'Any claim that an outbound action already happened (sent/submitted/called/"already done") must be backed by a successful outbound tool execution in this run. If not backed, rewrite the reply to "not sent yet" and provide a draft or next concrete step.',
   'A successful create_task or update_task tool call is required before claiming a task schedule changed.',
   'If external evidence conflicts with memory, history, or another tool result, preserve the uncertainty instead of flattening it into a single confident claim.',
+  'When the draft reply is already correct and fully supported by the evidence, return it unchanged. Do not rewrite for style.',
 ];
 const EXECUTION_GUIDANCE_ACTION_LINES = [
   'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',

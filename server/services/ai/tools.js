@@ -1283,6 +1283,30 @@ function getAvailableTools(app, options = {}) {
         }
     ];
 
+    // task_complete — always available. Lets the AI explicitly signal that
+    // the task is fully done and provide the final response. This replaces
+    // the opaque directAnswerEligible heuristic as the primary loop-exit
+    // mechanism and gives the AI real agency over when it's finished.
+    tools.push({
+        name: 'task_complete',
+        description: 'Signal that the task is fully complete and provide the final response. Call this exactly once when all steps are done and you have a complete answer ready. Do NOT call it if you still have work to do.',
+        parameters: {
+            type: 'object',
+            properties: {
+                message: {
+                    type: 'string',
+                    description: 'Your complete final response to the user. Write it as if it were your reply — do not summarize or reference prior steps.'
+                },
+                confidence: {
+                    type: 'string',
+                    enum: ['high', 'medium', 'low'],
+                    description: 'How confident are you the task is fully and correctly complete? Use "low" if you had to make assumptions.'
+                }
+            },
+            required: ['message']
+        }
+    });
+
     const allowInterimUpdates = (
         (options.triggerSource === 'web' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
         && options.triggerType !== 'subagent'
@@ -1446,6 +1470,12 @@ async function executeTool(toolName, args, context, engine) {
     }
 
     switch (toolName) {
+        // task_complete is handled at the engine loop level before executeTool
+        // is called. If it somehow reaches here, return a no-op success so the
+        // loop-level handler can still read the args from the tool call object.
+        case 'task_complete':
+            return { success: true, handled_by: 'engine_loop' };
+
         case 'execute_command': {
             const runtimeManager = runtime();
             if (!runtimeManager || typeof runtimeManager.executeCommand !== 'function') {

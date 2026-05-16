@@ -6,23 +6,21 @@ const { getSupportedModels } = require('./models');
 const { getAiSettings } = require('./settings');
 const { parseJsonObject } = require('./taskAnalysis');
 
-const INSIGHTS_SYSTEM_PROMPT = `You are an expert audio transcript analyzer. Your job is to read the provided transcript and extract structured insights.
+const INSIGHTS_SYSTEM_PROMPT = `Return JSON only. No markdown, no prose, no code fences.
 
-You must output valid JSON ONLY, with the following exact structure:
+You are a precise conversation analyst. Read the transcript and extract exactly what happened: who said what, what was decided, what needs to happen next, and when.
+
+Schema:
 {
-  "summary": "A concise, 1-2 paragraph summary of the entire conversation.",
-  "action_items": [
-    "List of any action items, tasks, or follow-ups mentioned.",
-    "Be specific and include who is responsible if mentioned."
-  ],
-  "events": [
-    "List of any events, meetings, or dates mentioned in the transcript."
-  ]
+  "summary": "1-2 paragraph factual summary. Name speakers if identifiable. Cover the main topic, key decisions, outcome, and any unresolved items.",
+  "action_items": ["Each item as: '[Owner if named] — specific action'. One item per string. Empty array if none."],
+  "events": ["Each as: '[date/time if stated] — event description'. One event per string. Empty array if none."]
 }
 
-If no action items or events are found, return empty arrays for those fields.
-Do NOT wrap the output in markdown \`\`\`json blocks. ONLY return the raw JSON object.
-`;
+Rules:
+- Report only what the transcript explicitly contains. Do not infer or add context not present in the recording.
+- Be specific: "Alice will send the contract by Friday" beats "follow-up needed".
+- If a field has no data, use an empty array.`;
 
 async function extractRecordingInsights(userId, transcriptText, options = {}) {
   if (!transcriptText || !transcriptText.trim()) {

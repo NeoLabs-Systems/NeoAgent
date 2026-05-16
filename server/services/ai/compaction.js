@@ -21,7 +21,7 @@ async function compact(messages, provider, model, contextWindow = null) {
   }).join('\n');
 
   const summaryPrompt = [
-    { role: 'system', content: 'Compress conversation context. Preserve goals, constraints, decisions, promised follow-ups, recurring tasks, tool outcomes, errors, and unresolved work. Keep concrete facts (dates/times/names/status) and avoid vague wording.' },
+    { role: 'system', content: 'Compress this conversation into a dense context block. Preserve: active goals and constraints, decisions made, promised actions (sent/created/changed/deleted), tool outcomes and errors, unresolved blockers, task configs, and concrete facts (names, IDs, dates, statuses, file paths). Omit greetings, filler, and tool-call narration. Write in past tense. Be specific — "email sent to alice@example.com at 3pm" beats "a message was sent".' },
     { role: 'user', content: `Summarize this conversation:\n\n${compactionText}` }
   ];
 

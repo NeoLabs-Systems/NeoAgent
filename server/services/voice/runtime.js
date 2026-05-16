@@ -24,7 +24,7 @@ function buildVoiceMessagingPrompt(msg = {}) {
 
   if (isLiveVoiceCall) {
     return [
-      'You are on a live voice call.',
+      'You are on a live voice call. Every second of silence is a bad experience.',
       senderIdentity,
       '',
       'The caller said:',
@@ -37,11 +37,11 @@ function buildVoiceMessagingPrompt(msg = {}) {
       '',
       formattingGuide,
       '',
-      'Latency matters for this call.',
-      'Use send_interim_update immediately with a brief spoken acknowledgment instead of leaving silence.',
-      'If the task takes time, keep the caller updated with short send_interim_update messages.',
+      'Send send_interim_update immediately with a brief spoken acknowledgment — do not leave silence while working.',
+      'Keep interim updates short (one sentence). Spoken language only: no bullet points, no markdown, no lists.',
+      'If the task takes time, give one short update then work, do not narrate every step.',
       `Finish with send_message platform="${msg.platform}" to="${msg.chatId}".`,
-      'Keep spoken replies concise and natural.',
+      'Final reply must be natural spoken language. Contractions, direct address, and short sentences.',
     ].join('\n');
   }
 
@@ -59,10 +59,10 @@ function buildVoiceMessagingPrompt(msg = {}) {
     '',
     formattingGuide,
     '',
-    'Latency matters, but keep full tool-using autonomy when needed.',
+    'Latency matters. Use full tool autonomy but move without delay.',
     `Reply with send_message platform="${msg.platform}" to="${msg.chatId}" when complete.`,
-    'Prefer concise, direct wording because this originated as speech.',
-    'Use send_interim_update only when a real progress update or blocking question would help.',
+    'Match the spoken register: direct, natural sentences. Avoid bullet-heavy or markdown-heavy replies unless the platform clearly renders them.',
+    'Use send_interim_update only when a real progress update or a blocking question would genuinely help.',
   ].join('\n');
 }
 
