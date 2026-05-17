@@ -1,6 +1,17 @@
 const OpenAI = require('openai');
 const { BaseProvider } = require('./base');
 
+function decodeJwtPayload(token) {
+  try {
+    const parts = String(token || '').split('.');
+    if (parts.length < 2) return null;
+    const payload = Buffer.from(parts[1], 'base64url').toString('utf8');
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
 const DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex';
 
 function isCodexBackendBaseUrl(baseURL) {
@@ -183,11 +194,20 @@ class OpenAICodexProvider extends BaseProvider {
       'gpt-5.4',
       'gpt-5.4-mini',
     ]);
+    let accountId = process.env.OPENAI_CODEX_ACCOUNT_ID || '';
+    if (!accountId && this.usesCodexBackend) {
+      const accessToken = config.apiKey || process.env.OPENAI_CODEX_ACCESS_TOKEN || '';
+      const payload = decodeJwtPayload(accessToken);
+      accountId = payload?.chatgpt_account_id || payload?.['https://api.openai.com/auth']?.chatgpt_account_id || '';
+    }
+
     const defaultHeaders = this.usesCodexBackend
       ? {
           'Editor-Version': process.env.OPENAI_CODEX_EDITOR_VERSION || 'vscode/1.99.0',
           'Editor-Plugin-Version': process.env.OPENAI_CODEX_EDITOR_PLUGIN_VERSION || 'neoagent/1.0.0',
           'User-Agent': process.env.OPENAI_CODEX_USER_AGENT || 'NeoAgent/1.0.0',
+          'OpenAI-Beta': 'responses=experimental',
+          ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
         }
       : undefined;
 
@@ -265,7 +285,9 @@ class OpenAICodexProvider extends BaseProvider {
       input,
     };
 
-    if (instructions.length > 0) {
+    if (this.usesCodexBackend) {
+      request.instructions = instructions.join('\n\n');
+    } else if (instructions.length > 0) {
       request.instructions = instructions.join('\n\n');
     }
 
