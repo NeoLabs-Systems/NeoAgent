@@ -1,5 +1,11 @@
+const crypto = require('crypto');
 const OpenAI = require('openai');
 const { BaseProvider } = require('./base');
+
+const DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex';
+
+// Stable per-process installation ID — Codex backend uses it for request tracking.
+const INSTALLATION_ID = crypto.randomUUID();
 
 function decodeJwtPayload(token) {
   try {
@@ -11,8 +17,6 @@ function decodeJwtPayload(token) {
     return null;
   }
 }
-
-const DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex';
 
 function isCodexBackendBaseUrl(baseURL) {
   const trimmed = String(baseURL || '').trim();
@@ -194,20 +198,27 @@ class OpenAICodexProvider extends BaseProvider {
       'gpt-5.4',
       'gpt-5.4-mini',
     ]);
+
     let accountId = process.env.OPENAI_CODEX_ACCOUNT_ID || '';
     if (!accountId && this.usesCodexBackend) {
       const accessToken = config.apiKey || process.env.OPENAI_CODEX_ACCESS_TOKEN || '';
       const payload = decodeJwtPayload(accessToken);
-      accountId = payload?.chatgpt_account_id || payload?.['https://api.openai.com/auth']?.chatgpt_account_id || '';
+      // account_id lives in access_token directly, or nested under the OIDC namespace in id_token
+      accountId = payload?.chatgpt_account_id
+        || payload?.['https://api.openai.com/auth']?.chatgpt_account_id
+        || '';
     }
 
     const defaultHeaders = this.usesCodexBackend
       ? {
-          'Editor-Version': process.env.OPENAI_CODEX_EDITOR_VERSION || 'vscode/1.99.0',
-          'Editor-Plugin-Version': process.env.OPENAI_CODEX_EDITOR_PLUGIN_VERSION || 'neoagent/1.0.0',
-          'User-Agent': process.env.OPENAI_CODEX_USER_AGENT || 'NeoAgent/1.0.0',
-          'OpenAI-Beta': 'responses=experimental',
-          ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
+          // Required by Cloudflare bot detection on chatgpt.com
+          'originator': 'Codex Desktop',
+          'User-Agent': 'Codex Desktop/1.0.0 (darwin; arm64)',
+          // Required by the Codex responses endpoint
+          'OpenAI-Beta': 'responses_websockets=2026-02-06',
+          'x-codex-installation-id': INSTALLATION_ID,
+          'x-openai-internal-codex-residency': process.env.OPENAI_CODEX_RESIDENCY || 'us',
+          ...(accountId ? { 'ChatGPT-Account-Id': accountId } : {}),
         }
       : undefined;
 
@@ -286,32 +297,49 @@ class OpenAICodexProvider extends BaseProvider {
     };
 
     if (this.usesCodexBackend) {
+      // instructions must always be present (even empty) — backend returns 400 if omitted
       request.instructions = instructions.join('\n\n');
-    } else if (instructions.length > 0) {
-      request.instructions = instructions.join('\n\n');
-    }
-
-    if (tools && tools.length > 0) {
-      request.tools = this.formatTools(tools);
-      request.tool_choice = options.toolChoice || 'auto';
-    }
-
-    if (!this.usesCodexBackend) {
+      request.store = false;
+      // tools fields must always be explicit
+      if (tools && tools.length > 0) {
+        request.tools = this.formatTools(tools);
+        request.tool_choice = options.toolChoice || 'auto';
+      } else {
+        request.tools = [];
+        request.tool_choice = 'auto';
+      }
+      request.parallel_tool_calls = false;
+      // reasoning: both effort and summary required for Codex reasoning models
+      if (this._isReasoningModel(model)) {
+        const effort = options.reasoningEffort || options.reasoning_effort || 'medium';
+        request.reasoning = { effort, summary: 'auto' };
+        request.include = ['reasoning.encrypted_content'];
+      }
+    } else {
+      if (instructions.length > 0) {
+        request.instructions = instructions.join('\n\n');
+      }
+      if (tools && tools.length > 0) {
+        request.tools = this.formatTools(tools);
+        request.tool_choice = options.toolChoice || 'auto';
+      }
       request.max_output_tokens = options.maxTokens || 16384;
-
       if (options.temperature !== undefined && options.temperature !== null) {
         request.temperature = options.temperature;
       }
-    }
-
-    const reasoningEffort = options.reasoningEffort || options.reasoning_effort;
-    if (reasoningEffort || this._isReasoningModel(model)) {
-      request.reasoning = {
-        effort: reasoningEffort || 'medium',
-      };
+      const reasoningEffort = options.reasoningEffort || options.reasoning_effort;
+      if (reasoningEffort || this._isReasoningModel(model)) {
+        request.reasoning = { effort: reasoningEffort || 'medium' };
+      }
     }
 
     return request;
+  }
+
+  _requestHeaders() {
+    return this.usesCodexBackend
+      ? { 'x-client-request-id': crypto.randomUUID() }
+      : undefined;
   }
 
   async chat(messages, tools = [], options = {}) {
@@ -319,10 +347,10 @@ class OpenAICodexProvider extends BaseProvider {
     const request = this._buildRequest(messages, tools, options, model);
     let response;
     try {
-      response = await this.client.responses.create({
-        model,
-        ...request,
-      });
+      response = await this.client.responses.create(
+        { model, ...request },
+        { headers: this._requestHeaders() },
+      );
     } catch (err) {
       throw new Error(`OpenAI Codex request failed: ${formatOpenAIError(err)}`);
     }
@@ -347,11 +375,10 @@ class OpenAICodexProvider extends BaseProvider {
     const request = this._buildRequest(messages, tools, options, model);
     let stream;
     try {
-      stream = await this.client.responses.create({
-        model,
-        ...request,
-        stream: true,
-      });
+      stream = await this.client.responses.create(
+        { model, ...request, stream: true },
+        { headers: this._requestHeaders() },
+      );
     } catch (err) {
       throw new Error(`OpenAI Codex request failed: ${formatOpenAIError(err)}`);
     }

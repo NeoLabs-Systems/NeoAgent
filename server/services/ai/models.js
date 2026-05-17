@@ -5,6 +5,7 @@ const { OllamaProvider } = require('./providers/ollama');
 const { OpenAIProvider } = require('./providers/openai');
 const { GithubCopilotProvider } = require('./providers/githubCopilot');
 const { OpenAICodexProvider } = require('./providers/openaiCodex');
+const { ClaudeCodeProvider } = require('./providers/claudeCode');
 const {
     AI_PROVIDER_DEFINITIONS,
     getProviderConfigs,
@@ -70,6 +71,24 @@ const STATIC_MODELS = [
         id: 'claude-3-5-haiku-20241022',
         label: 'Claude 3.5 Haiku (Fast)',
         provider: 'anthropic',
+        purpose: 'fast'
+    },
+    {
+        id: 'claude-opus-4-7',
+        label: 'Claude Opus 4.7 (Claude Code / Default)',
+        provider: 'claude-code',
+        purpose: 'general'
+    },
+    {
+        id: 'claude-sonnet-4-6',
+        label: 'Claude Sonnet 4.6 (Claude Code / Fast)',
+        provider: 'claude-code',
+        purpose: 'coding'
+    },
+    {
+        id: 'claude-haiku-4-5-20251001',
+        label: 'Claude Haiku 4.5 (Claude Code / Subagents)',
+        provider: 'claude-code',
         purpose: 'fast'
     },
     {
@@ -338,6 +357,8 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
         return new GithubCopilotProvider({ apiKey: runtime.apiKey, ...providerOverrides });
     } else if (providerStr === 'openai-codex') {
         return new OpenAICodexProvider({ apiKey: runtime.apiKey, ...providerOverrides });
+    } else if (providerStr === 'claude-code') {
+        return new ClaudeCodeProvider({ apiKey: runtime.apiKey, ...providerOverrides });
     }
     throw new Error(`Unknown provider: ${providerStr}`);
 }

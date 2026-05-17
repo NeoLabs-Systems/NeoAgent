@@ -79,6 +79,16 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: false,
     defaultBaseUrl: 'https://chatgpt.com/backend-api/codex'
   },
+  'claude-code': {
+    id: 'claude-code',
+    label: 'Claude Code',
+    description: 'Claude models via Claude Code subscription. Login with `neoagent login claude-code`.',
+    envKey: 'CLAUDE_CODE_ACCESS_TOKEN',
+    supportsApiKey: true,
+    supportsBaseUrl: false,
+    defaultEnabled: false,
+    defaultBaseUrl: ''
+  },
   ollama: {
     id: 'ollama',
     label: 'Ollama',
