@@ -136,13 +136,14 @@ class OpenAICodexProvider extends BaseProvider {
 
     this.name = 'openai-codex';
     this.models = [
+      'gpt-5.5',
       'gpt-5.4',
       'gpt-5.4-mini',
     ];
     this.reasoningModels = new Set([
+      'gpt-5.5',
       'gpt-5.4',
       'gpt-5.4-mini',
-      'gpt-5.4-nano',
     ]);
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENAI_CODEX_ACCESS_TOKEN,

@@ -31,8 +31,8 @@ const STATIC_MODELS = [
         purpose: 'coding'
     },
     {
-        id: 'gpt-5.4',
-        label: 'GPT-5.4 (Codex Default)',
+        id: 'gpt-5.5',
+        label: 'GPT-5.5 (Codex Default)',
         provider: 'openai-codex',
         purpose: 'general'
     },
@@ -41,6 +41,12 @@ const STATIC_MODELS = [
         label: 'GPT-5.4 mini (Codex Fast)',
         provider: 'openai-codex',
         purpose: 'coding'
+    },
+    {
+        id: 'gpt-5.4',
+        label: 'GPT-5.4 (Codex Fallback)',
+        provider: 'openai-codex',
+        purpose: 'general'
     },
     {
         id: 'gpt-5-nano',
