@@ -83,7 +83,7 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     id: 'claude-code',
     label: 'Claude Code',
     description: 'Claude models via Claude Code subscription. Login with `neoagent login claude-code`.',
-    envKey: 'CLAUDE_CODE_ACCESS_TOKEN',
+    envKey: 'CLAUDE_CODE_OAUTH_TOKEN',
     supportsApiKey: true,
     supportsBaseUrl: false,
     defaultEnabled: false,

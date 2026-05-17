@@ -33,7 +33,7 @@ class ClaudeCodeProvider extends AnthropicProvider {
       'claude-haiku-4-5-20251001': 200000,
     };
 
-    const authToken = config.apiKey || process.env.CLAUDE_CODE_ACCESS_TOKEN || readClaudeCliToken();
+    const authToken = config.apiKey || process.env.CLAUDE_CODE_OAUTH_TOKEN || readClaudeCliToken();
     if (!authToken) {
       console.warn('[ClaudeCode] No access token. Run `neoagent login claude-code` to authenticate.');
     }
