@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const { BaseProvider } = require('./base');
 
-const DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex';
+const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
 function normalizeContent(content) {
   if (content == null) return '';
@@ -145,15 +145,29 @@ class OpenAICodexProvider extends BaseProvider {
       'gpt-5.4',
       'gpt-5.4-mini',
     ]);
+    const defaultHeaders = baseURL.includes('chatgpt.com/backend-api/codex')
+      ? {
+          'Editor-Version': process.env.OPENAI_CODEX_EDITOR_VERSION || 'vscode/1.99.0',
+          'Editor-Plugin-Version': process.env.OPENAI_CODEX_EDITOR_PLUGIN_VERSION || 'neoagent/1.0.0',
+          'User-Agent': process.env.OPENAI_CODEX_USER_AGENT || 'NeoAgent/1.0.0',
+        }
+      : undefined;
+
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENAI_CODEX_ACCESS_TOKEN,
       baseURL,
-      defaultHeaders: {
-        'Editor-Version': process.env.OPENAI_CODEX_EDITOR_VERSION || 'vscode/1.99.0',
-        'Editor-Plugin-Version': process.env.OPENAI_CODEX_EDITOR_PLUGIN_VERSION || 'neoagent/1.0.0',
-        'User-Agent': process.env.OPENAI_CODEX_USER_AGENT || 'NeoAgent/1.0.0',
-      },
+      defaultHeaders,
     });
+  }
+
+  formatTools(tools) {
+    return tools.map((tool) => ({
+      type: 'function',
+      name: tool.name,
+      description: tool.description || '',
+      parameters: tool.parameters || { type: 'object', properties: {} },
+      strict: false,
+    }));
   }
 
   _isReasoningModel(model) {
@@ -201,7 +215,6 @@ class OpenAICodexProvider extends BaseProvider {
           if (!name || !callId) continue;
           input.push({
             type: 'function_call',
-            id: callId,
             call_id: callId,
             name,
             arguments: argumentsText,
