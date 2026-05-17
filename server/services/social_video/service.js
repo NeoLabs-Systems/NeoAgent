@@ -126,6 +126,35 @@ function resolveVoiceSttConfigFromSettings(settings = {}) {
   };
 }
 
+function serializeCookiesForNetscapeJar(cookies = []) {
+  const lines = ['# Netscape HTTP Cookie File'];
+  for (const cookie of Array.isArray(cookies) ? cookies : []) {
+    if (!cookie || typeof cookie !== 'object') continue;
+    const domain = String(cookie.domain || '').trim();
+    const name = String(cookie.name || '').trim();
+    const value = String(cookie.value || '').replace(/[\r\n\t]/g, ' ');
+    if (!domain || !name) continue;
+    const cookieDomain = domain.startsWith('.') ? domain : domain;
+    const includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+    const pathValue = String(cookie.path || '/').trim() || '/';
+    const secure = cookie.secure ? 'TRUE' : 'FALSE';
+    const expires = Number.isFinite(Number(cookie.expires)) && Number(cookie.expires) > 0
+      ? String(Math.floor(Number(cookie.expires)))
+      : '0';
+    const httpOnlyPrefix = cookie.httpOnly ? '#HttpOnly_' : '';
+    lines.push([
+      `${httpOnlyPrefix}${cookieDomain}`,
+      includeSubdomains,
+      pathValue,
+      secure,
+      expires,
+      name,
+      value,
+    ].join('\t'));
+  }
+  return `${lines.join('\n')}\n`;
+}
+
 function fileExists(filePath) {
   try {
     return fs.statSync(filePath).isFile();
@@ -240,8 +269,14 @@ class SocialVideoService {
 
       const pageMetadata = await this.#resolvePageMetadata(userId, normalizedUrl, warnings);
       jobDir = await fsp.mkdtemp(path.join(SOCIAL_VIDEO_TMP_DIR, `${platform}-${Date.now()}-`));
+      const cookieFilePath = await this.#resolveCookieFile({
+        userId,
+        platform,
+        jobDir,
+        warnings,
+      });
 
-      const mediaInfo = await this.#readMediaInfo(normalizedUrl, jobDir);
+      const mediaInfo = await this.#readMediaInfo(normalizedUrl, jobDir, cookieFilePath);
       const baseTitle = String(pageMetadata.title || mediaInfo.title || '').trim();
       const baseDescription = String(pageMetadata.description || mediaInfo.description || '').trim();
       const resolvedUrl = String(pageMetadata.resolvedUrl || mediaInfo.webpage_url || normalizedUrl).trim();
@@ -264,6 +299,7 @@ class SocialVideoService {
         captionTrack,
         transcriptDecision,
         jobDir,
+        cookieFilePath,
         userId,
         agentId,
         warnings,
@@ -276,6 +312,7 @@ class SocialVideoService {
           sourceUrl: normalizedUrl,
           mediaInfo,
           jobDir,
+          cookieFilePath,
           warnings,
         });
 
@@ -432,10 +469,11 @@ class SocialVideoService {
     };
   }
 
-  async #readMediaInfo(normalizedUrl, jobDir) {
+  async #readMediaInfo(normalizedUrl, jobDir, cookieFilePath = null) {
     const infoTemplate = path.join(jobDir, 'media.%(ext)s');
     const infoPath = path.join(jobDir, 'media.info.json');
-    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist --skip-download --write-info-json --no-clean-infojson -o ${shellEscape(infoTemplate)} -- ${shellEscape(normalizedUrl)}`;
+    const cookieArg = cookieFilePath ? ` --cookies ${shellEscape(cookieFilePath)}` : '';
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist --skip-download --write-info-json --no-clean-infojson${cookieArg} -o ${shellEscape(infoTemplate)} -- ${shellEscape(normalizedUrl)}`;
     await this.#runCommand(command, { cwd: jobDir, timeout: 4 * 60 * 1000 });
     if (!fileExists(infoPath)) {
       throw new Error('yt-dlp did not produce an info JSON artifact.');
@@ -486,7 +524,8 @@ class SocialVideoService {
 
   async #transcribeViaStt(context) {
     const template = path.join(context.jobDir, 'audio.%(ext)s');
-    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist -o ${shellEscape(template)} -f bestaudio -- ${shellEscape(context.sourceUrl)}`;
+    const cookieArg = context.cookieFilePath ? ` --cookies ${shellEscape(context.cookieFilePath)}` : '';
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist${cookieArg} -o ${shellEscape(template)} -f bestaudio -- ${shellEscape(context.sourceUrl)}`;
     await this.#runCommand(command, { cwd: context.jobDir, timeout: 10 * 60 * 1000 });
 
     const audioPath = firstFileMatching(context.jobDir, 'audio.');
@@ -521,6 +560,36 @@ class SocialVideoService {
     });
   }
 
+  async #resolveCookieFile(context) {
+    if (context.platform !== 'instagram') {
+      return null;
+    }
+    if (!this.runtimeManager || typeof this.runtimeManager.getBrowserProviderForUser !== 'function') {
+      return null;
+    }
+
+    const browser = await Promise.resolve(
+      this.runtimeManager.getBrowserProviderForUser(context.userId),
+    ).catch(() => null);
+    if (!browser || typeof browser.getCookies !== 'function') {
+      return null;
+    }
+
+    const payload = await browser.getCookies().catch((error) => {
+      context.warnings.push(`Browser cookie export failed: ${error.message}`);
+      return null;
+    });
+    const cookies = Array.isArray(payload?.cookies) ? payload.cookies : [];
+    if (cookies.length === 0) {
+      context.warnings.push('Browser cookie export returned no cookies for Instagram.');
+      return null;
+    }
+
+    const cookieFilePath = path.join(context.jobDir, 'browser.cookies.txt');
+    await fsp.writeFile(cookieFilePath, serializeCookiesForNetscapeJar(cookies), 'utf8');
+    return cookieFilePath;
+  }
+
   async #resolveFrameImage(context) {
     const downloadedFrame = await this.#extractFrameFromVideo(context).catch((error) => {
       context.warnings.push(`Frame extraction failed: ${error.message}`);
@@ -540,7 +609,8 @@ class SocialVideoService {
 
   async #extractFrameFromVideo(context) {
     const template = path.join(context.jobDir, 'video.%(ext)s');
-    const downloadCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist -o ${shellEscape(template)} -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)}`;
+    const cookieArg = context.cookieFilePath ? ` --cookies ${shellEscape(context.cookieFilePath)}` : '';
+    const downloadCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist${cookieArg} -o ${shellEscape(template)} -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)}`;
     await this.#runCommand(downloadCommand, { cwd: context.jobDir, timeout: 14 * 60 * 1000 });
 
     const videoPath = firstFileMatching(context.jobDir, 'video.');

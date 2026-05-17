@@ -272,6 +272,9 @@ class VmBrowserProvider {
     const status = await this.client.request('GET', '/browser/status');
     return Number(status?.pages || 0);
   }
+  async getCookies() {
+    return this.client.request('GET', '/browser/cookies');
+  }
   async setHeadless(value) {
     this.headless = true;
     return { success: true };

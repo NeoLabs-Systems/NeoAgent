@@ -779,6 +779,17 @@ class BrowserController {
     };
   }
 
+  async getCookies() {
+    await this.ensureBrowser();
+    if (!this.context || typeof this.context.cookies !== 'function') {
+      return { cookies: [] };
+    }
+    const cookies = await this.context.cookies().catch(() => []);
+    return {
+      cookies: Array.isArray(cookies) ? cookies : [],
+    };
+  }
+
   async close() {
     if (this.page && !this.page.isClosed()) {
       await this.page.close().catch(() => { });

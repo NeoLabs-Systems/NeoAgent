@@ -66,6 +66,19 @@ router.get('/status', async (req, res) => {
   }
 });
 
+router.get('/cookies', async (req, res) => {
+  try {
+    const bc = await getBrowserController(req);
+    if (typeof bc.getCookies !== 'function') {
+      return res.status(501).json({ error: 'Cookie export is unavailable for this browser provider.' });
+    }
+    const result = await bc.getCookies();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 // Launch browser
 router.post('/launch', async (req, res) => {
   try {
