@@ -110,6 +110,18 @@ function extractToolCalls(response) {
   return toolCalls.filter((toolCall) => toolCall.id && toolCall.function.name);
 }
 
+function formatOpenAIError(err) {
+  if (!err || typeof err !== 'object') return 'Unknown OpenAI error';
+  const parts = [];
+  if (typeof err.status === 'number') parts.push(`HTTP ${err.status}`);
+  if (err.type) parts.push(`type=${err.type}`);
+  if (err.code) parts.push(`code=${err.code}`);
+  if (err.param) parts.push(`param=${err.param}`);
+  if (err.request_id) parts.push(`request_id=${err.request_id}`);
+  const message = err.message || 'Unknown OpenAI error';
+  return parts.length > 0 ? `${message} (${parts.join(', ')})` : message;
+}
+
 class OpenAICodexProvider extends BaseProvider {
   constructor(config = {}) {
     super(config);
@@ -124,15 +136,13 @@ class OpenAICodexProvider extends BaseProvider {
 
     this.name = 'openai-codex';
     this.models = [
-      'gpt-5.3-codex',
-      'gpt-4.1-codex',
+      'gpt-5.4',
+      'gpt-5.4-mini',
     ];
     this.reasoningModels = new Set([
-      'gpt-5.3-codex',
-      'gpt-5.2-codex',
-      'gpt-5.1-codex',
-      'gpt-5.1-codex-max',
-      'gpt-5-codex',
+      'gpt-5.4',
+      'gpt-5.4-mini',
+      'gpt-5.4-nano',
     ]);
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENAI_CODEX_ACCESS_TOKEN,
@@ -231,10 +241,15 @@ class OpenAICodexProvider extends BaseProvider {
   async chat(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || this.getDefaultModel();
     const request = this._buildRequest(messages, tools, options, model);
-    const response = await this.client.responses.create({
-      model,
-      ...request,
-    });
+    let response;
+    try {
+      response = await this.client.responses.create({
+        model,
+        ...request,
+      });
+    } catch (err) {
+      throw new Error(`OpenAI Codex request failed: ${formatOpenAIError(err)}`);
+    }
 
     const toolCalls = extractToolCalls(response);
 
@@ -254,11 +269,16 @@ class OpenAICodexProvider extends BaseProvider {
   async *stream(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || this.getDefaultModel();
     const request = this._buildRequest(messages, tools, options, model);
-    const stream = await this.client.responses.create({
-      model,
-      ...request,
-      stream: true,
-    });
+    let stream;
+    try {
+      stream = await this.client.responses.create({
+        model,
+        ...request,
+        stream: true,
+      });
+    } catch (err) {
+      throw new Error(`OpenAI Codex request failed: ${formatOpenAIError(err)}`);
+    }
 
     let content = '';
     let finalResponse = null;

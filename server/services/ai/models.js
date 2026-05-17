@@ -31,14 +31,14 @@ const STATIC_MODELS = [
         purpose: 'coding'
     },
     {
-        id: 'gpt-5.3-codex',
-        label: 'GPT-5.3 (Codex Default)',
+        id: 'gpt-5.4',
+        label: 'GPT-5.4 (Codex Default)',
         provider: 'openai-codex',
         purpose: 'general'
     },
     {
-        id: 'gpt-4.1-codex',
-        label: 'GPT-4.1 (Codex Fast)',
+        id: 'gpt-5.4-mini',
+        label: 'GPT-5.4 mini (Codex Fast)',
         provider: 'openai-codex',
         purpose: 'coding'
     },
