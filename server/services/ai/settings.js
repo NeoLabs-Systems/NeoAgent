@@ -72,12 +72,12 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
   'openai-codex': {
     id: 'openai-codex',
     label: 'OpenAI Codex',
-    description: 'Use Codex models through OpenAI authentication.',
+    description: 'Use Codex models through ChatGPT Codex authentication.',
     envKey: 'OPENAI_CODEX_ACCESS_TOKEN',
     supportsApiKey: true,
     supportsBaseUrl: true,
     defaultEnabled: false,
-    defaultBaseUrl: 'https://api.openai.com/v1'
+    defaultBaseUrl: 'https://chatgpt.com/backend-api/codex'
   },
   ollama: {
     id: 'ollama',

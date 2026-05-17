@@ -1,7 +1,41 @@
 const OpenAI = require('openai');
 const { BaseProvider } = require('./base');
 
-const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+const DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex';
+
+function isCodexBackendBaseUrl(baseURL) {
+  const trimmed = String(baseURL || '').trim();
+  if (!trimmed) return false;
+
+  try {
+    const url = new URL(trimmed);
+    const path = url.pathname.replace(/\/+$/, '');
+    return url.hostname === 'chatgpt.com'
+      && (path === '/backend-api' || path === '/backend-api/codex' || path === '/backend-api/codex/v1');
+  } catch {
+    return false;
+  }
+}
+
+function isOpenAIApiBaseUrl(baseURL) {
+  const trimmed = String(baseURL || '').trim();
+  if (!trimmed) return false;
+
+  try {
+    const url = new URL(trimmed);
+    const path = url.pathname.replace(/\/+$/, '');
+    return url.hostname === 'api.openai.com' && (path === '' || path === '/v1');
+  } catch {
+    return false;
+  }
+}
+
+function normalizeCodexBaseUrl(baseURL) {
+  if (!baseURL || isOpenAIApiBaseUrl(baseURL) || isCodexBackendBaseUrl(baseURL)) {
+    return DEFAULT_BASE_URL;
+  }
+  return baseURL;
+}
 
 function normalizeContent(content) {
   if (content == null) return '';
@@ -126,11 +160,15 @@ class OpenAICodexProvider extends BaseProvider {
   constructor(config = {}) {
     super(config);
 
-    const baseURL = config.baseUrl || process.env.OPENAI_CODEX_BASE_URL || DEFAULT_BASE_URL;
+    const configuredBaseURL = config.baseUrl || process.env.OPENAI_CODEX_BASE_URL || DEFAULT_BASE_URL;
+    const baseURL = normalizeCodexBaseUrl(configuredBaseURL);
 
-    if (!baseURL.includes('chatgpt.com/backend-api/codex') && !baseURL.includes('api.openai.com')) {
+    this.baseURL = baseURL;
+    this.usesCodexBackend = isCodexBackendBaseUrl(baseURL);
+
+    if (!this.usesCodexBackend && !baseURL.includes('api.openai.com')) {
       console.warn(`[OpenAICodex] Using non-official base URL: ${baseURL}`);
-    } else if (baseURL.includes('chatgpt.com/backend-api/codex')) {
+    } else if (this.usesCodexBackend) {
       console.info(`[OpenAICodex] Using ChatGPT Codex endpoint: ${baseURL}`);
     }
 
@@ -145,7 +183,7 @@ class OpenAICodexProvider extends BaseProvider {
       'gpt-5.4',
       'gpt-5.4-mini',
     ]);
-    const defaultHeaders = baseURL.includes('chatgpt.com/backend-api/codex')
+    const defaultHeaders = this.usesCodexBackend
       ? {
           'Editor-Version': process.env.OPENAI_CODEX_EDITOR_VERSION || 'vscode/1.99.0',
           'Editor-Plugin-Version': process.env.OPENAI_CODEX_EDITOR_PLUGIN_VERSION || 'neoagent/1.0.0',
@@ -236,10 +274,12 @@ class OpenAICodexProvider extends BaseProvider {
       request.tool_choice = options.toolChoice || 'auto';
     }
 
-    request.max_output_tokens = options.maxTokens || 16384;
+    if (!this.usesCodexBackend) {
+      request.max_output_tokens = options.maxTokens || 16384;
 
-    if (options.temperature !== undefined && options.temperature !== null) {
-      request.temperature = options.temperature;
+      if (options.temperature !== undefined && options.temperature !== null) {
+        request.temperature = options.temperature;
+      }
     }
 
     const reasoningEffort = options.reasoningEffort || options.reasoning_effort;
