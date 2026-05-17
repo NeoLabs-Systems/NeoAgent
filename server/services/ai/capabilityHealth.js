@@ -310,8 +310,8 @@ function getCommandHealth(userId, app, engine) {
     configured: Boolean(runtimeManager),
     healthy: Boolean(runtimeManager),
     summary: runtimeManager
-      ? 'Shell command execution is available through the per-user runtime capsule.'
-      : 'Shell executor is not available.',
+      ? 'Shell command execution is available.'
+      : 'Shell command execution is not available in this environment.',
   });
 }
 

@@ -77,7 +77,7 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     supportsApiKey: true,
     supportsBaseUrl: true,
     defaultEnabled: false,
-    defaultBaseUrl: 'https://api.openai.com/v1'
+    defaultBaseUrl: 'https://chatgpt.com/backend-api/codex'
   },
   ollama: {
     id: 'ollama',
