@@ -89,7 +89,7 @@ router.get('/oauth/callback', async (req, res) => {
             window.opener.postMessage(${payload}, ${trustedOrigin});
             window.close();
           } else {
-            window.location.href = '/';
+            window.close();
           }
         </script>
         <p>Authentication successful. You can close this window.</p>
@@ -116,7 +116,7 @@ router.get('/oauth/callback', async (req, res) => {
           window.opener.postMessage(${payload}, ${trustedOrigin});
           window.close();
         } else {
-          window.location.href = '/?page=skills';
+          window.close();
         }
       </script>
       <p>Authentication successful. You can close this window.</p>

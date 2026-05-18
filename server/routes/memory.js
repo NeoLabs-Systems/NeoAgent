@@ -145,6 +145,79 @@ router.get('/memories', (req, res) => {
   }
 });
 
+router.get('/ingestion/status', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const ingestionService = req.app.locals.memoryIngestionService;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  try {
+    res.json({
+      agentId,
+      overview: mm.getIngestionOverview(userId, { agentId }),
+      jobs: mm.listIngestionJobs(userId, { agentId }),
+      recentChanges: mm.listRecentKnowledgeChanges(userId, { agentId }),
+      connections: ingestionService?.listConnectionStatuses?.(userId, { agentId }) || [],
+    });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/ingestion/documents', async (req, res) => {
+  const ingestionService = req.app.locals.memoryIngestionService;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  if (!ingestionService) {
+    return res.status(503).json({ error: 'Memory ingestion service is unavailable.' });
+  }
+  const documents = Array.isArray(req.body?.documents) ? req.body.documents : [];
+  if (!documents.length) {
+    return res.status(400).json({ error: 'documents must contain at least one item.' });
+  }
+  try {
+    const result = await ingestionService.ingestDocuments(userId, documents, {
+      agentId,
+      sourceType: req.body.sourceType,
+      providerKey: req.body.providerKey,
+      connectionId: req.body.connectionId,
+      sourceAccount: req.body.sourceAccount,
+      metadata: normalizeMetadata(req.body.metadata),
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/knowledge-views', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  try {
+    res.json(mm.listKnowledgeViews(userId, {
+      agentId,
+      viewType: req.query.viewType || null,
+      limit: req.query.limit,
+    }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/knowledge-views/materialize', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  try {
+    res.json({
+      agentId,
+      views: mm.materializeKnowledgeViews(userId, { agentId }),
+    });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 // Save a new memory
 router.post('/memories', async (req, res) => {
   const mm = req.app.locals.memoryManager;

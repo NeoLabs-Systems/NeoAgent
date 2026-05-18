@@ -2565,6 +2565,7 @@ class OfficialIntegrationAppItem {
     ),
     this.accounts = const <OfficialIntegrationAccountItem>[],
     this.availableToolCount = 0,
+    this.memoryCoverage = const OfficialIntegrationMemoryCoverage(),
   });
 
   factory OfficialIntegrationAppItem.fromJson(Map<dynamic, dynamic> json) {
@@ -2583,6 +2584,9 @@ class OfficialIntegrationAppItem {
                 .toList()
           : const <OfficialIntegrationAccountItem>[],
       availableToolCount: _asInt(json['availableToolCount']),
+      memoryCoverage: OfficialIntegrationMemoryCoverage.fromJson(
+        _jsonMap(json['memoryCoverage']),
+      ),
     );
   }
 
@@ -2592,6 +2596,7 @@ class OfficialIntegrationAppItem {
   final OfficialIntegrationConnectionStatus connection;
   final List<OfficialIntegrationAccountItem> accounts;
   final int availableToolCount;
+  final OfficialIntegrationMemoryCoverage memoryCoverage;
 
   bool get isConnected => connection.connected;
 
@@ -2676,6 +2681,51 @@ class OfficialIntegrationConnectionStatus {
   }
 }
 
+class OfficialIntegrationMemoryCoverage {
+  const OfficialIntegrationMemoryCoverage({
+    this.supported = false,
+    this.contributesToMemory = false,
+    this.contributesToTaskExecution = false,
+    this.status = 'not_supported',
+    this.dataDomains = const <String>[],
+    this.documentCount = 0,
+    this.lastRefreshAt,
+    this.nextRefreshAt,
+    this.error,
+  });
+
+  factory OfficialIntegrationMemoryCoverage.fromJson(
+    Map<dynamic, dynamic> json,
+  ) {
+    final domainsRaw = json['dataDomains'];
+    return OfficialIntegrationMemoryCoverage(
+      supported: json['supported'] == true,
+      contributesToMemory: json['contributesToMemory'] == true,
+      contributesToTaskExecution: json['contributesToTaskExecution'] == true,
+      status: json['status']?.toString() ?? 'not_supported',
+      dataDomains: domainsRaw is List
+          ? domainsRaw.map((item) => item.toString()).toList()
+          : const <String>[],
+      documentCount: _asInt(json['documentCount']),
+      lastRefreshAt: _parseOptionalTimestamp(json['lastRefreshAt']?.toString()),
+      nextRefreshAt: _parseOptionalTimestamp(json['nextRefreshAt']?.toString()),
+      error: json['error']?.toString(),
+    );
+  }
+
+  final bool supported;
+  final bool contributesToMemory;
+  final bool contributesToTaskExecution;
+  final String status;
+  final List<String> dataDomains;
+  final int documentCount;
+  final DateTime? lastRefreshAt;
+  final DateTime? nextRefreshAt;
+  final String? error;
+
+  String get statusLabel => _titleCase(status.replaceAll('_', ' '));
+}
+
 class OfficialIntegrationAccountItem {
   const OfficialIntegrationAccountItem({
     required this.id,
@@ -2684,6 +2734,7 @@ class OfficialIntegrationAccountItem {
     this.accountEmail,
     this.lastConnectedAt,
     this.accessMode = 'read_write',
+    this.memoryCoverage = const OfficialIntegrationMemoryCoverage(),
   });
 
   factory OfficialIntegrationAccountItem.fromJson(Map<dynamic, dynamic> json) {
@@ -2696,6 +2747,9 @@ class OfficialIntegrationAccountItem {
         json['lastConnectedAt']?.toString(),
       ),
       accessMode: json['accessMode']?.toString() ?? 'read_write',
+      memoryCoverage: OfficialIntegrationMemoryCoverage.fromJson(
+        _jsonMap(json['memoryCoverage']),
+      ),
     );
   }
 
@@ -2705,6 +2759,7 @@ class OfficialIntegrationAccountItem {
   final String? accountEmail;
   final DateTime? lastConnectedAt;
   final String accessMode;
+  final OfficialIntegrationMemoryCoverage memoryCoverage;
 
   bool get isExpired => status == 'expired';
 
@@ -2733,6 +2788,7 @@ class OfficialIntegrationItem {
     this.connectPrompt,
     this.supportsMultipleAccounts = true,
     this.connectionMethod = 'oauth',
+    this.memoryCoverage = const OfficialIntegrationMemoryCoverage(),
   });
 
   factory OfficialIntegrationItem.fromJson(Map<dynamic, dynamic> json) {
@@ -2756,6 +2812,9 @@ class OfficialIntegrationItem {
       connectPrompt: json['connectPrompt']?.toString(),
       supportsMultipleAccounts: json['supportsMultipleAccounts'] != false,
       connectionMethod: json['connectionMethod']?.toString() ?? 'oauth',
+      memoryCoverage: OfficialIntegrationMemoryCoverage.fromJson(
+        _jsonMap(json['memoryCoverage']),
+      ),
     );
   }
 
@@ -2770,6 +2829,7 @@ class OfficialIntegrationItem {
   final String? connectPrompt;
   final bool supportsMultipleAccounts;
   final String connectionMethod;
+  final OfficialIntegrationMemoryCoverage memoryCoverage;
 
   bool get isConnected => connection.connected;
 

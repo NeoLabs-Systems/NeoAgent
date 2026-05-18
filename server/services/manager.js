@@ -17,6 +17,7 @@ const { SocialVideoService } = require('./social_video');
 const { VoiceRuntimeManager } = require('./voice/runtimeManager');
 const { AuthProviderManager } = require('./account/auth_provider_manager');
 const { IntegrationManager } = require('./integrations/manager');
+const { MemoryIngestionService } = require('./memory/ingestion');
 const { ArtifactStore } = require('./artifacts/store');
 const { RuntimeManager } = require('./runtime/manager');
 const { WorkspaceManager } = require('./workspace/manager');
@@ -102,6 +103,20 @@ function createIntegrationManager(app) {
   );
   logServiceReady('Integration manager ready');
   return integrationManager;
+}
+
+function createMemoryIngestionService(app, { memoryManager, integrationManager }) {
+  const memoryIngestionService = registerLocal(
+    app,
+    'memoryIngestionService',
+    new MemoryIngestionService({
+      memoryManager,
+      integrationManager,
+    }),
+  );
+  memoryIngestionService.start();
+  logServiceReady('Memory ingestion service started');
+  return memoryIngestionService;
 }
 
 function createAuthProviderManager(app) {
@@ -447,6 +462,7 @@ async function startServices(app, io) {
     const mcpClient = createMcpClient(app);
     createAuthProviderManager(app);
     const integrationManager = createIntegrationManager(app);
+    createMemoryIngestionService(app, { memoryManager, integrationManager });
     const browserController = createBrowserController(app, artifactStore);
     const runtimeManager = createRuntimeManager(app);
     const runtimeValidation = getRuntimeValidation(runtimeManager);
@@ -522,6 +538,15 @@ async function stopServices(app) {
       logServiceReady('Task runtime stopped');
     } catch (err) {
       console.error('[Tasks] Stop error:', getErrorMessage(err));
+    }
+  }
+
+  if (app.locals.memoryIngestionService) {
+    try {
+      app.locals.memoryIngestionService.stop();
+      logServiceReady('Memory ingestion service stopped');
+    } catch (err) {
+      console.error('[MemoryIngestion] Stop error:', getErrorMessage(err));
     }
   }
 

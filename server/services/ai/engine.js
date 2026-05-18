@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const db = require('../../db/database');
 const { compact } = require('./compaction');
+const { compactPayloadForModel } = require('./preModelCompaction');
 const {
   getConversationContext,
   buildSummaryCarrier,
@@ -1714,6 +1715,7 @@ class AgentEngine {
     let modelFailureRecoveries = 0;
     let promptMetrics = {};
     let toolExecutions = [];
+    let compactionMetrics = [];
     let analysis = null;
     let plan = null;
     let verification = null;
@@ -2011,10 +2013,11 @@ class AgentEngine {
           const modelError = String(err?.message || 'Model call failed');
 
           if (modelFailureRecoveries < loopPolicy.maxModelFailureRecoveries) {
+            const failedModel = model;
+            const switched = await switchToFallbackModel(failedModel, err, 'model turn');
+            if (!switched) throw err;
             modelFailureRecoveries += 1;
             failedStepCount += 1;
-            const failedModel = model;
-            await switchToFallbackModel(failedModel, err, 'model turn');
             messages.push({
               role: 'system',
               content: buildModelFailureLoopPrompt({
@@ -2295,14 +2298,33 @@ class AgentEngine {
             evidenceSources: [...new Set(toolExecutions.map((item) => item.evidenceSource).filter(Boolean))],
             subagentState: this.listSubagents(runId),
             deliverableArtifacts,
+            compactionMetrics: compactionMetrics.slice(-20),
           });
+
+          const modelPayload = compactPayloadForModel(toolName, toolResult);
+          if (modelPayload.metrics?.applied) {
+            const metric = {
+              toolName,
+              stepId,
+              ...modelPayload.metrics,
+              createdAt: new Date().toISOString(),
+            };
+            compactionMetrics.push(metric);
+            this.persistRunMetadata(runId, {
+              compactionMetrics: compactionMetrics.slice(-20),
+            });
+            this.recordRunEvent(userId, runId, 'pre_model_compaction_applied', {
+              toolName,
+              metrics: modelPayload.metrics,
+            }, { agentId, stepId });
+          }
 
           const toolResultLimits = resolveToolResultLimits(toolName, loopPolicy);
           const toolMessage = {
             role: 'tool',
             name: toolName,
             tool_call_id: toolCall.id,
-            content: compactToolResult(toolName, toolArgs, toolResult, {
+            content: compactToolResult(toolName, toolArgs, modelPayload.result, {
               softLimit: toolResultLimits.softLimit,
               hardLimit: toolResultLimits.hardLimit,
             })

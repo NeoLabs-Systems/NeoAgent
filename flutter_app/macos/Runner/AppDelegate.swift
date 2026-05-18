@@ -302,7 +302,17 @@ final class DesktopCompanionNativePlugin: NSObject {
   }
 
   private func preflightScreenCapturePermission() -> Bool {
-    CGPreflightScreenCaptureAccess()
+    if CGPreflightScreenCaptureAccess() { return true }
+    // CGPreflightScreenCaptureAccess() caches the result per-process on macOS 14+
+    // and won't reflect a System Settings grant until the app restarts. Fall back to
+    // a live 1×1 capture probe which returns nil when recording is actually blocked.
+    let probe = CGWindowListCreateImage(
+      CGRect(x: 0, y: 0, width: 1, height: 1),
+      .optionOnScreenOnly,
+      kCGNullWindowID,
+      .bestResolution
+    )
+    return probe != nil
   }
 
   private func isAccessibilityTrusted() -> Bool {

@@ -248,6 +248,81 @@ async function executeGoogleWorkspaceTool(toolName, args, connection) {
   return { result, credentials: auth.credentials };
 }
 
+async function collectGoogleMemoryDocuments({ connection, sourceTypes = [] }) {
+  const appKey = String(connection?.app_key || '').trim();
+  const documents = [];
+  const collectedAt = new Date().toISOString();
+
+  if (appKey === 'gmail' && sourceTypes.includes('email')) {
+    const { result } = await executeGoogleWorkspaceTool(
+      'google_workspace_gmail_search_threads',
+      { query: 'newer_than:7d', max_results: 8 },
+      connection,
+    );
+    for (const thread of Array.isArray(result?.threads) ? result.threads : []) {
+      const subject = String(thread.subject || 'Gmail thread').trim();
+      documents.push({
+        externalObjectId: thread.id,
+        sourceType: 'email',
+        normalizedType: 'email',
+        title: subject,
+        content: [
+          subject,
+          thread.from ? `From: ${thread.from}` : '',
+          thread.date ? `Date: ${thread.date}` : '',
+          thread.snippet || '',
+        ].filter(Boolean).join('\n'),
+        summary: thread.snippet || subject,
+        sourceTimestamp: thread.date || collectedAt,
+        salience: Array.isArray(thread.labelIds) && thread.labelIds.includes('IMPORTANT') ? 8 : 5,
+        payload: thread,
+      });
+    }
+  }
+
+  if (appKey === 'calendar' && sourceTypes.includes('calendar')) {
+    const timeMin = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const timeMax = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { result } = await executeGoogleWorkspaceTool(
+      'google_workspace_calendar_list_events',
+      { time_min: timeMin, time_max: timeMax, max_results: 12 },
+      connection,
+    );
+    for (const event of Array.isArray(result?.events) ? result.events : []) {
+      const title = String(event.summary || 'Calendar event').trim();
+      documents.push({
+        externalObjectId: event.id,
+        sourceType: 'calendar',
+        normalizedType: 'calendar',
+        title,
+        content: [
+          title,
+          event.start ? `Start: ${event.start}` : '',
+          event.end ? `End: ${event.end}` : '',
+          event.location ? `Location: ${event.location}` : '',
+          event.description || '',
+          Array.isArray(event.attendees) && event.attendees.length
+            ? `Attendees: ${event.attendees.join(', ')}`
+            : '',
+        ].filter(Boolean).join('\n'),
+        summary: [event.start, event.location, event.description].filter(Boolean).join(' | ') || title,
+        sourceTimestamp: event.start || collectedAt,
+        salience: 6,
+        payload: event,
+      });
+    }
+  }
+
+  return {
+    documents,
+    cursor: {
+      collectedAt,
+      appKey,
+      sourceTypes,
+    },
+  };
+}
+
 function buildConnectedAppSummary(appSnapshots) {
   return appSnapshots
     .filter((app) => app.connection.connected)
@@ -455,6 +530,9 @@ function createGoogleWorkspaceProvider() {
     },
     async executeTool(toolName, args, connectionRow) {
       return executeGoogleWorkspaceTool(toolName, args, connectionRow);
+    },
+    async collectMemoryDocuments(options) {
+      return collectGoogleMemoryDocuments(options);
     },
     summarizeConnection(connectionRows) {
       const snapshot = this.buildSnapshot(connectionRows);
