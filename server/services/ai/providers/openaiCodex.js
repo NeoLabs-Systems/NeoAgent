@@ -79,33 +79,45 @@ function normalizeContent(content) {
   return String(content);
 }
 
-function normalizeInputContent(content) {
+function normalizeMessageContent(content, role = 'user') {
   if (content == null) return [];
+  const isAssistant = role === 'assistant';
+  const textType = isAssistant ? 'output_text' : 'input_text';
 
   if (typeof content === 'string') {
-    return [{ type: 'input_text', text: content }];
+    return [{ type: textType, text: content, ...(isAssistant ? { annotations: [] } : {}) }];
   }
 
   if (!Array.isArray(content)) {
     const text = String(content);
-    return text ? [{ type: 'input_text', text }] : [];
+    return text ? [{ type: textType, text, ...(isAssistant ? { annotations: [] } : {}) }] : [];
   }
 
   const parts = [];
   for (const part of content) {
     if (!part) continue;
     if (typeof part === 'string') {
-      if (part.trim()) parts.push({ type: 'input_text', text: part });
+      if (part.trim()) parts.push({ type: textType, text: part, ...(isAssistant ? { annotations: [] } : {}) });
       continue;
     }
     if (part.type === 'text' && typeof part.text === 'string') {
-      parts.push({ type: 'input_text', text: part.text });
+      parts.push({ type: textType, text: part.text, ...(isAssistant ? { annotations: [] } : {}) });
       continue;
     }
     if (part.type === 'input_text' && typeof part.text === 'string') {
-      parts.push({ type: 'input_text', text: part.text });
+      parts.push({ type: textType, text: part.text, ...(isAssistant ? { annotations: [] } : {}) });
       continue;
     }
+    if (part.type === 'output_text' && typeof part.text === 'string') {
+      parts.push({ type: textType, text: part.text, ...(isAssistant ? { annotations: part.annotations || [] } : {}) });
+      continue;
+    }
+    if (isAssistant && part.type === 'refusal') {
+      const refusal = typeof part.refusal === 'string' ? part.refusal : part.text;
+      if (typeof refusal === 'string') parts.push({ type: 'refusal', refusal });
+      continue;
+    }
+    if (isAssistant) continue;
     if (part.type === 'image_url') {
       const imageUrl = typeof part.image_url === 'string' ? part.image_url : part.image_url?.url;
       if (imageUrl) {
@@ -278,11 +290,12 @@ class OpenAICodexProvider extends BaseProvider {
         continue;
       }
 
-      const content = normalizeInputContent(msg.content);
+      const role = msg.role === 'assistant' ? 'assistant' : 'user';
+      const content = normalizeMessageContent(msg.content, role);
       if (content.length > 0) {
         input.push({
           type: 'message',
-          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          role,
           content,
         });
       }
