@@ -9,23 +9,37 @@ const CLAUDE_CODE_BASE_URL = 'https://api.anthropic.com';
 const CLAUDE_CODE_VERSION = process.env.CLAUDE_CODE_VERSION || '2.1.75';
 const CLAUDE_CODE_OAUTH_BETA = 'claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14';
 const CLAUDE_CODE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude.";
+const CLAUDE_CODE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
+const CLAUDE_CODE_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
 
-function readTokenValue(data) {
-  return data?.claudeAiOauthTokens?.accessToken
-    || data?.claudeAiOauth?.accessToken
-    || data?.claudeAiOauth?.access
-    || null;
+function readTokenRecord(data) {
+  const tokens = data?.claudeAiOauthTokens || data?.claudeAiOauth || {};
+  const access = tokens.accessToken || tokens.access;
+  const refresh = tokens.refreshToken || tokens.refresh;
+  const expires = tokens.expiresAt || tokens.expires;
+  return {
+    access: typeof access === 'string' && access ? access : null,
+    refresh: typeof refresh === 'string' && refresh ? refresh : null,
+    expires: typeof expires === 'number' && Number.isFinite(expires) ? expires : null,
+  };
 }
 
-function readClaudeCliToken() {
+function readTokenValue(data) {
+  return readTokenRecord(data).access;
+}
+
+function readClaudeCliTokenRecord() {
   try {
     const raw = fs.readFileSync(CLAUDE_CLI_CREDS_PATH, 'utf8');
     const data = JSON.parse(raw);
-    const token = readTokenValue(data);
-    return typeof token === 'string' && token ? token : null;
+    return readTokenRecord(data);
   } catch {
-    return null;
+    return { access: null, refresh: null, expires: null };
   }
+}
+
+function readClaudeCliToken() {
+  return readClaudeCliTokenRecord().access;
 }
 
 function mergeAnthropicBeta(existing) {
@@ -43,6 +57,93 @@ function mergeAnthropicBeta(existing) {
     .join(',');
 }
 
+function normalizeExpiresAt(data) {
+  if (typeof data.expires_at === 'number' && Number.isFinite(data.expires_at)) {
+    return data.expires_at > 10_000_000_000 ? data.expires_at : data.expires_at * 1000;
+  }
+  if (typeof data.expiresAt === 'number' && Number.isFinite(data.expiresAt)) {
+    return data.expiresAt > 10_000_000_000 ? data.expiresAt : data.expiresAt * 1000;
+  }
+  if (typeof data.expires_in === 'number' && Number.isFinite(data.expires_in)) {
+    return Date.now() + (data.expires_in * 1000);
+  }
+  return null;
+}
+
+function sanitizeEnvKey(key) {
+  return String(key).replace(/[\r\n]/g, '');
+}
+
+function sanitizeEnvValue(value) {
+  return String(value).replace(/[\r\n]/g, '');
+}
+
+function persistEnvValue(key, value) {
+  if (!value) return;
+  try {
+    const { ENV_FILE } = require('../../../../runtime/paths');
+    const safeKey = sanitizeEnvKey(key);
+    const safeValue = sanitizeEnvValue(value);
+    const raw = fs.existsSync(ENV_FILE) ? fs.readFileSync(ENV_FILE, 'utf8') : '';
+    const lines = raw ? raw.split('\n') : [];
+    let replaced = false;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith(`${safeKey}=`)) {
+        lines[i] = `${safeKey}=${safeValue}`;
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced) lines.push(`${safeKey}=${safeValue}`);
+    const output = lines.filter((_, idx, arr) => idx !== arr.length - 1 || arr[idx] !== '').join('\n') + '\n';
+    fs.mkdirSync(path.dirname(ENV_FILE), { recursive: true });
+    fs.writeFileSync(ENV_FILE, output, { mode: 0o600 });
+  } catch { }
+}
+
+async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch) {
+  if (!refreshToken) return null;
+  const response = await fetchImpl(CLAUDE_CODE_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: CLAUDE_CODE_CLIENT_ID,
+    }),
+  });
+
+  const text = await response.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok) {
+    const detail = data?.error?.message || data?.error_description || data?.error || text || 'Unknown error';
+    throw new Error(`Claude Code OAuth refresh failed: HTTP ${response.status} ${detail}`);
+  }
+  if (!data.access_token) {
+    throw new Error('Claude Code OAuth refresh succeeded but no access_token was returned.');
+  }
+
+  return {
+    access: data.access_token,
+    refresh: data.refresh_token || refreshToken,
+    expires: normalizeExpiresAt(data),
+  };
+}
+
+function isAuthenticationError(err) {
+  return err?.status === 401 || err?.error?.type === 'authentication_error';
+}
+
 class ClaudeCodeProvider extends AnthropicProvider {
   constructor(config = {}) {
     super(config);
@@ -58,12 +159,17 @@ class ClaudeCodeProvider extends AnthropicProvider {
       'claude-haiku-4-5-20251001': 200000,
     };
 
-    const authToken = config.apiKey || process.env.CLAUDE_CODE_OAUTH_TOKEN || readClaudeCliToken();
+    const cliTokenRecord = readClaudeCliTokenRecord();
+    const authToken = config.apiKey || process.env.CLAUDE_CODE_OAUTH_TOKEN || cliTokenRecord.access;
     if (!authToken) {
       console.warn('[ClaudeCode] No access token. Run `neoagent login claude-code` to authenticate.');
     }
 
-    const defaultHeaders = {
+    this.authToken = authToken || null;
+    this.refreshToken = config.refreshToken || process.env.CLAUDE_CODE_REFRESH_TOKEN || cliTokenRecord.refresh || null;
+    this.fetchImpl = config.fetch || fetch;
+    this.baseURL = config.baseUrl || CLAUDE_CODE_BASE_URL;
+    this.defaultHeaders = {
       ...(config.defaultHeaders || {}),
       accept: 'application/json',
       'anthropic-dangerous-direct-browser-access': 'true',
@@ -72,14 +178,33 @@ class ClaudeCodeProvider extends AnthropicProvider {
       'x-app': 'cli',
     };
 
+    this.client = this.createClient(this.authToken, config);
+  }
+
+  createClient(authToken, config = this.config) {
     // OAuth tokens use Authorization: Bearer. Claude Code subscription inference
     // also requires the Claude Code beta surface headers used by the official CLI.
-    this.client = new Anthropic({
+    return new Anthropic({
       authToken: authToken || undefined,
-      baseURL: config.baseUrl || CLAUDE_CODE_BASE_URL,
-      defaultHeaders: authToken ? defaultHeaders : config.defaultHeaders,
-      ...(config.fetch ? { fetch: config.fetch } : {}),
+      baseURL: this.baseURL,
+      defaultHeaders: authToken ? this.defaultHeaders : config.defaultHeaders,
+      ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}),
     });
+  }
+
+  async refreshClient() {
+    const refreshed = await refreshClaudeCodeAccessToken(this.refreshToken, this.fetchImpl);
+    if (!refreshed?.access) return false;
+    this.authToken = refreshed.access;
+    this.refreshToken = refreshed.refresh || this.refreshToken;
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = this.authToken;
+    persistEnvValue('CLAUDE_CODE_OAUTH_TOKEN', this.authToken);
+    if (this.refreshToken) {
+      process.env.CLAUDE_CODE_REFRESH_TOKEN = this.refreshToken;
+      persistEnvValue('CLAUDE_CODE_REFRESH_TOKEN', this.refreshToken);
+    }
+    this.client = this.createClient(this.authToken);
+    return true;
   }
 
   convertMessages(messages) {
@@ -94,6 +219,26 @@ class ClaudeCodeProvider extends AnthropicProvider {
     ];
     return converted;
   }
+
+  async chat(messages, tools = [], options = {}) {
+    try {
+      return await super.chat(messages, tools, options);
+    } catch (err) {
+      if (!isAuthenticationError(err) || !this.refreshToken) throw err;
+      await this.refreshClient();
+      return await super.chat(messages, tools, options);
+    }
+  }
+
+  async *stream(messages, tools = [], options = {}) {
+    try {
+      yield* super.stream(messages, tools, options);
+    } catch (err) {
+      if (!isAuthenticationError(err) || !this.refreshToken) throw err;
+      await this.refreshClient();
+      yield* super.stream(messages, tools, options);
+    }
+  }
 }
 
-module.exports = { ClaudeCodeProvider, readClaudeCliToken };
+module.exports = { ClaudeCodeProvider, readClaudeCliToken, refreshClaudeCodeAccessToken };
