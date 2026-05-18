@@ -3,6 +3,14 @@ const OpenAI = require('openai');
 const { BaseProvider } = require('./base');
 
 const DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex';
+const OPENAI_CODEX_EMPTY_INPUT_TEXT = ' ';
+const NEOAGENT_VERSION = (() => {
+  try {
+    return require('../../../../package.json').version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+})();
 
 // Stable per-process installation ID — Codex backend uses it for request tracking.
 const INSTALLATION_ID = crypto.randomUUID();
@@ -26,7 +34,7 @@ function isCodexBackendBaseUrl(baseURL) {
     const url = new URL(trimmed);
     const path = url.pathname.replace(/\/+$/, '');
     return url.hostname === 'chatgpt.com'
-      && (path === '/backend-api' || path === '/backend-api/codex' || path === '/backend-api/codex/v1');
+      && (path === '/backend-api' || path === '/backend-api/v1' || path === '/backend-api/codex' || path === '/backend-api/codex/v1');
   } catch {
     return false;
   }
@@ -50,6 +58,10 @@ function normalizeCodexBaseUrl(baseURL) {
     return DEFAULT_BASE_URL;
   }
   return baseURL;
+}
+
+function isNativeCodexResponsesBaseUrl(baseURL) {
+  return isCodexBackendBaseUrl(baseURL);
 }
 
 function normalizeContent(content) {
@@ -211,11 +223,9 @@ class OpenAICodexProvider extends BaseProvider {
 
     const defaultHeaders = this.usesCodexBackend
       ? {
-          // Required by Cloudflare bot detection on chatgpt.com
-          'originator': 'Codex Desktop',
-          'User-Agent': 'Codex Desktop/1.0.0 (darwin; arm64)',
-          // Required by the Codex responses endpoint
-          'OpenAI-Beta': 'responses_websockets=2026-02-06',
+          'originator': 'openclaw',
+          'version': NEOAGENT_VERSION,
+          'User-Agent': `openclaw/${NEOAGENT_VERSION}`,
           'x-codex-installation-id': INSTALLATION_ID,
           'x-openai-internal-codex-residency': process.env.OPENAI_CODEX_RESIDENCY || 'us',
           ...(accountId ? { 'ChatGPT-Account-Id': accountId } : {}),
@@ -226,6 +236,7 @@ class OpenAICodexProvider extends BaseProvider {
       apiKey: config.apiKey || process.env.OPENAI_CODEX_ACCESS_TOKEN,
       baseURL,
       defaultHeaders,
+      ...(config.fetch ? { fetch: config.fetch } : {}),
     });
   }
 
@@ -297,6 +308,13 @@ class OpenAICodexProvider extends BaseProvider {
     };
 
     if (this.usesCodexBackend) {
+      if (input.length === 0 && instructions.length > 0) {
+        input.push({
+          type: 'message',
+          role: 'user',
+          content: [{ type: 'input_text', text: OPENAI_CODEX_EMPTY_INPUT_TEXT }],
+        });
+      }
       // instructions must always be present (even empty) — backend returns 400 if omitted
       request.instructions = instructions.join('\n\n');
       request.store = false;
@@ -315,6 +333,7 @@ class OpenAICodexProvider extends BaseProvider {
         request.reasoning = { effort, summary: 'auto' };
         request.include = ['reasoning.encrypted_content'];
       }
+      this._sanitizeNativeCodexRequest(request);
     } else {
       if (instructions.length > 0) {
         request.instructions = instructions.join('\n\n');
@@ -337,9 +356,39 @@ class OpenAICodexProvider extends BaseProvider {
   }
 
   _requestHeaders() {
+    const requestId = crypto.randomUUID();
     return this.usesCodexBackend
-      ? { 'x-client-request-id': crypto.randomUUID() }
+      ? {
+          'x-client-request-id': requestId,
+          'x-openclaw-session-id': requestId,
+          'x-openclaw-turn-id': requestId,
+          'x-openclaw-turn-attempt': '1',
+        }
       : undefined;
+  }
+
+  _sanitizeNativeCodexRequest(request) {
+    if (!isNativeCodexResponsesBaseUrl(this.baseURL)) return request;
+    for (const key of [
+      'max_output_tokens',
+      'metadata',
+      'prompt_cache_retention',
+      'service_tier',
+      'temperature',
+      'top_p',
+    ]) {
+      delete request[key];
+    }
+    if (request.text && typeof request.text === 'object' && !Array.isArray(request.text)) {
+      const text = { ...request.text };
+      delete text.format;
+      if (Object.keys(text).length > 0) {
+        request.text = text;
+      } else {
+        delete request.text;
+      }
+    }
+    return request;
   }
 
   async chat(messages, tools = [], options = {}) {
