@@ -392,6 +392,27 @@ class OpenAICodexProvider extends BaseProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
+    if (this.usesCodexBackend) {
+      let final = null;
+      let content = '';
+      for await (const event of this.stream(messages, tools, options)) {
+        if (event.type === 'content') {
+          content += event.content || '';
+          continue;
+        }
+        if (event.type === 'tool_calls' || event.type === 'done') {
+          final = event;
+        }
+      }
+      return {
+        content: final?.content || content,
+        toolCalls: final?.toolCalls || [],
+        finishReason: final?.finishReason || (final?.toolCalls?.length > 0 ? 'tool_calls' : 'stop'),
+        usage: final?.usage || null,
+        model: final?.model || options.model || this.config.model || this.getDefaultModel(),
+      };
+    }
+
     const model = options.model || this.config.model || this.getDefaultModel();
     const request = this._buildRequest(messages, tools, options, model);
     let response;

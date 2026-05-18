@@ -5,7 +5,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { AnthropicProvider } = require('./anthropic');
 
 const CLAUDE_CLI_CREDS_PATH = path.join(os.homedir(), '.claude', '.credentials.json');
-const CLAUDE_CODE_BASE_URL = 'https://api.claude.ai/api';
+const CLAUDE_CODE_BASE_URL = 'https://api.anthropic.com';
 const CLAUDE_CODE_VERSION = process.env.CLAUDE_CODE_VERSION || '2.1.75';
 const CLAUDE_CODE_OAUTH_BETA = 'claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14';
 const CLAUDE_CODE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude.";
