@@ -11,6 +11,7 @@ const CLAUDE_CODE_OAUTH_BETA = 'claude-code-20250219,oauth-2025-04-20,fine-grain
 const CLAUDE_CODE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude.";
 const CLAUDE_CODE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 const CLAUDE_CODE_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
+const CLAUDE_CODE_SCOPES = 'user:inference user:profile org:create_api_key user:sessions:claude_code user:mcp_servers';
 
 function readTokenRecord(data) {
   const tokens = data?.claudeAiOauthTokens || data?.claudeAiOauth || {};
@@ -114,6 +115,7 @@ async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch) {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: CLAUDE_CODE_CLIENT_ID,
+      scope: CLAUDE_CODE_SCOPES,
     }),
   });
 
@@ -142,6 +144,22 @@ async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch) {
 
 function isAuthenticationError(err) {
   return err?.status === 401 || err?.error?.type === 'authentication_error';
+}
+
+function isInferenceScopeError(err) {
+  const message = String(err?.error?.message || err?.message || '');
+  const type = String(err?.error?.type || err?.type || '');
+  return err?.status === 403
+    && (type === 'permission_error' || message.includes('"permission_error"'))
+    && message.includes('scope requirement')
+    && message.includes('user:inference');
+}
+
+function formatClaudeCodeCredentialError(err) {
+  if (isInferenceScopeError(err)) {
+    return new Error(`Claude Code OAuth token is missing inference scope. Re-run \`neoagent login claude-code\` to create a token with ${CLAUDE_CODE_SCOPES}.`);
+  }
+  return err;
 }
 
 class ClaudeCodeProvider extends AnthropicProvider {
@@ -224,9 +242,15 @@ class ClaudeCodeProvider extends AnthropicProvider {
     try {
       return await super.chat(messages, tools, options);
     } catch (err) {
-      if (!isAuthenticationError(err) || !this.refreshToken) throw err;
+      if ((!isAuthenticationError(err) && !isInferenceScopeError(err)) || !this.refreshToken) {
+        throw formatClaudeCodeCredentialError(err);
+      }
       await this.refreshClient();
-      return await super.chat(messages, tools, options);
+      try {
+        return await super.chat(messages, tools, options);
+      } catch (retryErr) {
+        throw formatClaudeCodeCredentialError(retryErr);
+      }
     }
   }
 
@@ -234,11 +258,17 @@ class ClaudeCodeProvider extends AnthropicProvider {
     try {
       yield* super.stream(messages, tools, options);
     } catch (err) {
-      if (!isAuthenticationError(err) || !this.refreshToken) throw err;
+      if ((!isAuthenticationError(err) && !isInferenceScopeError(err)) || !this.refreshToken) {
+        throw formatClaudeCodeCredentialError(err);
+      }
       await this.refreshClient();
-      yield* super.stream(messages, tools, options);
+      try {
+        yield* super.stream(messages, tools, options);
+      } catch (retryErr) {
+        throw formatClaudeCodeCredentialError(retryErr);
+      }
     }
   }
 }
 
-module.exports = { ClaudeCodeProvider, readClaudeCliToken, refreshClaudeCodeAccessToken };
+module.exports = { ClaudeCodeProvider, readClaudeCliToken, refreshClaudeCodeAccessToken, CLAUDE_CODE_SCOPES };
