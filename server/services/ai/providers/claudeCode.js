@@ -115,7 +115,6 @@ async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch) {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: CLAUDE_CODE_CLIENT_ID,
-      scope: CLAUDE_CODE_SCOPES,
     }),
   });
 
