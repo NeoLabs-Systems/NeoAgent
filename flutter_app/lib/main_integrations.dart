@@ -175,6 +175,12 @@ class OfficialIntegrationsTab extends StatelessWidget {
                           label: '${item.availableToolCount} tools',
                           icon: Icons.build_outlined,
                         ),
+                        _MetaPill(
+                          label: item.memoryCoverage.supported
+                              ? 'Memory ${item.memoryCoverage.statusLabel}'
+                              : 'No memory sync',
+                          icon: Icons.psychology_alt_outlined,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -255,6 +261,7 @@ Future<void> _showTrelloSetupDialog(
   final apiKeyController = TextEditingController(text: savedApiKey);
   final tokenInputController = TextEditingController();
 
+  if (!context.mounted) return;
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -426,8 +433,7 @@ Future<void> _showTrelloSetupDialog(
                             }
                             final url = authorizeUrl.isNotEmpty
                                 ? authorizeUrl
-                                : 'https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=' +
-                                      Uri.encodeComponent(effectiveApiKey);
+                                : 'https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=${Uri.encodeComponent(effectiveApiKey)}';
                             final result = await controller._oauthLauncher
                                 .openExternal(url: url, label: 'Trello');
                             if (!result.launched) {
@@ -659,6 +665,12 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                               label: '${app.availableToolCount} tools',
                               icon: Icons.build_circle_outlined,
                             ),
+                            _MetaPill(
+                              label: app.memoryCoverage.supported
+                                  ? 'Memory ${app.memoryCoverage.statusLabel}'
+                                  : 'No memory sync',
+                              icon: Icons.psychology_alt_outlined,
+                            ),
                           ],
                         ),
                       ],
@@ -715,6 +727,13 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                         'Access: ${account.accessModeLabel}',
                         style: TextStyle(color: _textSecondary),
                       ),
+                      if (account.memoryCoverage.supported) ...<Widget>[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Memory: ${account.memoryCoverage.statusLabel}',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,

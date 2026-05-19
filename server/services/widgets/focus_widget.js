@@ -52,6 +52,18 @@ function buildAssistantFocusSnapshot(memoryManager, userId, agentId) {
   ).all(userId, scopedAgentId);
   const conversations = memoryManager?.getRecentConversations?.(userId, 4, { agentId: scopedAgentId }) || [];
   const memories = memoryManager?.listMemories?.(userId, { limit: 6, agentId: scopedAgentId }) || [];
+  const recentKnowledgeChanges = memoryManager?.listRecentKnowledgeChanges?.(userId, {
+    agentId: scopedAgentId,
+    limit: 5,
+  }) || [];
+  const knowledgeViews = memoryManager?.listKnowledgeViews?.(userId, {
+    agentId: scopedAgentId,
+    limit: 4,
+  }) || [];
+  const ingestionOverview = memoryManager?.getIngestionOverview?.(userId, {
+    agentId: scopedAgentId,
+    limit: 8,
+  }) || [];
 
   const activeThreads = conversations.slice(0, 3).map((conversation) => ({
     title: safeTrim(conversation.title, 80),
@@ -75,6 +87,24 @@ function buildAssistantFocusSnapshot(memoryManager, userId, agentId) {
     value: safeTrim(run.status || 'unknown', 32),
   }));
   const rememberedContext = memories.slice(0, 2).map((memory) => safeTrim(memory.content, 140));
+  const backgroundAwareness = {
+    summary: safeTrim(
+      recentKnowledgeChanges[0]?.summary
+      || recentKnowledgeChanges[0]?.title
+      || knowledgeViews[0]?.summary
+      || '',
+      180,
+    ),
+    changedCount: recentKnowledgeChanges.length,
+    lastChangedAt: recentKnowledgeChanges[0]?.updatedAt || null,
+  };
+  const syncHealth = ingestionOverview.slice(0, 3).map((source) => ({
+    label: safeTrim(source.providerKey || source.sourceTypes?.[0] || 'Background context', 80),
+    value: safeTrim(source.status || 'ready', 32),
+    lastRefreshAt: source.lastRefreshAt || null,
+    nextRefreshAt: source.nextRefreshAt || null,
+    documentCount: Number(source.documentCount || 0),
+  }));
 
   const currentFocus = safeTrim(
     selfState.focus?.currentFocus
@@ -90,6 +120,10 @@ function buildAssistantFocusSnapshot(memoryManager, userId, agentId) {
     nearTermPriorities,
     recentSignals,
     rememberedContext,
+    recentKnowledgeChanges,
+    knowledgeViews,
+    backgroundAwareness,
+    syncHealth,
     assistantIdentity: {
       name: safeTrim(selfState.identity?.displayName, 80),
       style: safeTrim(selfState.identity?.style, 120),
@@ -99,11 +133,15 @@ function buildAssistantFocusSnapshot(memoryManager, userId, agentId) {
 }
 
 function buildAssistantFocusWidgetPayload(snapshot) {
+  const knowledgeChangeCount = Number(snapshot.backgroundAwareness?.changedCount || 0);
+  const primaryMetric = knowledgeChangeCount > 0 ? knowledgeChangeCount : snapshot.activeThreads.length;
   const rows = [
     ...snapshot.nearTermPriorities,
     ...snapshot.recentSignals,
+    ...snapshot.syncHealth,
   ].slice(0, 3);
   const chips = [
+    ...snapshot.recentKnowledgeChanges.map((item) => item.title),
     ...snapshot.activeThreads.map((item) => item.title),
     ...snapshot.rememberedContext,
   ].filter(Boolean).slice(0, 3);
@@ -113,14 +151,17 @@ function buildAssistantFocusWidgetPayload(snapshot) {
     kicker: 'Assistant state',
     subtitle: snapshot.currentFocus,
     body: snapshot.activeThreads[0]?.preview
+      || snapshot.backgroundAwareness?.summary
       || snapshot.rememberedContext[0]
       || 'Watching recent conversations, tasks, and runs.',
-    metric: String(snapshot.activeThreads.length),
-    metricLabel: snapshot.activeThreads.length === 1 ? 'active thread' : 'active threads',
+    metric: String(primaryMetric),
+    metricLabel: knowledgeChangeCount > 0
+      ? (knowledgeChangeCount === 1 ? 'knowledge change' : 'knowledge changes')
+      : (snapshot.activeThreads.length === 1 ? 'active thread' : 'active threads'),
     secondaryMetric: String(snapshot.nearTermPriorities.length),
     secondaryLabel: 'priorities',
-    tertiaryMetric: formatRelativeTimestamp(snapshot.generatedAt),
-    tertiaryLabel: 'updated',
+    tertiaryMetric: formatRelativeTimestamp(snapshot.backgroundAwareness?.lastChangedAt || snapshot.generatedAt),
+    tertiaryLabel: snapshot.backgroundAwareness?.lastChangedAt ? 'last change' : 'updated',
     rows,
     chips,
     iconToken: 'focus',

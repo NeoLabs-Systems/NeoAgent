@@ -614,6 +614,78 @@ db.exec(`
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS memory_ingestion_jobs (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    source_type TEXT NOT NULL,
+    provider_key TEXT DEFAULT '',
+    connection_id INTEGER,
+    status TEXT DEFAULT 'pending',
+    freshness_policy_json TEXT DEFAULT '{}',
+    cursor_json TEXT DEFAULT '{}',
+    summary_json TEXT DEFAULT '{}',
+    metadata_json TEXT DEFAULT '{}',
+    document_count INTEGER DEFAULT 0,
+    error_text TEXT,
+    started_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT,
+    next_sync_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
+    FOREIGN KEY (connection_id) REFERENCES integration_connections(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS memory_ingestion_documents (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    source_type TEXT NOT NULL,
+    normalized_type TEXT NOT NULL,
+    provider_key TEXT DEFAULT '',
+    connection_id INTEGER NOT NULL DEFAULT 0,
+    external_object_id TEXT NOT NULL,
+    source_account TEXT,
+    title TEXT,
+    content TEXT NOT NULL,
+    summary TEXT,
+    salience INTEGER DEFAULT 5,
+    source_timestamp TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    payload_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
+    UNIQUE(user_id, agent_id, source_type, provider_key, connection_id, external_object_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS materialized_knowledge_views (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    view_type TEXT NOT NULL,
+    subject_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT,
+    markdown_text TEXT,
+    source_memory_ids_json TEXT DEFAULT '[]',
+    source_document_ids_json TEXT DEFAULT '[]',
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
+    UNIQUE(user_id, agent_id, view_type, subject_key)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_memory_ingestion_jobs_user ON memory_ingestion_jobs(user_id, agent_id, source_type, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_memory_ingestion_documents_user ON memory_ingestion_documents(user_id, agent_id, source_type, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_memory_ingestion_documents_provider ON memory_ingestion_documents(user_id, agent_id, provider_key, connection_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_materialized_knowledge_views_user ON materialized_knowledge_views(user_id, agent_id, view_type, updated_at DESC);
+
   CREATE TABLE IF NOT EXISTS agent_run_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id TEXT NOT NULL,
@@ -1697,6 +1769,19 @@ function migrateUsersDisplayName() {
   }
 }
 migrateUsersDisplayName();
+
+function migrateIngestionDocumentsConnectionId() {
+  // connection_id was initially nullable; NULL breaks the UNIQUE dedup constraint.
+  // Coerce any existing NULLs to 0 so the unique index works as intended.
+  try {
+    db.prepare(
+      `UPDATE memory_ingestion_documents SET connection_id = 0 WHERE connection_id IS NULL`
+    ).run();
+  } catch {
+    // Table may not exist yet on first boot; the schema DDL handles that case.
+  }
+}
+migrateIngestionDocumentsConnectionId();
 
 try {
   db.exec(`

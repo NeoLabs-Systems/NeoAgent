@@ -182,7 +182,7 @@ class IntegrationManager {
       rowsByProvider.get(providerKey).push(row);
     }
 
-    return this.registry
+    const snapshots = this.registry
       .list()
       .map((provider) =>
         provider.buildSnapshot(rowsByProvider.get(provider.key) || [], {
@@ -190,6 +190,13 @@ class IntegrationManager {
           agentId: scopedAgentId,
         }),
       );
+    const ingestionService = this.app?.locals?.memoryIngestionService || null;
+    if (!ingestionService || typeof ingestionService.decorateProviderSnapshot !== 'function') {
+      return snapshots;
+    }
+    return snapshots.map((snapshot) =>
+      ingestionService.decorateProviderSnapshot(snapshot, userId, scopedAgentId),
+    );
   }
 
   async beginOAuth(userId, providerKey, options = {}) {
@@ -705,15 +712,20 @@ class IntegrationManager {
   }
 
   summarizeConnectedProviders(userId, agentId = null) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
+    const ingestionService = this.app?.locals?.memoryIngestionService || null;
     const providers = this.registry.list().map((provider) => ({
       provider,
-      snapshot: provider.buildSnapshot(
-        this.listConnections(userId, provider.key, agentId),
-        {
-          userId,
-          agentId,
-        },
-      ),
+      snapshot: (() => {
+        const snapshot = provider.buildSnapshot(
+          this.listConnections(userId, provider.key, scopedAgentId),
+          {
+            userId,
+            agentId: scopedAgentId,
+          },
+        );
+        return ingestionService?.decorateProviderSnapshot?.(snapshot, userId, scopedAgentId) || snapshot;
+      })(),
     }));
 
     if (providers.length === 0) {
@@ -722,22 +734,26 @@ class IntegrationManager {
 
     return providers
       .map(({ provider, snapshot }) => {
+        const memoryCoverage = snapshot.memoryCoverage?.supported
+          ? ` Memory ingestion: ${snapshot.memoryCoverage.status}; domains: ${(snapshot.memoryCoverage.dataDomains || []).join(', ') || 'none'}; documents: ${snapshot.memoryCoverage.documentCount || 0}.`
+          : '';
+
         if (typeof provider.summarizeForModel === 'function') {
-          return provider.summarizeForModel(snapshot);
+          return `${provider.summarizeForModel(snapshot)}${memoryCoverage}`;
         }
 
         if (!snapshot?.env?.configured) {
           if (snapshot?.env?.setupMode === 'user') {
-            return `${provider.label}: setup is not complete for this user yet. If the user wants to use it, tell them to finish setup in Official Integrations first.`;
+            return `${provider.label}: setup is not complete for this user yet. If the user wants to use it, tell them to finish setup in Official Integrations first.${memoryCoverage}`;
           }
-          return `${provider.label}: available but not configured on the server yet. If the user wants to use it, tell them to finish setup in Official Integrations first.`;
+          return `${provider.label}: available but not configured on the server yet. If the user wants to use it, tell them to finish setup in Official Integrations first.${memoryCoverage}`;
         }
 
         if (!snapshot.connection?.connected) {
-          return `${provider.label}: server setup is ready, but no accounts are connected. If the user wants to use it, tell them to connect an account in Official Integrations first.`;
+          return `${provider.label}: server setup is ready, but no accounts are connected. If the user wants to use it, tell them to connect an account in Official Integrations first.${memoryCoverage}`;
         }
 
-        return `${provider.label}: native built-in access is connected in this run.`;
+        return `${provider.label}: native built-in access is connected in this run.${memoryCoverage}`;
       })
       .join('\n');
   }

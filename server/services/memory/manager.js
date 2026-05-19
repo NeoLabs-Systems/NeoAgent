@@ -117,6 +117,16 @@ function parseJsonObject(value, fallback = {}) {
   }
 }
 
+function parseJsonArray(value, fallback = []) {
+  if (Array.isArray(value)) return [...value];
+  try {
+    const parsed = JSON.parse(String(value || '[]'));
+    return Array.isArray(parsed) ? parsed : [...fallback];
+  } catch {
+    return [...fallback];
+  }
+}
+
 function computeFreshnessMultiplier(row) {
   const staleAfterDays = Number(row?.stale_after_days);
   if (!Number.isFinite(staleAfterDays) || staleAfterDays <= 0) return 1;
@@ -192,6 +202,14 @@ function buildExcerpt(text, query) {
 function tokenizeRecallQuery(query) {
   return (String(query || '').toLowerCase().match(/[\p{L}\p{N}_-]{3,}/gu) || [])
     .slice(0, 12);
+}
+
+function normalizeStringArray(value, maxItems = 24, maxLength = 160) {
+  return [...new Set(
+    (Array.isArray(value) ? value : [])
+      .map((item) => String(item || '').trim().slice(0, maxLength))
+      .filter(Boolean)
+  )].slice(0, maxItems);
 }
 
 function scoreSchedulerRunMatch(queryTokens, title, finalResponse) {
@@ -311,6 +329,410 @@ class MemoryManager {
       JSON.stringify(nextFocus),
     );
     return this.getAssistantSelfState(userId, { agentId });
+  }
+
+  listIngestionJobs(userId, { agentId = null, sourceType = null, providerKey = null, limit = 25 } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
+    let sql = `SELECT *
+               FROM memory_ingestion_jobs
+               WHERE user_id = ? AND agent_id = ?`;
+    const params = [userId, scopedAgentId];
+    if (sourceType) {
+      sql += ' AND source_type = ?';
+      params.push(String(sourceType).trim());
+    }
+    if (providerKey) {
+      sql += ' AND provider_key = ?';
+      params.push(String(providerKey).trim());
+    }
+    sql += ' ORDER BY updated_at DESC LIMIT ?';
+    params.push(Math.max(1, Math.min(Number(limit) || 25, 100)));
+    return db.prepare(sql).all(...params).map((row) => ({
+      id: row.id,
+      sourceType: row.source_type,
+      providerKey: row.provider_key || null,
+      connectionId: row.connection_id == null ? null : Number(row.connection_id),
+      status: row.status || 'pending',
+      freshnessPolicy: parseJsonObject(row.freshness_policy_json, {}),
+      cursor: parseJsonObject(row.cursor_json, {}),
+      summary: parseJsonObject(row.summary_json, {}),
+      metadata: parseJsonObject(row.metadata_json, {}),
+      documentCount: Number(row.document_count || 0),
+      error: row.error_text || null,
+      startedAt: row.started_at || null,
+      completedAt: row.completed_at || null,
+      nextSyncAt: row.next_sync_at || null,
+      updatedAt: row.updated_at || null,
+    }));
+  }
+
+  recordIngestionJob(userId, job = {}, options = {}) {
+    const scopedAgentId = this._agentId(userId, options);
+    const jobId = String(job.id || uuidv4()).trim();
+    db.prepare(
+      `INSERT INTO memory_ingestion_jobs (
+        id, user_id, agent_id, source_type, provider_key, connection_id, status,
+        freshness_policy_json, cursor_json, summary_json, metadata_json, document_count,
+        error_text, started_at, completed_at, next_sync_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, datetime('now'), datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        status = excluded.status,
+        freshness_policy_json = excluded.freshness_policy_json,
+        cursor_json = excluded.cursor_json,
+        summary_json = excluded.summary_json,
+        metadata_json = excluded.metadata_json,
+        document_count = excluded.document_count,
+        error_text = excluded.error_text,
+        completed_at = excluded.completed_at,
+        next_sync_at = excluded.next_sync_at,
+        updated_at = excluded.updated_at`
+    ).run(
+      jobId,
+      userId,
+      scopedAgentId,
+      String(job.sourceType || '').trim() || 'unknown',
+      String(job.providerKey || '').trim(),
+      Number.isInteger(Number(job.connectionId)) && Number(job.connectionId) > 0 ? Number(job.connectionId) : null,
+      String(job.status || 'completed').trim() || 'completed',
+      JSON.stringify(parseJsonObject(job.freshnessPolicy, {})),
+      JSON.stringify(parseJsonObject(job.cursor, {})),
+      JSON.stringify(parseJsonObject(job.summary, {})),
+      JSON.stringify(parseJsonObject(job.metadata, {})),
+      Number(job.documentCount) || 0,
+      String(job.error || '').trim() || null,
+      job.startedAt || null,
+      job.completedAt || null,
+      job.nextSyncAt || null,
+    );
+    return jobId;
+  }
+
+  upsertIngestionDocument(userId, document = {}, options = {}) {
+    const scopedAgentId = this._agentId(userId, options);
+    const providerKey = String(document.providerKey || '').trim();
+    const connectionId = Number.isInteger(Number(document.connectionId)) && Number(document.connectionId) > 0
+      ? Number(document.connectionId)
+      : 0;
+    const sourceType = String(document.sourceType || '').trim() || 'unknown';
+    const externalObjectId = String(document.externalObjectId || '').trim();
+    const content = String(document.content || '').trim();
+    if (!externalObjectId || !content) {
+      throw new Error('Ingestion documents require externalObjectId and content.');
+    }
+
+    const existing = db.prepare(
+      `SELECT id, metadata_json
+       FROM memory_ingestion_documents
+       WHERE user_id = ? AND agent_id = ? AND source_type = ? AND provider_key = ? AND connection_id = ? AND external_object_id = ?`
+    ).get(userId, scopedAgentId, sourceType, providerKey, connectionId, externalObjectId);
+
+    const docId = existing?.id || uuidv4();
+    const nextMetadata = {
+      ...parseJsonObject(existing?.metadata_json, {}),
+      ...parseJsonObject(document.metadata, {}),
+    };
+
+    db.prepare(
+      `INSERT INTO memory_ingestion_documents (
+        id, user_id, agent_id, source_type, normalized_type, provider_key, connection_id,
+        external_object_id, source_account, title, content, summary, salience, source_timestamp,
+        metadata_json, payload_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        normalized_type = excluded.normalized_type,
+        source_account = excluded.source_account,
+        title = excluded.title,
+        content = excluded.content,
+        summary = excluded.summary,
+        salience = excluded.salience,
+        source_timestamp = excluded.source_timestamp,
+        metadata_json = excluded.metadata_json,
+        payload_json = excluded.payload_json,
+        updated_at = excluded.updated_at`
+    ).run(
+      docId,
+      userId,
+      scopedAgentId,
+      sourceType,
+      String(document.normalizedType || sourceType).trim() || sourceType,
+      providerKey,
+      connectionId,
+      externalObjectId,
+      String(document.sourceAccount || '').trim() || null,
+      String(document.title || '').trim() || null,
+      content,
+      String(document.summary || '').trim() || null,
+      Math.max(1, Math.min(10, Number(document.salience) || 5)),
+      document.sourceTimestamp || null,
+      JSON.stringify(nextMetadata),
+      JSON.stringify(parseJsonObject(document.payload, {})),
+    );
+
+    return docId;
+  }
+
+  listIngestionDocuments(userId, { agentId = null, sourceType = null, providerKey = null, limit = 40 } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
+    let sql = `SELECT *
+               FROM memory_ingestion_documents
+               WHERE user_id = ? AND agent_id = ?`;
+    const params = [userId, scopedAgentId];
+    if (sourceType) {
+      sql += ' AND source_type = ?';
+      params.push(String(sourceType).trim());
+    }
+    if (providerKey) {
+      sql += ' AND provider_key = ?';
+      params.push(String(providerKey).trim());
+    }
+    sql += ' ORDER BY updated_at DESC LIMIT ?';
+    params.push(Math.max(1, Math.min(Number(limit) || 40, 200)));
+    return db.prepare(sql).all(...params).map((row) => ({
+      id: row.id,
+      sourceType: row.source_type,
+      normalizedType: row.normalized_type,
+      providerKey: row.provider_key || null,
+      connectionId: row.connection_id ? Number(row.connection_id) : null,
+      externalObjectId: row.external_object_id,
+      sourceAccount: row.source_account || null,
+      title: row.title || null,
+      content: row.content,
+      summary: row.summary || null,
+      salience: Number(row.salience || 0),
+      sourceTimestamp: row.source_timestamp || null,
+      metadata: parseJsonObject(row.metadata_json, {}),
+      payload: parseJsonObject(row.payload_json, {}),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  getIngestionOverview(userId, { agentId = null, limit = 12 } = {}) {
+    const jobs = this.listIngestionJobs(userId, { agentId, limit });
+    const byProvider = new Map();
+    for (const job of jobs) {
+      const providerKey = job.providerKey || `local:${job.sourceType}`;
+      if (!byProvider.has(providerKey)) {
+        byProvider.set(providerKey, {
+          providerKey,
+          sourceTypes: new Set(),
+          status: job.status,
+          lastRefreshAt: job.completedAt || job.updatedAt || null,
+          nextRefreshAt: job.nextSyncAt || null,
+          documentCount: 0,
+          error: job.error || null,
+        });
+      }
+      const current = byProvider.get(providerKey);
+      current.sourceTypes.add(job.sourceType);
+      current.documentCount += job.documentCount;
+      if (current.status !== 'failed' && job.status === 'failed') current.status = 'failed';
+      if (!current.error && job.error) current.error = job.error;
+    }
+    return Array.from(byProvider.values()).map((item) => ({
+      providerKey: item.providerKey,
+      sourceTypes: Array.from(item.sourceTypes),
+      status: item.status,
+      lastRefreshAt: item.lastRefreshAt,
+      nextRefreshAt: item.nextRefreshAt,
+      documentCount: item.documentCount,
+      error: item.error,
+    }));
+  }
+
+  materializeKnowledgeViews(userId, { agentId = null } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
+    const memories = this.listMemories(userId, { limit: 200, agentId: scopedAgentId });
+    const documents = this.listIngestionDocuments(userId, { limit: 200, agentId: scopedAgentId });
+    const views = [];
+
+    const topicGroups = new Map();
+    for (const memory of memories) {
+      const key = memory.category || 'episodic';
+      if (!topicGroups.has(key)) topicGroups.set(key, []);
+      topicGroups.get(key).push(memory);
+    }
+    for (const [topic, items] of topicGroups.entries()) {
+      const summary = items.slice(0, 4).map((item) => `- ${item.content}`).join('\n');
+      views.push({
+        viewType: 'topic',
+        subjectKey: topic,
+        title: topic.replace(/_/g, ' '),
+        summary: summary.slice(0, 320),
+        markdownText: `# ${topic}\n\n${summary}`,
+        sourceMemoryIds: items.map((item) => item.id),
+        sourceDocumentIds: [],
+        metadata: {
+          itemCount: items.length,
+          category: topic,
+        },
+      });
+    }
+
+    const accountGroups = new Map();
+    for (const doc of documents) {
+      const accountKey = `${doc.providerKey || 'local'}:${doc.sourceAccount || 'default'}`;
+      if (!accountGroups.has(accountKey)) accountGroups.set(accountKey, []);
+      accountGroups.get(accountKey).push(doc);
+    }
+    for (const [accountKey, items] of accountGroups.entries()) {
+      const lead = items[0];
+      const lines = items.slice(0, 4).map((item) => `- ${item.title || item.normalizedType}: ${item.summary || item.content}`);
+      views.push({
+        viewType: 'account',
+        subjectKey: accountKey,
+        title: `${lead.providerKey || 'local'} ${lead.sourceAccount || 'account'}`,
+        summary: lines.join('\n').slice(0, 320),
+        markdownText: `# ${lead.providerKey || 'local'} / ${lead.sourceAccount || 'account'}\n\n${lines.join('\n')}`,
+        sourceMemoryIds: [],
+        sourceDocumentIds: items.map((item) => item.id),
+        metadata: {
+          providerKey: lead.providerKey || null,
+          sourceAccount: lead.sourceAccount || null,
+          itemCount: items.length,
+        },
+      });
+    }
+
+    const recentTimeline = [...documents]
+      .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+      .slice(0, 8);
+    if (recentTimeline.length > 0) {
+      views.push({
+        viewType: 'timeline',
+        subjectKey: 'recent',
+        title: 'Recent knowledge changes',
+        summary: recentTimeline.map((item) => `${item.title || item.normalizedType}: ${item.summary || item.content}`).join(' | ').slice(0, 320),
+        markdownText: `# Recent knowledge changes\n\n${recentTimeline.map((item) => `- ${item.title || item.normalizedType}: ${item.summary || item.content}`).join('\n')}`,
+        sourceMemoryIds: [],
+        sourceDocumentIds: recentTimeline.map((item) => item.id),
+        metadata: {
+          itemCount: recentTimeline.length,
+        },
+      });
+    }
+
+    const projectMemories = memories.filter((memory) => memory.category === 'projects');
+    for (const memory of projectMemories.slice(0, 12)) {
+      views.push({
+        viewType: 'project',
+        subjectKey: memory.id,
+        title: memory.content.split(/[.!?\n]/)[0].slice(0, 120) || 'Project',
+        summary: memory.content.slice(0, 320),
+        markdownText: `# ${memory.content.split(/[.!?\n]/)[0].slice(0, 120) || 'Project'}\n\n${memory.content}`,
+        sourceMemoryIds: [memory.id],
+        sourceDocumentIds: [],
+        metadata: {
+          importance: memory.importance,
+        },
+      });
+    }
+
+    const personMemories = memories.filter((memory) => ['contacts', 'identity'].includes(memory.category));
+    for (const memory of personMemories.slice(0, 12)) {
+      views.push({
+        viewType: 'person',
+        subjectKey: memory.id,
+        title: memory.content.split(/[.!?\n]/)[0].slice(0, 120) || 'Person',
+        summary: memory.content.slice(0, 320),
+        markdownText: `# ${memory.content.split(/[.!?\n]/)[0].slice(0, 120) || 'Person'}\n\n${memory.content}`,
+        sourceMemoryIds: [memory.id],
+        sourceDocumentIds: [],
+        metadata: {
+          category: memory.category,
+        },
+      });
+    }
+
+    for (const view of views) {
+      const existing = db.prepare(
+        `SELECT id FROM materialized_knowledge_views
+         WHERE user_id = ? AND agent_id = ? AND view_type = ? AND subject_key = ?`
+      ).get(userId, scopedAgentId, view.viewType, view.subjectKey);
+      const viewId = existing?.id || uuidv4();
+      db.prepare(
+        `INSERT INTO materialized_knowledge_views (
+          id, user_id, agent_id, view_type, subject_key, title, summary, markdown_text,
+          source_memory_ids_json, source_document_ids_json, metadata_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          summary = excluded.summary,
+          markdown_text = excluded.markdown_text,
+          source_memory_ids_json = excluded.source_memory_ids_json,
+          source_document_ids_json = excluded.source_document_ids_json,
+          metadata_json = excluded.metadata_json,
+          updated_at = excluded.updated_at`
+      ).run(
+        viewId,
+        userId,
+        scopedAgentId,
+        view.viewType,
+        view.subjectKey,
+        view.title,
+        view.summary,
+        view.markdownText,
+        JSON.stringify(normalizeStringArray(view.sourceMemoryIds, 48, 64)),
+        JSON.stringify(normalizeStringArray(view.sourceDocumentIds, 48, 64)),
+        JSON.stringify(parseJsonObject(view.metadata, {})),
+      );
+    }
+
+    return this.listKnowledgeViews(userId, { agentId: scopedAgentId, limit: 64 });
+  }
+
+  listKnowledgeViews(userId, { agentId = null, viewType = null, limit = 40 } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
+    let sql = `SELECT *
+               FROM materialized_knowledge_views
+               WHERE user_id = ? AND agent_id = ?`;
+    const params = [userId, scopedAgentId];
+    if (viewType) {
+      sql += ' AND view_type = ?';
+      params.push(String(viewType).trim());
+    }
+    sql += ' ORDER BY updated_at DESC LIMIT ?';
+    params.push(Math.max(1, Math.min(Number(limit) || 40, 100)));
+    return db.prepare(sql).all(...params).map((row) => ({
+      id: row.id,
+      viewType: row.view_type,
+      subjectKey: row.subject_key,
+      title: row.title,
+      summary: row.summary || '',
+      markdownText: row.markdown_text || '',
+      sourceMemoryIds: normalizeStringArray(parseJsonArray(row.source_memory_ids_json)),
+      sourceDocumentIds: normalizeStringArray(parseJsonArray(row.source_document_ids_json)),
+      metadata: parseJsonObject(row.metadata_json, {}),
+      updatedAt: row.updated_at || null,
+    }));
+  }
+
+  listRecentKnowledgeChanges(userId, { agentId = null, limit = 8 } = {}) {
+    const docs = this.listIngestionDocuments(userId, { agentId, limit });
+    const views = this.listKnowledgeViews(userId, { agentId, limit });
+    const changes = [
+      ...docs.map((doc) => ({
+        kind: 'document',
+        id: doc.id,
+        title: doc.title || doc.normalizedType,
+        summary: doc.summary || doc.content,
+        sourceType: doc.sourceType,
+        providerKey: doc.providerKey,
+        updatedAt: doc.updatedAt,
+      })),
+      ...views.map((view) => ({
+        kind: 'view',
+        id: view.id,
+        title: view.title,
+        summary: view.summary,
+        sourceType: view.viewType,
+        providerKey: view.metadata?.providerKey || null,
+        updatedAt: view.updatedAt,
+      })),
+    ];
+    return changes
+      .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+      .slice(0, Math.max(1, Math.min(Number(limit) || 8, 24)));
   }
 
   // ─────────────────────────────────────────────────────────────────────────

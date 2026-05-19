@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const db = require('../../db/database');
 const { compact } = require('./compaction');
+const { compactPayloadForModel } = require('./preModelCompaction');
 const {
   getConversationContext,
   buildSummaryCarrier,
@@ -1563,6 +1564,37 @@ class AgentEngine {
     let provider = selectedProvider.provider;
     let model = selectedProvider.model;
     let providerName = selectedProvider.providerName;
+    const switchToFallbackModel = async (failedModel, error, phase) => {
+      const fallbackModelId = await getFailureFallbackModelId(userId, agentId, failedModel, aiSettings.fallback_model_id);
+      if (!fallbackModelId || fallbackModelId === failedModel) return false;
+      console.log(`[Engine] ${phase} failed on ${failedModel}; attempting fallback to: ${fallbackModelId}`);
+      this.emit(userId, 'run:interim', {
+        runId,
+        message: `Model service failed on ${failedModel}; retrying with ${fallbackModelId}.`,
+        phase: 'model_fallback'
+      });
+      const fallback = await getProviderForUser(
+        userId,
+        userMessage,
+        triggerType === 'subagent',
+        fallbackModelId,
+        providerStatusConfig
+      );
+      provider = fallback.provider;
+      model = fallback.model;
+      providerName = fallback.providerName;
+      return true;
+    };
+    const runWithModelFallback = async (phase, fn) => {
+      try {
+        return await fn();
+      } catch (err) {
+        const failedModel = model;
+        const switched = await switchToFallbackModel(failedModel, err, phase);
+        if (!switched) throw err;
+        return await fn();
+      }
+    };
 
     const runTitle = generateTitle(userMessage);
     db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, agent_id, title, status, trigger_type, trigger_source, model)
@@ -1683,6 +1715,7 @@ class AgentEngine {
     let modelFailureRecoveries = 0;
     let promptMetrics = {};
     let toolExecutions = [];
+    let compactionMetrics = [];
     let analysis = null;
     let plan = null;
     let verification = null;
@@ -1697,7 +1730,7 @@ class AgentEngine {
       if (options.skipTaskAnalysis === true) {
         analysis = buildSkipTaskAnalysisResult(options.forceMode);
       } else {
-        const analysisResult = await this.analyzeTask({
+        const analysisResult = await runWithModelFallback('task analysis', () => this.analyzeTask({
           provider,
           providerName,
           model,
@@ -1707,7 +1740,7 @@ class AgentEngine {
           forceMode: options.forceMode || null,
           userMessage,
           options: { ...options, triggerSource },
-        });
+        }));
         analysisUsage = analysisResult.usage || 0;
         totalTokens += analysisUsage;
         analysis = applyForcedAnalysisMode({ ...analysisResult.analysis }, options.forceMode);
@@ -1803,7 +1836,7 @@ class AgentEngine {
       }
 
       if (analysis.mode === 'plan_execute') {
-        const planResult = await this.createExecutionPlan({
+        const planResult = await runWithModelFallback('execution planning', () => this.createExecutionPlan({
           provider,
           providerName,
           model,
@@ -1811,7 +1844,7 @@ class AgentEngine {
           analysis,
           capabilitySummary,
           options,
-        });
+        }));
         totalTokens += planResult.usage || 0;
         plan = planResult.plan;
         stepIndex += 1;
@@ -1978,26 +2011,13 @@ class AgentEngine {
           await tryModelCall();
         } catch (err) {
           const modelError = String(err?.message || 'Model call failed');
-          const isFatalModelError = /no ai providers? are currently available|missing an api key|disabled in settings|unauthorized|forbidden|authentication failed/i
-            .test(modelError);
 
-          if (!isFatalModelError && modelFailureRecoveries < loopPolicy.maxModelFailureRecoveries) {
+          if (modelFailureRecoveries < loopPolicy.maxModelFailureRecoveries) {
+            const failedModel = model;
+            const switched = await switchToFallbackModel(failedModel, err, 'model turn');
+            if (!switched) throw err;
             modelFailureRecoveries += 1;
             failedStepCount += 1;
-            const failedModel = model;
-            const fallbackModelId = await getFailureFallbackModelId(userId, agentId, model, aiSettings.fallback_model_id);
-            if (fallbackModelId && fallbackModelId !== model) {
-              const fallback = await getProviderForUser(
-                userId,
-                userMessage,
-                triggerType === 'subagent',
-                fallbackModelId,
-                providerStatusConfig
-              );
-              provider = fallback.provider;
-              model = fallback.model;
-              providerName = fallback.providerName;
-            }
             messages.push({
               role: 'system',
               content: buildModelFailureLoopPrompt({
@@ -2082,7 +2102,7 @@ class AgentEngine {
           }
           if (iteration < maxIterations) {
             const fallbackStatus = (toolExecutions.length > 0 || failedStepCount > 0 || messagingSent) ? 'continue' : 'complete';
-            const loopState = await this.decideLoopState({
+            const loopState = await runWithModelFallback('loop decision', () => this.decideLoopState({
               provider,
               providerName,
               model,
@@ -2098,7 +2118,7 @@ class AgentEngine {
               maxIterations,
               options,
               fallbackStatus,
-            });
+            }));
             totalTokens += loopState.usage || 0;
             if (loopState.decision.status === 'continue') {
               messages.push({
@@ -2278,14 +2298,33 @@ class AgentEngine {
             evidenceSources: [...new Set(toolExecutions.map((item) => item.evidenceSource).filter(Boolean))],
             subagentState: this.listSubagents(runId),
             deliverableArtifacts,
+            compactionMetrics: compactionMetrics.slice(-20),
           });
+
+          const modelPayload = compactPayloadForModel(toolName, toolResult);
+          if (modelPayload.metrics?.applied) {
+            const metric = {
+              toolName,
+              stepId,
+              ...modelPayload.metrics,
+              createdAt: new Date().toISOString(),
+            };
+            compactionMetrics.push(metric);
+            this.persistRunMetadata(runId, {
+              compactionMetrics: compactionMetrics.slice(-20),
+            });
+            this.recordRunEvent(userId, runId, 'pre_model_compaction_applied', {
+              toolName,
+              metrics: modelPayload.metrics,
+            }, { agentId, stepId });
+          }
 
           const toolResultLimits = resolveToolResultLimits(toolName, loopPolicy);
           const toolMessage = {
             role: 'tool',
             name: toolName,
             tool_call_id: toolCall.id,
-            content: compactToolResult(toolName, toolArgs, toolResult, {
+            content: compactToolResult(toolName, toolArgs, modelPayload.result, {
               softLimit: toolResultLimits.softLimit,
               hardLimit: toolResultLimits.hardLimit,
             })
@@ -2456,7 +2495,7 @@ class AgentEngine {
         toolExecutions,
         finalReply: finalResponseText,
       })) {
-        const verificationResult = await this.verifyFinalResponse({
+        const verificationResult = await runWithModelFallback('final verification', () => this.verifyFinalResponse({
           provider,
           providerName,
           model,
@@ -2465,7 +2504,7 @@ class AgentEngine {
           toolExecutions,
           finalReply: finalResponseText,
           options,
-        });
+        }));
         totalTokens += verificationResult.usage || 0;
         verification = verificationResult.verification;
         if (verification.final_reply) {
