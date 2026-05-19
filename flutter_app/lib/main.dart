@@ -6,6 +6,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:flutter/cupertino.dart' as cupertino;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
