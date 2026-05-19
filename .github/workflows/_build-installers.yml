@@ -174,6 +174,18 @@ jobs:
       - name: Build macOS app
         run: flutter build macos --release
 
+      - name: Remove restricted macOS release entitlements
+        run: |
+          APP_DIR="build/macos/Build/Products/Release"
+          APP_BUNDLE=$(find "$APP_DIR" -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_BUNDLE" ]; then
+            echo "No .app bundle found in $APP_DIR"
+            exit 1
+          fi
+
+          codesign --force --deep --sign - "$APP_BUNDLE"
+          codesign --verify --deep --strict --verbose=4 "$APP_BUNDLE"
+
       - name: Resolve app version
         id: version
         env:
