@@ -224,8 +224,8 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: <TargetPlatform, PageTransitionsBuilder>{
         TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: _NeoAgentCupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: _NeoAgentCupertinoPageTransitionsBuilder(),
         TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
         TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
       },
@@ -273,4 +273,33 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
       contentTextStyle: TextStyle(color: palette.textPrimary),
     ),
   );
+}
+
+class _NeoAgentCupertinoPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _NeoAgentCupertinoPageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration =>
+      cupertino.CupertinoRouteTransitionMixin.kTransitionDuration;
+
+  @override
+  DelegatedTransitionBuilder? get delegatedTransition =>
+      cupertino.CupertinoPageTransition.delegatedTransition;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return cupertino.CupertinoRouteTransitionMixin.buildPageTransitions<T>(
+      route,
+      context,
+      animation,
+      secondaryAnimation,
+      child,
+    );
+  }
 }
