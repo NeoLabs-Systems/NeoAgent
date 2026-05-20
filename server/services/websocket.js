@@ -35,6 +35,8 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'integrations:status': { windowMs: 10 * 1000, max: 20 },
   'memory:read': { windowMs: 10 * 1000, max: 20 },
   'memory:search': { windowMs: 10 * 1000, max: 20 },
+  'stream:subscribe': { windowMs: 10 * 1000, max: 40 },
+  'stream:unsubscribe': { windowMs: 10 * 1000, max: 40 },
 });
 
 function asObject(value) {
@@ -52,6 +54,19 @@ function toBoundedInt(value, fallback, min, max) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
+function normalizeStreamPayload(raw) {
+  const data = asObject(raw);
+  const platform = toOptionalString(data?.platform, 32).toLowerCase() || 'desktop';
+  if (!['desktop', 'android', 'browser'].includes(platform)) {
+    throw new Error('platform must be desktop, android, or browser.');
+  }
+  const deviceId = toOptionalString(data?.deviceId || data?.device_id, 256);
+  return {
+    platform,
+    deviceId: deviceId || (platform === 'browser' ? 'browser' : ''),
+  };
 }
 
 function resolveAgentFromPayload(userId, value) {
@@ -831,9 +846,67 @@ function setupWebSocket(io, services) {
       }
     });
 
+    // ── Remote Control Streams ──
+
+    socket.on('stream:subscribe', (raw) => {
+      const limit = allowEvent('stream:subscribe');
+      if (!limit.allowed) {
+        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'stream:subscribe', limit.retryAfterMs);
+        return socket.emit('stream:error', {
+          error: `Rate limit exceeded for stream:subscribe. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
+        });
+      }
+      try {
+        const streamHub = services.streamHub || services.app?.locals?.streamHub;
+        if (!streamHub) throw new Error('Stream hub is unavailable.');
+        const data = normalizeStreamPayload(raw);
+        if (!data.deviceId) throw new Error('deviceId is required.');
+        const subscriberCount = streamHub.subscribe(userId, data.deviceId, data.platform, socket.id);
+        socket.emit('stream:subscribed', {
+          platform: data.platform,
+          deviceId: data.deviceId,
+          subscriberCount,
+        });
+      } catch (err) {
+        console.error(`[WS] stream:subscribe failed for user ${userId}:`, err);
+        socket.emit('stream:error', { error: sanitizeError(err) });
+      }
+    });
+
+    socket.on('stream:unsubscribe', async (raw) => {
+      const limit = allowEvent('stream:unsubscribe');
+      if (!limit.allowed) {
+        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'stream:unsubscribe', limit.retryAfterMs);
+        return socket.emit('stream:error', {
+          error: `Rate limit exceeded for stream:unsubscribe. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
+        });
+      }
+      try {
+        const streamHub = services.streamHub || services.app?.locals?.streamHub;
+        if (!streamHub) throw new Error('Stream hub is unavailable.');
+        const data = normalizeStreamPayload(raw);
+        if (!data.deviceId) throw new Error('deviceId is required.');
+        const subscriberCount = await streamHub.unsubscribe(userId, data.platform, data.deviceId, socket.id);
+        socket.emit('stream:unsubscribed', {
+          platform: data.platform,
+          deviceId: data.deviceId,
+          subscriberCount,
+        });
+      } catch (err) {
+        console.error(`[WS] stream:unsubscribe failed for user ${userId}:`, err);
+        socket.emit('stream:error', { error: sanitizeError(err) });
+      }
+    });
+
     // ── Disconnect ──
 
     socket.on('disconnect', () => {
+      const streamHub = services.streamHub || services.app?.locals?.streamHub;
+      if (streamHub && typeof streamHub.unsubscribeAll === 'function') {
+        void streamHub.unsubscribeAll(socket.id).catch((err) => {
+          console.error(`[WS] Failed to unsubscribe streams for socket ${socket.id}:`, err);
+        });
+      }
       if (!voiceRuntimeManager || typeof voiceRuntimeManager.closeSession !== 'function') {
         socket.data.voiceSessionIds?.clear?.();
         console.log(`[WS] User ${userId} disconnected (${socket.id})`);

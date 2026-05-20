@@ -347,10 +347,14 @@ class AndroidController {
   // ── Actions ───────────────────────────────────────────────────────────────
 
   async screenshot(_opts = {}) {
-    const serial = this.#requireSerial();
-    const r = this.#adbCapture(serial, ['exec-out', 'screencap', '-p']);
+    const r = await this.capturePng();
     if (!r?.length) throw new Error('screencap returned no data');
     return { screenshotPath: this.#saveArtifact(r) };
+  }
+
+  async capturePng(_opts = {}) {
+    const serial = this.#requireSerial();
+    return this.#adbCapture(serial, ['exec-out', 'screencap', '-p']);
   }
 
   async observe(_opts = {}) { return this.screenshot(); }

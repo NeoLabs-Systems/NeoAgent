@@ -1,5 +1,11 @@
 const { WebSocketServer } = require('ws');
-const { DESKTOP_COMPANION_WS_PATH, parseDesktopMessage } = require('./protocol');
+const {
+  DESKTOP_COMPANION_WS_PATH,
+  FRAME_TYPE_VIDEO,
+  MAX_DESKTOP_STREAM_FRAME_BYTES,
+  parseBinaryFrame,
+  parseDesktopMessage,
+} = require('./protocol');
 const {
   assertDesktopHelloAuth,
   isDesktopCompanionHello,
@@ -72,8 +78,11 @@ function createUpgradeThrottleObserver() {
   return { record, snapshot };
 }
 
-function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware) {
-  const wss = new WebSocketServer({ noServer: true });
+function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamHub = null) {
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: MAX_DESKTOP_STREAM_FRAME_BYTES,
+  });
   const upgradeAttempts = new Map();
   const upgradeThrottleObserver = createUpgradeThrottleObserver();
 
@@ -173,6 +182,22 @@ function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware) {
               device,
             }));
             ws.on('message', (nextData) => {
+              const activeStreamHub = streamHub || app?.locals?.streamHub || null;
+              if (
+                activeStreamHub
+                && Buffer.isBuffer(nextData)
+                && nextData.length > 10
+                && nextData[0] === FRAME_TYPE_VIDEO
+              ) {
+                const frame = parseBinaryFrame(nextData);
+                if (frame) {
+                  activeStreamHub.handleFrame(req.session.userId, device.deviceId, {
+                    ...frame,
+                    platform: 'desktop',
+                  });
+                }
+                return;
+              }
               let parsed;
               try {
                 parsed = parseDesktopMessage(nextData);

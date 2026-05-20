@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const db = require('../../db/database');
 const {
+  DESKTOP_COMMANDS,
+  FRAME_TYPE_VIDEO,
   DesktopCompanionSelectionError,
   DesktopCompanionUnavailableError,
   createDesktopCommandMessage,
@@ -373,6 +375,42 @@ class DesktopCompanionRegistry {
     };
   }
 
+  async startStream(userId, deviceId, options = {}) {
+    const device = this.resolveDevice(userId, deviceId);
+    const connection = this.getConnection(userId, device.deviceId);
+    if (!connection || !connection.isOpen()) {
+      throw new DesktopCompanionUnavailableError();
+    }
+    const result = await connection.sendCommand(DESKTOP_COMMANDS.STREAM_START, {
+      fps: options.fps,
+      quality: options.quality,
+      displayId: options.displayId || device.activeDisplayId || null,
+    }, options);
+    connection._streaming = true;
+    return {
+      ...result,
+      success: result?.success !== false,
+      deviceId: device.deviceId,
+      device: this.getDeviceRecordByDeviceId(userId, device.deviceId),
+    };
+  }
+
+  async stopStream(userId, deviceId) {
+    const device = this.resolveDevice(userId, deviceId);
+    const connection = this.getConnection(userId, device.deviceId);
+    if (!connection || !connection.isOpen()) {
+      throw new DesktopCompanionUnavailableError();
+    }
+    const result = await connection.sendCommand(DESKTOP_COMMANDS.STREAM_STOP, {});
+    connection._streaming = false;
+    return {
+      ...result,
+      success: result?.success !== false,
+      deviceId: device.deviceId,
+      device: this.getDeviceRecordByDeviceId(userId, device.deviceId),
+    };
+  }
+
   getStatus(userId) {
     const devices = this.listDevices(userId);
     const onlineDevices = devices.filter((device) => device.online);
@@ -511,6 +549,9 @@ class DesktopCompanionConnection {
   }
 
   _handleMessage(data) {
+    if (Buffer.isBuffer(data) && data.length > 0 && data[0] === FRAME_TYPE_VIDEO) {
+      return;
+    }
     let message;
     try {
       message = parseDesktopMessage(data);

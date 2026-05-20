@@ -25,6 +25,10 @@ class DesktopCompanionManager extends ChangeNotifier {
   final DesktopCompanionActions _actions;
   WebSocket? _socket;
   Timer? _reconnectTimer;
+  Timer? _streamTimer;
+  bool _streamCaptureInFlight = false;
+  int _frameSeq = 0;
+  int _streamGeneration = 0;
 
   String _backendUrl = '';
   String _sessionCookie = '';
@@ -126,6 +130,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   Future<void> disconnect() async {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _stopStreaming();
     _connecting = false;
     _connected = false;
     final socket = _socket;
@@ -327,6 +332,10 @@ class DesktopCompanionManager extends ChangeNotifier {
         );
       case 'captureFrame':
         return _actions.captureFrame(activeDisplayId: _activeDisplayId);
+      case 'startStream':
+        return _startStreaming(payload);
+      case 'stopStream':
+        return _stopStreaming();
       case 'observe':
         return _actions.observe(
           includeTree: payload['includeTree'] == true,
@@ -404,6 +413,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   }
 
   void _handleSocketClosed() {
+    _stopStreaming();
     _socket = null;
     _connecting = false;
     _connected = false;
@@ -415,6 +425,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   void dispose() {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _stopStreaming();
     _connecting = false;
     _connected = false;
     _enabled = false;
@@ -446,6 +457,78 @@ class DesktopCompanionManager extends ChangeNotifier {
         'payload': payload,
       }),
     );
+  }
+
+  Future<Map<String, Object?>> _startStreaming(
+    Map<String, Object?> payload,
+  ) async {
+    _streamTimer?.cancel();
+    final generation = ++_streamGeneration;
+    final fps = ((payload['fps'] as num?)?.round() ?? 15).clamp(1, 20);
+    final quality = ((payload['quality'] as num?)?.round() ?? 80).clamp(30, 95);
+    final displayId = payload['displayId']?.toString().trim();
+    if (displayId != null && displayId.isNotEmpty) {
+      _activeDisplayId = displayId;
+    }
+    final interval = Duration(milliseconds: max(1, (1000 / fps).floor()));
+    _frameSeq = 0;
+    _streamTimer = Timer.periodic(interval, (_) {
+      unawaited(_captureAndSendBinaryFrame(quality, generation));
+    });
+    unawaited(_captureAndSendBinaryFrame(quality, generation));
+    return <String, Object?>{
+      'success': true,
+      'fps': fps,
+      'quality': quality,
+      'displayId': _activeDisplayId,
+    };
+  }
+
+  Map<String, Object?> _stopStreaming() {
+    _streamTimer?.cancel();
+    _streamTimer = null;
+    _streamGeneration++;
+    _streamCaptureInFlight = false;
+    return <String, Object?>{'success': true};
+  }
+
+  Future<void> _captureAndSendBinaryFrame(int quality, int generation) async {
+    final socket = _socket;
+    if (socket == null ||
+        !_connected ||
+        _streamCaptureInFlight ||
+        generation != _streamGeneration) {
+      return;
+    }
+    _streamCaptureInFlight = true;
+    try {
+      final snapshot = await _actions.captureSnapshot(
+        activeDisplayId: _activeDisplayId,
+      );
+      if (snapshot == null) return;
+      final jpeg = await _actions.compressToJpeg(snapshot, quality);
+      if (jpeg.isEmpty) return;
+      if (!_connected || generation != _streamGeneration || _socket != socket) {
+        return;
+      }
+      final frame = Uint8List(10 + jpeg.length);
+      final header = ByteData.sublistView(frame, 0, 10);
+      header.setUint8(0, 0x01);
+      header.setUint32(1, _frameSeq++ & 0xffffffff, Endian.big);
+      header.setUint32(
+        5,
+        DateTime.now().millisecondsSinceEpoch & 0xffffffff,
+        Endian.big,
+      );
+      header.setUint8(9, 0x01);
+      frame.setRange(10, frame.length, jpeg);
+      socket.add(frame);
+    } catch (error) {
+      _errorMessage = 'Desktop stream capture failed: $error';
+      notifyListeners();
+    } finally {
+      _streamCaptureInFlight = false;
+    }
   }
 
   Future<void> _openMacPermissionSettings(String key) async {

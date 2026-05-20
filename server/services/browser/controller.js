@@ -453,6 +453,22 @@ class BrowserController {
     };
   }
 
+  async screenshotJpeg(quality = 80, options = {}) {
+    const page = await this.ensurePage();
+    const screenshotOptions = {
+      type: 'jpeg',
+      quality: Math.min(95, Math.max(30, Math.floor(Number(quality) || 80))),
+      fullPage: options.fullPage === true,
+    };
+    if (options.selector) {
+      const element = await page.$(options.selector);
+      if (element) {
+        return element.screenshot(screenshotOptions);
+      }
+    }
+    return page.screenshot(screenshotOptions);
+  }
+
   async navigate(url, options = {}) {
     const page = await this.ensurePage();
 

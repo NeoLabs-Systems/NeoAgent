@@ -25,6 +25,7 @@ const routeRegistry = [
   { basePath: '/api/browser-extension', modulePath: '../routes/browser_extension' },
   { basePath: '/api/android', modulePath: '../routes/android' },
   { basePath: '/api/desktop', modulePath: '../routes/desktop' },
+  { basePath: '/api/stream', modulePath: '../routes/stream' },
   { basePath: '/api/recordings', modulePath: '../routes/recordings' },
   { basePath: '/api/social-video', modulePath: '../routes/social_video' },
   { basePath: '/api/voice-assistant', modulePath: '../routes/voice_assistant' },

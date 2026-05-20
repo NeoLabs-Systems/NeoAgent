@@ -195,6 +195,13 @@ function requireCapability(controller, name) {
 app.post('/browser/launch', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').launch(req.body || {})));
 app.post('/browser/navigate', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').navigate(req.body?.url, req.body || {})));
 app.post('/browser/screenshot', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').screenshot(req.body || {})));
+app.post('/browser/screenshot-jpeg', async (req, res) => handle(res, async () => {
+  const jpeg = await requireCapability(browserController, 'browser').screenshotJpeg(req.body?.quality, req.body || {});
+  return {
+    contentType: 'image/jpeg',
+    contentBase64: Buffer.from(jpeg).toString('base64'),
+  };
+}));
 app.post('/browser/click', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').click(req.body?.selector, req.body?.text, req.body?.screenshot !== false)));
 app.post('/browser/click-point', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').clickPoint(req.body?.x, req.body?.y, req.body?.screenshot !== false)));
 app.post('/browser/fill', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').type(req.body?.selector, String(req.body?.value ?? req.body?.text ?? ''), req.body || {})));

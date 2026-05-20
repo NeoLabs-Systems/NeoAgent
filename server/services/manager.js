@@ -438,6 +438,7 @@ function configureRealtime(app, io, services) {
     recordingManager: services.recordingManager,
     memoryManager: services.memoryManager,
     voiceRuntimeManager: services.voiceRuntimeManager,
+    streamHub: app.locals.streamHub || services.streamHub || null,
     app,
   });
   app.locals.io = io;
@@ -516,6 +517,7 @@ async function startServices(app, io) {
       recordingManager,
       memoryManager,
       voiceRuntimeManager,
+      streamHub: app.locals.streamHub || null,
     });
 
     resumePendingRecordingSessions(recordingManager);
@@ -538,6 +540,15 @@ async function stopServices(app) {
       logServiceReady('Task runtime stopped');
     } catch (err) {
       console.error('[Tasks] Stop error:', getErrorMessage(err));
+    }
+  }
+
+  if (app.locals.streamHub) {
+    try {
+      await app.locals.streamHub.shutdown();
+      logServiceReady('Stream hub stopped');
+    } catch (err) {
+      console.error('[StreamHub] Shutdown error:', getErrorMessage(err));
     }
   }
 

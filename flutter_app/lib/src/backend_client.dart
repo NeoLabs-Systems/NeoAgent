@@ -615,6 +615,50 @@ class BackendClient {
     return _postEmpty(baseUrl, '/api/browser/close');
   }
 
+  Future<Map<String, dynamic>> startStream(
+    String baseUrl, {
+    required String platform,
+    required String deviceId,
+    int fps = 15,
+    int quality = 80,
+    String? displayId,
+  }) async {
+    return postMap(baseUrl, '/api/stream/start', <String, dynamic>{
+      'platform': platform,
+      'deviceId': deviceId,
+      'fps': fps,
+      'quality': quality,
+      if (displayId != null && displayId.isNotEmpty) 'displayId': displayId,
+    });
+  }
+
+  Future<Map<String, dynamic>> stopStream(
+    String baseUrl, {
+    required String platform,
+    required String deviceId,
+  }) async {
+    return postMap(baseUrl, '/api/stream/stop', <String, dynamic>{
+      'platform': platform,
+      'deviceId': deviceId,
+    });
+  }
+
+  Future<Map<String, dynamic>> fetchStreamStatus(
+    String baseUrl, {
+    String? platform,
+    String? deviceId,
+  }) async {
+    final query = <String>[];
+    if (platform != null && platform.isNotEmpty) {
+      query.add('platform=${Uri.encodeQueryComponent(platform)}');
+    }
+    if (deviceId != null && deviceId.isNotEmpty) {
+      query.add('deviceId=${Uri.encodeQueryComponent(deviceId)}');
+    }
+    final suffix = query.isEmpty ? '' : '?${query.join('&')}';
+    return getMap(baseUrl, '/api/stream/status$suffix');
+  }
+
   Future<Map<String, dynamic>> fetchAndroidStatus(String baseUrl) async {
     return getMap(baseUrl, '/api/android/status');
   }

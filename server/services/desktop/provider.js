@@ -130,6 +130,16 @@ class DesktopProvider {
     return this._dispatch(DESKTOP_COMMANDS.CAPTURE_FRAME, options);
   }
 
+  startStream(options = {}) {
+    this._assertReady();
+    return this.registry.startStream(this.userId, options.deviceId || null, options);
+  }
+
+  stopStream(options = {}) {
+    this._assertReady();
+    return this.registry.stopStream(this.userId, options.deviceId || null);
+  }
+
   observe(options = {}) {
     return this._dispatch(DESKTOP_COMMANDS.OBSERVE, options);
   }

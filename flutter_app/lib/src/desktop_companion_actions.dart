@@ -177,6 +177,18 @@ class DesktopCompanionActions {
     };
   }
 
+  Future<Uint8List> compressToJpeg(
+    DesktopCompanionSnapshot snapshot,
+    int quality,
+  ) async {
+    final raw = _decodeScreenshotBytes(snapshot.screenshotBase64);
+    if (_looksLikeJpeg(raw)) return raw;
+    final decoded = img.decodeImage(raw);
+    if (decoded == null) return raw;
+    final normalizedQuality = quality.clamp(30, 95);
+    return Uint8List.fromList(img.encodeJpg(decoded, quality: normalizedQuality));
+  }
+
   Future<Map<String, Object?>> observe({
     bool includeTree = false,
     String? activeDisplayId,
@@ -450,15 +462,15 @@ class DesktopCompanionActions {
     await stdoutSub.cancel();
     await stderrSub.cancel();
 
-    String _trim(StringBuffer buf) {
+    String trimOutput(StringBuffer buf) {
       final s = buf.toString().trim();
       return s.length > maxChars ? '${s.substring(0, maxChars)}\n...[truncated, ${s.length} total chars]' : s;
     }
 
     return <String, Object?>{
       'exitCode': exitCode,
-      'stdout': _trim(stdoutBuf),
-      'stderr': _trim(stderrBuf),
+      'stdout': trimOutput(stdoutBuf),
+      'stderr': trimOutput(stderrBuf),
       'timedOut': timedOut,
       'killed': timedOut,
       'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
@@ -586,6 +598,23 @@ class DesktopCompanionActions {
     } catch (_) {
       return null;
     }
+  }
+
+  Uint8List _decodeScreenshotBytes(String screenshotBase64) {
+    final trimmed = screenshotBase64.trim();
+    final commaIndex = trimmed.indexOf(',');
+    final encoded = trimmed.startsWith('data:image/') && commaIndex >= 0
+        ? trimmed.substring(commaIndex + 1)
+        : trimmed;
+    return Uint8List.fromList(base64Decode(encoded));
+  }
+
+  bool _looksLikeJpeg(Uint8List bytes) {
+    return bytes.length >= 4 &&
+        bytes[0] == 0xff &&
+        bytes[1] == 0xd8 &&
+        bytes[bytes.length - 2] == 0xff &&
+        bytes[bytes.length - 1] == 0xd9;
   }
 
   String _normalizeMouseButton(String button) {
