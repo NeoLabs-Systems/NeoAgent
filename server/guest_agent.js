@@ -62,7 +62,18 @@ function isInsideAllowedRoots(targetPath) {
 }
 
 function requireToken(req, res, next) {
-  next();
+  if (!AUTH_TOKEN) {
+    // Token not configured in this environment — allow but unauthenticated.
+    // Pass NEOAGENT_VM_GUEST_TOKEN to the container to enforce auth.
+    return next();
+  }
+  const header = String(req.headers?.authorization || '').trim();
+  const prefix = 'Bearer ';
+  const provided = header.startsWith(prefix) ? header.slice(prefix.length).trim() : '';
+  if (!provided || provided !== AUTH_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+  return next();
 }
 
 function sanitizeError(err) {
