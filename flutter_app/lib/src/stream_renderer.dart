@@ -13,6 +13,7 @@ class StreamRenderer extends StatefulWidget {
     this.onTap,
     this.onType,
     this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
   });
 
   final io.Socket socket;
@@ -22,6 +23,7 @@ class StreamRenderer extends StatefulWidget {
   final void Function(double x, double y)? onTap;
   final void Function(String text)? onType;
   final BoxFit fit;
+  final Alignment alignment;
 
   @override
   State<StreamRenderer> createState() => _StreamRendererState();
@@ -104,6 +106,7 @@ class _StreamRendererState extends State<StreamRenderer> {
             frame,
             gaplessPlayback: true,
             fit: widget.fit,
+            alignment: widget.alignment,
             width: constraints.maxWidth,
             height: constraints.maxHeight,
           ),
@@ -117,29 +120,24 @@ class _StreamRendererState extends State<StreamRenderer> {
     if (remote.width <= 0 || remote.height <= 0 || boxSize.width <= 0 || boxSize.height <= 0) {
       return;
     }
-    final imageAspect = remote.width / remote.height;
-    final boxAspect = boxSize.width / boxSize.height;
-    double renderWidth;
-    double renderHeight;
-    double offsetX = 0;
-    double offsetY = 0;
-    if (boxAspect > imageAspect) {
-      renderHeight = boxSize.height;
-      renderWidth = renderHeight * imageAspect;
-      offsetX = (boxSize.width - renderWidth) / 2;
-    } else {
-      renderWidth = boxSize.width;
-      renderHeight = renderWidth / imageAspect;
-      offsetY = (boxSize.height - renderHeight) / 2;
-    }
-    final localX = details.localPosition.dx - offsetX;
-    final localY = details.localPosition.dy - offsetY;
-    if (localX < 0 || localY < 0 || localX > renderWidth || localY > renderHeight) {
+    final remoteSize = Size(remote.width, remote.height);
+    final fitted = applyBoxFit(widget.fit, remoteSize, boxSize);
+    final sourceRect = widget.alignment.inscribe(
+      fitted.source,
+      Offset.zero & remoteSize,
+    );
+    final destRect = widget.alignment.inscribe(
+      fitted.destination,
+      Offset.zero & boxSize,
+    );
+    if (!destRect.contains(details.localPosition)) {
       return;
     }
+    final localX = details.localPosition.dx - destRect.left;
+    final localY = details.localPosition.dy - destRect.top;
     widget.onTap?.call(
-      localX * remote.width / renderWidth,
-      localY * remote.height / renderHeight,
+      sourceRect.left + localX * fitted.source.width / destRect.width,
+      sourceRect.top + localY * fitted.source.height / destRect.height,
     );
   }
 

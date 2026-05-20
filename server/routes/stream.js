@@ -125,8 +125,17 @@ router.post('/start', async (req, res) => {
         displayId: req.body?.displayId || null,
       });
       const resolvedDeviceId = result?.deviceId || result?.device?.deviceId || deviceId;
-      hub.markStarted(userId, resolvedDeviceId, platform, { fps, quality }, () =>
-        provider.stopStream({ deviceId: resolvedDeviceId }));
+      hub.markStarted(userId, resolvedDeviceId, platform, { fps, quality }, async () => {
+        try {
+          await provider.stopStream({ deviceId: resolvedDeviceId });
+        } catch (error) {
+          console.error('[StreamRoute] failed to stop desktop stream', {
+            userId,
+            deviceId: resolvedDeviceId,
+            error: String(error?.message || error),
+          });
+        }
+      });
       return res.json({ ok: true, platform, deviceId: resolvedDeviceId, fps, quality });
     }
 

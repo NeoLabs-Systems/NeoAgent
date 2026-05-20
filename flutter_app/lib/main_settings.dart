@@ -659,11 +659,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   setState(() { _extensionTestRunning = true; _extensionTestResult = null; });
                   try {
                     final r = await controller.testBrowserExtension();
-                    setState(() => _extensionTestResult = r);
+                    if (mounted) {
+                      setState(() => _extensionTestResult = r);
+                    }
                   } catch (e) {
-                    setState(() => _extensionTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                    if (mounted) {
+                      setState(() => _extensionTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                    }
                   } finally {
-                    setState(() => _extensionTestRunning = false);
+                    if (mounted) {
+                      setState(() => _extensionTestRunning = false);
+                    }
                   }
                 },
               ),
@@ -764,18 +770,24 @@ class _SettingsPanelState extends State<SettingsPanel> {
               result: _cliTestResult,
               note: _cliBackend == 'desktop'
                   ? (controller.desktopCompanionConnected
-                      ? 'Desktop app connected — commands currently route through the cloud VM (desktop routing coming soon).'
+                      ? 'Desktop app connected — commands route locally through the companion.'
                       : 'Desktop app selected but not connected. Commands fall back to cloud VM until the companion is online.')
                   : 'Cloud VM — commands run in an isolated container.',
               onTest: () async {
                 setState(() { _cliTestRunning = true; _cliTestResult = null; });
                 try {
                   final r = await controller.testCliRuntime();
-                  setState(() => _cliTestResult = r);
+                  if (mounted) {
+                    setState(() => _cliTestResult = r);
+                  }
                 } catch (e) {
-                  setState(() => _cliTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                  if (mounted) {
+                    setState(() => _cliTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                  }
                 } finally {
-                  setState(() => _cliTestRunning = false);
+                  if (mounted) {
+                    setState(() => _cliTestRunning = false);
+                  }
                 }
               },
             ),
@@ -1453,14 +1465,20 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   } else if (multi) {
                     detail = '${r['onlineCount']} devices online — select one in Desktop › Devices';
                   }
-                  setState(() => _desktopTestResult = <String, dynamic>{
-                    ...r,
-                    'detail': detail,
-                  });
+                  if (mounted) {
+                    setState(() => _desktopTestResult = <String, dynamic>{
+                      ...r,
+                      'detail': detail,
+                    });
+                  }
                 } catch (e) {
-                  setState(() => _desktopTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                  if (mounted) {
+                    setState(() => _desktopTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                  }
                 } finally {
-                  setState(() => _desktopTestRunning = false);
+                  if (mounted) {
+                    setState(() => _desktopTestRunning = false);
+                  }
                 }
               },
             ),

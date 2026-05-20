@@ -1405,7 +1405,7 @@ async function executeTool(toolName, args, context, engine) {
         const manager = runtime();
         if (manager && typeof manager.getBrowserProviderForUser === 'function') {
             const backend = typeof manager.getActiveBrowserBackend === 'function'
-                ? manager.getActiveBrowserBackend(userId)
+                ? await Promise.resolve(manager.getActiveBrowserBackend(userId))
                 : 'vm';
             return { provider: await manager.getBrowserProviderForUser(userId), backend };
         }
@@ -1489,7 +1489,7 @@ async function executeTool(toolName, args, context, engine) {
                 timeout: args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000),
                 stdinInput: args.stdin_input,
                 pty: args.pty === true,
-                inputs: args.inputs || [],
+                inputs: Array.isArray(args.inputs) ? args.inputs : [],
             };
             if (typeof runtimeManager.executeCliCommand === 'function') {
                 return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
