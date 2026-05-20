@@ -9,7 +9,6 @@ const flowTitleEl = document.querySelector('#flowTitle');
 const flowDescriptionEl = document.querySelector('#flowDescription');
 const primaryActionEl = document.querySelector('#primaryAction');
 const secondaryActionEl = document.querySelector('#secondaryAction');
-const openAppEl = document.querySelector('#openApp');
 const disconnectEl = document.querySelector('#disconnect');
 const checkUpdateEl = document.querySelector('#checkUpdate');
 const downloadEl = document.querySelector('#download');
@@ -59,7 +58,7 @@ function setBusy(isBusy, label = 'Working...') {
   }
   const busy = pendingActions > 0;
 
-  [primaryActionEl, secondaryActionEl, openAppEl, disconnectEl, checkUpdateEl, downloadEl].forEach((button) => {
+  [primaryActionEl, secondaryActionEl, disconnectEl, checkUpdateEl, downloadEl].forEach((button) => {
     if (!button || button.hidden) return;
     if (busy) {
       if (!Object.prototype.hasOwnProperty.call(button.dataset, 'wasDisabled')) {
@@ -98,8 +97,6 @@ function updateFlow() {
   const hasServerUrl = Boolean(serverUrl);
   const hasToken = Boolean(currentState.token || currentState.tokenId);
   const approvalUrl = currentState.approvalUrl || '';
-
-  openAppEl.disabled = !hasServerUrl;
 
   if (!hasServerUrl) {
     stepLabelEl.textContent = 'Step 1 of 3';
@@ -243,7 +240,6 @@ serverUrlEl.addEventListener('input', updateFlow);
 
 bindAsyncClick(primaryActionEl, () => runAction(primaryActionEl.dataset.action));
 bindAsyncClick(secondaryActionEl, () => runAction(secondaryActionEl.dataset.action));
-bindAsyncClick(openAppEl, () => runAction('openApp'));
 bindAsyncClick(disconnectEl, async () => {
   await send('disconnect');
   await refresh();

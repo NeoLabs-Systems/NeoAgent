@@ -318,7 +318,8 @@ final class DesktopCompanionNativePlugin: NSObject {
   private func isAccessibilityTrusted() -> Bool {
     if AXIsProcessTrusted() { return true }
     // AXIsProcessTrusted() may cache false on macOS 14+ after a System Settings grant.
-    // Probe with a live AX read: .notTrusted is the only error that means "not granted".
+    // Probe with a live AX read: .apiDisabled is the error returned when the process
+    // lacks accessibility permission (AXError has no .notTrusted case in the macOS SDK).
     let sysElement = AXUIElementCreateSystemWide()
     var value: CFTypeRef?
     let status = AXUIElementCopyAttributeValue(
@@ -326,7 +327,7 @@ final class DesktopCompanionNativePlugin: NSObject {
       kAXFocusedApplicationAttribute as CFString,
       &value
     )
-    return status != .notTrusted && status != .apiDisabled
+    return status != .apiDisabled
   }
 
   private func resolveDisplayId(_ raw: String?) -> CGDirectDisplayID {
