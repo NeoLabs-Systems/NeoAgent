@@ -14,6 +14,7 @@ const DESKTOP_COMMANDS = Object.freeze({
   SELECT_DISPLAY: 'selectDisplay',
   GET_TREE: 'getTree',
   PAUSE_CONTROL: 'pauseControl',
+  EXECUTE_COMMAND: 'executeCommand',
   PING: 'ping',
 });
 

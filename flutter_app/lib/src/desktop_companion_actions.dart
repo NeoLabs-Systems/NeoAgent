@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -393,6 +394,77 @@ class DesktopCompanionActions {
     return <String, Object?>{
       'supported': false,
       'nodes': const <Map<String, Object?>>[],
+    };
+  }
+
+  Future<Map<String, Object?>> executeShellCommand({
+    required String command,
+    String? cwd,
+    int? timeoutMs,
+    String? stdinInput,
+  }) async {
+    final shell = Platform.isWindows ? 'cmd.exe' : (Platform.environment['SHELL'] ?? '/bin/sh');
+    final args = Platform.isWindows ? <String>['/c', command] : <String>['-lc', command];
+    final workingDir = cwd?.trim().isNotEmpty == true ? cwd : Platform.environment['HOME'];
+    final startedAt = DateTime.now();
+
+    final process = await Process.start(
+      shell,
+      args,
+      workingDirectory: workingDir,
+      runInShell: false,
+    );
+
+    if (stdinInput != null && stdinInput.isNotEmpty) {
+      process.stdin.write(stdinInput);
+      await process.stdin.close();
+    } else {
+      unawaited(process.stdin.close());
+    }
+
+    const maxChars = 50000;
+    final stdoutBuf = StringBuffer();
+    final stderrBuf = StringBuffer();
+
+    final stdoutSub = process.stdout.transform(utf8.decoder).listen((data) {
+      stdoutBuf.write(data);
+    });
+    final stderrSub = process.stderr.transform(utf8.decoder).listen((data) {
+      stderrBuf.write(data);
+    });
+
+    final effectiveTimeout = Duration(
+      milliseconds: (timeoutMs != null && timeoutMs > 0) ? timeoutMs : 15 * 60 * 1000,
+    );
+
+    bool timedOut = false;
+    int? exitCode;
+    try {
+      exitCode = await process.exitCode.timeout(effectiveTimeout);
+    } on TimeoutException {
+      timedOut = true;
+      process.kill(ProcessSignal.sigterm);
+      exitCode = null;
+    }
+
+    await stdoutSub.cancel();
+    await stderrSub.cancel();
+
+    String _trim(StringBuffer buf) {
+      final s = buf.toString().trim();
+      return s.length > maxChars ? '${s.substring(0, maxChars)}\n...[truncated, ${s.length} total chars]' : s;
+    }
+
+    return <String, Object?>{
+      'exitCode': exitCode,
+      'stdout': _trim(stdoutBuf),
+      'stderr': _trim(stderrBuf),
+      'timedOut': timedOut,
+      'killed': timedOut,
+      'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
+      'command': command,
+      'cwd': workingDir,
+      'backend': 'desktop-companion',
     };
   }
 

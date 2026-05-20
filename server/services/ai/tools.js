@@ -292,7 +292,7 @@ function getAvailableTools(app, options = {}) {
     const tools = [
         {
             name: 'execute_command',
-            description: 'Execute a terminal/shell command as a normal recoverable agent step. Waits for the process to exit, supports PTY for interactive programs, and returns stdout, stderr, exit code, timeout state, and duration so later reasoning can inspect failures, install missing dependencies, and retry when needed.',
+            description: 'Execute a terminal/shell command as a normal recoverable agent step. Waits for the process to exit, supports PTY for interactive programs, and returns stdout, stderr, exit code, timeout state, duration, and a backend field ("vm" or "desktop-companion") indicating where the command ran. Commands run inside the isolated VM unless the cli_backend setting is set to "desktop" and a companion app is connected, in which case the command runs on the companion desktop machine.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -308,7 +308,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_navigate',
-            description: 'Navigate the browser to a URL and return page content/screenshot',
+            description: 'Navigate the browser to a URL and return page content/screenshot. The result includes a backend field ("vm" or "extension") indicating whether the VM browser or the paired browser extension handled the request.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1401,10 +1401,13 @@ async function executeTool(toolName, args, context, engine) {
         allowMultipleProactiveMessages = false
     } = context;
     const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
-    const bc = () => {
+    const bc = async () => {
         const manager = runtime();
         if (manager && typeof manager.getBrowserProviderForUser === 'function') {
-            return manager.getBrowserProviderForUser(userId);
+            const backend = typeof manager.getActiveBrowserBackend === 'function'
+                ? manager.getActiveBrowserBackend(userId)
+                : 'vm';
+            return { provider: await manager.getBrowserProviderForUser(userId), backend };
         }
         throw new Error('Browser provider is unavailable. VM runtime is required.');
     };
@@ -1478,59 +1481,67 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'execute_command': {
             const runtimeManager = runtime();
-            if (!runtimeManager || typeof runtimeManager.executeCommand !== 'function') {
-                return { error: 'Command execution is unavailable. VM runtime is required.' };
+            if (!runtimeManager) {
+                return { error: 'Command execution is unavailable. No runtime manager found.' };
             }
-            return await runtimeManager.executeCommand(userId, args.command, {
+            const execOptions = {
                 cwd: args.cwd,
                 timeout: args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000),
                 stdinInput: args.stdin_input,
                 pty: args.pty === true,
                 inputs: args.inputs || [],
-            });
+            };
+            if (typeof runtimeManager.executeCliCommand === 'function') {
+                return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
+            }
+            // Legacy fallback — older runtime manager without CLI routing.
+            if (typeof runtimeManager.executeCommand !== 'function') {
+                return { error: 'Command execution is unavailable. VM runtime is required.' };
+            }
+            return { ...await runtimeManager.executeCommand(userId, args.command, execOptions), backend: 'vm' };
         }
 
         case 'browser_navigate': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.navigate(args.url, {
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.navigate(args.url, {
                 screenshot: args.screenshot !== false,
                 waitFor: args.waitFor,
                 fullPage: args.fullPage
-            });
+            }), backend };
         }
 
         case 'browser_click': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.click(args.selector, args.text, args.screenshot !== false);
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.click(args.selector, args.text, args.screenshot !== false), backend };
         }
 
         case 'browser_type': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.type(args.selector, args.text, {
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.type(args.selector, args.text, {
                 clear: args.clear !== false,
                 pressEnter: args.pressEnter
-            });
+            }), backend };
         }
 
         case 'browser_extract': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.extract(args.selector, args.attribute, args.all);
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.extract(args.selector, args.attribute, args.all), backend };
         }
 
         case 'browser_screenshot': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.screenshot({ fullPage: args.fullPage, selector: args.selector });
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.screenshot({ fullPage: args.fullPage, selector: args.selector }), backend };
         }
 
         case 'browser_evaluate': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.evaluate(args.script);
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.evaluate(args.script), backend };
         }
 
         case 'android_start_emulator': {

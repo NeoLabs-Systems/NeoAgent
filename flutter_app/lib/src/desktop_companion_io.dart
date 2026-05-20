@@ -52,7 +52,8 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   Future<void> bootstrap(SharedPreferences prefs) async {
     _enabled = prefs.getBool(desktopCompanionEnabledPrefsKey) ?? false;
-    _paused = prefs.getBool(desktopCompanionPausedPrefsKey) ?? false;
+    // Always start unpaused — paused state must not carry over across restarts.
+    _paused = false;
     _label =
         prefs.getString(desktopCompanionLabelPrefsKey)?.trim() ??
         _defaultLabel();
@@ -116,7 +117,6 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   Future<void> setPaused(bool value, SharedPreferences prefs) async {
     _paused = value;
-    await prefs.setBool(desktopCompanionPausedPrefsKey, value);
     notifyListeners();
     if (_connected) {
       await _sendEvent('statusChanged', <String, Object?>{'paused': value});
@@ -387,10 +387,15 @@ class DesktopCompanionManager extends ChangeNotifier {
       case 'pauseControl':
         final paused = payload['paused'] != false;
         _paused = paused;
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool(desktopCompanionPausedPrefsKey, paused);
         notifyListeners();
         return <String, Object?>{'success': true, 'paused': _paused};
+      case 'executeCommand':
+        return _actions.executeShellCommand(
+          command: payload['command']?.toString() ?? '',
+          cwd: payload['cwd']?.toString(),
+          timeoutMs: (payload['timeout'] as num?)?.toInt(),
+          stdinInput: payload['stdin_input']?.toString(),
+        );
       case 'ping':
         return <String, Object?>{'pong': true};
       default:

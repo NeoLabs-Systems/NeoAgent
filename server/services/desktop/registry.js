@@ -127,6 +127,16 @@ class DesktopCompanionRegistry {
       now,
     );
 
+    // Remove stale offline entries for the same machine (e.g. after a re-install
+    // that generated a new device_id but kept the same hostname).
+    const hostname = hello.hostname ? String(hello.hostname).trim() : null;
+    if (hostname) {
+      this.db.prepare(
+        `DELETE FROM desktop_companion_devices
+         WHERE user_id = ? AND hostname = ? AND device_id != ? AND status = 'offline'`
+      ).run(userId, hostname, hello.deviceId);
+    }
+
     return this.getDeviceRecordByDeviceId(userId, hello.deviceId);
   }
 
@@ -172,9 +182,6 @@ class DesktopCompanionRegistry {
     const record = this._upsertDeviceRecord(userId, hello, sessionId);
     const userMap = this._getUserMap(userId, true);
     const existing = userMap.get(record.deviceId);
-    if (existing && existing.ws !== ws) {
-      existing.close('replaced by a newer desktop companion connection');
-    }
 
     const connection = new DesktopCompanionConnection({
       registry: this,
@@ -192,7 +199,16 @@ class DesktopCompanionRegistry {
       },
       timeoutMs: this.commandTimeoutMs,
     });
+    // Install the new connection in the map BEFORE closing the old one.
+    // This ensures that when the old socket's async 'close' event fires and
+    // calls unregisterConnection, it sees the new connection as the owner and
+    // skips the DB status='offline' write — preventing a false offline report.
     userMap.set(record.deviceId, connection);
+
+    if (existing && existing.ws !== ws) {
+      existing.close('replaced by a newer desktop companion connection');
+    }
+
     return {
       connection,
       device: this.getDeviceRecordByDeviceId(userId, record.deviceId),
@@ -201,17 +217,21 @@ class DesktopCompanionRegistry {
 
   unregisterConnection(connection) {
     const userMap = this._getUserMap(connection.userId);
-    if (userMap && userMap.get(connection.deviceId) === connection) {
+    const isOwner = userMap != null && userMap.get(connection.deviceId) === connection;
+    if (isOwner) {
       userMap.delete(connection.deviceId);
       if (userMap.size === 0) {
         this.connectionsByUser.delete(String(connection.userId));
       }
+      // Only mark offline in the DB when this connection is still the active owner.
+      // If a newer connection has already taken over (reconnect race), its
+      // _upsertDeviceRecord already wrote status='online' and we must not clobber it.
+      this.db.prepare(
+        `UPDATE desktop_companion_devices
+         SET status = 'offline', updated_at = datetime('now')
+         WHERE user_id = ? AND device_id = ?`
+      ).run(connection.userId, connection.deviceId);
     }
-    this.db.prepare(
-      `UPDATE desktop_companion_devices
-       SET status = 'offline', updated_at = datetime('now')
-       WHERE user_id = ? AND device_id = ?`
-    ).run(connection.userId, connection.deviceId);
   }
 
   touchConnection(userId, deviceId, patch = {}) {
@@ -251,6 +271,11 @@ class DesktopCompanionRegistry {
       deviceId,
     );
     return this.getDeviceRecordByDeviceId(userId, deviceId);
+  }
+
+  isConnected(userId) {
+    const userMap = this._getUserMap(userId);
+    return userMap != null && userMap.size > 0;
   }
 
   getConnection(userId, deviceId) {
@@ -351,9 +376,19 @@ class DesktopCompanionRegistry {
   getStatus(userId) {
     const devices = this.listDevices(userId);
     const onlineDevices = devices.filter((device) => device.online);
+    let selectedDeviceId = this.getSelectedDeviceId(userId);
+
+    // Auto-select the most-recently-online device when there is no valid selection.
+    // listDevices returns online devices first, ordered by last_seen_at DESC.
+    const selectionIsOnline = selectedDeviceId && onlineDevices.some((d) => d.deviceId === selectedDeviceId);
+    if (!selectionIsOnline && onlineDevices.length > 0) {
+      selectedDeviceId = onlineDevices[0].deviceId;
+      this.setSelectedDeviceId(userId, selectedDeviceId);
+    }
+
     return {
       connected: onlineDevices.length > 0,
-      selectedDeviceId: this.getSelectedDeviceId(userId),
+      selectedDeviceId,
       onlineCount: onlineDevices.length,
       devices,
     };
@@ -446,6 +481,8 @@ class DesktopCompanionConnection {
         this.ws.close(1000, String(reason || 'closing').slice(0, 120));
       }
     } catch {}
+    // unregisterConnection is intentionally called here (not inside _closePending)
+    // so it runs synchronously before any async ws 'close' event can fire.
     this.registry.unregisterConnection(this);
     this._closePending(new DesktopCompanionUnavailableError('Desktop companion disconnected.'));
   }
@@ -512,6 +549,10 @@ class DesktopCompanionConnection {
       pending.reject(error);
     }
     this.pending.clear();
+    // unregisterConnection is idempotent (ownership-checked) so calling it
+    // here is safe whether we arrived via close(), the ws 'close' event, or
+    // both. It ensures natural socket drops (no explicit close() call) still
+    // mark the device offline.
     this.registry.unregisterConnection(this);
   }
 }

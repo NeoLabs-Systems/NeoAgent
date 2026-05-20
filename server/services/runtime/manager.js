@@ -100,9 +100,32 @@ class RuntimeManager {
   async getCliProviderForUser(userId) {
     const settings = this.getSettings(userId);
     if (settings.cli_backend === 'desktop' && this.hasActiveDesktopCompanion(userId)) {
-      return this.getDesktopCliProvider(userId);
+      const desktopProvider = this.getDesktopCliProvider(userId);
+      return {
+        backend: 'desktop-companion',
+        execute: (command, options = {}) => desktopProvider.executeCommand(command, options),
+        executeInteractive: (command, inputs = [], options = {}) => desktopProvider.executeCommand(command, { ...options, inputs }),
+        kill: () => Promise.resolve(false),
+      };
     }
-    return this.browserBackend.getCommandExecutorForUser(userId);
+    const executor = await this.browserBackend.getCommandExecutorForUser(userId);
+    return { ...executor, backend: 'vm' };
+  }
+
+  async executeCliCommand(userId, command, options = {}) {
+    const provider = await this.getCliProviderForUser(userId);
+    const result = await (options.pty === true && provider.executeInteractive
+      ? provider.executeInteractive(command, options.inputs || [], options)
+      : provider.execute(command, options));
+    return { ...result, backend: provider.backend };
+  }
+
+  getActiveBrowserBackend(userId) {
+    const settings = this.getSettings(userId);
+    if (settings.browser_backend === 'extension' && this.hasActiveExtensionBrowser(userId)) {
+      return 'extension';
+    }
+    return 'vm';
   }
 
   async getAndroidProviderForUser(userId) {
