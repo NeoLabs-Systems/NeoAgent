@@ -187,6 +187,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
       <String, TextEditingController>{};
   final Set<String> _expandedProviderIds = <String>{};
 
+  // Inline runtime test state — ephemeral, not stored in controller.
+  bool _cliTestRunning = false;
+  Map<String, dynamic>? _cliTestResult;
+  bool _extensionTestRunning = false;
+  Map<String, dynamic>? _extensionTestResult;
+  bool _desktopTestRunning = false;
+  Map<String, dynamic>? _desktopTestResult;
+
   @override
   void initState() {
     super.initState();
@@ -636,31 +644,46 @@ class _SettingsPanelState extends State<SettingsPanel> {
               },
             ),
             const SizedBox(height: 10),
-            Text(
-              _browserBackend == 'extension'
-                  ? (controller.browserExtensionConnected
-                        ? 'Chrome extension connected.'
-                        : 'Chrome extension selected. Download it here, load it unpacked in Chrome on the remote machine, then pair after login.')
-                  : 'Cloud browser runtime is active.',
-              style: TextStyle(color: _textSecondary, height: 1.4),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                OutlinedButton.icon(
-                  onPressed: controller.downloadBrowserExtension,
-                  icon: Icon(Icons.download_outlined),
-                  label: Text('Download extension'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: controller.refreshBrowserExtensionStatus,
-                  icon: Icon(Icons.sync),
-                  label: Text('Refresh status'),
-                ),
-              ],
-            ),
+            if (_browserBackend == 'extension') ...<Widget>[
+              _buildInlineTestRow(
+                label: 'Chrome extension',
+                running: _extensionTestRunning,
+                result: _extensionTestResult,
+                note: controller.browserExtensionConnected
+                    ? 'Connected — tap Test to verify the live link.'
+                    : 'Not connected — download the extension, load it in Chrome, then pair after login.',
+                onTest: () async {
+                  setState(() { _extensionTestRunning = true; _extensionTestResult = null; });
+                  try {
+                    final r = await controller.testBrowserExtension();
+                    setState(() => _extensionTestResult = r);
+                  } catch (e) {
+                    setState(() => _extensionTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                  } finally {
+                    setState(() => _extensionTestRunning = false);
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  OutlinedButton.icon(
+                    onPressed: controller.downloadBrowserExtension,
+                    icon: Icon(Icons.download_outlined),
+                    label: Text('Download extension'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: controller.refreshBrowserExtensionStatus,
+                    icon: Icon(Icons.sync),
+                    label: Text('Refresh'),
+                  ),
+                ],
+              ),
+            ] else ...<Widget>[
+              Text('Cloud browser runtime is active.', style: TextStyle(color: _textSecondary, height: 1.4)),
+            ],
             const Divider(height: 32),
             Text(
               'CLI Runtime',
@@ -692,13 +715,26 @@ class _SettingsPanelState extends State<SettingsPanel> {
               },
             ),
             const SizedBox(height: 10),
-            Text(
-              _cliBackend == 'desktop'
+            _buildInlineTestRow(
+              label: 'CLI',
+              running: _cliTestRunning,
+              result: _cliTestResult,
+              note: _cliBackend == 'desktop'
                   ? (controller.desktopCompanionConnected
-                        ? 'Desktop app connected.'
-                        : 'Desktop app selected. Make sure the desktop companion is running and connected on your machine.')
-                  : 'Cloud CLI runtime is active.',
-              style: TextStyle(color: _textSecondary, height: 1.4),
+                      ? 'Desktop app connected — commands currently route through the cloud VM (desktop routing coming soon).'
+                      : 'Desktop app selected but not connected. Commands fall back to cloud VM until the companion is online.')
+                  : 'Cloud VM — commands run in an isolated container.',
+              onTest: () async {
+                setState(() { _cliTestRunning = true; _cliTestResult = null; });
+                try {
+                  final r = await controller.testCliRuntime();
+                  setState(() => _cliTestResult = r);
+                } catch (e) {
+                  setState(() => _cliTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                } finally {
+                  setState(() => _cliTestRunning = false);
+                }
+              },
             ),
             const Divider(height: 32),
             Text(
@@ -1344,6 +1380,47 @@ class _SettingsPanelState extends State<SettingsPanel> {
               const SizedBox(height: 12),
               _InlineError(message: message),
             ],
+            const SizedBox(height: 12),
+            _buildInlineTestRow(
+              label: 'Desktop companion',
+              running: _desktopTestRunning,
+              result: _desktopTestResult != null
+                  ? <String, dynamic>{
+                      'passed': _desktopTestResult!['passed'] == true,
+                      'detail': _desktopTestResult!['detail']?.toString() ?? '',
+                    }
+                  : null,
+              note: controller.desktopCompanionConnected
+                  ? 'Connected — tap Test to fetch live device status from the server.'
+                  : 'Not connected. Make sure the desktop app is running on the target machine.',
+              onTest: () async {
+                setState(() { _desktopTestRunning = true; _desktopTestResult = null; });
+                try {
+                  final r = await controller.testDesktopCompanion();
+                  final active = r['activeDevice'];
+                  final multi = r['multipleOnline'] == true;
+                  String detail = r['detail']?.toString() ?? '';
+                  if (r['passed'] == true && active != null) {
+                    final label = active['label']?.toString() ?? 'Device';
+                    final plat = active['platform']?.toString() ?? '';
+                    final sc = active['permissions']?['screenCapture'] == true;
+                    final ic = active['permissions']?['inputControl'] == true;
+                    detail = '$label${plat.isNotEmpty ? " ($plat)" : ""}'
+                        ' — screen: ${sc ? "✓" : "✗"}, input: ${ic ? "✓" : "✗"}';
+                  } else if (multi) {
+                    detail = '${r['onlineCount']} devices online — select one in Desktop › Devices';
+                  }
+                  setState(() => _desktopTestResult = <String, dynamic>{
+                    ...r,
+                    'detail': detail,
+                  });
+                } catch (e) {
+                  setState(() => _desktopTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                } finally {
+                  setState(() => _desktopTestRunning = false);
+                }
+              },
+            ),
             const SizedBox(height: 14),
             Builder(
               builder: (context) {
@@ -1922,8 +1999,126 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ),
                 ],
               ),
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 16),
+            _buildHealthCheckWidget(controller),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildHealthCheckWidget(NeoAgentController controller) {
+    final results = controller.systemHealthResults;
+    final running = controller.systemHealthCheckRunning;
+    final allPassed = results != null && results.isNotEmpty && results.every((r) => r['passed'] == true);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'System Health Check',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tests backend, cloud VM, desktop companion, and Chrome extension in one tap.',
+                    style: TextStyle(color: _textSecondary, fontSize: 13, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 126,
+              child: FilledButton.icon(
+                onPressed: running ? null : () => controller.runSystemHealthCheck(),
+                icon: running
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.play_arrow_rounded, size: 18),
+                label: Text(running ? 'Checking…' : 'Run check'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  textStyle: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (results != null) ...<Widget>[
+          const SizedBox(height: 14),
+          if (results.isEmpty)
+            Text('No checks returned.', style: TextStyle(color: _textSecondary, fontSize: 13))
+          else ...<Widget>[
+            Container(
+              decoration: BoxDecoration(
+                color: (allPassed ? const Color(0xFF22C55E) : const Color(0xFFEF4444)).withOpacity(0.07),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: (allPassed ? const Color(0xFF22C55E) : const Color(0xFFEF4444)).withOpacity(0.25),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: results.map(_buildHealthCheckRow).toList(),
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildHealthCheckRow(Map<String, dynamic> result) {
+    final passed = result['passed'] == true;
+    final label = result['label']?.toString() ?? result['id']?.toString() ?? 'Check';
+    final detail = result['detail']?.toString() ?? '';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              passed ? Icons.check_circle_rounded : Icons.cancel_rounded,
+              size: 17,
+              color: passed ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: passed ? null : const Color(0xFFEF4444),
+                  ),
+                ),
+                if (detail.isNotEmpty)
+                  Text(
+                    detail,
+                    style: TextStyle(fontSize: 12, color: _textSecondary, height: 1.4),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1998,6 +2193,70 @@ class _SettingsPanelState extends State<SettingsPanel> {
           (value) => DropdownMenuItem<String>(value: value, child: Text(value)),
         )
         .toList();
+  }
+
+  // Shared helper: small "Test" button + inline result row.
+  Widget _buildInlineTestRow({
+    required String label,
+    required bool running,
+    required Map<String, dynamic>? result,
+    required VoidCallback onTest,
+    String? note,
+  }) {
+    final passed = result?['passed'] == true;
+    final detail = result?['detail']?.toString() ?? '';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (result != null)
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      passed ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                      size: 15,
+                      color: passed ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        passed ? (detail.isNotEmpty ? detail : '$label: OK') : detail,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: passed ? null : const Color(0xFFEF4444),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else if (note != null)
+                Text(note, style: TextStyle(fontSize: 13, color: _textSecondary, height: 1.4)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 80,
+          child: OutlinedButton(
+            onPressed: running ? null : onTest,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12),
+            ),
+            child: running
+                ? const SizedBox(
+                    width: 13,
+                    height: 13,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Test'),
+          ),
+        ),
+      ],
+    );
   }
 }
 

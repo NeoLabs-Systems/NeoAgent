@@ -451,6 +451,14 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       browserExtensionActive: usingExtension,
                       browserFallbackLabel: browserFallbackLabel,
                     ),
+                    if (_isBrowser && prefersExtension) ...<Widget>[
+                      const SizedBox(height: 14),
+                      _ExtensionStatusBar(
+                        connected: extensionConnected,
+                        onDownload: controller.downloadBrowserExtension,
+                        onRefresh: controller.refreshBrowserExtensionStatus,
+                      ),
+                    ],
                     if (_isDesktop) ...<Widget>[
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
@@ -1696,6 +1704,58 @@ class _RuntimePreview extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ExtensionStatusBar extends StatelessWidget {
+  const _ExtensionStatusBar({
+    required this.connected,
+    required this.onDownload,
+    required this.onRefresh,
+  });
+
+  final bool connected;
+  final Future<void> Function() onDownload;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Row(
+        children: <Widget>[
+          _DotStatus(
+            label: connected ? 'Extension connected' : 'Extension not connected',
+            color: connected ? _success : _warning,
+          ),
+          const Spacer(),
+          OutlinedButton.icon(
+            onPressed: onDownload,
+            icon: const Icon(Icons.download_outlined, size: 18),
+            label: const Text('Download'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.sync, size: 18),
+            label: const Text('Refresh'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+        ],
       ),
     );
   }

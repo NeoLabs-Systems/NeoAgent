@@ -476,6 +476,18 @@ class BackendClient {
     return getMap(baseUrl, '/api/runtime/config', allowUnauthorized: true);
   }
 
+  Future<Map<String, dynamic>> testCli(String baseUrl) async {
+    return getMap(baseUrl, '/api/system/test/cli');
+  }
+
+  Future<Map<String, dynamic>> testExtension(String baseUrl) async {
+    return getMap(baseUrl, '/api/system/test/extension');
+  }
+
+  Future<Map<String, dynamic>> testDesktop(String baseUrl) async {
+    return getMap(baseUrl, '/api/system/test/desktop');
+  }
+
   Future<Map<String, dynamic>> fetchBrowserStatus(String baseUrl) async {
     return getMap(baseUrl, '/api/browser/status');
   }
