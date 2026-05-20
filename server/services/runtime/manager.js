@@ -101,6 +101,10 @@ class RuntimeManager {
     const settings = this.getSettings(userId);
     if (settings.cli_backend === 'desktop' && this.hasActiveDesktopCompanion(userId)) {
       const desktopProvider = this.getDesktopCliProvider(userId);
+      const preferredDeviceId = settings.cli_desktop_device_id;
+      if (preferredDeviceId) {
+        desktopProvider.selectDevice(preferredDeviceId);
+      }
       return {
         backend: 'desktop-companion',
         execute: (command, options = {}) => desktopProvider.executeCommand(command, options),
