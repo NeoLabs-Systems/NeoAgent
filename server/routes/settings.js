@@ -297,7 +297,11 @@ router.put('/', async (req, res) => {
     'runtime_profile' in normalizedBody
     || 'runtime_backend' in normalizedBody
     || 'browser_backend' in normalizedBody
+    || 'browser_extension_token_id' in normalizedBody
+    || 'selected_browser_extension_token_id' in normalizedBody
     || 'android_backend' in normalizedBody
+    || 'cli_backend' in normalizedBody
+    || 'cli_desktop_device_id' in normalizedBody
     || 'mcp_backend' in normalizedBody
   ) {
     const validation = validateRuntimeSettings({

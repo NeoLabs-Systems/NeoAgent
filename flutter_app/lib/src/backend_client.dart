@@ -498,6 +498,15 @@ class BackendClient {
     return getMap(baseUrl, '/api/browser-extension/status');
   }
 
+  Future<Map<String, dynamic>> selectBrowserExtensionToken(
+    String baseUrl, {
+    required String tokenId,
+  }) async {
+    return postMap(baseUrl, '/api/browser-extension/select-token', <String, dynamic>{
+      'tokenId': tokenId,
+    });
+  }
+
   Future<Map<String, dynamic>> launchBrowser(
     String baseUrl, {
     Map<String, dynamic>? payload,
@@ -543,6 +552,17 @@ class BackendClient {
       'x': x,
       'y': y,
       'screenshot': screenshot,
+    });
+  }
+
+  Future<Map<String, dynamic>> hoverBrowserPoint(
+    String baseUrl, {
+    required int x,
+    required int y,
+  }) async {
+    return postMap(baseUrl, '/api/browser/mouse-move', <String, dynamic>{
+      'x': x,
+      'y': y,
     });
   }
 
@@ -716,6 +736,19 @@ class BackendClient {
       'x': x,
       'y': y,
       if (button != null && button.isNotEmpty) 'button': button,
+    });
+  }
+
+  Future<Map<String, dynamic>> hoverDesktop(
+    String baseUrl, {
+    String? deviceId,
+    required int x,
+    required int y,
+  }) async {
+    return postMap(baseUrl, '/api/desktop/mouse-move', <String, dynamic>{
+      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
+      'x': x,
+      'y': y,
     });
   }
 

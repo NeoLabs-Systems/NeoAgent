@@ -74,7 +74,7 @@ class StreamHub {
       capturedAt: now,
     };
     for (const socketId of subscribers) {
-      this._io.to(socketId).emit('stream:frame', meta, frame.jpeg);
+      this._io.to(socketId).volatile.emit('stream:frame', meta, frame.jpeg);
     }
   }
 

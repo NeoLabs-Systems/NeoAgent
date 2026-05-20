@@ -125,6 +125,19 @@ router.get('/status', requireAuth, (req, res) => {
   }
 });
 
+router.post('/select-token', requireAuth, (req, res) => {
+  try {
+    const registry = getRegistry(req);
+    const result = registry.setSelectedTokenId(req.session.userId, req.body?.tokenId);
+    res.json({
+      ...result,
+      status: registry.getStatus(req.session.userId),
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: sanitizeError(err) });
+  }
+});
+
 router.post('/revoke', requireAuth, (req, res) => {
   try {
     res.json(getRegistry(req).revoke(req.session.userId, req.body?.tokenId || null));

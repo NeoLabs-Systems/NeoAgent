@@ -600,6 +600,24 @@ class BrowserController {
     }
   }
 
+  async hoverPoint(x, y, options = {}) {
+    const page = await this.ensurePage();
+    try {
+      const px = Math.max(0, Math.round(Number(x) || 0));
+      const py = Math.max(0, Math.round(Number(y) || 0));
+      await page.mouse.move(px, py, { steps: options.steps || 1 });
+      return {
+        success: true,
+        x: px,
+        y: py,
+        url: page.url(),
+        title: await page.title()
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
   async scroll(deltaX = 0, deltaY = 0, screenshot = true) {
     const page = await this.ensurePage();
 

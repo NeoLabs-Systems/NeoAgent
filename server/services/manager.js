@@ -383,8 +383,14 @@ function createScreenRecorder(app) {
 
     const extensionRegistry = app.locals.browserExtensionRegistry;
     if (extensionRegistry?.connectionsByUser instanceof Map) {
-      for (const connection of extensionRegistry.connectionsByUser.values()) {
-        if (typeof connection?.isOpen === 'function' && connection.isOpen()) {
+      for (const value of extensionRegistry.connectionsByUser.values()) {
+        if (value instanceof Map) {
+          for (const connection of value.values()) {
+            if (typeof connection?.isOpen === 'function' && connection.isOpen()) {
+              return true;
+            }
+          }
+        } else if (typeof value?.isOpen === 'function' && value.isOpen()) {
           return true;
         }
       }

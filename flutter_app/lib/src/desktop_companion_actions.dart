@@ -235,6 +235,32 @@ class DesktopCompanionActions {
     return <String, Object?>{'success': true, 'x': x, 'y': y, 'button': button};
   }
 
+  Future<Map<String, Object?>> mouseMove({
+    required int x,
+    required int y,
+    String? displayId,
+  }) async {
+    await _assertInputSupported('mouseMove');
+    if (_usesNativeDesktopBridge) {
+      await _nativeBridge.mouseMove(
+        x: x,
+        y: y,
+        displayId: displayId,
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.linux) {
+      await _run(
+        _ShellCommand('xdotool', <String>[
+          'mousemove',
+          '$x',
+          '$y',
+        ]),
+      );
+    } else {
+      throw Exception('mouseMove is not supported on this platform.');
+    }
+    return <String, Object?>{'success': true, 'x': x, 'y': y};
+  }
+
   Future<Map<String, Object?>> drag({
     required int x1,
     required int y1,

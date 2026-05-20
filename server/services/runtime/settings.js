@@ -10,6 +10,9 @@ function createDefaultRuntimeSettings() {
     android_backend: policy.runtimeDefaults.android_backend,
     mcp_backend: policy.runtimeDefaults.mcp_backend,
     cli_backend: policy.runtimeDefaults.cli_backend ?? 'vm',
+    browser_extension_token_id: null,
+    selected_browser_extension_token_id: null,
+    cli_desktop_device_id: null,
   };
 }
 
@@ -26,6 +29,9 @@ const BASE_FALLBACK_SETTINGS = Object.freeze({
   android_backend: 'host',
   mcp_backend: 'host-remote',
   cli_backend: 'vm',
+  browser_extension_token_id: null,
+  selected_browser_extension_token_id: null,
+  cli_desktop_device_id: null,
 });
 
 const RUNTIME_SETTING_KEYS = Object.freeze(Object.keys(DEFAULT_RUNTIME_SETTINGS));
@@ -33,6 +39,11 @@ const RUNTIME_SETTING_KEYS = Object.freeze(Object.keys(DEFAULT_RUNTIME_SETTINGS)
 function normalizeChoice(value, allowed, fallback) {
   const normalized = String(value || '').trim().toLowerCase();
   return allowed.includes(normalized) ? normalized : fallback;
+}
+
+function normalizeOptionalString(value) {
+  const normalized = String(value || '').trim();
+  return normalized || null;
 }
 
 function deriveDefaultsForProfile(profile) {
@@ -57,6 +68,9 @@ function normalizeRuntimeSettings(raw = {}) {
   const runtimeBackend = normalizeChoice(raw.runtime_backend, ['vm'], derived.runtime_backend);
   const browserBackend = normalizeChoice(raw.browser_backend, ['vm', 'extension'], derived.browser_backend);
   const cliBackend = normalizeChoice(raw.cli_backend, ['vm', 'desktop'], derived.cli_backend ?? 'vm');
+  const selectedExtensionTokenId = normalizeOptionalString(
+    raw.browser_extension_token_id || raw.selected_browser_extension_token_id,
+  );
   const androidBackend = 'host';
   return {
     runtime_profile: profile === 'trusted-host' ? 'secure-vm' : profile,
@@ -65,6 +79,9 @@ function normalizeRuntimeSettings(raw = {}) {
     android_backend: androidBackend,
     mcp_backend: 'host-remote',
     cli_backend: cliBackend === 'desktop' ? 'desktop' : 'vm',
+    browser_extension_token_id: selectedExtensionTokenId,
+    selected_browser_extension_token_id: selectedExtensionTokenId,
+    cli_desktop_device_id: normalizeOptionalString(raw.cli_desktop_device_id),
   };
 }
 

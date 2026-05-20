@@ -18,6 +18,7 @@ const DESKTOP_COMMANDS = Object.freeze({
   PAUSE_CONTROL: 'pauseControl',
   EXECUTE_COMMAND: 'executeCommand',
   PING: 'ping',
+  MOUSE_MOVE: 'mouseMove',
 });
 
 const FRAME_TYPE_VIDEO = 0x01;

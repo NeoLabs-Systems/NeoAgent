@@ -148,6 +148,10 @@ class DesktopProvider {
     return this._dispatch(DESKTOP_COMMANDS.CLICK, { ...options, x, y });
   }
 
+  mouseMove(x, y, options = {}) {
+    return this._dispatch(DESKTOP_COMMANDS.MOUSE_MOVE, { ...options, x, y });
+  }
+
   drag(options = {}) {
     return this._dispatch(DESKTOP_COMMANDS.DRAG, options);
   }

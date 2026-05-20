@@ -19,10 +19,13 @@ class AndroidStream {
     this._timer = null;
     this._capturing = false;
     this._seq = 0;
+    this._lastErrorLogAt = 0;
+    this._stopped = true;
   }
 
   start() {
     if (this._timer) return;
+    this._stopped = false;
     const interval = Math.max(1, Math.floor(1000 / this.fps));
     this._timer = setInterval(() => {
       void this._captureOnce();
@@ -36,6 +39,7 @@ class AndroidStream {
       clearInterval(this._timer);
       this._timer = null;
     }
+    this._stopped = true;
   }
 
   async _captureOnce() {
@@ -46,8 +50,11 @@ class AndroidStream {
         throw new Error('Android streaming requires a controller with capturePng().');
       }
       const png = await this.controller.capturePng({ deviceId: this.deviceId });
-      if (!png?.length) return;
-      const jpeg = await sharp(png).jpeg({ quality: this.quality }).toBuffer();
+      if (this._stopped || !png?.length) return;
+      const jpeg = await sharp(png)
+        .jpeg({ quality: this.quality, mozjpeg: false })
+        .toBuffer();
+      if (this._stopped) return;
       this.streamHub.handleFrame(this.userId, this.deviceId, {
         jpeg,
         platform: 'android',
@@ -56,11 +63,15 @@ class AndroidStream {
         flags: 1,
       });
     } catch (error) {
-      console.warn('[AndroidStream] frame capture failed', {
-        userId: this.userId,
-        deviceId: this.deviceId,
-        error: String(error?.message || error),
-      });
+      const now = Date.now();
+      if (now - this._lastErrorLogAt > 10_000) {
+        this._lastErrorLogAt = now;
+        console.warn('[AndroidStream] frame capture failed', {
+          userId: this.userId,
+          deviceId: this.deviceId,
+          error: String(error?.message || error),
+        });
+      }
     } finally {
       this._capturing = false;
     }

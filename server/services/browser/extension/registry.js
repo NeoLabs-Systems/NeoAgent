@@ -8,6 +8,8 @@ const {
 
 const DEFAULT_PAIRING_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_COMMAND_TIMEOUT_MS = 30 * 1000;
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 25 * 1000;
+const DEFAULT_HEARTBEAT_TIMEOUT_MS = 75 * 1000;
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex');
@@ -42,7 +44,18 @@ class BrowserExtensionRegistry {
     this.db = options.db || db;
     this.commandTimeoutMs = Number(options.commandTimeoutMs || process.env.NEOAGENT_BROWSER_EXTENSION_COMMAND_TIMEOUT_MS || DEFAULT_COMMAND_TIMEOUT_MS);
     this.pairingTtlMs = Number(options.pairingTtlMs || process.env.NEOAGENT_BROWSER_EXTENSION_PAIRING_TTL_MS || DEFAULT_PAIRING_TTL_MS);
+    this.heartbeatIntervalMs = Number(options.heartbeatIntervalMs || process.env.NEOAGENT_BROWSER_EXTENSION_HEARTBEAT_INTERVAL_MS || DEFAULT_HEARTBEAT_INTERVAL_MS);
+    this.heartbeatTimeoutMs = Number(options.heartbeatTimeoutMs || process.env.NEOAGENT_BROWSER_EXTENSION_HEARTBEAT_TIMEOUT_MS || DEFAULT_HEARTBEAT_TIMEOUT_MS);
     this.connectionsByUser = new Map();
+  }
+
+  #getUserConnections(userId, create = false) {
+    const key = String(userId || '').trim();
+    if (!key) return null;
+    if (!this.connectionsByUser.has(key) && create) {
+      this.connectionsByUser.set(key, new Map());
+    }
+    return this.connectionsByUser.get(key) || null;
   }
 
   createPairingRequest(options = {}) {
@@ -164,7 +177,8 @@ class BrowserExtensionRegistry {
 
   registerConnection(tokenRow, ws, meta = {}) {
     const userId = String(tokenRow.user_id);
-    const existing = this.connectionsByUser.get(userId);
+    const userMap = this.#getUserConnections(userId, true);
+    const existing = userMap.get(tokenRow.id);
     if (existing && existing.ws !== ws) {
       existing.close('replaced by a newer extension connection');
     }
@@ -176,8 +190,10 @@ class BrowserExtensionRegistry {
       tokenId: tokenRow.id,
       meta: { ...tokenRow.metadata, ...meta },
       timeoutMs: this.commandTimeoutMs,
+      heartbeatIntervalMs: this.heartbeatIntervalMs,
+      heartbeatTimeoutMs: this.heartbeatTimeoutMs,
     });
-    this.connectionsByUser.set(userId, connection);
+    userMap.set(tokenRow.id, connection);
     this.db.prepare(
       `UPDATE browser_extension_tokens
        SET last_connected_at = datetime('now'), last_seen_at = datetime('now')
@@ -188,21 +204,75 @@ class BrowserExtensionRegistry {
 
   unregisterConnection(connection) {
     const userId = String(connection.userId);
-    if (this.connectionsByUser.get(userId) === connection) {
-      this.connectionsByUser.delete(userId);
+    const userMap = this.#getUserConnections(userId);
+    if (userMap?.get(connection.tokenId) === connection) {
+      userMap.delete(connection.tokenId);
+      if (userMap.size === 0) {
+        this.connectionsByUser.delete(userId);
+      }
     }
   }
 
-  getConnection(userId) {
-    return this.connectionsByUser.get(String(userId));
+  getSelectedTokenId(userId) {
+    const value = this.db.prepare(
+      `SELECT value FROM user_settings WHERE user_id = ? AND key = ?`
+    ).get(userId, 'browser_extension_token_id')?.value || null;
+    const normalized = String(value || '').trim();
+    if (!normalized || normalized === 'null') return null;
+    const existing = this.db.prepare(
+      `SELECT id FROM browser_extension_tokens WHERE user_id = ? AND id = ? AND status = 'active'`
+    ).get(userId, normalized);
+    if (!existing) return null;
+    return normalized;
   }
 
-  isConnected(userId) {
-    return Boolean(this.getConnection(userId)?.isOpen());
+  setSelectedTokenId(userId, tokenId) {
+    const normalized = String(tokenId || '').trim();
+    if (!normalized) {
+      const error = new Error('Browser extension token id is required.');
+      error.status = 400;
+      throw error;
+    }
+    const existing = this.db.prepare(
+      `SELECT id FROM browser_extension_tokens WHERE user_id = ? AND id = ? AND status = 'active'`
+    ).get(userId, normalized);
+    if (!existing) {
+      const error = new Error('Browser extension device not found.');
+      error.status = 404;
+      throw error;
+    }
+    const write = this.db.prepare(
+      `INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)
+       ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value`
+    );
+    write.run(userId, 'browser_extension_token_id', normalized);
+    write.run(userId, 'selected_browser_extension_token_id', normalized);
+    return { success: true, selectedTokenId: normalized };
+  }
+
+  getConnection(userId, tokenId = null) {
+    const userMap = this.#getUserConnections(userId);
+    if (!userMap) return null;
+    const explicit = String(tokenId || '').trim();
+    if (explicit) return userMap.get(explicit) || null;
+
+    const selected = this.getSelectedTokenId(userId);
+    if (selected && userMap.get(selected)?.isOpen()) {
+      return userMap.get(selected);
+    }
+    if (selected) return null;
+    const online = Array.from(userMap.values()).filter((connection) => connection.isOpen());
+    if (online.length === 0) return null;
+    online.sort((a, b) => String(b.connectedAt || '').localeCompare(String(a.connectedAt || '')));
+    return online[0];
+  }
+
+  isConnected(userId, tokenId = null) {
+    return Boolean(this.getConnection(userId, tokenId)?.isOpen());
   }
 
   async dispatch(userId, command, payload = {}, options = {}) {
-    const connection = this.getConnection(userId);
+    const connection = this.getConnection(userId, options.tokenId || payload.tokenId || null);
     if (!connection || !connection.isOpen()) {
       throw new ExtensionBrowserUnavailableError();
     }
@@ -214,20 +284,35 @@ class BrowserExtensionRegistry {
   }
 
   getStatus(userId) {
-    const connected = this.getConnection(userId);
+    const userMap = this.#getUserConnections(userId);
+    const selectedTokenId = this.getSelectedTokenId(userId);
+    const connected = selectedTokenId
+      ? userMap?.get(selectedTokenId)
+      : this.getConnection(userId);
+    const effectiveSelectedTokenId = selectedTokenId || connected?.tokenId || null;
     const tokens = this.db.prepare(
       `SELECT id, name, status, last_connected_at, last_seen_at, revoked_at, created_at, metadata_json
        FROM browser_extension_tokens
        WHERE user_id = ?
        ORDER BY created_at DESC`
-    ).all(userId).map((row) => ({
-      ...row,
-      metadata: parseJson(row.metadata_json),
-      metadata_json: undefined,
-    }));
+    ).all(userId).map((row) => {
+      const connection = userMap?.get(row.id) || null;
+      return {
+        ...row,
+        tokenId: row.id,
+        deviceId: row.id,
+        connected: Boolean(connection?.isOpen()),
+        online: Boolean(connection?.isOpen()),
+        selected: row.id === effectiveSelectedTokenId,
+        metadata: parseJson(row.metadata_json),
+        connectedMeta: connection?.meta || null,
+        metadata_json: undefined,
+      };
+    });
     return {
       connected: Boolean(connected?.isOpen()),
       activeTokenId: connected?.tokenId || null,
+      selectedTokenId: effectiveSelectedTokenId,
       tokens,
       connectedMeta: connected?.meta || null,
     };
@@ -249,7 +334,7 @@ class BrowserExtensionRegistry {
       ).run(userId);
     }
 
-    const connection = this.getConnection(userId);
+    const connection = this.getConnection(userId, targetTokenId);
     if (connection && (!targetTokenId || connection.tokenId === targetTokenId)) {
       connection.close('extension token revoked');
     }
@@ -258,25 +343,38 @@ class BrowserExtensionRegistry {
 
   closeAll() {
     for (const connection of this.connectionsByUser.values()) {
-      connection.close('server shutdown');
+      if (connection instanceof Map) {
+        for (const nested of connection.values()) {
+          nested.close('server shutdown');
+        }
+      } else {
+        connection.close('server shutdown');
+      }
     }
     this.connectionsByUser.clear();
   }
 }
 
 class ExtensionBrowserConnection {
-  constructor({ registry, ws, userId, tokenId, meta, timeoutMs }) {
+  constructor({ registry, ws, userId, tokenId, meta, timeoutMs, heartbeatIntervalMs, heartbeatTimeoutMs }) {
     this.registry = registry;
     this.ws = ws;
     this.userId = userId;
     this.tokenId = tokenId;
     this.meta = meta || {};
     this.timeoutMs = timeoutMs;
+    this.heartbeatIntervalMs = heartbeatIntervalMs;
+    this.heartbeatTimeoutMs = heartbeatTimeoutMs;
     this.pending = new Map();
+    this.connectedAt = new Date().toISOString();
+    this.lastPongAt = Date.now();
+    this.heartbeatTimer = null;
 
     ws.on('message', (data) => this.#handleMessage(data));
+    ws.on('pong', () => { this.lastPongAt = Date.now(); });
     ws.on('close', () => this.#closePending(new ExtensionBrowserUnavailableError('Extension browser disconnected.')));
     ws.on('error', (error) => this.#closePending(error));
+    this.#startHeartbeat();
   }
 
   isOpen() {
@@ -317,6 +415,7 @@ class ExtensionBrowserConnection {
   }
 
   #handleMessage(data) {
+    this.lastPongAt = Date.now();
     let message;
     try {
       message = parseExtensionMessage(data);
@@ -339,11 +438,38 @@ class ExtensionBrowserConnection {
 
   #closePending(error) {
     this.registry.unregisterConnection(this);
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(error);
     }
     this.pending.clear();
+  }
+
+  #startHeartbeat() {
+    const intervalMs = Number(this.heartbeatIntervalMs);
+    const timeoutMs = Number(this.heartbeatTimeoutMs);
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) return;
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.isOpen()) {
+        this.#closePending(new ExtensionBrowserUnavailableError('Extension browser disconnected.'));
+        return;
+      }
+      if (Number.isFinite(timeoutMs) && timeoutMs > 0 && Date.now() - this.lastPongAt > timeoutMs) {
+        try { this.ws.terminate(); } catch {}
+        this.#closePending(new ExtensionBrowserUnavailableError('Extension browser heartbeat timed out.'));
+        return;
+      }
+      try {
+        this.ws.ping();
+      } catch (error) {
+        this.#closePending(error);
+      }
+    }, intervalMs);
+    this.heartbeatTimer.unref?.();
   }
 }
 

@@ -90,6 +90,29 @@ class _DevicesPanelState extends State<DevicesPanel> {
   bool get _androidStarting =>
       widget.controller.androidRuntime['starting'] == true;
 
+  String? get _androidDeviceId {
+    final status = widget.controller.androidRuntime;
+    final direct = status['adbSerial']?.toString().trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final devices = _jsonMapList(status['devices'], fallbackToMapValues: true);
+    for (final device in devices) {
+      if (device['status']?.toString() != 'device') {
+        continue;
+      }
+      final serial = device['serial']?.toString().trim();
+      if (serial != null && serial.isNotEmpty) {
+        return serial;
+      }
+      final id = device['deviceId']?.toString().trim();
+      if (id != null && id.isNotEmpty) {
+        return id;
+      }
+    }
+    return null;
+  }
+
   List<Map<String, dynamic>> get _onlineDesktopDevices => widget
       .controller
       .desktopDevices
@@ -106,6 +129,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
   bool get _extensionPreferredButOffline =>
       widget.controller.browserBackend == 'extension' &&
       !widget.controller.browserExtensionConnected;
+
+  List<Map<String, dynamic>> get _browserExtensionDevices =>
+      widget.controller.browserExtensionTokens;
 
   String? get _activeScreenshotPath {
     if (_isBrowser) {
@@ -296,6 +322,23 @@ class _DevicesPanelState extends State<DevicesPanel> {
     }
   });
 
+  void _handleHover(Offset point) {
+    if (_isBrowser) {
+      unawaited(widget.controller.hoverBrowserPointRuntime(
+        x: point.dx.round(),
+        y: point.dy.round(),
+      ));
+    } else if (_isDesktop) {
+      if (_desktopRequiresSelection) {
+        return;
+      }
+      unawaited(widget.controller.hoverDesktopRuntime(
+        x: point.dx.round(),
+        y: point.dy.round(),
+      ));
+    }
+  }
+
   Future<void> _handleTap(Offset point) => _runOnSurface(() async {
     if (_isBrowser) {
       await widget.controller.clickBrowserPointRuntime(
@@ -324,36 +367,37 @@ class _DevicesPanelState extends State<DevicesPanel> {
     });
   });
 
-  Future<void> _handleSwipe(Offset start, Offset end) => _runOnSurface(() async {
-    if (_isBrowser) {
-      await widget.controller.scrollBrowserRuntime(
-        deltaY: (start.dy - end.dy).round(),
-      );
-      return;
-    }
-    if (_isDesktop) {
-      if (_desktopRequiresSelection) {
-        return;
-      }
-      await widget.controller.dragDesktopRuntime(
-        x1: start.dx.round(),
-        y1: start.dy.round(),
-        x2: end.dx.round(),
-        y2: end.dy.round(),
-      );
-      return;
-    }
-    if (!_androidOnline) {
-      return;
-    }
-    await widget.controller.swipeAndroidRuntime(<String, dynamic>{
-      'x1': start.dx.round(),
-      'y1': start.dy.round(),
-      'x2': end.dx.round(),
-      'y2': end.dy.round(),
-      'durationMs': 280,
-    });
-  });
+  Future<void> _handleSwipe(Offset start, Offset end) =>
+      _runOnSurface(() async {
+        if (_isBrowser) {
+          await widget.controller.scrollBrowserRuntime(
+            deltaY: (start.dy - end.dy).round(),
+          );
+          return;
+        }
+        if (_isDesktop) {
+          if (_desktopRequiresSelection) {
+            return;
+          }
+          await widget.controller.dragDesktopRuntime(
+            x1: start.dx.round(),
+            y1: start.dy.round(),
+            x2: end.dx.round(),
+            y2: end.dy.round(),
+          );
+          return;
+        }
+        if (!_androidOnline) {
+          return;
+        }
+        await widget.controller.swipeAndroidRuntime(<String, dynamic>{
+          'x1': start.dx.round(),
+          'y1': start.dy.round(),
+          'x2': end.dx.round(),
+          'y2': end.dy.round(),
+          'durationMs': 280,
+        });
+      });
 
   Future<void> _runQuickAction(String action) => _runOnSurface(() async {
     final controller = widget.controller;
@@ -398,6 +442,13 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final prefersExtension = controller.browserBackend == 'extension';
     final extensionConnected = controller.browserExtensionConnected;
     final usingExtension = prefersExtension && extensionConnected;
+    final selectedBrowserExtension = controller.browserExtensionTokens
+        .where(
+          (device) =>
+              device['tokenId'] == controller.selectedBrowserExtensionTokenId,
+        )
+        .cast<Map<String, dynamic>?>()
+        .firstWhere((device) => device != null, orElse: () => null);
     final browserFallbackLabel = 'cloud browser runtime';
     final browserPageInfo = browserStatus['pageInfo'] is Map<dynamic, dynamic>
         ? Map<String, dynamic>.from(browserStatus['pageInfo'] as Map)
@@ -454,12 +505,63 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       desktopDevices: controller.desktopDevices,
                       selectedDesktopDeviceId:
                           controller.selectedDesktopDeviceId,
+                      browserExtensionDevices:
+                          controller.browserExtensionTokens,
+                      selectedBrowserExtensionTokenId:
+                          controller.selectedBrowserExtensionTokenId,
                       browserExtensionPreferred: prefersExtension,
                       browserExtensionActive: usingExtension,
                       browserFallbackLabel: browserFallbackLabel,
                     ),
                     if (_isBrowser && prefersExtension) ...<Widget>[
                       const SizedBox(height: 14),
+                      if (_browserExtensionDevices.isNotEmpty) ...<Widget>[
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: selectedBrowserExtension?['tokenId']
+                              ?.toString(),
+                          decoration: const InputDecoration(
+                            labelText: 'Chrome extension device',
+                            prefixIcon: Icon(Icons.extension_outlined),
+                          ),
+                          hint: const Text('Select a paired extension'),
+                          items: _browserExtensionDevices.map((device) {
+                            final tokenId = device['tokenId']?.toString() ?? '';
+                            final label =
+                                device['name']?.toString().trim().isNotEmpty ==
+                                    true
+                                ? device['name'].toString()
+                                : tokenId;
+                            final state =
+                                device['online'] == true ||
+                                    device['connected'] == true
+                                ? 'online'
+                                : 'offline';
+                            return DropdownMenuItem<String>(
+                              value: tokenId,
+                              child: Text(
+                                '$label · $state',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: _isCurrentSurfaceBusy
+                              ? null
+                              : (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return;
+                                  }
+                                  unawaited(
+                                    controller.selectBrowserExtensionRuntime(
+                                      value,
+                                    ),
+                                  );
+                                },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       _ExtensionStatusBar(
                         connected: extensionConnected,
                         onDownload: controller.downloadBrowserExtension,
@@ -570,6 +672,21 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       surface: _surface,
                       controller: controller,
                       screenshotPath: _activeScreenshotPath,
+                      streamPlatform: _isBrowser && browserStatus['launched'] == true
+                          ? 'browser'
+                          : (_isDesktop && _desktopOnline
+                              ? 'desktop'
+                              : (!_isBrowser && !_isDesktop && _androidOnline
+                                  ? 'android'
+                                  : null)),
+                      streamDeviceId: _isBrowser && browserStatus['launched'] == true
+                          ? 'browser'
+                          : (_isDesktop && _desktopOnline
+                              ? (widget.controller.selectedDesktopDeviceId ??
+                                  (_onlineDesktopDevices.isNotEmpty ? _onlineDesktopDevices.first['deviceId']?.toString() : null))
+                              : (!_isBrowser && !_isDesktop && _androidOnline
+                                  ? _androidDeviceId
+                                  : null)),
                       busy: _isCurrentSurfaceBusy,
                       wakingUp: !_isBrowser && !_isDesktop && _androidStarting,
                       enabled: _isBrowser || _isDesktop || _androidOnline,
@@ -578,6 +695,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                           : _desktopRequiresSelection,
                       onTapPoint: _handleTap,
                       onSwipe: _handleSwipe,
+                      onHover: _handleHover,
                       onWakeRequested: _openPrimary,
                     ),
                     if (!_isBrowser && !_isDesktop) ...<Widget>[
@@ -666,6 +784,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
     required this.desktopRuntime,
     required this.desktopDevices,
     required this.selectedDesktopDeviceId,
+    required this.browserExtensionDevices,
+    required this.selectedBrowserExtensionTokenId,
     required this.browserExtensionPreferred,
     required this.browserExtensionActive,
     required this.browserFallbackLabel,
@@ -679,6 +799,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
   final Map<String, dynamic> desktopRuntime;
   final List<Map<String, dynamic>> desktopDevices;
   final String? selectedDesktopDeviceId;
+  final List<Map<String, dynamic>> browserExtensionDevices;
+  final String? selectedBrowserExtensionTokenId;
   final bool browserExtensionPreferred;
   final bool browserExtensionActive;
   final String browserFallbackLabel;
@@ -694,12 +816,29 @@ class _DeviceSurfaceHeader extends StatelessWidget {
             .where((device) => device['deviceId'] == selectedDesktopDeviceId)
             .cast<Map<String, dynamic>?>()
             .firstWhere((device) => device != null, orElse: () => null);
+        final selectedExtension = browserExtensionDevices
+            .where(
+              (device) => device['tokenId'] == selectedBrowserExtensionTokenId,
+            )
+            .cast<Map<String, dynamic>?>()
+            .firstWhere((device) => device != null, orElse: () => null);
+        final extensionOnlineCount = browserExtensionDevices
+            .where(
+              (device) =>
+                  device['online'] == true || device['connected'] == true,
+            )
+            .length;
         final desktopOnlineCount = desktopDevices
             .where((device) => device['online'] == true)
             .length;
         final title = switch (surface) {
           _DeviceSurface.browser =>
-            (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
+            browserExtensionPreferred &&
+                    selectedExtension?['name']?.toString().trim().isNotEmpty ==
+                        true
+                ? selectedExtension!['name'].toString()
+                : (browserPageInfo['title']?.toString().trim().isNotEmpty ??
+                      false)
                 ? browserPageInfo['title'].toString()
                 : 'Live Browser',
           _DeviceSurface.android => 'Android Phone',
@@ -709,9 +848,13 @@ class _DeviceSurfaceHeader extends StatelessWidget {
                 : 'Desktop Companion',
         };
         final subtitle = switch (surface) {
-            _DeviceSurface.browser =>
-                browserExtensionPreferred && !browserExtensionActive
-                ? 'No extension device is active. Using the $browserFallbackLabel.'
+          _DeviceSurface.browser =>
+            browserExtensionPreferred && selectedExtension == null
+                ? extensionOnlineCount > 1
+                      ? 'Multiple extension devices are online. Pick the browser you want to control.'
+                      : 'No extension device is active. Using the $browserFallbackLabel.'
+                : browserExtensionPreferred && !browserExtensionActive
+                ? 'Selected extension is offline. Using the $browserFallbackLabel.'
                 : (browserPageInfo['url']?.toString() ??
                       'Ready for navigation'),
           _DeviceSurface.android =>
@@ -746,7 +889,9 @@ class _DeviceSurfaceHeader extends StatelessWidget {
                 : '${selectedDesktop['platform'] ?? 'desktop'} · ${selectedDesktop['hostname'] ?? 'unknown host'}',
         };
         final statusLabel = surface == _DeviceSurface.browser
-            ? browserExtensionPreferred && !browserExtensionActive
+            ? browserExtensionPreferred && selectedExtension == null
+                  ? (extensionOnlineCount > 0 ? 'Select Device' : 'Fallback')
+                  : browserExtensionPreferred && !browserExtensionActive
                   ? 'Fallback'
                   : browserExtensionActive
                   ? 'Extension'
@@ -1120,10 +1265,7 @@ class _AndroidNavDock extends StatelessWidget {
 }
 
 class _SurfaceSwitcher extends StatelessWidget {
-  const _SurfaceSwitcher({
-    required this.surface,
-    required this.onSelect,
-  });
+  const _SurfaceSwitcher({required this.surface, required this.onSelect});
 
   final _DeviceSurface surface;
   final Future<void> Function(_DeviceSurface) onSelect;
@@ -1157,8 +1299,7 @@ class _SurfaceSwitcher extends StatelessWidget {
               ),
               labelStyle: TextStyle(
                 color: selected ? _textPrimary : _textSecondary,
-                fontWeight:
-                    selected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
             );
           }).toList(),
@@ -1179,24 +1320,30 @@ class _InteractiveSurfacePreview extends StatefulWidget {
     required this.surface,
     required this.controller,
     required this.screenshotPath,
+    required this.streamPlatform,
+    required this.streamDeviceId,
     required this.busy,
     required this.wakingUp,
     required this.enabled,
     required this.connectRequired,
     required this.onTapPoint,
     required this.onSwipe,
+    this.onHover,
     required this.onWakeRequested,
   });
 
   final _DeviceSurface surface;
   final NeoAgentController controller;
   final String? screenshotPath;
+  final String? streamPlatform;
+  final String? streamDeviceId;
   final bool busy;
   final bool wakingUp;
   final bool enabled;
   final bool connectRequired;
   final Future<void> Function(Offset point) onTapPoint;
   final Future<void> Function(Offset start, Offset end) onSwipe;
+  final void Function(Offset point)? onHover;
   final Future<void> Function() onWakeRequested;
 
   @override
@@ -1213,11 +1360,15 @@ class _InteractiveSurfacePreviewState
   Object? _imageError;
   Offset? _dragStart;
   Offset? _dragEnd;
+  bool _streamStarting = false;
+  String? _activeStreamKey;
+  String? _streamFailedKey;
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadImage());
+    unawaited(_syncStream());
   }
 
   @override
@@ -1226,12 +1377,93 @@ class _InteractiveSurfacePreviewState
     if (oldWidget.screenshotPath != widget.screenshotPath) {
       unawaited(_loadImage());
     }
+    if (oldWidget.streamPlatform != widget.streamPlatform ||
+        oldWidget.streamDeviceId != widget.streamDeviceId ||
+        oldWidget.controller.streamSocket != widget.controller.streamSocket) {
+      unawaited(_syncStream());
+    }
   }
 
   @override
   void dispose() {
+    unawaited(_stopActiveStream());
     _detachImageListener();
     super.dispose();
+  }
+
+  String? get _requestedStreamKey {
+    final platform = widget.streamPlatform?.trim();
+    final deviceId = widget.streamDeviceId?.trim();
+    if (platform == null ||
+        platform.isEmpty ||
+        deviceId == null ||
+        deviceId.isEmpty ||
+        widget.controller.streamSocket == null) {
+      return null;
+    }
+    return '$platform:$deviceId';
+  }
+
+  Future<void> _syncStream() async {
+    final requested = _requestedStreamKey;
+    if (_activeStreamKey == requested || _streamStarting) {
+      return;
+    }
+    if (requested != _streamFailedKey) {
+      _streamFailedKey = null;
+    }
+    await _stopActiveStream();
+    if (requested == null) {
+      return;
+    }
+    final parts = requested.split(':');
+    _streamStarting = true;
+    try {
+      await widget.controller.startStreamRuntime(
+        platform: parts[0],
+        deviceId: parts.sublist(1).join(':'),
+        fps: 10,
+        quality: 70,
+      );
+      if (mounted && _requestedStreamKey == requested) {
+        _activeStreamKey = requested;
+        _streamFailedKey = null;
+      } else {
+        await widget.controller.stopStreamRuntime(
+          platform: parts[0],
+          deviceId: parts.sublist(1).join(':'),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        _streamFailedKey = requested;
+      }
+      if (mounted && (widget.screenshotPath ?? '').isEmpty) {
+        unawaited(_loadImage());
+      }
+    } finally {
+      _streamStarting = false;
+      if (mounted &&
+          _activeStreamKey != _requestedStreamKey &&
+          _streamFailedKey != _requestedStreamKey) {
+        unawaited(_syncStream());
+      }
+    }
+  }
+
+  Future<void> _stopActiveStream() async {
+    final active = _activeStreamKey;
+    _activeStreamKey = null;
+    if (active == null) {
+      return;
+    }
+    final parts = active.split(':');
+    try {
+      await widget.controller.stopStreamRuntime(
+        platform: parts[0],
+        deviceId: parts.sublist(1).join(':'),
+      );
+    } catch (_) {}
   }
 
   void _detachImageListener() {
@@ -1368,82 +1600,41 @@ class _InteractiveSurfacePreviewState
                       constraints.maxWidth,
                       constraints.maxHeight,
                     );
-                    if (!hasImage) {
-                      return _EmptySurfaceState(
-                        surface: widget.surface,
-                        enabled: widget.enabled,
-                        busy: widget.busy,
-                        isLoadingPreview: widget.wakingUp,
-                        connectRequired: widget.connectRequired,
-                        errorMessage: _imageError?.toString(),
-                        onPressed: widget.onWakeRequested,
-                      );
-                    }
-                    final imageBytes = _imageBytes;
-                    if (imageBytes == null) {
-                      return _EmptySurfaceState(
-                        surface: widget.surface,
-                        enabled: widget.enabled,
-                        busy: widget.busy,
-                        isLoadingPreview: _imageError == null,
-                        connectRequired: widget.connectRequired,
-                        errorMessage: _imageError?.toString(),
-                        onPressed: widget.onWakeRequested,
-                      );
-                    }
-                    return Semantics(
-                      button: true,
-                      label: 'Device surface preview — tap to interact, swipe to scroll',
-                      child: GestureDetector(
-                      onTapUp: widget.busy
-                          ? null
-                          : (details) async {
-                              final point = _mapToPixels(
-                                details.localPosition,
-                                boxSize,
-                              );
-                              if (point != null) {
-                                await widget.onTapPoint(point);
-                              }
-                            },
-                      onPanStart: widget.busy
-                          ? null
-                          : (details) {
-                              _dragStart = details.localPosition;
-                              _dragEnd = details.localPosition;
-                            },
-                      onPanUpdate: widget.busy
-                          ? null
-                          : (details) {
-                              _dragEnd = details.localPosition;
-                            },
-                      onPanEnd: widget.busy
-                          ? null
-                          : (_) async {
-                              final start = _dragStart;
-                              final end = _dragEnd;
-                              _dragStart = null;
-                              _dragEnd = null;
-                              if (start == null || end == null) {
-                                return;
-                              }
-                              if ((start - end).distance < 12) {
-                                return;
-                              }
-                              final mappedStart = _mapToPixels(start, boxSize);
-                              final mappedEnd = _mapToPixels(end, boxSize);
-                              if (mappedStart != null && mappedEnd != null) {
-                                await widget.onSwipe(mappedStart, mappedEnd);
-                              }
-                            },
-                      child: Stack(
+                    final socket = widget.controller.streamSocket;
+                    final streamPlatform = widget.streamPlatform;
+                    final streamDeviceId = widget.streamDeviceId;
+                    final streamKey = _requestedStreamKey;
+                    if (socket != null &&
+                        streamPlatform != null &&
+                        streamPlatform.isNotEmpty &&
+                        streamDeviceId != null &&
+                        streamDeviceId.isNotEmpty &&
+                        streamKey != _streamFailedKey) {
+                      return Stack(
                         fit: StackFit.expand,
                         children: <Widget>[
                           Container(color: _bgSecondary),
-                          Image.memory(
-                            imageBytes,
-                            fit: BoxFit.contain,
-                            gaplessPlayback: true,
+                          StreamRenderer(
+                            socket: socket,
+                            deviceId: streamDeviceId,
+                            platform: streamPlatform,
+                            remoteResolution: _pixelSize,
+                            onTap: widget.busy
+                                ? null
+                                : (x, y) => unawaited(
+                                    widget.onTapPoint(Offset(x, y)),
+                                  ),
+                            onSwipe: widget.busy
+                                ? null
+                                : (x1, y1, x2, y2) => unawaited(
+                                    widget.onSwipe(
+                                      Offset(x1, y1),
+                                      Offset(x2, y2),
+                                    ),
+                                  ),
+                            onHover: widget.busy
+                                ? null
+                                : (x, y) => widget.onHover?.call(Offset(x, y)),
                           ),
                           Positioned(
                             left: 12,
@@ -1469,8 +1660,115 @@ class _InteractiveSurfacePreviewState
                           if (widget.busy)
                             const Center(child: CircularProgressIndicator()),
                         ],
+                      );
+                    }
+                    if (!hasImage) {
+                      return _EmptySurfaceState(
+                        surface: widget.surface,
+                        enabled: widget.enabled,
+                        busy: widget.busy,
+                        isLoadingPreview: widget.wakingUp,
+                        connectRequired: widget.connectRequired,
+                        errorMessage: _imageError?.toString(),
+                        onPressed: widget.onWakeRequested,
+                      );
+                    }
+                    final imageBytes = _imageBytes;
+                    if (imageBytes == null) {
+                      return _EmptySurfaceState(
+                        surface: widget.surface,
+                        enabled: widget.enabled,
+                        busy: widget.busy,
+                        isLoadingPreview: _imageError == null,
+                        connectRequired: widget.connectRequired,
+                        errorMessage: _imageError?.toString(),
+                        onPressed: widget.onWakeRequested,
+                      );
+                    }
+                    return Semantics(
+                      button: true,
+                      label:
+                          'Device surface preview — tap to interact, swipe to scroll',
+                      child: GestureDetector(
+                        onTapUp: widget.busy
+                            ? null
+                            : (details) async {
+                                final point = _mapToPixels(
+                                  details.localPosition,
+                                  boxSize,
+                                );
+                                if (point != null) {
+                                  await widget.onTapPoint(point);
+                                }
+                              },
+                        onPanStart: widget.busy
+                            ? null
+                            : (details) {
+                                _dragStart = details.localPosition;
+                                _dragEnd = details.localPosition;
+                              },
+                        onPanUpdate: widget.busy
+                            ? null
+                            : (details) {
+                                _dragEnd = details.localPosition;
+                              },
+                        onPanEnd: widget.busy
+                            ? null
+                            : (_) async {
+                                final start = _dragStart;
+                                final end = _dragEnd;
+                                _dragStart = null;
+                                _dragEnd = null;
+                                if (start == null || end == null) {
+                                  return;
+                                }
+                                if ((start - end).distance < 12) {
+                                  return;
+                                }
+                                final mappedStart = _mapToPixels(
+                                  start,
+                                  boxSize,
+                                );
+                                final mappedEnd = _mapToPixels(end, boxSize);
+                                if (mappedStart != null && mappedEnd != null) {
+                                  await widget.onSwipe(mappedStart, mappedEnd);
+                                }
+                              },
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: <Widget>[
+                            Container(color: _bgSecondary),
+                            Image.memory(
+                              imageBytes,
+                              fit: BoxFit.contain,
+                              gaplessPlayback: true,
+                            ),
+                            Positioned(
+                              left: 12,
+                              right: 12,
+                              bottom: 12,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xB205080D),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: _borderLight),
+                                ),
+                                child: Text(
+                                  widget.surface.helper,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: _textPrimary),
+                                ),
+                              ),
+                            ),
+                            if (widget.busy)
+                              const Center(child: CircularProgressIndicator()),
+                          ],
+                        ),
                       ),
-                    ),
                     );
                   },
                 ),
@@ -1591,9 +1889,6 @@ class _EmptySurfaceState extends StatelessWidget {
     );
   }
 }
-
-
-
 
 class _DeviceFieldRow extends StatelessWidget {
   const _DeviceFieldRow({required this.children});
@@ -1741,7 +2036,9 @@ class _ExtensionStatusBar extends StatelessWidget {
       child: Row(
         children: <Widget>[
           _DotStatus(
-            label: connected ? 'Extension connected' : 'Extension not connected',
+            label: connected
+                ? 'Extension connected'
+                : 'Extension not connected',
             color: connected ? _success : _warning,
           ),
           const Spacer(),

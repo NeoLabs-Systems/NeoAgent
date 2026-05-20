@@ -170,6 +170,7 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
 class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
   late String _browserBackend;
+  String? _browserExtensionTokenId;
   late String _cliBackend;
   String? _cliDesktopDeviceId;
   late bool _smarterSelector;
@@ -233,6 +234,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .map((model) => model.id)
         .toSet();
     _browserBackend = _normalizeBrowserBackend(controller.browserBackend);
+    _browserExtensionTokenId =
+        controller.browserExtensionTokenId ??
+        controller.selectedBrowserExtensionTokenId;
     _cliBackend = _normalizeCliBackend(controller.cliBackend);
     _cliDesktopDeviceId = controller.cliDesktopDeviceId;
     _smarterSelector = controller.smarterSelector;
@@ -476,6 +480,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
               browserBackend: _browserBackend == 'extension'
                   ? 'extension'
                   : 'vm',
+              browserExtensionTokenId: _browserBackend == 'extension'
+                  ? _browserExtensionTokenId
+                  : null,
               cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
               cliDesktopDeviceId: _cliDesktopDeviceId,
               smarterSelector: _smarterSelector,
@@ -642,12 +649,62 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ],
               onChanged: (value) {
                 if (value != null) {
-                  setState(() => _browserBackend = value);
+                  setState(() {
+                    _browserBackend = value;
+                    _browserExtensionTokenId ??=
+                        controller.selectedBrowserExtensionTokenId;
+                  });
                 }
               },
             ),
             const SizedBox(height: 10),
             if (_browserBackend == 'extension') ...<Widget>[
+              if (controller.browserExtensionTokens.isNotEmpty) ...<Widget>[
+                DropdownButtonFormField<String>(
+                  initialValue: controller.browserExtensionTokens.any(
+                    (token) => token['tokenId']?.toString() == _browserExtensionTokenId,
+                  )
+                      ? _browserExtensionTokenId
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Default extension',
+                    helperText: 'Choose which paired Chrome extension controls browser actions.',
+                  ),
+                  items: controller.browserExtensionTokens.map((token) {
+                    final tokenId = token['tokenId']?.toString() ?? '';
+                    final label = token['name']?.toString().trim().isNotEmpty == true
+                        ? token['name'].toString()
+                        : tokenId;
+                    final online = token['online'] == true || token['connected'] == true;
+                    return DropdownMenuItem<String>(
+                      value: tokenId,
+                      child: Row(
+                        children: <Widget>[
+                          Icon(
+                            online ? Icons.circle : Icons.circle_outlined,
+                            size: 10,
+                            color: online ? Colors.green : Colors.grey,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _browserExtensionTokenId = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
               _buildInlineTestRow(
                 label: 'Chrome extension',
                 running: _extensionTestRunning,

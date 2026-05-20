@@ -163,6 +163,16 @@ router.post('/click', (req, res) =>
     },
   )));
 
+router.post('/mouse-move', (req, res) =>
+  handleDesktopAction(req, res, (provider, request) => provider.mouseMove(
+    parseFiniteNumber(request.body?.x, 'x', { min: -100000, max: 100000 }),
+    parseFiniteNumber(request.body?.y, 'y', { min: -100000, max: 100000 }),
+    {
+      ...(request.body || {}),
+      deviceId: parseDeviceId(request.body?.deviceId),
+    },
+  )));
+
 router.post('/drag', (req, res) =>
   handleDesktopAction(req, res, (provider, request) => provider.drag({
     ...(request.body || {}),

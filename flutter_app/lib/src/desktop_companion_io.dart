@@ -348,6 +348,12 @@ class DesktopCompanionManager extends ChangeNotifier {
           button: payload['button']?.toString() ?? 'left',
           displayId: _activeDisplayId,
         );
+      case 'mouseMove':
+        return _actions.mouseMove(
+          x: (payload['x'] as num?)?.round() ?? 0,
+          y: (payload['y'] as num?)?.round() ?? 0,
+          displayId: _activeDisplayId,
+        );
       case 'drag':
         return _actions.drag(
           x1: (payload['x1'] as num?)?.round() ?? 0,
