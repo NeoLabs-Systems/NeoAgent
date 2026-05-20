@@ -103,8 +103,13 @@ class _DevicesPanelState extends State<DevicesPanel> {
       _onlineDesktopDevices.length > 1 &&
       (widget.controller.selectedDesktopDeviceId ?? '').isEmpty;
 
+  bool get _extensionPreferredButOffline =>
+      widget.controller.browserBackend == 'extension' &&
+      !widget.controller.browserExtensionConnected;
+
   String? get _activeScreenshotPath {
     if (_isBrowser) {
+      if (_extensionPreferredButOffline) return null;
       return widget.controller.browserScreenshotPath;
     }
     if (_isDesktop) {
@@ -121,6 +126,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
   Future<void> _ensurePreview() async {
     final controller = widget.controller;
     if (_isBrowser) {
+      if (_extensionPreferredButOffline) return;
       if (controller.browserRuntime['launched'] != true) {
         return;
       }
@@ -161,6 +167,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
       return;
     }
     if (_isBrowser) {
+      if (_extensionPreferredButOffline) return;
       await widget.controller.refreshBrowserFrameRuntime();
       return;
     }
@@ -566,7 +573,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       busy: _isCurrentSurfaceBusy,
                       wakingUp: !_isBrowser && !_isDesktop && _androidStarting,
                       enabled: _isBrowser || _isDesktop || _androidOnline,
-                      connectRequired: _desktopRequiresSelection,
+                      connectRequired: _isBrowser
+                          ? _extensionPreferredButOffline
+                          : _desktopRequiresSelection,
                       onTapPoint: _handleTap,
                       onSwipe: _handleSwipe,
                       onWakeRequested: _openPrimary,

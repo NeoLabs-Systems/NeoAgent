@@ -146,8 +146,6 @@ class NeoAgentController extends ChangeNotifier {
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
   List<RunSummary> recentRuns = const <RunSummary>[];
   TokenUsageSnapshot? tokenUsage;
-  List<Map<String, dynamic>>? systemHealthResults;
-  bool systemHealthCheckRunning = false;
   UpdateStatusSnapshot updateStatus = const UpdateStatusSnapshot();
   List<LogEntry> logs = const <LogEntry>[];
   Map<String, MessagingPlatformStatus> messagingStatuses =
@@ -1038,32 +1036,6 @@ class NeoAgentController extends ChangeNotifier {
       availableAppUpdate = result.updateAvailable ? result.release : null;
     } finally {
       isCheckingAppUpdate = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> runSystemHealthCheck() async {
-    if (systemHealthCheckRunning) return;
-    systemHealthCheckRunning = true;
-    systemHealthResults = null;
-    notifyListeners();
-    try {
-      final raw = await _backendClient.runSystemHealthCheck(backendUrl);
-      final list = raw['results'];
-      systemHealthResults = list is List
-          ? list.cast<Map<String, dynamic>>()
-          : const <Map<String, dynamic>>[];
-    } catch (e) {
-      systemHealthResults = <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'backend',
-          'label': 'Backend server',
-          'passed': false,
-          'detail': e.toString(),
-        },
-      ];
-    } finally {
-      systemHealthCheckRunning = false;
       notifyListeners();
     }
   }
