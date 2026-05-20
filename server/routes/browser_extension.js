@@ -4,10 +4,10 @@ const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { createZipFromDirectory } = require('../services/browser/extension/zip');
+const { getExtensionManifest } = require('../services/browser/extension/manifest');
 
 const router = express.Router();
 const EXTENSION_DIR = path.join(__dirname, '..', '..', 'extensions', 'chrome-browser');
-const EXTENSION_MANIFEST = require('../../extensions/chrome-browser/manifest.json');
 const pairingLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
@@ -55,10 +55,12 @@ router.post('/pairing/request', pairingLimiter, (req, res) => {
 });
 
 router.get('/latest', (req, res) => {
+  const manifest = getExtensionManifest();
   res.json({
-    name: EXTENSION_MANIFEST.name,
-    version: EXTENSION_MANIFEST.version,
-    minimumChromeVersion: EXTENSION_MANIFEST.minimum_chrome_version,
+    name: manifest.name,
+    version: manifest.version,
+    versionName: manifest.version_name,
+    minimumChromeVersion: manifest.minimum_chrome_version,
     downloadUrl: `${baseUrlFor(req)}/api/browser-extension/download`,
   });
 });
@@ -133,8 +135,10 @@ router.post('/revoke', requireAuth, (req, res) => {
 
 router.get('/download', requireAuth, (req, res) => {
   try {
+    const manifest = getExtensionManifest();
     const zip = createZipFromDirectory(EXTENSION_DIR, {
       overrides: {
+        'manifest.json': `${JSON.stringify(manifest, null, 2)}\n`,
         'config.mjs': extensionConfigFor(req),
       },
     });

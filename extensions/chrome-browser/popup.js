@@ -249,8 +249,8 @@ bindAsyncClick(checkUpdateEl, async () => {
   const result = await send('checkForUpdates', { serverUrl: effectiveServerUrl() });
   setMessage(
     result.updateAvailable
-      ? `Update available: ${result.currentVersion} -> ${result.latestVersion}.`
-      : `Current version ${result.currentVersion} is up to date.`,
+      ? `Update available: ${result.currentVersionName || result.currentVersion} -> ${result.latestVersionName || result.latestVersion}.`
+      : `Current version ${result.currentVersionName || result.currentVersion} is up to date.`,
     result.updateAvailable ? '' : 'success',
   );
 });

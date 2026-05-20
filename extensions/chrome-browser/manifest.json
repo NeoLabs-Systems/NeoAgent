@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "NeoAgent Browser",
-  "version": "1.0.0",
+  "version": "2.4.1.7",
+  "version_name": "2.4.1-beta.7",
   "description": "Connect this Chrome browser to NeoAgent for browser automation.",
   "minimum_chrome_version": "118",
   "permissions": ["debugger", "storage", "tabs"],

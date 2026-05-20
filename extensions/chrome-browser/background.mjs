@@ -250,12 +250,18 @@ async function checkForUpdates(preferredServerUrl) {
   const response = await fetchWithTimeout(`${serverUrl}/api/browser-extension/latest`);
   const latest = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(latest.error || `Update check failed: ${response.status}`);
-  const currentVersion = chrome.runtime.getManifest().version;
+  const manifest = chrome.runtime.getManifest();
+  const currentVersion = manifest.version;
+  const currentVersionName = manifest.version_name || currentVersion;
+  const latestVersion = latest.version || currentVersion;
+  const latestVersionName = latest.versionName || latestVersion;
   return {
     currentVersion,
-    latestVersion: latest.version || currentVersion,
+    currentVersionName,
+    latestVersion,
+    latestVersionName,
     downloadUrl: latest.downloadUrl || `${serverUrl}/api/browser-extension/download`,
-    updateAvailable: compareVersions(latest.version, currentVersion) > 0,
+    updateAvailable: compareVersions(latestVersion, currentVersion) > 0,
   };
 }
 
