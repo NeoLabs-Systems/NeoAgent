@@ -171,6 +171,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
   late String _browserBackend;
   late String _cliBackend;
+  String? _cliDesktopDeviceId;
   late bool _smarterSelector;
   late Set<String> _enabledModels;
   late String _defaultChatModel;
@@ -233,6 +234,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .toSet();
     _browserBackend = _normalizeBrowserBackend(controller.browserBackend);
     _cliBackend = _normalizeCliBackend(controller.cliBackend);
+    _cliDesktopDeviceId = controller.cliDesktopDeviceId;
     _smarterSelector = controller.smarterSelector;
     _enabledModels = controller.enabledModelIds
         .where((id) => knownModels.contains(id))
@@ -475,6 +477,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ? 'extension'
                   : 'vm',
               cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
+              cliDesktopDeviceId: _cliDesktopDeviceId,
               smarterSelector: _smarterSelector,
               enabledModels: _enabledModels.toList(),
               defaultChatModel: _defaultChatModel,
@@ -714,6 +717,46 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 }
               },
             ),
+            if (_cliBackend == 'desktop' && controller.desktopDevices.length > 1) ...<Widget>[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: controller.desktopDevices.any(
+                  (d) => d['deviceId']?.toString() == _cliDesktopDeviceId,
+                )
+                    ? _cliDesktopDeviceId
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Desktop device',
+                  helperText: 'Choose which desktop companion runs CLI commands.',
+                ),
+                items: controller.desktopDevices.map((device) {
+                  final deviceId = device['deviceId']?.toString() ?? '';
+                  final label = device['hostname']?.toString().isNotEmpty == true
+                      ? device['hostname']!.toString()
+                      : deviceId;
+                  final online = device['online'] == true;
+                  return DropdownMenuItem<String>(
+                    value: deviceId,
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          online ? Icons.circle : Icons.circle_outlined,
+                          size: 10,
+                          color: online ? Colors.green : Colors.grey,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(label),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _cliDesktopDeviceId = value);
+                  }
+                },
+              ),
+            ],
             const SizedBox(height: 10),
             _buildInlineTestRow(
               label: 'CLI',

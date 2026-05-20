@@ -4574,6 +4574,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> saveSettings({
     required String browserBackend,
     required String cliBackend,
+    String? cliDesktopDeviceId,
     required bool smarterSelector,
     required List<String> enabledModels,
     required String defaultChatModel,
@@ -4603,6 +4604,7 @@ class NeoAgentController extends ChangeNotifier {
       'headless_browser': true,
       'browser_backend': browserBackend,
       'cli_backend': cliBackend,
+      if (cliDesktopDeviceId != null) 'cli_desktop_device_id': cliDesktopDeviceId,
       'smarter_model_selector': smarterSelector,
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
@@ -6139,6 +6141,11 @@ class NeoAgentController extends ChangeNotifier {
 
   String get cliBackend =>
       settings['cli_backend']?.toString().trim().toLowerCase() ?? 'vm';
+
+  String? get cliDesktopDeviceId {
+    final v = settings['cli_desktop_device_id']?.toString().trim();
+    return (v == null || v.isEmpty) ? null : v;
+  }
 
   String get cloudBrowserBackend {
     final browser = browserBackend;
