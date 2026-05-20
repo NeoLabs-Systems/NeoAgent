@@ -142,16 +142,42 @@ class BrowserExtensionRegistry {
     };
 
     const tx = this.db.transaction(() => {
+      // Find other active tokens with the same name for this user.
+      // If they are currently offline, revoke them to clean up old installs/duplicates.
+      const duplicates = this.db.prepare(
+        `SELECT id FROM browser_extension_tokens
+         WHERE user_id = ? AND name = ? AND status = 'active'`
+      ).all(row.user_id, extensionName);
+
+      for (const dup of duplicates) {
+        if (!this.isConnected(row.user_id, dup.id)) {
+          this.db.prepare(
+            `UPDATE browser_extension_tokens
+             SET status = 'revoked', revoked_at = datetime('now')
+             WHERE id = ?`
+          ).run(dup.id);
+        }
+      }
+
       this.db.prepare(
         `UPDATE browser_extension_pairing_requests
          SET status = 'claimed', claimed_at = datetime('now')
          WHERE id = ?`
       ).run(row.id);
+      
       this.db.prepare(
         `INSERT INTO browser_extension_tokens (
            id, user_id, token_hash, name, status, metadata_json
          ) VALUES (?, ?, ?, ?, 'active', ?)`
       ).run(tokenId, row.user_id, sha256(token), extensionName, safeJson(metadata));
+
+      // Auto-select the newly paired token on claim
+      const write = this.db.prepare(
+        `INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)
+         ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value`
+      );
+      write.run(row.user_id, 'browser_extension_token_id', tokenId);
+      write.run(row.user_id, 'selected_browser_extension_token_id', tokenId);
     });
     tx();
 
@@ -260,11 +286,29 @@ class BrowserExtensionRegistry {
     if (selected && userMap.get(selected)?.isOpen()) {
       return userMap.get(selected);
     }
-    if (selected) return null;
+
+    // Auto-select online connection if selected is offline/unset
     const online = Array.from(userMap.values()).filter((connection) => connection.isOpen());
-    if (online.length === 0) return null;
-    online.sort((a, b) => String(b.connectedAt || '').localeCompare(String(a.connectedAt || '')));
-    return online[0];
+    if (online.length > 0) {
+      online.sort((a, b) => String(b.connectedAt || '').localeCompare(String(a.connectedAt || '')));
+      const activeConnection = online[0];
+      try {
+        const write = this.db.prepare(
+          `INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)
+           ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value`
+        );
+        write.run(userId, 'browser_extension_token_id', activeConnection.tokenId);
+        write.run(userId, 'selected_browser_extension_token_id', activeConnection.tokenId);
+      } catch (err) {
+        console.error('[Registry] failed to auto-select online extension', err);
+      }
+      return activeConnection;
+    }
+
+    if (selected) {
+      return userMap.get(selected) || null;
+    }
+    return null;
   }
 
   isConnected(userId, tokenId = null) {

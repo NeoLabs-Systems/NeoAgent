@@ -1,7 +1,7 @@
 import { createBrowserProtocol } from './protocol.mjs';
 import { DEFAULT_SERVER_URL } from './config.mjs';
 
-const STORAGE_KEYS = ['serverUrl', 'configuredServerUrl', 'token', 'pairingId', 'pairingSecret', 'approvalUrl', 'status'];
+const STORAGE_KEYS = ['serverUrl', 'configuredServerUrl', 'token', 'pairingId', 'pairingSecret', 'approvalUrl', 'status', 'extensionName'];
 const protocol = createBrowserProtocol(chrome);
 let socket = null;
 let reconnectTimer = null;
@@ -188,10 +188,12 @@ async function handleSocketMessage(raw) {
 async function startPairing(serverUrl) {
   const normalized = await resolveServerUrl(serverUrl);
   if (!normalized) throw new Error('NeoAgent server URL required.');
+  const { extensionName } = await getStorage(['extensionName']);
+  const nameToUse = String(extensionName || 'Chrome Extension').trim() || 'Chrome Extension';
   const response = await fetchWithTimeout(`${normalized}/api/browser-extension/pairing/request`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ extensionName: 'NeoAgent Browser' }),
+    body: JSON.stringify({ extensionName: nameToUse }),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Pairing failed: ${response.status}`);
@@ -212,14 +214,15 @@ async function startPairing(serverUrl) {
 }
 
 async function claimPairing() {
-  const { serverUrl, pairingId, pairingSecret } = await getStorage(['serverUrl', 'pairingId', 'pairingSecret']);
+  const { serverUrl, pairingId, pairingSecret, extensionName } = await getStorage(['serverUrl', 'pairingId', 'pairingSecret', 'extensionName']);
   if (!serverUrl || !pairingId || !pairingSecret) {
     throw new Error('No pending pairing request.');
   }
+  const nameToUse = String(extensionName || 'Chrome Extension').trim() || 'Chrome Extension';
   const response = await fetchWithTimeout(`${serverUrl}/api/browser-extension/pairing/${encodeURIComponent(pairingId)}/claim`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ pairingSecret, extensionName: 'NeoAgent Browser' }),
+    body: JSON.stringify({ pairingSecret, extensionName: nameToUse }),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Claim failed: ${response.status}`);
@@ -285,6 +288,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return disconnect();
       case 'checkForUpdates':
         return checkForUpdates(message.serverUrl);
+      case 'saveExtensionName':
+        await setStorage({ extensionName: message.extensionName });
+        return { success: true };
       case 'openDownload':
         return openDownload(message.serverUrl);
       case 'getState':

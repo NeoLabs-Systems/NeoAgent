@@ -1,6 +1,7 @@
 const statusEl = document.querySelector('#status');
 const statusDotEl = document.querySelector('#statusDot');
 const serverUrlEl = document.querySelector('#serverUrl');
+const extensionNameEl = document.querySelector('#extensionName');
 const serverLabelEl = document.querySelector('#serverLabel');
 const messageEl = document.querySelector('#message');
 const settingsEl = document.querySelector('#settings');
@@ -214,6 +215,10 @@ async function refresh() {
   if (serverUrl && document.activeElement !== serverUrlEl) {
     serverUrlEl.value = serverUrl;
   }
+  const extensionName = currentState.extensionName || 'Chrome Extension';
+  if (document.activeElement !== extensionNameEl) {
+    extensionNameEl.value = extensionName;
+  }
   if (!serverUrl) {
     settingsEl.open = true;
   }
@@ -237,6 +242,14 @@ function bindAsyncClick(element, handler) {
 }
 
 serverUrlEl.addEventListener('input', updateFlow);
+extensionNameEl.addEventListener('input', async () => {
+  const name = String(extensionNameEl.value || '').trim();
+  try {
+    await send('saveExtensionName', { extensionName: name });
+  } catch (err) {
+    console.error('Failed to save extension name', err);
+  }
+});
 
 bindAsyncClick(primaryActionEl, () => runAction(primaryActionEl.dataset.action));
 bindAsyncClick(secondaryActionEl, () => runAction(secondaryActionEl.dataset.action));
