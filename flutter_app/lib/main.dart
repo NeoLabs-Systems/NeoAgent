@@ -65,6 +65,7 @@ part 'main_recordings.dart';
 part 'main_chat.dart';
 part 'main_account_settings.dart';
 part 'main_settings.dart';
+part 'main_model_picker.dart';
 part 'main_operations.dart';
 part 'main_admin.dart';
 part 'main_unified.dart';

@@ -9,7 +9,7 @@ const {
 } = require('../provider_config_store');
 const { getConnectionAccessMode } = require('../access');
 const { fetchJson } = require('../oauth_provider');
-const { encryptValue } = require('../secrets');
+const { encryptValue, decryptValue } = require('../secrets');
 
 const TRELLO_APP = {
   id: 'trello',
@@ -732,7 +732,13 @@ function createTrelloProvider() {
       return 'Trello: native Trello access is connected in this run with one Trello account for board, list, card, comment, and search tools.';
     },
     async executeTool(toolName, args, connection) {
-      return executeTrelloTool(toolName, args, connection);
+      let credentials = {};
+      try {
+        credentials = JSON.parse(decryptValue(connection.credentials_json || '{}') || '{}');
+      } catch {
+        credentials = {};
+      }
+      return executeTrelloTool(toolName, args, { connection, credentials });
     },
     getUserConfig({ userId, agentId }) {
       const normalizedUserId = Number(userId);

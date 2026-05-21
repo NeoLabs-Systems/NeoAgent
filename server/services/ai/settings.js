@@ -59,6 +59,16 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: false,
     defaultBaseUrl: ''
   },
+  nvidia: {
+    id: 'nvidia',
+    label: 'NVIDIA NIM',
+    description: 'NVIDIA-hosted models including free-tier Nemotron, Kimi, Llama 4, and DeepSeek. Get a key at build.nvidia.com.',
+    envKey: 'NVIDIA_API_KEY',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://integrate.api.nvidia.com/v1'
+  },
   minimax: {
     id: 'minimax',
     label: 'MiniMax Code',

@@ -313,26 +313,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final routingModels = availableModels.isEmpty
         ? controller.supportedModels
         : availableModels;
-    final modelChoices = <DropdownMenuItem<String>>[
-      const DropdownMenuItem<String>(
-        value: 'auto',
-        child: Text(
-          'Smart Selector (Auto)',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      ...routingModels.map(
-        (model) => DropdownMenuItem<String>(
-          value: model.id,
-          child: Text(
-            model.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
-    ];
+    final List<_ModelPickerOption> modelChoices =
+        _modelPickerOptions(routingModels, allowAuto: true);
     final enabledSmartModels = _enabledModels
         .where((id) => routingModels.any((model) => model.id == id))
         .length;
@@ -872,7 +854,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   Widget _buildModelsSection({
     required NeoAgentController controller,
-    required List<DropdownMenuItem<String>> modelChoices,
+    required List<_ModelPickerOption> modelChoices,
     required List<ModelMeta> routingModels,
     required List<ModelMeta> availableModels,
     required int enabledSmartModels,
@@ -997,7 +979,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             routingModels,
                             allowAuto: true,
                           ),
-                          items: modelChoices,
+                          options: modelChoices,
                           onChanged: (value) {
                             if (value != null) {
                               setState(() => _defaultChatModel = value);
@@ -1015,7 +997,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             routingModels,
                             allowAuto: true,
                           ),
-                          items: modelChoices,
+                          options: modelChoices,
                           onChanged: (value) {
                             if (value != null) {
                               setState(() => _defaultSubagentModel = value);
@@ -1033,18 +1015,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             routingModels,
                             allowAuto: false,
                           ),
-                          items: routingModels
-                              .map(
-                                (model) => DropdownMenuItem<String>(
-                                  value: model.id,
-                                  child: Text(
-                                    model.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                          options: _modelPickerOptions(routingModels),
                           onChanged: (value) {
                             if (value != null) {
                               setState(() => _fallbackModel = value);
@@ -1114,7 +1085,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   Widget _buildVoiceAndRecordingSection({
     required NeoAgentController controller,
-    required List<DropdownMenuItem<String>> modelChoices,
+    required List<_ModelPickerOption> modelChoices,
     required List<ModelMeta> routingModels,
   }) {
     final liveVoiceOptions =
@@ -1160,7 +1131,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           routingModels,
                           allowAuto: true,
                         ),
-                        items: modelChoices,
+                        options: modelChoices,
                         onChanged: (value) {
                           if (value != null) {
                             setState(
@@ -1176,7 +1147,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         label: 'Recording Transcription',
                         icon: Icons.hearing_outlined,
                         value: _defaultRecordingTranscriptionModel,
-                        items: _recordingTranscriptionModelChoices(
+                        options: _recordingTranscriptionOptions(
                           _defaultRecordingTranscriptionModel,
                         ),
                         onChanged: (value) {
@@ -1221,7 +1192,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           routingModels,
                           allowAuto: true,
                         ),
-                        items: modelChoices,
+                        options: modelChoices,
                         onChanged: (value) {
                           if (value != null) {
                             setState(() => _defaultSpeechModel = value);
@@ -1263,14 +1234,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         label: 'Live Provider',
                         icon: Icons.call_outlined,
                         value: _voiceLiveProvider,
-                        items: const <String>['openai', 'gemini']
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
+                        options: _simplePickerOptions(
+                          const <String>['openai', 'gemini'],
+                        ),
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() {
@@ -1299,16 +1265,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         label: 'Live Model',
                         icon: Icons.speed_outlined,
                         value: _voiceLiveModel,
-                        items:
-                            (_voiceLiveModelsByProvider[_voiceLiveProvider] ??
-                                    const <String>[])
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                        options: _simplePickerOptions(
+                          _voiceLiveModelsByProvider[_voiceLiveProvider] ??
+                              const <String>[],
+                        ),
                         onChanged: (value) {
                           if (value != null) {
                             setState(() => _voiceLiveModel = value);
@@ -1323,14 +1283,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           label: 'Live Voice',
                           icon: Icons.graphic_eq_outlined,
                           value: _voiceLiveVoice,
-                          items: liveVoiceOptions
-                              .map(
-                                (value) => DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                ),
-                              )
-                              .toList(),
+                          options: _simplePickerOptions(liveVoiceOptions),
                           onChanged: (value) {
                             if (value != null) {
                               setState(() => _voiceLiveVoice = value);
@@ -2179,20 +2132,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
   }
 
-  List<DropdownMenuItem<String>> _recordingTranscriptionModelChoices(
-    String current,
-  ) {
-    const defaults = <String>['nova-3', 'nova-2-general'];
-    final normalizedCurrent = current.trim();
-    final values = <String>{...defaults};
-    if (normalizedCurrent.isNotEmpty) {
-      values.add(normalizedCurrent);
-    }
-    return values
-        .map(
-          (value) => DropdownMenuItem<String>(value: value, child: Text(value)),
-        )
-        .toList();
+  List<_ModelPickerOption> _recordingTranscriptionOptions(String current) {
+    const List<String> defaults = <String>['nova-3', 'nova-2-general'];
+    final String normalizedCurrent = current.trim();
+    final Set<String> values = <String>{...defaults};
+    if (normalizedCurrent.isNotEmpty) values.add(normalizedCurrent);
+    return _simplePickerOptions(values.toList());
   }
 
   // Shared helper: small "Test" button + inline result row.
@@ -2503,14 +2448,14 @@ class _RoutingSelectCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.value,
-    required this.items,
+    required this.options,
     required this.onChanged,
   });
 
   final String label;
   final IconData icon;
   final String value;
-  final List<DropdownMenuItem<String>> items;
+  final List<_ModelPickerOption> options;
   final ValueChanged<String?> onChanged;
 
   @override
@@ -2533,12 +2478,11 @@ class _RoutingSelectCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: value,
-            items: items,
-            isExpanded: true,
-            decoration: const InputDecoration(isDense: true),
+          _ModelPickerButton(
+            value: value,
+            options: options,
             onChanged: onChanged,
+            dialogTitle: 'Select $label',
           ),
         ],
       ),

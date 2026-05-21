@@ -7,6 +7,7 @@ const { GithubCopilotProvider } = require('./providers/githubCopilot');
 const { OpenAICodexProvider } = require('./providers/openaiCodex');
 const { ClaudeCodeProvider } = require('./providers/claudeCode');
 const { GrokOAuthProvider } = require('./providers/grokOauth');
+const { NvidiaProvider } = require('./providers/nvidia');
 const {
     AI_PROVIDER_DEFINITIONS,
     getProviderConfigs,
@@ -61,6 +62,56 @@ const STATIC_MODELS = [
         label: 'GPT-5.4 (Codex Fallback)',
         provider: 'openai-codex',
         purpose: 'general'
+    },
+    // — NVIDIA NIM — free tier ————————————————————————————————————————————
+    {
+        id: 'nvidia/nemotron-3-super-120b-a12b',
+        label: 'Nemotron Super 120B (NVIDIA / Free)',
+        provider: 'nvidia',
+        purpose: 'general'
+    },
+    {
+        id: 'moonshotai/kimi-k2.5',
+        label: 'Kimi K2.5 (NVIDIA NIM / Free)',
+        provider: 'nvidia',
+        purpose: 'coding'
+    },
+    {
+        id: 'minimaxai/minimax-m2.5',
+        label: 'MiniMax M2.5 (NVIDIA NIM / Free)',
+        provider: 'nvidia',
+        purpose: 'planning'
+    },
+    {
+        id: 'z-ai/glm5',
+        label: 'GLM 5 (NVIDIA NIM / Free)',
+        provider: 'nvidia',
+        purpose: 'fast'
+    },
+    // — NVIDIA NIM — notable models ————————————————————————————————————————
+    {
+        id: 'meta/llama-4-maverick-17b-128e-instruct',
+        label: 'Llama 4 Maverick 17B (NVIDIA NIM)',
+        provider: 'nvidia',
+        purpose: 'general'
+    },
+    {
+        id: 'meta/llama-4-scout-17b-16e-instruct',
+        label: 'Llama 4 Scout 17B (NVIDIA NIM)',
+        provider: 'nvidia',
+        purpose: 'planning'
+    },
+    {
+        id: 'deepseek-ai/deepseek-r1-0528',
+        label: 'DeepSeek R1 0528 (NVIDIA NIM)',
+        provider: 'nvidia',
+        purpose: 'general'
+    },
+    {
+        id: 'qwen/qwq-32b',
+        label: 'QwQ 32B (NVIDIA NIM)',
+        provider: 'nvidia',
+        purpose: 'planning'
     },
     {
         id: 'gpt-5-nano',
@@ -374,6 +425,8 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
         return new ClaudeCodeProvider({ apiKey: runtime.apiKey, ...providerOverrides });
     } else if (providerStr === 'grok-oauth') {
         return new GrokOAuthProvider({ apiKey: runtime.apiKey, ...providerOverrides });
+    } else if (providerStr === 'nvidia') {
+        return new NvidiaProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
     }
     throw new Error(`Unknown provider: ${providerStr}`);
 }
