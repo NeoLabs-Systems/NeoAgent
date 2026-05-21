@@ -78,6 +78,11 @@ function buildSkipTaskAnalysisResult(forceMode) {
     draft_reply: '',
     goal: 'Complete the user request accurately.',
     success_criteria: [],
+    complexity: forceMode === 'plan_execute' ? 'complex' : 'standard',
+    autonomy_level: forceMode === 'plan_execute' ? 'high' : 'normal',
+    progress_update_policy: 'optional',
+    parallel_work: false,
+    completion_confidence_required: forceMode === 'plan_execute' ? 'high' : 'medium',
   };
 }
 
@@ -87,6 +92,11 @@ function buildAnalyzeTaskFallback(forceMode, userMessage = '') {
     verification_need: 'light',
     planning_depth: planningDepthForForceMode(forceMode),
     goal: userMessage ? String(userMessage).trim().slice(0, 300) : '',
+    complexity: forceMode === 'plan_execute' ? 'complex' : 'standard',
+    autonomy_level: forceMode === 'plan_execute' ? 'high' : 'normal',
+    progress_update_policy: 'optional',
+    parallel_work: false,
+    completion_confidence_required: forceMode === 'plan_execute' ? 'high' : 'medium',
   };
 }
 
@@ -97,6 +107,19 @@ function applyForcedAnalysisMode(analysis, forceMode) {
     ...analysis,
     mode: 'plan_execute',
     planning_depth: 'deep',
+    complexity: 'complex',
+    autonomy_level: 'high',
+    completion_confidence_required: analysis.completion_confidence_required || 'high',
+  };
+}
+
+function buildAutonomyPolicyFromAnalysis(analysis = {}) {
+  return {
+    complexity: analysis.complexity || 'standard',
+    autonomy_level: analysis.autonomy_level || 'normal',
+    progress_update_policy: analysis.progress_update_policy || 'optional',
+    parallel_work: analysis.parallel_work === true,
+    completion_confidence_required: analysis.completion_confidence_required || 'medium',
   };
 }
 
@@ -150,22 +173,19 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
   if (userSelectedDefault && userSelectedDefault !== 'auto') {
     selectedModelDef = models.find((m) => m.id === userSelectedDefault) || fallbackModel;
   } else {
-    const taskStr = String(task || '').toLowerCase();
+    const selectionHint = providerConfig.selectionHint && typeof providerConfig.selectionHint === 'object'
+      ? providerConfig.selectionHint
+      : {};
+    const preferredPurpose = String(selectionHint.purpose || '').trim().toLowerCase();
+    const highAutonomy = selectionHint.autonomyLevel === 'high' || selectionHint.complexity === 'complex';
+    const requestedPurpose = ['planning', 'coding', 'general', 'fast'].includes(preferredPurpose)
+      ? preferredPurpose
+      : '';
 
-    // Basic detection
-    let isPlanning = /\b(plan|think|analy[sz]e|complex|step by step)\b/.test(taskStr);
-    let isCoding = false;
-
-    // Enhanced detection if enabled
-    if (smarterSelection) {
-      isPlanning = isPlanning || /\b(reason|strategy|logical|math|complex)\b/.test(taskStr);
-      isCoding = /\b(code|program|script|debug|refactor|function|implementation|logic)\b/.test(taskStr);
-    }
-
-    if (isPlanning) {
+    if (smarterSelection && requestedPurpose) {
+      selectedModelDef = availableModels.find((m) => m.purpose === requestedPurpose) || fallbackModel;
+    } else if (smarterSelection && highAutonomy) {
       selectedModelDef = availableModels.find((m) => m.purpose === 'planning') || fallbackModel;
-    } else if (isCoding) {
-      selectedModelDef = availableModels.find((m) => m.purpose === 'coding') || availableModels.find((m) => m.purpose === 'planning') || fallbackModel;
     } else if (isSubagent) {
       selectedModelDef = availableModels.find((m) => m.purpose === 'fast') || fallbackModel;
     } else {
@@ -409,6 +429,40 @@ function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
     'If a previous plan depended on that failed call, adjust your approach and proceed end-to-end.',
     'Only ask the user for help if no safe path remains.'
   ].join(' ');
+}
+
+function normalizeCompletionConfidence(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'high' || normalized === 'medium' || normalized === 'low') return normalized;
+  return 'medium';
+}
+
+function completionConfidenceRank(value) {
+  const normalized = normalizeCompletionConfidence(value);
+  if (normalized === 'high') return 3;
+  if (normalized === 'medium') return 2;
+  return 1;
+}
+
+function shouldAcceptTaskComplete({ confidence, requiredConfidence, iteration, maxIterations }) {
+  const required = normalizeCompletionConfidence(requiredConfidence || 'medium');
+  const actual = normalizeCompletionConfidence(confidence || 'medium');
+  if (completionConfidenceRank(actual) >= completionConfidenceRank(required)) {
+    return { accept: true, reason: '' };
+  }
+
+  const iterationsRemaining = Math.max(0, Number(maxIterations || 0) - Number(iteration || 0));
+  if (iterationsRemaining <= 1) {
+    return {
+      accept: true,
+      reason: `Accepted ${actual}-confidence completion at the iteration limit; final verifier will calibrate the answer.`,
+    };
+  }
+
+  return {
+    accept: false,
+    reason: `Completion confidence "${actual}" is below required "${required}". Continue with verification, recovery, or a narrower truthful result before completing.`,
+  };
 }
 
 function clampRunContext(text, maxChars) {
@@ -1064,12 +1118,14 @@ class AgentEngine {
         '- A progress update is not complete.',
         '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
         '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
+        '- If completion_confidence_required is high and the latest draft depends on unverified assumptions, use "continue" so the run can gather evidence, inspect state, or narrow the reply.',
         triggerSource === 'messaging' && messagingSent
           ? '- A reply was already delivered to the user via send_message. Use "complete" unless there is concrete remaining work (e.g., a tool call you still need to make) before the task is truly done. Do not send follow-up elaborations or re-introductions.'
           : triggerSource === 'messaging'
             ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked. If you already asked for missing user input, choose "blocked" and wait.'
             : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
         analysis?.goal ? `Goal: ${analysis.goal}` : '',
+        `Autonomy contract: complexity=${analysis?.complexity || 'standard'}; autonomy_level=${analysis?.autonomy_level || 'normal'}; progress_update_policy=${analysis?.progress_update_policy || 'optional'}; parallel_work=${analysis?.parallel_work === true}; completion_confidence_required=${analysis?.completion_confidence_required || 'medium'}.`,
         successCriteria.length > 0 ? `Success criteria:\n${successCriteria.map((item, index) => `${index + 1}. ${item}`).join('\n')}` : '',
         `Current iteration: ${iteration} of ${maxIterations}.`,
         `Available tools in this run: ${summarizeAvailableTools(tools) || 'none'}`,
@@ -1780,11 +1836,53 @@ class AgentEngine {
 
       }
 
+      const activeDefaultModelSetting = triggerType === 'subagent'
+        ? aiSettings.default_subagent_model
+        : aiSettings.default_chat_model;
+      if (!_modelOverride && activeDefaultModelSetting === 'auto' && aiSettings.smarter_model_selector !== false) {
+        const requestedPurpose = analysis?.mode === 'plan_execute' || analysis?.complexity === 'complex' || analysis?.autonomy_level === 'high'
+          ? 'planning'
+          : triggerType === 'subagent'
+            ? 'fast'
+            : '';
+        if (requestedPurpose) {
+          const selectedAfterAnalysis = await getProviderForUser(
+            userId,
+            userMessage,
+            triggerType === 'subagent',
+            null,
+            {
+              ...providerStatusConfig,
+              selectionHint: {
+                purpose: requestedPurpose,
+                complexity: analysis?.complexity,
+                autonomyLevel: analysis?.autonomy_level,
+              },
+            }
+          );
+          if (selectedAfterAnalysis.model !== model) {
+            provider = selectedAfterAnalysis.provider;
+            model = selectedAfterAnalysis.model;
+            providerName = selectedAfterAnalysis.providerName;
+            db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
+              .run(model, runId);
+            this.emit(userId, 'run:interim', {
+              runId,
+              message: `Switched to ${model} for this run after task analysis.`,
+              phase: 'model_selection'
+            });
+          }
+        }
+      }
+
       // Rebuild loop policy with the resolved analysis mode. Runs in both the
       // normal path and the skipTaskAnalysis path so that forceMode='plan_execute'
       // (or any mode set by buildSkipTaskAnalysisResult) raises the iteration
       // ceiling correctly.
-      loopPolicy = buildLoopPolicy(aiSettings, triggerType, analysis.mode || 'execute', options);
+      loopPolicy = buildLoopPolicy(aiSettings, triggerType, analysis.mode || 'execute', {
+        ...options,
+        autonomyPolicy: buildAutonomyPolicyFromAnalysis(analysis),
+      });
       maxIterations = loopPolicy.maxIterations;
 
       if (options.skipDeliverableWorkflow !== true) {
@@ -2155,15 +2253,46 @@ class AgentEngine {
           // regular tool execution, it is a loop-exit signal.
           if (toolName === 'task_complete') {
             const finalMessage = String(toolArgs.message || '').trim();
+            const confidence = normalizeCompletionConfidence(toolArgs.confidence || 'medium');
+            const completionDecision = shouldAcceptTaskComplete({
+              confidence,
+              requiredConfidence: analysis?.completion_confidence_required || 'medium',
+              iteration,
+              maxIterations,
+            });
             this.recordRunEvent(userId, runId, 'task_complete_signaled', {
-              confidence: toolArgs.confidence || 'high',
+              confidence,
+              requiredConfidence: analysis?.completion_confidence_required || 'medium',
+              accepted: completionDecision.accept,
               iteration,
               messageLength: finalMessage.length,
             }, { agentId });
             console.info(
-              `[Run ${shortenRunId(runId)}] task_complete signaled at iteration=${iteration} confidence=${toolArgs.confidence || 'high'}`
+              `[Run ${shortenRunId(runId)}] task_complete signaled at iteration=${iteration} confidence=${confidence} accepted=${completionDecision.accept}`
             );
-            // Always honor task_complete as a stop signal, even with no message.
+            if (!completionDecision.accept) {
+              messages.push({
+                role: 'tool',
+                name: toolName,
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({
+                  status: 'continue',
+                  reason: completionDecision.reason,
+                  required_confidence: analysis?.completion_confidence_required || 'medium',
+                }),
+              });
+              messages.push({
+                role: 'system',
+                content: `${completionDecision.reason} Do not ask the user to decide the next step unless external input is truly required.`
+              });
+              continue;
+            }
+            if (completionDecision.reason) {
+              messages.push({
+                role: 'system',
+                content: completionDecision.reason,
+              });
+            }
             lastContent = finalMessage; // empty string is valid; downstream handles it
             directAnswerEligible = true;
             break; // exit the for-loop; the while condition will also exit

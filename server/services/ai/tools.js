@@ -1289,7 +1289,7 @@ function getAvailableTools(app, options = {}) {
     // mechanism and gives the AI real agency over when it's finished.
     tools.push({
         name: 'task_complete',
-        description: 'Signal that the task is fully complete and provide the final response. Call this exactly once when all steps are done and you have a complete answer ready. Do NOT call it if you still have work to do.',
+        description: 'Signal that the task is fully complete and provide the final response. Call this exactly once when all steps are done and you have a complete answer ready. Do NOT call it if you still have work to do, unverified claims, unresolved tool failures, or confidence below the current run requirement.',
         parameters: {
             type: 'object',
             properties: {
@@ -1300,10 +1300,10 @@ function getAvailableTools(app, options = {}) {
                 confidence: {
                     type: 'string',
                     enum: ['high', 'medium', 'low'],
-                    description: 'How confident are you the task is fully and correctly complete? Use "low" if you had to make assumptions.'
+                    description: 'How confident are you the task is fully and correctly complete? Use "low" only when the final answer is intentionally limited or incomplete; low confidence may be rejected so the run can keep working.'
                 }
             },
-            required: ['message']
+            required: ['message', 'confidence']
         }
     });
 
