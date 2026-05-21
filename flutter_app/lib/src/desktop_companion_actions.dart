@@ -100,9 +100,15 @@ class DesktopCompanionActions {
       if (bytes is! Uint8List || bytes.isEmpty) {
         return null;
       }
-      final decoded = img.decodeImage(bytes);
-      final width = (frame['width'] as num?)?.round() ?? decoded?.width ?? 0;
-      final height = (frame['height'] as num?)?.round() ?? decoded?.height ?? 0;
+      // Prefer dimensions reported by the native bridge; only fall back to a
+      // pure-Dart image decode (which is slow) when the bridge omits them.
+      final nativeWidth = (frame['width'] as num?)?.round();
+      final nativeHeight = (frame['height'] as num?)?.round();
+      final decoded = (nativeWidth == null || nativeHeight == null)
+          ? img.decodeImage(bytes)
+          : null;
+      final width = nativeWidth ?? decoded?.width ?? 0;
+      final height = nativeHeight ?? decoded?.height ?? 0;
       final displays = _normalizeDisplays(
         frame['displays'],
         fallbackDisplayId:
