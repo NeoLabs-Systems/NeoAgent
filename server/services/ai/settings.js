@@ -49,6 +49,16 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: true,
     defaultBaseUrl: 'https://api.x.ai/v1'
   },
+  'grok-oauth': {
+    id: 'grok-oauth',
+    label: 'Grok (xAI OAuth)',
+    description: 'Grok models via xAI account. Login with `neoagent login grok-oauth`.',
+    envKey: 'GROK_OAUTH_ACCESS_TOKEN',
+    supportsApiKey: true,
+    supportsBaseUrl: false,
+    defaultEnabled: false,
+    defaultBaseUrl: ''
+  },
   minimax: {
     id: 'minimax',
     label: 'MiniMax Code',

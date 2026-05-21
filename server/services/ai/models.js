@@ -6,6 +6,7 @@ const { OpenAIProvider } = require('./providers/openai');
 const { GithubCopilotProvider } = require('./providers/githubCopilot');
 const { OpenAICodexProvider } = require('./providers/openaiCodex');
 const { ClaudeCodeProvider } = require('./providers/claudeCode');
+const { GrokOAuthProvider } = require('./providers/grokOauth');
 const {
     AI_PROVIDER_DEFINITIONS,
     getProviderConfigs,
@@ -18,6 +19,18 @@ const STATIC_MODELS = [
         label: 'Grok 4.1 (Personality / Default)',
         provider: 'grok',
         purpose: 'general'
+    },
+    {
+        id: 'grok-4',
+        label: 'Grok 4 (xAI OAuth / Default)',
+        provider: 'grok-oauth',
+        purpose: 'general'
+    },
+    {
+        id: 'grok-4-mini',
+        label: 'Grok 4 Mini (xAI OAuth / Fast)',
+        provider: 'grok-oauth',
+        purpose: 'coding'
     },
     {
         id: 'gpt-5.3',
@@ -359,6 +372,8 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
         return new OpenAICodexProvider({ apiKey: runtime.apiKey, ...providerOverrides });
     } else if (providerStr === 'claude-code') {
         return new ClaudeCodeProvider({ apiKey: runtime.apiKey, ...providerOverrides });
+    } else if (providerStr === 'grok-oauth') {
+        return new GrokOAuthProvider({ apiKey: runtime.apiKey, ...providerOverrides });
     }
     throw new Error(`Unknown provider: ${providerStr}`);
 }
