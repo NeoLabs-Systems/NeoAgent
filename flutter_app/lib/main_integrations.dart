@@ -188,7 +188,9 @@ class OfficialIntegrationsTab extends StatelessWidget {
                       !item.env.configured
                           ? item.env.summary
                           : item.hasExpiredAccounts
-                          ? 'One or more accounts expired. Reconnect the affected account to restore tool access.'
+                          ? item.id == 'google_workspace'
+                              ? 'One or more accounts expired. Reconnect to restore access. If this keeps happening, your Google Cloud OAuth app may be in Testing mode — publish it to Production in Google Cloud Console to get long-lived tokens.'
+                              : 'One or more accounts expired. Reconnect the affected account to restore tool access.'
                           : !item.supportsMultipleAccounts && item.isConnected
                           ? 'This integration currently supports one connected account per agent. Re-open setup to replace it.'
                           : item.isConnected
