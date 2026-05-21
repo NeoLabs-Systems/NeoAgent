@@ -19,6 +19,10 @@ class _ChatPanelState extends State<ChatPanel> {
   int _lastToolCount = 0;
   String _lastStream = '';
   bool _isSendingChatMessage = false;
+  bool _isDictating = false;
+  bool _isTranscribing = false;
+  LiveVoiceCapture? _dictationCapture;
+  final List<Uint8List> _dictationChunks = [];
 
   @override
   void initState() {
@@ -44,7 +48,71 @@ class _ChatPanelState extends State<ChatPanel> {
     widget.controller.removeListener(_consumeQueuedDraft);
     _composerController.dispose();
     _scrollController.dispose();
+    _dictationCapture?.dispose();
     super.dispose();
+  }
+
+  Future<void> _startDictation() async {
+    if (_isDictating || _isTranscribing) return;
+    final capture = LiveVoiceCapture();
+    _dictationCapture = capture;
+    _dictationChunks.clear();
+    try {
+      await capture.start(
+        onChunk: (chunk) => _dictationChunks.add(chunk),
+        sampleRate: 16000,
+        channels: 1,
+      );
+      if (mounted) setState(() => _isDictating = true);
+    } catch (e) {
+      await capture.dispose();
+      _dictationCapture = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Microphone error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopAndTranscribe() async {
+    if (!_isDictating) return;
+    final capture = _dictationCapture;
+    _dictationCapture = null;
+    setState(() {
+      _isDictating = false;
+      _isTranscribing = true;
+    });
+    try {
+      await capture?.stop();
+      if (_dictationChunks.isEmpty) return;
+      final allBytes = _dictationChunks.fold<List<int>>(
+        <int>[],
+        (acc, chunk) => acc..addAll(chunk),
+      );
+      final audioBase64 = base64Encode(Uint8List.fromList(allBytes));
+      final transcript = await widget.controller.transcribeDictationAudio(
+        audioBase64: audioBase64,
+      );
+      if (mounted && transcript.isNotEmpty) {
+        final current = _composerController.text;
+        final separator = current.isNotEmpty && !current.endsWith(' ') ? ' ' : '';
+        _composerController.text = '$current$separator$transcript';
+        _composerController.selection = TextSelection.collapsed(
+          offset: _composerController.text.length,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Transcription failed: $e')),
+        );
+      }
+    } finally {
+      await capture?.dispose();
+      _dictationChunks.clear();
+      if (mounted) setState(() => _isTranscribing = false);
+    }
   }
 
   void _consumeQueuedDraft() {
@@ -330,6 +398,26 @@ class _ChatPanelState extends State<ChatPanel> {
                       icon: const Icon(Icons.attach_file_rounded),
                       color: _textSecondary,
                     ),
+                    const SizedBox(width: 2),
+                    _isTranscribing
+                        ? const SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: Padding(
+                              padding: EdgeInsets.all(10),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            tooltip: _isDictating ? 'Stop & transcribe' : 'Dictate',
+                            onPressed: _isDictating ? _stopAndTranscribe : _startDictation,
+                            icon: Icon(
+                              _isDictating
+                                  ? Icons.stop_circle_outlined
+                                  : Icons.mic_none_rounded,
+                            ),
+                            color: _isDictating ? Theme.of(context).colorScheme.error : _textSecondary,
+                          ),
                     const SizedBox(width: 2),
                     FilledButton(
                       onPressed: () => controller.setSelectedSection(

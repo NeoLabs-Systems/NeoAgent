@@ -4602,6 +4602,18 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<String> transcribeDictationAudio({
+    required String audioBase64,
+    String mimeType = 'audio/pcm;rate=16000;channels=1',
+  }) async {
+    final result = await _backendClient.transcribeAudio(
+      backendUrl,
+      audioBase64: audioBase64,
+      mimeType: mimeType,
+    );
+    return result['transcript']?.toString() ?? '';
+  }
+
   Future<void> sendMessage(
     String task, {
     List<SharedChatAttachment> sharedAttachments =

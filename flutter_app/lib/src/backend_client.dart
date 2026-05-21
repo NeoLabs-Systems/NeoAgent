@@ -1644,6 +1644,17 @@ class BackendClient {
     await deleteMap(baseUrl, '/api/recordings/$sessionId');
   }
 
+  Future<Map<String, dynamic>> transcribeAudio(
+    String baseUrl, {
+    required String audioBase64,
+    String mimeType = 'audio/pcm;rate=16000;channels=1',
+  }) {
+    return postMap(baseUrl, '/api/voice-assistant/transcribe', <String, dynamic>{
+      'audioBase64': audioBase64,
+      'mimeType': mimeType,
+    });
+  }
+
   Future<Map<String, dynamic>> runVoiceAssistantTurn(
     String baseUrl, {
     required String sessionId,
