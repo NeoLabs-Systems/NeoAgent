@@ -111,7 +111,7 @@ router.post('/start', async (req, res) => {
     const platform = normalizePlatform(req.body?.platform);
     const resolved = await resolveStartDeviceId(platform, req);
     const deviceId = resolved.deviceId;
-    const fps = boundedInt(req.body?.fps, platform === 'android' ? 10 : 15, 1, platform === 'android' ? 15 : 20);
+    const fps = boundedInt(req.body?.fps, platform === 'android' ? 12 : 15, 1, platform === 'android' ? 30 : 20);
     const quality = boundedInt(req.body?.quality, platform === 'android' ? 75 : 80, 30, 95);
     const hub = streamHub(req);
     await hub.stopStream(userId, platform, deviceId, 'restart');

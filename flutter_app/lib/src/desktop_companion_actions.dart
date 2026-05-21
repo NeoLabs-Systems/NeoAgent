@@ -9,6 +9,20 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'desktop_native_bridge.dart';
 import 'desktop_screen_capture.dart';
 
+// ─── Isolate helpers for JPEG compression ────────────────────────────────────
+// `compressToJpeg` offloads the CPU-intensive pure-Dart PNG→JPEG conversion
+// to a background isolate via `compute()` so the main isolate's event loop
+// stays free to process incoming WebSocket commands (click, drag, etc.)
+// immediately, rather than queuing behind a 300–600 ms compression job.
+
+typedef _JpegArgs = ({Uint8List bytes, int quality});
+
+Uint8List _compressJpegInIsolate(_JpegArgs args) {
+  final decoded = img.decodeImage(args.bytes);
+  if (decoded == null) return args.bytes;
+  return Uint8List.fromList(img.encodeJpg(decoded, quality: args.quality));
+}
+
 class DesktopCompanionSnapshot {
   const DesktopCompanionSnapshot({
     required this.screenshotBase64,
@@ -182,11 +196,14 @@ class DesktopCompanionActions {
     int quality,
   ) async {
     final raw = _decodeScreenshotBytes(snapshot.screenshotBase64);
+    // Already JPEG — return immediately without any heavy work on this isolate.
     if (_looksLikeJpeg(raw)) return raw;
-    final decoded = img.decodeImage(raw);
-    if (decoded == null) return raw;
-    final normalizedQuality = quality.clamp(30, 95);
-    return Uint8List.fromList(img.encodeJpg(decoded, quality: normalizedQuality));
+    // Run the pure-Dart PNG decode + JPEG encode in a background isolate so the
+    // main isolate's event loop stays responsive for incoming commands.
+    return compute(
+      _compressJpegInIsolate,
+      (bytes: raw, quality: quality.clamp(30, 95)),
+    );
   }
 
   Future<Map<String, Object?>> observe({

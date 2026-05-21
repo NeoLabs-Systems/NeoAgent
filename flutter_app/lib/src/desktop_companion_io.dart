@@ -27,8 +27,16 @@ class DesktopCompanionManager extends ChangeNotifier {
   Timer? _reconnectTimer;
   Timer? _streamTimer;
   bool _streamCaptureInFlight = false;
+  // Set true while a click / drag / scroll / typeText / pressKey command is
+  // being executed.  _captureAndSendBinaryFrame respects this flag so it does
+  // not compete with the input command for the native bridge or the WebSocket
+  // send buffer, and a fresh frame is forced immediately after the action.
+  bool _inputCommandInFlight = false;
   int _frameSeq = 0;
   int _streamGeneration = 0;
+  // Tracks the current stream quality so the forced post-input capture can use
+  // the same setting without re-parsing the original startStream payload.
+  int _currentStreamQuality = 80;
 
   String _backendUrl = '';
   String _sessionCookie = '';
@@ -286,6 +294,19 @@ class DesktopCompanionManager extends ChangeNotifier {
     }
   }
 
+  // Commands that interact with the remote machine's input system.  While one
+  // of these is executing we pause frame captures so the WebSocket send buffer
+  // is clear for the result message, and to avoid the native bridge being busy
+  // with a screenshot when the click/drag/etc. needs to run.
+  static const _inputCommands = <String>{
+    'click',
+    'mouseMove',
+    'drag',
+    'scroll',
+    'typeText',
+    'pressKey',
+  };
+
   Future<void> _handleCommand(Map<String, Object?> message) async {
     final id = message['id']?.toString() ?? '';
     final command = message['command']?.toString() ?? '';
@@ -294,6 +315,10 @@ class DesktopCompanionManager extends ChangeNotifier {
             (key, value) => MapEntry(key.toString(), value),
           )
         : const <String, Object?>{};
+
+    final isInput = _inputCommands.contains(command);
+    if (isInput) _inputCommandInFlight = true;
+
     try {
       final response = await _dispatchCommand(command, payload);
       _socket?.add(
@@ -304,6 +329,18 @@ class DesktopCompanionManager extends ChangeNotifier {
           'payload': response,
         }),
       );
+      // Immediately capture a fresh frame after an input action so the user
+      // sees the result of their interaction without waiting for the next
+      // timer tick.
+      if (isInput && _streamTimer != null && _connected) {
+        unawaited(
+          _captureAndSendBinaryFrame(
+            _currentStreamQuality,
+            _streamGeneration,
+            forced: true,
+          ),
+        );
+      }
     } catch (error) {
       _socket?.add(
         jsonEncode(<String, Object?>{
@@ -313,6 +350,8 @@ class DesktopCompanionManager extends ChangeNotifier {
           'error': '$error',
         }),
       );
+    } finally {
+      if (isInput) _inputCommandInFlight = false;
     }
   }
 
@@ -478,6 +517,7 @@ class DesktopCompanionManager extends ChangeNotifier {
     }
     final interval = Duration(milliseconds: max(1, (1000 / fps).floor()));
     _frameSeq = 0;
+    _currentStreamQuality = quality;
     _streamTimer = Timer.periodic(interval, (_) {
       unawaited(_captureAndSendBinaryFrame(quality, generation));
     });
@@ -498,7 +538,11 @@ class DesktopCompanionManager extends ChangeNotifier {
     return <String, Object?>{'success': true};
   }
 
-  Future<void> _captureAndSendBinaryFrame(int quality, int generation) async {
+  Future<void> _captureAndSendBinaryFrame(
+    int quality,
+    int generation, {
+    bool forced = false,
+  }) async {
     final socket = _socket;
     if (socket == null ||
         !_connected ||
@@ -506,6 +550,9 @@ class DesktopCompanionManager extends ChangeNotifier {
         generation != _streamGeneration) {
       return;
     }
+    // If an input command is actively running, skip this frame unless we were
+    // explicitly forced (i.e. this IS the post-input refresh capture).
+    if (!forced && _inputCommandInFlight) return;
     _streamCaptureInFlight = true;
     try {
       final snapshot = await _actions.captureSnapshot(
