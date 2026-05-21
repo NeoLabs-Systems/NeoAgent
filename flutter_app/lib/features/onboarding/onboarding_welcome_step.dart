@@ -11,7 +11,7 @@ class OnboardingWelcomeStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OnboardingScaffold(
-      step: 1,
+      step: 0,
       totalSteps: 4,
       eyebrow: 'WELCOME',
       title: 'Welcome to\nNeoOS',

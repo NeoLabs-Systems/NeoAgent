@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import 'onboarding_video_step.dart';
 import 'onboarding_welcome_step.dart';
+import 'onboarding_companion_step.dart';
 import 'onboarding_messaging_step.dart';
 import 'onboarding_model_step.dart';
 
@@ -45,6 +46,10 @@ class _OnboardingShellState extends State<OnboardingShell> {
         children: <Widget>[
           OnboardingVideoStep(onComplete: _nextStep),
           OnboardingWelcomeStep(onNext: _nextStep),
+          OnboardingCompanionStep(
+            onNext: _nextStep,
+            controller: widget.controller,
+          ),
           OnboardingMessagingStep(
             onNext: _nextStep,
             controller: widget.controller,
@@ -55,3 +60,4 @@ class _OnboardingShellState extends State<OnboardingShell> {
     );
   }
 }
+
