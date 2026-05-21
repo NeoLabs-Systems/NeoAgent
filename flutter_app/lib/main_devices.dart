@@ -706,8 +706,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
                         onAction: _runQuickAction,
                       ),
                       if (kIsWeb) ...<Widget>[
-                        const SizedBox(height: 14),
-                        AndroidApkDropZone(
+                        const SizedBox(height: 12),
+                        _AndroidActionsBox(
                           enabled: _androidOnline,
                           busy: _isCurrentSurfaceBusy,
                           onInstall: ({required filename, required bytes}) {
@@ -1264,6 +1264,77 @@ class _AndroidNavDock extends StatelessWidget {
   }
 }
 
+/// Tiny pill shown in the top-right corner of the preview to indicate no audio.
+class _MutedBadge extends StatelessWidget {
+  const _MutedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(Icons.volume_off_rounded, size: 11, color: Colors.white),
+    );
+  }
+}
+
+/// Compact expandable actions box shown beneath the Android nav dock.
+/// Starts with APK install; more actions can be added as tiles.
+class _AndroidActionsBox extends StatelessWidget {
+  const _AndroidActionsBox({
+    required this.enabled,
+    required this.busy,
+    required this.onInstall,
+  });
+
+  final bool enabled;
+  final bool busy;
+  final AndroidApkInstallCallback onInstall;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            'ACTIONS',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: _textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              AndroidApkTile(
+                enabled: enabled,
+                busy: busy,
+                onInstall: onInstall,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SurfaceSwitcher extends StatelessWidget {
   const _SurfaceSwitcher({required this.surface, required this.onSelect});
 
@@ -1636,6 +1707,14 @@ class _InteractiveSurfacePreviewState
                                 ? null
                                 : (x, y) => widget.onHover?.call(Offset(x, y)),
                           ),
+                          const Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Opacity(
+                              opacity: 0.45,
+                              child: _MutedBadge(),
+                            ),
+                          ),
                           Positioned(
                             left: 12,
                             right: 12,
@@ -1742,6 +1821,14 @@ class _InteractiveSurfacePreviewState
                               imageBytes,
                               fit: BoxFit.contain,
                               gaplessPlayback: true,
+                            ),
+                            const Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Opacity(
+                                opacity: 0.45,
+                                child: _MutedBadge(),
+                              ),
                             ),
                             Positioned(
                               left: 12,
