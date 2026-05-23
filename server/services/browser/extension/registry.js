@@ -10,6 +10,7 @@ const DEFAULT_PAIRING_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_COMMAND_TIMEOUT_MS = 30 * 1000;
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 25 * 1000;
 const DEFAULT_HEARTBEAT_TIMEOUT_MS = 75 * 1000;
+const DEFAULT_PRESENCE_TOUCH_INTERVAL_MS = 15 * 1000;
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex');
@@ -46,6 +47,7 @@ class BrowserExtensionRegistry {
     this.pairingTtlMs = Number(options.pairingTtlMs || process.env.NEOAGENT_BROWSER_EXTENSION_PAIRING_TTL_MS || DEFAULT_PAIRING_TTL_MS);
     this.heartbeatIntervalMs = Number(options.heartbeatIntervalMs || process.env.NEOAGENT_BROWSER_EXTENSION_HEARTBEAT_INTERVAL_MS || DEFAULT_HEARTBEAT_INTERVAL_MS);
     this.heartbeatTimeoutMs = Number(options.heartbeatTimeoutMs || process.env.NEOAGENT_BROWSER_EXTENSION_HEARTBEAT_TIMEOUT_MS || DEFAULT_HEARTBEAT_TIMEOUT_MS);
+    this.presenceTouchIntervalMs = Number(options.presenceTouchIntervalMs || process.env.NEOAGENT_BROWSER_EXTENSION_PRESENCE_TOUCH_INTERVAL_MS || DEFAULT_PRESENCE_TOUCH_INTERVAL_MS);
     this.connectionsByUser = new Map();
   }
 
@@ -218,6 +220,7 @@ class BrowserExtensionRegistry {
       timeoutMs: this.commandTimeoutMs,
       heartbeatIntervalMs: this.heartbeatIntervalMs,
       heartbeatTimeoutMs: this.heartbeatTimeoutMs,
+      presenceTouchIntervalMs: this.presenceTouchIntervalMs,
     });
     userMap.set(tokenRow.id, connection);
     this.db.prepare(
@@ -315,6 +318,15 @@ class BrowserExtensionRegistry {
     return Boolean(this.getConnection(userId, tokenId)?.isOpen());
   }
 
+  touchPresence(userId, tokenId) {
+    const userMap = this.#getUserConnections(userId);
+    const connection = userMap?.get(String(tokenId));
+    if (!connection?.isOpen()) return;
+    this.db.prepare(
+      `UPDATE browser_extension_tokens SET last_seen_at = datetime('now') WHERE id = ?`
+    ).run(tokenId);
+  }
+
   async dispatch(userId, command, payload = {}, options = {}) {
     const connection = this.getConnection(userId, options.tokenId || payload.tokenId || null);
     if (!connection || !connection.isOpen()) {
@@ -329,10 +341,16 @@ class BrowserExtensionRegistry {
 
   getStatus(userId) {
     const userMap = this.#getUserConnections(userId);
-    const selectedTokenId = this.getSelectedTokenId(userId);
-    const connected = selectedTokenId
+    let selectedTokenId = this.getSelectedTokenId(userId);
+    let connected = selectedTokenId
       ? userMap?.get(selectedTokenId)
-      : this.getConnection(userId);
+      : null;
+    if (!connected?.isOpen()) {
+      connected = this.getConnection(userId);
+      if (connected?.isOpen()) {
+        selectedTokenId = connected.tokenId;
+      }
+    }
     const effectiveSelectedTokenId = selectedTokenId || connected?.tokenId || null;
     const tokens = this.db.prepare(
       `SELECT id, name, status, last_connected_at, last_seen_at, revoked_at, created_at, metadata_json
@@ -400,7 +418,7 @@ class BrowserExtensionRegistry {
 }
 
 class ExtensionBrowserConnection {
-  constructor({ registry, ws, userId, tokenId, meta, timeoutMs, heartbeatIntervalMs, heartbeatTimeoutMs }) {
+  constructor({ registry, ws, userId, tokenId, meta, timeoutMs, heartbeatIntervalMs, heartbeatTimeoutMs, presenceTouchIntervalMs }) {
     this.registry = registry;
     this.ws = ws;
     this.userId = userId;
@@ -409,13 +427,18 @@ class ExtensionBrowserConnection {
     this.timeoutMs = timeoutMs;
     this.heartbeatIntervalMs = heartbeatIntervalMs;
     this.heartbeatTimeoutMs = heartbeatTimeoutMs;
+    this.presenceTouchIntervalMs = presenceTouchIntervalMs;
     this.pending = new Map();
     this.connectedAt = new Date().toISOString();
     this.lastPongAt = Date.now();
+    this.lastPresenceTouchAt = 0;
     this.heartbeatTimer = null;
 
     ws.on('message', (data) => this.#handleMessage(data));
-    ws.on('pong', () => { this.lastPongAt = Date.now(); });
+    ws.on('pong', () => {
+      this.lastPongAt = Date.now();
+      this.touchPresence();
+    });
     ws.on('close', () => this.#closePending(new ExtensionBrowserUnavailableError('Extension browser disconnected.')));
     ws.on('error', (error) => this.#closePending(error));
     this.#startHeartbeat();
@@ -433,6 +456,21 @@ class ExtensionBrowserConnection {
     } catch {}
     this.registry.unregisterConnection(this);
     this.#closePending(new ExtensionBrowserUnavailableError('Extension browser disconnected.'));
+  }
+
+  touchPresence({ force = false } = {}) {
+    const now = Date.now();
+    const intervalMs = Number(this.presenceTouchIntervalMs);
+    if (
+      !force
+      && Number.isFinite(intervalMs)
+      && intervalMs > 0
+      && now - this.lastPresenceTouchAt < intervalMs
+    ) {
+      return;
+    }
+    this.lastPresenceTouchAt = now;
+    this.registry.touchPresence(this.userId, this.tokenId);
   }
 
   sendCommand(command, payload = {}, options = {}) {
@@ -460,6 +498,7 @@ class ExtensionBrowserConnection {
 
   #handleMessage(data) {
     this.lastPongAt = Date.now();
+    this.touchPresence();
     let message;
     try {
       message = parseExtensionMessage(data);
@@ -497,6 +536,7 @@ class ExtensionBrowserConnection {
     const intervalMs = Number(this.heartbeatIntervalMs);
     const timeoutMs = Number(this.heartbeatTimeoutMs);
     if (!Number.isFinite(intervalMs) || intervalMs <= 0) return;
+    this.touchPresence({ force: true });
     this.heartbeatTimer = setInterval(() => {
       if (!this.isOpen()) {
         this.#closePending(new ExtensionBrowserUnavailableError('Extension browser disconnected.'));
@@ -507,6 +547,7 @@ class ExtensionBrowserConnection {
         this.#closePending(new ExtensionBrowserUnavailableError('Extension browser heartbeat timed out.'));
         return;
       }
+      this.touchPresence();
       try {
         this.ws.ping();
       } catch (error) {

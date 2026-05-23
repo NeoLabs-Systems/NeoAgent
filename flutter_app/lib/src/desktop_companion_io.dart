@@ -25,6 +25,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   final DesktopCompanionActions _actions;
   WebSocket? _socket;
   Timer? _reconnectTimer;
+  Timer? _connectionWatchdogTimer;
   Timer? _streamTimer;
   bool _streamCaptureInFlight = false;
   // Set true while a click / drag / scroll / typeText / pressKey command is
@@ -94,6 +95,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       await disconnect();
       return;
     }
+    _ensureConnectionWatchdog();
     await _ensureConnected();
   }
 
@@ -138,6 +140,8 @@ class DesktopCompanionManager extends ChangeNotifier {
   Future<void> disconnect() async {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _connectionWatchdogTimer?.cancel();
+    _connectionWatchdogTimer = null;
     _stopStreaming();
     _connecting = false;
     _connected = false;
@@ -224,6 +228,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         uri.toString(),
         headers: <String, Object>{'Cookie': _sessionCookie},
       );
+      socket.pingInterval = const Duration(seconds: 25);
       _socket = socket;
       socket.listen(
         _handleMessage,
@@ -470,6 +475,8 @@ class DesktopCompanionManager extends ChangeNotifier {
   void dispose() {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _connectionWatchdogTimer?.cancel();
+    _connectionWatchdogTimer = null;
     _stopStreaming();
     _connecting = false;
     _connected = false;
@@ -486,9 +493,25 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   void _scheduleReconnect() {
     if (!_enabled || !_authenticated || _sessionCookie.isEmpty) return;
+    _ensureConnectionWatchdog();
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 5), () {
       unawaited(_ensureConnected());
+    });
+  }
+
+  void _ensureConnectionWatchdog() {
+    if (!_enabled || !_authenticated || _sessionCookie.isEmpty) return;
+    if (_connectionWatchdogTimer != null) return;
+    _connectionWatchdogTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!_enabled || !_authenticated || _sessionCookie.isEmpty) {
+        _connectionWatchdogTimer?.cancel();
+        _connectionWatchdogTimer = null;
+        return;
+      }
+      if (!_connected && !_connecting) {
+        unawaited(_ensureConnected());
+      }
     });
   }
 

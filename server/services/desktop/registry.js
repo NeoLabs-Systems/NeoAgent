@@ -10,6 +10,9 @@ const {
 } = require('./protocol');
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 30 * 1000;
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 25 * 1000;
+const DEFAULT_HEARTBEAT_TIMEOUT_MS = 75 * 1000;
+const DEFAULT_PRESENCE_TOUCH_INTERVAL_MS = 15 * 1000;
 
 function safeJson(value) {
   try {
@@ -46,6 +49,21 @@ class DesktopCompanionRegistry {
       options.commandTimeoutMs
       || process.env.NEOAGENT_DESKTOP_COMMAND_TIMEOUT_MS
       || DEFAULT_COMMAND_TIMEOUT_MS,
+    );
+    this.heartbeatIntervalMs = Number(
+      options.heartbeatIntervalMs
+      || process.env.NEOAGENT_DESKTOP_HEARTBEAT_INTERVAL_MS
+      || DEFAULT_HEARTBEAT_INTERVAL_MS,
+    );
+    this.heartbeatTimeoutMs = Number(
+      options.heartbeatTimeoutMs
+      || process.env.NEOAGENT_DESKTOP_HEARTBEAT_TIMEOUT_MS
+      || DEFAULT_HEARTBEAT_TIMEOUT_MS,
+    );
+    this.presenceTouchIntervalMs = Number(
+      options.presenceTouchIntervalMs
+      || process.env.NEOAGENT_DESKTOP_PRESENCE_TOUCH_INTERVAL_MS
+      || DEFAULT_PRESENCE_TOUCH_INTERVAL_MS,
     );
     this.connectionsByUser = new Map();
   }
@@ -200,6 +218,9 @@ class DesktopCompanionRegistry {
         platform: record.platform,
       },
       timeoutMs: this.commandTimeoutMs,
+      heartbeatIntervalMs: this.heartbeatIntervalMs,
+      heartbeatTimeoutMs: this.heartbeatTimeoutMs,
+      presenceTouchIntervalMs: this.presenceTouchIntervalMs,
     });
     // Install the new connection in the map BEFORE closing the old one.
     // This ensures that when the old socket's async 'close' event fires and
@@ -273,6 +294,19 @@ class DesktopCompanionRegistry {
       deviceId,
     );
     return this.getDeviceRecordByDeviceId(userId, deviceId);
+  }
+
+  touchPresence(userId, deviceId) {
+    const userMap = this._getUserMap(userId);
+    const connection = userMap?.get(String(deviceId));
+    if (!connection?.isOpen()) return;
+    this.db.prepare(
+      `UPDATE desktop_companion_devices
+       SET status = 'online',
+           last_seen_at = datetime('now'),
+           updated_at = datetime('now')
+       WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL`
+    ).run(userId, deviceId);
   }
 
   isConnected(userId) {
@@ -493,7 +527,19 @@ class DesktopCompanionRegistry {
 }
 
 class DesktopCompanionConnection {
-  constructor({ registry, ws, userId, sessionId, deviceId, recordId, meta, timeoutMs }) {
+  constructor({
+    registry,
+    ws,
+    userId,
+    sessionId,
+    deviceId,
+    recordId,
+    meta,
+    timeoutMs,
+    heartbeatIntervalMs,
+    heartbeatTimeoutMs,
+    presenceTouchIntervalMs,
+  }) {
     this.registry = registry;
     this.ws = ws;
     this.userId = userId;
@@ -502,11 +548,22 @@ class DesktopCompanionConnection {
     this.recordId = recordId;
     this.meta = meta || {};
     this.timeoutMs = timeoutMs;
+    this.heartbeatIntervalMs = heartbeatIntervalMs;
+    this.heartbeatTimeoutMs = heartbeatTimeoutMs;
+    this.presenceTouchIntervalMs = presenceTouchIntervalMs;
     this.pending = new Map();
+    this.lastPongAt = Date.now();
+    this.lastPresenceTouchAt = 0;
+    this.heartbeatTimer = null;
 
     ws.on('message', (data) => this._handleMessage(data));
+    ws.on('pong', () => {
+      this.lastPongAt = Date.now();
+      this.touchPresence();
+    });
     ws.on('close', () => this._closePending(new DesktopCompanionUnavailableError('Desktop companion disconnected.')));
     ws.on('error', (error) => this._closePending(error));
+    this._startHeartbeat();
   }
 
   isOpen() {
@@ -523,6 +580,21 @@ class DesktopCompanionConnection {
     // so it runs synchronously before any async ws 'close' event can fire.
     this.registry.unregisterConnection(this);
     this._closePending(new DesktopCompanionUnavailableError('Desktop companion disconnected.'));
+  }
+
+  touchPresence({ force = false } = {}) {
+    const now = Date.now();
+    const intervalMs = Number(this.presenceTouchIntervalMs);
+    if (
+      !force
+      && Number.isFinite(intervalMs)
+      && intervalMs > 0
+      && now - this.lastPresenceTouchAt < intervalMs
+    ) {
+      return;
+    }
+    this.lastPresenceTouchAt = now;
+    this.registry.touchPresence(this.userId, this.deviceId);
   }
 
   sendCommand(command, payload = {}, options = {}) {
@@ -549,6 +621,8 @@ class DesktopCompanionConnection {
   }
 
   _handleMessage(data) {
+    this.lastPongAt = Date.now();
+    this.touchPresence();
     if (Buffer.isBuffer(data) && data.length > 0 && data[0] === FRAME_TYPE_VIDEO) {
       return;
     }
@@ -585,6 +659,10 @@ class DesktopCompanionConnection {
   }
 
   _closePending(error) {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(error);
@@ -595,6 +673,31 @@ class DesktopCompanionConnection {
     // both. It ensures natural socket drops (no explicit close() call) still
     // mark the device offline.
     this.registry.unregisterConnection(this);
+  }
+
+  _startHeartbeat() {
+    const intervalMs = Number(this.heartbeatIntervalMs);
+    const timeoutMs = Number(this.heartbeatTimeoutMs);
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) return;
+    this.touchPresence({ force: true });
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.isOpen()) {
+        this._closePending(new DesktopCompanionUnavailableError('Desktop companion disconnected.'));
+        return;
+      }
+      if (Number.isFinite(timeoutMs) && timeoutMs > 0 && Date.now() - this.lastPongAt > timeoutMs) {
+        try { this.ws.terminate(); } catch {}
+        this._closePending(new DesktopCompanionUnavailableError('Desktop companion heartbeat timed out.'));
+        return;
+      }
+      this.touchPresence();
+      try {
+        this.ws.ping();
+      } catch (error) {
+        this._closePending(error);
+      }
+    }, intervalMs);
+    this.heartbeatTimer.unref?.();
   }
 }
 

@@ -9,15 +9,19 @@ class ChatPanel extends StatefulWidget {
   State<ChatPanel> createState() => _ChatPanelState();
 }
 
-class _ChatPanelState extends State<ChatPanel> {
+class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
+  static const double _autoScrollBottomThreshold = 120;
+  static const int _autoScrollSettlePasses = 4;
+
   late final TextEditingController _composerController;
   final ScrollController _scrollController = ScrollController();
   List<SharedChatAttachment> _pendingSharedAttachments =
       const <SharedChatAttachment>[];
   String? _appliedSharedPayloadSignature;
-  int _lastMessageCount = 0;
-  int _lastToolCount = 0;
-  String _lastStream = '';
+  String _lastScrollContentSignature = '';
+  bool _stickToBottom = true;
+  bool _ignoreScrollUpdates = false;
+  int _scrollGeneration = 0;
   bool _isSendingChatMessage = false;
   bool _isDictating = false;
   bool _isTranscribing = false;
@@ -27,9 +31,13 @@ class _ChatPanelState extends State<ChatPanel> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _composerController = TextEditingController();
+    _composerController.addListener(_handleComposerLayoutChanged);
+    _scrollController.addListener(_handleScrollPositionChanged);
     widget.controller.addListener(_consumeQueuedDraft);
     _consumeQueuedDraft();
+    _scheduleScrollToBottom(force: true);
   }
 
   @override
@@ -39,17 +47,31 @@ class _ChatPanelState extends State<ChatPanel> {
       oldWidget.controller.removeListener(_consumeQueuedDraft);
       widget.controller.addListener(_consumeQueuedDraft);
       _appliedSharedPayloadSignature = null;
+      _lastScrollContentSignature = '';
+      _stickToBottom = true;
       _consumeQueuedDraft();
+      _scheduleScrollToBottom(force: true);
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_consumeQueuedDraft);
+    _composerController.removeListener(_handleComposerLayoutChanged);
+    _scrollController.removeListener(_handleScrollPositionChanged);
     _composerController.dispose();
     _scrollController.dispose();
     _dictationCapture?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (_stickToBottom) {
+      _scheduleScrollToBottom();
+    }
   }
 
   Future<void> _startDictation() async {
@@ -68,9 +90,9 @@ class _ChatPanelState extends State<ChatPanel> {
       await capture.dispose();
       _dictationCapture = null;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Microphone error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Microphone error: $e')));
       }
     }
   }
@@ -96,7 +118,9 @@ class _ChatPanelState extends State<ChatPanel> {
       );
       if (mounted && transcript.isNotEmpty) {
         final current = _composerController.text;
-        final separator = current.isNotEmpty && !current.endsWith(' ') ? ' ' : '';
+        final separator = current.isNotEmpty && !current.endsWith(' ')
+            ? ' '
+            : '';
         _composerController.text = '$current$separator$transcript';
         _composerController.selection = TextSelection.collapsed(
           offset: _composerController.text.length,
@@ -104,9 +128,9 @@ class _ChatPanelState extends State<ChatPanel> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Transcription failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Transcription failed: $e')));
       }
     } finally {
       await capture?.dispose();
@@ -158,6 +182,9 @@ class _ChatPanelState extends State<ChatPanel> {
     setState(() {
       _pendingSharedAttachments = const <SharedChatAttachment>[];
     });
+    if (_stickToBottom) {
+      _scheduleScrollToBottom();
+    }
   }
 
   String _mimeTypeForFileName(String fileName) {
@@ -204,10 +231,9 @@ class _ChatPanelState extends State<ChatPanel> {
     }
     final attachments = result.files
         .where(
-          (file) =>
-              kIsWeb
-                  ? file.bytes != null
-                  : file.path?.trim().isNotEmpty == true,
+          (file) => kIsWeb
+              ? file.bytes != null
+              : file.path?.trim().isNotEmpty == true,
         )
         .map(
           (file) => SharedChatAttachment(
@@ -229,108 +255,178 @@ class _ChatPanelState extends State<ChatPanel> {
         ...attachments,
       ];
     });
+    if (_stickToBottom) {
+      _scheduleScrollToBottom();
+    }
   }
 
   bool get _isNearBottom {
     if (!_scrollController.hasClients) return true;
     final pos = _scrollController.position;
     if (!pos.hasContentDimensions) return true;
-    return pos.pixels >= pos.maxScrollExtent - 80;
+    return pos.pixels >= pos.maxScrollExtent - _autoScrollBottomThreshold;
   }
 
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      final pos = _scrollController.position;
-      if (pos.hasContentDimensions) {
-        _scrollController.jumpTo(pos.maxScrollExtent);
-      }
-    });
+  void _handleScrollPositionChanged() {
+    if (_ignoreScrollUpdates || !_scrollController.hasClients) return;
+    final nearBottom = _isNearBottom;
+    if (_stickToBottom && !nearBottom) {
+      _scrollGeneration++;
+    }
+    _stickToBottom = nearBottom;
+  }
+
+  void _handleComposerLayoutChanged() {
+    if (_stickToBottom) {
+      _scheduleScrollToBottom();
+    }
+  }
+
+  String _scrollContentSignature(
+    List<ChatEntry> messages,
+    NeoAgentController controller,
+  ) {
+    final last = messages.isEmpty ? null : messages.last;
+    final activeRun = controller.activeRun;
+    return <Object?>[
+      messages.length,
+      last?.id,
+      last?.role,
+      last?.content.length,
+      last?.typing,
+      controller.toolEvents.length,
+      activeRun?.runId,
+      activeRun?.phase,
+      activeRun?.iteration,
+      controller.streamingAssistant.length,
+      controller.isSendingMessage,
+    ].join('|');
+  }
+
+  void _scheduleScrollToBottom({bool force = false}) {
+    if (!force && !_stickToBottom) return;
+    final generation = ++_scrollGeneration;
+
+    void settle(int remainingPasses) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            generation != _scrollGeneration ||
+            !_scrollController.hasClients) {
+          return;
+        }
+        final pos = _scrollController.position;
+        if (pos.hasContentDimensions) {
+          final target = pos.maxScrollExtent;
+          if ((pos.pixels - target).abs() > 0.5) {
+            _ignoreScrollUpdates = true;
+            _scrollController.jumpTo(target);
+            _ignoreScrollUpdates = false;
+          }
+        }
+        _stickToBottom = true;
+        if (remainingPasses > 0) {
+          Timer(const Duration(milliseconds: 24), () {
+            if (mounted && generation == _scrollGeneration) {
+              settle(remainingPasses - 1);
+            }
+          });
+        }
+      });
+    }
+
+    settle(_autoScrollSettlePasses);
+  }
+
+  void _maybeFollowChatContent(
+    List<ChatEntry> messages,
+    NeoAgentController controller,
+  ) {
+    final signature = _scrollContentSignature(messages, controller);
+    if (_lastScrollContentSignature == signature) return;
+    final isInitialContent = _lastScrollContentSignature.isEmpty;
+    final shouldFollow = _stickToBottom || isInitialContent;
+    _lastScrollContentSignature = signature;
+    if (shouldFollow) {
+      _scheduleScrollToBottom(force: isInitialContent);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final messages = controller.visibleChatMessages;
-    if (_lastMessageCount != messages.length ||
-        _lastToolCount != controller.toolEvents.length ||
-        _lastStream != controller.streamingAssistant) {
-      _lastMessageCount = messages.length;
-      _lastToolCount = controller.toolEvents.length;
-      _lastStream = controller.streamingAssistant;
-      if (_isNearBottom) _scrollToBottom();
-    }
+    _maybeFollowChatContent(messages, controller);
 
     return Column(
       children: <Widget>[
         Expanded(
           child: SelectionArea(
             child: ListView(
-            controller: _scrollController,
-            padding: _pagePadding(context),
-            children: <Widget>[
-              _PageTitle(
-                title: 'Chat',
-                subtitle: 'Live agent chat with tool and stream status.',
-                trailing: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    FilledButton.icon(
-                      onPressed: () => controller.setSelectedSection(
-                        AppSection.voiceAssistant,
+              controller: _scrollController,
+              padding: _pagePadding(context),
+              children: <Widget>[
+                _PageTitle(
+                  title: 'Chat',
+                  subtitle: 'Live agent chat with tool and stream status.',
+                  trailing: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      FilledButton.icon(
+                        onPressed: () => controller.setSelectedSection(
+                          AppSection.voiceAssistant,
+                        ),
+                        icon: Icon(Icons.call),
+                        label: Text('Call'),
                       ),
-                      icon: Icon(Icons.call),
-                      label: Text('Call'),
-                    ),
-                    _MetaPill(
-                      label: controller.modelIndicator,
-                      icon: Icons.memory_outlined,
-                    ),
-                    _MetaPill(
-                      label: 'Agent: ${controller.activeAgentLabel}',
-                      icon: Icons.smart_toy_outlined,
-                    ),
-                  ],
+                      _MetaPill(
+                        label: controller.modelIndicator,
+                        icon: Icons.memory_outlined,
+                      ),
+                      _MetaPill(
+                        label: 'Agent: ${controller.activeAgentLabel}',
+                        icon: Icons.smart_toy_outlined,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (controller.errorMessage != null) ...<Widget>[
-                _InlineError(message: controller.errorMessage!),
-                const SizedBox(height: 16),
+                if (controller.errorMessage != null) ...<Widget>[
+                  _InlineError(message: controller.errorMessage!),
+                  const SizedBox(height: 16),
+                ],
+                if (controller.activeRun != null ||
+                    controller.toolEvents.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _RunStatusPanel(
+                      run: controller.activeRun,
+                      tools: controller.toolEvents,
+                    ),
+                  ),
+                if (messages.isEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: 64),
+                    child: Center(
+                      child: _EmptyState(
+                        title: 'How can I help?',
+                        subtitle:
+                            'Runs, tools, memory, scheduling, skills, and MCP are all available here.',
+                      ),
+                    ),
+                  )
+                else
+                  ...messages.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 18),
+                      child: _ChatBubble(
+                        entry: entry,
+                        onLoadRunDetail: controller.fetchRunDetail,
+                      ),
+                    ),
+                  ),
               ],
-              if (controller.activeRun != null ||
-                  controller.toolEvents.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _RunStatusPanel(
-                    run: controller.activeRun,
-                    tools: controller.toolEvents,
-                  ),
-                ),
-              if (messages.isEmpty)
-                Padding(
-                  padding: EdgeInsets.only(top: 64),
-                  child: Center(
-                    child: _EmptyState(
-                      title: 'How can I help?',
-                      subtitle:
-                          'Runs, tools, memory, scheduling, skills, and MCP are all available here.',
-                    ),
-                  ),
-                )
-              else
-                ...messages.map(
-                  (entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 18),
-                    child: _ChatBubble(
-                      entry: entry,
-                      onLoadRunDetail: controller.fetchRunDetail,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+            ),
           ),
         ),
         Container(
@@ -355,6 +451,9 @@ class _ChatPanelState extends State<ChatPanel> {
                             .map((entry) => entry.value)
                             .toList(growable: false);
                       });
+                      if (_stickToBottom) {
+                        _scheduleScrollToBottom();
+                      }
                       if (_pendingSharedAttachments.isEmpty) {
                         _clearSharedPayload();
                       }
@@ -409,14 +508,20 @@ class _ChatPanelState extends State<ChatPanel> {
                             ),
                           )
                         : IconButton(
-                            tooltip: _isDictating ? 'Stop & transcribe' : 'Dictate',
-                            onPressed: _isDictating ? _stopAndTranscribe : _startDictation,
+                            tooltip: _isDictating
+                                ? 'Stop & transcribe'
+                                : 'Dictate',
+                            onPressed: _isDictating
+                                ? _stopAndTranscribe
+                                : _startDictation,
                             icon: Icon(
                               _isDictating
                                   ? Icons.stop_circle_outlined
                                   : Icons.mic_none_rounded,
                             ),
-                            color: _isDictating ? Theme.of(context).colorScheme.error : _textSecondary,
+                            color: _isDictating
+                                ? Theme.of(context).colorScheme.error
+                                : _textSecondary,
                           ),
                     const SizedBox(width: 2),
                     FilledButton(

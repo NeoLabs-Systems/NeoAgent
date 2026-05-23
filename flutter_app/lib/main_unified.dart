@@ -129,6 +129,7 @@ class RunsAndLogsPanel extends StatefulWidget {
 class _RunsAndLogsPanelState extends State<RunsAndLogsPanel>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  bool _syncingFromController = false;
 
   @override
   void initState() {
@@ -137,7 +138,7 @@ class _RunsAndLogsPanelState extends State<RunsAndLogsPanel>
       length: _RunsPageTab.values.length,
       vsync: this,
       initialIndex: _tabForSection(widget.controller.selectedSection).index,
-    );
+    )..addListener(_handleTabChanged);
   }
 
   @override
@@ -149,15 +150,32 @@ class _RunsAndLogsPanelState extends State<RunsAndLogsPanel>
             selectedSection == AppSection.logs)) {
       final targetIndex = _tabForSection(selectedSection).index;
       if (_tabController.index != targetIndex) {
+        _syncingFromController = true;
         _tabController.index = targetIndex;
+        _syncingFromController = false;
       }
     }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _handleTabChanged() {
+    if (_syncingFromController || _tabController.indexIsChanging) {
+      return;
+    }
+    _selectSectionForTabIndex(_tabController.index);
+  }
+
+  void _selectSectionForTabIndex(int index) {
+    final section = _sectionForTab(_RunsPageTab.values[index]);
+    if (widget.controller.selectedSection != section) {
+      widget.controller.setSelectedSection(section);
+    }
   }
 
   _RunsPageTab _tabForSection(AppSection section) {
@@ -166,6 +184,15 @@ class _RunsAndLogsPanelState extends State<RunsAndLogsPanel>
         return _RunsPageTab.logs;
       default:
         return _RunsPageTab.runs;
+    }
+  }
+
+  AppSection _sectionForTab(_RunsPageTab tab) {
+    switch (tab) {
+      case _RunsPageTab.logs:
+        return AppSection.logs;
+      case _RunsPageTab.runs:
+        return AppSection.runs;
     }
   }
 
@@ -193,6 +220,7 @@ class _RunsAndLogsPanelState extends State<RunsAndLogsPanel>
               dividerColor: _border,
               indicatorSize: TabBarIndicatorSize.tab,
               labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+              onTap: _selectSectionForTabIndex,
               tabs: <Widget>[
                 Tab(text: 'Runs (${controller.recentRuns.length})'),
                 Tab(text: 'Logs (${controller.logs.length})'),

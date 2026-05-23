@@ -1537,6 +1537,40 @@ class _InteractiveSurfacePreviewState
     } catch (_) {}
   }
 
+  void _handleStreamFirstFrame(String streamKey) {
+    if (!mounted || _requestedStreamKey != streamKey) {
+      return;
+    }
+    if (_streamFailedKey == streamKey) {
+      setState(() => _streamFailedKey = null);
+    }
+  }
+
+  void _handleStreamFrameTimeout(String streamKey) {
+    if (!mounted || _requestedStreamKey != streamKey) {
+      return;
+    }
+    setState(() => _streamFailedKey = streamKey);
+    unawaited(_stopActiveStream());
+    if ((widget.screenshotPath ?? '').isEmpty) {
+      unawaited(_refreshStaticFrame());
+    }
+  }
+
+  Future<void> _refreshStaticFrame() async {
+    switch (widget.surface) {
+      case _DeviceSurface.browser:
+        await widget.controller.screenshotBrowserRuntime();
+        break;
+      case _DeviceSurface.android:
+        await widget.controller.screenshotAndroidRuntime();
+        break;
+      case _DeviceSurface.desktop:
+        await widget.controller.screenshotDesktopRuntime();
+        break;
+    }
+  }
+
   void _detachImageListener() {
     if (_imageStream != null && _imageListener != null) {
       _imageStream!.removeListener(_imageListener!);
@@ -1681,6 +1715,7 @@ class _InteractiveSurfacePreviewState
                         streamDeviceId != null &&
                         streamDeviceId.isNotEmpty &&
                         streamKey != _streamFailedKey) {
+                      final activeStreamKey = streamKey!;
                       return Stack(
                         fit: StackFit.expand,
                         children: <Widget>[
@@ -1690,6 +1725,10 @@ class _InteractiveSurfacePreviewState
                             deviceId: streamDeviceId,
                             platform: streamPlatform,
                             remoteResolution: _pixelSize,
+                            onFirstFrame: () =>
+                                _handleStreamFirstFrame(activeStreamKey),
+                            onFrameTimeout: () =>
+                                _handleStreamFrameTimeout(activeStreamKey),
                             onTap: widget.busy
                                 ? null
                                 : (x, y) => unawaited(

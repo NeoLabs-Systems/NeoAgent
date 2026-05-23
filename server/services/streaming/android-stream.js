@@ -5,6 +5,18 @@ const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
 const sharp = require('sharp');
 
+let H264_FIRST_FRAME_TIMEOUT_MS = 6_000;
+const envTimeout = process.env.NEOAGENT_ANDROID_STREAM_FIRST_FRAME_TIMEOUT_MS;
+
+if (envTimeout) {
+  const parsed = parseInt(envTimeout, 10);
+  if (!isNaN(parsed) && parsed > 0) {
+    H264_FIRST_FRAME_TIMEOUT_MS = parsed;
+  } else {
+    console.warn('[AndroidStream] Invalid NEOAGENT_ANDROID_STREAM_FIRST_FRAME_TIMEOUT_MS; using default 6000ms');
+  }
+}
+
 // Derive the full path to the `adb` binary the same way the Android controller does.
 function resolveAdbBin(sdkDir) {
   if (sdkDir) {
@@ -104,6 +116,7 @@ class AndroidStream {
     this._adbProc = null;
     this._ffmpegProc = null;
     this._restartTimer = null;
+    this._h264StartupTimer = null;
     this._seq = 0;
     this._lastErrorLogAt = 0;
     this._usePollingFallback = false; // set true when H.264 fails to start
@@ -181,6 +194,7 @@ class AndroidStream {
     this._ffmpegProc.stdout.on('data', (chunk) => parser.push(chunk));
     parser.on('frame', (jpeg) => {
       if (this._stopped) return;
+      this._clearH264StartupTimer();
       this.streamHub.handleFrame(this.userId, this.deviceId, {
         jpeg,
         platform: 'android',
@@ -197,6 +211,15 @@ class AndroidStream {
       this._logError('ffmpeg process error', err);
     });
 
+    if (H264_FIRST_FRAME_TIMEOUT_MS > 0) {
+      this._h264StartupTimer = setTimeout(() => {
+        if (this._stopped || this._usePollingFallback || this._seq > 0) return;
+        this._logError('H.264 stream produced no frames before timeout — using screencap fallback');
+        this._fallback();
+      }, H264_FIRST_FRAME_TIMEOUT_MS);
+      this._h264StartupTimer.unref?.();
+    }
+
     // Android screenrecord's hard limit is 180 s — restart at 170 s so there
     // is no gap in the stream.
     this._restartTimer = setTimeout(() => {
@@ -209,7 +232,7 @@ class AndroidStream {
 
     // If adb exits early (e.g. emulator restart), attempt recovery.
     this._adbProc.on('close', (code) => {
-      if (this._stopped) return;
+      if (this._stopped || this._usePollingFallback) return;
       // If it exited immediately with a bad code, the device likely does not
       // support stdout screenrecord — fall back to screencap polling.
       if (code !== 0 && this._seq === 0) {
@@ -222,9 +245,18 @@ class AndroidStream {
       this._killProcesses();
       this._scheduleRestart(2000, () => this._launchH264());
     });
+
+    this._ffmpegProc.on('close', (code) => {
+      if (this._stopped || this._usePollingFallback) return;
+      if (this._seq === 0) {
+        this._logError(`ffmpeg exited (code ${code}) before producing any frames — using screencap fallback`);
+        this._fallback();
+      }
+    });
   }
 
   _fallback() {
+    this._killProcesses();
     this._usePollingFallback = true;
     if (!this._stopped) this._startPollingFallback();
   }
@@ -275,11 +307,17 @@ class AndroidStream {
   _killProcesses() {
     clearTimeout(this._restartTimer);
     this._restartTimer = null;
+    this._clearH264StartupTimer();
     // Kill ffmpeg first so it stops reading; then kill adb.
     try { this._ffmpegProc?.kill('SIGTERM'); } catch {}
     try { this._adbProc?.kill('SIGTERM'); } catch {}
     this._ffmpegProc = null;
     this._adbProc = null;
+  }
+
+  _clearH264StartupTimer() {
+    clearTimeout(this._h264StartupTimer);
+    this._h264StartupTimer = null;
   }
 
   _logError(msg, err) {

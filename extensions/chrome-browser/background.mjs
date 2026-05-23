@@ -8,6 +8,8 @@ let reconnectTimer = null;
 let suppressSocketClose = false;
 const DEFAULT_FETCH_TIMEOUT_MS = 10000;
 const DEFAULT_WS_CONNECT_TIMEOUT_MS = 10000;
+const KEEPALIVE_ALARM_NAME = 'neoagent-extension-keepalive';
+const KEEPALIVE_ALARM_MINUTES = 1;
 const EXTENSION_PROTOCOL_VERSION = 1;
 
 function getStorage(keys = STORAGE_KEYS) {
@@ -79,6 +81,12 @@ async function updateStatus(status) {
 function clearReconnectTimer() {
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
+}
+
+function ensureKeepaliveAlarm() {
+  chrome.alarms?.create?.(KEEPALIVE_ALARM_NAME, {
+    periodInMinutes: KEEPALIVE_ALARM_MINUTES,
+  });
 }
 
 async function handleSocketDisconnected(ws) {
@@ -308,4 +316,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
+chrome.alarms?.onAlarm?.addListener((alarm) => {
+  if (alarm?.name !== KEEPALIVE_ALARM_NAME) return;
+  connect().catch((error) => {
+    console.error('NeoAgent keepalive reconnect failed', error);
+  });
+});
+
+chrome.runtime.onStartup?.addListener(() => {
+  ensureKeepaliveAlarm();
+  connect().catch(() => {});
+});
+
+chrome.runtime.onInstalled?.addListener(() => {
+  ensureKeepaliveAlarm();
+  connect().catch(() => {});
+});
+
+ensureKeepaliveAlarm();
 connect().catch(() => {});

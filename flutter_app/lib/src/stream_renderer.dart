@@ -15,6 +15,9 @@ class StreamRenderer extends StatefulWidget {
     this.onSwipe,
     this.onType,
     this.onHover,
+    this.onFirstFrame,
+    this.onFrameTimeout,
+    this.firstFrameTimeout = const Duration(seconds: 8),
     this.fit = BoxFit.contain,
     this.alignment = Alignment.center,
   });
@@ -27,6 +30,9 @@ class StreamRenderer extends StatefulWidget {
   final void Function(double x1, double y1, double x2, double y2)? onSwipe;
   final void Function(String text)? onType;
   final void Function(double x, double y)? onHover;
+  final VoidCallback? onFirstFrame;
+  final VoidCallback? onFrameTimeout;
+  final Duration firstFrameTimeout;
   final BoxFit fit;
   final Alignment alignment;
 
@@ -43,6 +49,8 @@ class _StreamRendererState extends State<StreamRenderer> {
   Offset? _dragEnd;
 
   Timer? _hoverThrottleTimer;
+  Timer? _firstFrameTimer;
+  bool _firstFrameTimedOut = false;
   Offset? _pendingHoverOffset;
   DateTime _lastHoverTime = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -54,6 +62,7 @@ class _StreamRendererState extends State<StreamRenderer> {
       'deviceId': widget.deviceId,
       'platform': widget.platform,
     });
+    _startFirstFrameTimer();
   }
 
   @override
@@ -65,7 +74,9 @@ class _StreamRendererState extends State<StreamRenderer> {
       return;
     }
     _frameSize = null;
+    _frame = null;
     _detachImageListener();
+    _firstFrameTimer?.cancel();
     oldWidget.socket.off('stream:frame', _onFrame);
     oldWidget.socket.emit('stream:unsubscribe', <String, Object?>{
       'deviceId': oldWidget.deviceId,
@@ -75,6 +86,24 @@ class _StreamRendererState extends State<StreamRenderer> {
     widget.socket.emit('stream:subscribe', <String, Object?>{
       'deviceId': widget.deviceId,
       'platform': widget.platform,
+    });
+    _startFirstFrameTimer();
+  }
+
+  void _startFirstFrameTimer() {
+    _firstFrameTimer?.cancel();
+    _firstFrameTimedOut = false;
+    if (widget.onFrameTimeout == null ||
+        widget.firstFrameTimeout <= Duration.zero ||
+        _frame != null) {
+      return;
+    }
+    _firstFrameTimer = Timer(widget.firstFrameTimeout, () {
+      if (!mounted || _frame != null) {
+        return;
+      }
+      _firstFrameTimedOut = true;
+      widget.onFrameTimeout?.call();
     });
   }
 
@@ -102,6 +131,14 @@ class _StreamRendererState extends State<StreamRenderer> {
       _ => null,
     };
     if (frame == null || frame.isEmpty || !mounted) return;
+    final hadFrame = _frame != null;
+    if (!hadFrame) {
+      _firstFrameTimer?.cancel();
+      _firstFrameTimer = null;
+      if (!_firstFrameTimedOut) {
+        widget.onFirstFrame?.call();
+      }
+    }
     if (_frameSize == null) {
       _resolveFrameSize(frame);
     }
@@ -146,7 +183,8 @@ class _StreamRendererState extends State<StreamRenderer> {
         return MouseRegion(
           onHover: widget.onHover == null
               ? null
-              : (event) => _handleHoverEvent(event.localPosition, constraints.biggest),
+              : (event) =>
+                    _handleHoverEvent(event.localPosition, constraints.biggest),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapDown: widget.onTap == null
@@ -197,7 +235,7 @@ class _StreamRendererState extends State<StreamRenderer> {
     final now = DateTime.now();
     final elapsed = now.difference(_lastHoverTime);
     const throttleDuration = Duration(milliseconds: 70);
-    
+
     if (elapsed >= throttleDuration) {
       _sendPendingHover(boxSize);
     } else {
@@ -213,7 +251,7 @@ class _StreamRendererState extends State<StreamRenderer> {
     if (offset == null) return;
     _pendingHoverOffset = null;
     _lastHoverTime = DateTime.now();
-    
+
     final point = _mapToRemote(offset, boxSize);
     if (point != null) {
       widget.onHover?.call(point.dx, point.dy);
@@ -275,6 +313,7 @@ class _StreamRendererState extends State<StreamRenderer> {
   @override
   void dispose() {
     _hoverThrottleTimer?.cancel();
+    _firstFrameTimer?.cancel();
     widget.socket.emit('stream:unsubscribe', <String, Object?>{
       'deviceId': widget.deviceId,
       'platform': widget.platform,
