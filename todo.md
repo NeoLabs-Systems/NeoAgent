@@ -1,3 +1,0 @@
-- for long tasks in voice mode the ai should decide if it takes long and then say "ill get back to you" (in natural lang) and then send the result via alternative platforms (last used or smth.). no hard-coded variables, keep it simple but prod ready and functional
-- clean up main.dart
-- add some basic encryption to the app - nothing major only for extra security
