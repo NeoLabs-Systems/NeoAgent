@@ -330,6 +330,7 @@ class TaskRuntime {
           deliveryState,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
           skipTaskAnalysis: true,
+          skipDeliverableWorkflow: true,
           skipGlobalRecall: true,
           skipConversationHistory: true,
           skipConversationMaintenance: true,
