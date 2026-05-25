@@ -39,6 +39,7 @@ import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
 import 'src/recording_bridge.dart';
 import 'src/recording_payloads.dart';
+import 'src/security/password_strength.dart';
 import 'src/stream_renderer.dart';
 import 'src/theme/palette.dart';
 import 'src/web_app_update_monitor.dart';

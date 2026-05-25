@@ -2478,31 +2478,6 @@ class NeoAgentController extends ChangeNotifier {
       );
       notifyListeners();
     } catch (_) {}
-
-    Future<String> fetchMemoryTransferPrompt() async {
-      final response = await _backendClient.fetchMemoryTransferPrompt(
-        backendUrl,
-        agentId: _scopedAgentId,
-      );
-      return response['prompt']?.toString() ?? '';
-    }
-
-    Future<MemoryTransferImportResult> importMemoryTransfer(
-      String text, {
-      bool applyBehaviorNotes = true,
-      bool applyCoreMemory = true,
-    }) async {
-      final response = await _backendClient.importMemoryTransfer(
-        backendUrl,
-        text: text,
-        applyBehaviorNotes: applyBehaviorNotes,
-        applyCoreMemory: applyCoreMemory,
-        agentId: _scopedAgentId,
-      );
-      final result = MemoryTransferImportResult.fromJson(response);
-      await refreshMemory();
-      return result;
-    }
   }
 
   Future<void> refreshMessaging() async {

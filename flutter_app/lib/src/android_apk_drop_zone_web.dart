@@ -447,7 +447,9 @@ class _AndroidApkTileWebState extends State<_AndroidApkTileWeb> {
 
   @override
   void dispose() {
-    for (final s in _subs) s.cancel();
+    for (final s in _subs) {
+      s.cancel();
+    }
     _dropElement.remove();
     super.dispose();
   }

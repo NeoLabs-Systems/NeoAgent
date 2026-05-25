@@ -1,5 +1,7 @@
 part of 'main.dart';
 
+// ignore_for_file: unused_element
+
 class _OptimizedScreenshotPayload {
   const _OptimizedScreenshotPayload({
     required this.bytes,

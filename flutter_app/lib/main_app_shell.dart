@@ -4,9 +4,9 @@ part of 'main.dart';
 // surface palette to create visual contrast during the auth flow. Named here
 // so they can be updated in one place rather than hunted across the widget tree.
 const Color _qrPanelGradientStart = Color(0xFF0A1D2E);
-const Color _qrPanelGradientEnd   = Color(0xFF112B43);
-const Color _qrPanelGlowBlue      = Color(0xFF6EDBFF);
-const Color _qrPanelGlowGreen     = Color(0xFF58E0A2);
+const Color _qrPanelGradientEnd = Color(0xFF112B43);
+const Color _qrPanelGlowBlue = Color(0xFF6EDBFF);
+const Color _qrPanelGlowGreen = Color(0xFF58E0A2);
 
 class SplashView extends StatelessWidget {
   const SplashView({super.key});
@@ -982,7 +982,9 @@ class _AuthViewState extends State<AuthView> {
                   ),
                   child: Padding(
                     padding: EdgeInsets.all(
-                      viewportConstraints.maxWidth < AppBreakpoints.mobile ? 14 : 24,
+                      viewportConstraints.maxWidth < AppBreakpoints.mobile
+                          ? 14
+                          : 24,
                     ),
                     child: Center(
                       child: ConstrainedBox(
@@ -998,10 +1000,22 @@ class _AuthViewState extends State<AuthView> {
                             fillColor: _glassFill,
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
-                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 18 : 34,
-                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 20 : 30,
-                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 18 : 34,
-                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 20 : 30,
+                                viewportConstraints.maxWidth <
+                                        AppBreakpoints.mobile
+                                    ? 18
+                                    : 34,
+                                viewportConstraints.maxWidth <
+                                        AppBreakpoints.mobile
+                                    ? 20
+                                    : 30,
+                                viewportConstraints.maxWidth <
+                                        AppBreakpoints.mobile
+                                    ? 18
+                                    : 34,
+                                viewportConstraints.maxWidth <
+                                        AppBreakpoints.mobile
+                                    ? 20
+                                    : 30,
                               ),
                               child: LayoutBuilder(
                                 builder: (context, panelConstraints) {
@@ -1212,19 +1226,27 @@ class _HomeViewState extends State<HomeView> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(32),
                         child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 260),
-                          switchInCurve: Curves.easeOutCubic,
+                          duration: const Duration(milliseconds: 320),
+                          switchInCurve: Curves.easeOutBack,
                           switchOutCurve: Curves.easeInCubic,
                           transitionBuilder: (child, animation) {
                             final offset = Tween<Offset>(
-                              begin: const Offset(0.015, 0.02),
+                              begin: const Offset(0.018, 0.026),
                               end: Offset.zero,
                             ).animate(animation);
-                            return FadeTransition(
-                              opacity: animation,
-                              child: SlideTransition(
-                                position: offset,
-                                child: child,
+                            final scale = Tween<double>(
+                              begin: 0.992,
+                              end: 1,
+                            ).animate(animation);
+                            return ScaleTransition(
+                              scale: scale,
+                              alignment: Alignment.topCenter,
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: offset,
+                                  child: child,
+                                ),
                               ),
                             );
                           },
@@ -1232,7 +1254,10 @@ class _HomeViewState extends State<HomeView> {
                             key: ValueKey<AppSection>(
                               controller.selectedSection,
                             ),
-                            child: _SectionBody(controller: controller, devicesPanelKey: _devicesPanelKey),
+                            child: _SectionBody(
+                              controller: controller,
+                              devicesPanelKey: _devicesPanelKey,
+                            ),
                           ),
                         ),
                       ),
@@ -1277,12 +1302,27 @@ class _HomeViewState extends State<HomeView> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(26),
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
-                  switchInCurve: Curves.easeOutCubic,
+                  duration: const Duration(milliseconds: 280),
+                  switchInCurve: Curves.easeOutBack,
                   switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.018),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
                   child: KeyedSubtree(
                     key: ValueKey<AppSection>(controller.selectedSection),
-                    child: _SectionBody(controller: controller, devicesPanelKey: _devicesPanelKey),
+                    child: _SectionBody(
+                      controller: controller,
+                      devicesPanelKey: _devicesPanelKey,
+                    ),
                   ),
                 ),
               ),
@@ -1605,105 +1645,105 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
           child: Tooltip(
             message: 'Switch agent',
             child: InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: _toggleMenu,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    Colors.white.withValues(alpha: isMenuOpen ? 0.13 : 0.08),
-                    _accentMuted.withValues(alpha: isMenuOpen ? 0.24 : 0.14),
-                    _bgSecondary.withValues(alpha: isMenuOpen ? 0.92 : 0.84),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(
-                  color: isMenuOpen
-                      ? _accent.withValues(alpha: 0.65)
-                      : _borderLight,
-                ),
-                boxShadow: isMenuOpen
-                    ? <BoxShadow>[
-                        BoxShadow(
-                          color: _accent.withValues(alpha: 0.16),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                children: <Widget>[
-                  _AgentGlyph(
-                    agent: selectedAgent,
-                    selected: true,
-                    compact: true,
+              borderRadius: BorderRadius.circular(24),
+              onTap: _toggleMenu,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      Colors.white.withValues(alpha: isMenuOpen ? 0.13 : 0.08),
+                      _accentMuted.withValues(alpha: isMenuOpen ? 0.24 : 0.14),
+                      _bgSecondary.withValues(alpha: isMenuOpen ? 0.92 : 0.84),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Flexible(
-                              child: Text(
-                                selectedAgent.displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.15,
+                  border: Border.all(
+                    color: isMenuOpen
+                        ? _accent.withValues(alpha: 0.65)
+                        : _borderLight,
+                  ),
+                  boxShadow: isMenuOpen
+                      ? <BoxShadow>[
+                          BoxShadow(
+                            color: _accent.withValues(alpha: 0.16),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    _AgentGlyph(
+                      agent: selectedAgent,
+                      selected: true,
+                      compact: true,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  selectedAgent.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.15,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (selectedAgent.isDefault) ...<Widget>[
-                              const SizedBox(width: 8),
-                              _AgentTag(
-                                label: 'DEFAULT',
-                                color: _accent,
-                                foreground: _accentHover,
-                              ),
+                              if (selectedAgent.isDefault) ...<Widget>[
+                                const SizedBox(width: 8),
+                                _AgentTag(
+                                  label: 'DEFAULT',
+                                  color: _accent,
+                                  foreground: _accentHover,
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _agentSwitcherSubtitle(selectedAgent),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: _textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Text(
+                            _agentSwitcherSubtitle(selectedAgent),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  AnimatedRotation(
-                    turns: isMenuOpen ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 20,
-                      color: isMenuOpen ? _accentHover : _textSecondary,
+                    const SizedBox(width: 8),
+                    AnimatedRotation(
+                      turns: isMenuOpen ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: isMenuOpen ? _accentHover : _textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
           ),
         );
       },
@@ -1741,104 +1781,104 @@ class _AgentSwitcherMenuItem extends StatelessWidget {
       child: Tooltip(
         message: agent.displayName,
         child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: selected
-                ? LinearGradient(
-                    colors: <Color>[
-                      _accent.withValues(alpha: 0.18),
-                      _accentMuted.withValues(alpha: 0.3),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: selected ? null : Colors.white.withValues(alpha: 0.025),
-            border: Border.all(
-              color: selected ? _accent.withValues(alpha: 0.5) : _borderLight,
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: selected
+                  ? LinearGradient(
+                      colors: <Color>[
+                        _accent.withValues(alpha: 0.18),
+                        _accentMuted.withValues(alpha: 0.3),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              color: selected ? null : Colors.white.withValues(alpha: 0.025),
+              border: Border.all(
+                color: selected ? _accent.withValues(alpha: 0.5) : _borderLight,
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _AgentGlyph(agent: agent, selected: selected, compact: true),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              agent.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: _textPrimary,
-                                fontSize: 13.5,
-                                fontWeight: selected
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
-                                letterSpacing: -0.1,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _AgentGlyph(agent: agent, selected: selected, compact: true),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                agent.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: _textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  letterSpacing: -0.1,
+                                ),
                               ),
                             ),
-                          ),
-                          if (agent.isDefault) ...<Widget>[
-                            const SizedBox(width: 8),
-                            _AgentTag(
-                              label: 'DEFAULT',
-                              color: _accent,
-                              foreground: _accentHover,
-                            ),
+                            if (agent.isDefault) ...<Widget>[
+                              const SizedBox(width: 8),
+                              _AgentTag(
+                                label: 'DEFAULT',
+                                color: _accent,
+                                foreground: _accentHover,
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _agentSwitcherSubtitle(agent),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 12,
-                          height: 1.3,
-                          fontWeight: FontWeight.w600,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _agentSwitcherSubtitle(agent),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 12,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 140),
+                    opacity: selected ? 1 : 0,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _accent.withValues(alpha: 0.2),
+                        border: Border.all(
+                          color: _accent.withValues(alpha: 0.45),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 140),
-                  opacity: selected ? 1 : 0,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _accent.withValues(alpha: 0.2),
-                      border: Border.all(
-                        color: _accent.withValues(alpha: 0.45),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: _accentHover,
                       ),
                     ),
-                    child: Icon(
-                      Icons.check_rounded,
-                      size: 15,
-                      color: _accentHover,
-                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
         ),
       ),
     );

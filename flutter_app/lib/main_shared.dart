@@ -11,6 +11,8 @@ EdgeInsets _pagePadding(BuildContext context) {
   return const EdgeInsets.fromLTRB(20, 20, 20, 28);
 }
 
+final ValueNotifier<bool> _partyModeEnabled = ValueNotifier<bool>(false);
+
 class _AmbientBackdrop extends StatefulWidget {
   const _AmbientBackdrop({required this.child});
 
@@ -41,78 +43,238 @@ class _AmbientBackdropState extends State<_AmbientBackdrop>
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(gradient: _appBackgroundGradient),
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final t = Curves.easeInOut.transform(_controller.value);
-          return Stack(
-            children: <Widget>[
-              Positioned(
-                top: -120 + (t * 22),
-                left: -90 + (t * 18),
-                child: _BlurOrb(
-                  size: 340,
-                  color: _accent.withValues(alpha: 0.9),
-                ),
-              ),
-              Positioned(
-                top: 90 - (t * 26),
-                right: -120 + (t * 22),
-                child: _BlurOrb(
-                  size: 280,
-                  color: _accentAlt.withValues(alpha: 0.85),
-                ),
-              ),
-              Positioned(
-                bottom: -140 + (t * 16),
-                left: 100 - (t * 24),
-                child: _BlurOrb(
-                  size: 360,
-                  color: _accent.withValues(alpha: 0.45),
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: <Color>[
-                          Colors.white.withValues(alpha: 0.05),
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.12),
-                        ],
-                        stops: const <double>[0, 0.32, 1],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+    return ValueListenableBuilder<bool>(
+      valueListenable: _partyModeEnabled,
+      builder: (context, partyMode, _) {
+        return DecoratedBox(
+          decoration: BoxDecoration(gradient: _appBackgroundGradient),
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final t = Curves.easeInOut.transform(_controller.value);
+              return Stack(
+                children: <Widget>[
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _AuroraFieldPainter(
+                          progress: t,
+                          partyMode: partyMode,
+                          primary: _accent,
+                          secondary: _accentAlt,
+                          base: _bgPrimary,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: Alignment(0.75 - (t * 0.15), -0.9 + (t * 0.1)),
-                        radius: 0.95,
-                        colors: <Color>[
-                          _glassHighlight.withValues(alpha: 0.14),
-                          Colors.transparent,
-                        ],
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ArcadeGridPainter(
+                          progress: t,
+                          color: _accentAlt,
+                          partyMode: partyMode,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              widget.child,
-            ],
-          );
-        },
-      ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: <Color>[
+                              Colors.white.withValues(alpha: 0.05),
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.12),
+                            ],
+                            stops: const <double>[0, 0.32, 1],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ConfettiBitsPainter(
+                          progress: t,
+                          active: partyMode,
+                          primary: _accent,
+                          secondary: _accentAlt,
+                        ),
+                      ),
+                    ),
+                  ),
+                  widget.child,
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
+  }
+}
+
+class _AuroraFieldPainter extends CustomPainter {
+  const _AuroraFieldPainter({
+    required this.progress,
+    required this.partyMode,
+    required this.primary,
+    required this.secondary,
+    required this.base,
+  });
+
+  final double progress;
+  final bool partyMode;
+  final Color primary;
+  final Color secondary;
+  final Color base;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final energy = partyMode ? 1.45 : 1.0;
+    final wash = Paint()
+      ..shader = LinearGradient(
+        colors: <Color>[
+          primary.withValues(alpha: 0.18 * energy),
+          secondary.withValues(alpha: 0.12 * energy),
+          base.withValues(alpha: 0),
+        ],
+        stops: const <double>[0, 0.42, 1],
+        begin: Alignment(-0.95 + progress * 0.35, -1),
+        end: Alignment(0.85 - progress * 0.25, 1),
+      ).createShader(rect);
+    canvas.drawRect(rect, wash);
+
+    for (var lane = 0; lane < 4; lane++) {
+      final yBase = size.height * (0.16 + lane * 0.18);
+      final path = Path()..moveTo(-size.width * 0.12, yBase);
+      for (var i = 0; i <= 8; i++) {
+        final x = size.width * (i / 8);
+        final phase = progress * math.pi * 2 + lane * 0.9 + i * 0.28;
+        final y = yBase + math.sin(phase) * (28 + lane * 9) * energy;
+        path.lineTo(x, y);
+      }
+      path.lineTo(size.width * 1.12, yBase + size.height * 0.34);
+      path.lineTo(-size.width * 0.12, yBase + size.height * 0.28);
+      path.close();
+
+      final lanePaint = Paint()
+        ..shader = LinearGradient(
+          colors: <Color>[
+            (lane.isEven ? primary : secondary).withValues(
+              alpha: (0.07 + lane * 0.012) * energy,
+            ),
+            Colors.transparent,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(rect)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 42);
+      canvas.drawPath(path, lanePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AuroraFieldPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.partyMode != partyMode ||
+        oldDelegate.primary != primary ||
+        oldDelegate.secondary != secondary ||
+        oldDelegate.base != base;
+  }
+}
+
+class _ArcadeGridPainter extends CustomPainter {
+  const _ArcadeGridPainter({
+    required this.progress,
+    required this.color,
+    required this.partyMode,
+  });
+
+  final double progress;
+  final Color color;
+  final bool partyMode;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: partyMode ? 0.13 : 0.055)
+      ..strokeWidth = 1;
+    const step = 48.0;
+    final drift = progress * step;
+    for (double x = -step + drift; x < size.width + step; x += step) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x - size.width * 0.08, size.height),
+        paint,
+      );
+    }
+    for (double y = size.height * 0.58; y < size.height + step; y += step) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y - progress * 12),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcadeGridPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.color != color ||
+        oldDelegate.partyMode != partyMode;
+  }
+}
+
+class _ConfettiBitsPainter extends CustomPainter {
+  const _ConfettiBitsPainter({
+    required this.progress,
+    required this.active,
+    required this.primary,
+    required this.secondary,
+  });
+
+  final double progress;
+  final bool active;
+  final Color primary;
+  final Color secondary;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!active) return;
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (var i = 0; i < 26; i++) {
+      final seed = i * 37.0;
+      final x = ((seed * 17 + progress * size.width * 0.35) % size.width);
+      final y = ((seed * 29 + progress * size.height * 0.9) % size.height);
+      final color = i.isEven ? primary : secondary;
+      paint.color = color.withValues(alpha: 0.16 + (i % 4) * 0.035);
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(progress * math.pi * 2 + i);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset.zero, width: 5 + (i % 3), height: 2.5),
+          const Radius.circular(2),
+        ),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiBitsPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.active != active ||
+        oldDelegate.primary != primary ||
+        oldDelegate.secondary != secondary;
   }
 }
 
@@ -548,6 +710,7 @@ class _ToolEventTimelineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color color;
+    final running = tool.status == 'running';
     switch (tool.status) {
       case 'running':
         color = _warning;
@@ -565,14 +728,26 @@ class _ToolEventTimelineRow extends StatelessWidget {
           width: 28,
           child: Column(
             children: <Widget>[
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
+              _PulseHalo(
+                color: color,
+                animate: running,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: <Color>[
+                        color.withValues(alpha: running ? 0.26 : 0.16),
+                        color.withValues(alpha: 0.08),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: color.withValues(alpha: 0.24)),
+                  ),
+                  child: Icon(tool.laneIcon, size: 16, color: color),
                 ),
-                child: Icon(tool.laneIcon, size: 16, color: color),
               ),
               if (!isLast)
                 Container(
@@ -592,9 +767,18 @@ class _ToolEventTimelineRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _bgSecondary,
+              gradient: LinearGradient(
+                colors: <Color>[
+                  _bgSecondary,
+                  if (running) color.withValues(alpha: 0.055) else _bgCard,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border),
+              border: Border.all(
+                color: running ? color.withValues(alpha: 0.25) : _border,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -770,24 +954,111 @@ class _DotStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      borderRadius: BorderRadius.circular(999),
-      blurSigma: 16,
-      fillColor: _bgSecondary.withValues(alpha: 0.28),
-      borderColor: _glassBorder.withValues(alpha: 0.8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Text(label),
-        ],
+    return _PulseHalo(
+      color: color,
+      child: _GlassSurface(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        borderRadius: BorderRadius.circular(999),
+        blurSigma: 16,
+        fillColor: _bgSecondary.withValues(alpha: 0.3),
+        borderColor: color.withValues(alpha: 0.24),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.42),
+                    blurRadius: 9,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(label),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _PulseHalo extends StatefulWidget {
+  const _PulseHalo({required this.child, required this.color, this.animate = true});
+
+  final Widget child;
+  final Color color;
+  final bool animate;
+
+  @override
+  State<_PulseHalo> createState() => _PulseHaloState();
+}
+
+class _PulseHaloState extends State<_PulseHalo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    if (widget.animate) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_PulseHalo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animate != oldWidget.animate) {
+      if (widget.animate) {
+        _controller.repeat(reverse: true);
+      } else {
+        _controller.stop();
+        _controller.value = 0.0;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.animate) {
+      return widget.child;
+    }
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.04 + t * 0.08),
+                blurRadius: 12 + t * 10,
+                spreadRadius: t * 1.5,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }
@@ -817,25 +1088,23 @@ class _SidebarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        scale: active ? 1.01 : 1,
+      child: _HoverLift(
+        active: active,
         child: _GlassSurface(
           borderRadius: BorderRadius.circular(18),
-          blurSigma: 18,
+          blurSigma: active ? 22 : 18,
           fillColor: active
-              ? _accentMuted.withValues(alpha: 0.32)
-              : _bgCard.withValues(alpha: 0.2),
+              ? _accentMuted.withValues(alpha: 0.36)
+              : _bgCard.withValues(alpha: 0.22),
           borderColor: active
-              ? _accent.withValues(alpha: 0.32)
-              : Colors.white.withValues(alpha: 0.03),
+              ? _accent.withValues(alpha: 0.45)
+              : Colors.white.withValues(alpha: 0.04),
           boxShadow: active
               ? <BoxShadow>[
                   BoxShadow(
-                    color: _accent.withValues(alpha: 0.12),
-                    blurRadius: 22,
-                    offset: const Offset(0, 8),
+                    color: _accent.withValues(alpha: 0.16),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
                   ),
                 ]
               : null,
@@ -844,55 +1113,120 @@ class _SidebarButton extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(18),
               onTap: onTap,
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.fromLTRB(12 + indent, 12, 12, 12),
-                child: Row(
-                  children: <Widget>[
-                    if (active)
-                      Container(
-                        width: 6,
-                        height: 26,
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: <Color>[
-                              _accentHover,
-                              _accentAlt.withValues(alpha: 0.9),
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
+              child: Stack(
+                children: <Widget>[
+                  if (active)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            gradient: LinearGradient(
+                              colors: <Color>[
+                                Colors.white.withValues(alpha: 0.08),
+                                Colors.transparent,
+                                _accentAlt.withValues(alpha: 0.08),
+                              ],
+                              stops: const <double>[0, 0.44, 1],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    Icon(
-                      icon,
-                      size: iconSize,
-                      color: active ? _accentHover : _textSecondary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: fontSize,
-                          fontWeight: active
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                          color: active ? _textPrimary : _textSecondary,
                         ),
                       ),
                     ),
-                    if (trailing != null) ...<Widget>[
-                      const SizedBox(width: 8),
-                      trailing!,
-                    ],
-                  ],
-                ),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.fromLTRB(12 + indent, 12, 12, 12),
+                    child: Row(
+                      children: <Widget>[
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          width: active ? 6 : 3,
+                          height: active ? 26 : 16,
+                          margin: EdgeInsets.only(right: active ? 10 : 13),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: <Color>[
+                                active
+                                    ? _accentHover
+                                    : _textMuted.withValues(alpha: 0.35),
+                                active
+                                    ? _accentAlt.withValues(alpha: 0.95)
+                                    : _textMuted.withValues(alpha: 0.08),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        Icon(
+                          icon,
+                          size: iconSize,
+                          color: active ? _accentHover : _textSecondary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: fontSize,
+                              fontWeight: active
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                              color: active ? _textPrimary : _textSecondary,
+                            ),
+                          ),
+                        ),
+                        if (trailing != null) ...<Widget>[
+                          const SizedBox(width: 8),
+                          trailing!,
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HoverLift extends StatefulWidget {
+  const _HoverLift({required this.child, this.active = false});
+
+  final Widget child;
+  final bool active;
+
+  @override
+  State<_HoverLift> createState() => _HoverLiftState();
+}
+
+class _HoverLiftState extends State<_HoverLift> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final lifted = widget.active || _hovering;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        scale: lifted ? 1.012 : 1,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          offset: _hovering && !widget.active
+              ? const Offset(0.01, 0)
+              : Offset.zero,
+          child: widget.child,
         ),
       ),
     );
@@ -936,49 +1270,88 @@ class _SidebarIconButton extends StatelessWidget {
   }
 }
 
-class _BlurOrb extends StatelessWidget {
-  const _BlurOrb({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: color.withValues(alpha: 0.18),
-              blurRadius: 120,
-              spreadRadius: 30,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LogoBadge extends StatelessWidget {
+class _LogoBadge extends StatefulWidget {
   const _LogoBadge({required this.size});
 
   final double size;
 
   @override
+  State<_LogoBadge> createState() => _LogoBadgeState();
+}
+
+class _LogoBadgeState extends State<_LogoBadge> {
+  int _tapCount = 0;
+  Timer? _tapResetTimer;
+  Timer? _partyResetTimer;
+
+  @override
+  void dispose() {
+    _tapResetTimer?.cancel();
+    if (_partyResetTimer != null && _partyResetTimer!.isActive) {
+      _partyResetTimer?.cancel();
+      _partyModeEnabled.value = false;
+    }
+    super.dispose();
+  }
+
+  void _handleTap() {
+    _tapResetTimer?.cancel();
+    _tapCount += 1;
+    if (_tapCount >= 5) {
+      _tapCount = 0;
+      _partyModeEnabled.value = true;
+      _partyResetTimer?.cancel();
+      _partyResetTimer = Timer(const Duration(seconds: 7), () {
+        _partyModeEnabled.value = false;
+      });
+    } else {
+      _tapResetTimer = Timer(const Duration(milliseconds: 1250), () {
+        _tapCount = 0;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Image.asset(
-        'assets/branding/app_icon_512.png',
-        width: size,
-        height: size,
-        filterQuality: FilterQuality.high,
-      ),
+    final isDark =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    return ValueListenableBuilder<bool>(
+      valueListenable: _partyModeEnabled,
+      builder: (context, partyMode, _) {
+        return GestureDetector(
+          onTap: _handleTap,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutBack,
+            scale: partyMode ? 1.08 : 1,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 260),
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(widget.size * 0.24),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: (partyMode ? _accentAlt : _accent).withValues(
+                      alpha: partyMode ? 0.34 : 0.16,
+                    ),
+                    blurRadius: partyMode ? 28 : 14,
+                    spreadRadius: partyMode ? 1 : 0,
+                  ),
+                ],
+              ),
+              child: Image.asset(
+                isDark
+                    ? 'assets/branding/app_icon_512.png'
+                    : 'assets/branding/app_icon_light_512.png',
+                width: widget.size,
+                height: widget.size,
+                filterQuality: FilterQuality.high,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1033,7 +1406,6 @@ class _BrandLockup extends StatelessWidget {
   }
 }
 
-
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.title, required this.subtitle});
 
@@ -1045,7 +1417,27 @@ class _EmptyState extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        const _LogoBadge(size: 52),
+        Stack(
+          alignment: Alignment.center,
+          children: <Widget>[
+            Container(
+              width: 74,
+              height: 74,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: SweepGradient(
+                  colors: <Color>[
+                    _accent.withValues(alpha: 0.18),
+                    _accentAlt.withValues(alpha: 0.28),
+                    Colors.transparent,
+                    _accent.withValues(alpha: 0.18),
+                  ],
+                ),
+              ),
+            ),
+            const _LogoBadge(size: 52),
+          ],
+        ),
         const SizedBox(height: 12),
         Text(
           title,
@@ -1104,26 +1496,50 @@ class _ChatBubble extends StatelessWidget {
             const SizedBox(width: 12),
           ],
           Flexible(
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
               decoration: BoxDecoration(
-                color: isUser ? _accent : _bgCard,
+                gradient: isUser
+                    ? LinearGradient(
+                        colors: <Color>[_accent, _accentAlt],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: <Color>[
+                          _bgCard,
+                          _bgSecondary.withValues(alpha: 0.94),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(14),
                   topRight: const Radius.circular(14),
                   bottomLeft: Radius.circular(isUser ? 14 : 4),
                   bottomRight: Radius.circular(isUser ? 4 : 14),
                 ),
-                border: isUser ? null : Border.all(color: _border),
-                boxShadow: isUser
-                    ? <BoxShadow>[
-                        BoxShadow(
-                          color: _accentAlt.withValues(alpha: 0.30),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
+                border: Border.all(
+                  color: isUser
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : _borderLight.withValues(alpha: 0.72),
+                ),
+                boxShadow: <BoxShadow>[
+                  if (isUser)
+                    BoxShadow(
+                      color: _accentAlt.withValues(alpha: 0.30),
+                      blurRadius: 12,
+                      offset: const Offset(0, 2),
+                    ),
+                  if (!isUser)
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: isUser
@@ -1511,14 +1927,18 @@ class _MessageAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: assistant
-            ? LinearGradient(colors: <Color>[_accent, _accentAlt])
+            ? LinearGradient(
+                colors: <Color>[_accentHover, _accent, _accentAlt],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
             : null,
         color: assistant ? null : _bgTertiary,
         boxShadow: assistant
             ? <BoxShadow>[
                 BoxShadow(
-                  color: _accentAlt.withValues(alpha: 0.35),
-                  blurRadius: 10,
+                  color: _accentAlt.withValues(alpha: 0.42),
+                  blurRadius: 14,
                   offset: const Offset(0, 2),
                 ),
               ]
@@ -1546,8 +1966,22 @@ class _StatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.14),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        gradient: LinearGradient(
+          colors: <Color>[
+            color.withValues(alpha: 0.2),
+            color.withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Text(
         label,

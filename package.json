@@ -38,7 +38,18 @@
     "flutter:run:web": "cd flutter_app && flutter run -d chrome --dart-define=NEOAGENT_WEB_BUILD_ID=$(node ../scripts/web_build_id.js)",
     "flutter:build:web": "cd flutter_app && flutter build web --output ../server/public --dart-define=NEOAGENT_BACKEND_URL=${NEOAGENT_BACKEND_URL:-} --dart-define=NEOAGENT_WEB_BUILD_ID=$(node ../scripts/web_build_id.js)",
     "manage": "node bin/neoagent.js",
-    "test": "node --test",
+    "test": "npm run test:backend",
+    "test:unit": "node --test --test-reporter=spec 'test/backend/unit/*.test.js'",
+    "test:integration": "node --test --test-reporter=spec 'test/integration/*.test.js'",
+    "test:security": "node --test --test-reporter=spec 'test/security/*.test.js'",
+    "test:contract": "node --test --test-reporter=spec 'test/contract/*.test.js'",
+    "test:e2e": "node --test --test-reporter=spec 'test/e2e/*.test.js'",
+    "test:ws": "node --test --test-reporter=spec 'test/websocket/*.test.js'",
+    "test:backend": "npm run test:unit && npm run test:integration && npm run test:security && npm run test:contract && npm run test:e2e && npm run test:ws",
+    "test:load": "node test/load/auth_load.js",
+    "flutter:test": "cd flutter_app && flutter test ../test/flutter/unit ../test/flutter/widget",
+    "flutter:test:unit": "cd flutter_app && flutter test ../test/flutter/unit",
+    "flutter:test:widget": "cd flutter_app && flutter test ../test/flutter/widget",
     "benchmark:tokens": "node scripts/benchmark-token-cost.js",
     "release": "npx semantic-release"
   },
@@ -104,7 +115,10 @@
   "devDependencies": {
     "@docusaurus/core": "3.10.0",
     "@docusaurus/preset-classic": "3.10.0",
+    "autocannon": "^7.15.0",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "socket.io-client": "^4.8.3",
+    "supertest": "^7.2.2"
   }
 }

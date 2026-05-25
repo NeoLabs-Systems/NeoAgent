@@ -28,38 +28,14 @@ _PasswordStrengthInfo _passwordStrengthInfo({
       color: _borderLight,
     );
   }
-  final lower = RegExp(r'[a-z]').hasMatch(value);
-  final upper = RegExp(r'[A-Z]').hasMatch(value);
-  final digits = RegExp(r'[0-9]').hasMatch(value);
-  final symbols = RegExp(r'[^A-Za-z0-9]').hasMatch(value);
-  final variety = <bool>[
-    lower,
-    upper,
-    digits,
-    symbols,
-  ].where((item) => item).length;
-  final normalized = value.toLowerCase();
-  final userHints = <String>{
-    username.trim().toLowerCase(),
-    email.trim().toLowerCase(),
-    email.trim().toLowerCase().split('@').first,
-  }.where((item) => item.length >= 3);
-  final containsUserInfo = userHints.any(normalized.contains);
-  final obviousPattern =
-      RegExp(r'(.)\1\1').hasMatch(value) ||
-      normalized.contains('password') ||
-      normalized.contains('1234') ||
-      normalized.contains('qwerty');
+  final evaluation = evaluatePasswordStrength(
+    password: password,
+    username: username,
+    email: email,
+  );
+  final score = evaluation.score;
 
-  var score = 0;
-  if (value.length >= 8) score += 1;
-  if (value.length >= 12) score += 1;
-  if (variety >= 3) score += 1;
-  if (variety == 4 || value.length >= 16) score += 1;
-  if (containsUserInfo || obviousPattern) score -= 1;
-  score = score.clamp(0, 4);
-
-  if (value.length < 8) {
+  if (!evaluation.hasMinimumLength) {
     return _PasswordStrengthInfo(
       score: 1,
       label: 'Weak',
@@ -67,7 +43,7 @@ _PasswordStrengthInfo _passwordStrengthInfo({
       color: _danger,
     );
   }
-  if (containsUserInfo) {
+  if (evaluation.containsUserInfo) {
     return _PasswordStrengthInfo(
       score: 2,
       label: 'Fair',
@@ -75,7 +51,7 @@ _PasswordStrengthInfo _passwordStrengthInfo({
       color: _warning,
     );
   }
-  if (obviousPattern) {
+  if (evaluation.obviousPattern) {
     return _PasswordStrengthInfo(
       score: 2,
       label: 'Fair',

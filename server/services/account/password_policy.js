@@ -113,7 +113,12 @@ function evaluatePasswordStrength(password, context = {}) {
     label,
     length,
     hasMinimumLength: length >= MIN_PASSWORD_LENGTH,
-    isAcceptable: length >= MIN_PASSWORD_LENGTH && score >= MIN_PASSWORD_SCORE,
+    isAcceptable: length >= MIN_PASSWORD_LENGTH
+      && score >= MIN_PASSWORD_SCORE
+      && !containsPersonalInfo
+      && !usesCommonPattern
+      && !sequential
+      && !repeatedRuns,
     feedback,
   };
 }

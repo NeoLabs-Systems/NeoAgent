@@ -36,7 +36,10 @@ npm install -g neoagent
 neoagent install
 ```
 
-Available at **http://localhost:3333** when complete.
+`neoagent install` runs a preflight, writes a secure default config when setup
+cannot prompt, installs Node dependencies, builds or uses the bundled web
+client, bootstraps supported system tools where possible, and starts the
+service. Available at **http://localhost:3333** when complete.
 
 ## Manage
 

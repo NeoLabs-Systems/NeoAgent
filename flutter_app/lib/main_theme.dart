@@ -1,5 +1,7 @@
 part of 'main.dart';
 
+// ignore_for_file: unused_element
+
 const NeoAgentPalette _darkPalette = darkPalette;
 const NeoAgentPalette _lightPalette = lightPalette;
 
