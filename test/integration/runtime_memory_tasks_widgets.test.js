@@ -47,14 +47,21 @@ describe('runtime, settings, memory, tasks, widgets, and messaging routes', () =
     const overview = await client.get('/api/memory').expect(200);
     assert.equal(typeof overview.body.agentId, 'string');
     const created = await client.post('/api/memory/memories').send({
-      content: 'Autonomous tests should cover memory.',
+      content: 'Alice owns the NeoAgent memory architecture and prefers structured recall.',
       category: 'semantic',
       importance: 7,
     }).expect(200);
     assert.equal(created.body.success, true);
     const memories = await client.get('/api/memory/memories').expect(200);
     assert.ok(memories.body.length >= 1);
-    await client.post('/api/memory/memories/recall').send({ query: 'memory', limit: 3 }).expect(200);
+    assert.ok(Array.isArray(memories.body[0].entities));
+    const recall = await client.post('/api/memory/memories/recall').send({ query: 'Alice recall', limit: 3 }).expect(200);
+    assert.equal(recall.body.some((item) => item.id === created.body.id), true);
+    assert.equal(Array.isArray(recall.body[0].entities), true);
+    const enrichedOverview = await client.get('/api/memory').expect(200);
+    assert.ok(enrichedOverview.body.stats.facts >= 1);
+    assert.ok(enrichedOverview.body.stats.entities >= 1);
+    assert.equal(Array.isArray(enrichedOverview.body.knowledgeViews), true);
     await client.put('/api/memory/core/project').send({ value: 'NeoAgent' }).expect(200);
     const core = await client.get('/api/memory/core').expect(200);
     assert.equal(core.body.project, 'NeoAgent');

@@ -2861,6 +2861,10 @@ class MemoryOverview {
     this.dailyLogs = const <String>[],
     this.apiKeys = const <String, String>{},
     this.coreEntries = const <String, dynamic>{},
+    this.stats = const MemoryStats(),
+    this.entities = const <MemoryEntity>[],
+    this.knowledgeViews = const <KnowledgeViewItem>[],
+    this.recentKnowledgeChanges = const <KnowledgeChangeItem>[],
   });
 
   factory MemoryOverview.fromJson(Map<dynamic, dynamic> json) {
@@ -2880,6 +2884,16 @@ class MemoryOverview {
       coreEntries: coreRaw is Map
           ? Map<String, dynamic>.from(coreRaw)
           : const <String, dynamic>{},
+      stats: MemoryStats.fromJson(_jsonMap(json['stats'])),
+      entities: _jsonMapList(
+        json['entities'],
+      ).map(MemoryEntity.fromJson).toList(),
+      knowledgeViews: _jsonMapList(
+        json['knowledgeViews'],
+      ).map(KnowledgeViewItem.fromJson).toList(),
+      recentKnowledgeChanges: _jsonMapList(
+        json['recentKnowledgeChanges'],
+      ).map(KnowledgeChangeItem.fromJson).toList(),
     );
   }
 
@@ -2887,11 +2901,121 @@ class MemoryOverview {
   final List<String> dailyLogs;
   final Map<String, String> apiKeys;
   final Map<String, dynamic> coreEntries;
+  final MemoryStats stats;
+  final List<MemoryEntity> entities;
+  final List<KnowledgeViewItem> knowledgeViews;
+  final List<KnowledgeChangeItem> recentKnowledgeChanges;
 
   int get behaviorNotesLength => assistantBehaviorNotes.length;
   int get dailyLogCount => dailyLogs.length;
   int get apiKeyCount => apiKeys.length;
   int get coreCount => coreEntries.length;
+}
+
+class MemoryStats {
+  const MemoryStats({
+    this.total = 0,
+    this.active = 0,
+    this.archived = 0,
+    this.facts = 0,
+    this.entities = 0,
+    this.knowledgeViews = 0,
+    this.ingestionDocuments = 0,
+    this.averageImportance = 0,
+    this.averageConfidence = 0,
+  });
+
+  factory MemoryStats.fromJson(Map<dynamic, dynamic> json) {
+    return MemoryStats(
+      total: _asInt(json['total']),
+      active: _asInt(json['active']),
+      archived: _asInt(json['archived']),
+      facts: _asInt(json['facts']),
+      entities: _asInt(json['entities']),
+      knowledgeViews: _asInt(json['knowledgeViews']),
+      ingestionDocuments: _asInt(json['ingestionDocuments']),
+      averageImportance: _asDouble(json['averageImportance']),
+      averageConfidence: _asDouble(json['averageConfidence']),
+    );
+  }
+
+  final int total;
+  final int active;
+  final int archived;
+  final int facts;
+  final int entities;
+  final int knowledgeViews;
+  final int ingestionDocuments;
+  final double averageImportance;
+  final double averageConfidence;
+}
+
+class MemoryEntity {
+  const MemoryEntity({
+    required this.id,
+    required this.key,
+    required this.name,
+    required this.kind,
+    required this.mentionCount,
+  });
+
+  factory MemoryEntity.fromJson(Map<dynamic, dynamic> json) {
+    return MemoryEntity(
+      id: json['id']?.toString() ?? '',
+      key: json['key']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      kind: json['kind']?.toString().ifEmpty('concept') ?? 'concept',
+      mentionCount: _asInt(json['mentionCount']),
+    );
+  }
+
+  final String id;
+  final String key;
+  final String name;
+  final String kind;
+  final int mentionCount;
+}
+
+class KnowledgeViewItem {
+  const KnowledgeViewItem({
+    required this.title,
+    required this.viewType,
+    required this.summary,
+  });
+
+  factory KnowledgeViewItem.fromJson(Map<dynamic, dynamic> json) {
+    return KnowledgeViewItem(
+      title:
+          json['title']?.toString().ifEmpty('Knowledge view') ??
+          'Knowledge view',
+      viewType: json['viewType']?.toString().ifEmpty('view') ?? 'view',
+      summary: json['summary']?.toString() ?? '',
+    );
+  }
+
+  final String title;
+  final String viewType;
+  final String summary;
+}
+
+class KnowledgeChangeItem {
+  const KnowledgeChangeItem({
+    required this.title,
+    required this.kind,
+    required this.summary,
+  });
+
+  factory KnowledgeChangeItem.fromJson(Map<dynamic, dynamic> json) {
+    return KnowledgeChangeItem(
+      title: json['title']?.toString().ifEmpty('Change') ?? 'Change',
+      kind: json['kind']?.toString().ifEmpty('change') ?? 'change',
+      summary: json['summary']?.toString() ?? '',
+    );
+  }
+
+  final String title;
+  final String kind;
+  final String summary;
 }
 
 class MemoryItem {
@@ -2901,25 +3025,45 @@ class MemoryItem {
     required this.category,
     required this.importance,
     required this.createdAt,
+    this.summary = '',
+    this.confidence = 0.7,
+    this.entities = const <MemoryEntity>[],
+    this.score,
   });
 
   factory MemoryItem.fromJson(Map<dynamic, dynamic> json) {
     return MemoryItem(
       id: json['id']?.toString() ?? '',
       content: json['content']?.toString() ?? '',
+      summary: json['summary']?.toString() ?? '',
       category: json['category']?.toString().ifEmpty('memory') ?? 'memory',
       importance: _asInt(json['importance']),
+      confidence: _asDouble(json['confidence'], fallback: 0.7),
       createdAt: _parseTimestamp(json['created_at']?.toString()),
+      entities: _jsonMapList(
+        json['entities'],
+      ).map(MemoryEntity.fromJson).toList(),
+      score: (() {
+        final raw = json['score'];
+        if (raw == null) return null;
+        if (raw is num) return raw.toDouble();
+        return double.tryParse(raw.toString());
+      })(),
     );
   }
 
   final String id;
   final String content;
+  final String summary;
   final String category;
   final int importance;
+  final double confidence;
   final DateTime createdAt;
+  final List<MemoryEntity> entities;
+  final double? score;
 
   String get createdAtLabel => _formatTimestamp(createdAt);
+  int get confidencePercent => (confidence * 100).round().clamp(0, 100);
 }
 
 class ConversationItem {

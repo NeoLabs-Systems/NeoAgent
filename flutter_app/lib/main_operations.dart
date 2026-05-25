@@ -1332,9 +1332,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
         return AlertDialog(
           backgroundColor: _bgCard,
           title: Text('Import memory transfer?'),
-          content: Text(
-            'This will import the response into $targetLabel.',
-          ),
+          content: Text('This will import the response into $targetLabel.'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -1381,9 +1379,9 @@ class _MemoryPanelState extends State<MemoryPanel> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
     } finally {
       if (mounted) {
         setState(() {
@@ -1519,7 +1517,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
         _PageTitle(
           title: 'Memory',
           subtitle:
-              'Core memory, thread context, long-term recall, daily logs, and behavior notes.',
+              'Structured facts, entities, reflections, long-term recall, and behavior notes.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -1541,33 +1539,33 @@ class _MemoryPanelState extends State<MemoryPanel> {
           children: <Widget>[
             Expanded(
               child: _OverviewCard(
-                title: 'Behavior Notes',
-                value: '${controller.memoryOverview.behaviorNotesLength} chars',
-                helper: 'Durable assistant style guidance',
+                title: 'Active Memories',
+                value: '${controller.memoryOverview.stats.active}',
+                helper: 'Recallable long-term entries',
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _OverviewCard(
-                title: 'Core Memory',
-                value: '${controller.memoryOverview.coreCount}',
-                helper: 'Pinned key/value entries',
+                title: 'Extracted Facts',
+                value: '${controller.memoryOverview.stats.facts}',
+                helper: 'Structured statements for recall',
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _OverviewCard(
-                title: 'Daily Logs',
-                value: '${controller.memoryOverview.dailyLogCount}',
-                helper: 'Recent captured log files',
+                title: 'Entities',
+                value: '${controller.memoryOverview.stats.entities}',
+                helper: 'People, projects, files, and concepts',
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _OverviewCard(
-                title: 'API Keys',
-                value: '${controller.memoryOverview.apiKeyCount}',
-                helper: 'Masked agent-managed credentials',
+                title: 'Reflections',
+                value: '${controller.memoryOverview.stats.knowledgeViews}',
+                helper: 'Materialized knowledge views',
               ),
             ),
           ],
@@ -1604,6 +1602,117 @@ class _MemoryPanelState extends State<MemoryPanel> {
                     ),
                   ],
                 ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const _SectionTitle('Memory Intelligence'),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    _MetaPill(
+                      label:
+                          'Confidence ${(controller.memoryOverview.stats.averageConfidence * 100).round()}%',
+                      icon: Icons.verified_outlined,
+                    ),
+                    _MetaPill(
+                      label:
+                          'Avg importance ${controller.memoryOverview.stats.averageImportance.toStringAsFixed(1)}',
+                      icon: Icons.priority_high_outlined,
+                    ),
+                    _MetaPill(
+                      label:
+                          '${controller.memoryOverview.stats.ingestionDocuments} ingested docs',
+                      icon: Icons.source_outlined,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (controller.memoryOverview.entities.isNotEmpty) ...<Widget>[
+                  Text(
+                    'Top entities',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: controller.memoryOverview.entities.map((entity) {
+                      return _MetaPill(
+                        label: entity.name,
+                        icon: Icons.hub_outlined,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (controller
+                    .memoryOverview
+                    .knowledgeViews
+                    .isNotEmpty) ...<Widget>[
+                  Text(
+                    'Reflections',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  ...controller.memoryOverview.knowledgeViews.take(5).map((
+                    view,
+                  ) {
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _bgSecondary,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  view.title,
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              _MetaPill(
+                                label: view.viewType,
+                                icon: Icons.auto_stories_outlined,
+                              ),
+                            ],
+                          ),
+                          if (view.summary.trim().isNotEmpty) ...<Widget>[
+                            const SizedBox(height: 8),
+                            Text(
+                              view.summary,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: _textSecondary),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+                if (controller.memoryOverview.entities.isEmpty &&
+                    controller.memoryOverview.knowledgeViews.isEmpty)
+                  Text(
+                    'No structured entities or reflections yet.',
+                    style: TextStyle(color: _textSecondary),
+                  ),
               ],
             ),
           ),
@@ -1938,6 +2047,11 @@ class _MemoryPanelState extends State<MemoryPanel> {
                                                   icon: Icons
                                                       .priority_high_outlined,
                                                 ),
+                                                _MetaPill(
+                                                  label:
+                                                      'Confidence ${memory.confidencePercent}%',
+                                                  icon: Icons.verified_outlined,
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -1961,6 +2075,23 @@ class _MemoryPanelState extends State<MemoryPanel> {
                                       ),
                                       const SizedBox(height: 10),
                                       Text(memory.content),
+                                      if (memory
+                                          .entities
+                                          .isNotEmpty) ...<Widget>[
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: memory.entities.take(6).map(
+                                            (entity) {
+                                              return _MetaPill(
+                                                label: entity.name,
+                                                icon: Icons.hub_outlined,
+                                              );
+                                            },
+                                          ).toList(),
+                                        ),
+                                      ],
                                       const SizedBox(height: 8),
                                       Text(
                                         memory.createdAtLabel,

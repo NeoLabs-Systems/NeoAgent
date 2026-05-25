@@ -581,6 +581,9 @@ db.exec(`
     metadata_json TEXT DEFAULT '{}',
     content TEXT NOT NULL,
     importance INTEGER DEFAULT 5,
+    confidence REAL DEFAULT 0.7,
+    summary TEXT,
+    memory_hash TEXT,
     embedding TEXT,
     access_count INTEGER DEFAULT 0,
     archived INTEGER DEFAULT 0,
@@ -685,6 +688,62 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_memory_ingestion_documents_user ON memory_ingestion_documents(user_id, agent_id, source_type, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_memory_ingestion_documents_provider ON memory_ingestion_documents(user_id, agent_id, provider_key, connection_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_materialized_knowledge_views_user ON materialized_knowledge_views(user_id, agent_id, view_type, updated_at DESC);
+
+  CREATE TABLE IF NOT EXISTS memory_facts (
+    id TEXT PRIMARY KEY,
+    memory_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    subject TEXT NOT NULL,
+    predicate TEXT NOT NULL,
+    object TEXT NOT NULL,
+    category TEXT DEFAULT 'episodic',
+    confidence REAL DEFAULT 0.7,
+    event_time TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS memory_entities (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    entity_key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT DEFAULT 'concept',
+    aliases_json TEXT DEFAULT '[]',
+    summary TEXT DEFAULT '',
+    mention_count INTEGER DEFAULT 0,
+    first_seen_at TEXT DEFAULT (datetime('now')),
+    last_seen_at TEXT DEFAULT (datetime('now')),
+    metadata_json TEXT DEFAULT '{}',
+    UNIQUE(user_id, agent_id, entity_key),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS memory_entity_mentions (
+    entity_id TEXT NOT NULL,
+    memory_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (entity_id, memory_id),
+    FOREIGN KEY (entity_id) REFERENCES memory_entities(id) ON DELETE CASCADE,
+    FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_memory_facts_memory ON memory_facts(memory_id);
+  CREATE INDEX IF NOT EXISTS idx_memory_facts_user ON memory_facts(user_id, agent_id, category, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_memory_entities_user ON memory_entities(user_id, agent_id, mention_count DESC, last_seen_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_memory_entity_mentions_memory ON memory_entity_mentions(memory_id);
+  CREATE INDEX IF NOT EXISTS idx_memory_entity_mentions_entity ON memory_entity_mentions(entity_id);
 
   CREATE TABLE IF NOT EXISTS agent_run_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -984,6 +1043,16 @@ try {
       INSERT INTO messages_fts(rowid, content, role, user_id, agent_id, run_id, platform, platform_chat_id)
       VALUES (new.id, COALESCE(new.content, ''), new.role, new.user_id, COALESCE(new.agent_id, ''), COALESCE(new.run_id, ''), COALESCE(new.platform, ''), COALESCE(new.platform_chat_id, ''));
     END;
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+      memory_id UNINDEXED,
+      user_id UNINDEXED,
+      agent_id UNINDEXED,
+      content,
+      category,
+      entities,
+      tokenize = 'porter unicode61'
+    );
   `);
 } catch {
   // FTS5 is optional. The app still works with LIKE-based fallbacks if unavailable.
@@ -1035,6 +1104,9 @@ for (const col of [
   "ALTER TABLE memories ADD COLUMN source_label TEXT",
   "ALTER TABLE memories ADD COLUMN stale_after_days INTEGER",
   "ALTER TABLE memories ADD COLUMN metadata_json TEXT DEFAULT '{}'",
+  "ALTER TABLE memories ADD COLUMN confidence REAL DEFAULT 0.7",
+  "ALTER TABLE memories ADD COLUMN summary TEXT",
+  "ALTER TABLE memories ADD COLUMN memory_hash TEXT",
   "ALTER TABLE scheduled_tasks ADD COLUMN run_at TEXT",
   "ALTER TABLE scheduled_tasks ADD COLUMN one_time INTEGER DEFAULT 0",
   "ALTER TABLE scheduled_tasks ADD COLUMN execution_mode TEXT DEFAULT 'prompt'",
@@ -1094,6 +1166,7 @@ function createAgentScopedIndexes() {
     ['conversation_history', 'CREATE INDEX IF NOT EXISTS idx_conv_history_agent ON conversation_history(user_id, agent_id, created_at DESC)'],
     ['memories', 'CREATE INDEX IF NOT EXISTS idx_memories_agent ON memories(user_id, agent_id, archived, updated_at DESC)'],
     ['memories', 'CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(user_id, agent_id, scope_type, scope_id, archived, updated_at DESC)'],
+    ['memories', 'CREATE INDEX IF NOT EXISTS idx_memories_hash ON memories(user_id, agent_id, memory_hash, archived)'],
     ['core_memory', 'CREATE INDEX IF NOT EXISTS idx_core_memory_agent ON core_memory(user_id, agent_id, key)'],
     ['ai_widgets', 'CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_widgets_system_key ON ai_widgets(user_id, agent_id, system_key) WHERE system_key IS NOT NULL'],
   ];

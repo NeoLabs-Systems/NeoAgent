@@ -990,7 +990,11 @@ class _DotStatus extends StatelessWidget {
 }
 
 class _PulseHalo extends StatefulWidget {
-  const _PulseHalo({required this.child, required this.color, this.animate = true});
+  const _PulseHalo({
+    required this.child,
+    required this.color,
+    this.animate = true,
+  });
 
   final Widget child;
   final Color color;
@@ -1313,8 +1317,7 @@ class _LogoBadgeState extends State<_LogoBadge> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final isDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return ValueListenableBuilder<bool>(
       valueListenable: _partyModeEnabled,
       builder: (context, partyMode, _) {
@@ -3633,6 +3636,16 @@ int _asInt(dynamic value) {
     return value.round();
   }
   return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+double _asDouble(dynamic value, {double fallback = 0}) {
+  if (value is double) {
+    return value;
+  }
+  if (value is int) {
+    return value.toDouble();
+  }
+  return double.tryParse(value?.toString() ?? '') ?? fallback;
 }
 
 DateTime _parseTimestamp(String? raw) {
