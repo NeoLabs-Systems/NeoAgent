@@ -970,28 +970,14 @@ class _LogoBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[_brandAccent, _brandAccentAlt],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.34),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: _brandAccent.withValues(alpha: 0.32),
-            blurRadius: 36,
-            offset: const Offset(0, 10),
-          ),
-        ],
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(size * 0.18),
-        child: CustomPaint(painter: _NeoAgentLogoPainter()),
+      child: Image.asset(
+        'assets/branding/app_icon_512.png',
+        width: size,
+        height: size,
+        filterQuality: FilterQuality.high,
       ),
     );
   }
@@ -1047,43 +1033,6 @@ class _BrandLockup extends StatelessWidget {
   }
 }
 
-class _NeoAgentLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final fillPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    final strokePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.08
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final top = Path()
-      ..moveTo(size.width * 0.5, size.height * 0.08)
-      ..lineTo(size.width * 0.1, size.height * 0.3)
-      ..lineTo(size.width * 0.5, size.height * 0.52)
-      ..lineTo(size.width * 0.9, size.height * 0.3)
-      ..close();
-    canvas.drawPath(top, fillPaint);
-
-    final middle = Path()
-      ..moveTo(size.width * 0.1, size.height * 0.52)
-      ..lineTo(size.width * 0.5, size.height * 0.74)
-      ..lineTo(size.width * 0.9, size.height * 0.52);
-    canvas.drawPath(middle, strokePaint);
-
-    final bottom = Path()
-      ..moveTo(size.width * 0.1, size.height * 0.72)
-      ..lineTo(size.width * 0.5, size.height * 0.94)
-      ..lineTo(size.width * 0.9, size.height * 0.72);
-    canvas.drawPath(bottom, strokePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.title, required this.subtitle});

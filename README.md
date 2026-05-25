@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="flutter_app/assets/branding/app_icon_128.png" width="80" alt="NeoAgent">
+</p>
+
 <h1 align="center">NeoAgent</h1>
 
 <p align="center"><strong>Your agent. Your server. Your rules.</strong></p>
