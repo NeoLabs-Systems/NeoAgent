@@ -1,12 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#95764a"/>
-      <stop offset="100%" stop-color="#3a8679"/>
+      <stop offset="0%" stop-color="#9e8052"/>
+      <stop offset="100%" stop-color="#439081"/>
     </linearGradient>
+    <radialGradient id="shine" cx="24%" cy="15%" r="70%">
+      <stop offset="0%" stop-color="#fff4d8" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#fff4d8" stop-opacity="0"/>
+    </radialGradient>
   </defs>
   <rect x="2.5" y="2.5" width="27" height="27" rx="9" ry="9" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1"/>
+  <rect x="2.5" y="2.5" width="27" height="27" rx="9" ry="9" fill="url(#shine)"/>
+  <path d="M2.5 17h27v3.5c0 5-4 9-9 9h-9c-5 0-9-4-9-9Z" fill="#000000" opacity="0.08"/>
   <rect x="3" y="3" width="26" height="26" rx="8.5" ry="8.5" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1"/>
+  <path d="M16 6.25 26.15 12.3 16 16.3 5.85 12.3Z" fill="#000000" opacity="0.20" transform="translate(0 0.65)"/>
+  <path d="M16 14.75 25.85 19.45 16 22.25 6.15 19.45Z" fill="#000000" opacity="0.20" transform="translate(0 0.65)"/>
+  <path d="M16 20.45 24.85 24.75 16 26.85 7.15 24.75Z" fill="#000000" opacity="0.20" transform="translate(0 0.65)"/>
   <path d="M16 5.7 26.8 12.1 16 16.5 5.2 12.1Z" fill="#ffffff"/>
   <path d="M16 14.2 26.5 19.3 16 22.4 5.5 19.3Z" fill="#ffffff"/>
   <path d="M16 20 25.4 24.6 16 27 6.6 24.6Z" fill="#ffffff"/>
