@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -22,17 +21,29 @@ STATIC_IMG_DIR = ROOT.parent / "static" / "img"
 LANDING_LOGO_PATH = ROOT.parent / "landing" / "assets" / "logo.svg"
 EXTENSION_LOGO_PATH = ROOT.parent / "extensions" / "chrome-browser" / "icons" / "logo.svg"
 
-ACCENT = (118, 89, 50)
-ACCENT_ALT = (40, 105, 92)
-ACCENT_DARK = (149, 118, 74)
-ACCENT_ALT_DARK = (58, 134, 121)
-SYMBOL_LIGHT = (255, 249, 237, 255)
+ACCENT = (104, 78, 44)
+ACCENT_ALT = (35, 92, 82)
+ACCENT_DARK = (158, 128, 82)
+ACCENT_ALT_DARK = (67, 144, 129)
+SYMBOL_LIGHT = (255, 247, 232, 255)
 WHITE = (255, 255, 255, 255)
 TRANSPARENT = (0, 0, 0, 0)
 
 
 def lerp(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
+
+
+def mix_channel(value: int, target: int, amount: float) -> int:
+    return max(0, min(255, round(lerp(value, target, amount))))
+
+
+def mix_color(color: tuple[int, int, int], target: int, amount: float) -> tuple[int, int, int]:
+    return (
+        mix_channel(color[0], target, amount),
+        mix_channel(color[1], target, amount),
+        mix_channel(color[2], target, amount),
+    )
 
 
 def gradient_background(
@@ -46,11 +57,21 @@ def gradient_background(
       for x in range(size):
         tx = x / max(size - 1, 1)
         ty = y / max(size - 1, 1)
-        t = (tx + ty) / 2
-        px[x, y] = (
+        diagonal = (tx * 0.58) + (ty * 0.42)
+        glow = max(0.0, 1.0 - (((tx - 0.25) ** 2 + (ty - 0.18) ** 2) ** 0.5) / 0.58)
+        shade = max(0.0, 1.0 - (((tx - 0.86) ** 2 + (ty - 0.94) ** 2) ** 0.5) / 0.72)
+        t = min(1.0, max(0.0, diagonal + glow * 0.12 - shade * 0.08))
+        base = (
             int(lerp(start[0], end[0], t)),
             int(lerp(start[1], end[1], t)),
             int(lerp(start[2], end[2], t)),
+        )
+        lit = mix_color(base, 255, glow * 0.14)
+        final = mix_color(lit, 0, shade * 0.16)
+        px[x, y] = (
+            final[0],
+            final[1],
+            final[2],
             255,
         )
     return img
@@ -83,14 +104,13 @@ def make_app_icon(size: int, *, light: bool = False) -> Image.Image:
 
     shadow = Image.new("RGBA", (size, size), TRANSPARENT)
     shadow_draw = ImageDraw.Draw(shadow)
-    offset_y = size * 0.02
-    corner = round(size * 0.34)
+    corner = round(size * 0.3)
     shadow_draw.rounded_rectangle(
-        (size * 0.07, size * 0.07 + offset_y, size * 0.93, size * 0.93 + offset_y),
+        (size * 0.075, size * 0.09, size * 0.925, size * 0.94),
         radius=corner,
-        fill=(0, 0, 0, 72),
+        fill=(0, 0, 0, 64 if light else 86),
     )
-    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=max(2, size * 0.04)))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=max(2, size * 0.035)))
     canvas.alpha_composite(shadow)
 
     base_mask = Image.new("L", (size, size), 0)
@@ -103,20 +123,77 @@ def make_app_icon(size: int, *, light: bool = False) -> Image.Image:
     clipped.paste(base, mask=base_mask)
     canvas.alpha_composite(clipped)
 
+    shine = Image.new("RGBA", (size, size), TRANSPARENT)
+    shine_draw = ImageDraw.Draw(shine)
+    shine_draw.ellipse(
+        (size * -0.12, size * -0.18, size * 0.78, size * 0.58),
+        fill=(255, 255, 255, 30 if light else 42),
+    )
+    shine.putalpha(Image.composite(shine.getchannel("A"), Image.new("L", (size, size), 0), base_mask))
+    canvas.alpha_composite(shine)
+
+    lower_glaze = Image.new("RGBA", (size, size), TRANSPARENT)
+    lower_draw = ImageDraw.Draw(lower_glaze)
+    lower_draw.rounded_rectangle(
+        base_rect,
+        radius=corner,
+        fill=(0, 0, 0, 18 if light else 12),
+    )
+    lower_mask = Image.new("L", (size, size), 0)
+    lower_mask_draw = ImageDraw.Draw(lower_mask)
+    lower_mask_draw.rectangle((0, size * 0.55, size, size), fill=255)
+    lower_glaze.putalpha(Image.composite(lower_glaze.getchannel("A"), Image.new("L", (size, size), 0), lower_mask))
+    canvas.alpha_composite(lower_glaze)
+
     ring = Image.new("RGBA", (size, size), TRANSPARENT)
     ring_draw = ImageDraw.Draw(ring)
     ring_draw.rounded_rectangle(
         base_rect,
         radius=corner,
-        outline=(255, 255, 255, 36),
+        outline=(255, 255, 255, 58 if light else 48),
         width=max(1, round(size * 0.012)),
     )
+    inset = size * 0.018
+    ring_draw.rounded_rectangle(
+        (
+            base_rect[0] + inset,
+            base_rect[1] + inset,
+            base_rect[2] - inset,
+            base_rect[3] - inset,
+        ),
+        radius=max(1, corner - round(inset)),
+        outline=(0, 0, 0, 26 if light else 20),
+        width=max(1, round(size * 0.006)),
+    )
     canvas.alpha_composite(ring)
+
+    glyph_shadow = Image.new("RGBA", (size, size), TRANSPARENT)
+    shadow_draw = ImageDraw.Draw(glyph_shadow)
+    draw_logo(shadow_draw, size, (0, 0, 0, 76 if light else 58))
+    glyph_shadow = glyph_shadow.transform(
+        glyph_shadow.size,
+        Image.Transform.AFFINE,
+        (1, 0, 0, 0, 1, size * 0.018),
+        resample=Image.Resampling.BICUBIC,
+    )
+    glyph_shadow = glyph_shadow.filter(ImageFilter.GaussianBlur(radius=max(1, size * 0.006)))
+    canvas.alpha_composite(glyph_shadow)
 
     glyph = Image.new("RGBA", (size, size), TRANSPARENT)
     draw = ImageDraw.Draw(glyph)
     draw_logo(draw, size, symbol)
     canvas.alpha_composite(glyph)
+
+    glyph_highlight = Image.new("RGBA", (size, size), TRANSPARENT)
+    highlight_draw = ImageDraw.Draw(glyph_highlight)
+    draw_logo(highlight_draw, size, (255, 255, 255, 26 if light else 34))
+    glyph_highlight = glyph_highlight.transform(
+        glyph_highlight.size,
+        Image.Transform.AFFINE,
+        (1, 0, 0, 0, 1, -size * 0.012),
+        resample=Image.Resampling.BICUBIC,
+    )
+    canvas.alpha_composite(glyph_highlight)
     return canvas
 
 
@@ -156,15 +233,27 @@ def write_favicon_svg(path: Path, *, light: bool = False) -> None:
     symbol = "#fff9ed" if light else "#ffffff"
     stroke = "#000000" if light else "#ffffff"
     stroke_opacity = "0.24" if light else "0.16"
+    glow = "#ffffff" if light else "#fff4d8"
+    top_opacity = "0.20" if light else "0.24"
+    shade_opacity = "0.12" if light else "0.08"
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#{start[0]:02x}{start[1]:02x}{start[2]:02x}"/>
       <stop offset="100%" stop-color="#{end[0]:02x}{end[1]:02x}{end[2]:02x}"/>
     </linearGradient>
+    <radialGradient id="shine" cx="24%" cy="15%" r="70%">
+      <stop offset="0%" stop-color="{glow}" stop-opacity="{top_opacity}"/>
+      <stop offset="100%" stop-color="{glow}" stop-opacity="0"/>
+    </radialGradient>
   </defs>
   <rect x="2.5" y="2.5" width="27" height="27" rx="9" ry="9" fill="url(#bg)" stroke="{stroke}" stroke-opacity="{stroke_opacity}" stroke-width="1"/>
+  <rect x="2.5" y="2.5" width="27" height="27" rx="9" ry="9" fill="url(#shine)"/>
+  <path d="M2.5 17h27v3.5c0 5-4 9-9 9h-9c-5 0-9-4-9-9Z" fill="#000000" opacity="{shade_opacity}"/>
   <rect x="3" y="3" width="26" height="26" rx="8.5" ry="8.5" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1"/>
+  <path d="M16 6.25 26.15 12.3 16 16.3 5.85 12.3Z" fill="#000000" opacity="0.20" transform="translate(0 0.65)"/>
+  <path d="M16 14.75 25.85 19.45 16 22.25 6.15 19.45Z" fill="#000000" opacity="0.20" transform="translate(0 0.65)"/>
+  <path d="M16 20.45 24.85 24.75 16 26.85 7.15 24.75Z" fill="#000000" opacity="0.20" transform="translate(0 0.65)"/>
   <path d="M16 5.7 26.8 12.1 16 16.5 5.2 12.1Z" fill="{symbol}"/>
   <path d="M16 14.2 26.5 19.3 16 22.4 5.5 19.3Z" fill="{symbol}"/>
   <path d="M16 20 25.4 24.6 16 27 6.6 24.6Z" fill="{symbol}"/>
