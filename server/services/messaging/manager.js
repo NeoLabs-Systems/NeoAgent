@@ -317,6 +317,9 @@ class MessagingManager extends EventEmitter {
     config.userId = userId;
     config.agentId = agentId;
     config.accessPolicy = this._loadAccessPolicy(userId, agentId, platformName);
+    const existingConnection = db
+      .prepare('SELECT id, status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .get(userId, agentId, platformName);
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
     if (platformName === 'meshtastic' && !readMeshtasticEnabled()) {
@@ -325,7 +328,18 @@ class MessagingManager extends EventEmitter {
 
     if (platformName === 'whatsapp' && !config.authDir) {
       config.authDir = this._scopedPlatformAuthDir(userId, agentId, platformName);
-      this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
+      let shouldMigrateLegacyAuth = true;
+      if (
+        existingConnection &&
+        existingConnection.status !== 'connected' &&
+        existingConnection.status !== 'awaiting_qr'
+      ) {
+        fs.rmSync(config.authDir, { recursive: true, force: true });
+        shouldMigrateLegacyAuth = false;
+      }
+      if (shouldMigrateLegacyAuth) {
+        this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
+      }
     }
 
     // For Telnyx, inject saved whitelist and voice secret into config before constructing
@@ -443,8 +457,7 @@ class MessagingManager extends EventEmitter {
       await this.ingestMessage(userId, platformName, msg, { agentId });
     });
 
-    const existing = db.prepare('SELECT id FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?').get(userId, agentId, platformName);
-    if (!existing) {
+    if (!existingConnection) {
       db.prepare('INSERT INTO platform_connections (user_id, agent_id, platform, config, status) VALUES (?, ?, ?, ?, ?)')
         .run(userId, agentId, platformName, storedConfig, 'connecting');
     } else {
