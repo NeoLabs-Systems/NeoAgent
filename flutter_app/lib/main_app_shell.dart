@@ -37,7 +37,7 @@ class SplashView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('Loading NeoOS'),
+              const Text('Loading NeoAgent'),
             ],
           ),
         ),
@@ -274,7 +274,7 @@ class _AuthViewState extends State<AuthView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       Text(
-                        'Enter your username or account email. NeoOS will send a reset link if it can match the account.',
+                        'Enter your username or account email. NeoAgent will send a reset link if it can match the account.',
                         style: TextStyle(color: _textSecondary, height: 1.45),
                       ),
                       const SizedBox(height: 16),
@@ -480,7 +480,7 @@ class _AuthViewState extends State<AuthView> {
         const SizedBox(height: 8),
         Text(
           awaitingTwoFactor
-              ? 'Open your authenticator app and enter the current NeoOS code.'
+              ? 'Open your authenticator app and enter the current NeoAgent code.'
               : subtitle,
           style: TextStyle(color: _textSecondary, height: 1.5),
         ),
@@ -767,7 +767,7 @@ class _AuthViewState extends State<AuthView> {
                   crossAxisAlignment: contentAlignment,
                   children: <Widget>[
                     Text(
-                      'Scan with NeoOS on your phone',
+                      'Scan with NeoAgent on your phone',
                       textAlign: titleAlignment,
                       style: GoogleFonts.spaceGrotesk(
                         fontSize: titleSize,
@@ -948,9 +948,9 @@ class _AuthViewState extends State<AuthView> {
         : 'Sign in';
     final subtitle = _registerMode
         ? (controller.hasUser
-              ? 'Create another NeoOS account.'
-              : 'This account will unlock NeoOS on this machine.')
-        : 'Enter your NeoOS account details.';
+              ? 'Create another NeoAgent account.'
+              : 'This account will unlock NeoAgent on this machine.')
+        : 'Enter your NeoAgent account details.';
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle =
         controller.registrationOpen && controller.hasUser;

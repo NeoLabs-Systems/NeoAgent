@@ -302,7 +302,7 @@ class _OnboardingTopBar extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               const Text(
-                'NeoOS Setup',
+                'NeoAgent Setup',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 14,
