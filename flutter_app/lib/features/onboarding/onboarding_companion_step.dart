@@ -309,7 +309,7 @@ class _OnboardingCompanionStepState extends State<OnboardingCompanionStep> {
           totalSteps: 4,
           eyebrow: 'INTEGRATION',
           title: 'Connect your\ndevices & apps.',
-          description: 'NeoOS works best when integrated with your desktop, browser, and mobile devices.',
+          description: 'NeoAgent works best when integrated with your desktop, browser, and mobile devices.',
           footer: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[

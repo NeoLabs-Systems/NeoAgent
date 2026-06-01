@@ -83,7 +83,7 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       totalSteps: 4,
       eyebrow: 'INTELLIGENCE',
       title: 'Choose your\ndefault model.',
-      description: 'Pick the model NeoOS should use by default.',
+      description: 'Pick the model NeoAgent should use by default.',
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
