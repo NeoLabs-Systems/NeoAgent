@@ -189,8 +189,8 @@ class OfficialIntegrationsTab extends StatelessWidget {
                           ? item.env.summary
                           : item.hasExpiredAccounts
                           ? item.id == 'google_workspace'
-                              ? 'One or more accounts expired. Reconnect to restore access. If this keeps happening, your Google Cloud OAuth app may be in Testing mode — publish it to Production in Google Cloud Console to get long-lived tokens.'
-                              : 'One or more accounts expired. Reconnect the affected account to restore tool access.'
+                                ? 'One or more accounts expired. Reconnect to restore access. If this keeps happening, your Google Cloud OAuth app may be in Testing mode — publish it to Production in Google Cloud Console to get long-lived tokens.'
+                                : 'One or more accounts expired. Reconnect the affected account to restore tool access.'
                           : !item.supportsMultipleAccounts && item.isConnected
                           ? 'This integration currently supports one connected account per agent. Re-open setup to replace it.'
                           : item.isConnected
@@ -228,10 +228,253 @@ void _openOfficialIntegrationSetupDialog(
   String providerId,
 ) {
   switch (providerId) {
+    case 'home_assistant':
+      _showHomeAssistantSetupDialog(context, controller);
+      return;
     case 'trello':
       _showTrelloSetupDialog(context, controller);
       return;
   }
+}
+
+Future<void> _showHomeAssistantSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> existing;
+  try {
+    existing = await controller.getOfficialIntegrationConfig('home_assistant');
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
+      );
+    }
+    return;
+  }
+
+  final savedBaseUrl = existing['baseUrl']?.toString() ?? '';
+  final hasToken = existing['hasToken'] == true;
+  final accountCount = (existing['accountCount'] as num?)?.toInt() ?? 0;
+  final hasConnectedAccount =
+      existing['hasConnectedAccount'] == true || accountCount > 0;
+  var formError = '';
+  var saving = false;
+
+  final baseUrlController = TextEditingController(text: savedBaseUrl);
+  final tokenController = TextEditingController();
+
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setState) {
+          return AlertDialog(
+            title: const Text('Home Assistant Setup'),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Connect a public HTTPS Home Assistant endpoint with a Long-Lived Access Token. Local, loopback, and private network addresses are blocked by the server.',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  _IntegrationSetupStatusItem(
+                    label: 'Endpoint',
+                    status: savedBaseUrl.trim().isNotEmpty
+                        ? 'Configured'
+                        : 'Not configured',
+                    isConnected: savedBaseUrl.trim().isNotEmpty,
+                  ),
+                  const SizedBox(height: 12),
+                  _IntegrationSetupStatusItem(
+                    label: 'Connected Instance',
+                    status: hasConnectedAccount
+                        ? '$accountCount ${accountCount == 1 ? 'instance' : 'instances'} connected'
+                        : 'Not connected',
+                    isConnected: hasConnectedAccount,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: baseUrlController,
+                    onChanged: (_) => setState(() {}),
+                    keyboardType: TextInputType.url,
+                    decoration: const InputDecoration(
+                      labelText: 'Home Assistant URL',
+                      hintText: 'https://your-instance.example.com',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: tokenController,
+                    onChanged: (_) => setState(() {}),
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: hasToken
+                          ? 'Paste replacement Long-Lived Access Token'
+                          : 'Long-Lived Access Token',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  if (hasToken) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Leave the token empty to keep the currently stored token.',
+                      style: TextStyle(color: _textSecondary, fontSize: 12),
+                    ),
+                  ],
+                  if (formError.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _danger.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: _danger.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        formError,
+                        style: TextStyle(color: _danger, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              if (savedBaseUrl.trim().isNotEmpty || hasToken)
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final shouldClear =
+                              await showDialog<bool>(
+                                context: dialogContext,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text(
+                                      'Disconnect Home Assistant?',
+                                    ),
+                                    content: const Text(
+                                      'This removes the Home Assistant setup and connected instance for this agent.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: const Text('Disconnect'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ) ??
+                              false;
+                          if (!shouldClear) {
+                            return;
+                          }
+                          setState(() {
+                            formError = '';
+                            saving = true;
+                          });
+                          try {
+                            await controller.clearOfficialIntegrationConfig(
+                              'home_assistant',
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              formError =
+                                  controller.errorMessage ??
+                                  'Could not disconnect Home Assistant.';
+                              saving = false;
+                            });
+                          }
+                        },
+                  child: const Text('Disconnect'),
+                ),
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        setState(() {
+                          formError = '';
+                          saving = true;
+                        });
+                        try {
+                          final baseUrl = baseUrlController.text.trim();
+                          final token = tokenController.text.trim();
+                          if (baseUrl.isEmpty) {
+                            setState(() {
+                              formError = 'Home Assistant URL is required.';
+                              saving = false;
+                            });
+                            return;
+                          }
+                          if (token.isEmpty && !hasToken) {
+                            setState(() {
+                              formError =
+                                  'Home Assistant Long-Lived Access Token is required.';
+                              saving = false;
+                            });
+                            return;
+                          }
+                          await controller.saveOfficialIntegrationConfig(
+                            'home_assistant',
+                            config: <String, dynamic>{
+                              'baseUrl': baseUrl,
+                              if (token.isNotEmpty) 'token': token,
+                            },
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } catch (_) {
+                          setState(() {
+                            formError =
+                                controller.errorMessage ??
+                                'Could not save Home Assistant setup.';
+                            saving = false;
+                          });
+                        }
+                      },
+                child: Text(
+                  saving
+                      ? 'Saving...'
+                      : hasConnectedAccount
+                      ? 'Update Instance'
+                      : 'Connect Instance',
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  baseUrlController.dispose();
+  tokenController.dispose();
 }
 
 Future<void> _showTrelloSetupDialog(
@@ -283,13 +526,13 @@ Future<void> _showTrelloSetupDialog(
                     style: TextStyle(color: _textSecondary),
                   ),
                   const SizedBox(height: 16),
-                  _TrelloStatusItem(
+                  _IntegrationSetupStatusItem(
                     label: 'API Key',
                     status: apiKeyConfigured ? 'Configured' : 'Not configured',
                     isConnected: apiKeyConfigured,
                   ),
                   const SizedBox(height: 12),
-                  _TrelloStatusItem(
+                  _IntegrationSetupStatusItem(
                     label: 'Connected Account',
                     status: hasConnectedAccount
                         ? '$accountCount ${accountCount == 1 ? 'connected account' : 'connected accounts'}'
@@ -337,7 +580,9 @@ Future<void> _showTrelloSetupDialog(
                       decoration: BoxDecoration(
                         color: _danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: _danger.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: _danger.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Text(
                         formError,
@@ -532,8 +777,8 @@ Future<void> _showTrelloSetupDialog(
   tokenInputController.dispose();
 }
 
-class _TrelloStatusItem extends StatelessWidget {
-  const _TrelloStatusItem({
+class _IntegrationSetupStatusItem extends StatelessWidget {
+  const _IntegrationSetupStatusItem({
     required this.label,
     required this.status,
     required this.isConnected,
@@ -886,11 +1131,13 @@ class _OfficialIntegrationIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (item.icon) {
       'google' => const Color(0xFF4285F4),
+      'home_assistant' => const Color(0xFF41BDF5),
       'trello' => const Color(0xFF0C66E4),
       _ => _accent,
     };
     final label = switch (item.icon) {
       'google' => 'G',
+      'home_assistant' => 'H',
       'trello' => 'T',
       _ => item.label.isNotEmpty ? item.label[0] : '?',
     };
