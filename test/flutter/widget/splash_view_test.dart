@@ -7,6 +7,6 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SplashView()));
 
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    expect(find.text('Loading NeoOS'), findsOneWidget);
+    expect(find.text('Loading NeoAgent'), findsOneWidget);
   });
 }

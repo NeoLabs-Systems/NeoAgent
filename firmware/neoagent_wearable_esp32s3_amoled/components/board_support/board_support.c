@@ -1033,7 +1033,7 @@ static void board_create_boot_screen(void) {
     lv_obj_t *title_label = lv_label_create(screen);
     lv_obj_set_style_text_font(title_label, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(title_label, lv_color_hex(0xf0e7db), 0);
-    lv_label_set_text(title_label, "NeoOS");
+    lv_label_set_text(title_label, "NeoAgent");
     lv_obj_align(title_label, LV_ALIGN_CENTER, 0, 8);
 
     lv_obj_t *spinner = lv_spinner_create(screen, 1200, 70);
@@ -1049,7 +1049,7 @@ static void board_create_boot_screen(void) {
     lv_obj_t *subtitle_label = lv_label_create(screen);
     lv_obj_set_style_text_font(subtitle_label, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(subtitle_label, lv_color_hex(0xbfc6c0), 0);
-    lv_label_set_text(subtitle_label, "Loading NeoOS");
+    lv_label_set_text(subtitle_label, "Loading NeoAgent");
     lv_obj_align(subtitle_label, LV_ALIGN_CENTER, 0, 88);
 
     s_runtime.screen = screen;

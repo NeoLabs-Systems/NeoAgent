@@ -1377,7 +1377,7 @@ class _BrandLockup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = Text(
-      'NeoOS',
+      'NeoAgent',
       style: GoogleFonts.spaceGrotesk(
         fontSize: titleFontSize,
         fontWeight: FontWeight.w700,
