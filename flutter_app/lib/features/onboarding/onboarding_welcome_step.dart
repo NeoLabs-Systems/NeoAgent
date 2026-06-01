@@ -14,7 +14,7 @@ class OnboardingWelcomeStep extends StatelessWidget {
       step: 0,
       totalSteps: 4,
       eyebrow: 'WELCOME',
-      title: 'Welcome to\nNeoOS',
+      title: 'Welcome to\nNeoAgent',
       description: 'Your assistant layer for capture, context, and action.',
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -32,7 +32,7 @@ class OnboardingWelcomeStep extends StatelessWidget {
       child: Align(
         alignment: Alignment.topLeft,
         child: Text(
-          'Set up your workspace in a few steps and start using NeoOS immediately.',
+          'Set up your workspace in a few steps and start using NeoAgent immediately.',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.72),
             fontSize: 18,
