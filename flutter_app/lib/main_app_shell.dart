@@ -1202,58 +1202,54 @@ class _HomeViewState extends State<HomeView> {
     final wide = MediaQuery.sizeOf(context).width >= 1080;
 
     if (wide) {
-      return _AmbientBackdrop(
+      return _ControlSurfaceBackdrop(
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: SafeArea(
-            child: Row(
-              children: <Widget>[
-                _Sidebar(
-                  controller: controller,
-                  expandedGroup: _expandedSidebarGroup,
-                  onToggleGroup: _toggleSidebarGroup,
-                ),
-                Expanded(
-                  child: ClipRect(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 320),
-                      switchInCurve: Curves.easeOutBack,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) {
-                        final offset = Tween<Offset>(
-                          begin: const Offset(0.018, 0.026),
-                          end: Offset.zero,
-                        ).animate(animation);
-                        final scale = Tween<double>(
-                          begin: 0.992,
-                          end: 1,
-                        ).animate(animation);
-                        return ScaleTransition(
-                          scale: scale,
-                          alignment: Alignment.topCenter,
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: offset,
-                              child: child,
-                            ),
+          body: Row(
+            children: <Widget>[
+              _Sidebar(
+                controller: controller,
+                expandedGroup: _expandedSidebarGroup,
+                onToggleGroup: _toggleSidebarGroup,
+              ),
+              Expanded(
+                child: ClipRect(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 320),
+                    switchInCurve: Curves.easeOutBack,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) {
+                      final offset = Tween<Offset>(
+                        begin: const Offset(0.018, 0.026),
+                        end: Offset.zero,
+                      ).animate(animation);
+                      final scale = Tween<double>(
+                        begin: 0.992,
+                        end: 1,
+                      ).animate(animation);
+                      return ScaleTransition(
+                        scale: scale,
+                        alignment: Alignment.topCenter,
+                        child: FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: offset,
+                            child: child,
                           ),
-                        );
-                      },
-                      child: KeyedSubtree(
-                        key: ValueKey<AppSection>(
-                          controller.selectedSection,
                         ),
-                        child: _SectionBody(
-                          controller: controller,
-                          devicesPanelKey: _devicesPanelKey,
-                        ),
+                      );
+                    },
+                    child: KeyedSubtree(
+                      key: ValueKey<AppSection>(controller.selectedSection),
+                      child: _SectionBody(
+                        controller: controller,
+                        devicesPanelKey: _devicesPanelKey,
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );
@@ -1427,19 +1423,19 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 270,
+      width: 268,
       decoration: BoxDecoration(
+        color: _bgSecondary,
         border: Border(right: BorderSide(color: _border)),
       ),
       child: Column(
         children: <Widget>[
-          // Brand lockup + "control surface" eyebrow.
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 18, 14),
+            padding: const EdgeInsets.fromLTRB(20, 18, 18, 12),
             child: Row(
               children: <Widget>[
-                const _LogoBadge(size: 34),
-                const SizedBox(width: 12),
+                const _LogoBadge(size: 38),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1449,7 +1445,7 @@ class _Sidebar extends StatelessWidget {
                         'NeoAgent',
                         style: GoogleFonts.geist(
                           fontSize: 17,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: _textPrimary,
                           letterSpacing: -0.3,
                         ),
@@ -1472,12 +1468,12 @@ class _Sidebar extends StatelessWidget {
           ),
           if (controller.agentProfiles.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+              padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
               child: _AgentSwitcher(controller: controller),
             ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               children: _buildSidebarItems(
                 controller,
                 onSelect: controller.setSelectedSection,
@@ -1487,17 +1483,16 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 10, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 14),
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _border)),
             ),
             child: Row(
               children: <Widget>[
-                _ProfileSettingsButton(
+                _SidebarAccountAvatar(
                   controller: controller,
-                  onTap: () => controller.setSelectedSection(
-                    AppSection.accountSettings,
-                  ),
+                  onTap: () =>
+                      controller.setSelectedSection(AppSection.accountSettings),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1506,13 +1501,20 @@ class _Sidebar extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.geist(
-                      color: _textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      color: _textSecondary,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
+                _SidebarIconButton(
+                  tooltip: 'Settings',
+                  icon: Icons.settings_outlined,
+                  onTap: () =>
+                      controller.setSelectedSection(AppSection.accountSettings),
+                ),
+                const SizedBox(width: 2),
                 _SidebarIconButton(
                   tooltip: 'Logout',
                   icon: Icons.logout,
@@ -1621,14 +1623,14 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
           child: Tooltip(
             message: 'Switch agent',
             child: InkWell(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               onTap: _toggleMenu,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   color: _bgCard,
                   border: Border.all(
                     color: isMenuOpen
@@ -1638,8 +1640,8 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                   boxShadow: <BoxShadow>[
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 14,
-                      offset: const Offset(0, 5),
+                      blurRadius: 8,
+                      offset: const Offset(0, 1),
                     ),
                   ],
                 ),
@@ -1858,12 +1860,12 @@ class _AgentGlyph extends StatelessWidget {
   Widget build(BuildContext context) {
     final baseColor = agent.isDefault ? _accent : _accentAlt;
     final initials = _agentInitials(agent.displayName);
-    final size = compact ? 42.0 : 44.0;
+    final size = compact ? 38.0 : 42.0;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(compact ? 11 : 12),
         gradient: LinearGradient(
           colors: <Color>[
             baseColor.withValues(alpha: selected ? 0.85 : 0.65),
@@ -1924,9 +1926,9 @@ class _AgentTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(5),
         color: color.withValues(alpha: 0.14),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
@@ -1934,9 +1936,9 @@ class _AgentTag extends StatelessWidget {
         label,
         style: TextStyle(
           color: foreground,
-          fontSize: 9.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1,
         ),
       ),
     );
@@ -2013,6 +2015,45 @@ class _ProfileSettingsButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarAccountAvatar extends StatelessWidget {
+  const _SidebarAccountAvatar({required this.controller, required this.onTap});
+
+  final NeoAgentController controller;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = controller.accountLabel.trim();
+    final initial = label.isEmpty ? 'N' : label.characters.first.toUpperCase();
+    final active = controller.selectedSection == AppSection.accountSettings;
+    return Tooltip(
+      message: 'Account settings',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active ? _accentMuted : _bgCard,
+            border: Border.all(color: active ? _accent : _borderLight),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            initial,
+            style: TextStyle(
+              color: active ? _accentHover : _textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+            ),
+          ),
         ),
       ),
     );
