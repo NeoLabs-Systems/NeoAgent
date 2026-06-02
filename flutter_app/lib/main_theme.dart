@@ -18,8 +18,8 @@ Color get _bgCard => _palette.bgCard;
 Color get _textPrimary => _palette.textPrimary;
 Color get _textSecondary => _palette.textSecondary;
 Color get _textMuted => _palette.textMuted;
-const Color _brandAccent = Color(0xFF8F6D3E);
-const Color _brandAccentAlt = Color(0xFF2F7D6E);
+const Color _brandAccent = Color(0xFFB07D2B);
+const Color _brandAccentAlt = Color(0xFF5E6B4C);
 Color get _accent => _palette.accent;
 Color get _accentHover => _palette.accentHover;
 Color get _accentAlt => _palette.accentAlt;
@@ -104,10 +104,12 @@ TextStyle _heroTitleStyle([double size = 24]) => TextStyle(
   color: _textPrimary,
 );
 
-TextStyle _sectionEyebrowStyle() => TextStyle(
-  fontSize: 12,
-  fontWeight: FontWeight.w700,
-  letterSpacing: 1.0,
+// Eyebrow labels ("CONTROL SURFACE") use the mono typeface for telemetry
+// flavor, matching the design system's `--mono` eyebrow treatment.
+TextStyle _sectionEyebrowStyle() => GoogleFonts.jetBrainsMono(
+  fontSize: 11,
+  fontWeight: FontWeight.w600,
+  letterSpacing: 1.6,
   color: _accentHover,
 );
 
@@ -130,7 +132,9 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
       onSurface: palette.textPrimary,
       error: palette.danger,
     ),
-    textTheme: base.textTheme.apply(
+    // Modern grotesque base type to match the Control Surface design system.
+    // Telemetry / mono runs stay on JetBrains Mono at the call sites.
+    textTheme: GoogleFonts.hankenGroteskTextTheme(base.textTheme).apply(
       bodyColor: palette.textPrimary,
       displayColor: palette.textPrimary,
     ),
@@ -145,7 +149,7 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
       elevation: brightness == Brightness.dark ? 8 : 3,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(AppRadius.panel),
         side: BorderSide(
           color: Colors.white.withValues(
             alpha: brightness == Brightness.dark ? 0.08 : 0.22,
@@ -159,15 +163,15 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
         alpha: brightness == Brightness.dark ? 0.82 : 0.84,
       ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.input),
         borderSide: BorderSide(color: palette.borderLight),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.input),
         borderSide: BorderSide(color: palette.borderLight),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.input),
         borderSide: BorderSide(color: palette.accentHover, width: 1.4),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -193,7 +197,7 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadius.input),
           side: BorderSide(
             color: Colors.white.withValues(
               alpha: brightness == Brightness.dark ? 0.14 : 0.26,
@@ -219,7 +223,9 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
           alpha: brightness == Brightness.dark ? 0.2 : 0.5,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.input),
+        ),
         textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
       ),
     ),
@@ -266,7 +272,7 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
       backgroundColor: palette.bgCard.withValues(alpha: 0.96),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppRadius.panel),
         side: BorderSide(color: palette.borderLight),
       ),
     ),
