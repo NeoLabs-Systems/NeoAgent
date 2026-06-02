@@ -695,6 +695,41 @@ class BackendClient {
     return getMap(baseUrl, '/api/desktop/devices');
   }
 
+  Future<Map<String, dynamic>> fetchWorkspaceDirectory(
+    String baseUrl, {
+    String path = '.',
+  }) async {
+    return getMap(
+      baseUrl,
+      '/api/workspace/files?path=${Uri.encodeQueryComponent(path)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchWorkspaceFile(
+    String baseUrl, {
+    required String path,
+  }) async {
+    return getMap(
+      baseUrl,
+      '/api/workspace/files/content?path=${Uri.encodeQueryComponent(path)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> saveWorkspaceFile(
+    String baseUrl, {
+    required String path,
+    required String content,
+  }) async {
+    return putMap(baseUrl, '/api/workspace/files/content', <String, dynamic>{
+      'path': path,
+      'content': content,
+    });
+  }
+
+  String workspaceDownloadPath(String path) {
+    return '/api/workspace/files/download?path=${Uri.encodeQueryComponent(path)}';
+  }
+
   Future<Map<String, dynamic>> selectDesktopDevice(
     String baseUrl, {
     required String deviceId,

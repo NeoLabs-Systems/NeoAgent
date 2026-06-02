@@ -18,6 +18,7 @@ const routeRegistry = [
   { basePath: '/api/skills', modulePath: '../routes/skills' },
   { basePath: '/api/store', modulePath: '../routes/store' },
   { basePath: '/api/artifacts', modulePath: '../routes/artifacts' },
+  { basePath: '/api/workspace', modulePath: '../routes/workspace' },
   { basePath: '/api/memory', modulePath: '../routes/memory' },
   { basePath: '/api/tasks', modulePath: '../routes/tasks' },
   { basePath: '/api/widgets', modulePath: '../routes/widgets' },
