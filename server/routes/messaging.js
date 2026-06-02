@@ -80,6 +80,8 @@ router.post('/disconnect', async (req, res) => {
   try {
     const { platform } = req.body;
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    if (!platform) return res.status(400).json({ error: 'Platform is required' });
+
     const manager = req.app.locals.messagingManager;
     const result = await manager.disconnectPlatform(req.session.userId, platform, { agentId });
     res.json(result);
