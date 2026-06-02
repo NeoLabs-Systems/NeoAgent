@@ -239,21 +239,33 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = paletteOf(context);
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Container(
-          width: 34,
-          height: 34,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[p.accentAlt, p.accent],
-            ),
             borderRadius: BorderRadius.circular(10),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: p.accent.withValues(alpha: 0.16),
+                blurRadius: 14,
+              ),
+            ],
           ),
-          child: const Icon(Icons.blur_on_rounded, size: 19, color: Colors.white),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset(
+              dark
+                  ? 'assets/branding/app_icon_1024.png'
+                  : 'assets/branding/app_icon_light_1024.png',
+              width: 36,
+              height: 36,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Column(

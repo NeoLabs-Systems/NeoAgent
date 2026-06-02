@@ -252,7 +252,6 @@ class _OnboardingCompanionStepState extends State<OnboardingCompanionStep> {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final useGrid = width >= 700;
-    final columns = width >= 1050 ? 3 : (useGrid ? 2 : 1);
 
     return AnimatedBuilder(
       animation: widget.controller,
@@ -354,11 +353,12 @@ class _OnboardingCompanionStepState extends State<OnboardingCompanionStep> {
               Expanded(
                 child: useGrid
                     ? GridView.builder(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: columns,
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 360,
                           crossAxisSpacing: 14,
                           mainAxisSpacing: 14,
-                          childAspectRatio: width >= 1050 ? 1.42 : 1.25,
+                          mainAxisExtent: 236,
                         ),
                         itemCount: items.length,
                         itemBuilder: (context, index) {
