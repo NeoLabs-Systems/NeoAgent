@@ -1317,7 +1317,7 @@ class _LogoBadgeState extends State<_LogoBadge> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ValueListenableBuilder<bool>(
       valueListenable: _partyModeEnabled,
       builder: (context, partyMode, _) {
@@ -1376,12 +1376,13 @@ class _BrandLockup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleColor = Theme.of(context).colorScheme.onSurface;
     final title = Text(
       'NeoAgent',
       style: GoogleFonts.spaceGrotesk(
         fontSize: titleFontSize,
         fontWeight: FontWeight.w700,
-        color: _textPrimary,
+        color: titleColor,
         letterSpacing: -0.4,
       ),
     );
