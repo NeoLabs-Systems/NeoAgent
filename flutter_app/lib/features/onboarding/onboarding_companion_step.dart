@@ -358,7 +358,7 @@ class _OnboardingCompanionStepState extends State<OnboardingCompanionStep> {
                           maxCrossAxisExtent: 360,
                           crossAxisSpacing: 14,
                           mainAxisSpacing: 14,
-                          mainAxisExtent: 236,
+                          mainAxisExtent: 264,
                         ),
                         itemCount: items.length,
                         itemBuilder: (context, index) {
@@ -487,19 +487,17 @@ class _CompanionCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Expanded(
-                child: Text(
-                  item.subtitle,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: p.textMuted,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
+              Text(
+                item.subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: p.textMuted,
+                  fontSize: 13,
+                  height: 1.4,
                 ),
               ),
-              const SizedBox(height: 12),
+              const Spacer(),
               if (item.id == 'desktop' && !item.connected)
                 _PlatformSelector(
                   selectedPlatform: selectedDesktopPlatform,
@@ -610,6 +608,7 @@ class _DownloadButton extends StatelessWidget {
     final p = paletteOf(context);
     if (item.connected) {
       return Container(
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: item.accentColor.withValues(alpha: 0.16),
@@ -618,15 +617,20 @@ class _DownloadButton extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Icon(Icons.done_all_rounded, size: 14, color: item.accentColor),
             const SizedBox(width: 6),
-            Text(
-              'Connected',
-              style: TextStyle(
-                color: item.accentColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+            Flexible(
+              child: Text(
+                'Connected',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: item.accentColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -635,6 +639,7 @@ class _DownloadButton extends StatelessWidget {
     }
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: isClicked
@@ -649,6 +654,7 @@ class _DownloadButton extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
           Icon(
             isClicked ? Icons.hourglass_empty_rounded : Icons.open_in_new_rounded,
@@ -656,12 +662,16 @@ class _DownloadButton extends StatelessWidget {
             color: isClicked ? p.textMuted : item.accentColor,
           ),
           const SizedBox(width: 6),
-          Text(
-            isClicked ? 'Waiting for pairing...' : item.buttonText,
-            style: TextStyle(
-              color: isClicked ? p.textMuted : item.accentColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              isClicked ? 'Waiting for pairing...' : item.buttonText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isClicked ? p.textMuted : item.accentColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -691,11 +701,10 @@ class _PlatformSelector extends StatelessWidget {
         border: Border.all(color: p.border),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          _buildTab(context, TargetPlatform.macOS, 'macOS'),
-          _buildTab(context, TargetPlatform.windows, 'Windows'),
-          _buildTab(context, TargetPlatform.linux, 'Linux'),
+          Expanded(child: _buildTab(context, TargetPlatform.macOS, 'macOS')),
+          Expanded(child: _buildTab(context, TargetPlatform.windows, 'Windows')),
+          Expanded(child: _buildTab(context, TargetPlatform.linux, 'Linux')),
         ],
       ),
     );
@@ -711,13 +720,16 @@ class _PlatformSelector extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: isSelected ? p.bgCard : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: isSelected ? p.textPrimary : p.textMuted,
               fontSize: 11,
