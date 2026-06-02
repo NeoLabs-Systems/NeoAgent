@@ -63,6 +63,7 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _backgroundRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
+  final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const Duration _homeWidgetSyncCooldown = Duration(seconds: 5);
@@ -70,6 +71,7 @@ class NeoAgentController extends ChangeNotifier {
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
   bool _socketHasConnectedOnce = false;
+  bool _onboardingManuallyReopened = false;
   List<LogEntry> _serverLogs = const <LogEntry>[];
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
@@ -242,6 +244,8 @@ class NeoAgentController extends ChangeNotifier {
 
   bool isOfficialIntegrationBusy(String key) =>
       _busyOfficialIntegrationKeys.contains(key);
+  bool isMessagingPlatformBusy(String platform, String action) =>
+      _busyMessagingPlatformKeys.contains('$platform:$action');
 
   String get chatComposerHint => hasLiveRun
       ? 'Send a steering update or next-up note for the current run...'
@@ -818,6 +822,7 @@ class NeoAgentController extends ChangeNotifier {
           status['user'] as Map<String, dynamic>,
         );
         isAuthenticated = true;
+        _syncOnboardingFromAccount();
       }
       if (isAuthenticated) {
         unawaited(refresh());
@@ -1356,9 +1361,7 @@ class NeoAgentController extends ChangeNotifier {
     pendingTwoFactorUsername = '';
     password = '';
 
-    final bool backendCompletedOnboarding =
-        user?['hasCompletedOnboarding'] == true;
-    showOnboarding = isRegistration || !backendCompletedOnboarding;
+    _syncOnboardingFromAccount();
 
     _clearQrLoginChallenge();
     await _persistCredentials();
@@ -1602,6 +1605,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> dismissOnboarding() async {
+    _onboardingManuallyReopened = false;
     showOnboarding = false;
     notifyListeners();
     try {
@@ -1618,8 +1622,21 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void reopenOnboarding() {
+    _onboardingManuallyReopened = true;
     showOnboarding = true;
     notifyListeners();
+  }
+
+  void _syncOnboardingFromAccount() {
+    final hasCompletedOnboarding = user?['hasCompletedOnboarding'] == true;
+    if (hasCompletedOnboarding) {
+      if (!_onboardingManuallyReopened) {
+        showOnboarding = false;
+      }
+      return;
+    }
+    _onboardingManuallyReopened = false;
+    showOnboarding = true;
   }
 
   void _clearAuthenticatedState() {
@@ -1629,6 +1646,8 @@ class NeoAgentController extends ChangeNotifier {
     _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
+    _onboardingManuallyReopened = false;
+    _busyMessagingPlatformKeys.clear();
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
     errorMessage = null;
@@ -2086,6 +2105,7 @@ class NeoAgentController extends ChangeNotifier {
       user = Map<String, dynamic>.from(
         authStatus['user'] as Map<String, dynamic>,
       );
+      _syncOnboardingFromAccount();
 
       final profilesResponse = await _backendClient.fetchAgentProfiles(
         backendUrl,
@@ -5601,12 +5621,28 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> disconnectMessagingPlatform(String platform) async {
-    await _backendClient.disconnectMessagingPlatform(
-      backendUrl,
-      platform: platform,
-      agentId: _scopedAgentId,
-    );
-    await refreshMessaging();
+    final busyKey = '$platform:disconnect';
+    if (_busyMessagingPlatformKeys.contains(busyKey)) {
+      return;
+    }
+
+    _busyMessagingPlatformKeys.add(busyKey);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _backendClient.disconnectMessagingPlatform(
+        backendUrl,
+        platform: platform,
+        agentId: _scopedAgentId,
+      );
+      await refreshMessaging();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyMessagingPlatformKeys.remove(busyKey);
+      notifyListeners();
+    }
   }
 
   Future<void> logoutMessagingPlatform(String platform) async {

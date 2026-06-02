@@ -1345,8 +1345,8 @@ class _LogoBadgeState extends State<_LogoBadge> {
               ),
               child: Image.asset(
                 isDark
-                    ? 'assets/branding/app_icon_512.png'
-                    : 'assets/branding/app_icon_light_512.png',
+                    ? 'assets/branding/app_icon_1024.png'
+                    : 'assets/branding/app_icon_light_1024.png',
                 width: widget.size,
                 height: widget.size,
                 filterQuality: FilterQuality.high,

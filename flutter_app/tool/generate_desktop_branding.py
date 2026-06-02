@@ -28,6 +28,7 @@ SOURCE_PNG_SIZES = (16, 32, 48, 64, 128, 180, 192, 256, 512, 1024)
 TRANSPARENT = (0, 0, 0, 0)
 WHITE = (255, 255, 255, 255)
 BLACK = (0, 0, 0, 255)
+TRAY_TEMPLATE_SIZE = 256
 
 
 def ensure_dirs() -> None:
@@ -141,7 +142,8 @@ def make_tray_template(
         )
 
     # Keep the symbol optically centered inside the menu-bar bounds.
-    return img.crop((0, 2, size, size + 2))
+    vertical_offset = round(size * 0.03125)
+    return img.crop((0, vertical_offset, size, size + vertical_offset))
 
 
 def main() -> None:
@@ -151,8 +153,14 @@ def main() -> None:
         save_icon(BRANDING_DIR / f"app_icon_{size}.png", size)
         save_icon(BRANDING_DIR / f"app_icon_light_{size}.png", size)
 
-    make_tray_template(64).save(BRANDING_DIR / "tray_icon_template.png", format="PNG")
-    make_tray_template(64, WHITE).save(BRANDING_DIR / "tray_icon_light_template.png", format="PNG")
+    make_tray_template(TRAY_TEMPLATE_SIZE).save(
+        BRANDING_DIR / "tray_icon_template.png",
+        format="PNG",
+    )
+    make_tray_template(TRAY_TEMPLATE_SIZE, WHITE).save(
+        BRANDING_DIR / "tray_icon_light_template.png",
+        format="PNG",
+    )
 
     for size in (16, 32, 64, 128, 256, 512, 1024):
         save_icon(MAC_ICON_DIR / f"app_icon_{size}.png", size)
@@ -192,7 +200,7 @@ def main() -> None:
     save_icon(STATIC_IMG_DIR / "app_icon.png", 512)
     save_icon(STATIC_IMG_DIR / "app_icon_light.png", 512)
     save_icon(SERVER_PUBLIC_DIR / "assets" / "assets" / "branding" / "app_icon_256.png", 256)
-    make_tray_template(64).save(
+    make_tray_template(TRAY_TEMPLATE_SIZE).save(
         SERVER_PUBLIC_DIR / "assets" / "assets" / "branding" / "tray_icon_template.png",
         format="PNG",
     )
