@@ -37,11 +37,9 @@ class OnboardingWelcomeStep extends StatelessWidget {
             alignment: Alignment.topLeft,
             child: Text(
               'Set up your workspace in a few steps and start using NeoAgent immediately.',
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: p.textSecondary,
-                fontSize: 16,
                 height: 1.6,
-                fontWeight: FontWeight.w400,
               ),
             ).animate().fadeIn(duration: 600.ms, delay: 380.ms),
           );
