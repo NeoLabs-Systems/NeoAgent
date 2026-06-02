@@ -2523,7 +2523,7 @@ class _ResultBlock extends StatelessWidget {
           SelectableText(
             value,
             style: TextStyle(
-              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+              fontFamily: GoogleFonts.geistMono().fontFamily,
               fontSize: 12,
               color: _textSecondary,
               height: 1.5,

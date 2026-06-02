@@ -437,7 +437,7 @@ class McpPanel extends StatelessWidget {
                       Text(
                         server.command,
                         style: TextStyle(
-                          fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                          fontFamily: GoogleFonts.geistMono().fontFamily,
                           color: _textSecondary,
                         ),
                       ),

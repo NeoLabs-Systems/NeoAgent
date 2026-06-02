@@ -105,8 +105,8 @@ TextStyle _heroTitleStyle([double size = 24]) => TextStyle(
 );
 
 // Eyebrow labels ("CONTROL SURFACE") use the mono typeface for telemetry
-// flavor, matching the design system's `--mono` eyebrow treatment.
-TextStyle _sectionEyebrowStyle() => GoogleFonts.jetBrainsMono(
+// flavor, matching the design system's `--mono` eyebrow treatment (Geist Mono).
+TextStyle _sectionEyebrowStyle() => GoogleFonts.geistMono(
   fontSize: 11,
   fontWeight: FontWeight.w600,
   letterSpacing: 1.6,
@@ -132,9 +132,9 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
       onSurface: palette.textPrimary,
       error: palette.danger,
     ),
-    // Modern grotesque base type to match the Control Surface design system.
-    // Telemetry / mono runs stay on JetBrains Mono at the call sites.
-    textTheme: GoogleFonts.hankenGroteskTextTheme(base.textTheme).apply(
+    // Geist is the Control Surface design system's base typeface.
+    // Telemetry / mono runs stay on Geist Mono at the call sites.
+    textTheme: GoogleFonts.geistTextTheme(base.textTheme).apply(
       bodyColor: palette.textPrimary,
       displayColor: palette.textPrimary,
     ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../main.dart';
+import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
 
 class OnboardingMessagingStep extends StatefulWidget {
@@ -133,6 +134,7 @@ class _MessagingPlatformCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     final iconSize = compact ? 24.0 : 30.0;
     final shellSize = compact ? 48.0 : 58.0;
     return OnboardingOptionCard(
@@ -172,10 +174,10 @@ class _MessagingPlatformCard extends StatelessWidget {
                   platform.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                  style: TextStyle(
+                    color: p.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -184,9 +186,9 @@ class _MessagingPlatformCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.68),
+                    color: p.textMuted,
                     fontSize: 13,
-                    height: 1.35,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -213,17 +215,17 @@ class _MessagingPlatformCard extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         platform.label,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
+                        style: TextStyle(
+                          color: p.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Text(
                         platform.subtitle,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.68),
+                          color: p.textMuted,
                           fontSize: 14,
                           height: 1.45,
                         ),
@@ -255,6 +257,7 @@ class _SelectionIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       child: selected
@@ -267,7 +270,7 @@ class _SelectionIcon extends StatelessWidget {
           : Icon(
               Icons.add_circle_outline_rounded,
               key: ValueKey<String>('idle-$id'),
-              color: Colors.white.withValues(alpha: 0.26),
+              color: p.textMuted.withValues(alpha: 0.5),
               size: 28,
             ),
     );
