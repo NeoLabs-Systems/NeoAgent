@@ -119,6 +119,31 @@ class _AmbientBackdropState extends State<_AmbientBackdrop>
   }
 }
 
+class _ControlSurfaceBackdrop extends StatelessWidget {
+  const _ControlSurfaceBackdrop({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            _bgPrimary,
+            Color.lerp(_bgPrimary, _accentAlt, 0.025)!,
+            Color.lerp(_bgPrimary, _accent, 0.02)!,
+          ],
+          stops: const <double>[0, 0.58, 1],
+          begin: const Alignment(-0.95, -1),
+          end: const Alignment(0.96, 1),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 class _AuroraFieldPainter extends CustomPainter {
   const _AuroraFieldPainter({
     required this.progress,
@@ -393,7 +418,6 @@ List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
     AppSection.recordings,
-    AppSection.runs,
     AppSection.devices,
     AppSection.tasks,
     AppSection.widgets,
@@ -401,6 +425,7 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
     AppSection.settings,
+    AppSection.runs,
     AppSection.agents,
     AppSection.messaging,
   ];
@@ -425,11 +450,19 @@ List<Widget> _buildSidebarItems(
       continue;
     }
 
+    final defaultSection = sections.first;
+    final parentSection = group == SidebarGroup.settings
+        ? AppSection.settings
+        : defaultSection;
+    final childSections = group == SidebarGroup.settings
+        ? sections.where((section) => section != parentSection).toList()
+        : sections;
+    final hasChildren =
+        childSections.length > 1 ||
+        (group == SidebarGroup.settings && childSections.isNotEmpty);
     final active =
         selectedSidebarSection &&
-        controller.selectedSection.sidebarSection.group == group;
-    final defaultSection = sections.first;
-    final hasChildren = sections.length > 1;
+        controller.selectedSection.sidebarSection == parentSection;
     final expanded = expandedGroup == group;
 
     widgets.add(
@@ -445,8 +478,10 @@ List<Widget> _buildSidebarItems(
               )
             : null,
         onTap: hasChildren
-            ? () => onToggleGroup(group)
-            : () => onSelect(defaultSection),
+            ? group == SidebarGroup.settings
+                  ? () => onSelect(parentSection)
+                  : () => onToggleGroup(group)
+            : () => onSelect(parentSection),
       ),
     );
 
@@ -454,19 +489,23 @@ List<Widget> _buildSidebarItems(
       continue;
     }
 
-    for (final section in sections) {
-      widgets.add(
-        _SidebarButton(
-          label: section.label,
-          icon: section.icon,
-          active: controller.selectedSection.sidebarSection == section,
-          indent: 18,
-          iconSize: 16,
-          fontSize: 12,
-          onTap: () => onSelect(section),
-        ),
-      );
-    }
+    widgets.add(
+      _SidebarSubnav(
+        children: childSections
+            .map(
+              (section) => _SidebarButton(
+                label: section.label,
+                icon: section.icon,
+                active: controller.selectedSection.sidebarSection == section,
+                iconSize: 16,
+                fontSize: 13,
+                compact: true,
+                onTap: () => onSelect(section),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
   }
   return widgets;
 }
@@ -1072,9 +1111,9 @@ class _SidebarButton extends StatefulWidget {
     required this.label,
     required this.icon,
     this.active = false,
-    this.indent = 0,
     this.iconSize = 18,
     this.fontSize = 13,
+    this.compact = false,
     this.trailing,
     required this.onTap,
   });
@@ -1082,9 +1121,9 @@ class _SidebarButton extends StatefulWidget {
   final String label;
   final IconData icon;
   final bool active;
-  final double indent;
   final double iconSize;
   final double fontSize;
+  final bool compact;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -1098,75 +1137,115 @@ class _SidebarButtonState extends State<_SidebarButton> {
   @override
   Widget build(BuildContext context) {
     final active = widget.active;
-    // Reference dashboard: the active item is a white elevated pill; inactive
-    // items are plain with a faint hover wash. No gold accent on the row.
     final BoxDecoration decoration = active
         ? BoxDecoration(
             color: _bgCard,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _borderLight),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: _border),
             boxShadow: <BoxShadow>[
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
               ),
             ],
           )
         : BoxDecoration(
             color: _hovering
-                ? _bgCard.withValues(alpha: 0.5)
+                ? _bgTertiary.withValues(alpha: 0.72)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(9),
           );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 2),
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovering = true),
         onExit: (_) => setState(() => _hovering = false),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(9),
             onTap: widget.onTap,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
               width: double.infinity,
-              padding: EdgeInsets.fromLTRB(12 + widget.indent, 11, 12, 11),
+              padding: EdgeInsets.fromLTRB(
+                12,
+                widget.compact ? 8 : 10,
+                12,
+                widget.compact ? 8 : 10,
+              ),
               decoration: decoration,
-              child: Row(
+              child: Stack(
+                alignment: Alignment.centerLeft,
                 children: <Widget>[
-                  Icon(
-                    widget.icon,
-                    size: widget.iconSize,
-                    color: active ? _textPrimary : _textSecondary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.geist(
-                        fontSize: widget.fontSize,
-                        fontWeight: active
-                            ? FontWeight.w700
-                            : FontWeight.w600,
-                        color: active ? _textPrimary : _textSecondary,
+                  if (active)
+                    Positioned(
+                      left: -12,
+                      child: Container(
+                        width: 3,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          gradient: LinearGradient(
+                            colors: <Color>[_accentAlt, _accent],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
                       ),
                     ),
+                  Row(
+                    children: <Widget>[
+                      Icon(
+                        widget.icon,
+                        size: widget.iconSize,
+                        color: active ? _accent : _textMuted,
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.geist(
+                            fontSize: widget.fontSize,
+                            fontWeight: FontWeight.w600,
+                            color: active ? _textPrimary : _textSecondary,
+                          ),
+                        ),
+                      ),
+                      if (widget.trailing != null) ...<Widget>[
+                        const SizedBox(width: 8),
+                        widget.trailing!,
+                      ],
+                    ],
                   ),
-                  if (widget.trailing != null) ...<Widget>[
-                    const SizedBox(width: 8),
-                    widget.trailing!,
-                  ],
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SidebarSubnav extends StatelessWidget {
+  const _SidebarSubnav({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 2, 0, 2),
+      padding: const EdgeInsets.only(left: 12),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: _border)),
+      ),
+      child: Column(children: children),
     );
   }
 }
@@ -1188,17 +1267,17 @@ class _SidebarIconButton extends StatelessWidget {
       message: tooltip,
       child: Material(
         color: Colors.transparent,
-        shape: const CircleBorder(),
+        borderRadius: BorderRadius.circular(9),
         child: InkWell(
-          customBorder: const CircleBorder(),
+          borderRadius: BorderRadius.circular(9),
           onTap: onTap,
           child: Container(
-            width: 38,
-            height: 38,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _bgCard,
-              border: Border.all(color: _borderLight),
+              borderRadius: BorderRadius.circular(9),
+              color: _bgSecondary.withValues(alpha: 0.01),
+              border: Border.all(color: Colors.transparent),
             ),
             child: Icon(icon, size: 17, color: _textSecondary),
           ),
@@ -1433,182 +1512,176 @@ class _ChatBubble extends StatelessWidget {
             const SizedBox(width: 12),
           ],
           Flexible(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-              decoration: BoxDecoration(
-                gradient: isUser
-                    ? LinearGradient(
-                        colors: <Color>[_accent, _accentAlt],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : LinearGradient(
-                        colors: <Color>[
-                          _bgCard,
-                          _bgSecondary.withValues(alpha: 0.94),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(14),
-                  topRight: const Radius.circular(14),
-                  bottomLeft: Radius.circular(isUser ? 14 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 14),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 672),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
                 ),
-                border: Border.all(
-                  color: isUser
-                      ? Colors.white.withValues(alpha: 0.18)
-                      : _borderLight.withValues(alpha: 0.72),
-                ),
-                boxShadow: <BoxShadow>[
-                  if (isUser)
+                decoration: BoxDecoration(
+                  gradient: isUser
+                      ? LinearGradient(
+                          colors: <Color>[
+                            _accentAlt,
+                            Color.lerp(_accent, _accentAlt, 0.28)!,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: isUser ? null : _bgCard,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(isUser ? 21 : 8),
+                    topRight: Radius.circular(isUser ? 8 : 21),
+                    bottomLeft: const Radius.circular(21),
+                    bottomRight: const Radius.circular(21),
+                  ),
+                  border: Border.all(
+                    color: isUser ? Colors.transparent : _border,
+                  ),
+                  boxShadow: <BoxShadow>[
                     BoxShadow(
-                      color: _accentAlt.withValues(alpha: 0.30),
-                      blurRadius: 12,
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
-                  if (!isUser)
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: isUser
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (!isUser && entry.platformTag != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _StatusPill(
+                          label: entry.platformTag!,
+                          color: entry.platform == 'live' ? _info : _warning,
+                        ),
+                      ),
+                    MarkdownBody(
+                      data: entry.content,
+                      selectable: false,
+                      styleSheet:
+                          MarkdownStyleSheet.fromTheme(
+                            Theme.of(context),
+                          ).copyWith(
+                            p: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: isUser ? Colors.white : _textPrimary,
+                              fontSize: 14.5,
+                              height: 1.62,
+                            ),
+                            code: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontFamily:
+                                      GoogleFonts.geistMono().fontFamily,
+                                  backgroundColor: _bgPrimary,
+                                  color: isUser ? Colors.white : _textPrimary,
+                                ),
+                            blockquoteDecoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0x22000000),
+                            ),
+                          ),
                     ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: isUser
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: <Widget>[
-                  if (!isUser && entry.platformTag != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _StatusPill(
-                        label: entry.platformTag!,
-                        color: entry.platform == 'live' ? _info : _warning,
+                    if (sharedAttachments.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 10),
+                      _SharedAttachmentChipWrap(
+                        attachments: sharedAttachments,
+                        isUser: isUser,
+                      ),
+                    ],
+                    if (!isUser &&
+                        entry.runId?.trim().isNotEmpty == true) ...<Widget>[
+                      const SizedBox(height: 12),
+                      _MessageRunPreview(
+                        runId: entry.runId!.trim(),
+                        onLoadRunDetail: onLoadRunDetail,
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Text(
+                      entry.createdAtLabel,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isUser
+                            ? const Color(0xCCFFFFFF)
+                            : _textSecondary,
                       ),
                     ),
-                  MarkdownBody(
-                    data: entry.content,
-                    selectable: false,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
-                        .copyWith(
-                          p: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: isUser ? Colors.white : _textPrimary,
-                            height: 1.65,
-                          ),
-                          code: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                fontFamily:
-                                    GoogleFonts.geistMono().fontFamily,
-                                backgroundColor: _bgPrimary,
-                                color: isUser ? Colors.white : _textPrimary,
-                              ),
-                          blockquoteDecoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            color: const Color(0x22000000),
-                          ),
-                        ),
-                  ),
-                  if (sharedAttachments.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: sharedAttachments
-                          .map((attachment) {
-                            final icon =
-                                attachment.mimeType.toLowerCase().startsWith(
-                                  'video/',
-                                )
-                                ? Icons.videocam_outlined
-                                : attachment.mimeType.toLowerCase().startsWith(
-                                    'image/',
-                                  )
-                                ? Icons.image_outlined
-                                : attachment.mimeType.toLowerCase().startsWith(
-                                    'audio/',
-                                  )
-                                ? Icons.audiotrack_outlined
-                                : Icons.attach_file_rounded;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isUser
-                                    ? const Color(0x1FFFFFFF)
-                                    : _bgSecondary,
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: isUser
-                                      ? const Color(0x40FFFFFF)
-                                      : _border,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Icon(
-                                    icon,
-                                    size: 14,
-                                    color: isUser
-                                        ? Colors.white
-                                        : _textSecondary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 180,
-                                    ),
-                                    child: Text(
-                                      attachment.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: isUser
-                                            ? Colors.white
-                                            : _textPrimary,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          })
-                          .toList(growable: false),
-                    ),
                   ],
-                  if (!isUser &&
-                      entry.runId?.trim().isNotEmpty == true) ...<Widget>[
-                    const SizedBox(height: 12),
-                    _MessageRunPreview(
-                      runId: entry.runId!.trim(),
-                      onLoadRunDetail: onLoadRunDetail,
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Text(
-                    entry.createdAtLabel,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isUser ? const Color(0xCCFFFFFF) : _textSecondary,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-          if (isUser) ...<Widget>[
-            const SizedBox(width: 12),
-            const _MessageAvatar(assistant: false),
-          ],
         ],
       ),
+    );
+  }
+}
+
+class _SharedAttachmentChipWrap extends StatelessWidget {
+  const _SharedAttachmentChipWrap({
+    required this.attachments,
+    required this.isUser,
+  });
+
+  final List<SharedChatAttachment> attachments;
+  final bool isUser;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: attachments
+          .map((attachment) {
+            final mimeType = attachment.mimeType.toLowerCase();
+            final icon = mimeType.startsWith('video/')
+                ? Icons.videocam_outlined
+                : mimeType.startsWith('image/')
+                ? Icons.image_outlined
+                : mimeType.startsWith('audio/')
+                ? Icons.audiotrack_outlined
+                : Icons.attach_file_rounded;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: isUser ? const Color(0x1FFFFFFF) : _bgSecondary,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: isUser ? const Color(0x40FFFFFF) : _border,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: isUser ? Colors.white : _textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: Text(
+                      attachment.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isUser ? Colors.white : _textPrimary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          })
+          .toList(growable: false),
     );
   }
 }
@@ -1859,33 +1932,22 @@ class _MessageAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 30,
-      height: 30,
+      width: assistant ? 34 : 30,
+      height: assistant ? 34 : 30,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: assistant
-            ? LinearGradient(
-                colors: <Color>[_accentHover, _accent, _accentAlt],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
+        borderRadius: BorderRadius.circular(assistant ? 10 : 999),
         color: assistant ? null : _bgTertiary,
-        boxShadow: assistant
-            ? <BoxShadow>[
-                BoxShadow(
-                  color: _accentAlt.withValues(alpha: 0.42),
-                  blurRadius: 14,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
+        border: assistant ? null : Border.all(color: _borderLight),
       ),
-      child: Icon(
-        assistant ? Icons.auto_awesome : Icons.person,
-        size: 16,
-        color: assistant ? Colors.white : _textSecondary,
-      ),
+      clipBehavior: Clip.antiAlias,
+      child: assistant
+          ? Image.asset(
+              MediaQuery.platformBrightnessOf(context) == Brightness.dark
+                  ? 'assets/branding/app_icon_1024.png'
+                  : 'assets/branding/app_icon_light_1024.png',
+              filterQuality: FilterQuality.high,
+            )
+          : Icon(Icons.person, size: 16, color: _textSecondary),
     );
   }
 }
