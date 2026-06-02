@@ -357,268 +357,422 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     final messages = controller.visibleChatMessages;
     _maybeFollowChatContent(messages, controller);
 
+    final threadChildren = <Widget>[
+      if (controller.errorMessage != null) ...<Widget>[
+        _InlineError(message: controller.errorMessage!),
+        const SizedBox(height: 16),
+      ],
+      if (controller.activeRun != null || controller.toolEvents.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _RunStatusPanel(
+            run: controller.activeRun,
+            tools: controller.toolEvents,
+          ),
+        ),
+      if (messages.isEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 64),
+          child: Center(
+            child: _EmptyState(
+              title: 'How can I help?',
+              subtitle:
+                  'Runs, tools, memory, scheduling, skills, and MCP are all available here.',
+            ),
+          ),
+        )
+      else
+        ...messages.map(
+          (entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: _ChatBubble(
+              entry: entry,
+              onLoadRunDetail: controller.fetchRunDetail,
+            ),
+          ),
+        ),
+    ];
+
+    Future<void> sendComposerMessage() async {
+      final task = _composerController.text;
+      if ((task.trim().isEmpty && _pendingSharedAttachments.isEmpty) ||
+          _isSendingChatMessage) {
+        return;
+      }
+      setState(() {
+        _isSendingChatMessage = true;
+      });
+      _composerController.clear();
+      final outgoingAttachments = _pendingSharedAttachments;
+      _clearSharedPayload();
+      try {
+        await controller.sendMessage(
+          task,
+          sharedAttachments: outgoingAttachments,
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isSendingChatMessage = false;
+          });
+        }
+      }
+    }
+
+    final sidePadding = _chatSidePadding(context);
+
     return Column(
       children: <Widget>[
+        _ChatTopBar(controller: controller),
         Expanded(
           child: SelectionArea(
             child: ListView(
               controller: _scrollController,
-              padding: _pagePadding(context),
+              padding: EdgeInsets.fromLTRB(sidePadding, 30, sidePadding, 18),
               children: <Widget>[
-                _PageTitle(
-                  title: 'Chat',
-                  subtitle: 'Live agent chat with tool and stream status.',
-                  trailing: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      FilledButton.icon(
-                        onPressed: () => controller.setSelectedSection(
-                          AppSection.voiceAssistant,
-                        ),
-                        icon: Icon(Icons.call),
-                        label: Text('Call'),
-                      ),
-                      _MetaPill(
-                        label: controller.modelIndicator,
-                        icon: Icons.memory_outlined,
-                      ),
-                      _MetaPill(
-                        label: 'Agent: ${controller.activeAgentLabel}',
-                        icon: Icons.smart_toy_outlined,
-                      ),
-                    ],
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 860),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: threadChildren,
+                    ),
                   ),
                 ),
-                if (controller.errorMessage != null) ...<Widget>[
-                  _InlineError(message: controller.errorMessage!),
-                  const SizedBox(height: 16),
-                ],
-                if (controller.activeRun != null ||
-                    controller.toolEvents.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _RunStatusPanel(
-                      run: controller.activeRun,
-                      tools: controller.toolEvents,
-                    ),
-                  ),
-                if (messages.isEmpty)
-                  Padding(
-                    padding: EdgeInsets.only(top: 64),
-                    child: Center(
-                      child: _EmptyState(
-                        title: 'How can I help?',
-                        subtitle:
-                            'Runs, tools, memory, scheduling, skills, and MCP are all available here.',
-                      ),
-                    ),
-                  )
-                else
-                  ...messages.map(
-                    (entry) => Padding(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      child: _ChatBubble(
-                        entry: entry,
-                        onLoadRunDetail: controller.fetchRunDetail,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
         ),
         Container(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          padding: EdgeInsets.fromLTRB(sidePadding, 12, sidePadding, 16),
           decoration: BoxDecoration(
-            color: _bgPrimary,
+            color: _bgPrimary.withValues(alpha: 0.88),
             border: Border(top: BorderSide(color: _border)),
           ),
-          child: Column(
-            children: <Widget>[
-              if (_pendingSharedAttachments.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _SharedAttachmentTray(
-                    attachments: _pendingSharedAttachments,
-                    onRemoveAt: (index) {
-                      setState(() {
-                        _pendingSharedAttachments = _pendingSharedAttachments
-                            .asMap()
-                            .entries
-                            .where((entry) => entry.key != index)
-                            .map((entry) => entry.value)
-                            .toList(growable: false);
-                      });
-                      if (_stickToBottom) {
-                        _scheduleScrollToBottom();
-                      }
-                      if (_pendingSharedAttachments.isEmpty) {
-                        _clearSharedPayload();
-                      }
-                    },
-                    onClear: () {
-                      _clearSharedPayload();
-                    },
-                  ),
-                ),
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
-                decoration: BoxDecoration(
-                  color: _bgTertiary,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _border),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _composerController,
-                        minLines: 1,
-                        maxLines: 6,
-                        keyboardType: TextInputType.multiline,
-                        textInputAction: TextInputAction.newline,
-                        decoration: InputDecoration(
-                          hintText: controller.chatComposerHint,
-                          isDense: true,
-                          filled: false,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 860),
+              child: Column(
+                children: <Widget>[
+                  if (_pendingSharedAttachments.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _SharedAttachmentTray(
+                        attachments: _pendingSharedAttachments,
+                        onRemoveAt: (index) {
+                          setState(() {
+                            _pendingSharedAttachments =
+                                _pendingSharedAttachments
+                                    .asMap()
+                                    .entries
+                                    .where((entry) => entry.key != index)
+                                    .map((entry) => entry.value)
+                                    .toList(growable: false);
+                          });
+                          if (_stickToBottom) {
+                            _scheduleScrollToBottom();
+                          }
+                          if (_pendingSharedAttachments.isEmpty) {
+                            _clearSharedPayload();
+                          }
+                        },
+                        onClear: _clearSharedPayload,
+                      ),
+                    ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                    decoration: BoxDecoration(
+                      color: _bgCard,
+                      borderRadius: BorderRadius.circular(21),
+                      border: Border.all(color: _borderLight),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'Attach files',
-                      onPressed: _attachFiles,
-                      icon: const Icon(Icons.attach_file_rounded),
-                      color: _textSecondary,
-                    ),
-                    const SizedBox(width: 2),
-                    _isTranscribing
-                        ? const SizedBox(
-                            width: 40,
-                            height: 40,
-                            child: Padding(
-                              padding: EdgeInsets.all(10),
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
-                        : IconButton(
-                            tooltip: _isDictating
-                                ? 'Stop & transcribe'
-                                : 'Dictate',
-                            onPressed: _isDictating
-                                ? _stopAndTranscribe
-                                : _startDictation,
-                            icon: Icon(
-                              _isDictating
-                                  ? Icons.stop_circle_outlined
-                                  : Icons.mic_none_rounded,
-                            ),
-                            color: _isDictating
-                                ? Theme.of(context).colorScheme.error
-                                : _textSecondary,
-                          ),
-                    const SizedBox(width: 2),
-                    FilledButton(
-                      onPressed: () => controller.setSelectedSection(
-                        AppSection.voiceAssistant,
-                      ),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(46, 42),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        backgroundColor: _success,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        _ChatComposerIconButton(
+                          tooltip: 'Attach files',
+                          icon: Icons.attach_file_rounded,
+                          onPressed: _attachFiles,
                         ),
-                      ),
-                      child: Icon(Icons.call_rounded, color: Colors.white),
-                    ),
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message: 'Send (⌘↩)',
-                      child: FilledButton(
-                        onPressed: _isSendingChatMessage
-                            ? null
-                            : () async {
-                                final task = _composerController.text;
-                                if ((task.trim().isEmpty &&
-                                        _pendingSharedAttachments.isEmpty) ||
-                                    _isSendingChatMessage) {
-                                  return;
-                                }
-                                setState(() {
-                                  _isSendingChatMessage = true;
-                                });
-                                _composerController.clear();
-                                final outgoingAttachments =
-                                    _pendingSharedAttachments;
-                                _clearSharedPayload();
-                                try {
-                                  await controller.sendMessage(
-                                    task,
-                                    sharedAttachments: outgoingAttachments,
-                                  );
-                                } finally {
-                                  if (mounted) {
-                                    setState(() {
-                                      _isSendingChatMessage = false;
-                                    });
-                                  }
-                                }
-                              },
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(46, 42),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          backgroundColor: _accent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _composerController,
+                            minLines: 1,
+                            maxLines: 6,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            decoration: InputDecoration(
+                              hintText: controller.chatComposerHint,
+                              isDense: true,
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                              ),
+                            ),
                           ),
                         ),
-                        child: Icon(
-                          controller.hasLiveRun
+                        const SizedBox(width: 8),
+                        _isTranscribing
+                            ? const SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: Padding(
+                                  padding: EdgeInsets.all(10),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                            : _ChatComposerIconButton(
+                                tooltip: _isDictating
+                                    ? 'Stop & transcribe'
+                                    : 'Dictate',
+                                icon: _isDictating
+                                    ? Icons.stop_circle_outlined
+                                    : Icons.mic_none_rounded,
+                                color: _isDictating
+                                    ? Theme.of(context).colorScheme.error
+                                    : null,
+                                onPressed: _isDictating
+                                    ? _stopAndTranscribe
+                                    : _startDictation,
+                              ),
+                        const SizedBox(width: 6),
+                        _ChatComposerIconButton(
+                          tooltip: 'Call agent',
+                          icon: Icons.call_rounded,
+                          color: Colors.white,
+                          backgroundColor: _success,
+                          onPressed: () => controller.setSelectedSection(
+                            AppSection.voiceAssistant,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        _ChatComposerIconButton(
+                          tooltip: 'Send',
+                          icon: controller.hasLiveRun
                               ? Icons.alt_route_rounded
                               : Icons.north_east_rounded,
                           color: Colors.white,
+                          backgroundColor: _accent,
+                          onPressed: _isSendingChatMessage
+                              ? null
+                              : sendComposerMessage,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Row(
+                          children: <Widget>[
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: controller.hasLiveRun
+                                    ? _success
+                                    : _textMuted,
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                controller.chatStatusLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.geistMono(
+                                  fontSize: 11.5,
+                                  color: _textMuted,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _bgCard,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: _border),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  controller.hasLiveRun
+                                      ? 'Steering mode'
+                                      : controller.modelIndicator,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.geistMono(
+                                    fontSize: 11.5,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 13,
+                                color: _textMuted,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+double _chatSidePadding(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width >= 1280) return 40;
+  if (width >= 900) return 30;
+  return 20;
+}
+
+class _ChatTopBar extends StatelessWidget {
+  const _ChatTopBar({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: EdgeInsets.symmetric(horizontal: _chatSidePadding(context)),
+      decoration: BoxDecoration(
+        color: _bgPrimary.withValues(alpha: 0.72),
+        border: Border(bottom: BorderSide(color: _border)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Text(
+            'Chat',
+            style: GoogleFonts.geist(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: _textPrimary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '/ ${controller.activeAgentLabel} / ${controller.modelIndicator}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.geistMono(fontSize: 11, color: _textMuted),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: controller.hasLiveRun ? _success : _accentAlt,
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: (controller.hasLiveRun ? _success : _accentAlt)
+                          .withValues(alpha: 0.18),
+                      blurRadius: 0,
+                      spreadRadius: 3,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      controller.chatStatusLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: _textSecondary),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      controller.hasLiveRun
-                          ? 'Steering mode'
-                          : controller.modelIndicator,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(fontSize: 12, color: _textSecondary),
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 7),
+              Text(
+                controller.hasLiveRun ? 'live' : 'idle',
+                style: GoogleFonts.geistMono(
+                  fontSize: 12,
+                  color: _textSecondary,
+                ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatComposerIconButton extends StatelessWidget {
+  const _ChatComposerIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.color,
+    this.backgroundColor,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color? color;
+  final Color? backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = color ?? _textSecondary;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(11),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(11),
+          onTap: onPressed,
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: onPressed == null
+                  ? _bgTertiary.withValues(alpha: 0.52)
+                  : backgroundColor ?? Colors.transparent,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(
+              icon,
+              size: 19,
+              color: onPressed == null ? _textMuted : foreground,
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -3483,8 +3637,7 @@ class _DeliverableSummaryCard extends StatelessWidget {
                             style: TextStyle(
                               color: _textSecondary,
                               fontSize: 12,
-                              fontFamily:
-                                  GoogleFonts.geistMono().fontFamily,
+                              fontFamily: GoogleFonts.geistMono().fontFamily,
                             ),
                           ),
                         ],
