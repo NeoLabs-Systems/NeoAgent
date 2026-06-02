@@ -2194,7 +2194,10 @@ class _MessagingCard extends StatelessWidget {
                           actionLabel,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        style: FilledButton.styleFrom(backgroundColor: accent),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
               ),
               if (canDisconnect) ...[
