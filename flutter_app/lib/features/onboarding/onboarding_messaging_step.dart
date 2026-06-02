@@ -30,7 +30,6 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
         : messagingPlatforms;
     final width = MediaQuery.sizeOf(context).width;
     final useGrid = width >= 700;
-    final columns = width >= 1050 ? 3 : (useGrid ? 2 : 1);
 
     return OnboardingScaffold(
       step: 2,
@@ -80,11 +79,11 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
       ),
       child: useGrid
           ? GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 360,
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
-                childAspectRatio: width >= 1050 ? 1.5 : 1.35,
+                mainAxisExtent: 160,
               ),
               itemCount: platforms.length,
               itemBuilder: (context, index) {

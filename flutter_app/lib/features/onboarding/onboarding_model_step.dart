@@ -77,7 +77,6 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final useGrid = width >= 720;
-    final columns = width >= 1150 ? 3 : (useGrid ? 2 : 1);
 
     return OnboardingScaffold(
       step: 3,
@@ -109,11 +108,11 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
             )
           : useGrid
           ? GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 380,
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
-                childAspectRatio: width >= 1150 ? 1.38 : 1.18,
+                mainAxisExtent: 214,
               ),
               itemCount: _models.length,
               itemBuilder: (context, index) {
