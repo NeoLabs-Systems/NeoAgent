@@ -70,6 +70,7 @@ class NeoAgentController extends ChangeNotifier {
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
   bool _socketHasConnectedOnce = false;
+  bool _onboardingManuallyReopened = false;
   List<LogEntry> _serverLogs = const <LogEntry>[];
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
@@ -812,6 +813,7 @@ class NeoAgentController extends ChangeNotifier {
           status['user'] as Map<String, dynamic>,
         );
         isAuthenticated = true;
+        _syncOnboardingFromAccount();
       }
       if (isAuthenticated) {
         unawaited(refresh());
@@ -1350,9 +1352,7 @@ class NeoAgentController extends ChangeNotifier {
     pendingTwoFactorUsername = '';
     password = '';
 
-    final bool backendCompletedOnboarding =
-        user?['hasCompletedOnboarding'] == true;
-    showOnboarding = isRegistration || !backendCompletedOnboarding;
+    _syncOnboardingFromAccount();
 
     _clearQrLoginChallenge();
     await _persistCredentials();
@@ -1596,6 +1596,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> dismissOnboarding() async {
+    _onboardingManuallyReopened = false;
     showOnboarding = false;
     notifyListeners();
     try {
@@ -1612,8 +1613,21 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void reopenOnboarding() {
+    _onboardingManuallyReopened = true;
     showOnboarding = true;
     notifyListeners();
+  }
+
+  void _syncOnboardingFromAccount() {
+    final hasCompletedOnboarding = user?['hasCompletedOnboarding'] == true;
+    if (hasCompletedOnboarding) {
+      if (!_onboardingManuallyReopened) {
+        showOnboarding = false;
+      }
+      return;
+    }
+    _onboardingManuallyReopened = false;
+    showOnboarding = true;
   }
 
   void _clearAuthenticatedState() {
@@ -1623,6 +1637,7 @@ class NeoAgentController extends ChangeNotifier {
     _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
+    _onboardingManuallyReopened = false;
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
     errorMessage = null;
@@ -2080,6 +2095,7 @@ class NeoAgentController extends ChangeNotifier {
       user = Map<String, dynamic>.from(
         authStatus['user'] as Map<String, dynamic>,
       );
+      _syncOnboardingFromAccount();
 
       final profilesResponse = await _backendClient.fetchAgentProfiles(
         backendUrl,
