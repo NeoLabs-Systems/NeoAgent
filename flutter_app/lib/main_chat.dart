@@ -1893,9 +1893,17 @@ class _MessagingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final connected = status?.isConnected ?? false;
     final configured = status != null && status!.status != 'not_configured';
+    final disabled = status?.status == 'disabled';
+    final canDisconnect = configured && !connected && !disabled;
+    final isDisconnecting = controller.isMessagingPlatformBusy(
+      platform.id,
+      'disconnect',
+    );
     final accent = platform.accent;
     final actionLabel = connected
         ? 'Connected'
+        : disabled
+        ? 'Disabled'
         : configured
         ? 'Reconnect'
         : 'Connect';
@@ -1960,11 +1968,15 @@ class _MessagingCard extends StatelessWidget {
               _StatusPill(
                 label: connected
                     ? 'Live'
+                    : disabled
+                    ? 'Disabled'
                     : configured
                     ? 'Ready'
                     : 'Setup',
                 color: connected
                     ? _success
+                    : disabled
+                    ? _textMuted
                     : configured
                     ? _warning
                     : _textMuted,
@@ -2005,15 +2017,24 @@ class _MessagingCard extends StatelessWidget {
               Expanded(
                 child: connected
                     ? OutlinedButton.icon(
-                        onPressed: onDisconnect,
-                        icon: Icon(Icons.link_off_rounded, size: 18),
+                        onPressed: isDisconnecting ? null : onDisconnect,
+                        icon: isDisconnecting
+                            ? SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(Icons.link_off_rounded, size: 18),
                         label: Text(
                           'Disconnect',
                           overflow: TextOverflow.ellipsis,
                         ),
                       )
                     : FilledButton.icon(
-                        onPressed: onConnect,
+                        onPressed: disabled || isDisconnecting
+                            ? null
+                            : onConnect,
                         icon: Icon(Icons.power_settings_new_rounded, size: 18),
                         label: Text(
                           actionLabel,
@@ -2022,6 +2043,19 @@ class _MessagingCard extends StatelessWidget {
                         style: FilledButton.styleFrom(backgroundColor: accent),
                       ),
               ),
+              if (canDisconnect) ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Disconnect platform',
+                  onPressed: isDisconnecting ? null : onDisconnect,
+                  icon: isDisconnecting
+                      ? SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.link_off_rounded),
+                ),
+              ],
               const SizedBox(width: 8),
               IconButton.outlined(
                 tooltip: 'Access policy',

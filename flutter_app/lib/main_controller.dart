@@ -63,6 +63,7 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _backgroundRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
+  final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const Duration _homeWidgetSyncCooldown = Duration(seconds: 5);
@@ -237,6 +238,8 @@ class NeoAgentController extends ChangeNotifier {
 
   bool isOfficialIntegrationBusy(String key) =>
       _busyOfficialIntegrationKeys.contains(key);
+  bool isMessagingPlatformBusy(String platform, String action) =>
+      _busyMessagingPlatformKeys.contains('$platform:$action');
 
   String get chatComposerHint => hasLiveRun
       ? 'Send a steering update or next-up note for the current run...'
@@ -1638,6 +1641,7 @@ class NeoAgentController extends ChangeNotifier {
     isAuthenticated = false;
     isRefreshing = false;
     _onboardingManuallyReopened = false;
+    _busyMessagingPlatformKeys.clear();
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
     errorMessage = null;
@@ -5515,12 +5519,28 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> disconnectMessagingPlatform(String platform) async {
-    await _backendClient.disconnectMessagingPlatform(
-      backendUrl,
-      platform: platform,
-      agentId: _scopedAgentId,
-    );
-    await refreshMessaging();
+    final busyKey = '$platform:disconnect';
+    if (_busyMessagingPlatformKeys.contains(busyKey)) {
+      return;
+    }
+
+    _busyMessagingPlatformKeys.add(busyKey);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _backendClient.disconnectMessagingPlatform(
+        backendUrl,
+        platform: platform,
+        agentId: _scopedAgentId,
+      );
+      await refreshMessaging();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyMessagingPlatformKeys.remove(busyKey);
+      notifyListeners();
+    }
   }
 
   Future<void> logoutMessagingPlatform(String platform) async {
