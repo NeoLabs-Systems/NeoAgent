@@ -1067,7 +1067,7 @@ class _PulseHaloState extends State<_PulseHalo>
   }
 }
 
-class _SidebarButton extends StatelessWidget {
+class _SidebarButton extends StatefulWidget {
   const _SidebarButton({
     required this.label,
     required this.icon,
@@ -1089,148 +1089,75 @@ class _SidebarButton extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: _HoverLift(
-        active: active,
-        child: _GlassSurface(
-          borderRadius: BorderRadius.circular(18),
-          blurSigma: active ? 22 : 18,
-          fillColor: active
-              ? _accentMuted.withValues(alpha: 0.36)
-              : _bgCard.withValues(alpha: 0.22),
-          borderColor: active
-              ? _accent.withValues(alpha: 0.45)
-              : Colors.white.withValues(alpha: 0.04),
-          boxShadow: active
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: _accent.withValues(alpha: 0.16),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ]
-              : null,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: onTap,
-              child: Stack(
-                children: <Widget>[
-                  if (active)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(18),
-                            gradient: LinearGradient(
-                              colors: <Color>[
-                                Colors.white.withValues(alpha: 0.08),
-                                Colors.transparent,
-                                _accentAlt.withValues(alpha: 0.08),
-                              ],
-                              stops: const <double>[0, 0.44, 1],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.fromLTRB(12 + indent, 12, 12, 12),
-                    child: Row(
-                      children: <Widget>[
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutCubic,
-                          width: active ? 6 : 3,
-                          height: active ? 26 : 16,
-                          margin: EdgeInsets.only(right: active ? 10 : 13),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: <Color>[
-                                active
-                                    ? _accentHover
-                                    : _textMuted.withValues(alpha: 0.35),
-                                active
-                                    ? _accentAlt.withValues(alpha: 0.95)
-                                    : _textMuted.withValues(alpha: 0.08),
-                              ],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                        Icon(
-                          icon,
-                          size: iconSize,
-                          color: active ? _accentHover : _textSecondary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: fontSize,
-                              fontWeight: active
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              color: active ? _textPrimary : _textSecondary,
-                            ),
-                          ),
-                        ),
-                        if (trailing != null) ...<Widget>[
-                          const SizedBox(width: 8),
-                          trailing!,
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  State<_SidebarButton> createState() => _SidebarButtonState();
 }
 
-class _HoverLift extends StatefulWidget {
-  const _HoverLift({required this.child, this.active = false});
-
-  final Widget child;
-  final bool active;
-
-  @override
-  State<_HoverLift> createState() => _HoverLiftState();
-}
-
-class _HoverLiftState extends State<_HoverLift> {
+class _SidebarButtonState extends State<_SidebarButton> {
   bool _hovering = false;
 
   @override
   Widget build(BuildContext context) {
-    final lifted = widget.active || _hovering;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovering = true),
-      onExit: (_) => setState(() => _hovering = false),
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        scale: lifted ? 1.012 : 1,
-        child: AnimatedSlide(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          offset: _hovering && !widget.active
-              ? const Offset(0.01, 0)
-              : Offset.zero,
-          child: widget.child,
+    final active = widget.active;
+    final Color fill = active
+        ? _accent.withValues(alpha: 0.10)
+        : _hovering
+        ? _bgCard
+        : Colors.transparent;
+    final Color borderColor = active
+        ? _accent.withValues(alpha: 0.55)
+        : _hovering
+        ? _borderLight
+        : Colors.transparent;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovering = true),
+        onExit: (_) => setState(() => _hovering = false),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(12 + widget.indent, 11, 12, 11),
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: borderColor),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    widget.icon,
+                    size: widget.iconSize,
+                    color: active ? _accentHover : _textSecondary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.geist(
+                        fontSize: widget.fontSize,
+                        fontWeight: active
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        color: active ? _textPrimary : _textSecondary,
+                      ),
+                    ),
+                  ),
+                  if (widget.trailing != null) ...<Widget>[
+                    const SizedBox(width: 8),
+                    widget.trailing!,
+                  ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -1252,21 +1179,21 @@ class _SidebarIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: _GlassSurface(
-        borderRadius: BorderRadius.circular(999),
-        blurSigma: 18,
-        fillColor: _bgCard.withValues(alpha: 0.3),
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: SizedBox(
-              width: 38,
-              height: 38,
-              child: Icon(icon, size: 17, color: _textSecondary),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _bgCard,
+              border: Border.all(color: _borderLight),
             ),
+            child: Icon(icon, size: 17, color: _textSecondary),
           ),
         ),
       ),
