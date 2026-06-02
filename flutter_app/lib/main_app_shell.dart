@@ -1217,14 +1217,16 @@ class _HomeViewState extends State<HomeView> {
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: _GlassSurface(
-                      borderRadius: BorderRadius.circular(32),
-                      blurSigma: 28,
-                      boxShadow: _softPanelShadow,
-                      overlayGradient: _panelGradient,
-                      fillColor: _glassFill,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _bgPrimary,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: _border),
+                        boxShadow: _softPanelShadow,
+                      ),
+                      clipBehavior: Clip.antiAlias,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(32),
+                        borderRadius: BorderRadius.circular(24),
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 320),
                           switchInCurve: Curves.easeOutBack,
@@ -1293,14 +1295,16 @@ class _HomeViewState extends State<HomeView> {
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: _GlassSurface(
-              borderRadius: BorderRadius.circular(26),
-              blurSigma: 24,
-              boxShadow: _softPanelShadow,
-              overlayGradient: _panelGradient,
-              fillColor: _glassFill,
+            child: Container(
+              decoration: BoxDecoration(
+                color: _bgPrimary,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: _border),
+                boxShadow: _softPanelShadow,
+              ),
+              clipBehavior: Clip.antiAlias,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(26),
+                borderRadius: BorderRadius.circular(22),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 280),
                   switchInCurve: Curves.easeOutBack,
@@ -1436,27 +1440,41 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
+    return Container(
       width: 254,
-      borderRadius: BorderRadius.circular(30),
-      blurSigma: 26,
-      boxShadow: _softPanelShadow,
-      fillColor: _bgSecondary.withValues(alpha: 0.34),
-      overlayGradient: LinearGradient(
-        colors: <Color>[
-          _bgSecondary.withValues(alpha: 0.96),
-          _bgTertiary.withValues(alpha: 0.88),
-        ],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
+        boxShadow: _softPanelShadow,
       ),
-      child: Column(
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
         children: <Widget>[
-          Container(
-            padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: _border)),
+          // Sage glow, top-left — echoes the onboarding narrative pane.
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(-0.9, -0.95),
+                    radius: 1.1,
+                    colors: <Color>[
+                      _accentAlt.withValues(alpha: 0.16),
+                      _accentAlt.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
             ),
+          ),
+          Column(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _border)),
+                ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -1532,6 +1550,8 @@ class _Sidebar extends StatelessWidget {
               ],
             ),
           ),
+            ],
+          ),
         ],
       ),
     );
@@ -1597,27 +1617,14 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
       menuChildren: <Widget>[
         SizedBox(
           width: 320,
-          child: _GlassSurface(
-            borderRadius: BorderRadius.circular(24),
-            blurSigma: 28,
-            fillColor: _bgCard.withValues(alpha: 0.9),
-            overlayGradient: LinearGradient(
-              colors: <Color>[
-                Colors.white.withValues(alpha: 0.1),
-                _bgSecondary.withValues(alpha: 0.92),
-                _bgPrimary.withValues(alpha: 0.94),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+          child: Container(
+            decoration: BoxDecoration(
+              color: _bgCard,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
+              boxShadow: _softPanelShadow,
             ),
-            boxShadow: <BoxShadow>[
-              ..._softPanelShadow,
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 28,
-                offset: const Offset(0, 16),
-              ),
-            ],
+            clipBehavior: Clip.antiAlias,
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
@@ -1645,37 +1652,20 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
           child: Tooltip(
             message: 'Switch agent',
             child: InkWell(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(16),
               onTap: _toggleMenu,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
                 padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  gradient: LinearGradient(
-                    colors: <Color>[
-                      Colors.white.withValues(alpha: isMenuOpen ? 0.13 : 0.08),
-                      _accentMuted.withValues(alpha: isMenuOpen ? 0.24 : 0.14),
-                      _bgSecondary.withValues(alpha: isMenuOpen ? 0.92 : 0.84),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  color: isMenuOpen ? _accent.withValues(alpha: 0.10) : _bgCard,
                   border: Border.all(
                     color: isMenuOpen
-                        ? _accent.withValues(alpha: 0.65)
+                        ? _accent.withValues(alpha: 0.55)
                         : _borderLight,
                   ),
-                  boxShadow: isMenuOpen
-                      ? <BoxShadow>[
-                          BoxShadow(
-                            color: _accent.withValues(alpha: 0.16),
-                            blurRadius: 24,
-                            offset: const Offset(0, 10),
-                          ),
-                        ]
-                      : null,
                 ),
                 child: Row(
                   children: <Widget>[
@@ -1781,24 +1771,16 @@ class _AgentSwitcherMenuItem extends StatelessWidget {
       child: Tooltip(
         message: agent.displayName,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: selected
-                  ? LinearGradient(
-                      colors: <Color>[
-                        _accent.withValues(alpha: 0.18),
-                        _accentMuted.withValues(alpha: 0.3),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : null,
-              color: selected ? null : Colors.white.withValues(alpha: 0.025),
+              borderRadius: BorderRadius.circular(14),
+              color: selected ? _accent.withValues(alpha: 0.10) : _bgSecondary,
               border: Border.all(
-                color: selected ? _accent.withValues(alpha: 0.5) : _borderLight,
+                color: selected
+                    ? _accent.withValues(alpha: 0.55)
+                    : _borderLight,
               ),
             ),
             child: Padding(
