@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../main.dart';
+import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
 
 class OnboardingModelStep extends StatefulWidget {
@@ -100,7 +101,7 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
                 'No available models found.\nYou can configure providers later in Settings.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: paletteOf(context).textMuted,
                   fontSize: 16,
                   height: 1.5,
                 ),
@@ -193,6 +194,7 @@ class _ModelChoiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     final shellSize = compact ? 48.0 : 58.0;
     final iconSize = compact ? 24.0 : 30.0;
     final titleSize = compact ? 17.0 : 20.0;
@@ -231,7 +233,7 @@ class _ModelChoiceCard extends StatelessWidget {
                           : Icon(
                               Icons.radio_button_unchecked_rounded,
                               key: ValueKey<String>('idle-${model.id}'),
-                              color: Colors.white.withValues(alpha: 0.25),
+                              color: p.textMuted.withValues(alpha: 0.5),
                               size: 28,
                             ),
                     ),
@@ -243,9 +245,9 @@ class _ModelChoiceCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: p.textPrimary,
                     fontSize: titleSize,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -255,7 +257,7 @@ class _ModelChoiceCard extends StatelessWidget {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: p.bgSecondary,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -263,7 +265,7 @@ class _ModelChoiceCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
+                      color: p.textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -275,7 +277,7 @@ class _ModelChoiceCard extends StatelessWidget {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.68),
+                    color: p.textMuted,
                     fontSize: purposeSize,
                     height: 1.35,
                   ),
@@ -306,9 +308,9 @@ class _ModelChoiceCard extends StatelessWidget {
                           Text(
                             model.label,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: p.textPrimary,
                               fontSize: titleSize,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           Container(
@@ -317,13 +319,13 @@ class _ModelChoiceCard extends StatelessWidget {
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.08),
+                              color: p.bgSecondary,
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
                               model.provider,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.72),
+                                color: p.textMuted,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -335,7 +337,7 @@ class _ModelChoiceCard extends StatelessWidget {
                       Text(
                         model.purpose,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.68),
+                          color: p.textMuted,
                           fontSize: purposeSize,
                           height: 1.45,
                         ),
@@ -355,7 +357,7 @@ class _ModelChoiceCard extends StatelessWidget {
                       : Icon(
                           Icons.radio_button_unchecked_rounded,
                           key: ValueKey<String>('idle-${model.id}'),
-                          color: Colors.white.withValues(alpha: 0.25),
+                          color: p.textMuted.withValues(alpha: 0.5),
                           size: 28,
                         ),
                 ),

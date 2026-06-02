@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
 
 class OnboardingWelcomeStep extends StatelessWidget {
@@ -29,17 +30,22 @@ class OnboardingWelcomeStep extends StatelessWidget {
               .slideY(begin: 0.2),
         ],
       ),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Text(
-          'Set up your workspace in a few steps and start using NeoAgent immediately.',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.72),
-            fontSize: 18,
-            height: 1.55,
-            fontWeight: FontWeight.w500,
-          ),
-        ).animate().fadeIn(duration: 600.ms, delay: 380.ms),
+      child: Builder(
+        builder: (context) {
+          final p = paletteOf(context);
+          return Align(
+            alignment: Alignment.topLeft,
+            child: Text(
+              'Set up your workspace in a few steps and start using NeoAgent immediately.',
+              style: TextStyle(
+                color: p.textSecondary,
+                fontSize: 16,
+                height: 1.6,
+                fontWeight: FontWeight.w400,
+              ),
+            ).animate().fadeIn(duration: 600.ms, delay: 380.ms),
+          );
+        },
       ),
     );
   }

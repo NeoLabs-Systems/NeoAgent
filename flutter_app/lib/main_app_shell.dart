@@ -769,7 +769,7 @@ class _AuthViewState extends State<AuthView> {
                     Text(
                       'Scan with NeoAgent on your phone',
                       textAlign: titleAlignment,
-                      style: GoogleFonts.spaceGrotesk(
+                      style: GoogleFonts.geist(
                         fontSize: titleSize,
                         fontWeight: FontWeight.w700,
                         letterSpacing: compact ? -0.3 : -0.6,

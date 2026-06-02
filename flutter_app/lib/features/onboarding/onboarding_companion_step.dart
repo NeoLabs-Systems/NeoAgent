@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../main.dart';
+import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
 
 class OnboardingCompanionStep extends StatefulWidget {
@@ -189,12 +190,13 @@ class _OnboardingCompanionStepState extends State<OnboardingCompanionStep> {
   }
 
   Widget _buildChannelSelector() {
+    final p = paletteOf(context);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: p.bgSecondary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: p.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -234,7 +236,9 @@ class _OnboardingCompanionStepState extends State<OnboardingCompanionStep> {
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6),
+              color: isSelected
+                  ? paletteOf(context).textPrimary
+                  : paletteOf(context).textMuted,
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -333,12 +337,14 @@ class _OnboardingCompanionStepState extends State<OnboardingCompanionStep> {
                   _buildChannelSelector(),
                   if (_isLoadingReleases) ...[
                     const SizedBox(width: 12),
-                    const SizedBox(
+                    SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          paletteOf(context).textMuted,
+                        ),
                       ),
                     ),
                   ],
@@ -442,6 +448,7 @@ class _CompanionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     final shellSize = compact ? 48.0 : 58.0;
     final iconSize = compact ? 24.0 : 30.0;
 
@@ -473,10 +480,10 @@ class _CompanionCard extends StatelessWidget {
                 item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                style: TextStyle(
+                  color: p.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 6),
@@ -486,9 +493,9 @@ class _CompanionCard extends StatelessWidget {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.68),
+                    color: p.textMuted,
                     fontSize: 13,
-                    height: 1.35,
+                    height: 1.4,
                   ),
                 ),
               ),
@@ -525,17 +532,17 @@ class _CompanionCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       item.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       item.subtitle,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
+                        color: p.textMuted,
                         fontSize: 14,
                         height: 1.45,
                       ),
@@ -585,7 +592,7 @@ class _StatusIndicator extends StatelessWidget {
           : Icon(
               Icons.arrow_circle_down_rounded,
               key: const ValueKey<String>('downloadable'),
-              color: Colors.white.withValues(alpha: 0.26),
+              color: paletteOf(context).textMuted.withValues(alpha: 0.5),
               size: 28,
             ),
     );
@@ -600,6 +607,7 @@ class _DownloadButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     if (item.connected) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -630,12 +638,12 @@ class _DownloadButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: isClicked
-            ? Colors.white.withValues(alpha: 0.08)
+            ? p.bgSecondary
             : item.accentColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isClicked
-              ? Colors.white.withValues(alpha: 0.2)
+              ? p.borderLight
               : item.accentColor.withValues(alpha: 0.25),
         ),
       ),
@@ -645,13 +653,13 @@ class _DownloadButton extends StatelessWidget {
           Icon(
             isClicked ? Icons.hourglass_empty_rounded : Icons.open_in_new_rounded,
             size: 14,
-            color: isClicked ? Colors.white70 : item.accentColor,
+            color: isClicked ? p.textMuted : item.accentColor,
           ),
           const SizedBox(width: 6),
           Text(
             isClicked ? 'Waiting for pairing...' : item.buttonText,
             style: TextStyle(
-              color: isClicked ? Colors.white70 : Colors.white,
+              color: isClicked ? p.textMuted : item.accentColor,
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -673,26 +681,28 @@ class _PlatformSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: p.bgSecondary,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: p.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          _buildTab(TargetPlatform.macOS, 'macOS'),
-          _buildTab(TargetPlatform.windows, 'Windows'),
-          _buildTab(TargetPlatform.linux, 'Linux'),
+          _buildTab(context, TargetPlatform.macOS, 'macOS'),
+          _buildTab(context, TargetPlatform.windows, 'Windows'),
+          _buildTab(context, TargetPlatform.linux, 'Linux'),
         ],
       ),
     );
   }
 
-  Widget _buildTab(TargetPlatform platform, String label) {
+  Widget _buildTab(BuildContext context, TargetPlatform platform, String label) {
+    final p = paletteOf(context);
     final isSelected = selectedPlatform == platform;
     return Material(
       color: Colors.transparent,
@@ -703,13 +713,13 @@ class _PlatformSelector extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+            color: isSelected ? p.bgCard : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.5),
+              color: isSelected ? p.textPrimary : p.textMuted,
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),

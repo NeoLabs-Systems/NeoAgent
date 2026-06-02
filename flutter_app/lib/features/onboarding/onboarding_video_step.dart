@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
 
 class OnboardingVideoStep extends StatefulWidget {
@@ -75,26 +76,27 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
     final orientation = MediaQuery.orientationOf(context);
 
     if (_hasError) {
+      final p = paletteOf(context);
       return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: p.bgPrimary,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                const Icon(
+                Icon(
                   Icons.play_circle_outline_rounded,
-                  color: Colors.white70,
+                  color: p.accent,
                   size: 56,
                 ),
                 const SizedBox(height: 18),
-                const Text(
+                Text(
                   'Continue to setup',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: p.textPrimary,
                     fontSize: 26,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -102,7 +104,7 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
                   'The intro is not available on this device.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.68),
+                    color: p.textMuted,
                     fontSize: 15,
                     height: 1.5,
                   ),
@@ -135,7 +137,7 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: portrait ? paletteOf(context).bgPrimary : Colors.black,
       body: portrait
           ? const _RotatePrompt()
           : Stack(
@@ -183,21 +185,22 @@ class _RotatePrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(Icons.screen_rotation, color: Colors.white, size: 54),
+            Icon(Icons.screen_rotation, color: p.accent, size: 54),
             const SizedBox(height: 18),
-            const Text(
+            Text(
               'Rotate to continue',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white,
+                color: p.textPrimary,
                 fontSize: 24,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 10),
@@ -205,7 +208,7 @@ class _RotatePrompt extends StatelessWidget {
               'This intro is designed for full-screen landscape playback.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: p.textMuted,
                 fontSize: 15,
                 height: 1.5,
               ),

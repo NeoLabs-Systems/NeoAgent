@@ -1378,7 +1378,7 @@ class _BrandLockup extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = Text(
       'NeoAgent',
-      style: GoogleFonts.spaceGrotesk(
+      style: GoogleFonts.geist(
         fontSize: titleFontSize,
         fontWeight: FontWeight.w700,
         color: _textPrimary,
@@ -1569,7 +1569,7 @@ class _ChatBubble extends StatelessWidget {
                           code: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 fontFamily:
-                                    GoogleFonts.jetBrainsMono().fontFamily,
+                                    GoogleFonts.geistMono().fontFamily,
                                 backgroundColor: _bgPrimary,
                                 color: isUser ? Colors.white : _textPrimary,
                               ),
