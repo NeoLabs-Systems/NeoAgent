@@ -1206,67 +1206,53 @@ class _HomeViewState extends State<HomeView> {
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: <Widget>[
-                  _Sidebar(
-                    controller: controller,
-                    expandedGroup: _expandedSidebarGroup,
-                    onToggleGroup: _toggleSidebarGroup,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: _bgPrimary,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: _border),
-                        boxShadow: _softPanelShadow,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 320),
-                          switchInCurve: Curves.easeOutBack,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) {
-                            final offset = Tween<Offset>(
-                              begin: const Offset(0.018, 0.026),
-                              end: Offset.zero,
-                            ).animate(animation);
-                            final scale = Tween<double>(
-                              begin: 0.992,
-                              end: 1,
-                            ).animate(animation);
-                            return ScaleTransition(
-                              scale: scale,
-                              alignment: Alignment.topCenter,
-                              child: FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: offset,
-                                  child: child,
-                                ),
-                              ),
-                            );
-                          },
-                          child: KeyedSubtree(
-                            key: ValueKey<AppSection>(
-                              controller.selectedSection,
-                            ),
-                            child: _SectionBody(
-                              controller: controller,
-                              devicesPanelKey: _devicesPanelKey,
+            child: Row(
+              children: <Widget>[
+                _Sidebar(
+                  controller: controller,
+                  expandedGroup: _expandedSidebarGroup,
+                  onToggleGroup: _toggleSidebarGroup,
+                ),
+                Expanded(
+                  child: ClipRect(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 320),
+                      switchInCurve: Curves.easeOutBack,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) {
+                        final offset = Tween<Offset>(
+                          begin: const Offset(0.018, 0.026),
+                          end: Offset.zero,
+                        ).animate(animation);
+                        final scale = Tween<double>(
+                          begin: 0.992,
+                          end: 1,
+                        ).animate(animation);
+                        return ScaleTransition(
+                          scale: scale,
+                          alignment: Alignment.topCenter,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: offset,
+                              child: child,
                             ),
                           ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<AppSection>(
+                          controller.selectedSection,
+                        ),
+                        child: _SectionBody(
+                          controller: controller,
+                          devicesPanelKey: _devicesPanelKey,
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1441,68 +1427,57 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 254,
+      width: 270,
       decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _border),
-        boxShadow: _softPanelShadow,
+        border: Border(right: BorderSide(color: _border)),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
+      child: Column(
         children: <Widget>[
-          // Sage glow, top-left — echoes the onboarding narrative pane.
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(-0.9, -0.95),
-                    radius: 1.1,
-                    colors: <Color>[
-                      _accentAlt.withValues(alpha: 0.16),
-                      _accentAlt.withValues(alpha: 0),
+          // Brand lockup + "control surface" eyebrow.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 22, 18, 14),
+            child: Row(
+              children: <Widget>[
+                const _LogoBadge(size: 34),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        'NeoAgent',
+                        style: GoogleFonts.geist(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: _textPrimary,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'CONTROL SURFACE',
+                        style: GoogleFonts.geistMono(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: _textMuted,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
                     ],
                   ),
-                ),
-              ),
-            ),
-          ),
-          Column(
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _border)),
-                ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: const _BrandLockup(
-                        logoSize: 34,
-                        titleFontSize: 18,
-                        direction: Axis.horizontal,
-                        spacing: 12,
-                        alignment: CrossAxisAlignment.start,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
           ),
-          if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+          if (controller.agentProfiles.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
               child: _AgentSwitcher(controller: controller),
             ),
-          ],
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               children: _buildSidebarItems(
                 controller,
                 onSelect: controller.setSelectedSection,
@@ -1512,45 +1487,39 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(16, 10, 12, 12),
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _border)),
             ),
-            child: Column(
+            child: Row(
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        controller.accountLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                _ProfileSettingsButton(
+                  controller: controller,
+                  onTap: () => controller.setSelectedSection(
+                    AppSection.accountSettings,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    controller.accountLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.geist(
+                      color: _textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                     ),
-                    const SizedBox(width: 8),
-                    _ProfileSettingsButton(
-                      controller: controller,
-                      onTap: () => controller.setSelectedSection(
-                        AppSection.accountSettings,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _SidebarIconButton(
-                      tooltip: 'Logout',
-                      icon: Icons.logout,
-                      onTap: controller.logout,
-                    ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _SidebarIconButton(
+                  tooltip: 'Logout',
+                  icon: Icons.logout,
+                  onTap: controller.logout,
                 ),
               ],
             ),
-          ),
-            ],
           ),
         ],
       ),
@@ -1660,12 +1629,19 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                 padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: isMenuOpen ? _accent.withValues(alpha: 0.10) : _bgCard,
+                  color: _bgCard,
                   border: Border.all(
                     color: isMenuOpen
-                        ? _accent.withValues(alpha: 0.55)
+                        ? _accent.withValues(alpha: 0.45)
                         : _borderLight,
                   ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: <Widget>[

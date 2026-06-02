@@ -441,7 +441,7 @@ List<Widget> _buildSidebarItems(
             ? Icon(
                 expanded ? Icons.expand_less : Icons.expand_more,
                 size: 16,
-                color: active ? _accent : _textMuted,
+                color: active ? _textSecondary : _textMuted,
               )
             : null,
         onTap: hasChildren
@@ -1098,16 +1098,27 @@ class _SidebarButtonState extends State<_SidebarButton> {
   @override
   Widget build(BuildContext context) {
     final active = widget.active;
-    final Color fill = active
-        ? _accent.withValues(alpha: 0.10)
-        : _hovering
-        ? _bgCard
-        : Colors.transparent;
-    final Color borderColor = active
-        ? _accent.withValues(alpha: 0.55)
-        : _hovering
-        ? _borderLight
-        : Colors.transparent;
+    // Reference dashboard: the active item is a white elevated pill; inactive
+    // items are plain with a faint hover wash. No gold accent on the row.
+    final BoxDecoration decoration = active
+        ? BoxDecoration(
+            color: _bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _borderLight),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          )
+        : BoxDecoration(
+            color: _hovering
+                ? _bgCard.withValues(alpha: 0.5)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          );
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: MouseRegion(
@@ -1123,17 +1134,13 @@ class _SidebarButtonState extends State<_SidebarButton> {
               curve: Curves.easeOutCubic,
               width: double.infinity,
               padding: EdgeInsets.fromLTRB(12 + widget.indent, 11, 12, 11),
-              decoration: BoxDecoration(
-                color: fill,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: borderColor),
-              ),
+              decoration: decoration,
               child: Row(
                 children: <Widget>[
                   Icon(
                     widget.icon,
                     size: widget.iconSize,
-                    color: active ? _accentHover : _textSecondary,
+                    color: active ? _textPrimary : _textSecondary,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
