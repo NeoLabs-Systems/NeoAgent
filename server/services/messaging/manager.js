@@ -473,10 +473,11 @@ class MessagingManager extends EventEmitter {
     const agentId = this._agentId(userId, options);
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
-    if (!platform) return { status: 'not_connected' };
 
-    await platform.disconnect();
-    this.platforms.delete(key);
+    if (platform) {
+      await platform.disconnect();
+      this.platforms.delete(key);
+    }
 
     db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
       .run('disconnected', userId, agentId, platformName);
