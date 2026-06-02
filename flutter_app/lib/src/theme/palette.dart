@@ -1,5 +1,13 @@
 import 'package:flutter/widgets.dart';
 
+/// Resolves the active [NeoAgentPalette] for the given [brightness].
+NeoAgentPalette paletteFor(Brightness brightness) =>
+    brightness == Brightness.light ? lightPalette : darkPalette;
+
+/// Resolves the active [NeoAgentPalette] from the ambient theme brightness.
+NeoAgentPalette paletteOf(BuildContext context) =>
+    paletteFor(MediaQuery.platformBrightnessOf(context));
+
 /// Canonical color tokens for the NeoAgent "Control Surface" design system.
 ///
 /// Visual language: warm-organic "agent OS" — olive/sage greens paired with

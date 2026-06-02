@@ -3400,7 +3400,7 @@ class _RunResponseCard extends StatelessWidget {
                         height: 1.6,
                       ),
                       code: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                        fontFamily: GoogleFonts.geistMono().fontFamily,
                         backgroundColor: _bgSecondary,
                         color: _textPrimary,
                       ),
@@ -3484,7 +3484,7 @@ class _DeliverableSummaryCard extends StatelessWidget {
                               color: _textSecondary,
                               fontSize: 12,
                               fontFamily:
-                                  GoogleFonts.jetBrainsMono().fontFamily,
+                                  GoogleFonts.geistMono().fontFamily,
                             ),
                           ),
                         ],
@@ -3795,7 +3795,7 @@ class _RunDetailBlock extends StatelessWidget {
                 fontSize: 12.5,
                 color: _textPrimary,
                 fontFamily: monospace
-                    ? GoogleFonts.jetBrainsMono().fontFamily
+                    ? GoogleFonts.geistMono().fontFamily
                     : null,
               ),
             ),

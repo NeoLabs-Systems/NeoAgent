@@ -1173,7 +1173,7 @@ class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
                   const SizedBox(height: 28),
                   Text(
                     'Scan a NeoAgent login QR',
-                    style: GoogleFonts.spaceGrotesk(
+                    style: GoogleFonts.geist(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,

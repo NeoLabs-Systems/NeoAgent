@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
+import '../../src/theme/palette.dart';
 import 'onboarding_video_step.dart';
 import 'onboarding_welcome_step.dart';
 import 'onboarding_companion_step.dart';
@@ -38,7 +39,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Deep black for video and transitions
+      backgroundColor: paletteOf(context).bgPrimary,
       body: PageView(
         controller: _pageController,
         physics:

@@ -470,7 +470,7 @@ class _LogsPanelState extends State<LogsPanel> {
                           style: TextStyle(
                             fontSize: 12,
                             height: 1.5,
-                            fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                            fontFamily: GoogleFonts.geistMono().fontFamily,
                           ),
                         ),
                       );
@@ -4710,7 +4710,7 @@ class _TasksPanelState extends State<TasksPanel> {
                 task.scheduleLabel,
                 style: TextStyle(
                   color: _textSecondary,
-                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                  fontFamily: GoogleFonts.geistMono().fontFamily,
                 ),
               ),
               if (task.hasModelOverride) ...<Widget>[
@@ -4812,7 +4812,7 @@ class _TasksPanelState extends State<TasksPanel> {
                 task.scheduleLabel,
                 style: TextStyle(
                   color: _textSecondary,
-                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                  fontFamily: GoogleFonts.geistMono().fontFamily,
                 ),
               ),
               const SizedBox(height: 8),
