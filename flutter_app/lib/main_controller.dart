@@ -91,6 +91,8 @@ class NeoAgentController extends ChangeNotifier {
   bool isSavingReleaseChannel = false;
   bool isSyncingHealth = false;
   bool isRunningDeviceAction = false;
+  bool isLoadingWorkspaceFiles = false;
+  bool isSavingWorkspaceFile = false;
   bool isPreparingQrLogin = false;
   bool isApprovingQrLogin = false;
   bool isCheckingAppUpdate = false;
@@ -188,6 +190,10 @@ class NeoAgentController extends ChangeNotifier {
   String? androidLastResult;
   String? desktopLastResult;
   String? androidUiDumpPath;
+  String workspaceCurrentPath = '';
+  String? workspaceSelectedFilePath;
+  String workspaceEditorContent = '';
+  List<Map<String, dynamic>> workspaceEntries = const <Map<String, dynamic>>[];
   final Map<String, RunDetailSnapshot> _runDetailsCache =
       <String, RunDetailSnapshot>{};
   String? _selectedWidgetId;
@@ -3466,6 +3472,102 @@ class NeoAgentController extends ChangeNotifier {
         paused: paused,
       ),
     );
+  }
+
+  String workspaceDownloadUrl(String path) {
+    return '${_socketOrigin()}/${_backendClient.workspaceDownloadPath(path).replaceFirst(RegExp(r'^/'), '')}';
+  }
+
+  Future<void> refreshWorkspaceFiles({String? path}) async {
+    if (!isAuthenticated || isLoadingWorkspaceFiles) {
+      return;
+    }
+    isLoadingWorkspaceFiles = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.fetchWorkspaceDirectory(
+        backendUrl,
+        path: path ?? workspaceCurrentPath,
+      );
+      workspaceCurrentPath = response['path']?.toString() ?? '';
+      workspaceEntries = _jsonMapList(
+        response['entries'],
+        fallbackToMapValues: true,
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isLoadingWorkspaceFiles = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> openWorkspaceDirectory(String path) async {
+    workspaceSelectedFilePath = null;
+    workspaceEditorContent = '';
+    await refreshWorkspaceFiles(path: path);
+  }
+
+  Future<void> openWorkspaceFile(String path) async {
+    if (isLoadingWorkspaceFiles) {
+      return;
+    }
+    isLoadingWorkspaceFiles = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.fetchWorkspaceFile(
+        backendUrl,
+        path: path,
+      );
+      workspaceSelectedFilePath = response['path']?.toString() ?? path;
+      workspaceEditorContent = response['content']?.toString() ?? '';
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isLoadingWorkspaceFiles = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> saveWorkspaceFile(String content) async {
+    final path = workspaceSelectedFilePath?.trim() ?? '';
+    if (path.isEmpty || isSavingWorkspaceFile) {
+      return;
+    }
+    isSavingWorkspaceFile = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _backendClient.saveWorkspaceFile(
+        backendUrl,
+        path: path,
+        content: content,
+      );
+      workspaceEditorContent = content;
+      await refreshWorkspaceFiles(path: workspaceCurrentPath);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingWorkspaceFile = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> downloadWorkspaceFile(String path) async {
+    final normalized = path.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final result = await _oauthLauncher.openExternal(
+      url: workspaceDownloadUrl(normalized),
+      label: 'neoagent_workspace_file_download',
+    );
+    if (!result.launched) {
+      errorMessage = result.error ?? 'Could not open workspace file download.';
+      notifyListeners();
+    }
   }
 
   Uri resolveRuntimeAsset(String path) {
