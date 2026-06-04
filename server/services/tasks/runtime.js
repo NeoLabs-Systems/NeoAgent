@@ -62,11 +62,7 @@ function stringifyTaskResult(result) {
     if (nested) return nested;
   }
 
-  try {
-    return JSON.stringify(result, null, 2);
-  } catch {
-    return String(result || '');
-  }
+  return '';
 }
 
 class TaskRuntime {
