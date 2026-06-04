@@ -104,6 +104,9 @@ class MessagingManager extends EventEmitter {
       return null;
     }
 
+    const normalizedIncomingContent = normalizeOutgoingMessageForPlatform(platformName, msg?.content, {
+      stripNoResponseMarker: false
+    });
     const agentId = this._agentId(userId, {
       ...options,
       agentId: options?.agentId ?? msg?.agentId ?? null,
@@ -135,7 +138,7 @@ class MessagingManager extends EventEmitter {
         userId,
         agentId,
         'user',
-        msg.content,
+        normalizedIncomingContent,
         platformName,
         msg.messageId,
         msg.chatId,
@@ -143,7 +146,7 @@ class MessagingManager extends EventEmitter {
         msg.timestamp,
       );
 
-    const enrichedMsg = { ...msg, agentId, platform: platformName };
+    const enrichedMsg = { ...msg, content: normalizedIncomingContent, agentId, platform: platformName };
 
     if (this.isShuttingDown) {
       return enrichedMsg;

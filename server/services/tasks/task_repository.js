@@ -131,6 +131,19 @@ class TaskRepository {
       .run(JSON.stringify(taskConfig), taskId, userId);
   }
 
+  listRecentMessageTargets(userId, agentId, limit = 20) {
+    return db.prepare(
+      `SELECT platform, platform_chat_id
+       FROM messages
+       WHERE user_id = ?
+         AND agent_id = ?
+         AND platform IS NOT NULL
+         AND platform_chat_id IS NOT NULL
+       ORDER BY id DESC
+       LIMIT ?`
+    ).all(userId, agentId, Math.max(1, Math.min(Number(limit) || 20, 100)));
+  }
+
   getAgentSetting(userId, agentId, key) {
     return db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
       .get(userId, agentId, key);
