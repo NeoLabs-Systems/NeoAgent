@@ -13,10 +13,61 @@ const { TaskRepository } = require('./task_repository');
 const { TriggerRegistry } = require('./trigger_registry');
 const scheduleAdapter = require('./adapters/schedule');
 const { normalizeJsonObject } = require('./utils');
+const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
 const INTEGRATION_TRIGGER_POLL_CRON = '* * * * *';
+
+function normalizeStoredString(value) {
+  if (value == null) return '';
+  if (typeof value !== 'string') return String(value || '').trim();
+  let current = value.trim();
+  for (let i = 0; i < 2; i += 1) {
+    if (!current) return '';
+    try {
+      const parsed = JSON.parse(current);
+      if (typeof parsed === 'string') {
+        current = parsed.trim();
+        continue;
+      }
+      return '';
+    } catch {
+      return current;
+    }
+  }
+  return current;
+}
+
+function normalizeNotifyTarget(target = {}) {
+  const platform = normalizeStoredString(target.platform);
+  const to = normalizeStoredString(target.to);
+  if (!platform || !to) return null;
+  return { platform, to };
+}
+
+function stringifyTaskResult(result) {
+  if (typeof result === 'string') return result;
+  if (result == null) return '';
+  if (typeof result !== 'object') return String(result);
+
+  for (const key of ['content', 'message', 'text', 'summary', 'finalResponse', 'final_response']) {
+    if (typeof result[key] === 'string' && result[key].trim()) {
+      return result[key];
+    }
+  }
+
+  if (result.result != null && result.result !== result) {
+    const nested = stringifyTaskResult(result.result);
+    if (nested) return nested;
+  }
+
+  try {
+    return JSON.stringify(result, null, 2);
+  } catch {
+    return String(result || '');
+  }
+}
 
 class TaskRuntime {
   constructor(io, agentEngine, app = null) {
@@ -343,6 +394,17 @@ class TaskRuntime {
           const result = typeof this.agentEngine.runWithModel === 'function'
             ? await this.agentEngine.runWithModel(userId, finalPrompt, runOptions, normalizedConfig.model || null)
             : await this.agentEngine.run(userId, finalPrompt, runOptions);
+          const fallbackDelivery = await this._deliverTaskResultIfNeeded({
+            userId,
+            agentId,
+            taskId,
+            taskConfig: normalizedConfig,
+            result,
+            deliveryState,
+          });
+          if (fallbackDelivery && result && typeof result === 'object') {
+            result.taskDelivery = fallbackDelivery;
+          }
           this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
           return result;
         } catch (err) {
@@ -362,7 +424,11 @@ class TaskRuntime {
       }
     } catch (err) {
       console.error(`[Tasks] Task ${taskId} error:`, err.message);
-      this.io.to(`user:${userId}`).emit('tasks:task_error', { taskId, error: err.message });
+      this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
+        taskId,
+        reason: 'execution_failed',
+        timestamp: new Date().toISOString(),
+      });
       return { skipped: false, error: err.message };
     }
   }
@@ -486,23 +552,132 @@ class TaskRuntime {
 
   _getDefaultNotifyTarget(userId, agentId = null) {
     const scopedAgentId = resolveAgentId(userId, agentId);
-    return {
+    return normalizeNotifyTarget({
       platform: this._getAgentSetting(userId, scopedAgentId, 'last_platform'),
       to: this._getAgentSetting(userId, scopedAgentId, 'last_chat_id'),
-    };
+    });
+  }
+
+  _buildNotifyTargets(userId, agentId, taskConfig = {}) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
+    const candidates = [
+      normalizeNotifyTarget({
+        platform: taskConfig.notifyPlatform,
+        to: taskConfig.notifyTo,
+      }),
+      this._getDefaultNotifyTarget(userId, scopedAgentId),
+      ...this.taskRepository.listRecentMessageTargets(userId, scopedAgentId).map((row) => normalizeNotifyTarget({
+        platform: row.platform,
+        to: row.platform_chat_id,
+      })),
+    ];
+
+    const unique = [];
+    const seen = new Set();
+    for (const target of candidates) {
+      if (!target) continue;
+      const key = `${target.platform}:${target.to}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(target);
+    }
+    return unique;
   }
 
   _ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId) {
     const normalized = { ...taskConfig };
-    if (!normalized.callTo && (!normalized.notifyPlatform || !normalized.notifyTo)) {
-      const notifyTarget = this._getDefaultNotifyTarget(userId, agentId);
-      if (notifyTarget.platform && notifyTarget.to) {
+    const existingTarget = normalizeNotifyTarget({
+      platform: normalized.notifyPlatform,
+      to: normalized.notifyTo,
+    });
+    if (existingTarget) {
+      normalized.notifyPlatform = existingTarget.platform;
+      normalized.notifyTo = existingTarget.to;
+    }
+    if (!normalized.callTo && !existingTarget) {
+      const notifyTarget = this._buildNotifyTargets(userId, agentId, normalized)[0];
+      if (notifyTarget) {
         normalized.notifyPlatform = notifyTarget.platform;
         normalized.notifyTo = notifyTarget.to;
-        this.taskRepository.updateTaskConfig(taskId, userId, normalized);
       }
     }
+    if (
+      normalized.notifyPlatform !== taskConfig.notifyPlatform
+      || normalized.notifyTo !== taskConfig.notifyTo
+    ) {
+      this.taskRepository.updateTaskConfig(taskId, userId, normalized);
+    }
     return normalized;
+  }
+
+  async _deliverTaskResultIfNeeded({
+    userId,
+    agentId,
+    taskId,
+    taskConfig,
+    result,
+    deliveryState,
+  }) {
+    if (deliveryState?.messagingSent || taskConfig.callTo) return null;
+    const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
+    if (!manager) return null;
+
+    const targets = this._buildNotifyTargets(userId, agentId, taskConfig);
+    if (!targets.length) return null;
+
+    let lastError = null;
+    for (const target of targets) {
+      const message = normalizeOutgoingMessageForPlatform(
+        target.platform,
+        stringifyTaskResult(result),
+        { stripNoResponseMarker: false },
+      );
+      if (!message || message.toUpperCase() === '[NO RESPONSE]') return null;
+
+      const status = typeof manager.getPlatformStatus === 'function'
+        ? manager.getPlatformStatus(userId, target.platform, { agentId })
+        : null;
+      if (!status || status.status !== 'connected') {
+        lastError = new Error(`Platform ${target.platform} is not connected on this server.`);
+        continue;
+      }
+
+      try {
+        const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
+          agentId,
+          runId: result?.runId || null,
+          persistConversation: true,
+        });
+        deliveryState.messagingSent = true;
+        deliveryState.lastSentMessage = message;
+        if (!Array.isArray(deliveryState.sentMessages)) {
+          deliveryState.sentMessages = [];
+        }
+        deliveryState.sentMessages.push(message);
+
+        if (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to) {
+          this.taskRepository.updateTaskConfig(taskId, userId, {
+            ...taskConfig,
+            notifyPlatform: target.platform,
+            notifyTo: target.to,
+          });
+        }
+
+        return {
+          sent: true,
+          platform: target.platform,
+          to: target.to,
+          result: sendResult,
+        };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError) {
+      console.error(`[Tasks] Task ${taskId} notification delivery failed:`, lastError.message);
+    }
+    return null;
   }
 
   _getTaskConversation(userId, taskId, taskName, agentId = null) {
