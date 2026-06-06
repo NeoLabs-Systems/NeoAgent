@@ -185,6 +185,8 @@ class TaskRuntime {
       manual: true,
       triggerType: task.trigger_type || 'schedule',
       triggerSource: 'manual',
+    }).catch((error) => {
+      console.error(`[Tasks] Manual task ${taskId} error:`, error.message);
     });
     return { running: true };
   }
@@ -199,9 +201,8 @@ class TaskRuntime {
     if (String(task.last_trigger_fingerprint || '') === fingerprint) {
       return { skipped: true, reason: 'duplicate_trigger' };
     }
-    this.taskRepository.markTaskTriggered(taskId, userId, fingerprint);
 
-    return this._executeTask(taskId, userId, {
+    const result = await this._executeTask(taskId, userId, {
       manual: false,
       oneTime: false,
       scheduledAt: triggerPayload.timestamp || new Date().toISOString(),
@@ -209,39 +210,58 @@ class TaskRuntime {
       triggerSource: task.trigger_type || 'schedule',
       triggerPayload: triggerPayload.context || {},
     });
+    if (!result?.error && !result?.skipped) {
+      this.taskRepository.markTaskTriggered(taskId, userId, fingerprint);
+    }
+    return result;
   }
 
   _startOneTimePoller() {
     this.oneTimePoller = cron.schedule('* * * * *', async () => {
-      const due = this.taskRepository.listDueOneTimeTasks();
-
-      for (const task of due) {
-        this.scheduleJobs.delete(task.id);
-        try {
-          await this._executeTask(task.id, task.user_id, {
-            scheduledAt: task.run_at || new Date().toISOString(),
-            oneTime: true,
-            triggerType: 'schedule',
-            triggerSource: 'schedule',
-          });
-        } catch (err) {
-          console.error(`[Tasks] One-time task ${task.id} error:`, err.message);
-        }
-        this.taskRepository.deleteById(task.id, task.user_id);
-        this.io.to(`user:${task.user_id}`).emit('tasks:task_deleted', { taskId: task.id });
+      try {
+        await this._runDueOneTimeTasks();
+      } catch (error) {
+        console.error('[Tasks] One-time task poll failed:', error.message);
       }
     });
   }
 
+  async _runDueOneTimeTasks() {
+    const due = this.taskRepository.listDueOneTimeTasks();
+
+    for (const task of due) {
+      this.scheduleJobs.delete(task.id);
+      try {
+        const result = await this._executeTask(task.id, task.user_id, {
+          scheduledAt: task.run_at || new Date().toISOString(),
+          oneTime: true,
+          triggerType: 'schedule',
+          triggerSource: 'schedule',
+        });
+        if (result?.skipped) {
+          continue;
+        }
+        this.taskRepository.deleteTask(task.id, task.user_id);
+        this.io.to(`user:${task.user_id}`).emit('tasks:task_deleted', { taskId: task.id });
+      } catch (err) {
+        console.error(`[Tasks] One-time task ${task.id} error:`, err.message);
+      }
+    }
+  }
+
   _startIntegrationPoller() {
     this.integrationPoller = cron.schedule(INTEGRATION_TRIGGER_POLL_CRON, async () => {
-      const tasks = this.taskRepository.listEnabledByTriggerTypes(POLLED_TRIGGER_TYPES);
-      for (const task of tasks) {
-        try {
-          await pollIntegrationTask(this, task);
-        } catch (error) {
-          console.error(`[Tasks] Trigger poll failed for task ${task.id}:`, error.message);
+      try {
+        const tasks = this.taskRepository.listEnabledByTriggerTypes(POLLED_TRIGGER_TYPES);
+        for (const task of tasks) {
+          try {
+            await pollIntegrationTask(this, task);
+          } catch (error) {
+            console.error(`[Tasks] Trigger poll failed for task ${task.id}:`, error.message);
+          }
         }
+      } catch (error) {
+        console.error('[Tasks] Integration trigger poll failed:', error.message);
       }
     });
   }
@@ -254,13 +274,17 @@ class TaskRuntime {
     const cronExpression = String(triggerConfig.cronExpression || '').trim();
     if (!cronExpression) return;
     const job = cron.schedule(cronExpression, async () => {
-      await this._executeTask(task.id, task.user_id, {
-        scheduledAt: new Date().toISOString(),
-        manual: false,
-        oneTime: false,
-        triggerType: 'schedule',
-        triggerSource: 'schedule',
-      });
+      try {
+        await this._executeTask(task.id, task.user_id, {
+          scheduledAt: new Date().toISOString(),
+          manual: false,
+          oneTime: false,
+          triggerType: 'schedule',
+          triggerSource: 'schedule',
+        });
+      } catch (error) {
+        console.error(`[Tasks] Scheduled task ${task.id} error:`, error.message);
+      }
     });
     this.scheduleJobs.set(task.id, { task: job, userId: task.user_id });
   }
@@ -328,6 +352,7 @@ class TaskRuntime {
       lastSentMessage: '',
       sentMessages: [],
     };
+    let completedRunId = null;
     try {
       if (task.task_type === 'widget_refresh') {
         const widgetService = this.app?.locals?.widgetService;
@@ -396,6 +421,7 @@ class TaskRuntime {
           const result = typeof this.agentEngine.runWithModel === 'function'
             ? await this.agentEngine.runWithModel(userId, finalPrompt, runOptions, normalizedConfig.model || null)
             : await this.agentEngine.run(userId, finalPrompt, runOptions);
+          completedRunId = result?.runId || null;
           const fallbackDelivery = await this._deliverTaskResultIfNeeded({
             userId,
             agentId,
@@ -406,6 +432,11 @@ class TaskRuntime {
           });
           if (fallbackDelivery && result && typeof result === 'object') {
             result.taskDelivery = fallbackDelivery;
+          }
+          if (fallbackDelivery?.error) {
+            const deliveryError = new Error(fallbackDelivery.error);
+            deliveryError.code = 'TASK_DELIVERY_FAILED';
+            throw deliveryError;
           }
           if (
             !deliveryState.messagingSent
@@ -419,8 +450,13 @@ class TaskRuntime {
           this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
           return result;
         } catch (err) {
+          if (completedRunId) {
+            this.taskRepository.markAgentRunFailed(completedRunId, userId, err.message);
+          }
+          if (err?.code === 'TASK_DELIVERY_FAILED') throw err;
           if (attempt >= MAX_AUTONOMOUS_RETRIES) throw err;
           attempt += 1;
+          completedRunId = null;
           recoveryNote = [
             '\n\n[SYSTEM: Previous task attempt failed]',
             `Error: ${String(err?.message || 'Unknown runtime error')}`,
@@ -435,22 +471,24 @@ class TaskRuntime {
       }
     } catch (err) {
       console.error(`[Tasks] Task ${taskId} error:`, err.message);
-      await this._deliverTaskResultIfNeeded({
-        userId,
-        agentId,
-        taskId,
-        taskConfig: normalizedConfig,
-        result: {
-          content: `Background task "${taskName}" could not complete after retrying. Check the task run logs for details.`,
-        },
-        deliveryState,
-      });
+      if (err?.code !== 'TASK_DELIVERY_FAILED') {
+        await this._deliverTaskResultIfNeeded({
+          userId,
+          agentId,
+          taskId,
+          taskConfig: normalizedConfig,
+          result: {
+            content: `Background task "${taskName}" could not complete after retrying. Check the task run logs for details.`,
+          },
+          deliveryState,
+        });
+      }
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
         reason: 'execution_failed',
         timestamp: new Date().toISOString(),
       });
-      return { skipped: false, error: err.message };
+      return { skipped: false, error: err.message, runId: completedRunId };
     }
   }
 
@@ -539,7 +577,10 @@ class TaskRuntime {
       triggerSummary,
       nextRun: triggerType === 'schedule' ? scheduleAdapter.nextRun(triggerConfig) : null,
       enabled: !!row.enabled,
-      lastRun: row.last_run || null,
+      lastRun: row.last_run_started_at || row.last_run || null,
+      lastRunId: row.last_run_id || null,
+      lastRunStatus: row.last_run_status || null,
+      lastRunError: row.last_run_error || null,
       lastTriggeredAt: row.last_triggered_at || null,
       taskType: row.task_type || 'agent_prompt',
       taskConfig,
@@ -640,11 +681,16 @@ class TaskRuntime {
     deliveryState,
   }) {
     if (deliveryState?.messagingSent || deliveryState?.noResponse || taskConfig.callTo) return null;
-    const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
-    if (!manager) return null;
-
     const targets = this._buildNotifyTargets(userId, agentId, taskConfig);
     if (!targets.length) return null;
+
+    const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
+    if (!manager) {
+      return {
+        sent: false,
+        error: 'Messaging delivery is unavailable on this server.',
+      };
+    }
 
     let lastError = null;
     for (const target of targets) {
@@ -697,6 +743,10 @@ class TaskRuntime {
 
     if (lastError) {
       console.error(`[Tasks] Task ${taskId} notification delivery failed:`, lastError.message);
+      return {
+        sent: false,
+        error: lastError.message,
+      };
     }
     return null;
   }

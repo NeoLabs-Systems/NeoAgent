@@ -3099,6 +3099,9 @@ class TaskItem {
     required this.model,
     required this.enabled,
     required this.lastRun,
+    required this.lastRunId,
+    required this.lastRunStatus,
+    required this.lastRunError,
     required this.taskType,
     required this.widgetId,
   });
@@ -3144,6 +3147,9 @@ class TaskItem {
           '',
       enabled: json['enabled'] != false,
       lastRun: _parseOptionalTimestamp(json['lastRun']?.toString()),
+      lastRunId: json['lastRunId']?.toString() ?? '',
+      lastRunStatus: json['lastRunStatus']?.toString() ?? '',
+      lastRunError: json['lastRunError']?.toString() ?? '',
       taskType:
           json['taskType']?.toString().ifEmpty(
             json['task_type']?.toString() ?? 'agent_prompt',
@@ -3168,12 +3174,20 @@ class TaskItem {
   final String model;
   final bool enabled;
   final DateTime? lastRun;
+  final String lastRunId;
+  final String lastRunStatus;
+  final String lastRunError;
   final String taskType;
   final String widgetId;
 
   String get scheduleLabel =>
       triggerSummary.trim().isEmpty ? 'Task trigger' : triggerSummary;
   String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
+  String get lastRunStatusLabel =>
+      _titleCase(lastRunStatus.replaceAll('_', ' '));
+  bool get hasLastRunStatus => lastRunStatus.trim().isNotEmpty;
+  bool get lastRunFailed =>
+      lastRunStatus == 'failed' || lastRunStatus == 'error';
   bool get hasModelOverride => model.trim().isNotEmpty;
   bool get isWidgetRefresh => taskType == 'widget_refresh';
 }
