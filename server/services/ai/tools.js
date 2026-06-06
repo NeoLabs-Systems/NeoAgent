@@ -274,6 +274,15 @@ function markProactiveMessageSent({ runState, deliveryState, content }) {
     }
 }
 
+function markProactiveNoResponse({ runState, deliveryState }) {
+    if (runState) {
+        runState.noResponse = true;
+    }
+    if (deliveryState) {
+        deliveryState.noResponse = true;
+    }
+}
+
 function normalizeStoredSettingString(value) {
     if (value == null) return '';
     if (typeof value !== 'string') return String(value || '').trim();
@@ -2138,6 +2147,9 @@ async function executeTool(toolName, args, context, engine) {
                         return {
                             error: proactiveValidation.error,
                         };
+                    }
+                    if (proactiveValidation.reason === 'no_response') {
+                        markProactiveNoResponse({ runState, deliveryState });
                     }
                     return {
                         sent: false,
