@@ -320,6 +320,14 @@ class TaskRuntime {
     this.taskRepository.markTaskRun(taskId, userId);
     this.io.to(`user:${userId}`).emit('tasks:task_running', { taskId, timestamp: new Date().toISOString() });
 
+    let normalizedConfig = taskConfig;
+    const taskName = task.name || `Task ${taskId}`;
+    const deliveryState = {
+      messagingSent: false,
+      noResponse: false,
+      lastSentMessage: '',
+      sentMessages: [],
+    };
     try {
       if (task.task_type === 'widget_refresh') {
         const widgetService = this.app?.locals?.widgetService;
@@ -335,8 +343,7 @@ class TaskRuntime {
         return result;
       }
 
-      const normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
-      const taskName = task.name || `Task ${taskId}`;
+      normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
 
@@ -362,7 +369,6 @@ class TaskRuntime {
       ].filter(Boolean).join('\n\n');
 
       const conversationId = this._getTaskConversation(userId, taskId, taskName, agentId);
-      const deliveryState = { messagingSent: false, lastSentMessage: '', sentMessages: [] };
       let attempt = 0;
       let recoveryNote = '';
       while (attempt <= MAX_AUTONOMOUS_RETRIES) {
@@ -401,6 +407,15 @@ class TaskRuntime {
           if (fallbackDelivery && result && typeof result === 'object') {
             result.taskDelivery = fallbackDelivery;
           }
+          if (
+            !deliveryState.messagingSent
+            && !deliveryState.noResponse
+            && !stringifyTaskResult(result).trim()
+          ) {
+            throw new Error(
+              'Background task completed without producing a result or an explicit no-response decision.',
+            );
+          }
           this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
           return result;
         } catch (err) {
@@ -420,6 +435,16 @@ class TaskRuntime {
       }
     } catch (err) {
       console.error(`[Tasks] Task ${taskId} error:`, err.message);
+      await this._deliverTaskResultIfNeeded({
+        userId,
+        agentId,
+        taskId,
+        taskConfig: normalizedConfig,
+        result: {
+          content: `Background task "${taskName}" could not complete after retrying. Check the task run logs for details.`,
+        },
+        deliveryState,
+      });
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
         reason: 'execution_failed',
@@ -614,7 +639,7 @@ class TaskRuntime {
     result,
     deliveryState,
   }) {
-    if (deliveryState?.messagingSent || taskConfig.callTo) return null;
+    if (deliveryState?.messagingSent || deliveryState?.noResponse || taskConfig.callTo) return null;
     const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
     if (!manager) return null;
 

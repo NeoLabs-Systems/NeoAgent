@@ -1666,6 +1666,7 @@ class AgentEngine {
       status: 'running',
       aborted: false,
       messagingSent: false,
+      noResponse: false,
       explicitMessageSent: carriedExplicitMessageSent,
       lastSentMessage: carriedExplicitMessageSent ? carriedVisibleMessage : '',
       sentMessages: [],
@@ -2199,7 +2200,17 @@ class AgentEngine {
             break;
           }
           if (iteration < maxIterations) {
-            const fallbackStatus = (toolExecutions.length > 0 || failedStepCount > 0 || messagingSent) ? 'continue' : 'complete';
+            const proactiveRunNeedsDecision = (
+              (triggerSource === 'schedule' || triggerSource === 'tasks')
+              && this.activeRuns.get(runId)?.noResponse !== true
+              && options.deliveryState?.noResponse !== true
+            );
+            const fallbackStatus = (
+              proactiveRunNeedsDecision
+              || toolExecutions.length > 0
+              || failedStepCount > 0
+              || messagingSent
+            ) ? 'continue' : 'complete';
             const loopState = await runWithModelFallback('loop decision', () => this.decideLoopState({
               provider,
               providerName,
@@ -2596,6 +2607,18 @@ class AgentEngine {
         && !messagingSent
         && runMeta?.widgetSnapshotSaved !== true
       ) {
+        const explicitNoResponse = (
+          runMeta?.noResponse === true
+          || options.deliveryState?.noResponse === true
+        );
+        if (
+          (triggerSource === 'schedule' || triggerSource === 'tasks')
+          && !explicitNoResponse
+        ) {
+          throw new Error(
+            'Background run ended without producing a result or an explicit no-response decision.',
+          );
+        }
         if (iteration >= maxIterations) {
           throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
         }
