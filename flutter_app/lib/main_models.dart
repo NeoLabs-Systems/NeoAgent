@@ -3397,6 +3397,9 @@ class McpServerItem {
     required this.enabled,
     required this.status,
     required this.toolCount,
+    required this.error,
+    required this.consecutiveFails,
+    required this.nextRetryAt,
   });
 
   factory McpServerItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3411,6 +3414,9 @@ class McpServerItem {
       enabled: json['enabled'] == true,
       status: json['status']?.toString().ifEmpty('stopped') ?? 'stopped',
       toolCount: _asInt(json['toolCount']),
+      error: json['error']?.toString(),
+      consecutiveFails: _asInt(json['consecutiveFails']),
+      nextRetryAt: _parseOptionalTimestamp(json['nextRetryAt']?.toString()),
     );
   }
 
@@ -3422,6 +3428,14 @@ class McpServerItem {
   final bool enabled;
   final String status;
   final int toolCount;
+  final String? error;
+  final int consecutiveFails;
+  final DateTime? nextRetryAt;
+
+  bool get hasError => (error ?? '').trim().isNotEmpty;
+  String get retryLabel => nextRetryAt == null
+      ? ''
+      : 'Next retry: ${_formatTimestamp(nextRetryAt!)}';
 
   String get authMethodLabel {
     final auth = _jsonMap(config['auth']);

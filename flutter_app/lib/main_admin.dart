@@ -429,6 +429,8 @@ class McpPanel extends StatelessWidget {
                             label: server.status,
                             color: server.status == 'running'
                                 ? _success
+                                : server.hasError
+                                ? _danger
                                 : _textSecondary,
                           ),
                         ],
@@ -465,6 +467,17 @@ class McpPanel extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (server.hasError) ...<Widget>[
+                        const SizedBox(height: 12),
+                        _InlineError(message: server.error!),
+                        if (server.retryLabel.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 8),
+                          Text(
+                            server.retryLabel,
+                            style: TextStyle(color: _textSecondary),
+                          ),
+                        ],
+                      ],
                       const SizedBox(height: 14),
                       Wrap(
                         spacing: 10,

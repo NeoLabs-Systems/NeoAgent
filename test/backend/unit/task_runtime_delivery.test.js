@@ -23,6 +23,14 @@ function createIoRecorder() {
   };
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 function createMessagingManager() {
   const sent = [];
   return {
@@ -33,6 +41,28 @@ function createMessagingManager() {
     async sendMessage(userId, platform, to, content, options) {
       sent.push({ userId, platform, to, content, options });
       return { success: true };
+    },
+  };
+}
+
+function createCronHarness({ failAt = null } = {}) {
+  const jobs = [];
+  return {
+    jobs,
+    schedule(expression, callback) {
+      if (failAt != null && jobs.length === failAt) {
+        throw new Error('cron registration failed');
+      }
+      const job = {
+        expression,
+        callback,
+        stopped: false,
+        stop() {
+          this.stopped = true;
+        },
+      };
+      jobs.push(job);
+      return job;
     },
   };
 }
@@ -49,8 +79,8 @@ describe('scheduled task result delivery', () => {
     ({ TaskRuntime } = require('../../../server/services/tasks/runtime'));
   });
 
-  afterEach(() => {
-    runtime?.stop();
+  afterEach(async () => {
+    await runtime?.stop();
     runtime = null;
     teardownTestRuntime(ctx);
   });
@@ -209,6 +239,132 @@ describe('scheduled task result delivery', () => {
     assert.equal(result.reason, 'no_response');
     assert.equal(runState.noResponse, true);
     assert.equal(deliveryState.noResponse, true);
+  });
+
+  test('task runtime start is idempotent and reports truthful state', async () => {
+    const cronHarness = createCronHarness();
+    runtime = new TaskRuntime(
+      createIoRecorder(),
+      {},
+      null,
+      { cron: cronHarness },
+    );
+
+    const first = runtime.start();
+    const second = runtime.start();
+
+    assert.equal(first.state, 'running');
+    assert.equal(second.state, 'running');
+    assert.equal(cronHarness.jobs.length, 2);
+    assert.equal(runtime.getStatus().started, true);
+
+    const stopped = await runtime.stop();
+    assert.equal(stopped.state, 'stopped');
+    assert.ok(cronHarness.jobs.every((job) => job.stopped));
+  });
+
+  test('task runtime rolls back partial startup when cron registration fails', () => {
+    const cronHarness = createCronHarness({ failAt: 1 });
+    runtime = new TaskRuntime(
+      createIoRecorder(),
+      {},
+      null,
+      { cron: cronHarness },
+    );
+
+    assert.throws(() => runtime.start(), /cron registration failed/);
+    assert.equal(runtime.getStatus().state, 'error');
+    assert.equal(runtime.getStatus().started, false);
+    assert.equal(cronHarness.jobs[0].stopped, true);
+  });
+
+  test('task runtime coalesces overlapping poll ticks and waits for them on stop', async () => {
+    const cronHarness = createCronHarness();
+    const pollStarted = deferred();
+    const releasePoll = deferred();
+    let pollCount = 0;
+    runtime = new TaskRuntime(
+      createIoRecorder(),
+      {},
+      null,
+      { cron: cronHarness },
+    );
+    runtime._runDueOneTimeTasks = async () => {
+      pollCount += 1;
+      pollStarted.resolve();
+      await releasePoll.promise;
+    };
+    runtime.start();
+
+    const firstPoll = cronHarness.jobs[0].callback();
+    const secondPoll = cronHarness.jobs[0].callback();
+    assert.equal(firstPoll, secondPoll);
+    await pollStarted.promise;
+    assert.equal(pollCount, 1);
+
+    let stopCompleted = false;
+    const stop = runtime.stop().then((status) => {
+      stopCompleted = true;
+      return status;
+    });
+    await Promise.resolve();
+    assert.equal(stopCompleted, false);
+
+    releasePoll.resolve();
+    const status = await stop;
+    assert.equal(status.state, 'stopped');
+    assert.equal(pollCount, 1);
+  });
+
+  test('task runtime waits for active execution and rejects new work during shutdown', async () => {
+    const cronHarness = createCronHarness();
+    const runStarted = deferred();
+    const releaseRun = deferred();
+    runtime = new TaskRuntime(
+      createIoRecorder(),
+      {
+        async runWithModel() {
+          runStarted.resolve();
+          await releaseRun.promise;
+          return { content: 'Completed before shutdown.' };
+        },
+      },
+      null,
+      { cron: cronHarness },
+    );
+    runtime.start();
+    const task = await runtime.createTask(user.userId, {
+      name: 'Shutdown test',
+      triggerType: 'schedule',
+      triggerConfig: {
+        mode: 'recurring',
+        cronExpression: '0 6 * * *',
+      },
+      taskConfig: {
+        prompt: 'Finish the active work.',
+      },
+    });
+
+    const execution = runtime._executeTask(task.id, user.userId, {
+      manual: true,
+      triggerType: 'schedule',
+      triggerSource: 'manual',
+      scheduledAt: new Date().toISOString(),
+    });
+    await runStarted.promise;
+
+    const stopping = runtime.stop();
+    const rejected = await runtime._executeTask(task.id, user.userId, {
+      manual: true,
+      triggerType: 'schedule',
+      triggerSource: 'manual',
+    });
+    assert.deepEqual(rejected, { skipped: true, reason: 'runtime_stopping' });
+    assert.equal(runtime.getStatus().state, 'stopping');
+
+    releaseRun.resolve();
+    assert.equal((await execution).content, 'Completed before shutdown.');
+    assert.equal((await stopping).state, 'stopped');
   });
 
   test('deletes a completed one-time task after its due poll', async () => {

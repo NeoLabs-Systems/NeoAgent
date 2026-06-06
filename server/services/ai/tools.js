@@ -2667,8 +2667,14 @@ async function executeTool(toolName, args, context, engine) {
                 let tools = [];
                 if (autoStart) {
                     try {
-                        await mcpClient.startServer(serverId, args.command, args.name, userId, { agentId });
-                        tools = await mcpClient.listTools(serverId, userId);
+                        const startResult = await mcpClient.startServer(
+                            serverId,
+                            args.command,
+                            args.name,
+                            userId,
+                            { agentId }
+                        );
+                        tools = startResult.tools || [];
                     } catch (startErr) {
                         return { registered: true, id: serverId, started: false, error: `Registered but failed to start: ${startErr.message}` };
                     }
@@ -2691,7 +2697,10 @@ async function executeTool(toolName, args, context, engine) {
                     args: JSON.parse(s.config || '{}').args || [],
                     enabled: !!s.enabled,
                     status: liveStatuses[s.id]?.status || 'stopped',
-                    toolCount: liveStatuses[s.id]?.toolCount || 0
+                    toolCount: liveStatuses[s.id]?.toolCount || 0,
+                    error: liveStatuses[s.id]?.error || null,
+                    consecutiveFails: liveStatuses[s.id]?.consecutiveFails || 0,
+                    nextRetryAt: liveStatuses[s.id]?.nextRetryAt || null
                 }))
             };
         }
