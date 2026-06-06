@@ -61,6 +61,17 @@ function generateTitle(task) {
   return cleaned.slice(0, 90);
 }
 
+function buildInitialRunMetadata(options = {}) {
+  const metadata = {};
+  if (options.taskId != null && String(options.taskId).trim()) {
+    metadata.taskId = options.taskId;
+  }
+  if (options.widgetId != null && String(options.widgetId).trim()) {
+    metadata.widgetId = options.widgetId;
+  }
+  return metadata;
+}
+
 function planningDepthForForceMode(forceMode) {
   return forceMode === 'plan_execute' ? 'deep' : 'light';
 }
@@ -1653,8 +1664,19 @@ class AgentEngine {
     };
 
     const runTitle = generateTitle(userMessage);
-    db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, agent_id, title, status, trigger_type, trigger_source, model)
-      VALUES(?, ?, ?, ?, 'running', ?, ?, ?)`).run(runId, userId, agentId, runTitle, triggerType, triggerSource, model);
+    const initialRunMetadata = buildInitialRunMetadata(options);
+    db.prepare(`INSERT OR REPLACE INTO agent_runs(
+      id, user_id, agent_id, title, status, trigger_type, trigger_source, model, metadata_json
+    ) VALUES(?, ?, ?, ?, 'running', ?, ?, ?, ?)`).run(
+      runId,
+      userId,
+      agentId,
+      runTitle,
+      triggerType,
+      triggerSource,
+      model,
+      Object.keys(initialRunMetadata).length ? JSON.stringify(initialRunMetadata) : null,
+    );
 
     const retryMessagingState = options.messagingRetryState || {};
     const carriedVisibleMessage = String(retryMessagingState.lastVisibleMessage || '').trim();
@@ -3381,4 +3403,4 @@ class AgentEngine {
   }
 }
 
-module.exports = { AgentEngine, getProviderForUser };
+module.exports = { AgentEngine, buildInitialRunMetadata, getProviderForUser };
