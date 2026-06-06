@@ -1010,13 +1010,22 @@ class AgentEngine {
       response = await provider.chat(requestMessages, tools, callOptions);
     }
 
+    const resolvedResponse = response || {
+      content: streamContent,
+      toolCalls: [],
+      finishReason: 'stop',
+      usage: null,
+    };
+    const hasContent = Boolean(String(resolvedResponse.content || streamContent || '').trim());
+    const hasToolCalls = Array.isArray(resolvedResponse.toolCalls) && resolvedResponse.toolCalls.length > 0;
+    if (!hasContent && !hasToolCalls) {
+      const error = new Error(`Model ${model} returned an empty response.`);
+      error.code = 'MODEL_EMPTY_RESPONSE';
+      throw error;
+    }
+
     return {
-      response: response || {
-        content: streamContent,
-        toolCalls: [],
-        finishReason: 'stop',
-        usage: null,
-      },
+      response: resolvedResponse,
       responseModel: model,
       streamContent,
     };
