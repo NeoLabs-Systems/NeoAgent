@@ -66,30 +66,72 @@ function stringifyTaskResult(result) {
 }
 
 class TaskRuntime {
-  constructor(io, agentEngine, app = null) {
+  constructor(io, agentEngine, app = null, options = {}) {
     this.io = io;
     this.agentEngine = agentEngine;
     this.app = app;
+    this.cron = options.cron || cron;
     this.taskRepository = new TaskRepository();
     this.scheduleJobs = new Map();
     this.runningTaskExecutions = new Set();
+    this.activeExecutionPromises = new Set();
+    this.activePolls = new Map();
     this.integrationEventCleanups = [];
     this.triggerRegistry = new TriggerRegistry(taskAdapters);
+    this.started = false;
+    this.stopping = false;
+    this.stopPromise = null;
+    this.state = 'idle';
+    this.lastError = null;
   }
 
   get integrationManager() {
     return this.app?.locals?.integrationManager || null;
   }
 
-  start() {
-    this._loadFromDB();
-    this._startOneTimePoller();
-    this._startIntegrationPoller();
-    this.integrationEventCleanups = attachIntegrationEventSources(this);
-    console.log('[Tasks] Started');
+  getStatus() {
+    return {
+      state: this.state,
+      started: this.started,
+      stopping: this.stopping,
+      scheduledJobCount: this.scheduleJobs.size,
+      activeExecutionCount: this.activeExecutionPromises.size,
+      activePolls: Array.from(this.activePolls.keys()),
+      lastError: this.lastError,
+    };
   }
 
-  stop() {
+  start() {
+    if (this.started) {
+      return this.getStatus();
+    }
+    if (this.stopPromise) {
+      throw new Error('Task runtime cannot start while shutdown is in progress.');
+    }
+
+    this.started = true;
+    this.stopping = false;
+    this.state = 'starting';
+    this.lastError = null;
+    try {
+      this._loadFromDB();
+      this._startOneTimePoller();
+      this._startIntegrationPoller();
+      this.integrationEventCleanups = attachIntegrationEventSources(this);
+      this.state = 'running';
+      console.log('[Tasks] Started');
+      return this.getStatus();
+    } catch (error) {
+      this.lastError = error.message;
+      this.started = false;
+      this.stopping = false;
+      this.state = 'error';
+      this._stopScheduling();
+      throw error;
+    }
+  }
+
+  _stopScheduling() {
     for (const [, job] of this.scheduleJobs) {
       job.task.stop();
     }
@@ -98,12 +140,51 @@ class TaskRuntime {
       if (poller) poller.stop();
     }
     for (const cleanup of this.integrationEventCleanups) {
-      cleanup();
+      try {
+        cleanup();
+      } catch (error) {
+        console.error('[Tasks] Event source cleanup failed:', error.message);
+      }
     }
     this.integrationEventCleanups = [];
     this.oneTimePoller = null;
     this.integrationPoller = null;
-    console.log('[Tasks] Stopped');
+  }
+
+  async stop() {
+    if (this.stopPromise) {
+      return this.stopPromise;
+    }
+    if (
+      !this.started
+      && this.state === 'stopped'
+      && this.scheduleJobs.size === 0
+      && this.activePolls.size === 0
+      && this.activeExecutionPromises.size === 0
+    ) {
+      return this.getStatus();
+    }
+
+    this.started = false;
+    this.stopping = true;
+    this.state = 'stopping';
+    this._stopScheduling();
+
+    this.stopPromise = (async () => {
+      while (this.activePolls.size > 0 || this.activeExecutionPromises.size > 0) {
+        await Promise.allSettled([
+          ...this.activePolls.values(),
+          ...this.activeExecutionPromises,
+        ]);
+      }
+      this.stopping = false;
+      this.state = 'stopped';
+      console.log('[Tasks] Stopped');
+      return this.getStatus();
+    })().finally(() => {
+      this.stopPromise = null;
+    });
+    return this.stopPromise;
   }
 
   getTriggerCatalog(userId, options = {}) {
@@ -217,12 +298,10 @@ class TaskRuntime {
   }
 
   _startOneTimePoller() {
-    this.oneTimePoller = cron.schedule('* * * * *', async () => {
-      try {
-        await this._runDueOneTimeTasks();
-      } catch (error) {
+    this.oneTimePoller = this.cron.schedule('* * * * *', () => {
+      return this._runPoll('one_time', () => this._runDueOneTimeTasks(), (error) => {
         console.error('[Tasks] One-time task poll failed:', error.message);
-      }
+      });
     });
   }
 
@@ -250,8 +329,8 @@ class TaskRuntime {
   }
 
   _startIntegrationPoller() {
-    this.integrationPoller = cron.schedule(INTEGRATION_TRIGGER_POLL_CRON, async () => {
-      try {
+    this.integrationPoller = this.cron.schedule(INTEGRATION_TRIGGER_POLL_CRON, () => {
+      return this._runPoll('integration', async () => {
         const tasks = this.taskRepository.listEnabledByTriggerTypes(POLLED_TRIGGER_TYPES);
         for (const task of tasks) {
           try {
@@ -260,20 +339,47 @@ class TaskRuntime {
             console.error(`[Tasks] Trigger poll failed for task ${task.id}:`, error.message);
           }
         }
-      } catch (error) {
+      }, (error) => {
         console.error('[Tasks] Integration trigger poll failed:', error.message);
-      }
+      });
     });
   }
 
+  _runPoll(name, callback, onError) {
+    const active = this.activePolls.get(name);
+    if (active) {
+      return active;
+    }
+    if (this.stopping) {
+      return Promise.resolve({ skipped: true, reason: 'runtime_stopping' });
+    }
+
+    const promise = Promise.resolve()
+      .then(callback)
+      .catch((error) => {
+        this.lastError = error.message;
+        onError(error);
+        return { error: error.message };
+      })
+      .finally(() => {
+        if (this.activePolls.get(name) === promise) {
+          this.activePolls.delete(name);
+        }
+      });
+    this.activePolls.set(name, promise);
+    return promise;
+  }
+
   async _registerTask(task) {
-    if (!task || !task.enabled) return;
+    if (!task) return;
+    this._unregisterTask(task.id);
+    if (!task.enabled) return;
     if ((task.trigger_type || 'schedule') !== 'schedule') return;
     const triggerConfig = this._normalizeJson(task.trigger_config);
     if (triggerConfig.mode === 'one_time') return;
     const cronExpression = String(triggerConfig.cronExpression || '').trim();
     if (!cronExpression) return;
-    const job = cron.schedule(cronExpression, async () => {
+    const job = this.cron.schedule(cronExpression, async () => {
       try {
         await this._executeTask(task.id, task.user_id, {
           scheduledAt: new Date().toISOString(),
@@ -298,6 +404,9 @@ class TaskRuntime {
   }
 
   async _executeTask(taskId, userId, executionMeta = {}) {
+    if (this.stopping) {
+      return { skipped: true, reason: 'runtime_stopping' };
+    }
     const executionKey = `${userId}:${taskId}`;
     if (this.runningTaskExecutions.has(executionKey)) {
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
@@ -309,10 +418,13 @@ class TaskRuntime {
     }
 
     this.runningTaskExecutions.add(executionKey);
+    const executionPromise = this._executeTaskSerial(taskId, userId, executionMeta);
+    this.activeExecutionPromises.add(executionPromise);
     try {
-      return await this._executeTaskSerial(taskId, userId, executionMeta);
+      return await executionPromise;
     } finally {
       this.runningTaskExecutions.delete(executionKey);
+      this.activeExecutionPromises.delete(executionPromise);
     }
   }
 

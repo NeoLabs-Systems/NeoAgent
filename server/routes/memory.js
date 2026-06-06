@@ -163,6 +163,7 @@ router.get('/ingestion/status', (req, res) => {
       jobs: mm.listIngestionJobs(userId, { agentId }),
       recentChanges: mm.listRecentKnowledgeChanges(userId, { agentId }),
       connections: ingestionService?.listConnectionStatuses?.(userId, { agentId }) || [],
+      service: ingestionService?.getStatus?.() || { state: 'unavailable' },
     });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
