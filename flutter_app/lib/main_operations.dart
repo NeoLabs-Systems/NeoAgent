@@ -4555,6 +4555,89 @@ class _TasksPanelState extends State<TasksPanel> {
 
   NeoAgentController get controller => widget.controller;
 
+  Color _taskRunStatusColor(String status) {
+    switch (status) {
+      case 'completed':
+        return _success;
+      case 'failed':
+      case 'error':
+        return _danger;
+      case 'running':
+      case 'retrying':
+        return _warning;
+      default:
+        return _textSecondary;
+    }
+  }
+
+  Future<void> _showLastRun(TaskItem task) async {
+    final runId = task.lastRunId.trim();
+    if (runId.isEmpty) return;
+
+    try {
+      final detail = await controller.fetchRunDetail(runId, force: true);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(detail.run.title),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      _StatusPill(
+                        label: detail.run.statusLabel,
+                        color: detail.run.statusColor,
+                      ),
+                      _StatusPill(
+                        label: '${detail.steps.length} steps',
+                        color: _textSecondary,
+                      ),
+                    ],
+                  ),
+                  if (detail.run.error.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 16),
+                    Text(detail.run.error, style: TextStyle(color: _danger)),
+                  ],
+                  if (detail.response.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 16),
+                    SelectableText(detail.response),
+                  ],
+                  if (detail.response.trim().isEmpty &&
+                      detail.run.error.trim().isEmpty) ...<Widget>[
+                    const SizedBox(height: 16),
+                    Text(
+                      'This run did not produce a user-facing response.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.friendlyErrorMessage(error))),
+      );
+    }
+  }
+
   @override
   void didUpdateWidget(covariant TasksPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -4703,6 +4786,13 @@ class _TasksPanelState extends State<TasksPanel> {
                     label: task.enabled ? 'Active' : 'Paused',
                     color: task.enabled ? _success : _textSecondary,
                   ),
+                  if (task.hasLastRunStatus) ...<Widget>[
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: 'Last: ${task.lastRunStatusLabel}',
+                      color: _taskRunStatusColor(task.lastRunStatus),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 10),
@@ -4734,6 +4824,11 @@ class _TasksPanelState extends State<TasksPanel> {
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
+              if (task.lastRunFailed &&
+                  task.lastRunError.trim().isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(task.lastRunError, style: TextStyle(color: _danger)),
+              ],
               const SizedBox(height: 14),
               Wrap(
                 spacing: 10,
@@ -4753,6 +4848,11 @@ class _TasksPanelState extends State<TasksPanel> {
                         : () => controller.runTaskNow(task.id),
                     child: Text(_manualRunButtonLabel('Run Now', remaining)),
                   ),
+                  if (task.lastRunId.trim().isNotEmpty)
+                    OutlinedButton(
+                      onPressed: () => _showLastRun(task),
+                      child: const Text('View last run'),
+                    ),
                   OutlinedButton(
                     onPressed: () => _confirmDelete(
                       context,
@@ -4805,6 +4905,13 @@ class _TasksPanelState extends State<TasksPanel> {
                     label: task.enabled ? 'Active' : 'Paused',
                     color: task.enabled ? _success : _textSecondary,
                   ),
+                  if (task.hasLastRunStatus) ...<Widget>[
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: 'Last: ${task.lastRunStatusLabel}',
+                      color: _taskRunStatusColor(task.lastRunStatus),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 10),
@@ -4839,6 +4946,11 @@ class _TasksPanelState extends State<TasksPanel> {
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
+              if (task.lastRunFailed &&
+                  task.lastRunError.trim().isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(task.lastRunError, style: TextStyle(color: _danger)),
+              ],
               const SizedBox(height: 14),
               Wrap(
                 spacing: 10,
@@ -4868,6 +4980,11 @@ class _TasksPanelState extends State<TasksPanel> {
                       _manualRunButtonLabel('Refresh Now', remaining),
                     ),
                   ),
+                  if (task.lastRunId.trim().isNotEmpty)
+                    OutlinedButton(
+                      onPressed: () => _showLastRun(task),
+                      child: const Text('View last run'),
+                    ),
                   OutlinedButton(
                     onPressed: linkedWidget == null
                         ? null

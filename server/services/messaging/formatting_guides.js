@@ -99,9 +99,34 @@ function adaptSpokenFormatting(text) {
     .trim();
 }
 
+function coerceMessageContent(content) {
+  if (typeof content === 'string') return content;
+  if (content == null) return '';
+  if (typeof content === 'number' || typeof content === 'boolean' || typeof content === 'bigint') {
+    return String(content);
+  }
+  if (typeof content !== 'object') return String(content || '');
+
+  for (const key of ['text', 'content', 'message', 'summary']) {
+    if (typeof content[key] === 'string' && content[key].trim()) {
+      return content[key];
+    }
+  }
+
+  if (content.result != null && content.result !== content) {
+    return coerceMessageContent(content.result);
+  }
+
+  try {
+    return JSON.stringify(content, null, 2);
+  } catch {
+    return String(content || '');
+  }
+}
+
 function normalizeOutgoingMessageForPlatform(platform, content, options = {}) {
   const profile = getPlatformFormattingProfile(platform);
-  let text = String(content || '');
+  let text = coerceMessageContent(content);
 
   if (options.stripNoResponseMarker !== false) {
     text = text.replace(/\[NO RESPONSE\]/gi, '');

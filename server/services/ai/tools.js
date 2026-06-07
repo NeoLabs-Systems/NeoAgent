@@ -274,6 +274,42 @@ function markProactiveMessageSent({ runState, deliveryState, content }) {
     }
 }
 
+function markProactiveNoResponse({ runState, deliveryState }) {
+    if (runState) {
+        runState.noResponse = true;
+    }
+    if (deliveryState) {
+        deliveryState.noResponse = true;
+    }
+}
+
+function normalizeStoredSettingString(value) {
+    if (value == null) return '';
+    if (typeof value !== 'string') return String(value || '').trim();
+    let current = value.trim();
+    for (let i = 0; i < 2; i += 1) {
+        if (!current) return '';
+        try {
+            const parsed = JSON.parse(current);
+            if (typeof parsed === 'string') {
+                current = parsed.trim();
+                continue;
+            }
+            return '';
+        } catch {
+            return current;
+        }
+    }
+    return current;
+}
+
+function normalizeMessagingTarget(target = {}) {
+    const platform = normalizeStoredSettingString(target.platform);
+    const to = normalizeStoredSettingString(target.to);
+    if (!platform || !to) return null;
+    return { platform, to };
+}
+
 function buildAndroidUiMatchProperties(extra = {}) {
     return {
         x: { type: 'number', description: 'Absolute X coordinate' },
@@ -2112,6 +2148,9 @@ async function executeTool(toolName, args, context, engine) {
                             error: proactiveValidation.error,
                         };
                     }
+                    if (proactiveValidation.reason === 'no_response') {
+                        markProactiveNoResponse({ runState, deliveryState });
+                    }
                     return {
                         sent: false,
                         suppressed: proactiveValidation.suppressed === true,
@@ -2323,8 +2362,8 @@ async function executeTool(toolName, args, context, engine) {
                     || null
                 );
                 const loadDefaultTarget = () => ({
-                    platform: loadAgentSetting('last_platform'),
-                    to: loadAgentSetting('last_chat_id')
+                    platform: normalizeStoredSettingString(loadAgentSetting('last_platform')),
+                    to: normalizeStoredSettingString(loadAgentSetting('last_chat_id'))
                 });
 
                 let taskConfig = null;
@@ -2336,26 +2375,43 @@ async function executeTool(toolName, args, context, engine) {
                         try {
                             taskConfig = JSON.parse(task.task_config || '{}');
                             taskTarget = {
-                                platform: taskConfig.notifyPlatform || null,
-                                to: taskConfig.notifyTo || null
+                                platform: normalizeStoredSettingString(taskConfig.notifyPlatform),
+                                to: normalizeStoredSettingString(taskConfig.notifyTo)
                             };
                         } catch { }
                     }
                 }
 
                 const fallbackTarget = loadDefaultTarget();
+                const recentTargets = db.prepare(
+                    `SELECT platform, platform_chat_id
+                     FROM messages
+                     WHERE user_id = ?
+                       AND agent_id = ?
+                       AND platform IS NOT NULL
+                       AND platform_chat_id IS NOT NULL
+                     ORDER BY id DESC
+                     LIMIT 20`
+                ).all(userId, agentId);
                 const candidateTargets = [];
                 const seenTargets = new Set();
                 const addCandidate = (target) => {
-                    if (!target?.platform || !target?.to) return;
-                    const key = `${target.platform}:${target.to}`;
+                    const normalizedTarget = normalizeMessagingTarget(target);
+                    if (!normalizedTarget) return;
+                    const key = `${normalizedTarget.platform}:${normalizedTarget.to}`;
                     if (seenTargets.has(key)) return;
                     seenTargets.add(key);
-                    candidateTargets.push(target);
+                    candidateTargets.push(normalizedTarget);
                 };
 
                 addCandidate(taskTarget);
                 addCandidate(fallbackTarget);
+                for (const row of recentTargets) {
+                    addCandidate({
+                        platform: row.platform,
+                        to: row.platform_chat_id
+                    });
+                }
 
                 if (candidateTargets.length === 0) {
                     throw new Error('No messaging target is configured for this task run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.');
@@ -2611,8 +2667,14 @@ async function executeTool(toolName, args, context, engine) {
                 let tools = [];
                 if (autoStart) {
                     try {
-                        await mcpClient.startServer(serverId, args.command, args.name, userId, { agentId });
-                        tools = await mcpClient.listTools(serverId, userId);
+                        const startResult = await mcpClient.startServer(
+                            serverId,
+                            args.command,
+                            args.name,
+                            userId,
+                            { agentId }
+                        );
+                        tools = startResult.tools || [];
                     } catch (startErr) {
                         return { registered: true, id: serverId, started: false, error: `Registered but failed to start: ${startErr.message}` };
                     }
@@ -2635,7 +2697,10 @@ async function executeTool(toolName, args, context, engine) {
                     args: JSON.parse(s.config || '{}').args || [],
                     enabled: !!s.enabled,
                     status: liveStatuses[s.id]?.status || 'stopped',
-                    toolCount: liveStatuses[s.id]?.toolCount || 0
+                    toolCount: liveStatuses[s.id]?.toolCount || 0,
+                    error: liveStatuses[s.id]?.error || null,
+                    consecutiveFails: liveStatuses[s.id]?.consecutiveFails || 0,
+                    nextRetryAt: liveStatuses[s.id]?.nextRetryAt || null
                 }))
             };
         }

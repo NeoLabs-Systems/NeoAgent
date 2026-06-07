@@ -24,7 +24,10 @@ const { WorkspaceManager } = require('./workspace/manager');
 const { BrowserExtensionRegistry } = require('./browser/extension/registry');
 const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
-const { ScreenRecorder } = require('./desktop/screenRecorder');
+const {
+  ScreenRecorder,
+  hasOpenConnectionForUser,
+} = require('./desktop/screenRecorder');
 const { WearableService } = require('./wearable/service');
 const { getRuntimeValidation } = require('./runtime/validation');
 const {
@@ -112,10 +115,11 @@ function createMemoryIngestionService(app, { memoryManager, integrationManager }
     new MemoryIngestionService({
       memoryManager,
       integrationManager,
+      intervalMs: process.env.NEOAGENT_MEMORY_INGESTION_INTERVAL_MS || undefined,
     }),
   );
-  memoryIngestionService.start();
-  logServiceReady('Memory ingestion service started');
+  const status = memoryIngestionService.start();
+  logServiceReady(`Memory ingestion service started (${status.intervalMs}ms interval)`);
   return memoryIngestionService;
 }
 
@@ -368,44 +372,26 @@ function createWearableService(app) {
 }
 
 function createScreenRecorder(app) {
-  const hasActiveRemoteCaptureSession = () => {
-    const desktopRegistry = app.locals.desktopCompanionRegistry;
-    if (desktopRegistry?.connectionsByUser instanceof Map) {
-      for (const userMap of desktopRegistry.connectionsByUser.values()) {
-        if (!(userMap instanceof Map)) continue;
-        for (const connection of userMap.values()) {
-          if (typeof connection?.isOpen === 'function' && connection.isOpen()) {
-            return true;
-          }
-        }
-      }
-    }
-
-    const extensionRegistry = app.locals.browserExtensionRegistry;
-    if (extensionRegistry?.connectionsByUser instanceof Map) {
-      for (const value of extensionRegistry.connectionsByUser.values()) {
-        if (value instanceof Map) {
-          for (const connection of value.values()) {
-            if (typeof connection?.isOpen === 'function' && connection.isOpen()) {
-              return true;
-            }
-          }
-        } else if (typeof value?.isOpen === 'function' && value.isOpen()) {
-          return true;
-        }
-      }
-    }
-
-    return false;
+  const hasActiveCaptureSessionForUser = (userId) => {
+    return (
+      hasOpenConnectionForUser(app.locals.desktopCompanionRegistry, userId)
+      || hasOpenConnectionForUser(app.locals.browserExtensionRegistry, userId)
+    );
   };
 
   const screenRecorder = registerLocal(
     app,
     'screenRecorder',
-    new ScreenRecorder({ hasActiveRemoteCaptureSession }),
+    new ScreenRecorder({ hasActiveCaptureSessionForUser }),
   );
-  screenRecorder.start();
-  logServiceReady('Screen recorder started');
+  const status = screenRecorder.start();
+  if (status.state === 'running') {
+    logServiceReady(
+      `Screen recorder started for user ${status.ownerUserId} (${status.intervalMs}ms interval)`,
+    );
+  } else {
+    logServiceReady(`Screen recorder ${status.state}: ${status.reason}`);
+  }
   return screenRecorder;
 }
 
@@ -541,12 +527,16 @@ async function stopServices(app) {
   console.log('[Services] Stopping services');
 
   if (app.locals.taskRuntime) {
-    try {
-      app.locals.taskRuntime.stop();
-      logServiceReady('Task runtime stopped');
-    } catch (err) {
-      console.error('[Tasks] Stop error:', getErrorMessage(err));
-    }
+    tasks.push(
+      Promise.resolve()
+        .then(() => app.locals.taskRuntime.stop())
+        .then((status) => {
+          logServiceReady(`Task runtime shutdown complete (${status.state})`);
+        })
+        .catch((err) => {
+          console.error('[Tasks] Stop error:', getErrorMessage(err));
+        }),
+    );
   }
 
   if (app.locals.streamHub) {
@@ -559,12 +549,16 @@ async function stopServices(app) {
   }
 
   if (app.locals.memoryIngestionService) {
-    try {
-      app.locals.memoryIngestionService.stop();
-      logServiceReady('Memory ingestion service stopped');
-    } catch (err) {
-      console.error('[MemoryIngestion] Stop error:', getErrorMessage(err));
-    }
+    tasks.push(
+      Promise.resolve()
+        .then(() => app.locals.memoryIngestionService.stop())
+        .then((status) => {
+          logServiceReady(`Memory ingestion shutdown complete (${status.state})`);
+        })
+        .catch((err) => {
+          console.error('[MemoryIngestion] Stop error:', getErrorMessage(err));
+        }),
+    );
   }
 
   if (app.locals.mcpClient) {
@@ -637,12 +631,16 @@ async function stopServices(app) {
   }
 
   if (app.locals.screenRecorder) {
-    try {
-      app.locals.screenRecorder.stop();
-      logServiceReady('Screen recorder stopped');
-    } catch (err) {
-      console.error('[ScreenRecorder] Stop error:', getErrorMessage(err));
-    }
+    tasks.push(
+      Promise.resolve()
+        .then(() => app.locals.screenRecorder.stop())
+        .then((status) => {
+          logServiceReady(`Screen recorder shutdown complete (${status.state})`);
+        })
+        .catch((err) => {
+          console.error('[ScreenRecorder] Stop error:', getErrorMessage(err));
+        }),
+    );
   }
 
   if (app.locals.browserExtensionRegistry) {

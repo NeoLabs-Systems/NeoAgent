@@ -6112,18 +6112,36 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> startMcpServer(int id) async {
-    await _backendClient.startMcpServer(backendUrl, id);
-    await refreshMcp();
+    try {
+      await _backendClient.startMcpServer(backendUrl, id);
+      await refreshMcp();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshMcp();
+      notifyListeners();
+    }
   }
 
   Future<void> stopMcpServer(int id) async {
-    await _backendClient.stopMcpServer(backendUrl, id);
-    await refreshMcp();
+    try {
+      await _backendClient.stopMcpServer(backendUrl, id);
+      await refreshMcp();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshMcp();
+      notifyListeners();
+    }
   }
 
   Future<void> deleteMcpServer(int id) async {
-    await _backendClient.deleteMcpServer(backendUrl, id);
-    await refreshMcp();
+    try {
+      await _backendClient.deleteMcpServer(backendUrl, id);
+      await refreshMcp();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshMcp();
+      notifyListeners();
+    }
   }
 
   Future<void> requestHealthPermissions() async {

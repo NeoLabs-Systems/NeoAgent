@@ -3099,6 +3099,9 @@ class TaskItem {
     required this.model,
     required this.enabled,
     required this.lastRun,
+    required this.lastRunId,
+    required this.lastRunStatus,
+    required this.lastRunError,
     required this.taskType,
     required this.widgetId,
   });
@@ -3144,6 +3147,9 @@ class TaskItem {
           '',
       enabled: json['enabled'] != false,
       lastRun: _parseOptionalTimestamp(json['lastRun']?.toString()),
+      lastRunId: json['lastRunId']?.toString() ?? '',
+      lastRunStatus: json['lastRunStatus']?.toString() ?? '',
+      lastRunError: json['lastRunError']?.toString() ?? '',
       taskType:
           json['taskType']?.toString().ifEmpty(
             json['task_type']?.toString() ?? 'agent_prompt',
@@ -3168,12 +3174,20 @@ class TaskItem {
   final String model;
   final bool enabled;
   final DateTime? lastRun;
+  final String lastRunId;
+  final String lastRunStatus;
+  final String lastRunError;
   final String taskType;
   final String widgetId;
 
   String get scheduleLabel =>
       triggerSummary.trim().isEmpty ? 'Task trigger' : triggerSummary;
   String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
+  String get lastRunStatusLabel =>
+      _titleCase(lastRunStatus.replaceAll('_', ' '));
+  bool get hasLastRunStatus => lastRunStatus.trim().isNotEmpty;
+  bool get lastRunFailed =>
+      lastRunStatus == 'failed' || lastRunStatus == 'error';
   bool get hasModelOverride => model.trim().isNotEmpty;
   bool get isWidgetRefresh => taskType == 'widget_refresh';
 }
@@ -3383,6 +3397,9 @@ class McpServerItem {
     required this.enabled,
     required this.status,
     required this.toolCount,
+    required this.error,
+    required this.consecutiveFails,
+    required this.nextRetryAt,
   });
 
   factory McpServerItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3397,6 +3414,9 @@ class McpServerItem {
       enabled: json['enabled'] == true,
       status: json['status']?.toString().ifEmpty('stopped') ?? 'stopped',
       toolCount: _asInt(json['toolCount']),
+      error: json['error']?.toString(),
+      consecutiveFails: _asInt(json['consecutiveFails']),
+      nextRetryAt: _parseOptionalTimestamp(json['nextRetryAt']?.toString()),
     );
   }
 
@@ -3408,6 +3428,14 @@ class McpServerItem {
   final bool enabled;
   final String status;
   final int toolCount;
+  final String? error;
+  final int consecutiveFails;
+  final DateTime? nextRetryAt;
+
+  bool get hasError => (error ?? '').trim().isNotEmpty;
+  String get retryLabel => nextRetryAt == null
+      ? ''
+      : 'Next retry: ${_formatTimestamp(nextRetryAt!)}';
 
   String get authMethodLabel {
     final auth = _jsonMap(config['auth']);
