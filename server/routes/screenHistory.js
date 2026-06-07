@@ -2,21 +2,24 @@
 
 const express = require('express');
 const db = require('../db/database');
+const { buildFtsQuery } = require('../db/ftsQuery');
+const { requireAuth } = require('../middleware/auth');
 const { getErrorMessage } = require('../services/bootstrap_helpers');
 
 const router = express.Router();
 
+router.use(requireAuth);
+
 router.get('/search', (req, res) => {
   const { q, limit = 50, offset = 0 } = req.query;
-
-  if (!req.user || !req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  const userId = req.session.userId;
 
   try {
     let results = [];
-    if (q) {
-      // Full text search
+    const ftsQuery = q ? buildFtsQuery(q) : null;
+    if (ftsQuery) {
+      // Full text search. buildFtsQuery sanitizes user input so FTS5 operator
+      // characters (hyphens, AND/OR/NOT) don't throw and 500 the request.
       results = db.prepare(`
         SELECT s.id, s.timestamp, s.app_name, s.text_content
         FROM screen_history_fts fts
@@ -24,7 +27,10 @@ router.get('/search', (req, res) => {
         WHERE screen_history_fts MATCH ? AND s.user_id = ?
         ORDER BY s.timestamp DESC
         LIMIT ? OFFSET ?
-      `).all(q, req.user.id, Number(limit), Number(offset));
+      `).all(ftsQuery, userId, Number(limit), Number(offset));
+    } else if (q) {
+      // Query had no usable search tokens — return no matches rather than error.
+      results = [];
     } else {
       // Recent history
       results = db.prepare(`
@@ -33,7 +39,7 @@ router.get('/search', (req, res) => {
         WHERE user_id = ?
         ORDER BY timestamp DESC
         LIMIT ? OFFSET ?
-      `).all(req.user.id, Number(limit), Number(offset));
+      `).all(userId, Number(limit), Number(offset));
     }
 
     res.json({ results });

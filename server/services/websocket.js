@@ -317,7 +317,7 @@ function setupWebSocket(io, services) {
         const data = asObject(raw);
         const runId = toOptionalString(data?.runId, 128);
         console.warn(`[WS] agent:abort received from user ${userId} for run ${runId || 'unknown'}`);
-        agentEngine.abort(runId || null);
+        agentEngine.abort(runId || null, { userId });
         socket.emit('agent:aborted', { runId: runId || null });
       } catch (err) {
         console.error(`[WS] agent:abort failed for user ${userId}:`, err);
@@ -366,8 +366,14 @@ function setupWebSocket(io, services) {
         }
         console.log(`[WS] agent:run_detail requested by user ${userId} run=${runId}`);
         const run = db.prepare('SELECT * FROM agent_runs WHERE id = ? AND user_id = ?').get(runId, userId);
+        if (!run) {
+          // Don't leak steps/history/events for a run the user doesn't own:
+          // agent_steps and run events are keyed only by run_id, so the run
+          // ownership check is the sole authorization gate.
+          return socket.emit('agent:run_detail', { run: null, steps: [], history: [], events: [] });
+        }
         const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(runId);
-        const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? ORDER BY created_at ASC').all(runId);
+        const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? AND user_id = ? ORDER BY created_at ASC').all(runId, userId);
         const events = listRunEvents(runId);
         socket.emit('agent:run_detail', { run, steps, history, events });
       } catch (err) {

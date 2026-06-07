@@ -81,33 +81,65 @@ class OllamaProvider extends BaseProvider {
     }));
   }
 
-  async chat(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || 'llama3.1';
-    await this.ensureModel(model);
+  buildChatBody(messages, tools, options, stream) {
     const body = {
-      model,
+      model: options.model || this.config.model || 'llama3.1',
       messages: messages.map(m => ({
         role: m.role,
         content: m.content || '',
         ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
         ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {})
       })),
-      stream: false,
+      stream,
       options: {
         temperature: options.temperature ?? 0.7,
         num_predict: options.maxTokens || 16384
       }
     };
-
     if (tools.length > 0) {
       body.tools = this.formatToolsForOllama(tools);
     }
+    return body;
+  }
 
+  // Ollama returns HTTP 200 with an error body for some failures and a non-2xx
+  // status for others; surface both as real errors instead of letting callers
+  // see a silently empty response. Tags models that reject tools so the caller
+  // can transparently retry without them.
+  async postChat(body) {
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      let message = detail;
+      try { message = JSON.parse(detail)?.error || detail; } catch {}
+      const err = new Error(`Ollama /api/chat failed (HTTP ${res.status}): ${message || res.statusText}`);
+      if (/does not support tools|tools.*not supported/i.test(message)) {
+        err.code = 'OLLAMA_TOOLS_UNSUPPORTED';
+      }
+      throw err;
+    }
+    return res;
+  }
+
+  async chat(messages, tools = [], options = {}) {
+    const model = options.model || this.config.model || 'llama3.1';
+    await this.ensureModel(model);
+
+    let res;
+    try {
+      res = await this.postChat(this.buildChatBody(messages, tools, { ...options, model }, false));
+    } catch (err) {
+      if (err.code === 'OLLAMA_TOOLS_UNSUPPORTED' && tools.length > 0) {
+        console.warn(`[Ollama] Model '${model}' does not support tools; retrying without them.`);
+        res = await this.postChat(this.buildChatBody(messages, [], { ...options, model }, false));
+      } else {
+        throw err;
+      }
+    }
 
     const data = await res.json();
     const msg = data.message || {};
@@ -135,30 +167,18 @@ class OllamaProvider extends BaseProvider {
   async *stream(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || 'llama3.1';
     await this.ensureModel(model);
-    const body = {
-      model,
-      messages: messages.map(m => ({
-        role: m.role,
-        content: m.content || '',
-        ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
-        ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {})
-      })),
-      stream: true,
-      options: {
-        temperature: options.temperature ?? 0.7,
-        num_predict: options.maxTokens || 16384
+
+    let res;
+    try {
+      res = await this.postChat(this.buildChatBody(messages, tools, { ...options, model }, true));
+    } catch (err) {
+      if (err.code === 'OLLAMA_TOOLS_UNSUPPORTED' && tools.length > 0) {
+        console.warn(`[Ollama] Model '${model}' does not support tools; retrying stream without them.`);
+        res = await this.postChat(this.buildChatBody(messages, [], { ...options, model }, true));
+      } else {
+        throw err;
       }
-    };
-
-    if (tools.length > 0) {
-      body.tools = this.formatToolsForOllama(tools);
     }
-
-    const res = await fetch(`${this.baseUrl}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
