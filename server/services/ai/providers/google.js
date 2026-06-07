@@ -10,14 +10,16 @@ class GoogleProvider extends BaseProvider {
       'gemini-2.0-pro',
       'gemini-1.5-pro',
       'gemini-1.5-flash',
-      'gemini-3.1-flash-lite-preview'
+      'gemini-3.1-flash-lite-preview',
+      'gemini-3.1-pro'
     ];
     this.contextWindows = {
       'gemini-2.0-flash': 1048576,
       'gemini-2.0-pro': 2097152,
       'gemini-1.5-pro': 2097152,
       'gemini-1.5-flash': 1048576,
-      'gemini-3.1-flash-lite-preview': 1048576
+      'gemini-3.1-flash-lite-preview': 1048576,
+      'gemini-3.1-pro': 2097152
     };
     this.genAI = new GoogleGenerativeAI(config.apiKey || process.env.GOOGLE_AI_KEY);
   }
@@ -177,14 +179,12 @@ class GoogleProvider extends BaseProvider {
     const toolCalls = [];
 
     for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) {
-        content += text;
-        yield { type: 'content', content: text };
-      }
-
       for (const candidate of chunk.candidates || []) {
         for (const part of candidate.content?.parts || []) {
+          if (part.text) {
+            content += part.text;
+            yield { type: 'content', content: part.text };
+          }
           if (part.functionCall) {
             toolCalls.push({
               id: `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,

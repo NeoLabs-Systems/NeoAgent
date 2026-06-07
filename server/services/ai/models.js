@@ -162,6 +162,12 @@ const STATIC_MODELS = [
         purpose: 'general'
     },
     {
+        id: 'gemini-3.1-pro',
+        label: 'Gemini 3.1 Pro (High)',
+        provider: 'google',
+        purpose: 'general'
+    },
+    {
         id: 'MiniMax-M2.7',
         label: 'MiniMax M2.7 (Coding Plan)',
         provider: 'minimax',

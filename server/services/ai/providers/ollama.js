@@ -184,6 +184,7 @@ class OllamaProvider extends BaseProvider {
     const decoder = new TextDecoder();
     let content = '';
     let buffer = '';
+    let accumulatedToolCalls = [];
 
     while (true) {
       const { done, value } = await reader.read();
@@ -201,20 +202,23 @@ class OllamaProvider extends BaseProvider {
             content += data.message.content;
             yield { type: 'content', content: data.message.content };
           }
-          if (data.done) {
-            const toolCalls = (data.message?.tool_calls || []).map((tc, i) => ({
+          if (data.message?.tool_calls && Array.isArray(data.message.tool_calls)) {
+            const mapped = data.message.tool_calls.map((tc, i) => ({
               id: `call_ollama_${Date.now()}_${i}`,
               type: 'function',
               function: {
                 name: tc.function.name,
-                arguments: JSON.stringify(tc.function.arguments || {})
+                arguments: typeof tc.function.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function.arguments || {})
               }
             }));
+            accumulatedToolCalls = accumulatedToolCalls.concat(mapped);
+          }
+          if (data.done) {
             yield {
               type: 'done',
               content,
-              toolCalls,
-              finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+              toolCalls: accumulatedToolCalls,
+              finishReason: accumulatedToolCalls.length > 0 ? 'tool_calls' : 'stop',
               usage: data.prompt_eval_count ? {
                 promptTokens: data.prompt_eval_count || 0,
                 completionTokens: data.eval_count || 0,
