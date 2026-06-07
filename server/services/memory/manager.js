@@ -21,6 +21,7 @@ const {
 } = require('./intelligence');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const { buildFtsQuery } = require('../../db/ftsQuery');
 const {
   decryptLocalValue,
   encryptLocalValue,
@@ -185,13 +186,6 @@ function parseStringSetting(value) {
   } catch {
     return value;
   }
-}
-
-function buildFtsQuery(query) {
-  const tokens = String(query || '')
-    .match(/[\p{L}\p{N}_-]{2,}/gu) || [];
-  if (!tokens.length) return null;
-  return tokens.map((token) => `${token.replace(/"/g, '')}*`).join(' AND ');
 }
 
 function stripHighlight(text) {

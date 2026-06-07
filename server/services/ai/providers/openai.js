@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
-const { BaseProvider } = require('./base');
+const { OpenAICompatibleProvider } = require('./openaiCompatible');
 
-class OpenAIProvider extends BaseProvider {
+class OpenAIProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'openai';
@@ -173,31 +173,6 @@ class OpenAIProvider extends BaseProvider {
     }
   }
 
-  async analyzeImage(options = {}) {
-    const model = options.model || this.getDefaultVisionModel();
-    const b64 = BaseProvider.readImageAsBase64(options.imagePath);
-    const response = await this.client.chat.completions.create({
-      model,
-      max_tokens: options.maxTokens || 4096,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: options.question || 'Describe this image in detail.' },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${options.mimeType || 'image/jpeg'};base64,${b64}`
-            }
-          }
-        ]
-      }]
-    });
-
-    return {
-      content: response.choices[0]?.message?.content || '',
-      model: response.model || model,
-    };
-  }
 }
 
 module.exports = { OpenAIProvider };

@@ -30,7 +30,6 @@ const {
 const { getCapabilityHealth, summarizeCapabilityHealth } = require('./capabilityHealth');
 const {
   buildPlatformFormattingGuide,
-  normalizeOutgoingMessageForPlatform,
   splitOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
 const {
@@ -49,6 +48,27 @@ const {
 } = require('./deliverables');
 const { buildLoopPolicy, resolveToolResultLimits } = require('./loopPolicy');
 const { globalHooks } = require('./hooks');
+const { withProviderRetry, isTransientError } = require('./providerRetry');
+const { normalizeCompletionConfidence, shouldAcceptTaskComplete } = require('./completion');
+const { shortenRunId, summarizeForLog, parseMaybeJson } = require('./logFormat');
+const {
+  normalizeOutgoingMessage,
+  clampRunContext,
+  joinSentMessages,
+  normalizeInterimText,
+  buildBlankMessagingReplyPrompt,
+  buildDeterministicMessagingFallback,
+  buildMessagingFailureScenario,
+  buildDeterministicMessagingErrorReply,
+  buildModelFailureLoopPrompt,
+} = require('./messagingFallback');
+const {
+  classifyToolExecution,
+  summarizeToolExecutions,
+  summarizeAvailableTools,
+  inferToolFailureMessage,
+  buildAutonomousRecoveryContext,
+} = require('./toolEvidence');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -250,468 +270,9 @@ function estimateTokenValue(value) {
   return Math.ceil(JSON.stringify(value).length / 4);
 }
 
-function normalizeOutgoingMessage(content, platform = null, options = {}) {
-  const normalized = normalizeOutgoingMessageForPlatform(platform, content);
-  if (options.collapseWhitespace === false) {
-    return normalized;
-  }
-  return normalized.replace(/\s+/g, ' ').trim();
-}
-
-function joinSentMessages(messages = []) {
-  if (!Array.isArray(messages)) return '';
-  return messages
-    .map((message) => String(message || '').trim())
-    .filter(Boolean)
-    .join('\n\n');
-}
-
-function normalizeInterimText(content, platform = null) {
-  return normalizeOutgoingMessageForPlatform(platform, content, {
-    stripNoResponseMarker: false,
-  }).trim();
-}
-
-function buildBlankMessagingReplyPrompt(attempt, platform = null) {
-  const formattingGuide = buildPlatformFormattingGuide(platform);
-  if (attempt <= 1) {
-    return `You must send one non-empty reply for the external messaging user right now. Do not call tools. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
-  }
-
-  return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, apologize briefly and explain the blocker in one sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
-}
-
-function parseToolExecutionSummary(item) {
-  if (!item?.summary) return null;
-  try {
-    const parsed = JSON.parse(item.summary);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function toolWorkDescription(toolName) {
-  const name = String(toolName || '');
-  if (name === 'execute_command') return 'ran shell commands';
-  if (name === 'read_file' || name === 'search_files' || name === 'list_directory') return 'checked files';
-  if (name === 'web_search' || name === 'http_request') return 'looked up supporting information';
-  if (name.startsWith('browser_')) return 'checked the browser state';
-  if (name.startsWith('android_')) return 'checked the Android state';
-  if (name === 'read_health_data' || name.startsWith('recordings_')) return 'checked stored data';
-  return '';
-}
-
-function summarizeRecentWork(toolExecutions = []) {
-  const descriptions = [];
-  for (const item of toolExecutions.slice(-6)) {
-    const description = toolWorkDescription(item?.toolName);
-    if (!description || descriptions.includes(description)) continue;
-    descriptions.push(description);
-    if (descriptions.length >= 2) break;
-  }
-
-  if (descriptions.length === 0) return '';
-  if (descriptions.length === 1) return `I ${descriptions[0]}`;
-  return `I ${descriptions[0]} and ${descriptions[1]}`;
-}
-
-function hasFailureSignal(text) {
-  const normalized = normalizeOutgoingMessage(text);
-  if (!normalized) return false;
-  return /\b(error|failed|failure|traceback|exception|timed out|timeout|not found|no such file|permission denied|unable to|cannot|could not|module not found)\b/i.test(normalized);
-}
-
-function extractToolFailureMessage(item) {
-  const directError = normalizeOutgoingMessage(item?.error || '');
-  if (directError) return directError;
-
-  const summary = parseToolExecutionSummary(item);
-  if (!summary) return '';
-
-  const candidates = [
-    summary.message,
-    summary.note,
-    summary.stderr,
-    summary.stdout,
-    summary.content,
-    summary.excerpt,
-    summary.result,
-    summary.summary,
-  ];
-
-  if (summary.status === 'error') {
-    for (const candidate of candidates) {
-      const normalized = normalizeOutgoingMessage(candidate || '');
-      if (normalized) return normalized;
-    }
-    if (summary.exitCode != null) {
-      return `The last shell command exited with code ${summary.exitCode}`;
-    }
-  }
-
-  for (const candidate of candidates) {
-    const normalized = normalizeOutgoingMessage(candidate || '');
-    if (hasFailureSignal(normalized)) return normalized;
-  }
-
-  return '';
-}
-
-function buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions = [] }) {
-  const workSummary = summarizeRecentWork(toolExecutions);
-  const blocker = [...toolExecutions].reverse()
-    .map((item) => extractToolFailureMessage(item))
-    .find(Boolean);
-
-  if (workSummary && blocker) {
-    return `${workSummary}, but I got blocked: ${blocker}. I do not have a confirmed finished result yet.`;
-  }
-  if (blocker) {
-    return `I got blocked while working on this: ${blocker}. I do not have a confirmed finished result yet.`;
-  }
-  if (workSummary && stepIndex > 0) {
-    return `${workSummary}, but I do not have a confirmed finished result yet.`;
-  }
-  if (failedStepCount > 0) {
-    return 'I ran into a tool problem while working on your request, so I do not have a confirmed finished result yet.';
-  }
-  if (stepIndex > 0) {
-    return 'I completed part of the work, but I do not have a confirmed finished result yet.';
-  }
-  return 'I could not produce a reliable final reply just now.';
-}
-
-function buildMessagingFailureScenario({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
-  const parts = [];
-  const runtimeError = normalizeOutgoingMessage(err?.message || '');
-  const workSummary = summarizeRecentWork(toolExecutions);
-  const blocker = [...toolExecutions].reverse()
-    .map((item) => extractToolFailureMessage(item))
-    .find(Boolean);
-
-  if (runtimeError) {
-    parts.push(`Runtime error: ${summarizeForLog(runtimeError, 260)}.`);
-  }
-  if (workSummary) {
-    parts.push(`Observed work before failure: ${workSummary}.`);
-  }
-  if (blocker) {
-    parts.push(`Most specific blocker from run evidence: ${summarizeForLog(blocker, 260)}.`);
-  }
-  if (stepIndex > 0) {
-    parts.push(`Completed steps before failure: ${stepIndex}.`);
-  }
-  if (failedStepCount > 0) {
-    parts.push(`Failed tool steps: ${failedStepCount}.`);
-  }
-
-  return parts.join(' ');
-}
-
-function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
-  const message = normalizeOutgoingMessage(err?.message || '');
-  if (/no ai providers? are currently available/i.test(message)) {
-    return 'I cannot continue right now because no AI provider is available for this account. Please check the provider settings.';
-  }
-
-  if (/(timeout|timed out)/i.test(message)) {
-    return 'I hit a timeout while processing your request and could not finish it reliably.';
-  }
-
-  const blocker = [...toolExecutions].reverse()
-    .map((item) => extractToolFailureMessage(item))
-    .find(Boolean);
-  if (blocker) {
-    return `I got blocked while checking this: ${blocker}.`;
-  }
-
-  if (message) {
-    return `I got blocked while working on this: ${message}.`;
-  }
-
-  return buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
-}
-
-function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
-  return [
-    `The previous model call on "${failedModel}" failed with: ${summarizeForLog(errorMessage, 220)}.`,
-    `Continue on "${nextModel}" and recover autonomously.`,
-    'If a previous plan depended on that failed call, adjust your approach and proceed end-to-end.',
-    'Only ask the user for help if no safe path remains.'
-  ].join(' ');
-}
-
-function normalizeCompletionConfidence(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (normalized === 'high' || normalized === 'medium' || normalized === 'low') return normalized;
-  return 'medium';
-}
-
-function completionConfidenceRank(value) {
-  const normalized = normalizeCompletionConfidence(value);
-  if (normalized === 'high') return 3;
-  if (normalized === 'medium') return 2;
-  return 1;
-}
-
-function shouldAcceptTaskComplete({ confidence, requiredConfidence, iteration, maxIterations }) {
-  const required = normalizeCompletionConfidence(requiredConfidence || 'medium');
-  const actual = normalizeCompletionConfidence(confidence || 'medium');
-  if (completionConfidenceRank(actual) >= completionConfidenceRank(required)) {
-    return { accept: true, reason: '' };
-  }
-
-  const iterationsRemaining = Math.max(0, Number(maxIterations || 0) - Number(iteration || 0));
-  if (iterationsRemaining <= 1) {
-    return {
-      accept: true,
-      reason: `Accepted ${actual}-confidence completion at the iteration limit; final verifier will calibrate the answer.`,
-    };
-  }
-
-  return {
-    accept: false,
-    reason: `Completion confidence "${actual}" is below required "${required}". Continue with verification, recovery, or a narrower truthful result before completing.`,
-  };
-}
-
-function clampRunContext(text, maxChars) {
-  const value = normalizeOutgoingMessage(text);
-  if (!value) return '';
-  if (value.length <= maxChars) return value;
-  return `${value.slice(0, maxChars)}...`;
-}
-
-function shortenRunId(runId) {
-  const value = String(runId || '').trim();
-  if (!value) return 'unknown';
-  return value.length <= 8 ? value : value.slice(0, 8);
-}
-
-function summarizeForLog(value, maxChars = 220) {
-  if (value == null) return '';
-
-  let text = '';
-  if (typeof value === 'string') {
-    text = value;
-  } else {
-    try {
-      text = JSON.stringify(value);
-    } catch {
-      text = String(value);
-    }
-  }
-
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= maxChars) return normalized;
-  return `${normalized.slice(0, maxChars)}...`;
-}
-
-function parseMaybeJson(value, fallback = null) {
-  if (!value) return fallback;
-  if (typeof value === 'object') return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
-function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '') {
-  const name = String(toolName || '');
-  const evidenceRelevantPrefixes = ['browser_', 'android_'];
-  const evidenceRelevantExact = new Set([
-    'web_search',
-    'http_request',
-    'read_file',
-    'search_files',
-    'list_directory',
-    'session_search',
-    'memory_recall',
-    'analyze_image',
-    'read_health_data',
-    'recordings_list',
-    'recordings_get',
-    'recordings_search',
-    'list_tasks',
-    'wait_subagent',
-  ]);
-  const stateChangingExact = new Set([
-    'execute_command',
-    'write_file',
-    'edit_file',
-    'send_interim_update',
-    'send_message',
-    'make_call',
-    'create_skill',
-    'update_skill',
-    'delete_skill',
-    'create_task',
-    'update_task',
-    'delete_task',
-    'create_ai_widget',
-    'update_ai_widget',
-    'delete_ai_widget',
-    'save_widget_snapshot',
-    'mcp_add_server',
-    'mcp_remove_server',
-    'spawn_subagent',
-    'cancel_subagent',
-  ]);
-
-  const evidenceSource = name.startsWith('browser_')
-    ? 'browser'
-    : name.startsWith('android_')
-      ? 'android'
-      : name.startsWith('mcp_')
-        ? 'mcp'
-        : name.startsWith('memory_') || name === 'session_search'
-          ? 'memory'
-          : name === 'web_search'
-            ? 'search'
-            : name === 'http_request'
-              ? 'http'
-              : ['read_file', 'search_files', 'list_directory', 'write_file', 'edit_file'].includes(name)
-                ? 'files'
-                : name === 'execute_command'
-                  ? 'command'
-                  : name.includes('skill')
-                    ? 'skills'
-                    : (name === 'create_task' || name === 'update_task' || name === 'delete_task' || name === 'list_tasks' || name.includes('widget'))
-                      ? 'tasks'
-                      : name === 'send_message' || name === 'make_call'
-                        ? 'messaging'
-                        : name.startsWith('recordings_') || name === 'read_health_data'
-                          ? 'data'
-                          : name === 'analyze_image'
-                            ? 'vision'
-                            : name.includes('subagent')
-                              ? 'subagent'
-                              : 'tool';
-
-  const evidenceRelevant = evidenceRelevantExact.has(name)
-    || evidenceRelevantPrefixes.some((prefix) => name.startsWith(prefix));
-  const stateChanged = stateChangingExact.has(name)
-    || name.startsWith('android_')
-    || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
-
-  let normalizedError = String(errorMessage || result?.error || '').trim();
-  if (!normalizedError && name === 'execute_command' && result && typeof result === 'object') {
-    if (result.timedOut) {
-      normalizedError = `Command timed out after ${result.durationMs || 'unknown'} ms`;
-    } else if (result.killed || result.signal) {
-      normalizedError = 'Command was killed before it finished';
-    } else if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
-      normalizedError = summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
-    }
-  }
-
-  if (!normalizedError && result && typeof result === 'object') {
-    const nestedResult = result.result && typeof result.result === 'object' && !Array.isArray(result.result)
-      ? result.result
-      : null;
-    const detail = normalizeOutgoingMessage(
-      result.reason
-      || result.message
-      || nestedResult?.reason
-      || nestedResult?.message
-      || ''
-    );
-
-    if (result.skipped === true || nestedResult?.skipped === true) {
-      normalizedError = detail || 'Tool reported skipped outcome.';
-    } else if (result.success === false || nestedResult?.success === false) {
-      normalizedError = detail || 'Tool reported success=false.';
-    } else if (result.sent === false || nestedResult?.sent === false) {
-      normalizedError = detail || 'Tool reported sent=false.';
-    }
-  }
-
-  return {
-    toolName: name,
-    ok: !normalizedError,
-    error: normalizedError,
-    evidenceSource,
-    evidenceRelevant,
-    stateChanged,
-    dependsOnOutput: true,
-    summary: compactToolResult(name, toolArgs, result || { error: errorMessage || 'Tool failed' }, {
-      softLimit: 500,
-      hardLimit: 900,
-    }),
-  };
-}
-
-function summarizeToolExecutions(toolExecutions = [], maxItems = 10) {
-  return toolExecutions.slice(-maxItems).map((item, index) => {
-    const status = item.ok ? 'ok' : `error=${item.error}`;
-    return `${index + 1}. ${item.toolName} [${item.evidenceSource}] ${status} :: ${clampRunContext(item.summary || '', 220)}`;
-  }).join('\n');
-}
-
-function summarizeAvailableTools(tools = [], { exclude = [] } = {}) {
-  const excluded = new Set((Array.isArray(exclude) ? exclude : [exclude]).filter(Boolean));
-  return tools
-    .map((tool) => String(tool?.name || '').trim())
-    .filter((name) => name && !excluded.has(name))
-    .slice(0, 24)
-    .join(', ');
-}
-
-function inferToolFailureMessage(toolName, result) {
-  const explicitError = normalizeOutgoingMessage(result?.error || '');
-  if (explicitError) return explicitError;
-
-  if (!result || typeof result !== 'object') return '';
-
-  if (toolName === 'execute_command') {
-    if (result.timedOut) {
-      return `Command timed out after ${result.durationMs || 'unknown'} ms`;
-    }
-    if (result.killed || result.signal) {
-      return 'Command was killed before it finished';
-    }
-    if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
-      return summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
-    }
-  }
-
-  if (toolName === 'http_request' && typeof result.status === 'number' && result.status >= 400) {
-    const bodySnippet = normalizeOutgoingMessage(result.body || '');
-    return summarizeForLog(
-      bodySnippet
-        ? `HTTP request returned status ${result.status}: ${bodySnippet}`
-        : `HTTP request returned status ${result.status}`,
-      240
-    );
-  }
-
-  return '';
-}
-
-function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], userMessage, visibleMessageSent = false }) {
-  const lastFailure = [...toolExecutions].reverse().find((item) => !item.ok);
-  const alternativeTools = summarizeAvailableTools(tools, { exclude: lastFailure?.toolName || null });
-  const parts = [
-    'This is an internal recovery retry for the same user task. Continue the task instead of stopping.',
-    userMessage ? `Original task: ${clampRunContext(userMessage, 260)}` : '',
-    lastFailure?.toolName ? `Previous attempt failed on tool: ${lastFailure.toolName}.` : '',
-    lastFailure?.error ? `Concrete failure: ${summarizeForLog(lastFailure.error, 260)}.` : '',
-    err?.message ? `Run-level error after that failure: ${summarizeForLog(err.message, 220)}.` : '',
-    'Do not send a blocker message just because one tool path failed.',
-    'Use a different safe approach if available: alternate tool, different query, browser path, HTTP fetch, file/code inspection, or command verification.',
-    visibleMessageSent ? 'A user-facing message was already sent in a previous internal attempt. Continue silently unless you have a materially new finished result or a real external blocker.' : '',
-    alternativeTools ? `Other available tools in this run: ${alternativeTools}.` : '',
-    'Only stop if the remaining problem truly requires an external dependency or user action outside this run.'
-  ];
-  return parts.filter(Boolean).join(' ');
-}
-
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
-    this.maxIterations = 12;
     this.activeRuns = new Map();
     this.subagents = new Map();
     this.app = services.app || null;
@@ -943,17 +504,20 @@ class AgentEngine {
     fallback = {},
     reasoningEffort,
   }) {
-    const response = await provider.chat(
-      sanitizeConversationMessages([
-        ...messages,
-        { role: 'system', content: prompt },
-      ]),
-      [],
-      {
-        model,
-        maxTokens,
-        reasoningEffort: reasoningEffort || this.getReasoningEffort(providerName, {}),
-      }
+    const response = await withProviderRetry(
+      () => provider.chat(
+        sanitizeConversationMessages([
+          ...messages,
+          { role: 'system', content: prompt },
+        ]),
+        [],
+        {
+          model,
+          maxTokens,
+          reasoningEffort: reasoningEffort || this.getReasoningEffort(providerName, {}),
+        }
+      ),
+      { label: `Engine ${model} (structured)` }
     );
 
     const parsed = parseJsonObject(response.content || '');
@@ -979,36 +543,63 @@ class AgentEngine {
       model,
       reasoningEffort: this.getReasoningEffort(providerName, options),
     };
-    let response = null;
-    let streamContent = '';
 
-    if (options.stream !== false) {
-      const stream = provider.stream(requestMessages, tools, callOptions);
-      for await (const chunk of stream) {
-        if (chunk.type === 'content') {
-          streamContent += chunk.content;
-          this.emit(options.userId, 'run:stream', {
-            runId,
-            content: sanitizeModelOutput(streamContent, { model }),
-            iteration,
-          });
+    const attemptModelCall = async () => {
+      let response = null;
+      let streamContent = '';
+
+      if (options.stream !== false) {
+        let emittedContent = false;
+        const stream = provider.stream(requestMessages, tools, callOptions);
+        try {
+          for await (const chunk of stream) {
+            if (chunk.type === 'content') {
+              emittedContent = true;
+              streamContent += chunk.content;
+              this.emit(options.userId, 'run:stream', {
+                runId,
+                content: sanitizeModelOutput(streamContent, { model }),
+                iteration,
+              });
+            }
+            if (chunk.type === 'done') {
+              response = chunk;
+            }
+            if (chunk.type === 'tool_calls') {
+              response = {
+                content: chunk.content || streamContent,
+                toolCalls: chunk.toolCalls,
+                providerContentBlocks: chunk.providerContentBlocks || null,
+                finishReason: 'tool_calls',
+                usage: chunk.usage || null,
+              };
+            }
+          }
+        } catch (err) {
+          // Once tokens have streamed to the client a retry would duplicate
+          // output, so only the pre-stream window is safe to replay.
+          if (emittedContent) err.__providerRetryUnsafe = true;
+          throw err;
         }
-        if (chunk.type === 'done') {
-          response = chunk;
-        }
-        if (chunk.type === 'tool_calls') {
-          response = {
-            content: chunk.content || streamContent,
-            toolCalls: chunk.toolCalls,
-            providerContentBlocks: chunk.providerContentBlocks || null,
-            finishReason: 'tool_calls',
-            usage: chunk.usage || null,
-          };
-        }
+      } else {
+        response = await provider.chat(requestMessages, tools, callOptions);
       }
-    } else {
-      response = await provider.chat(requestMessages, tools, callOptions);
-    }
+
+      return { response, streamContent };
+    };
+
+    const { response, streamContent } = await withProviderRetry(attemptModelCall, {
+      ...(options.retry || {}),
+      label: `Engine ${model}`,
+      isRetryable: (err) => !err?.__providerRetryUnsafe && isTransientError(err),
+      onRetry: ({ attempt, delayMs }) => {
+        this.emit(options.userId, 'run:interim', {
+          runId,
+          message: `Model service busy; retrying (attempt ${attempt}) in ${Math.max(1, Math.round(delayMs / 1000))}s.`,
+          phase: 'recovering',
+        });
+      },
+    });
 
     const resolvedResponse = response || {
       content: streamContent,
@@ -3380,8 +2971,15 @@ class AgentEngine {
     db.prepare("UPDATE agent_runs SET status = 'stopped', updated_at = datetime('now') WHERE id = ?").run(runId);
   }
 
-  abort(runId) {
-    if (runId) this.stopRun(runId);
+  abort(runId, { userId } = {}) {
+    if (!runId) return false;
+    if (userId != null) {
+      // Ownership gate: never let one user abort another user's active run.
+      const runMeta = this.activeRuns.get(runId);
+      if (runMeta && Number(runMeta.userId) !== Number(userId)) return false;
+    }
+    this.stopRun(runId);
+    return true;
   }
 
   abortAll(userId) {
