@@ -561,10 +561,13 @@ function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
   return lines.filter(Boolean).join('\n\n');
 }
 
-function buildVerifierPrompt({ analysis, toolExecutionSummary, evidenceSources, finalReply }) {
+function buildVerifierPrompt({ analysis, tools = [], toolExecutionSummary, evidenceSources, finalReply }) {
+  const toolNames = summarizeTools(tools).join(', ');
   return composeJsonPrompt([
     JSON_ONLY_RESPONSE_RULE,
     ...VERIFIER_PROMPT_INSTRUCTIONS,
+    formatAvailableToolsLine(toolNames),
+    'Do not claim a tool or capability was unavailable if it is listed as available in this run. A missing tool execution is missing evidence, not proof of missing tool exposure.',
     `Freshness risk: ${analysis.freshness_risk}`,
     `Verification need: ${analysis.verification_need}`,
     `Completion confidence required: ${analysis.completion_confidence_required || 'medium'}`,
