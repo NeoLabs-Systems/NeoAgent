@@ -275,7 +275,10 @@ async function pollIntegrationTask(runtime, task) {
   const startIndex = rows.findIndex((row) => row.fingerprint === existingFingerprint);
   const pending = startIndex >= 0 ? rows.slice(startIndex + 1) : rows.slice(-1);
   for (const row of pending) {
-    await runtime.fireTaskFromTrigger(task.id, task.user_id, row);
+    const result = await runtime.fireTaskFromTrigger(task.id, task.user_id, row);
+    if (result?.error || (result?.skipped && result.reason !== 'duplicate_trigger')) {
+      break;
+    }
   }
 }
 

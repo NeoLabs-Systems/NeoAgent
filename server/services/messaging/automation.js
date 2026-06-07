@@ -18,9 +18,12 @@ const {
   buildVoiceMessagingRunOptions,
   isVoiceLikeMessage,
 } = require('../voice/runtime');
+const { getErrorMessage } = require('../bootstrap_helpers');
+const { processInboundQueue } = require('./inbound_queue');
+const { startTypingKeepalive } = require('./typing_keepalive');
 
 function registerMessagingAutomation({ app, io, messagingManager, agentEngine }) {
-  const userQueues = {};
+  const userQueues = Object.create(null);
   app.locals.userQueues = userQueues;
 
   messagingManager.registerHandler(async (userId, msg) => {
@@ -100,7 +103,20 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
       messagingManager,
       agentEngine,
       userId,
-      msg
+      msg,
+      onProcessingError: ({ error, runId, failedMessage }) => {
+        const errorMessage = getErrorMessage(error);
+        console.error(
+          `[MessagingAutomation] Agent run failed platform=${failedMessage.platform} user=${userId}:`,
+          errorMessage
+        );
+        io.to(`user:${userId}`).emit('messaging:error', {
+          error: `NeoAgent could not finish the ${failedMessage.platform} request. Check the run history for details.`,
+          platform: failedMessage.platform,
+          chatId: failedMessage.chatId,
+          runId
+        });
+      }
     });
   });
 }
@@ -110,52 +126,62 @@ async function processQueuedMessage({
   messagingManager,
   agentEngine,
   userId,
+  msg,
+  onProcessingError = null
+}) {
+  return processInboundQueue({
+    userQueues,
+    userId,
+    msg,
+    executeMessage: (queuedMessage) =>
+      executeQueuedMessage({
+        messagingManager,
+        agentEngine,
+        userId,
+        msg: queuedMessage
+      }),
+    onProcessingError
+  });
+}
+
+async function executeQueuedMessage({
+  messagingManager,
+  agentEngine,
+  userId,
   msg
 }) {
   const agentId = msg.agentId || null;
-  const queueKey = `${userId}:${agentId || 'main'}`;
-  if (!userQueues[queueKey]) {
-    userQueues[queueKey] = { running: false, pending: [], cancelRequested: false };
-  }
-  const queue = userQueues[queueKey];
+  const runId = randomUUID();
+  const reportSideEffectError = (operation, error) => {
+    console.warn(
+      `[MessagingAutomation] ${operation} failed platform=${msg.platform} user=${userId}:`,
+      getErrorMessage(error)
+    );
+  };
 
-  if (queue.cancelRequested && !queue.running) {
-    queue.pending = [];
-    queue.cancelRequested = false;
-  }
-
-  if (queue.running) {
-    const last = queue.pending[queue.pending.length - 1];
-    if (
-      last
-      && last.platform === msg.platform
-      && last.chatId === msg.chatId
-      && String(last.sender || '') === String(msg.sender || '')
-    ) {
-      last.content += `\n${msg.content}`;
-      last.messageId = msg.messageId;
-    } else {
-      queue.pending.push({ ...msg });
-    }
-    return;
-  }
-
-  queue.running = true;
-  let stopTypingKeepalive = async () => {};
   try {
-    const runId = randomUUID();
-    await messagingManager
-      .markRead(userId, msg.platform, msg.chatId, msg.messageId, { agentId })
-      .catch(() => {});
-    stopTypingKeepalive = startTypingKeepalive({
-      messagingManager,
+    await messagingManager.markRead(
       userId,
-      agentId,
-      runId,
-      platform: msg.platform,
-      chatId: msg.chatId
-    });
+      msg.platform,
+      msg.chatId,
+      msg.messageId,
+      { agentId }
+    );
+  } catch (error) {
+    reportSideEffectError('mark read', error);
+  }
 
+  const stopTypingKeepalive = startTypingKeepalive({
+    messagingManager,
+    userId,
+    agentId,
+    runId,
+    platform: msg.platform,
+    chatId: msg.chatId,
+    onError: reportSideEffectError
+  });
+
+  try {
     const prompt = buildIncomingPrompt(msg);
     const conversationId = ensureConversation(userId, msg);
     const runOptions = isVoiceLikeMessage(msg)
@@ -182,103 +208,13 @@ async function processQueuedMessage({
       ];
     }
 
-    await agentEngine.run(userId, prompt, runOptions);
+    const result = await agentEngine.run(userId, prompt, runOptions);
+    return { runId, result, error: null };
+  } catch (error) {
+    return { runId, result: null, error };
   } finally {
     await stopTypingKeepalive();
-    if (queue.cancelRequested) {
-      queue.pending = [];
-      queue.running = false;
-      queue.cancelRequested = false;
-      return;
-    }
-    queue.running = false;
-    if (queue.pending.length > 0) {
-      const next = queue.pending.shift();
-      await processQueuedMessage({
-        userQueues,
-        messagingManager,
-        agentEngine,
-        userId,
-        msg: next
-      });
-    }
   }
-}
-
-function startTypingKeepalive({
-  messagingManager,
-  userId,
-  agentId,
-  runId,
-  platform,
-  chatId,
-  intervalMs = 4000
-}) {
-  let stopped = false;
-  let timer = null;
-  let releaseWait = null;
-  let stopPromise = null;
-
-  const matchesRunDelivery = (event) => (
-    event?.runId
-    && runId
-    && event.runId === runId
-    && event.userId === userId
-    && event.platform === platform
-    && event.to === chatId
-  );
-
-  const onMessageSent = (event) => {
-    if (matchesRunDelivery(event) && event.deliveryKind !== 'interim') {
-      stop().catch(() => {});
-    }
-  };
-
-  if (typeof messagingManager?.on === 'function' && typeof messagingManager?.off === 'function') {
-    messagingManager.on('message_sent', onMessageSent);
-  }
-
-  const wait = () =>
-    new Promise((resolve) => {
-      releaseWait = resolve;
-      timer = setTimeout(resolve, intervalMs);
-    });
-
-  const loop = (async () => {
-    while (!stopped) {
-      await messagingManager
-        .sendTyping(userId, platform, chatId, true, { agentId })
-        .catch(() => {});
-
-      if (stopped) break;
-      await wait();
-    }
-  })();
-
-  const stop = async () => {
-    if (stopPromise) return stopPromise;
-    stopPromise = (async () => {
-      if (typeof messagingManager?.off === 'function') {
-        messagingManager.off('message_sent', onMessageSent);
-      }
-      stopped = true;
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      if (releaseWait) {
-        releaseWait();
-        releaseWait = null;
-      }
-      await loop.catch(() => {});
-      await messagingManager
-        .sendTyping(userId, platform, chatId, false, { agentId })
-        .catch(() => {});
-    })();
-    return stopPromise;
-  };
-
-  return stop;
 }
 
 function ensureConversation(userId, msg) {
@@ -419,6 +355,7 @@ function emitBlockedSenderSuggestion({ io, userId, msg }) {
 module.exports = {
   buildIncomingPrompt,
   buildSenderIdentityBlock,
+  executeQueuedMessage,
   isAllowedMessagingSender,
   processQueuedMessage,
   registerMessagingAutomation,

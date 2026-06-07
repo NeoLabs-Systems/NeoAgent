@@ -61,6 +61,17 @@ function generateTitle(task) {
   return cleaned.slice(0, 90);
 }
 
+function buildInitialRunMetadata(options = {}) {
+  const metadata = {};
+  if (options.taskId != null && String(options.taskId).trim()) {
+    metadata.taskId = options.taskId;
+  }
+  if (options.widgetId != null && String(options.widgetId).trim()) {
+    metadata.widgetId = options.widgetId;
+  }
+  return metadata;
+}
+
 function planningDepthForForceMode(forceMode) {
   return forceMode === 'plan_execute' ? 'deep' : 'light';
 }
@@ -999,13 +1010,22 @@ class AgentEngine {
       response = await provider.chat(requestMessages, tools, callOptions);
     }
 
+    const resolvedResponse = response || {
+      content: streamContent,
+      toolCalls: [],
+      finishReason: 'stop',
+      usage: null,
+    };
+    const hasContent = Boolean(String(resolvedResponse.content || streamContent || '').trim());
+    const hasToolCalls = Array.isArray(resolvedResponse.toolCalls) && resolvedResponse.toolCalls.length > 0;
+    if (!hasContent && !hasToolCalls) {
+      const error = new Error(`Model ${model} returned an empty response.`);
+      error.code = 'MODEL_EMPTY_RESPONSE';
+      throw error;
+    }
+
     return {
-      response: response || {
-        content: streamContent,
-        toolCalls: [],
-        finishReason: 'stop',
-        usage: null,
-      },
+      response: resolvedResponse,
       responseModel: model,
       streamContent,
     };
@@ -1655,8 +1675,19 @@ class AgentEngine {
     };
 
     const runTitle = generateTitle(userMessage);
-    db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, agent_id, title, status, trigger_type, trigger_source, model)
-      VALUES(?, ?, ?, ?, 'running', ?, ?, ?)`).run(runId, userId, agentId, runTitle, triggerType, triggerSource, model);
+    const initialRunMetadata = buildInitialRunMetadata(options);
+    db.prepare(`INSERT OR REPLACE INTO agent_runs(
+      id, user_id, agent_id, title, status, trigger_type, trigger_source, model, metadata_json
+    ) VALUES(?, ?, ?, ?, 'running', ?, ?, ?, ?)`).run(
+      runId,
+      userId,
+      agentId,
+      runTitle,
+      triggerType,
+      triggerSource,
+      model,
+      Object.keys(initialRunMetadata).length ? JSON.stringify(initialRunMetadata) : null,
+    );
 
     const retryMessagingState = options.messagingRetryState || {};
     const carriedVisibleMessage = String(retryMessagingState.lastVisibleMessage || '').trim();
@@ -1668,6 +1699,7 @@ class AgentEngine {
       status: 'running',
       aborted: false,
       messagingSent: false,
+      noResponse: false,
       explicitMessageSent: carriedExplicitMessageSent,
       lastSentMessage: carriedExplicitMessageSent ? carriedVisibleMessage : '',
       sentMessages: [],
@@ -2218,7 +2250,17 @@ class AgentEngine {
             break;
           }
           if (iteration < maxIterations) {
-            const fallbackStatus = (toolExecutions.length > 0 || failedStepCount > 0 || messagingSent) ? 'continue' : 'complete';
+            const proactiveRunNeedsDecision = (
+              (triggerSource === 'schedule' || triggerSource === 'tasks')
+              && this.activeRuns.get(runId)?.noResponse !== true
+              && options.deliveryState?.noResponse !== true
+            );
+            const fallbackStatus = (
+              proactiveRunNeedsDecision
+              || toolExecutions.length > 0
+              || failedStepCount > 0
+              || messagingSent
+            ) ? 'continue' : 'complete';
             const loopState = await runWithModelFallback('loop decision', () => this.decideLoopState({
               provider,
               providerName,
@@ -2615,6 +2657,18 @@ class AgentEngine {
         && !messagingSent
         && runMeta?.widgetSnapshotSaved !== true
       ) {
+        const explicitNoResponse = (
+          runMeta?.noResponse === true
+          || options.deliveryState?.noResponse === true
+        );
+        if (
+          (triggerSource === 'schedule' || triggerSource === 'tasks')
+          && !explicitNoResponse
+        ) {
+          throw new Error(
+            'Background run ended without producing a result or an explicit no-response decision.',
+          );
+        }
         if (iteration >= maxIterations) {
           throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
         }
@@ -3378,4 +3432,4 @@ class AgentEngine {
   }
 }
 
-module.exports = { AgentEngine, getProviderForUser };
+module.exports = { AgentEngine, buildInitialRunMetadata, getProviderForUser };
