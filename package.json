@@ -1,6 +1,6 @@
 {
   "name": "neoagent",
-  "version": "2.4.1-beta.36",
+  "version": "2.4.1-beta.37",
   "description": "Proactive personal AI agent with no limits",
   "license": "AGPL-3.0-only",
   "main": "server/index.js",
