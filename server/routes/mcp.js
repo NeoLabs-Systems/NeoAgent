@@ -6,6 +6,7 @@ const { sanitizeError } = require('../utils/security');
 const { validateRemoteMcpEndpoint } = require('../services/runtime/mcp');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { resolvePublicBaseUrl } = require('../services/integrations/env');
+const { consumeOAuthState } = require('../services/mcp/client_support');
 
 const MCP_OAUTH_STATE_RE = /^(\d+)::[a-f0-9]{32}$/;
 
@@ -45,8 +46,11 @@ router.get('/', (req, res) => {
     config: JSON.parse(s.config || '{}'),
     agentId: s.agent_id || null,
     enabled: !!s.enabled,
-    status: liveStatuses[s.id]?.status || 'stopped',
-    toolCount: liveStatuses[s.id]?.toolCount || 0
+    status: liveStatuses[s.id]?.status || s.status || 'stopped',
+    toolCount: liveStatuses[s.id]?.toolCount || 0,
+    error: liveStatuses[s.id]?.error || null,
+    consecutiveFails: liveStatuses[s.id]?.consecutiveFails || 0,
+    nextRetryAt: liveStatuses[s.id]?.nextRetryAt || null,
   }));
 
   res.json(result);
@@ -70,20 +74,26 @@ router.post('/', (req, res) => {
 });
 
 // Update an MCP server
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const server = db.prepare('SELECT * FROM mcp_servers WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
     if (!server) return res.status(404).json({ error: 'Server not found' });
 
+    const mcpClient = req.app.locals.mcpClient;
+    const wasLive = Boolean(mcpClient.getStatus(req.session.userId)[server.id]);
     const { name, command, config, enabled } = req.body;
     const agentId = (req.body.agentId !== undefined || req.body.agent_id !== undefined)
       ? resolveAgentId(req.session.userId, getAgentIdFromRequest(req))
       : (server.agent_id || resolveAgentId(req.session.userId, null));
     const endpoint = command ? validateRemoteMcpEndpoint(command) : server.command;
-    db.prepare('UPDATE mcp_servers SET agent_id = ?, name = ?, command = ?, config = ?, enabled = ? WHERE id = ?')
+    db.prepare("UPDATE mcp_servers SET agent_id = ?, name = ?, command = ?, config = ?, enabled = ?, status = 'stopped' WHERE id = ?")
       .run(agentId, name || server.name, endpoint, JSON.stringify(config || JSON.parse(server.config)), enabled !== undefined ? (enabled ? 1 : 0) : server.enabled, server.id);
 
-    res.json({ success: true });
+    if (wasLive) {
+      await mcpClient.stopServer(server.id);
+    }
+
+    res.json({ success: true, status: 'stopped' });
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }
@@ -109,9 +119,8 @@ router.post('/:id/start', async (req, res) => {
 
     const mcpClient = req.app.locals.mcpClient;
     const result = await mcpClient.startServer(server.id, server.command, server.name, req.session.userId, { agentId: server.agent_id });
-    const tools = await mcpClient.listTools(server.id, req.session.userId);
 
-    res.json({ ...result, tools });
+    res.json(result);
   } catch (err) {
     if (err.message && err.message.startsWith('OAUTH_REDIRECT:')) {
       const url = err.message.substring(15);
@@ -152,20 +161,27 @@ router.get('/:id/tools', async (req, res) => {
 // OAuth Callback
 router.get('/oauth/callback', async (req, res) => {
   const { code, state, error } = req.query;
-  if (!state) return res.status(400).send('Missing state parameter');
-  if (!error && !code) return res.status(400).send('Missing code parameter');
-  if (error) return res.status(400).send(`OAuth Error: ${error}`);
+  if (!state) return res.status(400).type('text/plain').send('Missing state parameter');
 
   const stateMatch = String(state).match(MCP_OAUTH_STATE_RE);
-  if (!stateMatch) return res.status(400).send('Invalid state format');
+  if (!stateMatch) return res.status(400).type('text/plain').send('Invalid state format');
 
   const serverId = Number.parseInt(stateMatch[1], 10);
   if (!Number.isInteger(serverId) || serverId <= 0) {
-    return res.status(400).send('Invalid state format');
+    return res.status(400).type('text/plain').send('Invalid state format');
   }
 
   const server = db.prepare('SELECT id FROM mcp_servers WHERE id = ? AND user_id = ?').get(serverId, req.session.userId);
-  if (!server) return res.status(404).send('Server not found');
+  if (!server) return res.status(404).type('text/plain').send('Server not found');
+  if (!error && !code) {
+    return res.status(400).type('text/plain').send('Missing code parameter');
+  }
+  if (!consumeOAuthState(serverId, state)) {
+    return res.status(400).type('text/plain').send('Invalid or expired OAuth state');
+  }
+  if (error) {
+    return res.status(400).type('text/plain').send(`OAuth error: ${String(error)}`);
+  }
 
   const mcpClient = req.app.locals.mcpClient;
   const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));

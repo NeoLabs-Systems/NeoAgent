@@ -1,28 +1,182 @@
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs/promises');
 const path = require('path');
 const os = require('os');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { promisify } = require('util');
 const tesseract = require('tesseract.js');
 const db = require('../../db/database');
 const { getErrorMessage } = require('../bootstrap_helpers');
+const {
+  CLEANUP_INTERVAL_MS,
+  DEFAULT_CAPTURE_INTERVAL_MS,
+  DEFAULT_RETENTION_DAYS,
+  FRONTMOST_APP_SCRIPT,
+  MINIMUM_TEXT_LENGTH,
+  MIN_CAPTURE_INTERVAL_MS,
+  hasOpenConnectionForUser,
+  isExplicitlyEnabled,
+  parsePositiveInteger,
+} = require('./screen_recorder_support');
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 class ScreenRecorder {
   constructor(options = {}) {
-    this.intervalMs = 10000; // 10 seconds
+    this.env = options.env || process.env;
+    this.platform = options.platform || process.platform;
+    this.db = options.db || db;
+    this.fs = options.fs || fs;
+    this.execFile = options.execFile || execFileAsync;
+    this.recognize = options.recognize || tesseract.recognize;
+    this.setInterval = options.setInterval || setInterval;
+    this.clearInterval = options.clearInterval || clearInterval;
+    this.now = options.now || Date.now;
+    this.hasActiveCaptureSessionForUser =
+      typeof options.hasActiveCaptureSessionForUser === 'function'
+        ? options.hasActiveCaptureSessionForUser
+        : () => false;
+
     this.intervalId = null;
     this.cleanupIntervalId = null;
     this.isRecording = false;
-    this.isProcessing = false;
-    this.tempFilePath = path.join(os.tmpdir(), `neoagent-screen-${Date.now()}.png`);
+    this.activeCapturePromise = null;
+    this.tempFilePath = options.tempFilePath || path.join(
+      os.tmpdir(),
+      `neoagent-screen-${process.pid}-${crypto.randomUUID()}.png`,
+    );
     this.lastBenignSkipAt = 0;
-    this.hasActiveRemoteCaptureSession = typeof options.hasActiveRemoteCaptureSession === 'function'
-      ? options.hasActiveRemoteCaptureSession
-      : () => false;
+    this.lastErrorLogAt = 0;
+    this.ownerUserId = null;
+    this.intervalMs = DEFAULT_CAPTURE_INTERVAL_MS;
+    this.retentionDays = DEFAULT_RETENTION_DAYS;
+    this.state = 'idle';
+    this.reason = 'not started';
+    this.lastCaptureAt = null;
+    this.lastSuccessAt = null;
+    this.lastSkipReason = null;
+    this.lastError = null;
+  }
+
+  getStatus() {
+    return {
+      state: this.state,
+      reason: this.reason,
+      ownerUserId: this.ownerUserId,
+      intervalMs: this.intervalMs,
+      retentionDays: this.retentionDays,
+      lastCaptureAt: this.lastCaptureAt,
+      lastSuccessAt: this.lastSuccessAt,
+      lastSkipReason: this.lastSkipReason,
+      lastError: this.lastError,
+    };
+  }
+
+  _setInactiveState(state, reason) {
+    this.state = state;
+    this.reason = reason;
+    this.isRecording = false;
+    return this.getStatus();
+  }
+
+  _loadConfiguration() {
+    const ownerUserId = parsePositiveInteger(
+      this.env.NEOAGENT_SCREEN_RECORDER_USER_ID,
+      'NEOAGENT_SCREEN_RECORDER_USER_ID',
+      null,
+    );
+    if (ownerUserId == null) {
+      throw new Error('NEOAGENT_SCREEN_RECORDER_USER_ID is required when screen recording is enabled.');
+    }
+
+    this.intervalMs = parsePositiveInteger(
+      this.env.NEOAGENT_SCREEN_RECORDER_INTERVAL_MS,
+      'NEOAGENT_SCREEN_RECORDER_INTERVAL_MS',
+      DEFAULT_CAPTURE_INTERVAL_MS,
+      MIN_CAPTURE_INTERVAL_MS,
+    );
+    this.retentionDays = parsePositiveInteger(
+      this.env.NEOAGENT_SCREEN_RECORDER_RETENTION_DAYS,
+      'NEOAGENT_SCREEN_RECORDER_RETENTION_DAYS',
+      DEFAULT_RETENTION_DAYS,
+    );
+    this.ownerUserId = ownerUserId;
+  }
+
+  _ownerExists() {
+    return Boolean(
+      this.db.prepare('SELECT id FROM users WHERE id = ?').get(this.ownerUserId),
+    );
+  }
+
+  start() {
+    if (this.isRecording) {
+      return this.getStatus();
+    }
+
+    if (!isExplicitlyEnabled(this.env.NEOAGENT_SCREEN_RECORDER_ENABLED)) {
+      return this._setInactiveState('disabled', 'NEOAGENT_SCREEN_RECORDER_ENABLED is not enabled');
+    }
+    if (this.platform !== 'darwin') {
+      return this._setInactiveState('unsupported', 'screen recording is currently supported only on macOS');
+    }
+
+    try {
+      this._loadConfiguration();
+      if (!this._ownerExists()) {
+        return this._setInactiveState(
+          'misconfigured',
+          `configured screen recorder user ${this.ownerUserId} does not exist`,
+        );
+      }
+    } catch (err) {
+      return this._setInactiveState('misconfigured', getErrorMessage(err));
+    }
+
+    this.isRecording = true;
+    this.state = 'running';
+    this.reason = null;
+    this.lastError = null;
+
+    this.intervalId = this.setInterval(() => {
+      void this.captureAndProcess();
+    }, this.intervalMs);
+    this.intervalId?.unref?.();
+
+    this.cleanupIntervalId = this.setInterval(
+      () => this.cleanupOldRecords(),
+      CLEANUP_INTERVAL_MS,
+    );
+    this.cleanupIntervalId?.unref?.();
+
+    void this.captureAndProcess();
+    this.cleanupOldRecords();
+    return this.getStatus();
+  }
+
+  async stop() {
+    const wasRunning = this.isRecording;
+    this.isRecording = false;
+
+    if (this.intervalId) {
+      this.clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    if (this.cleanupIntervalId) {
+      this.clearInterval(this.cleanupIntervalId);
+      this.cleanupIntervalId = null;
+    }
+
+    if (this.activeCapturePromise) {
+      await this.activeCapturePromise;
+    }
+    if (wasRunning) {
+      this.state = 'stopped';
+      this.reason = 'service stopped';
+    }
+    return this.getStatus();
   }
 
   _isCaptureInactiveApp(appName) {
@@ -30,20 +184,9 @@ class ScreenRecorder {
     return normalized === '' || normalized === 'loginwindow' || normalized === 'screensaverengine';
   }
 
-  _isBenignCaptureError(message) {
-    const text = String(message || '').toLowerCase();
-    return (
-      text.includes('operation not permitted') ||
-      text.includes('not authorized') ||
-      text.includes('user canceled') ||
-      text.includes('cgwindowlistcreateimage') ||
-      text.includes('screencapture') ||
-      text.includes('timed out')
-    );
-  }
-
-  _logBenignSkip(reason) {
-    const now = Date.now();
+  _recordSkip(reason) {
+    this.lastSkipReason = reason;
+    const now = this.now();
     if (now - this.lastBenignSkipAt < 5 * 60 * 1000) {
       return;
     }
@@ -51,125 +194,87 @@ class ScreenRecorder {
     console.log(`[ScreenRecorder] Capture skipped: ${reason}`);
   }
 
-  start() {
-    const enabledEnv = String(process.env.NEOAGENT_SCREEN_RECORDER_ENABLED || '').trim().toLowerCase();
-    if (enabledEnv === '0' || enabledEnv === 'false' || enabledEnv === 'off' || enabledEnv === 'no') {
-      console.log('[ScreenRecorder] Not starting: disabled by NEOAGENT_SCREEN_RECORDER_ENABLED.');
+  _recordError(err) {
+    this.lastError = getErrorMessage(err);
+    const now = this.now();
+    if (now - this.lastErrorLogAt < 5 * 60 * 1000) {
       return;
     }
-
-    if (process.platform !== 'darwin') {
-      console.log('[ScreenRecorder] Not starting: Screen recording is currently macOS only.');
-      return;
-    }
-
-    if (this.isRecording) return;
-    this.isRecording = true;
-
-    console.log('[ScreenRecorder] Starting continuous screen recording (10s interval)');
-    
-    // Start the recording loop
-    this.intervalId = setInterval(() => this.captureAndProcess(), this.intervalMs);
-    
-    // Run an initial capture
-    this.captureAndProcess();
-
-    // Start daily cleanup of old records (7 days)
-    this.cleanupIntervalId = setInterval(() => this.cleanupOldRecords(), 24 * 60 * 60 * 1000);
-    this.cleanupOldRecords();
+    this.lastErrorLogAt = now;
+    console.error('[ScreenRecorder] Capture/OCR failed:', this.lastError);
   }
 
-  stop() {
-    this.isRecording = false;
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+  captureAndProcess() {
+    if (!this.isRecording) {
+      return Promise.resolve();
     }
-    if (this.cleanupIntervalId) {
-      clearInterval(this.cleanupIntervalId);
-      this.cleanupIntervalId = null;
+    if (this.activeCapturePromise) {
+      return this.activeCapturePromise;
     }
-    console.log('[ScreenRecorder] Stopped continuous screen recording');
+
+    this.activeCapturePromise = this._captureAndProcess().finally(() => {
+      this.activeCapturePromise = null;
+    });
+    return this.activeCapturePromise;
   }
 
-  async captureAndProcess() {
-    if (this.isProcessing || !this.isRecording) return;
-    this.isProcessing = true;
-
+  async _captureAndProcess() {
+    this.lastCaptureAt = new Date(this.now()).toISOString();
     try {
-      // Only capture while at least one external device/session is actively connected.
-      // This prevents host-level screenshots when no user-side capture source is live.
-      if (!this.hasActiveRemoteCaptureSession()) {
-        this._logBenignSkip('no active external capture session');
+      if (!this.hasActiveCaptureSessionForUser(this.ownerUserId)) {
+        this._recordSkip('no active external capture session for the configured user');
         return;
       }
 
-      // Skip capture when the desktop session is inactive (e.g. locked screen).
       let frontmostApp = '';
       try {
-        const { stdout } = await execAsync(`osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`);
-        frontmostApp = (stdout || '').trim();
+        const { stdout } = await this.execFile('osascript', ['-e', FRONTMOST_APP_SCRIPT]);
+        frontmostApp = String(stdout || '').trim();
       } catch {
         frontmostApp = '';
       }
 
       if (this._isCaptureInactiveApp(frontmostApp)) {
-        this._logBenignSkip('no active frontmost app');
+        this._recordSkip('no active frontmost app');
         return;
       }
 
-      // Capture screen silently (-x) to file
-      await execAsync(`screencapture -x "${this.tempFilePath}"`);
+      await this.execFile('screencapture', ['-x', this.tempFilePath]);
+      await this.fs.access(this.tempFilePath);
 
-      // Verify file exists
-      await fs.access(this.tempFilePath);
-
-      // Extract text via local OCR
-      const { data } = await tesseract.recognize(this.tempFilePath, 'eng+deu', {
-        logger: () => {} // Silence verbose OCR logs
+      const { data } = await this.recognize(this.tempFilePath, 'eng+deu', {
+        logger: () => {},
       });
+      const textContent = String(data?.text || '').trim();
 
-      const textContent = data.text.trim();
-
-      // Only store if meaningful text was found
-      if (textContent.length > 5) {
-        // We need a user ID. For the local desktop agent, usually user 1 or we query the active user.
-        const userRow = db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get();
-        if (userRow) {
-          // Identify the active foreground app via AppleScript
-          let appName = frontmostApp || 'Unknown';
-
-          db.prepare(`
-            INSERT INTO screen_history (user_id, app_name, text_content)
-            VALUES (?, ?, ?)
-          `).run(userRow.id, appName, textContent);
-        }
+      if (!this.isRecording || textContent.length <= MINIMUM_TEXT_LENGTH) {
+        return;
       }
 
+      this.db.prepare(`
+        INSERT INTO screen_history (user_id, app_name, text_content)
+        VALUES (?, ?, ?)
+      `).run(this.ownerUserId, frontmostApp, textContent);
+      this.lastSuccessAt = new Date(this.now()).toISOString();
+      this.lastSkipReason = null;
+      this.lastError = null;
     } catch (err) {
-      const errorMessage = getErrorMessage(err);
-      if (this._isBenignCaptureError(errorMessage)) {
-        this._logBenignSkip(errorMessage);
-      } else {
-        console.error('[ScreenRecorder] Capture/OCR failed:', errorMessage);
-      }
+      this._recordError(err);
     } finally {
-      // Always cleanup the screenshot image immediately
       try {
-        await fs.unlink(this.tempFilePath);
-      } catch (e) {
-        // Ignore unlink errors if file didn't exist
+        await this.fs.unlink(this.tempFilePath);
+      } catch {
+        // The file is absent when capture is skipped or fails before creating it.
       }
-      this.isProcessing = false;
     }
   }
 
   cleanupOldRecords() {
     try {
-      const result = db.prepare(`
-        DELETE FROM screen_history 
-        WHERE timestamp < datetime('now', '-7 days')
-      `).run();
+      const result = this.db.prepare(`
+        DELETE FROM screen_history
+        WHERE timestamp < datetime('now', ?)
+      `).run(`-${this.retentionDays} days`);
       if (result.changes > 0) {
         console.log(`[ScreenRecorder] Purged ${result.changes} old screen history records.`);
       }
@@ -179,4 +284,9 @@ class ScreenRecorder {
   }
 }
 
-module.exports = { ScreenRecorder };
+module.exports = {
+  ScreenRecorder,
+  hasOpenConnectionForUser,
+  isExplicitlyEnabled,
+  parsePositiveInteger,
+};

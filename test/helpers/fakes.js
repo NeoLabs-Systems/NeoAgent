@@ -8,7 +8,7 @@ function createFakeMcpClient() {
     },
     async startServer(id) {
       statuses.set(Number(id), { status: 'running', toolCount: 0 });
-      return { status: 'running' };
+      return { status: 'running', tools: [] };
     },
     async stopServer(id) {
       statuses.set(Number(id), { status: 'stopped', toolCount: 0 });
@@ -184,6 +184,9 @@ function createFakeDesktopProvider(registry = createFakeDesktopRegistry()) {
 
 function createFakeMemoryIngestionService() {
   return {
+    getStatus() {
+      return { state: 'running' };
+    },
     listConnectionStatuses() {
       return [];
     },

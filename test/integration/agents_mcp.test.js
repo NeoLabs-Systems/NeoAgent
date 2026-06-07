@@ -81,10 +81,22 @@ describe('agent profile, agent run, and MCP routes', () => {
     const list = await client.get('/api/mcp').expect(200);
     assert.equal(list.body.length, 1);
     assert.equal(list.body[0].name, 'Docs');
+    await client.get('/api/mcp/oauth/callback').query({
+      state: `${created.body.id}::${'0'.repeat(32)}`,
+      code: 'unissued-code',
+    }).expect(400).expect(/Invalid or expired OAuth state/);
 
     await client.put(`/api/mcp/${created.body.id}`).send({ name: 'Docs Updated' }).expect(200);
     await client.post(`/api/mcp/${created.body.id}/start`).expect(200);
     await client.get(`/api/mcp/${created.body.id}/tools`).expect(200);
+    const liveUpdate = await client.put(`/api/mcp/${created.body.id}`).send({
+      name: 'Docs Final',
+      command: 'https://mcp-final.example.test/sse',
+    }).expect(200);
+    assert.equal(liveUpdate.body.status, 'stopped');
+    const afterUpdate = await client.get('/api/mcp').expect(200);
+    assert.equal(afterUpdate.body[0].status, 'stopped');
+    assert.equal(afterUpdate.body[0].command, 'https://mcp-final.example.test/sse');
     await client.delete(`/api/mcp/${created.body.id}`).expect(200);
     await client.get('/api/mcp').expect(200).expect((res) => assert.equal(res.body.length, 0));
   });
