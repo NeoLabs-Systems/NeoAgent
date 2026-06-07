@@ -129,7 +129,9 @@ function readAuthenticatedUser(req) {
   if (!user) {
     try {
       req.session.destroy(() => {});
-    } catch (_) {}
+    } catch (destroyError) {
+      console.warn('Auth stale-session cleanup failed:', destroyError.message);
+    }
     return null;
   }
   return user;

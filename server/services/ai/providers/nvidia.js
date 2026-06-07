@@ -1,5 +1,5 @@
 const OpenAI = require('openai');
-const { BaseProvider } = require('./base');
+const { OpenAICompatibleProvider } = require('./openaiCompatible');
 
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
@@ -21,7 +21,7 @@ const REASONING_MODELS = new Set([
   'qwen/qwq-32b',
 ]);
 
-class NvidiaProvider extends BaseProvider {
+class NvidiaProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'nvidia';
@@ -68,7 +68,7 @@ class NvidiaProvider extends BaseProvider {
     } catch (err) {
       throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
     }
-    return this._normalizeResponse(response);
+    return this.normalizeResponse(response);
   }
 
   async *stream(messages, tools = [], options = {}) {
@@ -92,7 +92,7 @@ class NvidiaProvider extends BaseProvider {
 
     for await (const chunk of stream) {
       if (chunk.usage && (!chunk.choices || chunk.choices.length === 0)) {
-        finalUsage = this._normalizeUsage(chunk.usage);
+        finalUsage = this.normalizeUsage(chunk.usage);
         continue;
       }
 
@@ -121,11 +121,11 @@ class NvidiaProvider extends BaseProvider {
 
       const finishReason = chunk.choices[0]?.finish_reason;
       if (finishReason === 'tool_calls' || (finishReason === 'stop' && toolCalls.length > 0)) {
-        yield { type: 'tool_calls', toolCalls, content, usage: this._normalizeUsage(chunk.usage) || finalUsage };
+        yield { type: 'tool_calls', toolCalls, content, usage: this.normalizeUsage(chunk.usage) || finalUsage };
         return;
       }
       if (finishReason === 'stop') {
-        yield { type: 'done', content, usage: this._normalizeUsage(chunk.usage) || finalUsage };
+        yield { type: 'done', content, usage: this.normalizeUsage(chunk.usage) || finalUsage };
         return;
       }
     }
@@ -137,29 +137,6 @@ class NvidiaProvider extends BaseProvider {
     }
   }
 
-  _normalizeResponse(response) {
-    const choice = response.choices[0];
-    const msg = choice.message;
-    return {
-      content: msg.content || '',
-      toolCalls: msg.tool_calls?.map((tc) => ({
-        id: tc.id,
-        type: 'function',
-        function: { name: tc.function.name, arguments: tc.function.arguments },
-      })) || [],
-      finishReason: choice.finish_reason,
-      usage: this._normalizeUsage(response.usage),
-    };
-  }
-
-  _normalizeUsage(usage) {
-    if (!usage) return null;
-    return {
-      promptTokens: usage.prompt_tokens ?? 0,
-      completionTokens: usage.completion_tokens ?? 0,
-      totalTokens: usage.total_tokens ?? 0,
-    };
-  }
 }
 
 module.exports = { NvidiaProvider };

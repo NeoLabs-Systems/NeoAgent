@@ -172,8 +172,34 @@ const STATIC_MODELS = [
         label: 'Qwen 3.5 4B (Local / Ollama)',
         provider: 'ollama',
         purpose: 'general'
+    },
+    {
+        id: 'gemma4:12b',
+        label: 'Gemma 4 12B (Local / Ollama)',
+        provider: 'ollama',
+        purpose: 'general'
     }
 ];
+
+// Maps a provider id to its class and which runtime fields its constructor takes.
+// Adding a provider is a one-line entry here instead of another dispatch branch.
+// `apiKey`/`baseUrl` mirror exactly what each constructor was historically given;
+// they intentionally do not derive from AI_PROVIDER_DEFINITIONS.supportsBaseUrl,
+// which disagrees for github-copilot/openai-codex (those read their base URL from
+// env, not from per-user config).
+const PROVIDER_FACTORIES = Object.freeze({
+    grok: { Provider: GrokProvider, apiKey: true, baseUrl: true },
+    openai: { Provider: OpenAIProvider, apiKey: true, baseUrl: true },
+    anthropic: { Provider: AnthropicProvider, apiKey: true, baseUrl: true },
+    google: { Provider: GoogleProvider, apiKey: true, baseUrl: false },
+    minimax: { Provider: AnthropicProvider, apiKey: true, baseUrl: true },
+    ollama: { Provider: OllamaProvider, apiKey: false, baseUrl: true },
+    'github-copilot': { Provider: GithubCopilotProvider, apiKey: true, baseUrl: false },
+    'openai-codex': { Provider: OpenAICodexProvider, apiKey: true, baseUrl: false },
+    'claude-code': { Provider: ClaudeCodeProvider, apiKey: true, baseUrl: false },
+    'grok-oauth': { Provider: GrokOAuthProvider, apiKey: true, baseUrl: false },
+    nvidia: { Provider: NvidiaProvider, apiKey: true, baseUrl: true },
+});
 
 const dynamicModelsByBaseUrl = new Map();
 const REFRESH_INTERVAL = 30000; // 30 seconds
@@ -395,6 +421,11 @@ async function refreshDynamicModels(baseUrl) {
 }
 
 function createProviderInstance(providerStr, userId = null, configOverrides = {}) {
+    const factory = PROVIDER_FACTORIES[providerStr];
+    if (!factory) {
+        throw new Error(`Unknown provider: ${providerStr}`);
+    }
+
     const { agentId = null, ...providerOverrides } = configOverrides || {};
     const runtime = getProviderRuntimeConfig(userId, providerStr, agentId);
 
@@ -405,34 +436,16 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
         throw new Error(`Provider '${providerStr}' is not configured on this deployment.`);
     }
 
-    if (providerStr === 'grok') {
-        return new GrokProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
-    } else if (providerStr === 'openai') {
-        return new OpenAIProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
-    } else if (providerStr === 'anthropic') {
-        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
-    } else if (providerStr === 'google') {
-        return new GoogleProvider({ apiKey: runtime.apiKey, ...providerOverrides });
-    } else if (providerStr === 'minimax') {
-        return new AnthropicProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
-    } else if (providerStr === 'ollama') {
-        return new OllamaProvider({ baseUrl: runtime.baseUrl, ...providerOverrides });
-    } else if (providerStr === 'github-copilot') {
-        return new GithubCopilotProvider({ apiKey: runtime.apiKey, ...providerOverrides });
-    } else if (providerStr === 'openai-codex') {
-        return new OpenAICodexProvider({ apiKey: runtime.apiKey, ...providerOverrides });
-    } else if (providerStr === 'claude-code') {
-        return new ClaudeCodeProvider({ apiKey: runtime.apiKey, ...providerOverrides });
-    } else if (providerStr === 'grok-oauth') {
-        return new GrokOAuthProvider({ apiKey: runtime.apiKey, ...providerOverrides });
-    } else if (providerStr === 'nvidia') {
-        return new NvidiaProvider({ apiKey: runtime.apiKey, baseUrl: runtime.baseUrl, ...providerOverrides });
-    }
-    throw new Error(`Unknown provider: ${providerStr}`);
+    const config = {};
+    if (factory.apiKey) config.apiKey = runtime.apiKey;
+    if (factory.baseUrl) config.baseUrl = runtime.baseUrl;
+
+    return new factory.Provider({ ...config, ...providerOverrides });
 }
 
 module.exports = {
     AI_PROVIDER_DEFINITIONS,
+    PROVIDER_FACTORIES,
     SUPPORTED_MODELS: STATIC_MODELS, // Backward compatibility
     createProviderInstance,
     getProviderCatalog,
