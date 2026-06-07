@@ -1157,6 +1157,7 @@ class AgentEngine {
     model,
     messages,
     analysis,
+    tools,
     toolExecutions,
     finalReply,
     options,
@@ -1173,6 +1174,7 @@ class AgentEngine {
       messages,
       prompt: buildVerifierPrompt({
         analysis,
+        tools,
         toolExecutionSummary: summarizeToolExecutions(toolExecutions),
         evidenceSources,
         finalReply,
@@ -1714,6 +1716,23 @@ class AgentEngine {
     const integrationManager = app?.locals?.integrationManager || null;
     const mcpTools = mcpManager ? mcpManager.getAllTools(userId, { agentId }) : [];
     const tools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
+    const toolNames = tools.map((tool) => tool.name).filter(Boolean);
+    const coreToolStatus = {
+      send_message: toolNames.includes('send_message'),
+      create_task: toolNames.includes('create_task'),
+      list_tasks: toolNames.includes('list_tasks'),
+      update_task: toolNames.includes('update_task'),
+      delete_task: toolNames.includes('delete_task'),
+    };
+    this.recordRunEvent(userId, runId, 'tool_inventory', {
+      total: toolNames.length,
+      builtInTotal: builtInTools.length,
+      mcpTotal: mcpTools.length,
+      core: coreToolStatus,
+    }, { agentId });
+    console.info(
+      `[Run ${shortenRunId(runId)}] tools total=${toolNames.length} builtIns=${builtInTools.length} mcp=${mcpTools.length} core=${JSON.stringify(coreToolStatus)}`
+    );
     const capabilityHealth = await getCapabilityHealth({ userId, agentId, app, engine: this });
     const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
     const integrationSummary = integrationManager?.summarizeConnectedProviders?.(userId, agentId) || '';
@@ -2630,6 +2649,7 @@ class AgentEngine {
           model,
           messages,
           analysis,
+          tools,
           toolExecutions,
           finalReply: finalResponseText,
           options,
