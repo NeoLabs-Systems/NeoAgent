@@ -84,12 +84,25 @@ class OllamaProvider extends BaseProvider {
   buildChatBody(messages, tools, options, stream) {
     const body = {
       model: options.model || this.config.model || 'llama3.1',
-      messages: messages.map(m => ({
-        role: m.role,
-        content: m.content || '',
-        ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
-        ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {})
-      })),
+      messages: messages.map(m => {
+        const msg = {
+          role: m.role,
+          content: m.content || '',
+          ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {})
+        };
+        if (m.tool_calls) {
+          msg.tool_calls = m.tool_calls.map(tc => ({
+            ...tc,
+            function: {
+              ...tc.function,
+              arguments: typeof tc.function.arguments === 'string'
+                ? (function() { try { return JSON.parse(tc.function.arguments || '{}'); } catch(e) { return {}; } })()
+                : tc.function.arguments
+            }
+          }));
+        }
+        return msg;
+      }),
       stream,
       options: {
         temperature: options.temperature ?? 0.7,
