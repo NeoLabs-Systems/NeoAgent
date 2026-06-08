@@ -273,7 +273,47 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (_stickToBottom && !nearBottom) {
       _scrollGeneration++;
     }
-    _stickToBottom = nearBottom;
+    if (_stickToBottom != nearBottom) {
+      setState(() => _stickToBottom = nearBottom);
+    }
+  }
+
+  void _openModelPicker() {
+    final controller = widget.controller;
+    if (controller.hasLiveRun) return;
+    final enabled = controller.enabledModelIds;
+    final models = controller.supportedModels
+        .where((m) => enabled.contains(m.id))
+        .toList();
+    final options = _modelPickerOptions(models, allowAuto: true);
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      transitionDuration: const Duration(milliseconds: 230),
+      transitionBuilder: (ctx, animation, secondary, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          ),
+          child: child,
+        ),
+      ),
+      pageBuilder: (dialogContext, _, __) => _ModelPickerDialog(
+        title: 'Chat Model',
+        options: options,
+        currentValue: controller.defaultChatModel,
+        onChanged: (v) {
+          Navigator.of(dialogContext).pop();
+          controller.saveSettingsPayload({'default_chat_model': v});
+        },
+      ),
+    );
   }
 
   void _handleComposerLayoutChanged() {
@@ -425,22 +465,38 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       children: <Widget>[
         _ChatTopBar(controller: controller),
         Expanded(
-          child: SelectionArea(
-            child: ListView(
-              controller: _scrollController,
-              padding: EdgeInsets.fromLTRB(sidePadding, 30, sidePadding, 18),
-              children: <Widget>[
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 860),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: threadChildren,
+          child: Stack(
+            children: <Widget>[
+              SelectionArea(
+                child: ListView(
+                  controller: _scrollController,
+                  padding:
+                      EdgeInsets.fromLTRB(sidePadding, 30, sidePadding, 18),
+                  children: <Widget>[
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 860),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: threadChildren,
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              if (!_stickToBottom)
+                Positioned(
+                  bottom: 14,
+                  right: 16,
+                  child: _ScrollToBottomButton(
+                    onTap: () {
+                      setState(() => _stickToBottom = true);
+                      _scheduleScrollToBottom(force: true);
+                    },
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
         ),
         Container(
@@ -605,12 +661,14 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Flexible(
+                      GestureDetector(
+                        onTap: controller.hasLiveRun ? null : _openModelPicker,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 9,
                             vertical: 4,
                           ),
+                          constraints: const BoxConstraints(maxWidth: 200),
                           decoration: BoxDecoration(
                             color: _bgCard,
                             borderRadius: BorderRadius.circular(8),
@@ -636,7 +694,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                               Icon(
                                 Icons.keyboard_arrow_down_rounded,
                                 size: 13,
-                                color: _textMuted,
+                                color: controller.hasLiveRun
+                                    ? _textMuted
+                                    : _textSecondary,
                               ),
                             ],
                           ),
@@ -769,6 +829,42 @@ class _ChatComposerIconButton extends StatelessWidget {
               icon,
               size: 19,
               color: onPressed == null ? _textMuted : foreground,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScrollToBottomButton extends StatelessWidget {
+  const _ScrollToBottomButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Scroll to bottom',
+      child: Material(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(20),
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.22),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _border),
+            ),
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 22,
+              color: _textSecondary,
             ),
           ),
         ),
