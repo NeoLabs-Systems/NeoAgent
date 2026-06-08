@@ -16,6 +16,8 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENROUTER_API_KEY,
       baseURL: this.baseURL,
+      timeout: 90_000,  // 90 s — free models can queue; avoids hanging forever
+      maxRetries: 0,    // engine handles retries; avoid SDK silently re-queuing slow models
       defaultHeaders: {
         'HTTP-Referer': 'https://github.com/NeoLabs-Systems/NeoAgent',
         'X-Title': 'NeoAgent',
@@ -57,6 +59,14 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     return params;
   }
 
+  _extractOpenRouterError(obj) {
+    if (!obj) return null;
+    const e = obj.error;
+    if (!e) return null;
+    const msg = e.message || (typeof e === 'string' ? e : JSON.stringify(e));
+    return `OpenRouter: ${msg}${e.code ? ` (code ${e.code})` : ''}`;
+  }
+
   async chat(messages, tools = [], options = {}) {
     const model = options.model || this.getDefaultModel();
     const params = this._buildParams(model, messages, tools, options);
@@ -65,6 +75,12 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
       response = await this.client.chat.completions.create(params);
     } catch (err) {
       throw new Error(`OpenRouter request failed: ${err?.message || String(err)}`);
+    }
+    // OpenRouter returns HTTP 200 even for errors (rate limits, model unavailable, etc.)
+    const orErr = this._extractOpenRouterError(response);
+    if (orErr) throw new Error(orErr);
+    if (!response?.choices?.length) {
+      throw new Error(`OpenRouter: model returned no choices (may be rate-limited or unavailable)`);
     }
     return this.normalizeResponse(response);
   }
@@ -88,6 +104,9 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     let content = '';
     let finalUsage = null;
 
+    // The OpenAI SDK converts OpenRouter's SSE error events (data.error) into
+    // APIErrors before yielding — so we wrap the loop to add context.
+    try {
     for await (const chunk of stream) {
       if (chunk.usage && (!chunk.choices || chunk.choices.length === 0)) {
         finalUsage = this.normalizeUsage(chunk.usage);
@@ -126,6 +145,10 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
         yield { type: 'done', content, usage: this.normalizeUsage(chunk.usage) || finalUsage };
         return;
       }
+    }
+    } catch (err) {
+      // Re-throw SDK APIErrors (from OpenRouter SSE error events) with OpenRouter context.
+      throw new Error(`OpenRouter: ${err?.message || String(err)}`);
     }
 
     if (toolCalls.length > 0) {

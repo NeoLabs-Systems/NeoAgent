@@ -224,6 +224,14 @@ async function refreshProviderModelList(providerId, apiKey, baseUrl) {
         return models;
     } catch (err) {
         console.warn(`[Models] Failed to refresh ${providerId} models:`, err.message);
+        // Always record a lastRefresh so we don't hammer the API on every request.
+        // Permanent errors (auth/billing/credits) get a longer backoff.
+        const isPermanent = /401|403|unauthorized|forbidden|credits|spending/i.test(err.message);
+        const backoff = isPermanent ? 30 * 60 * 1000 : DYNAMIC_REFRESH_INTERVAL;
+        providerModelCache.set(cacheKey, {
+            models: existing?.models || [],
+            lastRefresh: now - DYNAMIC_REFRESH_INTERVAL + backoff,
+        });
         return existing?.models || [];
     }
 }
