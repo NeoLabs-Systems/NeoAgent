@@ -11,8 +11,21 @@ class GrokProvider extends OpenAICompatibleProvider {
     });
   }
 
+  async listModels() {
+    try {
+      const res = await this.client.models.list();
+      const DROP = /imagine|diffus|embed|-tts/i;
+      return res.data
+        .filter((m) => !DROP.test(m.id))
+        .map((m) => ({ id: m.id, name: m.id }));
+    } catch (err) {
+      throw new Error(`Failed to list Grok models: ${err.message || String(err)}`);
+    }
+  }
+
   getContextWindow(model) {
-    return 131072; // grok-4 context window
+    if (model === 'grok-4.3') return 1000000;
+    return 131072;
   }
 
   supportsVision() {

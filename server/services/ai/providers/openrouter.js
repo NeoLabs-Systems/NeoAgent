@@ -1,67 +1,53 @@
 const OpenAI = require('openai');
 const { OpenAICompatibleProvider } = require('./openaiCompatible');
 
-const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
-// Context windows per model (tokens)
-const CONTEXT_WINDOWS = {
-  'nvidia/nemotron-3-super-120b-a12b': 262144,
-  'moonshotai/kimi-k2.5':             262144,
-  'minimaxai/minimax-m2.5':           196608,
-  'z-ai/glm5':                        202752,
-  'meta/llama-4-maverick-17b-128e-instruct': 1048576,
-  'meta/llama-4-scout-17b-16e-instruct':     1048576,
-  'deepseek-ai/deepseek-r1-0528':     163840,
-  'qwen/qwq-32b':                     131072,
-};
+// Context windows fetched from the API are cached here so getContextWindow
+// can serve them without a network call at inference time.
+const contextWindowCache = new Map();
 
-// Reasoning models: no temperature, no top_p
-const REASONING_MODELS = new Set([
-  'deepseek-ai/deepseek-r1-0528',
-  'qwen/qwq-32b',
-]);
-
-class NvidiaProvider extends OpenAICompatibleProvider {
+class OpenRouterProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
     super(config);
-    this.name = 'nvidia';
-    this.models = Object.keys(CONTEXT_WINDOWS);
+    this.name = 'openrouter';
+    this.models = [];
+    this.baseURL = config.baseUrl || OPENROUTER_BASE_URL;
     this.client = new OpenAI({
-      apiKey: config.apiKey || process.env.NVIDIA_API_KEY,
-      baseURL: config.baseUrl || NVIDIA_BASE_URL,
+      apiKey: config.apiKey || process.env.OPENROUTER_API_KEY,
+      baseURL: this.baseURL,
+      defaultHeaders: {
+        'HTTP-Referer': 'https://github.com/NeoLabs-Systems/NeoAgent',
+        'X-Title': 'NeoAgent',
+      },
     });
   }
 
   async listModels() {
-    try {
-      const res = await this.client.models.list();
-      const DROP = /embed|bge|e5-|rerank|guard|safety|moderat|diffus|flux|stable|imagen|vision-enc|whisper|tts|speech|paraphrase|classif/i;
-      return res.data
-        .filter((m) => !DROP.test(m.id))
-        .map((m) => ({ id: m.id, name: m.id }));
-    } catch (err) {
-      throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
+    const res = await fetch(`${this.baseURL}/models`, {
+      headers: { 'Authorization': `Bearer ${this.client.apiKey}` },
+    });
+    if (!res.ok) throw new Error(`OpenRouter /models returned HTTP ${res.status}`);
+    const { data } = await res.json();
+    const models = data || [];
+    for (const m of models) {
+      if (m.context_length) contextWindowCache.set(m.id, m.context_length);
     }
+    this.models = models.map((m) => m.id);
+    return models;
   }
 
   getContextWindow(model) {
-    return CONTEXT_WINDOWS[model] ?? 131072;
-  }
-
-  _isReasoningModel(model) {
-    return REASONING_MODELS.has(model);
+    return contextWindowCache.get(model) ?? 128000;
   }
 
   _buildParams(model, messages, tools, options) {
     const params = {
       model,
       messages,
-      max_tokens: options.maxTokens || 8192,
+      temperature: options.temperature ?? 0.7,
+      max_tokens: options.maxTokens || 16384,
     };
-
-    if (!this._isReasoningModel(model)) {
-      params.temperature = options.temperature ?? 0.6;
-    }
 
     if (tools && tools.length > 0) {
       params.tools = this.formatTools(tools);
@@ -78,7 +64,7 @@ class NvidiaProvider extends OpenAICompatibleProvider {
     try {
       response = await this.client.chat.completions.create(params);
     } catch (err) {
-      throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
+      throw new Error(`OpenRouter request failed: ${err?.message || String(err)}`);
     }
     return this.normalizeResponse(response);
   }
@@ -95,7 +81,7 @@ class NvidiaProvider extends OpenAICompatibleProvider {
     try {
       stream = await this.client.chat.completions.create(params);
     } catch (err) {
-      throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
+      throw new Error(`OpenRouter request failed: ${err?.message || String(err)}`);
     }
 
     let toolCalls = [];
@@ -148,7 +134,6 @@ class NvidiaProvider extends OpenAICompatibleProvider {
       yield { type: 'done', content, usage: finalUsage };
     }
   }
-
 }
 
-module.exports = { NvidiaProvider };
+module.exports = { OpenRouterProvider };

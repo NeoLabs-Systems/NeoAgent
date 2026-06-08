@@ -2015,6 +2015,7 @@ class ModelMeta {
     this.available = true,
     this.providerStatus = '',
     this.providerStatusLabel = '',
+    this.priceTier,
   });
 
   factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -2026,6 +2027,7 @@ class ModelMeta {
       available: json['available'] != false,
       providerStatus: json['providerStatus']?.toString() ?? '',
       providerStatusLabel: json['providerStatusLabel']?.toString() ?? '',
+      priceTier: json['priceTier']?.toString(),
     );
   }
 
@@ -2036,6 +2038,8 @@ class ModelMeta {
   final bool available;
   final String providerStatus;
   final String providerStatusLabel;
+  /// Pricing tier: 'free' | 'cheap' | 'medium' | 'expensive' | null (unknown)
+  final String? priceTier;
 }
 
 class AiProviderConfig {
