@@ -381,6 +381,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _modelsSettingsSection,
         )) ...<Widget>[
           _buildModelsSection(
+            context: context,
             controller: controller,
             modelChoices: modelChoices,
             routingModels: routingModels,
@@ -852,6 +853,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   Widget _buildModelsSection({
+    required BuildContext context,
     required NeoAgentController controller,
     required List<_ModelPickerOption> modelChoices,
     required List<ModelMeta> routingModels,
@@ -957,46 +959,38 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
             ),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: controller.supportedModels.map((model) {
-                final selected = _enabledModels.contains(model.id);
-                return FilterChip(
-                  label: Text(
-                    model.available
-                        ? model.label
-                        : '${model.label} (${model.providerStatusLabel})',
-                  ),
-                  selected: selected,
-                  selectedColor: _accentMuted,
-                  checkmarkColor: _accent,
-                  backgroundColor: _bgSecondary,
-                  side: BorderSide(
-                    color: model.available
-                        ? _border
-                        : _warning.withValues(alpha: 0.35),
-                  ),
-                  onSelected: model.available
-                      ? (value) {
-                          setState(() {
-                            if (value) {
-                              _enabledModels.add(model.id);
-                            } else if (_enabledModels.length > 1) {
-                              _enabledModels.remove(model.id);
-                            }
-                          });
-                        }
-                      : null,
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 14),
             Text(
-              availableModels.isEmpty
-                  ? 'Enable a ready provider above to unlock model routing.'
-                  : '$enabledSmartModels models are currently eligible for smart routing.',
-              style: TextStyle(color: _textSecondary),
+              'The models the Smart Selector routes between automatically.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            _SmartPoolSummary(
+              allModels: controller.supportedModels,
+              selectedIds: _enabledModels,
+              onManage: () async {
+                final result = await showGeneralDialog<Set<String>>(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierLabel: 'Dismiss',
+                  barrierColor: Colors.black.withValues(alpha: 0.55),
+                  transitionDuration: const Duration(milliseconds: 220),
+                  transitionBuilder: (ctx, anim, _, child) => FadeTransition(
+                    opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.04),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+                      child: child,
+                    ),
+                  ),
+                  pageBuilder: (ctx, _, __) => _SmartPoolDialog(
+                    models: controller.supportedModels,
+                    selectedIds: _enabledModels,
+                  ),
+                );
+                if (result != null) setState(() => _enabledModels = result);
+              },
             ),
           ],
         ),
@@ -2168,6 +2162,624 @@ class _RoutingSelectCard extends StatelessWidget {
             dialogTitle: 'Select $label',
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Pool Summary — compact summary card shown in settings
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SmartPoolSummary extends StatelessWidget {
+  const _SmartPoolSummary({
+    required this.allModels,
+    required this.selectedIds,
+    required this.onManage,
+  });
+
+  final List<ModelMeta> allModels;
+  final Set<String> selectedIds;
+  final VoidCallback onManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = allModels
+        .where((m) => selectedIds.contains(m.id) && m.available)
+        .toList();
+    final providers = <String>{for (final m in selected) m.provider};
+    final totalAvailable = allModels.where((m) => m.available).length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: _accentMuted,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.hub_outlined, size: 18, color: _accentHover),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  '${selected.length} of $totalAvailable models',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: _textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: <Widget>[
+                    if (providers.isEmpty)
+                      Text(
+                        'No models selected',
+                        style: TextStyle(fontSize: 12, color: _textMuted),
+                      )
+                    else
+                      ...providers.take(12).map(
+                            (p) => Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(right: 5),
+                              decoration: BoxDecoration(
+                                color: _providerPickerColor(p),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          OutlinedButton.icon(
+            onPressed: onManage,
+            icon: const Icon(Icons.tune_rounded, size: 14),
+            label: const Text('Manage'),
+            style: OutlinedButton.styleFrom(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Pool Dialog — searchable, grouped multi-select manager
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SmartPoolDialog extends StatefulWidget {
+  const _SmartPoolDialog({
+    required this.models,
+    required this.selectedIds,
+  });
+
+  final List<ModelMeta> models;
+  final Set<String> selectedIds;
+
+  @override
+  State<_SmartPoolDialog> createState() => _SmartPoolDialogState();
+}
+
+class _SmartPoolDialogState extends State<_SmartPoolDialog> {
+  late Set<String> _selected;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
+  bool _onlyAvailable = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<String>.from(widget.selectedIds);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<ModelMeta> get _filtered {
+    var list = _onlyAvailable
+        ? widget.models.where((m) => m.available).toList()
+        : List<ModelMeta>.from(widget.models);
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      list = list
+          .where((m) =>
+              m.label.toLowerCase().contains(q) ||
+              m.id.toLowerCase().contains(q) ||
+              m.provider.toLowerCase().contains(q))
+          .toList();
+    }
+    return list;
+  }
+
+  void _selectAllVisible(List<ModelMeta> filtered) {
+    setState(() {
+      for (final m in filtered) {
+        if (m.available) _selected.add(m.id);
+      }
+    });
+  }
+
+  void _clearAllVisible(List<ModelMeta> filtered) {
+    setState(() {
+      final toRemove = filtered.map((m) => m.id).toSet();
+      final remaining = _selected.difference(toRemove);
+      _selected = remaining.isNotEmpty
+          ? remaining
+          : <String>{_selected.first};
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+
+    // Build grouped structure
+    final Map<String, List<ModelMeta>> grouped = <String, List<ModelMeta>>{};
+    for (final m in filtered) {
+      grouped.putIfAbsent(m.provider, () => <ModelMeta>[]).add(m);
+    }
+    final providerOrder = grouped.keys.toList();
+
+    final selectedAvailableCount = widget.models
+        .where((m) => _selected.contains(m.id) && m.available)
+        .length;
+
+    // Build flat row list (headers + model rows)
+    final List<Widget> rows = <Widget>[];
+    for (final provider in providerOrder) {
+      final models = grouped[provider]!;
+      final providerColor = _providerPickerColor(provider);
+      final available = models.where((m) => m.available).toList();
+      final allGroupSelected = available.isNotEmpty &&
+          available.every((m) => _selected.contains(m.id));
+
+      rows.add(Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: providerColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _providerPickerLabel(provider).toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: _textMuted,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: available.isEmpty
+                  ? null
+                  : () {
+                      setState(() {
+                        if (allGroupSelected) {
+                          final toRemove =
+                              available.map((m) => m.id).toSet();
+                          final remaining =
+                              _selected.difference(toRemove);
+                          _selected = remaining.isNotEmpty
+                              ? remaining
+                              : <String>{_selected.first};
+                        } else {
+                          for (final m in available) {
+                            _selected.add(m.id);
+                          }
+                        }
+                      });
+                    },
+              child: Text(
+                allGroupSelected ? 'None' : 'All',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: available.isEmpty ? _textMuted : _accent,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ));
+
+      for (final model in models) {
+        rows.add(_SmartPoolRow(
+          model: model,
+          selected: _selected.contains(model.id),
+          onToggle: (val) => setState(() {
+            if (val) {
+              _selected.add(model.id);
+            } else if (_selected.length > 1) {
+              _selected.remove(model.id);
+            }
+          }),
+        ));
+      }
+    }
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          minWidth: 320,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Material(
+            color: _bgCard,
+            borderRadius: BorderRadius.circular(20),
+            elevation: 24,
+            shadowColor: Colors.black.withValues(alpha: 0.5),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _borderLight),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 10, 0),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              'Smart Selector Pool',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: _textPrimary,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () =>
+                                Navigator.of(context).pop(_selected),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              size: 20,
+                              color: _textSecondary,
+                            ),
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(36, 36),
+                              padding: EdgeInsets.zero,
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Search + available toggle
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              autofocus: true,
+                              onChanged: (v) =>
+                                  setState(() => _query = v.trim()),
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontSize: 14,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Search models or providers…',
+                                hintStyle: TextStyle(
+                                  color: _textMuted,
+                                  fontSize: 14,
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.search_rounded,
+                                  size: 18,
+                                  color: _textMuted,
+                                ),
+                                suffixIcon: _query.isNotEmpty
+                                    ? GestureDetector(
+                                        onTap: () => setState(() {
+                                          _searchCtrl.clear();
+                                          _query = '';
+                                        }),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(10),
+                                          child: Icon(
+                                            Icons.cancel_rounded,
+                                            size: 16,
+                                            color: _textMuted,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 10),
+                                filled: true,
+                                fillColor: _bgSecondary,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: _border),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: _border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: _accent,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => setState(
+                                () => _onlyAvailable = !_onlyAvailable),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _onlyAvailable
+                                    ? _accentMuted
+                                    : _bgSecondary,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _onlyAvailable
+                                      ? _accent.withValues(alpha: 0.5)
+                                      : _border,
+                                ),
+                              ),
+                              child: Text(
+                                'Available',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _onlyAvailable
+                                      ? _accentHover
+                                      : _textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Quick-action toolbar
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                      child: Row(
+                        children: <Widget>[
+                          _PoolActionChip(
+                            label: 'Select all',
+                            onTap: () => _selectAllVisible(filtered),
+                          ),
+                          const SizedBox(width: 6),
+                          _PoolActionChip(
+                            label: 'Clear all',
+                            onTap: () => _clearAllVisible(filtered),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '$selectedAvailableCount selected',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, thickness: 1, color: _border),
+                    // Model list
+                    Flexible(
+                      child: rows.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(36),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.search_off_rounded,
+                                    size: 36,
+                                    color: _textMuted,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No results for "$_query"',
+                                    style: TextStyle(
+                                      color: _textSecondary,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView(
+                              padding:
+                                  const EdgeInsets.only(top: 4, bottom: 8),
+                              shrinkWrap: true,
+                              children: rows,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Pool Row — individual model row inside the dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SmartPoolRow extends StatelessWidget {
+  const _SmartPoolRow({
+    required this.model,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final ModelMeta model;
+  final bool selected;
+  final ValueChanged<bool> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _providerPickerColor(model.provider);
+    return Opacity(
+      opacity: model.available ? 1.0 : 0.4,
+      child: Material(
+        color: selected
+            ? _accentMuted.withValues(alpha: 0.12)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: model.available ? () => onToggle(!selected) : null,
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Row(
+              children: <Widget>[
+                // Thin provider accent bar on the left
+                Container(
+                  width: 3,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color.withValues(
+                        alpha: selected ? 0.85 : 0.28),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Checkbox(
+                    value: selected,
+                    onChanged: model.available
+                        ? (v) => onToggle(v ?? false)
+                        : null,
+                    activeColor: _accent,
+                    side: BorderSide(color: _textMuted, width: 1.5),
+                    materialTapTargetSize:
+                        MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        model.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              selected ? _accentHover : _textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (model.purpose.isNotEmpty)
+                        Text(
+                          model.purpose,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _textMuted,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (model.priceTier != null)
+                  _PriceTierChip(tier: model.priceTier!),
+                const SizedBox(width: 2),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Toolbar chip button used inside _SmartPoolDialog
+class _PoolActionChip extends StatelessWidget {
+  const _PoolActionChip({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _bgSecondary,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: _textSecondary,
+          ),
+        ),
       ),
     );
   }
