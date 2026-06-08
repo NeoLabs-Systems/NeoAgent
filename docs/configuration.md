@@ -40,6 +40,8 @@ At least one key is required unless you only use local Ollama.
 | `XAI_BASE_URL` | Optional xAI-compatible base URL override |
 | `GOOGLE_AI_KEY` | Gemini (Google) |
 | `MINIMAX_API_KEY` | MiniMax (including `MiniMax-M2.7`) |
+| `NVIDIA_API_KEY` | NVIDIA NIM (free-tier + paid: Nemotron, Kimi, Llama 4, DeepSeek, etc.) |
+| `OPENROUTER_API_KEY` | OpenRouter — access 300+ models from all providers through one API; free-tier models included |
 | `BRAVE_SEARCH_API_KEY` | Brave Search for the `web_search` tool |
 | `OPENAI_BASE_URL` | Optional OpenAI-compatible base URL override |
 | `ANTHROPIC_BASE_URL` | Optional Anthropic-compatible base URL override |

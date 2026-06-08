@@ -109,6 +109,16 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: false,
     defaultBaseUrl: ''
   },
+  openrouter: {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    description: 'Access 300+ models through one API, including free-tier models. Get a key at openrouter.ai.',
+    envKey: 'OPENROUTER_API_KEY',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://openrouter.ai/api/v1'
+  },
   ollama: {
     id: 'ollama',
     label: 'Ollama',

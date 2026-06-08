@@ -13,6 +13,7 @@ class _ModelPickerOption {
     this.color,
     this.icon,
     this.isAuto = false,
+    this.priceTier,
   });
 
   final String value;
@@ -22,6 +23,8 @@ class _ModelPickerOption {
   final Color? color;
   final IconData? icon;
   final bool isAuto;
+  /// 'free' | 'cheap' | 'medium' | 'expensive' | null
+  final String? priceTier;
 }
 
 // ─── Provider helpers ─────────────────────────────────────────────────────────
@@ -43,6 +46,9 @@ Color _providerPickerColor(String provider) {
   if (p.contains('copilot') || p.contains('github')) {
     return const Color(0xFF238636);
   }
+  if (p.contains('openrouter')) return const Color(0xFF6366F1);
+  if (p.contains('nvidia')) return const Color(0xFF76B900);
+  if (p.contains('minimax')) return const Color(0xFF0EA5E9);
   if (p.contains('deepgram')) return const Color(0xFF13D4A0);
   if (p.contains('ollama')) return const Color(0xFF6C8EBF);
   return const Color(0xFF7C8CFF);
@@ -64,6 +70,9 @@ IconData _providerPickerIcon(String provider) {
   }
   if (p.contains('grok') || p.contains('xai')) return Icons.psychology_rounded;
   if (p.contains('copilot') || p.contains('github')) return Icons.code_rounded;
+  if (p.contains('openrouter')) return Icons.hub_rounded;
+  if (p.contains('nvidia')) return Icons.speed_rounded;
+  if (p.contains('minimax')) return Icons.water_rounded;
   if (p.contains('deepgram')) return Icons.hearing_rounded;
   if (p.contains('ollama')) return Icons.device_hub_rounded;
   return Icons.memory_rounded;
@@ -78,10 +87,15 @@ String _providerPickerLabel(String id) {
     'meta': 'Meta',
     'mistral': 'Mistral',
     'grok': 'xAI',
+    'grok-oauth': 'xAI (OAuth)',
     'xai': 'xAI',
     'ollama': 'Ollama',
     'github-copilot': 'GitHub Copilot',
-    'openai-codex': 'OpenAI',
+    'openai-codex': 'OpenAI Codex',
+    'claude-code': 'Claude Code',
+    'openrouter': 'OpenRouter',
+    'nvidia': 'NVIDIA NIM',
+    'minimax': 'MiniMax',
     'deepgram': 'Deepgram',
   };
   return labels[id.toLowerCase()] ?? id;
@@ -113,6 +127,7 @@ List<_ModelPickerOption> _modelPickerOptions(
         subtitle: parts.isNotEmpty ? parts.join(' · ') : null,
         color: _providerPickerColor(m.provider),
         icon: _providerPickerIcon(m.provider),
+        priceTier: m.priceTier,
       );
     }),
   ];
@@ -500,6 +515,41 @@ class _ModelPickerDialogState extends State<_ModelPickerDialog> {
 // Sub-widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
+class _PriceTierChip extends StatelessWidget {
+  const _PriceTierChip({required this.tier});
+
+  final String tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final (String text, Color color) = switch (tier) {
+      'free'      => ('FREE',  const Color(0xFF22C55E)),
+      'cheap'     => ('\$',    const Color(0xFF4ADE80)),
+      'medium'    => ('\$\$',  const Color(0xFFF59E0B)),
+      'expensive' => ('\$\$\$', const Color(0xFFEF4444)),
+      _           => ('', Colors.transparent),
+    };
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 0.8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
 class _PickerGroupHeader extends StatelessWidget {
   const _PickerGroupHeader({required this.label, required this.color});
 
@@ -612,6 +662,10 @@ class _PickerRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              if (option.priceTier != null) ...<Widget>[
+                _PriceTierChip(tier: option.priceTier!),
+                const SizedBox(width: 6),
+              ],
               SizedBox(
                 width: 20,
                 child: selected

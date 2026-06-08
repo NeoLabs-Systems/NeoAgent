@@ -6,22 +6,49 @@ class GoogleProvider extends BaseProvider {
     super(config);
     this.name = 'google';
     this.models = [
+      'gemini-3.5-pro',
+      'gemini-3.5-flash',
+      'gemini-3.1-pro',
+      'gemini-3.1-flash-lite-preview',
+      'gemini-2.5-pro',
+      'gemini-2.5-flash',
       'gemini-2.0-flash',
-      'gemini-2.0-pro',
       'gemini-1.5-pro',
       'gemini-1.5-flash',
-      'gemini-3.1-flash-lite-preview',
-      'gemini-3.1-pro'
     ];
     this.contextWindows = {
+      'gemini-3.5-pro': 2097152,
+      'gemini-3.5-flash': 1048576,
+      'gemini-3.1-pro': 2097152,
+      'gemini-3.1-flash-lite-preview': 1048576,
+      'gemini-2.5-pro': 1048576,
+      'gemini-2.5-flash': 1048576,
       'gemini-2.0-flash': 1048576,
-      'gemini-2.0-pro': 2097152,
       'gemini-1.5-pro': 2097152,
       'gemini-1.5-flash': 1048576,
-      'gemini-3.1-flash-lite-preview': 1048576,
-      'gemini-3.1-pro': 2097152
     };
-    this.genAI = new GoogleGenerativeAI(config.apiKey || process.env.GOOGLE_AI_KEY);
+    this.apiKey = config.apiKey || process.env.GOOGLE_AI_KEY;
+    this.genAI = new GoogleGenerativeAI(this.apiKey);
+  }
+
+  async listModels() {
+    const DROP = /tts|lyria|robotics|deep-research|antigravity|computer-use|-image(?!.*it)/i;
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${this.apiKey}&pageSize=200`
+    );
+    if (!res.ok) throw new Error(`Google models API returned ${res.status}`);
+    const { models = [] } = await res.json();
+    return models
+      .filter((m) => {
+        const id = m.name.replace('models/', '');
+        return (m.supportedGenerationMethods || []).includes('generateContent')
+          && !DROP.test(id);
+      })
+      .map((m) => {
+        const id = m.name.replace('models/', '');
+        this.contextWindows[id] = m.inputTokenLimit || 1048576;
+        return { id, name: m.displayName || id };
+      });
   }
 
   getContextWindow(model) {
