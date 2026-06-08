@@ -1536,235 +1536,59 @@ class _SettingsPanelState extends State<SettingsPanel> {
               'Client and runtime update controls live here.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
-            const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 720;
-                final checkButton = FilledButton.icon(
-                  onPressed:
-                      controller.isCheckingAppUpdate ||
-                          !controller.appUpdaterConfigured
-                      ? null
-                      : () => controller.checkForAppUpdates(),
-                  style: FilledButton.styleFrom(backgroundColor: _accent),
-                  icon: controller.isCheckingAppUpdate
-                      ? _inlineProgressIndicator()
-                      : const Icon(Icons.sync),
-                  label: Text(
-                    controller.isCheckingAppUpdate
-                        ? 'Checking...'
-                        : 'Check now',
-                  ),
-                );
-                final appHeading = Text(
-                  'Client App',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: _textPrimary,
-                  ),
-                );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            if (!kIsWeb) ...<Widget>[
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 720;
+                  final checkButton = FilledButton.icon(
+                    onPressed:
+                        controller.isCheckingAppUpdate ||
+                            !controller.appUpdaterConfigured
+                        ? null
+                        : () => controller.checkForAppUpdates(),
+                    style: FilledButton.styleFrom(backgroundColor: _accent),
+                    icon: controller.isCheckingAppUpdate
+                        ? _inlineProgressIndicator()
+                        : const Icon(Icons.sync),
+                    label: Text(
+                      controller.isCheckingAppUpdate
+                          ? 'Checking...'
+                          : 'Check now',
+                    ),
+                  );
+                  final appHeading = Text(
+                    'Client App',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: _textPrimary,
+                    ),
+                  );
+                  if (compact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        appHeading,
+                        const SizedBox(height: 10),
+                        checkButton,
+                      ],
+                    );
+                  }
+                  return Row(
                     children: <Widget>[
-                      appHeading,
-                      const SizedBox(height: 10),
+                      Expanded(child: appHeading),
                       checkButton,
                     ],
                   );
-                }
-                return Row(
-                  children: <Widget>[
-                    Expanded(child: appHeading),
-                    checkButton,
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            if (!controller.appUpdaterConfigured)
-              if (!kIsWeb)
+                },
+              ),
+              const SizedBox(height: 12),
+              if (!controller.appUpdaterConfigured)
                 Text(
                   'Client app updates are not configured for this build.',
                   style: TextStyle(color: _textSecondary, height: 1.5),
-                )
-              else ...<Widget>[
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 780;
-                    final channelPicker = DropdownButtonFormField<String>(
-                      initialValue: controller.appUpdateChannel,
-                      decoration: const InputDecoration(
-                        labelText: 'App release channel',
-                      ),
-                      items: const <DropdownMenuItem<String>>[
-                        DropdownMenuItem<String>(
-                          value: 'stable',
-                          child: Text('Stable'),
-                        ),
-                        DropdownMenuItem<String>(
-                          value: 'beta',
-                          child: Text('Beta'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          unawaited(controller.setAppUpdateChannel(value));
-                        }
-                      },
-                    );
-                    final autoCheck = SwitchListTile.adaptive(
-                      value: controller.appUpdateAutoCheckEnabled,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('Check automatically on launch'),
-                      subtitle: Text(
-                        'This only checks GitHub Releases on startup. Installation still requires your confirmation.',
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                      onChanged: controller.setAppUpdateAutoCheckEnabled,
-                    );
-
-                    if (compact) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          channelPicker,
-                          const SizedBox(height: 10),
-                          autoCheck,
-                        ],
-                      );
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(child: channelPicker),
-                        const SizedBox(width: 16),
-                        Expanded(child: autoCheck),
-                      ],
-                    );
-                  },
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Installed: ${controller.installedAppVersion ?? 'Unknown'} | Channel: ${controller.appUpdateChannelLabel} | Last checked: ${controller.appUpdateLastCheckedLabel}',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Source: ${app_release_updater.appUpdaterGithubOwner}/${app_release_updater.appUpdaterGithubRepo}${app_release_updater.appUpdaterGithubToken.trim().isNotEmpty ? ' (override active)' : ''}',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                if (controller.appUpdateErrorMessage
-                    case final message?) ...<Widget>[
-                  const SizedBox(height: 12),
-                  _InlineError(message: message),
-                ],
-                if (controller.availableAppUpdate
-                    case final release?) ...<Widget>[
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _bgSecondary,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: _border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: <Widget>[
-                            _StatusPill(
-                              label: 'Update ${release.version}',
-                              color: release.channel == 'beta'
-                                  ? _warning
-                                  : _accent,
-                            ),
-                            _StatusPill(
-                              label: release.asset.name,
-                              color: _textSecondary,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '${release.title} · ${release.publishedLabel} · ${release.asset.sizeLabel}',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                        if (release.body.trim().isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 14),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 220),
-                            child: SingleChildScrollView(
-                              child: MarkdownBody(
-                                data: release.body,
-                                selectable: true,
-                                styleSheet: MarkdownStyleSheet(
-                                  p: TextStyle(
-                                    color: _textSecondary,
-                                    height: 1.45,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: <Widget>[
-                            FilledButton.icon(
-                              onPressed: controller.isOpeningAppUpdate
-                                  ? null
-                                  : controller.openAppUpdate,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: _accent,
-                              ),
-                              icon: controller.isOpeningAppUpdate
-                                  ? _inlineProgressIndicator()
-                                  : const Icon(Icons.system_update_alt),
-                              label: Text(
-                                controller.isOpeningAppUpdate
-                                    ? 'Opening...'
-                                    : 'Download update',
-                              ),
-                            ),
-                            if (release.htmlUrl.trim().isNotEmpty)
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  unawaited(
-                                    widget.controller._oauthLauncher
-                                        .openExternal(
-                                          url: release.htmlUrl,
-                                          label: 'release_notes',
-                                        ),
-                                  );
-                                },
-                                icon: const Icon(Icons.open_in_new),
-                                label: Text('View release'),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else ...<Widget>[
-                  const SizedBox(height: 12),
-                  Text(
-                    controller.isCheckingAppUpdate
-                        ? 'Checking GitHub releases...'
-                        : controller.appUpdateLastCheckedAt == null
-                        ? 'Choose a channel, then check GitHub releases.'
-                        : 'No newer app release is available on the selected channel.',
-                    style: TextStyle(color: _textSecondary, height: 1.45),
-                  ),
-                ],
-              ],
+            ],
             const Divider(height: 32),
             if (controller.updateStatus.allowSelfUpdate) ...<Widget>[
               LayoutBuilder(
