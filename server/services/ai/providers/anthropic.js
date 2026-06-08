@@ -6,23 +6,34 @@ class AnthropicProvider extends BaseProvider {
     super(config);
     this.name = 'anthropic';
     this.models = [
+      'claude-opus-4-8',
+      'claude-opus-4-7',
+      'claude-sonnet-4-6',
       'claude-sonnet-4-20250514',
-      'claude-3-5-sonnet-20241022',
+      'claude-haiku-4-5-20251001',
       'claude-3-5-haiku-20241022',
+      'claude-3-5-sonnet-20241022',
       'claude-3-opus-20240229',
-      'MiniMax-M2.7'
     ];
     this.contextWindows = {
+      'claude-opus-4-8': 1000000,
+      'claude-opus-4-7': 200000,
+      'claude-sonnet-4-6': 200000,
       'claude-sonnet-4-20250514': 200000,
-      'claude-3-5-sonnet-20241022': 200000,
+      'claude-haiku-4-5-20251001': 200000,
       'claude-3-5-haiku-20241022': 200000,
+      'claude-3-5-sonnet-20241022': 200000,
       'claude-3-opus-20240229': 200000,
-      'MiniMax-M2.7': 204800
     };
     this.client = new Anthropic({
       apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY,
       baseURL: config.baseUrl || process.env.ANTHROPIC_BASE_URL || undefined
     });
+  }
+
+  async listModels() {
+    const res = await this.client.models.list({ limit: 100 });
+    return (res.data || []).map((m) => ({ id: m.id, name: m.display_name || m.id }));
   }
 
   getContextWindow(model) {
