@@ -231,7 +231,7 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
   };
 }
 
-async function getFailureFallbackModelId(userId, agentId, currentModelId, preferredFallbackId = null) {
+async function getFailureFallbackModelId(userId, agentId, currentModelId, preferredFallbackId = null, failureError = null) {
   const { getSupportedModels } = require('./models');
   const aiSettings = getAiSettings(userId, agentId);
   const models = await getSupportedModels(userId, agentId);
@@ -247,7 +247,12 @@ async function getFailureFallbackModelId(userId, agentId, currentModelId, prefer
     || availableModels.find((model) => model.id === currentModelId)
     || null;
 
-  if (preferredFallbackId && preferredFallbackId !== currentModelId) {
+  // When the failure is a provider-level rate limit, the preferred fallback is
+  // likely on the same provider and will hit the same limit. Skip it and prefer
+  // a fallback from a different provider instead.
+  const isProviderRateLimit = /429|rate.?limit|free-models-per/i.test(String(failureError?.message || ''));
+
+  if (preferredFallbackId && preferredFallbackId !== currentModelId && !isProviderRateLimit) {
     const preferred = pool.find((model) => model.id === preferredFallbackId)
       || availableModels.find((model) => model.id === preferredFallbackId);
     if (preferred) return preferred.id;
@@ -257,6 +262,14 @@ async function getFailureFallbackModelId(userId, agentId, currentModelId, prefer
     const differentProvider = pool.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider)
       || availableModels.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider);
     if (differentProvider) return differentProvider.id;
+  }
+
+  // If no different-provider model exists, still try the preferred fallback
+  // even on rate limits (it's better than nothing).
+  if (preferredFallbackId && preferredFallbackId !== currentModelId) {
+    const preferred = pool.find((model) => model.id === preferredFallbackId)
+      || availableModels.find((model) => model.id === preferredFallbackId);
+    if (preferred) return preferred.id;
   }
 
   const differentModel = pool.find((model) => model.id !== currentModelId)
@@ -1093,7 +1106,9 @@ class AgentEngine {
   }
 
   getMessagingRetryLimit(maxIterations) {
-    return Math.max(1, maxIterations);
+    // Cap at 3: more than 3 autonomous messaging retries indicates a structural
+    // problem (model unavailable, bad config) that more retries won't solve.
+    return Math.min(3, Math.max(1, maxIterations));
   }
 
   buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg) {
@@ -1234,7 +1249,7 @@ class AgentEngine {
     let model = selectedProvider.model;
     let providerName = selectedProvider.providerName;
     const switchToFallbackModel = async (failedModel, error, phase) => {
-      const fallbackModelId = await getFailureFallbackModelId(userId, agentId, failedModel, aiSettings.fallback_model_id);
+      const fallbackModelId = await getFailureFallbackModelId(userId, agentId, failedModel, aiSettings.fallback_model_id, error);
       if (!fallbackModelId || fallbackModelId === failedModel) return false;
       console.log(`[Engine] ${phase} failed on ${failedModel}; attempting fallback to: ${fallbackModelId}`);
       this.emit(userId, 'run:interim', {
@@ -1700,7 +1715,7 @@ class AgentEngine {
           } catch (err) {
             console.error(`[Engine] Model call failed (${model}):`, err.message);
             const fallbackModelId = retryForFallback
-              ? await getFailureFallbackModelId(userId, agentId, model, aiSettings.fallback_model_id)
+              ? await getFailureFallbackModelId(userId, agentId, model, aiSettings.fallback_model_id, err)
               : null;
             if (fallbackModelId) {
               const failedModel = model;
@@ -2503,11 +2518,16 @@ class AgentEngine {
 
       const runMeta = this.activeRuns.get(runId);
       const retryCount = Number(options.messagingAutonomousRetryCount || 0);
+      // Rate-limit errors (429) must not trigger messaging retries: the model
+      // won't be available in the milliseconds between retries, so spawning new
+      // runs just compounds the rate-limit pressure with no benefit.
+      const isRateLimitError = /429|rate.?limit|free-models-per/i.test(String(err?.message || ''));
       const canRetryMessagingRun = (
         triggerSource === 'messaging'
         && options.source
         && options.chatId
         && err?.disableAutonomousRetry !== true
+        && !isRateLimitError
         && retryCount < this.getMessagingRetryLimit(maxIterations)
       );
 
