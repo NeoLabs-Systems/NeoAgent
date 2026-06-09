@@ -435,13 +435,21 @@ router.get('/api/analytics', requireAdminAuth, (req, res) => {
     };
     const topUsers = db.prepare(`
       SELECT u.id, u.username, u.display_name,
-             COUNT(DISTINCT r.id) AS runs,
-             COALESCE(SUM(r.total_tokens),0) AS tokens,
-             COALESCE(SUM(a.byte_size),0) AS storage
+             COALESCE(r.runs,    0) AS runs,
+             COALESCE(r.tokens,  0) AS tokens,
+             COALESCE(a.storage, 0) AS storage
       FROM users u
-      LEFT JOIN agent_runs r ON r.user_id = u.id
-      LEFT JOIN artifacts a  ON a.user_id = u.id
-      GROUP BY u.id ORDER BY runs DESC LIMIT 8
+      LEFT JOIN (
+        SELECT user_id,
+               COUNT(*)                   AS runs,
+               COALESCE(SUM(total_tokens),0) AS tokens
+        FROM agent_runs GROUP BY user_id
+      ) r ON r.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COALESCE(SUM(byte_size),0) AS storage
+        FROM artifacts GROUP BY user_id
+      ) a ON a.user_id = u.id
+      ORDER BY runs DESC LIMIT 8
     `).all();
     const recentRuns = db.prepare(`
       SELECT r.id, u.username, r.title, r.status, r.total_tokens,
@@ -465,13 +473,19 @@ router.get('/api/users', requireAdminAuth, (req, res) => {
     const sql = `
       SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at,
              u.created_at, u.last_login,
-             COUNT(DISTINCT r.id)      AS run_count,
-             COALESCE(SUM(a.byte_size),0) AS storage_bytes
+             COALESCE(r.run_count,    0) AS run_count,
+             COALESCE(a.storage_bytes,0) AS storage_bytes
       FROM users u
-      LEFT JOIN agent_runs r ON r.user_id = u.id
-      LEFT JOIN artifacts a  ON a.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*) AS run_count
+        FROM agent_runs GROUP BY user_id
+      ) r ON r.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COALESCE(SUM(byte_size),0) AS storage_bytes
+        FROM artifacts GROUP BY user_id
+      ) a ON a.user_id = u.id
       ${q ? 'WHERE u.username LIKE ? OR u.email LIKE ?' : ''}
-      GROUP BY u.id ORDER BY u.created_at DESC LIMIT 200`;
+      ORDER BY u.created_at DESC LIMIT 200`;
     const users = q ? db.prepare(sql).all(q, q) : db.prepare(sql).all();
     res.json({ users });
   } catch (err) {
