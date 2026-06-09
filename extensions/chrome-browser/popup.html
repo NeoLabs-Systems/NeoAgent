@@ -8,6 +8,7 @@
 <body>
   <main>
     <header>
+      <img src="icons/logo.svg" alt="NeoAgent" class="logo">
       <p class="eyebrow">NeoAgent Browser</p>
       <h1>Connect this Chrome</h1>
       <p class="intro">Pair once, then let NeoAgent control this browser when you ask it to.</p>
@@ -31,15 +32,17 @@
       </div>
     </section>
 
-    <button id="openApp" type="button" class="link-button">Open NeoAgent web page</button>
-
     <details id="settings" class="settings">
       <summary>Settings &amp; updates</summary>
       <label>
         Server URL
         <input id="serverUrl" type="url" placeholder="https://neoagent.example.com">
       </label>
-      <div class="settings-actions">
+      <label style="margin-top: 8px;">
+        Extension Name
+        <input id="extensionName" type="text" placeholder="e.g. Work Laptop, Personal Mac" value="Chrome Extension">
+      </label>
+      <div class="settings-actions" style="margin-top: 12px;">
         <button id="checkUpdate" type="button" class="secondary">Check for update</button>
         <button id="download" type="button" class="secondary">Download latest ZIP</button>
         <button id="disconnect" type="button" class="secondary danger">Disconnect</button>
@@ -47,8 +50,7 @@
       <p class="hint">The server URL is usually filled in by the ZIP downloaded from NeoAgent.</p>
     </details>
 
-    <p class="hint">Pairing opens NeoAgent in a tab. This extension never stores your NeoAgent password.</p>
-    <p id="message" class="message"></p>
+<p id="message" class="message"></p>
   </main>
   <script src="popup.js" type="module"></script>
 </body>

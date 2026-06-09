@@ -21,7 +21,6 @@ enum AppSection {
   runs,
   settings,
   accountSettings,
-  logs,
   skills,
   agents,
   integrations,
@@ -76,13 +75,11 @@ extension AppSectionX on AppSection {
       case AppSection.messaging:
         return 'Messaging';
       case AppSection.runs:
-        return 'Runs & Logs';
+        return 'Runs';
       case AppSection.settings:
         return 'Settings';
       case AppSection.accountSettings:
         return 'Account settings';
-      case AppSection.logs:
-        return 'Logs';
       case AppSection.skills:
         return 'Skills';
       case AppSection.agents:
@@ -120,8 +117,6 @@ extension AppSectionX on AppSection {
         return Icons.tune;
       case AppSection.accountSettings:
         return Icons.manage_accounts_outlined;
-      case AppSection.logs:
-        return Icons.article_outlined;
       case AppSection.skills:
         return Icons.extension_outlined;
       case AppSection.agents:
@@ -158,7 +153,6 @@ extension AppSectionX on AppSection {
       case AppSection.health:
         return SidebarGroup.automation;
       case AppSection.runs:
-      case AppSection.logs:
       case AppSection.settings:
       case AppSection.accountSettings:
       case AppSection.messaging:
@@ -169,8 +163,6 @@ extension AppSectionX on AppSection {
 
   AppSection get canonicalSection {
     switch (this) {
-      case AppSection.logs:
-        return AppSection.runs;
       case AppSection.skills:
       case AppSection.mcp:
         return AppSection.integrations;

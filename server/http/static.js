@@ -7,6 +7,7 @@ const { DATA_DIR } = require('../../runtime/paths');
 const { requireAuth } = require('../middleware/auth');
 
 const FLUTTER_WEB_DIR = path.join(__dirname, '..', 'public');
+const LANDING_DIR = path.join(__dirname, '..', '..', 'landing');
 const BUILD_ID_PATH = path.join(FLUTTER_WEB_DIR, '.last_build_id');
 
 function setNoStoreHeaders(res) {
@@ -63,11 +64,23 @@ function registerStaticRoutes(app) {
     });
   });
 
-  app.use(express.static(FLUTTER_WEB_DIR, {
-    index: false,
-    setHeaders: setFlutterStaticHeaders,
-  }));
-  app.get(/^\/(?!api|screenshots|telnyx-audio).*/, serveFlutterApp);
+  const adminRouter = require('../routes/admin');
+  app.use('/admin', adminRouter);
+
+  // Flutter app at /app
+  app.use(
+    '/app',
+    express.static(FLUTTER_WEB_DIR, {
+      index: false,
+      setHeaders: setFlutterStaticHeaders,
+    })
+  );
+  app.get(/^\/app(\/.*)?$/, serveFlutterApp);
+
+  // Landing page at /
+  app.use(express.static(LANDING_DIR));
+  app.get('/', (req, res) => res.sendFile(path.join(LANDING_DIR, 'index.html')));
+  app.get('/legal.html', (req, res) => res.sendFile(path.join(LANDING_DIR, 'legal.html')));
 }
 
 function serveFlutterApp(req, res) {
@@ -80,11 +93,15 @@ function serveFlutterApp(req, res) {
       );
   }
   setNoStoreHeaders(res);
-  return res.sendFile(entry);
+  // Rewrite <base href="/"> to <base href="/app/"> so Flutter asset paths resolve correctly
+  const html = fs.readFileSync(entry, 'utf8').replace('<base href="/">', '<base href="/app/">');
+  res.set('Content-Type', 'text/html');
+  return res.send(html);
 }
 
 module.exports = {
   FLUTTER_WEB_DIR,
+  LANDING_DIR,
   registerStaticRoutes,
   serveFlutterApp
 };

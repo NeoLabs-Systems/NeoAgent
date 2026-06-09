@@ -59,16 +59,34 @@ class TaskRepository {
   }
 
   listTasksForAgent(userId, agentId, includeLegacyMainTasks) {
+    const select = `
+      SELECT
+        scheduled_tasks.*,
+        latest_run.id AS last_run_id,
+        latest_run.status AS last_run_status,
+        latest_run.error AS last_run_error,
+        latest_run.created_at AS last_run_started_at
+      FROM scheduled_tasks
+      LEFT JOIN agent_runs AS latest_run ON latest_run.id = (
+        SELECT candidate.id
+        FROM agent_runs AS candidate
+        WHERE candidate.user_id = scheduled_tasks.user_id
+          AND json_valid(candidate.metadata_json)
+          AND CAST(json_extract(candidate.metadata_json, '$.taskId') AS TEXT) = CAST(scheduled_tasks.id AS TEXT)
+        ORDER BY candidate.created_at DESC, candidate.rowid DESC
+        LIMIT 1
+      )`;
     return includeLegacyMainTasks
       ? db.prepare(
-        `SELECT * FROM scheduled_tasks
-         WHERE user_id = ? AND (agent_id = ? OR agent_id IS NULL)
-         ORDER BY created_at DESC`
+        `${select}
+         WHERE scheduled_tasks.user_id = ?
+           AND (scheduled_tasks.agent_id = ? OR scheduled_tasks.agent_id IS NULL)
+         ORDER BY scheduled_tasks.created_at DESC`
       ).all(userId, agentId)
       : db.prepare(
-        `SELECT * FROM scheduled_tasks
-         WHERE user_id = ? AND agent_id = ?
-         ORDER BY created_at DESC`
+        `${select}
+         WHERE scheduled_tasks.user_id = ? AND scheduled_tasks.agent_id = ?
+         ORDER BY scheduled_tasks.created_at DESC`
       ).all(userId, agentId);
   }
 
@@ -126,9 +144,33 @@ class TaskRepository {
     db.prepare('UPDATE scheduled_tasks SET last_run = datetime(\'now\') WHERE id = ? AND user_id = ?').run(taskId, userId);
   }
 
+  markAgentRunFailed(runId, userId, error) {
+    db.prepare(
+      `UPDATE agent_runs
+       SET status = 'failed',
+           error = ?,
+           updated_at = datetime('now'),
+           completed_at = COALESCE(completed_at, datetime('now'))
+       WHERE id = ? AND user_id = ?`
+    ).run(String(error || 'Task execution failed.'), runId, userId);
+  }
+
   updateTaskConfig(taskId, userId, taskConfig) {
     db.prepare('UPDATE scheduled_tasks SET task_config = ? WHERE id = ? AND user_id = ?')
       .run(JSON.stringify(taskConfig), taskId, userId);
+  }
+
+  listRecentMessageTargets(userId, agentId, limit = 20) {
+    return db.prepare(
+      `SELECT platform, platform_chat_id
+       FROM messages
+       WHERE user_id = ?
+         AND agent_id = ?
+         AND platform IS NOT NULL
+         AND platform_chat_id IS NOT NULL
+       ORDER BY id DESC
+       LIMIT ?`
+    ).all(userId, agentId, Math.max(1, Math.min(Number(limit) || 20, 100)));
   }
 
   getAgentSetting(userId, agentId, key) {

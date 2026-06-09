@@ -1,5 +1,7 @@
 part of 'main.dart';
 
+// ignore_for_file: unused_element
+
 class _OptimizedScreenshotPayload {
   const _OptimizedScreenshotPayload({
     required this.bytes,
@@ -26,6 +28,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
   late final TextEditingController _androidLaunchController;
   late final TextEditingController _desktopLaunchController;
   late final TextEditingController _textEntryController;
+  late final TextEditingController _workspaceEditorController;
   Timer? _surfaceFrameTimer;
   _DeviceSurface _surface = _DeviceSurface.browser;
   _DeviceSurface? _runningSurface;
@@ -39,6 +42,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
     );
     _desktopLaunchController = TextEditingController();
     _textEntryController = TextEditingController();
+    _workspaceEditorController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -57,6 +61,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
       _androidLaunchController,
       _desktopLaunchController,
       _textEntryController,
+      _workspaceEditorController,
     ]) {
       controller.dispose();
     }
@@ -66,6 +71,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
 
   bool get _isBrowser => _surface == _DeviceSurface.browser;
   bool get _isDesktop => _surface == _DeviceSurface.desktop;
+  bool get _isFiles => _surface == _DeviceSurface.files;
 
   bool get _isCurrentSurfaceBusy =>
       widget.controller.isRunningDeviceAction &&
@@ -90,6 +96,29 @@ class _DevicesPanelState extends State<DevicesPanel> {
   bool get _androidStarting =>
       widget.controller.androidRuntime['starting'] == true;
 
+  String? get _androidDeviceId {
+    final status = widget.controller.androidRuntime;
+    final direct = status['adbSerial']?.toString().trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final devices = _jsonMapList(status['devices'], fallbackToMapValues: true);
+    for (final device in devices) {
+      if (device['status']?.toString() != 'device') {
+        continue;
+      }
+      final serial = device['serial']?.toString().trim();
+      if (serial != null && serial.isNotEmpty) {
+        return serial;
+      }
+      final id = device['deviceId']?.toString().trim();
+      if (id != null && id.isNotEmpty) {
+        return id;
+      }
+    }
+    return null;
+  }
+
   List<Map<String, dynamic>> get _onlineDesktopDevices => widget
       .controller
       .desktopDevices
@@ -103,8 +132,16 @@ class _DevicesPanelState extends State<DevicesPanel> {
       _onlineDesktopDevices.length > 1 &&
       (widget.controller.selectedDesktopDeviceId ?? '').isEmpty;
 
+  bool get _extensionPreferredButOffline =>
+      widget.controller.browserBackend == 'extension' &&
+      !widget.controller.browserExtensionConnected;
+
+  List<Map<String, dynamic>> get _browserExtensionDevices =>
+      widget.controller.browserExtensionTokens;
+
   String? get _activeScreenshotPath {
     if (_isBrowser) {
+      if (_extensionPreferredButOffline) return null;
       return widget.controller.browserScreenshotPath;
     }
     if (_isDesktop) {
@@ -121,6 +158,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
   Future<void> _ensurePreview() async {
     final controller = widget.controller;
     if (_isBrowser) {
+      if (_extensionPreferredButOffline) return;
       if (controller.browserRuntime['launched'] != true) {
         return;
       }
@@ -148,6 +186,13 @@ class _DevicesPanelState extends State<DevicesPanel> {
       return;
     }
 
+    if (_isFiles) {
+      if (controller.workspaceEntries.isEmpty) {
+        await controller.refreshWorkspaceFiles();
+      }
+      return;
+    }
+
     if (_androidOnline && (controller.androidScreenshotPath ?? '').isEmpty) {
       await controller.screenshotAndroidRuntime();
     }
@@ -161,11 +206,15 @@ class _DevicesPanelState extends State<DevicesPanel> {
       return;
     }
     if (_isBrowser) {
+      if (_extensionPreferredButOffline) return;
       await widget.controller.refreshBrowserFrameRuntime();
       return;
     }
     if (_isDesktop) {
       await widget.controller.refreshDesktopFrameRuntime();
+      return;
+    }
+    if (_isFiles) {
       return;
     }
     if (_androidStarting) {
@@ -225,6 +274,11 @@ class _DevicesPanelState extends State<DevicesPanel> {
       return;
     }
 
+    if (_isFiles) {
+      await controller.refreshWorkspaceFiles();
+      return;
+    }
+
     if (!_androidOnline) {
       await controller.startAndroidRuntime();
       await widget.controller.refreshDevices();
@@ -266,6 +320,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
       }
       return;
     }
+    if (_isFiles) {
+      return;
+    }
     if (!_androidOnline) {
       return;
     }
@@ -281,6 +338,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
       await widget.controller.typeBrowserTextRuntime(text, pressEnter: true);
     } else if (_isDesktop) {
       await widget.controller.typeDesktopRuntime(text, pressEnter: true);
+    } else if (_isFiles) {
+      return;
     } else {
       await widget.controller.typeAndroidRuntime(<String, dynamic>{
         'text': text,
@@ -288,6 +347,23 @@ class _DevicesPanelState extends State<DevicesPanel> {
       });
     }
   });
+
+  void _handleHover(Offset point) {
+    if (_isBrowser) {
+      unawaited(widget.controller.hoverBrowserPointRuntime(
+        x: point.dx.round(),
+        y: point.dy.round(),
+      ));
+    } else if (_isDesktop) {
+      if (_desktopRequiresSelection) {
+        return;
+      }
+      unawaited(widget.controller.hoverDesktopRuntime(
+        x: point.dx.round(),
+        y: point.dy.round(),
+      ));
+    }
+  }
 
   Future<void> _handleTap(Offset point) => _runOnSurface(() async {
     if (_isBrowser) {
@@ -317,36 +393,37 @@ class _DevicesPanelState extends State<DevicesPanel> {
     });
   });
 
-  Future<void> _handleSwipe(Offset start, Offset end) => _runOnSurface(() async {
-    if (_isBrowser) {
-      await widget.controller.scrollBrowserRuntime(
-        deltaY: (start.dy - end.dy).round(),
-      );
-      return;
-    }
-    if (_isDesktop) {
-      if (_desktopRequiresSelection) {
-        return;
-      }
-      await widget.controller.dragDesktopRuntime(
-        x1: start.dx.round(),
-        y1: start.dy.round(),
-        x2: end.dx.round(),
-        y2: end.dy.round(),
-      );
-      return;
-    }
-    if (!_androidOnline) {
-      return;
-    }
-    await widget.controller.swipeAndroidRuntime(<String, dynamic>{
-      'x1': start.dx.round(),
-      'y1': start.dy.round(),
-      'x2': end.dx.round(),
-      'y2': end.dy.round(),
-      'durationMs': 280,
-    });
-  });
+  Future<void> _handleSwipe(Offset start, Offset end) =>
+      _runOnSurface(() async {
+        if (_isBrowser) {
+          await widget.controller.scrollBrowserRuntime(
+            deltaY: (start.dy - end.dy).round(),
+          );
+          return;
+        }
+        if (_isDesktop) {
+          if (_desktopRequiresSelection) {
+            return;
+          }
+          await widget.controller.dragDesktopRuntime(
+            x1: start.dx.round(),
+            y1: start.dy.round(),
+            x2: end.dx.round(),
+            y2: end.dy.round(),
+          );
+          return;
+        }
+        if (!_androidOnline) {
+          return;
+        }
+        await widget.controller.swipeAndroidRuntime(<String, dynamic>{
+          'x1': start.dx.round(),
+          'y1': start.dy.round(),
+          'x2': end.dx.round(),
+          'y2': end.dy.round(),
+          'durationMs': 280,
+        });
+      });
 
   Future<void> _runQuickAction(String action) => _runOnSurface(() async {
     final controller = widget.controller;
@@ -391,6 +468,13 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final prefersExtension = controller.browserBackend == 'extension';
     final extensionConnected = controller.browserExtensionConnected;
     final usingExtension = prefersExtension && extensionConnected;
+    final selectedBrowserExtension = controller.browserExtensionTokens
+        .where(
+          (device) =>
+              device['tokenId'] == controller.selectedBrowserExtensionTokenId,
+        )
+        .cast<Map<String, dynamic>?>()
+        .firstWhere((device) => device != null, orElse: () => null);
     final browserFallbackLabel = 'cloud browser runtime';
     final browserPageInfo = browserStatus['pageInfo'] is Map<dynamic, dynamic>
         ? Map<String, dynamic>.from(browserStatus['pageInfo'] as Map)
@@ -447,10 +531,81 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       desktopDevices: controller.desktopDevices,
                       selectedDesktopDeviceId:
                           controller.selectedDesktopDeviceId,
+                      browserExtensionDevices:
+                          controller.browserExtensionTokens,
+                      selectedBrowserExtensionTokenId:
+                          controller.selectedBrowserExtensionTokenId,
                       browserExtensionPreferred: prefersExtension,
                       browserExtensionActive: usingExtension,
                       browserFallbackLabel: browserFallbackLabel,
                     ),
+                    if (_isFiles) ...<Widget>[
+                      const SizedBox(height: 14),
+                      _WorkspaceExplorer(
+                        controller: controller,
+                        editorController: _workspaceEditorController,
+                      ),
+                      const SizedBox(height: 14),
+                      _SurfaceSwitcher(
+                        surface: _surface,
+                        onSelect: _selectSurface,
+                      ),
+                    ] else ...<Widget>[
+                    if (_isBrowser && prefersExtension) ...<Widget>[
+                      const SizedBox(height: 14),
+                      if (_browserExtensionDevices.isNotEmpty) ...<Widget>[
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: selectedBrowserExtension?['tokenId']
+                              ?.toString(),
+                          decoration: const InputDecoration(
+                            labelText: 'Chrome extension device',
+                            prefixIcon: Icon(Icons.extension_outlined),
+                          ),
+                          hint: const Text('Select a paired extension'),
+                          items: _browserExtensionDevices.map((device) {
+                            final tokenId = device['tokenId']?.toString() ?? '';
+                            final label =
+                                device['name']?.toString().trim().isNotEmpty ==
+                                    true
+                                ? device['name'].toString()
+                                : tokenId;
+                            final state =
+                                device['online'] == true ||
+                                    device['connected'] == true
+                                ? 'online'
+                                : 'offline';
+                            return DropdownMenuItem<String>(
+                              value: tokenId,
+                              child: Text(
+                                '$label · $state',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: _isCurrentSurfaceBusy
+                              ? null
+                              : (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return;
+                                  }
+                                  unawaited(
+                                    controller.selectBrowserExtensionRuntime(
+                                      value,
+                                    ),
+                                  );
+                                },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      _ExtensionStatusBar(
+                        connected: extensionConnected,
+                        onDownload: controller.downloadBrowserExtension,
+                        onRefresh: controller.refreshBrowserExtensionStatus,
+                      ),
+                    ],
                     if (_isDesktop) ...<Widget>[
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
@@ -555,12 +710,30 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       surface: _surface,
                       controller: controller,
                       screenshotPath: _activeScreenshotPath,
+                      streamPlatform: _isBrowser && browserStatus['launched'] == true
+                          ? 'browser'
+                          : (_isDesktop && _desktopOnline
+                              ? 'desktop'
+                              : (!_isBrowser && !_isDesktop && _androidOnline
+                                  ? 'android'
+                                  : null)),
+                      streamDeviceId: _isBrowser && browserStatus['launched'] == true
+                          ? 'browser'
+                          : (_isDesktop && _desktopOnline
+                              ? (widget.controller.selectedDesktopDeviceId ??
+                                  (_onlineDesktopDevices.isNotEmpty ? _onlineDesktopDevices.first['deviceId']?.toString() : null))
+                              : (!_isBrowser && !_isDesktop && _androidOnline
+                                  ? _androidDeviceId
+                                  : null)),
                       busy: _isCurrentSurfaceBusy,
                       wakingUp: !_isBrowser && !_isDesktop && _androidStarting,
                       enabled: _isBrowser || _isDesktop || _androidOnline,
-                      connectRequired: _desktopRequiresSelection,
+                      connectRequired: _isBrowser
+                          ? _extensionPreferredButOffline
+                          : _desktopRequiresSelection,
                       onTapPoint: _handleTap,
                       onSwipe: _handleSwipe,
+                      onHover: _handleHover,
                       onWakeRequested: _openPrimary,
                     ),
                     if (!_isBrowser && !_isDesktop) ...<Widget>[
@@ -571,8 +744,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
                         onAction: _runQuickAction,
                       ),
                       if (kIsWeb) ...<Widget>[
-                        const SizedBox(height: 14),
-                        AndroidApkDropZone(
+                        const SizedBox(height: 12),
+                        _AndroidActionsBox(
                           enabled: _androidOnline,
                           busy: _isCurrentSurfaceBusy,
                           onInstall: ({required filename, required bytes}) {
@@ -605,6 +778,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                       surface: _surface,
                       onSelect: _selectSurface,
                     ),
+                    ],
                   ],
                 ),
               ),
@@ -616,13 +790,14 @@ class _DevicesPanelState extends State<DevicesPanel> {
   }
 }
 
-enum _DeviceSurface { browser, android, desktop }
+enum _DeviceSurface { browser, android, desktop, files }
 
 extension _DeviceSurfaceX on _DeviceSurface {
   String get label => switch (this) {
     _DeviceSurface.browser => 'Browser',
     _DeviceSurface.android => 'Phone',
     _DeviceSurface.desktop => 'Desktop',
+    _DeviceSurface.files => 'Files',
   };
 
   String get helper => switch (this) {
@@ -630,12 +805,14 @@ extension _DeviceSurfaceX on _DeviceSurface {
     _DeviceSurface.android => 'Tap to touch. Drag to swipe.',
     _DeviceSurface.desktop =>
       'Tap to click. Drag to drag windows or selections.',
+    _DeviceSurface.files => 'Browse files created by the agent.',
   };
 
   IconData get icon => switch (this) {
     _DeviceSurface.browser => Icons.language_outlined,
     _DeviceSurface.android => Icons.smartphone_outlined,
     _DeviceSurface.desktop => Icons.computer_outlined,
+    _DeviceSurface.files => Icons.folder_outlined,
   };
 }
 
@@ -649,6 +826,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
     required this.desktopRuntime,
     required this.desktopDevices,
     required this.selectedDesktopDeviceId,
+    required this.browserExtensionDevices,
+    required this.selectedBrowserExtensionTokenId,
     required this.browserExtensionPreferred,
     required this.browserExtensionActive,
     required this.browserFallbackLabel,
@@ -662,6 +841,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
   final Map<String, dynamic> desktopRuntime;
   final List<Map<String, dynamic>> desktopDevices;
   final String? selectedDesktopDeviceId;
+  final List<Map<String, dynamic>> browserExtensionDevices;
+  final String? selectedBrowserExtensionTokenId;
   final bool browserExtensionPreferred;
   final bool browserExtensionActive;
   final String browserFallbackLabel;
@@ -677,12 +858,29 @@ class _DeviceSurfaceHeader extends StatelessWidget {
             .where((device) => device['deviceId'] == selectedDesktopDeviceId)
             .cast<Map<String, dynamic>?>()
             .firstWhere((device) => device != null, orElse: () => null);
+        final selectedExtension = browserExtensionDevices
+            .where(
+              (device) => device['tokenId'] == selectedBrowserExtensionTokenId,
+            )
+            .cast<Map<String, dynamic>?>()
+            .firstWhere((device) => device != null, orElse: () => null);
+        final extensionOnlineCount = browserExtensionDevices
+            .where(
+              (device) =>
+                  device['online'] == true || device['connected'] == true,
+            )
+            .length;
         final desktopOnlineCount = desktopDevices
             .where((device) => device['online'] == true)
             .length;
         final title = switch (surface) {
           _DeviceSurface.browser =>
-            (browserPageInfo['title']?.toString().trim().isNotEmpty ?? false)
+            browserExtensionPreferred &&
+                    selectedExtension?['name']?.toString().trim().isNotEmpty ==
+                        true
+                ? selectedExtension!['name'].toString()
+                : (browserPageInfo['title']?.toString().trim().isNotEmpty ??
+                      false)
                 ? browserPageInfo['title'].toString()
                 : 'Live Browser',
           _DeviceSurface.android => 'Android Phone',
@@ -690,11 +888,16 @@ class _DeviceSurfaceHeader extends StatelessWidget {
             selectedDesktop?['label']?.toString().trim().isNotEmpty == true
                 ? selectedDesktop!['label'].toString()
                 : 'Desktop Companion',
+          _DeviceSurface.files => 'File Explorer',
         };
         final subtitle = switch (surface) {
-            _DeviceSurface.browser =>
-                browserExtensionPreferred && !browserExtensionActive
-                ? 'No extension device is active. Using the $browserFallbackLabel.'
+          _DeviceSurface.browser =>
+            browserExtensionPreferred && selectedExtension == null
+                ? extensionOnlineCount > 1
+                      ? 'Multiple extension devices are online. Pick the browser you want to control.'
+                      : 'No extension device is active. Using the $browserFallbackLabel.'
+                : browserExtensionPreferred && !browserExtensionActive
+                ? 'Selected extension is offline. Using the $browserFallbackLabel.'
                 : (browserPageInfo['url']?.toString() ??
                       'Ready for navigation'),
           _DeviceSurface.android =>
@@ -727,9 +930,13 @@ class _DeviceSurfaceHeader extends StatelessWidget {
                       ? 'One desktop companion is online. Open the surface to fetch the latest frame.'
                       : 'No desktop companion is online. Enable Companion Mode on a signed-in desktop app.'
                 : '${selectedDesktop['platform'] ?? 'desktop'} · ${selectedDesktop['hostname'] ?? 'unknown host'}',
+          _DeviceSurface.files =>
+            'Secure per-user workspace inside the isolated VM.',
         };
         final statusLabel = surface == _DeviceSurface.browser
-            ? browserExtensionPreferred && !browserExtensionActive
+            ? browserExtensionPreferred && selectedExtension == null
+                  ? (extensionOnlineCount > 0 ? 'Select Device' : 'Fallback')
+                  : browserExtensionPreferred && !browserExtensionActive
                   ? 'Fallback'
                   : browserExtensionActive
                   ? 'Extension'
@@ -742,6 +949,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
                         : (selectedDesktop['online'] == true
                               ? 'Live'
                               : 'Offline'))
+            : surface == _DeviceSurface.files
+            ? 'Isolated'
             : (androidOnline
                   ? 'Live'
                   : androidStarting
@@ -753,6 +962,8 @@ class _DeviceSurfaceHeader extends StatelessWidget {
             ? (selectedDesktop?['paused'] == true
                   ? _warning
                   : (selectedDesktop?['online'] == true ? _success : _warning))
+            : surface == _DeviceSurface.files
+            ? _success
             : (androidOnline
                   ? _success
                   : (androidStarting ? _accent : _warning));
@@ -859,16 +1070,19 @@ class _DeviceLaunchBar extends StatelessWidget {
       _DeviceSurface.android => _packageOrUrlHint,
       _DeviceSurface.desktop =>
         'Launch an app on the selected desktop (optional)',
+      _DeviceSurface.files => 'Workspace path',
     };
     final buttonLabel = switch (surface) {
       _DeviceSurface.browser => 'Open',
       _DeviceSurface.android => starting ? 'Starting...' : 'Launch',
       _DeviceSurface.desktop => 'Refresh',
+      _DeviceSurface.files => 'Refresh',
     };
     final sleepLabel = switch (surface) {
       _DeviceSurface.browser => 'Sleep Browser',
       _DeviceSurface.android => 'Sleep Phone',
       _DeviceSurface.desktop => 'Pause Desktop',
+      _DeviceSurface.files => 'Close',
     };
     final narrow = MediaQuery.sizeOf(context).width < 720;
 
@@ -882,6 +1096,8 @@ class _DeviceLaunchBar extends StatelessWidget {
               ? Icons.travel_explore
               : surface == _DeviceSurface.desktop
               ? Icons.apps_outlined
+              : surface == _DeviceSurface.files
+              ? Icons.folder_outlined
               : Icons.open_in_new,
         ),
       ),
@@ -894,6 +1110,8 @@ class _DeviceLaunchBar extends StatelessWidget {
             ? Icons.arrow_forward
             : surface == _DeviceSurface.desktop
             ? Icons.desktop_windows_outlined
+            : surface == _DeviceSurface.files
+            ? Icons.refresh_rounded
             : Icons.play_arrow,
       ),
       label: Text(buttonLabel),
@@ -951,6 +1169,7 @@ class _DeviceTypeDock extends StatelessWidget {
       _DeviceSurface.browser => 'Type into the currently focused field',
       _DeviceSurface.android => 'Type into the current phone field',
       _DeviceSurface.desktop => 'Type into the focused desktop field',
+      _DeviceSurface.files => 'Edit the selected file',
     };
     final narrow = MediaQuery.sizeOf(context).width < 720;
 
@@ -1022,6 +1241,9 @@ class _DeviceQuickActions extends StatelessWidget {
         MapEntry<String, IconData>('desktop_escape', Icons.close_fullscreen),
       ],
       _DeviceSurface.android => const <MapEntry<String, IconData>>[
+        MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
+      ],
+      _DeviceSurface.files => const <MapEntry<String, IconData>>[
         MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
       ],
     };
@@ -1102,11 +1324,79 @@ class _AndroidNavDock extends StatelessWidget {
   }
 }
 
-class _SurfaceSwitcher extends StatelessWidget {
-  const _SurfaceSwitcher({
-    required this.surface,
-    required this.onSelect,
+/// Tiny pill shown in the top-right corner of the preview to indicate no audio.
+class _MutedBadge extends StatelessWidget {
+  const _MutedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(Icons.volume_off_rounded, size: 11, color: Colors.white),
+    );
+  }
+}
+
+/// Compact expandable actions box shown beneath the Android nav dock.
+/// Starts with APK install; more actions can be added as tiles.
+class _AndroidActionsBox extends StatelessWidget {
+  const _AndroidActionsBox({
+    required this.enabled,
+    required this.busy,
+    required this.onInstall,
   });
+
+  final bool enabled;
+  final bool busy;
+  final AndroidApkInstallCallback onInstall;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            'ACTIONS',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: _textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              AndroidApkTile(
+                enabled: enabled,
+                busy: busy,
+                onInstall: onInstall,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SurfaceSwitcher extends StatelessWidget {
+  const _SurfaceSwitcher({required this.surface, required this.onSelect});
 
   final _DeviceSurface surface;
   final Future<void> Function(_DeviceSurface) onSelect;
@@ -1140,8 +1430,7 @@ class _SurfaceSwitcher extends StatelessWidget {
               ),
               labelStyle: TextStyle(
                 color: selected ? _textPrimary : _textSecondary,
-                fontWeight:
-                    selected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
             );
           }).toList(),
@@ -1162,24 +1451,30 @@ class _InteractiveSurfacePreview extends StatefulWidget {
     required this.surface,
     required this.controller,
     required this.screenshotPath,
+    required this.streamPlatform,
+    required this.streamDeviceId,
     required this.busy,
     required this.wakingUp,
     required this.enabled,
     required this.connectRequired,
     required this.onTapPoint,
     required this.onSwipe,
+    this.onHover,
     required this.onWakeRequested,
   });
 
   final _DeviceSurface surface;
   final NeoAgentController controller;
   final String? screenshotPath;
+  final String? streamPlatform;
+  final String? streamDeviceId;
   final bool busy;
   final bool wakingUp;
   final bool enabled;
   final bool connectRequired;
   final Future<void> Function(Offset point) onTapPoint;
   final Future<void> Function(Offset start, Offset end) onSwipe;
+  final void Function(Offset point)? onHover;
   final Future<void> Function() onWakeRequested;
 
   @override
@@ -1196,11 +1491,15 @@ class _InteractiveSurfacePreviewState
   Object? _imageError;
   Offset? _dragStart;
   Offset? _dragEnd;
+  bool _streamStarting = false;
+  String? _activeStreamKey;
+  String? _streamFailedKey;
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadImage());
+    unawaited(_syncStream());
   }
 
   @override
@@ -1209,12 +1508,129 @@ class _InteractiveSurfacePreviewState
     if (oldWidget.screenshotPath != widget.screenshotPath) {
       unawaited(_loadImage());
     }
+    if (oldWidget.streamPlatform != widget.streamPlatform ||
+        oldWidget.streamDeviceId != widget.streamDeviceId ||
+        oldWidget.controller.streamSocket != widget.controller.streamSocket) {
+      unawaited(_syncStream());
+    }
   }
 
   @override
   void dispose() {
+    unawaited(_stopActiveStream());
     _detachImageListener();
     super.dispose();
+  }
+
+  String? get _requestedStreamKey {
+    final platform = widget.streamPlatform?.trim();
+    final deviceId = widget.streamDeviceId?.trim();
+    if (platform == null ||
+        platform.isEmpty ||
+        deviceId == null ||
+        deviceId.isEmpty ||
+        widget.controller.streamSocket == null) {
+      return null;
+    }
+    return '$platform:$deviceId';
+  }
+
+  Future<void> _syncStream() async {
+    final requested = _requestedStreamKey;
+    if (_activeStreamKey == requested || _streamStarting) {
+      return;
+    }
+    if (requested != _streamFailedKey) {
+      _streamFailedKey = null;
+    }
+    await _stopActiveStream();
+    if (requested == null) {
+      return;
+    }
+    final parts = requested.split(':');
+    _streamStarting = true;
+    try {
+      await widget.controller.startStreamRuntime(
+        platform: parts[0],
+        deviceId: parts.sublist(1).join(':'),
+        fps: 10,
+        quality: 70,
+      );
+      if (mounted && _requestedStreamKey == requested) {
+        _activeStreamKey = requested;
+        _streamFailedKey = null;
+      } else {
+        await widget.controller.stopStreamRuntime(
+          platform: parts[0],
+          deviceId: parts.sublist(1).join(':'),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        _streamFailedKey = requested;
+      }
+      if (mounted && (widget.screenshotPath ?? '').isEmpty) {
+        unawaited(_loadImage());
+      }
+    } finally {
+      _streamStarting = false;
+      if (mounted &&
+          _activeStreamKey != _requestedStreamKey &&
+          _streamFailedKey != _requestedStreamKey) {
+        unawaited(_syncStream());
+      }
+    }
+  }
+
+  Future<void> _stopActiveStream() async {
+    final active = _activeStreamKey;
+    _activeStreamKey = null;
+    if (active == null) {
+      return;
+    }
+    final parts = active.split(':');
+    try {
+      await widget.controller.stopStreamRuntime(
+        platform: parts[0],
+        deviceId: parts.sublist(1).join(':'),
+      );
+    } catch (_) {}
+  }
+
+  void _handleStreamFirstFrame(String streamKey) {
+    if (!mounted || _requestedStreamKey != streamKey) {
+      return;
+    }
+    if (_streamFailedKey == streamKey) {
+      setState(() => _streamFailedKey = null);
+    }
+  }
+
+  void _handleStreamFrameTimeout(String streamKey) {
+    if (!mounted || _requestedStreamKey != streamKey) {
+      return;
+    }
+    setState(() => _streamFailedKey = streamKey);
+    unawaited(_stopActiveStream());
+    if ((widget.screenshotPath ?? '').isEmpty) {
+      unawaited(_refreshStaticFrame());
+    }
+  }
+
+  Future<void> _refreshStaticFrame() async {
+    switch (widget.surface) {
+      case _DeviceSurface.browser:
+        await widget.controller.screenshotBrowserRuntime();
+        break;
+      case _DeviceSurface.android:
+        await widget.controller.screenshotAndroidRuntime();
+        break;
+      case _DeviceSurface.desktop:
+        await widget.controller.screenshotDesktopRuntime();
+        break;
+      case _DeviceSurface.files:
+        break;
+    }
   }
 
   void _detachImageListener() {
@@ -1322,6 +1738,7 @@ class _InteractiveSurfacePreviewState
       _DeviceSurface.browser => 16 / 10,
       _DeviceSurface.android => 10 / 16,
       _DeviceSurface.desktop => 16 / 10,
+      _DeviceSurface.files => 16 / 10,
     };
 
     return Container(
@@ -1351,82 +1768,54 @@ class _InteractiveSurfacePreviewState
                       constraints.maxWidth,
                       constraints.maxHeight,
                     );
-                    if (!hasImage) {
-                      return _EmptySurfaceState(
-                        surface: widget.surface,
-                        enabled: widget.enabled,
-                        busy: widget.busy,
-                        isLoadingPreview: widget.wakingUp,
-                        connectRequired: widget.connectRequired,
-                        errorMessage: _imageError?.toString(),
-                        onPressed: widget.onWakeRequested,
-                      );
-                    }
-                    final imageBytes = _imageBytes;
-                    if (imageBytes == null) {
-                      return _EmptySurfaceState(
-                        surface: widget.surface,
-                        enabled: widget.enabled,
-                        busy: widget.busy,
-                        isLoadingPreview: _imageError == null,
-                        connectRequired: widget.connectRequired,
-                        errorMessage: _imageError?.toString(),
-                        onPressed: widget.onWakeRequested,
-                      );
-                    }
-                    return Semantics(
-                      button: true,
-                      label: 'Device surface preview — tap to interact, swipe to scroll',
-                      child: GestureDetector(
-                      onTapUp: widget.busy
-                          ? null
-                          : (details) async {
-                              final point = _mapToPixels(
-                                details.localPosition,
-                                boxSize,
-                              );
-                              if (point != null) {
-                                await widget.onTapPoint(point);
-                              }
-                            },
-                      onPanStart: widget.busy
-                          ? null
-                          : (details) {
-                              _dragStart = details.localPosition;
-                              _dragEnd = details.localPosition;
-                            },
-                      onPanUpdate: widget.busy
-                          ? null
-                          : (details) {
-                              _dragEnd = details.localPosition;
-                            },
-                      onPanEnd: widget.busy
-                          ? null
-                          : (_) async {
-                              final start = _dragStart;
-                              final end = _dragEnd;
-                              _dragStart = null;
-                              _dragEnd = null;
-                              if (start == null || end == null) {
-                                return;
-                              }
-                              if ((start - end).distance < 12) {
-                                return;
-                              }
-                              final mappedStart = _mapToPixels(start, boxSize);
-                              final mappedEnd = _mapToPixels(end, boxSize);
-                              if (mappedStart != null && mappedEnd != null) {
-                                await widget.onSwipe(mappedStart, mappedEnd);
-                              }
-                            },
-                      child: Stack(
+                    final socket = widget.controller.streamSocket;
+                    final streamPlatform = widget.streamPlatform;
+                    final streamDeviceId = widget.streamDeviceId;
+                    final streamKey = _requestedStreamKey;
+                    if (socket != null &&
+                        streamPlatform != null &&
+                        streamPlatform.isNotEmpty &&
+                        streamDeviceId != null &&
+                        streamDeviceId.isNotEmpty &&
+                        streamKey != _streamFailedKey) {
+                      final activeStreamKey = streamKey!;
+                      return Stack(
                         fit: StackFit.expand,
                         children: <Widget>[
                           Container(color: _bgSecondary),
-                          Image.memory(
-                            imageBytes,
-                            fit: BoxFit.contain,
-                            gaplessPlayback: true,
+                          StreamRenderer(
+                            socket: socket,
+                            deviceId: streamDeviceId,
+                            platform: streamPlatform,
+                            remoteResolution: _pixelSize,
+                            onFirstFrame: () =>
+                                _handleStreamFirstFrame(activeStreamKey),
+                            onFrameTimeout: () =>
+                                _handleStreamFrameTimeout(activeStreamKey),
+                            onTap: widget.busy
+                                ? null
+                                : (x, y) => unawaited(
+                                    widget.onTapPoint(Offset(x, y)),
+                                  ),
+                            onSwipe: widget.busy
+                                ? null
+                                : (x1, y1, x2, y2) => unawaited(
+                                    widget.onSwipe(
+                                      Offset(x1, y1),
+                                      Offset(x2, y2),
+                                    ),
+                                  ),
+                            onHover: widget.busy
+                                ? null
+                                : (x, y) => widget.onHover?.call(Offset(x, y)),
+                          ),
+                          const Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Opacity(
+                              opacity: 0.45,
+                              child: _MutedBadge(),
+                            ),
                           ),
                           Positioned(
                             left: 12,
@@ -1452,8 +1841,123 @@ class _InteractiveSurfacePreviewState
                           if (widget.busy)
                             const Center(child: CircularProgressIndicator()),
                         ],
+                      );
+                    }
+                    if (!hasImage) {
+                      return _EmptySurfaceState(
+                        surface: widget.surface,
+                        enabled: widget.enabled,
+                        busy: widget.busy,
+                        isLoadingPreview: widget.wakingUp,
+                        connectRequired: widget.connectRequired,
+                        errorMessage: _imageError?.toString(),
+                        onPressed: widget.onWakeRequested,
+                      );
+                    }
+                    final imageBytes = _imageBytes;
+                    if (imageBytes == null) {
+                      return _EmptySurfaceState(
+                        surface: widget.surface,
+                        enabled: widget.enabled,
+                        busy: widget.busy,
+                        isLoadingPreview: _imageError == null,
+                        connectRequired: widget.connectRequired,
+                        errorMessage: _imageError?.toString(),
+                        onPressed: widget.onWakeRequested,
+                      );
+                    }
+                    return Semantics(
+                      button: true,
+                      label:
+                          'Device surface preview — tap to interact, swipe to scroll',
+                      child: GestureDetector(
+                        onTapUp: widget.busy
+                            ? null
+                            : (details) async {
+                                final point = _mapToPixels(
+                                  details.localPosition,
+                                  boxSize,
+                                );
+                                if (point != null) {
+                                  await widget.onTapPoint(point);
+                                }
+                              },
+                        onPanStart: widget.busy
+                            ? null
+                            : (details) {
+                                _dragStart = details.localPosition;
+                                _dragEnd = details.localPosition;
+                              },
+                        onPanUpdate: widget.busy
+                            ? null
+                            : (details) {
+                                _dragEnd = details.localPosition;
+                              },
+                        onPanEnd: widget.busy
+                            ? null
+                            : (_) async {
+                                final start = _dragStart;
+                                final end = _dragEnd;
+                                _dragStart = null;
+                                _dragEnd = null;
+                                if (start == null || end == null) {
+                                  return;
+                                }
+                                if ((start - end).distance < 12) {
+                                  return;
+                                }
+                                final mappedStart = _mapToPixels(
+                                  start,
+                                  boxSize,
+                                );
+                                final mappedEnd = _mapToPixels(end, boxSize);
+                                if (mappedStart != null && mappedEnd != null) {
+                                  await widget.onSwipe(mappedStart, mappedEnd);
+                                }
+                              },
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: <Widget>[
+                            Container(color: _bgSecondary),
+                            Image.memory(
+                              imageBytes,
+                              fit: BoxFit.contain,
+                              gaplessPlayback: true,
+                            ),
+                            const Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Opacity(
+                                opacity: 0.45,
+                                child: _MutedBadge(),
+                              ),
+                            ),
+                            Positioned(
+                              left: 12,
+                              right: 12,
+                              bottom: 12,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xB205080D),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: _borderLight),
+                                ),
+                                child: Text(
+                                  widget.surface.helper,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: _textPrimary),
+                                ),
+                              ),
+                            ),
+                            if (widget.busy)
+                              const Center(child: CircularProgressIndicator()),
+                          ],
+                        ),
                       ),
-                    ),
                     );
                   },
                 ),
@@ -1500,6 +2004,7 @@ class _EmptySurfaceState extends StatelessWidget {
         connectRequired
             ? 'Select Desktop'
             : (busy ? 'Refreshing Desktop...' : 'Refresh Desktop'),
+      _DeviceSurface.files => busy ? 'Loading Files...' : 'Refresh Files',
     };
     final message = switch ((surface, busy, isLoadingPreview)) {
       (_DeviceSurface.browser, true, _) =>
@@ -1514,6 +2019,8 @@ class _EmptySurfaceState extends StatelessWidget {
         'Waking the phone and downloading the first preview. This can take a little while.',
       (_DeviceSurface.android, false, true) =>
         'Downloading the latest phone preview...',
+      (_DeviceSurface.files, true, _) => 'Loading workspace files...',
+      (_DeviceSurface.files, false, true) => 'Loading workspace files...',
       _ =>
         surface == _DeviceSurface.browser
             ? connectRequired
@@ -1574,9 +2081,6 @@ class _EmptySurfaceState extends StatelessWidget {
     );
   }
 }
-
-
-
 
 class _DeviceFieldRow extends StatelessWidget {
   const _DeviceFieldRow({required this.children});
@@ -1701,6 +2205,300 @@ class _RuntimePreview extends StatelessWidget {
   }
 }
 
+class _ExtensionStatusBar extends StatelessWidget {
+  const _ExtensionStatusBar({
+    required this.connected,
+    required this.onDownload,
+    required this.onRefresh,
+  });
+
+  final bool connected;
+  final Future<void> Function() onDownload;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Row(
+        children: <Widget>[
+          _DotStatus(
+            label: connected
+                ? 'Extension connected'
+                : 'Extension not connected',
+            color: connected ? _success : _warning,
+          ),
+          const Spacer(),
+          OutlinedButton.icon(
+            onPressed: onDownload,
+            icon: const Icon(Icons.download_outlined, size: 18),
+            label: const Text('Download'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.sync, size: 18),
+            label: const Text('Refresh'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceExplorer extends StatefulWidget {
+  const _WorkspaceExplorer({
+    required this.controller,
+    required this.editorController,
+  });
+
+  final NeoAgentController controller;
+  final TextEditingController editorController;
+
+  @override
+  State<_WorkspaceExplorer> createState() => _WorkspaceExplorerState();
+}
+
+class _WorkspaceExplorerState extends State<_WorkspaceExplorer> {
+  String? _syncedPath;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.controller.workspaceEntries.isNotEmpty) {
+        return;
+      }
+      unawaited(widget.controller.refreshWorkspaceFiles());
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorkspaceExplorer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final selectedPath = widget.controller.workspaceSelectedFilePath;
+    if (selectedPath != _syncedPath) {
+      _syncedPath = selectedPath;
+      widget.editorController.text = widget.controller.workspaceEditorContent;
+    }
+  }
+
+  Future<void> _openEntry(Map<String, dynamic> entry) async {
+    final path = entry['path']?.toString() ?? '';
+    if (path.isEmpty && entry['name']?.toString() != '') {
+      return;
+    }
+    if (entry['type']?.toString() == 'directory') {
+      await widget.controller.openWorkspaceDirectory(path);
+      return;
+    }
+    await widget.controller.openWorkspaceFile(path);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final entries = controller.workspaceEntries;
+    final currentPath = controller.workspaceCurrentPath;
+    final selectedPath = controller.workspaceSelectedFilePath;
+    final busy =
+        controller.isLoadingWorkspaceFiles || controller.isSavingWorkspaceFile;
+    final canGoUp = currentPath.trim().isNotEmpty;
+    final parentPath = currentPath.contains('/')
+        ? currentPath.substring(0, currentPath.lastIndexOf('/'))
+        : '';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  currentPath.isEmpty ? '/' : '/$currentPath',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton.filledTonal(
+                tooltip: 'Parent folder',
+                onPressed: busy || !canGoUp
+                    ? null
+                    : () => controller.openWorkspaceDirectory(parentPath),
+                icon: const Icon(Icons.arrow_upward_rounded),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: 'Refresh',
+                onPressed: busy ? null : controller.refreshWorkspaceFiles,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 260),
+            decoration: BoxDecoration(
+              color: _bgCard,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _borderLight),
+            ),
+            child: entries.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        controller.isLoadingWorkspaceFiles
+                            ? 'Loading files...'
+                            : 'No files in this folder.',
+                        style: TextStyle(color: _textSecondary),
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: entries.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: _borderLight,
+                    ),
+                    itemBuilder: (context, index) {
+                      final entry = entries[index];
+                      final type = entry['type']?.toString() ?? 'file';
+                      final path = entry['path']?.toString() ?? '';
+                      final selected = selectedPath == path;
+                      return ListTile(
+                        dense: true,
+                        selected: selected,
+                        leading: Icon(
+                          type == 'directory'
+                              ? Icons.folder_outlined
+                              : Icons.insert_drive_file_outlined,
+                          color: type == 'directory' ? _accent : _textSecondary,
+                        ),
+                        title: Text(
+                          entry['name']?.toString() ?? path,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: type == 'file'
+                            ? Text(_formatWorkspaceBytes(entry['size']))
+                            : null,
+                        trailing: type == 'file'
+                            ? IconButton(
+                                tooltip: 'Download',
+                                onPressed: busy || path.isEmpty
+                                    ? null
+                                    : () => controller.downloadWorkspaceFile(
+                                        path,
+                                      ),
+                                icon: const Icon(Icons.download_outlined),
+                              )
+                            : const Icon(Icons.chevron_right_rounded),
+                        onTap: busy ? null : () => _openEntry(entry),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  selectedPath ?? 'No file selected',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selectedPath == null ? _textSecondary : _textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: busy || selectedPath == null
+                    ? null
+                    : () => controller.downloadWorkspaceFile(selectedPath),
+                icon: const Icon(Icons.download_outlined, size: 18),
+                label: const Text('Download'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: busy || selectedPath == null
+                    ? null
+                    : () => controller.saveWorkspaceFile(
+                        widget.editorController.text,
+                      ),
+                icon: controller.isSavingWorkspaceFile
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined, size: 18),
+                label: const Text('Save'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: widget.editorController,
+            enabled: selectedPath != null && !controller.isSavingWorkspaceFile,
+            minLines: 12,
+            maxLines: 18,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 13,
+              height: 1.35,
+            ),
+            decoration: InputDecoration(
+              hintText: selectedPath == null
+                  ? 'Select a file to view or edit it.'
+                  : 'File contents',
+              alignLabelWithHint: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatWorkspaceBytes(Object? value) {
+  final bytes = value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+  if (bytes >= 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+  if (bytes >= 1024) {
+    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  }
+  return '${bytes.round()} B';
+}
+
 class _ResultBlock extends StatelessWidget {
   const _ResultBlock({required this.label, required this.value});
 
@@ -1725,7 +2523,7 @@ class _ResultBlock extends StatelessWidget {
           SelectableText(
             value,
             style: TextStyle(
-              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+              fontFamily: GoogleFonts.geistMono().fontFamily,
               fontSize: 12,
               color: _textSecondary,
               height: 1.5,

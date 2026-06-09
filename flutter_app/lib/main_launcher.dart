@@ -822,7 +822,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                 const SizedBox(height: 10),
                 Text(
                   controller.backendUrl,
-                  style: GoogleFonts.jetBrainsMono(
+                  style: GoogleFonts.geistMono(
                     fontSize: 12,
                     color: _textSecondary,
                   ),

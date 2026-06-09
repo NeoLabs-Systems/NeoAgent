@@ -129,6 +129,19 @@ async function buildAuthorizedClient(connection) {
     credentials = {};
   }
   client.setCredentials(credentials);
+  // Capture any token refresh that happens during the request so the new
+  // access_token + expiry_date are always available on client.credentials.
+  // The library preserves refresh_token internally; this listener just ensures
+  // client.credentials stays in sync when refreshes happen inside deep call stacks.
+  client.on('tokens', (tokens) => {
+    if (tokens.access_token) {
+      client.setCredentials({
+        ...client.credentials,
+        ...tokens,
+        refresh_token: tokens.refresh_token || client.credentials.refresh_token,
+      });
+    }
+  });
   return client;
 }
 

@@ -14,9 +14,16 @@
 
 const MCP_ALWAYS_INCLUDE_THRESHOLD = 20;
 const MAX_TOOLS = 128; // Strict provider limit (e.g. Github Copilot / OpenAI)
+const ALWAYS_INCLUDE_BUILT_INS = [
+  'send_message',
+  'create_task',
+  'list_tasks',
+  'delete_task',
+  'update_task',
+];
 
 function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}) {
-  const requiredNames = [];
+  const requiredNames = [...ALWAYS_INCLUDE_BUILT_INS];
   if (options.widgetId) requiredNames.push('save_widget_snapshot');
   if (!requiredNames.length) return selectedTools;
 

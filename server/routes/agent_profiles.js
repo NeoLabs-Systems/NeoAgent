@@ -41,6 +41,7 @@ router.put('/:id', (req, res) => {
   try {
     res.json(updateAgent(req.session.userId, req.params.id, req.body || {}));
   } catch (err) {
+    if (err.message === 'Agent not found.') return res.status(404).json({ error: err.message });
     res.status(400).json({ error: sanitizeError(err) });
   }
 });
@@ -49,6 +50,7 @@ router.post('/:id/default', (req, res) => {
   try {
     res.json(setDefaultAgent(req.session.userId, req.params.id));
   } catch (err) {
+    if (err.message === 'Agent not found.') return res.status(404).json({ error: err.message });
     res.status(400).json({ error: sanitizeError(err) });
   }
 });
@@ -57,6 +59,7 @@ router.delete('/:id', (req, res) => {
   try {
     res.json(archiveAgent(req.session.userId, req.params.id));
   } catch (err) {
+    if (err.message === 'Agent not found.') return res.status(404).json({ error: err.message });
     res.status(400).json({ error: sanitizeError(err) });
   }
 });

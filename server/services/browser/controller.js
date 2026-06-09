@@ -453,6 +453,22 @@ class BrowserController {
     };
   }
 
+  async screenshotJpeg(quality = 80, options = {}) {
+    const page = await this.ensurePage();
+    const screenshotOptions = {
+      type: 'jpeg',
+      quality: Math.min(95, Math.max(30, Math.floor(Number(quality) || 80))),
+      fullPage: options.fullPage === true,
+    };
+    if (options.selector) {
+      const element = await page.$(options.selector);
+      if (element) {
+        return element.screenshot(screenshotOptions);
+      }
+    }
+    return page.screenshot(screenshotOptions);
+  }
+
   async navigate(url, options = {}) {
     const page = await this.ensurePage();
 
@@ -578,6 +594,24 @@ class BrowserController {
         screenshotPath: screenshotResult?.screenshotPath || null,
         artifactId: screenshotResult?.artifactId || null,
         fullPath: screenshotResult?.fullPath || null
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  async hoverPoint(x, y, options = {}) {
+    const page = await this.ensurePage();
+    try {
+      const px = Math.max(0, Math.round(Number(x) || 0));
+      const py = Math.max(0, Math.round(Number(y) || 0));
+      await page.mouse.move(px, py, { steps: options.steps || 1 });
+      return {
+        success: true,
+        x: px,
+        y: py,
+        url: page.url(),
+        title: await page.title()
       };
     } catch (err) {
       return { error: err.message };

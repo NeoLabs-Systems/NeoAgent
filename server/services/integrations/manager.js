@@ -679,6 +679,11 @@ class IntegrationManager {
             userId,
             resolveAgentId(userId, agentId),
           );
+          return {
+            error: `Your ${provider.label} account connection has expired and needs to be reconnected. Open Official Integrations to reconnect your account.`,
+            expired: true,
+            connectionId: selection.connection.id,
+          };
         }
         return { error: err?.message || 'execution_error' };
       }

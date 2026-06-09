@@ -12,6 +12,11 @@ const {
 const { getDeploymentInfo } = require('./deployment');
 
 const PACKAGE_JSON_PATH = path.join(APP_DIR, 'package.json');
+const GIT_COMMAND_TIMEOUT_MS = 750;
+const VERSION_CACHE_TTL_MS = 30 * 1000;
+
+let cachedVersionInfo = null;
+let cachedVersionInfoAt = 0;
 
 function readPackageVersion() {
   try {
@@ -22,7 +27,16 @@ function readPackageVersion() {
   }
 }
 
-function getVersionInfo() {
+function readGitValue(command) {
+  return execSync(command, {
+    cwd: APP_DIR,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: GIT_COMMAND_TIMEOUT_MS,
+  }).trim();
+}
+
+function buildVersionInfo() {
   const packageVersion = readPackageVersion() || '0.0.0';
   const releaseChannel = readConfiguredReleaseChannel();
   const deployment = getDeploymentInfo();
@@ -32,24 +46,9 @@ function getVersionInfo() {
   let gitBranch = null;
 
   try {
-    gitVersion =
-      execSync('git describe --tags --always --dirty', {
-        cwd: APP_DIR,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore']
-      })
-        .trim()
-        .replace(/^v/, '') || null;
-    gitSha = execSync('git rev-parse --short HEAD', {
-      cwd: APP_DIR,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim();
-    gitBranch = execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: APP_DIR,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim();
+    gitVersion = readGitValue('git describe --tags --always --dirty').replace(/^v/, '') || null;
+    gitSha = readGitValue('git rev-parse --short HEAD') || null;
+    gitBranch = readGitValue('git rev-parse --abbrev-ref HEAD') || null;
   } catch {
     gitSha = process.env.GIT_SHA || null;
   }
@@ -78,6 +77,17 @@ function getVersionInfo() {
     runtimeDefaults: deployment.runtimeDefaults,
     allowHostRuntime: deployment.allowHostRuntime,
   };
+}
+
+function getVersionInfo() {
+  const now = Date.now();
+  if (cachedVersionInfo && now - cachedVersionInfoAt < VERSION_CACHE_TTL_MS) {
+    return { ...cachedVersionInfo };
+  }
+
+  cachedVersionInfo = buildVersionInfo();
+  cachedVersionInfoAt = now;
+  return { ...cachedVersionInfo };
 }
 
 module.exports = { getVersionInfo };

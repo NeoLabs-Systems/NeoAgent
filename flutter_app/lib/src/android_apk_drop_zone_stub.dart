@@ -14,3 +14,16 @@ Widget buildAndroidApkDropZone(
 }) {
   return const SizedBox.shrink();
 }
+
+Widget buildAndroidApkTile(
+  BuildContext context, {
+  required bool enabled,
+  required bool busy,
+  required Future<void> Function({
+    required String filename,
+    required Uint8List bytes,
+  })
+  onInstall,
+}) {
+  return const SizedBox.shrink();
+}

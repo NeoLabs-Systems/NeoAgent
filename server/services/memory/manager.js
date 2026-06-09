@@ -10,8 +10,18 @@ const {
   keywordSimilarity
 } = require('./embeddings');
 const { getMemoryStorageDecision } = require('./policy');
+const {
+  buildFacts,
+  canonicalEntityKey,
+  extractEntities,
+  extractKeywords,
+  scoreMemoryCandidate,
+  stableHash,
+  summarizeForPrompt,
+} = require('./intelligence');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const { buildFtsQuery } = require('../../db/ftsQuery');
 const {
   decryptLocalValue,
   encryptLocalValue,
@@ -139,11 +149,16 @@ function computeFreshnessMultiplier(row) {
 
 function serializeMemoryRow(row) {
   const metadata = parseJsonObject(row?.metadata_json, {});
+  const entities = Array.isArray(row?.entities)
+    ? row.entities
+    : parseJsonArray(row?.entities_json, []);
   return {
     id: row.id,
     category: normalizeMemoryCategory(row.category),
     content: row.content,
+    summary: row.summary || '',
     importance: Number(row.importance || 0),
+    confidence: row.confidence == null ? 0.7 : Number(row.confidence),
     access_count: Number(row.access_count || 0),
     archived: Number(row.archived || 0),
     created_at: row.created_at,
@@ -159,6 +174,7 @@ function serializeMemoryRow(row) {
     },
     staleAfterDays: row.stale_after_days == null ? null : Number(row.stale_after_days),
     metadata,
+    entities,
   };
 }
 
@@ -170,13 +186,6 @@ function parseStringSetting(value) {
   } catch {
     return value;
   }
-}
-
-function buildFtsQuery(query) {
-  const tokens = String(query || '')
-    .match(/[\p{L}\p{N}_-]{2,}/gu) || [];
-  if (!tokens.length) return null;
-  return tokens.map((token) => `${token.replace(/"/g, '')}*`).join(' AND ');
 }
 
 function stripHighlight(text) {
@@ -225,6 +234,7 @@ function scoreSchedulerRunMatch(queryTokens, title, finalResponse) {
 class MemoryManager {
   constructor() {
     this._ensureDirs();
+    this._backfillMemoryIntelligence();
   }
 
   _ensureDirs() {
@@ -264,6 +274,50 @@ class MemoryManager {
 
   _agentId(userId, options = {}) {
     return resolveAgentId(userId, options?.agentId || options?.agent_id || null);
+  }
+
+  _backfillMemoryIntelligence(limit = 1000) {
+    try {
+      const rows = db.prepare(
+        `SELECT m.*
+         FROM memories m
+         LEFT JOIN memory_facts f ON f.memory_id = m.id
+         WHERE m.archived = 0 AND f.id IS NULL
+         ORDER BY m.updated_at DESC
+         LIMIT ?`
+      ).all(Math.max(1, Math.min(Number(limit) || 1000, 5000)));
+      if (!rows.length) return;
+
+      const backfill = db.transaction(() => {
+        for (const row of rows) {
+          const category = normalizeMemoryCategory(row.category);
+          const content = String(row.content || '').trim();
+          if (!content) continue;
+          const summary = row.summary || summarizeForPrompt({ content, entities: extractEntities(content) });
+          const memoryHash = row.memory_hash || stableHash(`${category}:${content}`);
+          db.prepare(
+            `UPDATE memories
+             SET summary = COALESCE(summary, ?),
+                 confidence = COALESCE(confidence, 0.7),
+                 memory_hash = COALESCE(memory_hash, ?)
+             WHERE id = ?`
+          ).run(summary, memoryHash, row.id);
+          this._upsertMemoryIntelligence(row.user_id, row.agent_id, row.id, {
+            content,
+            category,
+            sourceRef: normalizeSourceRef({
+              sourceType: row.source_type,
+              sourceId: row.source_id,
+              sourceLabel: row.source_label,
+            }),
+            metadata: parseJsonObject(row.metadata_json, {}),
+          });
+        }
+      });
+      backfill();
+    } catch (err) {
+      console.error('[Memory] Backfill intelligence failed:', err.message);
+    }
   }
 
   getAssistantBehaviorNotes(userId, options = {}) {
@@ -540,10 +594,74 @@ class MemoryManager {
     }));
   }
 
+  getMemoryStats(userId, { agentId = null } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
+    const row = db.prepare(
+      `SELECT
+         COUNT(*) AS total,
+         SUM(CASE WHEN archived = 0 THEN 1 ELSE 0 END) AS active,
+         SUM(CASE WHEN archived = 1 THEN 1 ELSE 0 END) AS archived,
+         AVG(COALESCE(importance, 0)) AS avg_importance,
+         AVG(COALESCE(confidence, 0.7)) AS avg_confidence
+       FROM memories
+       WHERE user_id = ? AND agent_id = ?`
+    ).get(userId, scopedAgentId) || {};
+    const entityCount = db.prepare(
+      `SELECT COUNT(*) AS count FROM memory_entities WHERE user_id = ? AND agent_id = ?`
+    ).get(userId, scopedAgentId)?.count || 0;
+    const factCount = db.prepare(
+      `SELECT COUNT(*) AS count FROM memory_facts WHERE user_id = ? AND agent_id = ?`
+    ).get(userId, scopedAgentId)?.count || 0;
+    const viewCount = db.prepare(
+      `SELECT COUNT(*) AS count FROM materialized_knowledge_views WHERE user_id = ? AND agent_id = ?`
+    ).get(userId, scopedAgentId)?.count || 0;
+    const documentCount = db.prepare(
+      `SELECT COUNT(*) AS count FROM memory_ingestion_documents WHERE user_id = ? AND agent_id = ?`
+    ).get(userId, scopedAgentId)?.count || 0;
+    return {
+      total: Number(row.total || 0),
+      active: Number(row.active || 0),
+      archived: Number(row.archived || 0),
+      facts: Number(factCount || 0),
+      entities: Number(entityCount || 0),
+      knowledgeViews: Number(viewCount || 0),
+      ingestionDocuments: Number(documentCount || 0),
+      averageImportance: Number(row.avg_importance || 0),
+      averageConfidence: Number(row.avg_confidence || 0),
+    };
+  }
+
+  listEntities(userId, { agentId = null, limit = 24, query = null } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
+    let sql = `SELECT * FROM memory_entities WHERE user_id = ? AND agent_id = ?`;
+    const params = [userId, scopedAgentId];
+    const normalizedQuery = String(query || '').trim();
+    if (normalizedQuery) {
+      sql += ` AND (entity_key LIKE ? OR name LIKE ?)`;
+      const like = `%${canonicalEntityKey(normalizedQuery)}%`;
+      params.push(like, `%${normalizedQuery}%`);
+    }
+    sql += ` ORDER BY mention_count DESC, last_seen_at DESC LIMIT ?`;
+    params.push(Math.max(1, Math.min(Number(limit) || 24, 100)));
+    return db.prepare(sql).all(...params).map((row) => ({
+      id: row.id,
+      key: row.entity_key,
+      name: row.name,
+      kind: row.kind || 'concept',
+      aliases: normalizeStringArray(parseJsonArray(row.aliases_json), 16, 160),
+      summary: row.summary || '',
+      mentionCount: Number(row.mention_count || 0),
+      firstSeenAt: row.first_seen_at || null,
+      lastSeenAt: row.last_seen_at || null,
+      metadata: parseJsonObject(row.metadata_json, {}),
+    }));
+  }
+
   materializeKnowledgeViews(userId, { agentId = null } = {}) {
     const scopedAgentId = this._agentId(userId, { agentId });
     const memories = this.listMemories(userId, { limit: 200, agentId: scopedAgentId });
     const documents = this.listIngestionDocuments(userId, { limit: 200, agentId: scopedAgentId });
+    const entities = this.listEntities(userId, { limit: 48, agentId: scopedAgentId });
     const views = [];
 
     const topicGroups = new Map();
@@ -553,7 +671,7 @@ class MemoryManager {
       topicGroups.get(key).push(memory);
     }
     for (const [topic, items] of topicGroups.entries()) {
-      const summary = items.slice(0, 4).map((item) => `- ${item.content}`).join('\n');
+      const summary = items.slice(0, 6).map((item) => `- ${summarizeForPrompt(item)}`).join('\n');
       views.push({
         viewType: 'topic',
         subjectKey: topic,
@@ -565,6 +683,57 @@ class MemoryManager {
         metadata: {
           itemCount: items.length,
           category: topic,
+        },
+      });
+    }
+
+    for (const entity of entities.slice(0, 24)) {
+      const rows = db.prepare(
+        `SELECT m.id, m.content, m.category, m.importance, m.summary, m.created_at, m.updated_at
+         FROM memory_entity_mentions mem
+         JOIN memories m ON m.id = mem.memory_id
+         WHERE mem.entity_id = ? AND m.archived = 0
+         ORDER BY m.importance DESC, m.updated_at DESC
+         LIMIT 8`
+      ).all(entity.id);
+      if (!rows.length) continue;
+      const lines = rows.map((item) => `- [${normalizeMemoryCategory(item.category)}] ${item.summary || item.content}`);
+      views.push({
+        viewType: 'entity',
+        subjectKey: entity.key,
+        title: entity.name,
+        summary: lines.join('\n').slice(0, 520),
+        markdownText: `# ${entity.name}\n\nKind: ${entity.kind}\nMentions: ${entity.mentionCount}\n\n${lines.join('\n')}`,
+        sourceMemoryIds: rows.map((item) => item.id),
+        sourceDocumentIds: [],
+        metadata: {
+          entityId: entity.id,
+          entityKey: entity.key,
+          kind: entity.kind,
+          mentionCount: entity.mentionCount,
+        },
+      });
+    }
+
+    const factRows = db.prepare(
+      `SELECT id, memory_id, subject, predicate, object, category, confidence, updated_at
+       FROM memory_facts
+       WHERE user_id = ? AND agent_id = ?
+       ORDER BY updated_at DESC
+       LIMIT 20`
+    ).all(userId, scopedAgentId);
+    if (factRows.length > 0) {
+      const lines = factRows.slice(0, 10).map((fact) => `- ${fact.subject}: ${fact.object}`);
+      views.push({
+        viewType: 'facts',
+        subjectKey: 'recent',
+        title: 'Recent extracted facts',
+        summary: lines.join('\n').slice(0, 520),
+        markdownText: `# Recent extracted facts\n\n${lines.join('\n')}`,
+        sourceMemoryIds: [...new Set(factRows.map((fact) => fact.memory_id))],
+        sourceDocumentIds: [],
+        metadata: {
+          itemCount: factRows.length,
         },
       });
     }
@@ -739,6 +908,189 @@ class MemoryManager {
   // Semantic Memories (SQLite + embeddings)
   // ─────────────────────────────────────────────────────────────────────────
 
+  _deleteMemoryIndex(memoryId) {
+    try {
+      db.prepare('DELETE FROM memories_fts WHERE memory_id = ?').run(memoryId);
+    } catch {
+      // FTS is optional.
+    }
+    db.prepare('DELETE FROM memory_entity_mentions WHERE memory_id = ?').run(memoryId);
+    db.prepare('DELETE FROM memory_facts WHERE memory_id = ?').run(memoryId);
+  }
+
+  _upsertMemoryIntelligence(userId, agentId, memoryId, {
+    content,
+    category,
+    sourceRef,
+    metadata,
+  } = {}) {
+    const entities = extractEntities(content);
+    const facts = buildFacts({ content, category, sourceRef, metadata });
+    const now = new Date().toISOString();
+
+    const upsert = db.transaction(() => {
+      this._deleteMemoryIndex(memoryId);
+
+      for (const fact of facts) {
+        db.prepare(
+          `INSERT INTO memory_facts (
+            id, memory_id, user_id, agent_id, subject, predicate, object, category,
+            confidence, event_time, metadata_json, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+        ).run(
+          uuidv4(),
+          memoryId,
+          userId,
+          agentId,
+          fact.subject,
+          fact.predicate,
+          fact.object,
+          normalizeMemoryCategory(fact.category),
+          Math.max(0, Math.min(1, Number(fact.confidence) || 0.7)),
+          fact.eventTime || null,
+          JSON.stringify(parseJsonObject(fact.metadata, {})),
+        );
+      }
+
+      for (const entity of entities) {
+        const existing = db.prepare(
+          `SELECT id, aliases_json, mention_count
+           FROM memory_entities
+           WHERE user_id = ? AND agent_id = ? AND entity_key = ?`
+        ).get(userId, agentId, entity.key);
+        const aliases = normalizeStringArray(parseJsonArray(existing?.aliases_json), 16, 160);
+        if (!aliases.includes(entity.name)) aliases.push(entity.name);
+        const entityId = existing?.id || uuidv4();
+        db.prepare(
+          `INSERT INTO memory_entities (
+            id, user_id, agent_id, entity_key, name, kind, aliases_json,
+            mention_count, first_seen_at, last_seen_at, metadata_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), ?, '{}')
+          ON CONFLICT(user_id, agent_id, entity_key) DO UPDATE SET
+            name = CASE WHEN length(excluded.name) > length(memory_entities.name) THEN excluded.name ELSE memory_entities.name END,
+            kind = CASE WHEN memory_entities.kind = 'concept' THEN excluded.kind ELSE memory_entities.kind END,
+            aliases_json = excluded.aliases_json,
+            mention_count = memory_entities.mention_count + 1,
+            last_seen_at = excluded.last_seen_at`
+        ).run(
+          entityId,
+          userId,
+          agentId,
+          entity.key,
+          entity.name,
+          entity.kind,
+          JSON.stringify(aliases.slice(0, 16)),
+          now,
+        );
+        db.prepare(
+          `INSERT OR IGNORE INTO memory_entity_mentions (entity_id, memory_id, user_id, agent_id)
+           VALUES (?, ?, ?, ?)`
+        ).run(entityId, memoryId, userId, agentId);
+      }
+
+      try {
+        db.prepare(
+          `INSERT INTO memories_fts (memory_id, user_id, agent_id, content, category, entities)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        ).run(
+          memoryId,
+          userId,
+          agentId || '',
+          String(content || ''),
+          String(category || ''),
+          entities.map((entity) => `${entity.name} ${entity.kind}`).join(' '),
+        );
+      } catch {
+        // FTS is optional.
+      }
+    });
+    upsert();
+
+    return entities;
+  }
+
+  _entitiesForMemoryIds(memoryIds) {
+    const ids = normalizeStringArray(memoryIds, 200, 80);
+    if (!ids.length) return new Map();
+    const placeholders = ids.map(() => '?').join(', ');
+    const rows = db.prepare(
+      `SELECT mem.memory_id, ent.id, ent.entity_key, ent.name, ent.kind, ent.mention_count
+       FROM memory_entity_mentions mem
+       JOIN memory_entities ent ON ent.id = mem.entity_id
+       WHERE mem.memory_id IN (${placeholders})
+       ORDER BY ent.mention_count DESC, ent.name ASC`
+    ).all(...ids);
+    const byMemory = new Map();
+    for (const row of rows) {
+      if (!byMemory.has(row.memory_id)) byMemory.set(row.memory_id, []);
+      const list = byMemory.get(row.memory_id);
+      if (list.length < 8) {
+        list.push({
+          id: row.id,
+          key: row.entity_key,
+          name: row.name,
+          kind: row.kind || 'concept',
+          mentionCount: Number(row.mention_count || 0),
+        });
+      }
+    }
+    return byMemory;
+  }
+
+  _attachEntities(memories) {
+    const byMemory = this._entitiesForMemoryIds(memories.map((memory) => memory.id));
+    return memories.map((memory) => ({
+      ...memory,
+      entities: byMemory.get(memory.id) || [],
+    }));
+  }
+
+  _searchMemoryFts(userId, agentId, query, limit) {
+    const ftsQuery = buildFtsQuery(query);
+    if (!ftsQuery) return [];
+    try {
+      return db.prepare(
+        `SELECT memory_id, bm25(memories_fts) AS rank
+         FROM memories_fts
+         WHERE memories_fts MATCH ? AND user_id = ? AND agent_id = ?
+         ORDER BY rank
+         LIMIT ?`
+      ).all(ftsQuery, userId, agentId || '', Math.max(1, Math.min(Number(limit) || 40, 120)));
+    } catch {
+      return [];
+    }
+  }
+
+  _searchEntityMemoryIds(userId, agentId, query, limit) {
+    const entities = extractEntities(query);
+    const keywords = extractKeywords(query, { maxKeywords: 8 });
+    const keys = [
+      ...entities.map((entity) => entity.key),
+      ...keywords.map(canonicalEntityKey),
+    ].filter(Boolean);
+    if (!keys.length) return [];
+
+    const results = [];
+    const seen = new Set();
+    for (const key of keys) {
+      const rows = db.prepare(
+        `SELECT mem.memory_id, ent.mention_count
+         FROM memory_entities ent
+         JOIN memory_entity_mentions mem ON mem.entity_id = ent.id
+         WHERE ent.user_id = ? AND ent.agent_id = ?
+           AND (ent.entity_key = ? OR ent.entity_key LIKE ?)
+         ORDER BY ent.mention_count DESC, ent.last_seen_at DESC
+         LIMIT ?`
+      ).all(userId, agentId, key, `%${key}%`, Math.max(1, Math.min(Number(limit) || 40, 80)));
+      for (const row of rows) {
+        if (seen.has(row.memory_id)) continue;
+        seen.add(row.memory_id);
+        results.push(row);
+      }
+    }
+    return results.slice(0, Math.max(1, Math.min(Number(limit) || 40, 120)));
+  }
+
   /**
    * Save a new memory. Deduplicates if an existing memory is very similar.
    * Returns the memory id (new or existing).
@@ -756,8 +1108,21 @@ class MemoryManager {
       ? Math.max(1, Number(options.staleAfterDays))
       : null;
     const metadata = parseJsonObject(options.metadata, {});
+    const confidence = Math.max(0, Math.min(1, Number(options.confidence) || 0.7));
+    const memoryHash = stableHash(`${category}:${content}`);
+    const summary = summarizeForPrompt({ content, entities: extractEntities(content) });
 
     const embedding = await getEmbedding(content, await getActiveProvider(userId, agentId));
+
+    const exact = db.prepare(
+      `SELECT id FROM memories
+       WHERE user_id = ? AND agent_id = ? AND archived = 0
+         AND memory_hash = ?
+         AND COALESCE(scope_type, 'agent') = ?
+         AND COALESCE(scope_id, '') = COALESCE(?, '')
+       LIMIT 1`
+    ).get(userId, agentId, memoryHash, scope.scopeType, scope.scopeId);
+    if (exact?.id) return exact.id;
 
     // Dedup check: compare against existing non-archived memories in the same scope
     const existing = db.prepare(
@@ -785,22 +1150,31 @@ class MemoryManager {
             ...metadata,
           };
           db.prepare(
-            `UPDATE memories SET content = ?, importance = MAX(importance, ?), embedding = ?,
+            `UPDATE memories SET content = ?, summary = ?, importance = MAX(importance, ?), confidence = MAX(confidence, ?), embedding = ?,
              source_type = COALESCE(?, source_type), source_id = COALESCE(?, source_id),
              source_label = COALESCE(?, source_label), stale_after_days = COALESCE(?, stale_after_days),
-             metadata_json = ?,
+             metadata_json = ?, memory_hash = ?,
              updated_at = datetime('now') WHERE id = ?`
           ).run(
             content,
+            summary,
             importance,
+            confidence,
             embedding ? serializeEmbedding(embedding) : mem.embedding,
             sourceRef.sourceType,
             sourceRef.sourceId,
             sourceRef.sourceLabel,
             staleAfterDays,
             JSON.stringify(mergedMetadata),
+            memoryHash,
             mem.id,
           );
+          this._upsertMemoryIntelligence(userId, agentId, mem.id, {
+            content,
+            category,
+            sourceRef,
+            metadata: mergedMetadata,
+          });
           return mem.id;
         }
         return mem.id; // already covered, skip
@@ -812,9 +1186,9 @@ class MemoryManager {
     db.prepare(
       `INSERT INTO memories (
         id, user_id, agent_id, category, scope_type, scope_id, source_type, source_id, source_label,
-        stale_after_days, metadata_json, content, importance, embedding
+        stale_after_days, metadata_json, content, summary, importance, confidence, memory_hash, embedding
       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       userId,
@@ -828,9 +1202,19 @@ class MemoryManager {
       staleAfterDays,
       JSON.stringify(metadata),
       content,
+      summary,
       importance,
+      confidence,
+      memoryHash,
       embedding ? serializeEmbedding(embedding) : null,
     );
+
+    this._upsertMemoryIntelligence(userId, agentId, id, {
+      content,
+      category,
+      sourceRef,
+      metadata,
+    });
 
     return id;
   }
@@ -843,9 +1227,10 @@ class MemoryManager {
     if (!query || !query.trim()) return [];
     const agentId = this._agentId(userId, options);
     const scope = normalizeScope(options.scope, agentId);
+    const limit = Math.max(1, Math.min(Number(topK) || 6, 50));
 
     const all = db.prepare(
-      `SELECT id, category, content, importance, embedding, access_count, created_at, updated_at,
+      `SELECT id, category, content, summary, importance, confidence, embedding, access_count, created_at, updated_at,
               scope_type, scope_id, source_type, source_id, source_label, stale_after_days, metadata_json
        FROM memories
        WHERE user_id = ? AND agent_id = ? AND archived = 0
@@ -853,33 +1238,69 @@ class MemoryManager {
            (COALESCE(scope_type, 'agent') = ? AND COALESCE(scope_id, '') = COALESCE(?, ''))
            OR COALESCE(scope_type, 'agent') = 'shared'
          )
-       ORDER BY updated_at DESC`
+       ORDER BY updated_at DESC
+       LIMIT 800`
     ).all(userId, agentId, scope.scopeType, scope.scopeId);
 
     if (!all.length) return [];
 
     const queryVec = await getEmbedding(query, await getActiveProvider(userId, agentId));
+    const lexicalHits = this._searchMemoryFts(userId, agentId, query, Math.max(40, limit * 8));
+    const entityHits = this._searchEntityMemoryIds(userId, agentId, query, Math.max(40, limit * 8));
+    const lexicalRanks = new Map(lexicalHits.map((hit, index) => [hit.memory_id, index]));
+    const entityRanks = new Map(entityHits.map((hit, index) => [hit.memory_id, index]));
 
-    const scored = all.map(mem => {
-      let score = 0;
+    const semanticScored = all.map(mem => {
+      let semanticScore = 0;
       if (queryVec && mem.embedding) {
         const memVec = deserializeEmbedding(mem.embedding);
         if (memVec) {
-          score = cosineSimilarity(queryVec, memVec);
-          // Boost by importance (1–10 → up to +50% weight)
-          score = score * (0.5 + mem.importance / 20);
+          semanticScore = cosineSimilarity(queryVec, memVec);
         }
       }
-      const lexicalScore = keywordSimilarity(query, mem.content) * 0.7;
-      score = Math.max(score, lexicalScore);
-      score *= computeFreshnessMultiplier(mem);
-      return { ...mem, score };
+      return { ...mem, semanticScore };
+    }).sort((left, right) => right.semanticScore - left.semanticScore);
+
+    const semanticRanks = new Map();
+    semanticScored.forEach((mem, index) => {
+      if (mem.semanticScore > 0) semanticRanks.set(mem.id, index);
+    });
+
+    const scored = semanticScored.map((mem) => {
+      const lexicalScore = keywordSimilarity(query, `${mem.content} ${mem.summary || ''}`) * 0.75;
+      const ftsScore = lexicalRanks.has(mem.id) ? 0.42 : 0;
+      const entityScore = entityRanks.has(mem.id) ? 0.48 : 0;
+      const baseScore = Math.max(
+        mem.semanticScore * (0.65 + Number(mem.importance || 5) / 25),
+        lexicalScore,
+        ftsScore,
+        entityScore,
+      );
+      const score = scoreMemoryCandidate({
+        semanticRank: semanticRanks.get(mem.id) ?? -1,
+        lexicalRank: lexicalRanks.get(mem.id) ?? -1,
+        entityRank: entityRanks.get(mem.id) ?? -1,
+        baseScore,
+        importance: mem.importance,
+        accessCount: mem.access_count,
+        freshness: computeFreshnessMultiplier(mem),
+      });
+      return {
+        ...mem,
+        score,
+        scoreBreakdown: {
+          semantic: Number(mem.semanticScore || 0),
+          lexical: Number(lexicalScore || 0),
+          fullText: ftsScore,
+          entity: entityScore,
+        },
+      };
     });
 
     const results = scored
-      .filter(m => m.score > 0.2)
+      .filter(m => m.score > 0.12)
       .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+      .slice(0, limit);
 
     // Update access counts
     if (results.length) {
@@ -888,9 +1309,10 @@ class MemoryManager {
       db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id IN (${placeholders})`).run(...ids);
     }
 
-    return results.map((row) => ({
+    return this._attachEntities(results).map((row) => ({
       ...serializeMemoryRow(row),
       score: row.score,
+      scoreBreakdown: row.scoreBreakdown,
     }));
   }
 
@@ -899,7 +1321,7 @@ class MemoryManager {
    */
   listMemories(userId, { category, limit = 50, offset = 0, includeArchived = false, agentId = null } = {}) {
     const scopedAgentId = this._agentId(userId, { agentId });
-    let sql = `SELECT id, category, content, importance, access_count, archived, created_at, updated_at,
+    let sql = `SELECT id, category, content, summary, importance, confidence, access_count, archived, created_at, updated_at,
                       scope_type, scope_id, source_type, source_id, source_label, stale_after_days, metadata_json
                FROM memories WHERE user_id = ? AND agent_id = ? AND archived = ?`;
     const params = [userId, scopedAgentId, includeArchived ? 1 : 0];
@@ -912,7 +1334,7 @@ class MemoryManager {
     }
     sql += ` ORDER BY importance DESC, updated_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
-    return db.prepare(sql).all(...params).map(serializeMemoryRow);
+    return this._attachEntities(db.prepare(sql).all(...params)).map(serializeMemoryRow);
   }
 
   /**
@@ -925,17 +1347,30 @@ class MemoryManager {
     const newContent = content ?? mem.content;
     const newImportance = importance != null ? Math.max(1, Math.min(10, Number(importance))) : mem.importance;
     const newCategory = category ? normalizeMemoryCategory(category) : mem.category;
+    const newSummary = summarizeForPrompt({ content: newContent, entities: extractEntities(newContent) });
+    const newHash = stableHash(`${newCategory}:${newContent}`);
 
     let newEmbed = mem.embedding;
     if (content && content !== mem.content) {
-      const vec = await getEmbedding(newContent, await getActiveProvider(null));
+      const vec = await getEmbedding(newContent, await getActiveProvider(mem.user_id, mem.agent_id));
       newEmbed = vec ? serializeEmbedding(vec) : mem.embedding;
     }
 
     db.prepare(
-      `UPDATE memories SET content = ?, importance = ?, category = ?, embedding = ?,
+      `UPDATE memories SET content = ?, summary = ?, importance = ?, category = ?, memory_hash = ?, embedding = ?,
        updated_at = datetime('now') WHERE id = ?`
-    ).run(newContent, newImportance, newCategory, newEmbed, id);
+    ).run(newContent, newSummary, newImportance, newCategory, newHash, newEmbed, id);
+
+    this._upsertMemoryIntelligence(mem.user_id, mem.agent_id, id, {
+      content: newContent,
+      category: newCategory,
+      sourceRef: normalizeSourceRef({
+        sourceType: mem.source_type,
+        sourceId: mem.source_id,
+        sourceLabel: mem.source_label,
+      }),
+      metadata: parseJsonObject(mem.metadata_json, {}),
+    });
 
     return serializeMemoryRow(db.prepare(
       `SELECT * FROM memories WHERE id = ?`
@@ -957,6 +1392,7 @@ class MemoryManager {
     )];
     if (!uniqueIds.length) return 0;
     const placeholders = uniqueIds.map(() => '?').join(', ');
+    for (const id of uniqueIds) this._deleteMemoryIndex(id);
     const result = userId != null
       ? db.prepare(`DELETE FROM memories WHERE id IN (${placeholders}) AND user_id = ?`).run(...uniqueIds, userId)
       : db.prepare(`DELETE FROM memories WHERE id IN (${placeholders})`).run(...uniqueIds);
@@ -978,6 +1414,11 @@ class MemoryManager {
     )];
     if (!uniqueIds.length) return 0;
     const placeholders = uniqueIds.map(() => '?').join(', ');
+    if (archived) {
+      for (const id of uniqueIds) {
+        try { db.prepare('DELETE FROM memories_fts WHERE memory_id = ?').run(id); } catch {}
+      }
+    }
     const result = userId != null
       ? db.prepare(
           `UPDATE memories SET archived = ? WHERE id IN (${placeholders}) AND user_id = ?`
@@ -1576,7 +2017,10 @@ class MemoryManager {
       if (recalled.length) {
         const memoryLines = recalled.map(m => {
           const badge = m.category !== 'episodic' ? ` [${m.category}]` : '';
-          return `- ${m.content}${badge}`;
+          const entities = Array.isArray(m.entities) && m.entities.length
+            ? ` (entities: ${m.entities.slice(0, 4).map((entity) => entity.name).join(', ')})`
+            : '';
+          return `- ${summarizeForPrompt(m)}${badge}${entities}`;
         });
         sections.push(`Relevant memory:\n${memoryLines.join('\n')}`);
       }

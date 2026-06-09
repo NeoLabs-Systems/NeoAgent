@@ -44,6 +44,19 @@ class DesktopNativeBridge {
     });
   }
 
+  Future<void> mouseMove({
+    required int x,
+    required int y,
+    String? displayId,
+  }) {
+    return _channel.invokeMethod<void>('mouseMove', <String, Object?>{
+      'x': x,
+      'y': y,
+      if (displayId != null && displayId.trim().isNotEmpty)
+        'displayId': displayId.trim(),
+    });
+  }
+
   Future<void> drag({
     required int x1,
     required int y1,

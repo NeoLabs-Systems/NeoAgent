@@ -30,3 +30,27 @@ class AndroidApkDropZone extends StatelessWidget {
     );
   }
 }
+
+/// Compact tile variant — fits inside an actions row.
+class AndroidApkTile extends StatelessWidget {
+  const AndroidApkTile({
+    super.key,
+    required this.enabled,
+    required this.busy,
+    required this.onInstall,
+  });
+
+  final bool enabled;
+  final bool busy;
+  final AndroidApkInstallCallback onInstall;
+
+  @override
+  Widget build(BuildContext context) {
+    return buildAndroidApkTile(
+      context,
+      enabled: enabled,
+      busy: busy,
+      onInstall: onInstall,
+    );
+  }
+}

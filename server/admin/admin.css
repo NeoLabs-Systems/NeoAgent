@@ -1,0 +1,268 @@
+/* NeoAgent Admin — shared design tokens and base styles */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Tokens (NeoAgent dark palette) ─────────────────────────────────────── */
+:root {
+  --bg:            #0e1511;
+  --bg-sidebar:    #0a0f0c;
+  --bg-card:       #171f1a;
+  --bg-secondary:  #252d28;
+  --bg-input:      #0a0f0c;
+  --border:        rgba(224, 240, 224, 0.10);
+  --border-light:  rgba(224, 240, 224, 0.17);
+
+  --accent:        #e1b052;
+  --accent-hover:  #eac272;
+  --accent-alt:    #84ba87;
+  --accent-muted:  rgba(225, 176, 82, 0.16);
+
+  --text:          #ecefe5;
+  --text-secondary:#aeb7a6;
+  --text-muted:    #7e8877;
+
+  --success:       #74c07c;
+  --warning:       #d9a24b;
+  --danger:        #de8a78;
+  --info:          #6fb0a4;
+
+  --sidebar-w:     220px;
+  --radius:        10px;
+  --radius-sm:     7px;
+
+  --font-sans:     'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:     'Geist Mono', 'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Brand mark ──────────────────────────────────────────────────────────── */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-mark img {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+  letter-spacing: -0.2px;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* ── Forms ───────────────────────────────────────────────────────────────── */
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+
+input[type="text"],
+input[type="password"],
+select {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s, opacity 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+button:disabled,
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 2px 12px rgba(225, 176, 82, 0.22);
+}
+
+.btn-ghost {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(224, 240, 224, 0.07);
+}
+
+.btn-danger {
+  background: rgba(222, 138, 120, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(222, 138, 120, 0.20);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(222, 138, 120, 0.20);
+}
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.badge-ok      { background: rgba(116,192,124,0.15); color: var(--success); }
+.badge-warn    { background: rgba(217,162,75,0.15);  color: var(--warning); }
+.badge-err     { background: rgba(222,138,120,0.15); color: var(--danger); }
+.badge-idle    { background: rgba(126,136,119,0.15); color: var(--text-muted); }
+.badge-running { background: var(--accent-muted);    color: var(--accent); }
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-light);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── Alert ───────────────────────────────────────────────────────────────── */
+.alert {
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  display: none;
+}
+
+.alert.visible { display: block; }
+
+.alert-error {
+  background: rgba(222, 138, 120, 0.10);
+  border: 1px solid rgba(222, 138, 120, 0.25);
+  color: var(--danger);
+}
+
+.alert-success {
+  background: rgba(116, 192, 124, 0.10);
+  border: 1px solid rgba(116, 192, 124, 0.25);
+  color: var(--success);
+}

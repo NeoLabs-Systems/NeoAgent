@@ -366,7 +366,23 @@ class WidgetService {
       throw new Error('Widget not found.');
     }
     if (existingRow.is_system) {
-      throw new Error('System widgets cannot be edited directly.');
+      if (!('enabled' in input)) {
+        throw new Error('System widgets cannot be edited directly.');
+      }
+      // Only the enabled state may be toggled on system widgets.
+      const newEnabled = input.enabled !== false;
+      db.prepare(
+        `UPDATE ai_widgets SET enabled = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`
+      ).run(newEnabled ? 1 : 0, widgetId, userId);
+      if (existingRow.scheduled_task_id && this.taskRuntime) {
+        await this.taskRuntime.updateTask(
+          existingRow.scheduled_task_id,
+          userId,
+          { enabled: newEnabled },
+          { allowManaged: true },
+        );
+      }
+      return this.getWidget(userId, widgetId);
     }
 
     const current = this._serializeWidget(existingRow, null, []);

@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Windows artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.2.0
         with:
           path: dist
           name: neoagent-windows-installer
@@ -25,7 +25,7 @@ jobs:
         continue-on-error: true
 
       - name: Download macOS artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.2.0
         with:
           path: dist
           name: neoagent-macos-installer
@@ -33,7 +33,7 @@ jobs:
         continue-on-error: true
 
       - name: Download Linux artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.2.0
         with:
           path: dist
           name: neoagent-linux-installer
@@ -41,7 +41,7 @@ jobs:
         continue-on-error: true
 
       - name: Download Android artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.2.0
         with:
           path: dist
           name: neoagent-android-installer
@@ -49,7 +49,7 @@ jobs:
         continue-on-error: true
 
       - name: Download firmware artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.2.0
         with:
           path: dist
           name: neoagent-wearable-firmware

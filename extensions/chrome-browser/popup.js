@@ -1,6 +1,7 @@
 const statusEl = document.querySelector('#status');
 const statusDotEl = document.querySelector('#statusDot');
 const serverUrlEl = document.querySelector('#serverUrl');
+const extensionNameEl = document.querySelector('#extensionName');
 const serverLabelEl = document.querySelector('#serverLabel');
 const messageEl = document.querySelector('#message');
 const settingsEl = document.querySelector('#settings');
@@ -9,7 +10,6 @@ const flowTitleEl = document.querySelector('#flowTitle');
 const flowDescriptionEl = document.querySelector('#flowDescription');
 const primaryActionEl = document.querySelector('#primaryAction');
 const secondaryActionEl = document.querySelector('#secondaryAction');
-const openAppEl = document.querySelector('#openApp');
 const disconnectEl = document.querySelector('#disconnect');
 const checkUpdateEl = document.querySelector('#checkUpdate');
 const downloadEl = document.querySelector('#download');
@@ -59,7 +59,7 @@ function setBusy(isBusy, label = 'Working...') {
   }
   const busy = pendingActions > 0;
 
-  [primaryActionEl, secondaryActionEl, openAppEl, disconnectEl, checkUpdateEl, downloadEl].forEach((button) => {
+  [primaryActionEl, secondaryActionEl, disconnectEl, checkUpdateEl, downloadEl].forEach((button) => {
     if (!button || button.hidden) return;
     if (busy) {
       if (!Object.prototype.hasOwnProperty.call(button.dataset, 'wasDisabled')) {
@@ -98,8 +98,6 @@ function updateFlow() {
   const hasServerUrl = Boolean(serverUrl);
   const hasToken = Boolean(currentState.token || currentState.tokenId);
   const approvalUrl = currentState.approvalUrl || '';
-
-  openAppEl.disabled = !hasServerUrl;
 
   if (!hasServerUrl) {
     stepLabelEl.textContent = 'Step 1 of 3';
@@ -217,6 +215,10 @@ async function refresh() {
   if (serverUrl && document.activeElement !== serverUrlEl) {
     serverUrlEl.value = serverUrl;
   }
+  const extensionName = currentState.extensionName || 'Chrome Extension';
+  if (document.activeElement !== extensionNameEl) {
+    extensionNameEl.value = extensionName;
+  }
   if (!serverUrl) {
     settingsEl.open = true;
   }
@@ -240,10 +242,17 @@ function bindAsyncClick(element, handler) {
 }
 
 serverUrlEl.addEventListener('input', updateFlow);
+extensionNameEl.addEventListener('input', async () => {
+  const name = String(extensionNameEl.value || '').trim();
+  try {
+    await send('saveExtensionName', { extensionName: name });
+  } catch (err) {
+    console.error('Failed to save extension name', err);
+  }
+});
 
 bindAsyncClick(primaryActionEl, () => runAction(primaryActionEl.dataset.action));
 bindAsyncClick(secondaryActionEl, () => runAction(secondaryActionEl.dataset.action));
-bindAsyncClick(openAppEl, () => runAction('openApp'));
 bindAsyncClick(disconnectEl, async () => {
   await send('disconnect');
   await refresh();
@@ -253,8 +262,8 @@ bindAsyncClick(checkUpdateEl, async () => {
   const result = await send('checkForUpdates', { serverUrl: effectiveServerUrl() });
   setMessage(
     result.updateAvailable
-      ? `Update available: ${result.currentVersion} -> ${result.latestVersion}.`
-      : `Current version ${result.currentVersion} is up to date.`,
+      ? `Update available: ${result.currentVersionName || result.currentVersion} -> ${result.latestVersionName || result.latestVersion}.`
+      : `Current version ${result.currentVersionName || result.currentVersion} is up to date.`,
     result.updateAvailable ? '' : 'success',
   );
 });
