@@ -1074,6 +1074,25 @@ try {
   // Ignore cleanup failures for obsolete wearable tables.
 }
 
+// Admin 2FA tables (singleton — no foreign key, no user_id)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_two_factor (
+    id              INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled         INTEGER NOT NULL DEFAULT 0,
+    secret          TEXT,
+    pending_secret  TEXT,
+    enabled_at      TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS admin_recovery_codes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    code_hash   TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    used_at     TEXT
+  );
+`);
+
 // Migrations for existing databases
 for (const col of [
   "ALTER TABLE agent_runs ADD COLUMN agent_id TEXT",

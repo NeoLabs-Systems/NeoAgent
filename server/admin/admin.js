@@ -16,7 +16,7 @@ function showPage(page, btn) {
   if (btn) btn.classList.add('active');
   currentPage = page;
 
-  const loaders = { overview: loadHealth, logs: loadLogs, updates: loadVersion, config: loadConfig, providers: loadProviders };
+  const loaders = { overview: loadHealth, logs: loadLogs, updates: loadVersion, config: loadConfig, providers: loadProviders, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess };
   loaders[page]?.();
 }
 
