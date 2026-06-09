@@ -309,6 +309,367 @@
       color: var(--text-muted) !important;
     }
 
+    /* ── Stats grid ────────────────────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .stat-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 16px 14px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* ── Analytics tables ──────────────────────────────────────── */
+    .analytics-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .analytics-table th {
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .analytics-table td {
+      padding: 9px 8px;
+      border-bottom: 1px solid rgba(224,240,224,0.04);
+      color: var(--text-secondary);
+    }
+
+    .analytics-table tr:last-child td { border-bottom: none; }
+    .analytics-table tr:hover td { background: rgba(224,240,224,0.025); }
+
+    .cell-truncate {
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .run-completed { background: rgba(116,192,124,0.15); color: var(--success); }
+    .run-failed    { background: rgba(222,138,120,0.15); color: var(--danger); }
+    .run-running   { background: var(--accent-muted);    color: var(--accent); }
+    .run-pending   { background: rgba(126,136,119,0.15); color: var(--text-muted); }
+
+    /* ── User avatar ────────────────────────────────────────────── */
+    .user-avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border-radius: 50%;
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* ── Mini bar ───────────────────────────────────────────────── */
+    .mini-bar {
+      height: 4px;
+      background: var(--bg-secondary);
+      border-radius: 999px;
+      width: 80px;
+      overflow: hidden;
+    }
+
+    .mini-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    /* ── Users table ────────────────────────────────────────────── */
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .users-table th {
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .users-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(224,240,224,0.04);
+      vertical-align: middle;
+    }
+
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tr:hover td { background: rgba(224,240,224,0.025); }
+
+    .gdpr-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: rgba(222, 138, 120, 0.05);
+      border: 1px solid rgba(222, 138, 120, 0.15);
+      border-radius: var(--radius-sm);
+      line-height: 1.5;
+    }
+
+    /* ── SQL editor ─────────────────────────────────────────────── */
+    .sql-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .sql-textarea {
+      width: 100%;
+      min-height: 140px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      tab-size: 2;
+    }
+
+    .sql-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-muted);
+    }
+
+    .sql-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 12px 0 8px;
+    }
+
+    .sql-result-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .sql-result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .sql-result-table th {
+      background: var(--bg-secondary);
+      padding: 7px 12px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .sql-result-table td {
+      padding: 6px 12px;
+      border-bottom: 1px solid rgba(224,240,224,0.04);
+      color: var(--text-secondary);
+      white-space: nowrap;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sql-result-table tr:last-child td { border-bottom: none; }
+    .sql-result-table tr:hover td { background: rgba(224,240,224,0.03); }
+
+    .sql-error {
+      padding: 12px 14px;
+      margin-top: 10px;
+      background: rgba(222,138,120,0.08);
+      border: 1px solid rgba(222,138,120,0.2);
+      border-radius: var(--radius-sm);
+      color: var(--danger);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    /* ── Access / toggle ───────────────────────────────────────── */
+    .access-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .access-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .access-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      max-width: 480px;
+    }
+
+    .access-desc code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--bg-secondary);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    .access-hint-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .access-status {
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      transition: background 0.18s, border-color 0.18s;
+    }
+
+    .toggle input:checked ~ .toggle-track {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.18s;
+      pointer-events: none;
+    }
+
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+    /* API key display */
+    .api-key-hint {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    .api-key-full {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text);
+      background: var(--bg-secondary);
+      padding: 6px 10px;
+      border-radius: 6px;
+      word-break: break-all;
+      flex: 1;
+      user-select: all;
+    }
+
+    .key-reveal-box {
+      background: rgba(225, 176, 82, 0.07);
+      border: 1px solid rgba(225, 176, 82, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-top: 14px;
+    }
+
     /* ── Provider rows ─────────────────────────────────────────── */
     .provider-row {
       display: grid;
@@ -379,7 +740,7 @@
     </div>
 
     <nav aria-label="Admin navigation">
-      <div class="nav-section-label">Dashboard</div>
+      <div class="nav-section-label">Monitor</div>
 
       <button class="nav-item active" data-page="overview" onclick="showPage('overview',this)">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -400,6 +761,38 @@
           <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
         </svg>
         Updates
+      </button>
+
+      <div class="nav-section-label" style="margin-top:8px;">Manage</div>
+
+      <button class="nav-item" data-page="analytics" onclick="showPage('analytics',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+        </svg>
+        Analytics
+      </button>
+
+      <button class="nav-item" data-page="users" onclick="showPage('users',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+        </svg>
+        Users
+      </button>
+
+      <button class="nav-item" data-page="sql" onclick="showPage('sql',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm11 1H6v8l4-2 4 2V6z" clip-rule="evenodd"/>
+        </svg>
+        SQL Editor
+      </button>
+
+      <div class="nav-section-label" style="margin-top:8px;">Settings</div>
+
+      <button class="nav-item" data-page="access" onclick="showPage('access',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+        </svg>
+        Access
       </button>
 
       <button class="nav-item" data-page="providers" onclick="showPage('providers',this)">
@@ -493,6 +886,70 @@
       </div>
     </section>
 
+    <!-- Analytics -->
+    <section id="page-analytics" class="page" aria-label="Analytics">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Analytics</h1>
+          <p class="page-subtitle">Usage statistics, top users, and recent activity</p>
+        </div>
+        <span class="refresh-hint" id="analytics-ts" aria-live="polite"></span>
+      </div>
+      <div class="content">
+        <div id="analytics-content"><div class="empty"><span class="spinner"></span></div></div>
+      </div>
+    </section>
+
+    <!-- Users -->
+    <section id="page-users" class="page" aria-label="User Management">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Users</h1>
+          <p class="page-subtitle">Account management — force logout, GDPR data erasure</p>
+        </div>
+        <span class="toolbar-count" id="users-count" aria-live="polite" style="padding-top:6px;"></span>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="toolbar" style="margin-bottom:14px;">
+            <input type="search" id="user-search" placeholder="Search by username or email…"
+              oninput="onUserSearch()" style="width:280px;padding:7px 12px;font-size:13px;" aria-label="Search users">
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" onclick="loadUsers()">Refresh</button>
+          </div>
+          <div id="users-table-wrap"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SQL Editor -->
+    <section id="page-sql" class="page" aria-label="SQL Editor">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">SQL Editor</h1>
+          <p class="page-subtitle">Read-only SELECT queries against the live database — results capped at 500 rows</p>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div id="sql-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Access -->
+    <section id="page-access" class="page" aria-label="Access Settings">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Access</h1>
+          <p class="page-subtitle">Signup policy and programmatic API key management</p>
+        </div>
+      </div>
+      <div class="content">
+        <div id="access-content"><div class="empty"><span class="spinner"></span></div></div>
+      </div>
+    </section>
+
     <!-- Providers -->
     <section id="page-providers" class="page" aria-label="Providers">
       <div class="page-header">
@@ -528,5 +985,9 @@
   </main>
 
   <script src="/admin/admin.js"></script>
+  <script src="/admin/analytics.js"></script>
+  <script src="/admin/users.js"></script>
+  <script src="/admin/sql.js"></script>
+  <script src="/admin/access.js"></script>
 </body>
 </html>

@@ -22,6 +22,21 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const ADMIN_DIR = path.join(__dirname, '..', 'admin');
 
+const fs   = require('fs');
+
+// Admin sessions last 30 days and roll on every request.
+const ADMIN_SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
+
+// Rolling refresh: touch the session on every authenticated admin request
+// so the 30-day window slides forward from the last activity.
+router.use((req, res, next) => {
+  if (req.session?.isAdmin) {
+    req.session.cookie.maxAge = ADMIN_SESSION_TTL;
+    req.session.touch();
+  }
+  next();
+});
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -46,21 +61,55 @@ router.get('/login', (req, res) => {
   res.sendFile(path.join(ADMIN_DIR, 'login.html'));
 });
 
-router.post('/api/login', loginLimiter, express.json(), (req, res) => {
+router.post('/api/login', loginLimiter, express.json(), async (req, res) => {
   const { username, password } = req.body || {};
   const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
   const expectedPassword = process.env.ADMIN_PASSWORD || '';
   if (!expectedPassword) {
     return res.status(503).json({ error: 'Admin credentials not configured. Run `neoagent setup`.' });
   }
-  if (username === expectedUsername && password === expectedPassword) {
+  if (username !== expectedUsername || password !== expectedPassword) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  // Check whether 2FA is enabled
+  const adminTwoFactor = require('../services/account/admin_two_factor');
+  const tfStatus = adminTwoFactor.getStatus();
+  if (tfStatus.enabled) {
+    // Park the session in a "password OK, waiting for TOTP" state
+    req.session.adminPendingTwoFactor = true;
+    delete req.session.isAdmin;
+    return req.session.save((err) => {
+      if (err) return res.status(500).json({ error: 'Session error' });
+      res.json({ ok: false, requiresTwoFactor: true });
+    });
+  }
+  req.session.isAdmin = true;
+  req.session.cookie.maxAge = ADMIN_SESSION_TTL;
+  req.session.save((err) => {
+    if (err) return res.status(500).json({ error: 'Session error' });
+    res.json({ ok: true });
+  });
+});
+
+// Second-factor verification (called after a successful password login when 2FA is on)
+router.post('/api/2fa/verify', loginLimiter, express.json(), async (req, res) => {
+  if (!req.session?.adminPendingTwoFactor) {
+    return res.status(400).json({ error: 'No pending 2FA verification' });
+  }
+  const { code } = req.body || {};
+  try {
+    const adminTwoFactor = require('../services/account/admin_two_factor');
+    const valid = await adminTwoFactor.verifyCode(code);
+    if (!valid) return res.status(401).json({ error: 'Invalid code — try again' });
+    req.session.adminPendingTwoFactor = false;
     req.session.isAdmin = true;
+    req.session.cookie.maxAge = ADMIN_SESSION_TTL;
     req.session.save((err) => {
       if (err) return res.status(500).json({ error: 'Session error' });
       res.json({ ok: true });
     });
-  } else {
-    res.status(401).json({ error: 'Invalid credentials' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -260,6 +309,254 @@ router.put('/api/update/channel', requireAdminAuth, (req, res) => {
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
     npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
   });
+});
+
+const settingsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many settings changes, slow down' },
+});
+
+const sqlLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many SQL queries, slow down' },
+});
+
+// --- Access settings (signup toggle + API key) ---
+
+router.get('/api/settings', requireAdminAuth, (req, res) => {
+  const apiKey = process.env.ADMIN_API_KEY || '';
+  const hint = apiKey.length > 8
+    ? `${apiKey.slice(0, 4)}${'•'.repeat(4)}${apiKey.slice(-4)}`
+    : apiKey ? '•'.repeat(apiKey.length) : '';
+  const adminTwoFactor = require('../services/account/admin_two_factor');
+  const tfStatus = adminTwoFactor.getStatus();
+  res.json({
+    signupEnabled: process.env.NEOAGENT_ALLOW_SIGNUP !== 'false',
+    apiKeyConfigured: Boolean(apiKey),
+    apiKeyHint: hint,
+    twoFactor: tfStatus,
+  });
+});
+
+// --- 2FA management ---
+
+router.get('/api/settings/2fa', requireAdminAuth, (req, res) => {
+  const adminTwoFactor = require('../services/account/admin_two_factor');
+  res.json(adminTwoFactor.getStatus());
+});
+
+router.post('/api/settings/2fa/setup', requireAdminAuth, settingsLimiter, async (req, res) => {
+  try {
+    const adminTwoFactor = require('../services/account/admin_two_factor');
+    const { otpauthUrl, manualKey } = adminTwoFactor.beginSetup();
+    const qrcode = require('qrcode');
+    const qrDataUrl = await qrcode.toDataURL(otpauthUrl, { width: 200, margin: 2 });
+    res.json({ qrDataUrl, manualKey });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+router.post('/api/settings/2fa/enable', requireAdminAuth, settingsLimiter, express.json(), async (req, res) => {
+  try {
+    const adminTwoFactor = require('../services/account/admin_two_factor');
+    const { recoveryCodes } = await adminTwoFactor.enable(req.body?.code);
+    res.json({ ok: true, recoveryCodes });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+router.delete('/api/settings/2fa', requireAdminAuth, settingsLimiter, express.json(), async (req, res) => {
+  try {
+    const adminTwoFactor = require('../services/account/admin_two_factor');
+    await adminTwoFactor.disable(req.body?.code);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+router.post('/api/settings/2fa/recovery-codes', requireAdminAuth, settingsLimiter, express.json(), async (req, res) => {
+  try {
+    const adminTwoFactor = require('../services/account/admin_two_factor');
+    const { recoveryCodes } = await adminTwoFactor.regenerateCodes(req.body?.code);
+    res.json({ ok: true, recoveryCodes });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+router.put('/api/settings/signup', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
+  const enabled = req.body?.enabled !== false; // default true
+  const value   = enabled ? 'true' : 'false';
+  upsertEnvValue(ENV_FILE, 'NEOAGENT_ALLOW_SIGNUP', value);
+  process.env.NEOAGENT_ALLOW_SIGNUP = value;
+  res.json({ ok: true, signupEnabled: enabled });
+});
+
+router.post('/api/settings/apikey/rotate', requireAdminAuth, settingsLimiter, (req, res) => {
+  const newKey = require('crypto').randomBytes(32).toString('hex');
+  upsertEnvValue(ENV_FILE, 'ADMIN_API_KEY', newKey);
+  process.env.ADMIN_API_KEY = newKey;
+  // Return the key once — it will not be shown again
+  res.json({ ok: true, apiKey: newKey });
+});
+
+router.delete('/api/settings/apikey', requireAdminAuth, settingsLimiter, (req, res) => {
+  upsertEnvValue(ENV_FILE, 'ADMIN_API_KEY', '');
+  delete process.env.ADMIN_API_KEY;
+  res.json({ ok: true });
+});
+
+// --- Analytics ---
+
+router.get('/api/analytics', requireAdminAuth, (req, res) => {
+  const db = require('../db/database');
+  const now = new Date().toISOString();
+  const dayAgo  = new Date(Date.now() - 86_400_000).toISOString();
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  try {
+    const stats = {
+      totalUsers:    db.prepare('SELECT COUNT(*) AS n FROM users').get().n,
+      activeToday:   db.prepare('SELECT COUNT(*) AS n FROM users WHERE last_login > ?').get(dayAgo).n,
+      newThisWeek:   db.prepare('SELECT COUNT(*) AS n FROM users WHERE created_at > ?').get(weekAgo).n,
+      totalRuns:     db.prepare('SELECT COUNT(*) AS n FROM agent_runs').get().n,
+      runsToday:     db.prepare('SELECT COUNT(*) AS n FROM agent_runs WHERE created_at > ?').get(dayAgo).n,
+      totalTokens:   db.prepare('SELECT COALESCE(SUM(total_tokens),0) AS n FROM agent_runs').get().n,
+      activeSessions:db.prepare('SELECT COUNT(*) AS n FROM user_sessions WHERE revoked_at IS NULL AND expires_at > ?').get(now).n,
+      totalStorage:  db.prepare('SELECT COALESCE(SUM(byte_size),0) AS n FROM artifacts').get().n,
+    };
+    const topUsers = db.prepare(`
+      SELECT u.id, u.username, u.display_name,
+             COUNT(DISTINCT r.id) AS runs,
+             COALESCE(SUM(r.total_tokens),0) AS tokens,
+             COALESCE(SUM(a.byte_size),0) AS storage
+      FROM users u
+      LEFT JOIN agent_runs r ON r.user_id = u.id
+      LEFT JOIN artifacts a  ON a.user_id = u.id
+      GROUP BY u.id ORDER BY runs DESC LIMIT 8
+    `).all();
+    const recentRuns = db.prepare(`
+      SELECT r.id, u.username, r.title, r.status, r.total_tokens,
+             r.created_at, r.completed_at
+      FROM agent_runs r
+      JOIN users u ON u.id = r.user_id
+      ORDER BY r.created_at DESC LIMIT 20
+    `).all();
+    res.json({ stats, topUsers, recentRuns });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// --- User management ---
+
+router.get('/api/users', requireAdminAuth, (req, res) => {
+  const db = require('../db/database');
+  const q  = req.query.q ? `%${req.query.q}%` : null;
+  try {
+    const sql = `
+      SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at,
+             u.created_at, u.last_login,
+             COUNT(DISTINCT r.id)      AS run_count,
+             COALESCE(SUM(a.byte_size),0) AS storage_bytes
+      FROM users u
+      LEFT JOIN agent_runs r ON r.user_id = u.id
+      LEFT JOIN artifacts a  ON a.user_id = u.id
+      ${q ? 'WHERE u.username LIKE ? OR u.email LIKE ?' : ''}
+      GROUP BY u.id ORDER BY u.created_at DESC LIMIT 200`;
+    const users = q ? db.prepare(sql).all(q, q) : db.prepare(sql).all();
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+router.delete('/api/users/:id', requireAdminAuth, (req, res) => {
+  const db = require('../db/database');
+  const { DATA_DIR } = require('../../runtime/paths');
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: 'Missing user id' });
+  try {
+    // Collect artifact paths before deletion
+    const artifacts = db.prepare('SELECT storage_path FROM artifacts WHERE user_id = ?').all(id);
+
+    const erase = db.transaction((uid) => {
+      db.prepare('DELETE FROM conversation_messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ?)').run(uid);
+      db.prepare('DELETE FROM conversations WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM agent_steps WHERE run_id IN (SELECT id FROM agent_runs WHERE user_id = ?)').run(uid);
+      db.prepare('DELETE FROM agent_runs WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM messages WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM memories WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM integration_connections WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM platform_connections WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM mcp_servers WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM user_settings WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM user_sessions WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM desktop_companion_devices WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM scheduled_tasks WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM recording_sessions WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM screen_history WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM agents WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM artifacts WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM users WHERE id = ?').run(uid);
+    });
+    erase(id);
+
+    // Clean up artifact files on disk
+    for (const artifact of artifacts) {
+      try {
+        const abs = path.isAbsolute(artifact.storage_path)
+          ? artifact.storage_path
+          : path.join(DATA_DIR, artifact.storage_path);
+        fs.rmSync(abs, { force: true });
+      } catch {}
+    }
+    try { fs.rmSync(path.join(DATA_DIR, 'artifacts', id), { recursive: true, force: true }); } catch {}
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+router.delete('/api/users/:id/sessions', requireAdminAuth, (req, res) => {
+  const db = require('../db/database');
+  const { id } = req.params;
+  try {
+    db.prepare('UPDATE user_sessions SET revoked_at = ? WHERE user_id = ?').run(new Date().toISOString(), id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// --- SQL editor (read-only SELECT only) ---
+
+const SQL_BLOCKED = /\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|ATTACH|DETACH|TRUNCATE|VACUUM|REINDEX|REPLACE|UPSERT|PRAGMA)\b/i;
+
+router.post('/api/sql', requireAdminAuth, sqlLimiter, express.json(), (req, res) => {
+  const { query } = req.body || {};
+  if (!query || typeof query !== 'string') return res.status(400).json({ error: 'No query provided' });
+  const trimmed = query.trim();
+  if (!/^(SELECT|WITH)\b/i.test(trimmed)) return res.status(400).json({ error: 'Only SELECT (or WITH …) queries are allowed' });
+  if (SQL_BLOCKED.test(trimmed))           return res.status(400).json({ error: 'Query contains a blocked SQL keyword' });
+  try {
+    const db = require('../db/database');
+    const rows = db.prepare(trimmed).all();
+    const limited = rows.slice(0, 500);
+    const columns = limited.length ? Object.keys(limited[0]) : [];
+    res.json({ rows: limited, columns, truncated: rows.length > 500, total: rows.length });
+  } catch (err) {
+    res.status(400).json({ error: String(err.message || err) });
+  }
 });
 
 // --- Providers ---
