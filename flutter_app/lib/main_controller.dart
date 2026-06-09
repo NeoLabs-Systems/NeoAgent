@@ -63,6 +63,7 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _backgroundRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
+  final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const Duration _homeWidgetSyncCooldown = Duration(seconds: 5);
@@ -70,6 +71,7 @@ class NeoAgentController extends ChangeNotifier {
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
   bool _socketHasConnectedOnce = false;
+  bool _onboardingManuallyReopened = false;
   List<LogEntry> _serverLogs = const <LogEntry>[];
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
@@ -91,6 +93,8 @@ class NeoAgentController extends ChangeNotifier {
   bool isSavingReleaseChannel = false;
   bool isSyncingHealth = false;
   bool isRunningDeviceAction = false;
+  bool isLoadingWorkspaceFiles = false;
+  bool isSavingWorkspaceFile = false;
   bool isPreparingQrLogin = false;
   bool isApprovingQrLogin = false;
   bool isCheckingAppUpdate = false;
@@ -104,6 +108,8 @@ class NeoAgentController extends ChangeNotifier {
   bool _analyticsConfigured = false;
   bool _analyticsConsentResolved = false;
   bool _analyticsConsentGranted = false;
+
+  io.Socket? get streamSocket => socketConnected ? _socket : null;
 
   bool hasUser = true;
   bool registrationOpen = false;
@@ -168,6 +174,8 @@ class NeoAgentController extends ChangeNotifier {
   List<McpServerItem> mcpServers = const <McpServerItem>[];
   Map<String, dynamic> browserRuntime = const <String, dynamic>{};
   Map<String, dynamic> browserExtensionStatus = const <String, dynamic>{};
+  List<Map<String, dynamic>> browserExtensionTokens =
+      const <Map<String, dynamic>>[];
   Map<String, dynamic> androidRuntime = const <String, dynamic>{};
   Map<String, dynamic> desktopRuntime = const <String, dynamic>{};
   List<String> androidInstalledApps = const <String>[];
@@ -176,6 +184,7 @@ class NeoAgentController extends ChangeNotifier {
   List<Map<String, dynamic>> desktopDisplays = const <Map<String, dynamic>>[];
   Map<String, dynamic> desktopPermissions = const <String, dynamic>{};
   String? selectedDesktopDeviceId;
+  String? selectedBrowserExtensionTokenId;
   String? browserScreenshotPath;
   String? androidScreenshotPath;
   String? desktopScreenshotPath;
@@ -183,6 +192,10 @@ class NeoAgentController extends ChangeNotifier {
   String? androidLastResult;
   String? desktopLastResult;
   String? androidUiDumpPath;
+  String workspaceCurrentPath = '';
+  String? workspaceSelectedFilePath;
+  String workspaceEditorContent = '';
+  List<Map<String, dynamic>> workspaceEntries = const <Map<String, dynamic>>[];
   final Map<String, RunDetailSnapshot> _runDetailsCache =
       <String, RunDetailSnapshot>{};
   String? _selectedWidgetId;
@@ -231,6 +244,8 @@ class NeoAgentController extends ChangeNotifier {
 
   bool isOfficialIntegrationBusy(String key) =>
       _busyOfficialIntegrationKeys.contains(key);
+  bool isMessagingPlatformBusy(String platform, String action) =>
+      _busyMessagingPlatformKeys.contains('$platform:$action');
 
   String get chatComposerHint => hasLiveRun
       ? 'Send a steering update or next-up note for the current run...'
@@ -443,6 +458,7 @@ class NeoAgentController extends ChangeNotifier {
     required String role,
     required String platform,
     bool transient = false,
+    Map<String, dynamic> metadata = const <String, dynamic>{},
   }) {
     final trimmed = content.trim();
     if (trimmed.isEmpty) {
@@ -453,7 +469,8 @@ class NeoAgentController extends ChangeNotifier {
     if (previous != null &&
         previous.role == role &&
         previous.platform == platform &&
-        previous.content.trim() == trimmed) {
+        previous.content.trim() == trimmed &&
+        metadata.isEmpty) {
       return;
     }
 
@@ -466,6 +483,7 @@ class NeoAgentController extends ChangeNotifier {
         platform: platform,
         createdAt: DateTime.now(),
         transient: transient,
+        metadata: metadata,
       ),
     ];
   }
@@ -807,6 +825,7 @@ class NeoAgentController extends ChangeNotifier {
           status['user'] as Map<String, dynamic>,
         );
         isAuthenticated = true;
+        _syncOnboardingFromAccount();
       }
       if (isAuthenticated) {
         unawaited(refresh());
@@ -893,8 +912,9 @@ class NeoAgentController extends ChangeNotifier {
       // On web, require explicit opt-in (GDPR). On native, consent is implicit
       // unless the user has previously declined.
       _analyticsConsentResolved = consentState != null || !kIsWeb;
-      _analyticsConsentGranted =
-          kIsWeb ? consentState == true : consentState != false;
+      _analyticsConsentGranted = kIsWeb
+          ? consentState == true
+          : consentState != false;
       await _analytics.initialize(
         token: token,
         consentGranted: _analyticsConsentGranted,
@@ -1039,6 +1059,15 @@ class NeoAgentController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<Map<String, dynamic>> testCliRuntime() =>
+      _backendClient.testCli(backendUrl);
+
+  Future<Map<String, dynamic>> testBrowserExtension() =>
+      _backendClient.testExtension(backendUrl);
+
+  Future<Map<String, dynamic>> testDesktopCompanion() =>
+      _backendClient.testDesktop(backendUrl);
 
   Future<void> openAppUpdate() async {
     final release = availableAppUpdate;
@@ -1335,9 +1364,7 @@ class NeoAgentController extends ChangeNotifier {
     pendingTwoFactorUsername = '';
     password = '';
 
-    final bool backendCompletedOnboarding =
-        user?['hasCompletedOnboarding'] == true;
-    showOnboarding = isRegistration || !backendCompletedOnboarding;
+    _syncOnboardingFromAccount();
 
     _clearQrLoginChallenge();
     await _persistCredentials();
@@ -1581,6 +1608,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> dismissOnboarding() async {
+    _onboardingManuallyReopened = false;
     showOnboarding = false;
     notifyListeners();
     try {
@@ -1597,8 +1625,21 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void reopenOnboarding() {
+    _onboardingManuallyReopened = true;
     showOnboarding = true;
     notifyListeners();
+  }
+
+  void _syncOnboardingFromAccount() {
+    final hasCompletedOnboarding = user?['hasCompletedOnboarding'] == true;
+    if (hasCompletedOnboarding) {
+      if (!_onboardingManuallyReopened) {
+        showOnboarding = false;
+      }
+      return;
+    }
+    _onboardingManuallyReopened = false;
+    showOnboarding = true;
   }
 
   void _clearAuthenticatedState() {
@@ -1608,6 +1649,8 @@ class NeoAgentController extends ChangeNotifier {
     _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
+    _onboardingManuallyReopened = false;
+    _busyMessagingPlatformKeys.clear();
     isAwaitingTwoFactor = false;
     pendingTwoFactorUsername = '';
     errorMessage = null;
@@ -1644,6 +1687,7 @@ class NeoAgentController extends ChangeNotifier {
     mcpServers = const <McpServerItem>[];
     browserRuntime = const <String, dynamic>{};
     browserExtensionStatus = const <String, dynamic>{};
+    browserExtensionTokens = const <Map<String, dynamic>>[];
     androidRuntime = const <String, dynamic>{};
     desktopRuntime = const <String, dynamic>{};
     androidInstalledApps = const <String>[];
@@ -1652,6 +1696,7 @@ class NeoAgentController extends ChangeNotifier {
     desktopDisplays = const <Map<String, dynamic>>[];
     desktopPermissions = const <String, dynamic>{};
     selectedDesktopDeviceId = null;
+    selectedBrowserExtensionTokenId = null;
     browserScreenshotPath = null;
     androidScreenshotPath = null;
     desktopScreenshotPath = null;
@@ -2063,6 +2108,7 @@ class NeoAgentController extends ChangeNotifier {
       user = Map<String, dynamic>.from(
         authStatus['user'] as Map<String, dynamic>,
       );
+      _syncOnboardingFromAccount();
 
       final profilesResponse = await _backendClient.fetchAgentProfiles(
         backendUrl,
@@ -2333,6 +2379,13 @@ class NeoAgentController extends ChangeNotifier {
       browserExtensionStatus = Map<String, dynamic>.from(
         browserExtensionResponse,
       );
+      browserExtensionTokens = _jsonMapList(
+        browserExtensionStatus['tokens'],
+        fallbackToMapValues: true,
+      );
+      selectedBrowserExtensionTokenId = _optionalIdFrom(
+        browserExtensionStatus['selectedTokenId'],
+      );
       androidRuntime = Map<String, dynamic>.from(androidResponse);
       desktopRuntime = Map<String, dynamic>.from(desktopResponse);
       selectedDesktopDeviceId =
@@ -2428,6 +2481,11 @@ class NeoAgentController extends ChangeNotifier {
     return parsed;
   }
 
+  String? _optionalIdFrom(dynamic value) {
+    final normalized = value?.toString().trim() ?? '';
+    return normalized.isEmpty || normalized == 'null' ? null : normalized;
+  }
+
   Future<void> refreshRunsOnly() async {
     try {
       final runsResponse = await _backendClient.fetchRuns(
@@ -2449,31 +2507,6 @@ class NeoAgentController extends ChangeNotifier {
       );
       notifyListeners();
     } catch (_) {}
-
-    Future<String> fetchMemoryTransferPrompt() async {
-      final response = await _backendClient.fetchMemoryTransferPrompt(
-        backendUrl,
-        agentId: _scopedAgentId,
-      );
-      return response['prompt']?.toString() ?? '';
-    }
-
-    Future<MemoryTransferImportResult> importMemoryTransfer(
-      String text, {
-      bool applyBehaviorNotes = true,
-      bool applyCoreMemory = true,
-    }) async {
-      final response = await _backendClient.importMemoryTransfer(
-        backendUrl,
-        text: text,
-        applyBehaviorNotes: applyBehaviorNotes,
-        applyCoreMemory: applyCoreMemory,
-        agentId: _scopedAgentId,
-      );
-      final result = MemoryTransferImportResult.fromJson(response);
-      await refreshMemory();
-      return result;
-    }
   }
 
   Future<void> refreshMessaging() async {
@@ -2731,6 +2764,13 @@ class NeoAgentController extends ChangeNotifier {
       browserExtensionStatus = Map<String, dynamic>.from(
         browserExtensionResponse,
       );
+      browserExtensionTokens = _jsonMapList(
+        browserExtensionStatus['tokens'],
+        fallbackToMapValues: true,
+      );
+      selectedBrowserExtensionTokenId = _optionalIdFrom(
+        browserExtensionStatus['selectedTokenId'],
+      );
       androidRuntime = Map<String, dynamic>.from(androidResponse);
       desktopRuntime = Map<String, dynamic>.from(desktopResponse);
       selectedDesktopDeviceId =
@@ -2758,6 +2798,13 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
       );
       browserExtensionStatus = Map<String, dynamic>.from(response);
+      browserExtensionTokens = _jsonMapList(
+        browserExtensionStatus['tokens'],
+        fallbackToMapValues: true,
+      );
+      selectedBrowserExtensionTokenId = _optionalIdFrom(
+        browserExtensionStatus['selectedTokenId'],
+      );
       notifyListeners();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -2902,6 +2949,15 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
+  Future<void> hoverBrowserPointRuntime({
+    required int x,
+    required int y,
+  }) async {
+    try {
+      await _backendClient.hoverBrowserPoint(backendUrl, x: x, y: y);
+    } catch (_) {}
+  }
+
   Future<void> fillBrowserRuntime({
     required String selector,
     required String value,
@@ -3025,6 +3081,40 @@ class NeoAgentController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<void> startStreamRuntime({
+    required String platform,
+    required String deviceId,
+    int fps = 10,
+    int quality = 70,
+  }) async {
+    final normalizedDeviceId = deviceId.trim();
+    if (normalizedDeviceId.isEmpty) {
+      return;
+    }
+    await _backendClient.startStream(
+      backendUrl,
+      platform: platform,
+      deviceId: normalizedDeviceId,
+      fps: fps,
+      quality: quality,
+    );
+  }
+
+  Future<void> stopStreamRuntime({
+    required String platform,
+    required String deviceId,
+  }) async {
+    final normalizedDeviceId = deviceId.trim();
+    if (normalizedDeviceId.isEmpty) {
+      return;
+    }
+    await _backendClient.stopStream(
+      backendUrl,
+      platform: platform,
+      deviceId: normalizedDeviceId,
+    );
   }
 
   Future<void> dumpAndroidUiRuntime() async {
@@ -3194,6 +3284,44 @@ class NeoAgentController extends ChangeNotifier {
     await refreshDesktopFrameRuntime();
   }
 
+  Future<void> selectBrowserExtensionRuntime(String tokenId) async {
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.selectBrowserExtensionToken(
+        backendUrl,
+        tokenId: tokenId,
+      );
+      final status = response['status'] is Map
+          ? Map<String, dynamic>.from(response['status'] as Map)
+          : await _backendClient.fetchBrowserExtensionStatus(backendUrl);
+      browserExtensionStatus = Map<String, dynamic>.from(status);
+      browserExtensionTokens = _jsonMapList(
+        browserExtensionStatus['tokens'],
+        fallbackToMapValues: true,
+      );
+      selectedBrowserExtensionTokenId = _optionalIdFrom(
+        browserExtensionStatus['selectedTokenId'],
+      );
+      if (selectedBrowserExtensionTokenId != null) {
+        settings = <String, dynamic>{
+          ...settings,
+          'browser_extension_token_id': selectedBrowserExtensionTokenId,
+          'selected_browser_extension_token_id':
+              selectedBrowserExtensionTokenId,
+        };
+      }
+      browserScreenshotPath = null;
+      await refreshBrowserFrameRuntime();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> openDesktopSelectionRuntime() async {
     await refreshDevices();
     errorMessage =
@@ -3270,6 +3398,17 @@ class NeoAgentController extends ChangeNotifier {
       ),
       refreshDevicesAfter: false,
     );
+  }
+
+  Future<void> hoverDesktopRuntime({required int x, required int y}) async {
+    try {
+      await _backendClient.hoverDesktop(
+        backendUrl,
+        deviceId: selectedDesktopDeviceId,
+        x: x,
+        y: y,
+      );
+    } catch (_) {}
   }
 
   Future<void> dragDesktopRuntime({
@@ -3356,6 +3495,102 @@ class NeoAgentController extends ChangeNotifier {
         paused: paused,
       ),
     );
+  }
+
+  String workspaceDownloadUrl(String path) {
+    return '${_socketOrigin()}/${_backendClient.workspaceDownloadPath(path).replaceFirst(RegExp(r'^/'), '')}';
+  }
+
+  Future<void> refreshWorkspaceFiles({String? path}) async {
+    if (!isAuthenticated || isLoadingWorkspaceFiles) {
+      return;
+    }
+    isLoadingWorkspaceFiles = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.fetchWorkspaceDirectory(
+        backendUrl,
+        path: path ?? workspaceCurrentPath,
+      );
+      workspaceCurrentPath = response['path']?.toString() ?? '';
+      workspaceEntries = _jsonMapList(
+        response['entries'],
+        fallbackToMapValues: true,
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isLoadingWorkspaceFiles = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> openWorkspaceDirectory(String path) async {
+    workspaceSelectedFilePath = null;
+    workspaceEditorContent = '';
+    await refreshWorkspaceFiles(path: path);
+  }
+
+  Future<void> openWorkspaceFile(String path) async {
+    if (isLoadingWorkspaceFiles) {
+      return;
+    }
+    isLoadingWorkspaceFiles = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.fetchWorkspaceFile(
+        backendUrl,
+        path: path,
+      );
+      workspaceSelectedFilePath = response['path']?.toString() ?? path;
+      workspaceEditorContent = response['content']?.toString() ?? '';
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isLoadingWorkspaceFiles = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> saveWorkspaceFile(String content) async {
+    final path = workspaceSelectedFilePath?.trim() ?? '';
+    if (path.isEmpty || isSavingWorkspaceFile) {
+      return;
+    }
+    isSavingWorkspaceFile = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _backendClient.saveWorkspaceFile(
+        backendUrl,
+        path: path,
+        content: content,
+      );
+      workspaceEditorContent = content;
+      await refreshWorkspaceFiles(path: workspaceCurrentPath);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingWorkspaceFile = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> downloadWorkspaceFile(String path) async {
+    final normalized = path.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final result = await _oauthLauncher.openExternal(
+      url: workspaceDownloadUrl(normalized),
+      label: 'neoagent_workspace_file_download',
+    );
+    if (!result.launched) {
+      errorMessage = result.error ?? 'Could not open workspace file download.';
+      notifyListeners();
+    }
   }
 
   Uri resolveRuntimeAsset(String path) {
@@ -4401,12 +4636,14 @@ class NeoAgentController extends ChangeNotifier {
     String content, {
     required String platform,
     bool transient = false,
+    Map<String, dynamic> metadata = const <String, dynamic>{},
   }) {
     _appendChatMessage(
       content,
       role: 'assistant',
       platform: platform,
       transient: transient,
+      metadata: metadata,
     );
   }
 
@@ -4465,6 +4702,18 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
+  }
+
+  Future<String> transcribeDictationAudio({
+    required String audioBase64,
+    String mimeType = 'audio/pcm;rate=16000;channels=1',
+  }) async {
+    final result = await _backendClient.transcribeAudio(
+      backendUrl,
+      audioBase64: audioBase64,
+      mimeType: mimeType,
+    );
+    return result['transcript']?.toString() ?? '';
   }
 
   Future<void> sendMessage(
@@ -4564,7 +4813,9 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> saveSettings({
     required String browserBackend,
+    String? browserExtensionTokenId,
     required String cliBackend,
+    String? cliDesktopDeviceId,
     required bool smarterSelector,
     required List<String> enabledModels,
     required String defaultChatModel,
@@ -4593,7 +4844,11 @@ class NeoAgentController extends ChangeNotifier {
     final payload = <String, dynamic>{
       'headless_browser': true,
       'browser_backend': browserBackend,
+      if (browserExtensionTokenId != null)
+        'browser_extension_token_id': browserExtensionTokenId,
       'cli_backend': cliBackend,
+      if (cliDesktopDeviceId != null)
+        'cli_desktop_device_id': cliDesktopDeviceId,
       'smarter_model_selector': smarterSelector,
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
@@ -5371,12 +5626,28 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> disconnectMessagingPlatform(String platform) async {
-    await _backendClient.disconnectMessagingPlatform(
-      backendUrl,
-      platform: platform,
-      agentId: _scopedAgentId,
-    );
-    await refreshMessaging();
+    final busyKey = '$platform:disconnect';
+    if (_busyMessagingPlatformKeys.contains(busyKey)) {
+      return;
+    }
+
+    _busyMessagingPlatformKeys.add(busyKey);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _backendClient.disconnectMessagingPlatform(
+        backendUrl,
+        platform: platform,
+        agentId: _scopedAgentId,
+      );
+      await refreshMessaging();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyMessagingPlatformKeys.remove(busyKey);
+      notifyListeners();
+    }
   }
 
   Future<void> logoutMessagingPlatform(String platform) async {
@@ -5846,18 +6117,36 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> startMcpServer(int id) async {
-    await _backendClient.startMcpServer(backendUrl, id);
-    await refreshMcp();
+    try {
+      await _backendClient.startMcpServer(backendUrl, id);
+      await refreshMcp();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshMcp();
+      notifyListeners();
+    }
   }
 
   Future<void> stopMcpServer(int id) async {
-    await _backendClient.stopMcpServer(backendUrl, id);
-    await refreshMcp();
+    try {
+      await _backendClient.stopMcpServer(backendUrl, id);
+      await refreshMcp();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshMcp();
+      notifyListeners();
+    }
   }
 
   Future<void> deleteMcpServer(int id) async {
-    await _backendClient.deleteMcpServer(backendUrl, id);
-    await refreshMcp();
+    try {
+      await _backendClient.deleteMcpServer(backendUrl, id);
+      await refreshMcp();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshMcp();
+      notifyListeners();
+    }
   }
 
   Future<void> requestHealthPermissions() async {
@@ -6131,6 +6420,11 @@ class NeoAgentController extends ChangeNotifier {
   String get cliBackend =>
       settings['cli_backend']?.toString().trim().toLowerCase() ?? 'vm';
 
+  String? get cliDesktopDeviceId {
+    final v = settings['cli_desktop_device_id']?.toString().trim();
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
   String get cloudBrowserBackend {
     final browser = browserBackend;
     final profile = settings['runtime_profile']
@@ -6153,6 +6447,11 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get browserExtensionConnected =>
       browserExtensionStatus['connected'] == true;
+
+  String? get browserExtensionTokenId {
+    final v = settings['browser_extension_token_id']?.toString().trim();
+    return (v == null || v.isEmpty || v == 'null') ? null : v;
+  }
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
 
@@ -6336,7 +6635,9 @@ class NeoAgentController extends ChangeNotifier {
 
   List<ChatEntry> get visibleChatMessages {
     final entries = <ChatEntry>[...chatMessages];
-    if (isSendingMessage && activeRun != null && streamingAssistant.trim().isEmpty) {
+    if (isSendingMessage &&
+        activeRun != null &&
+        streamingAssistant.trim().isEmpty) {
       entries.add(
         ChatEntry(
           id: '',
@@ -7122,7 +7423,14 @@ class NeoAgentController extends ChangeNotifier {
       }
       final content = payload['content']?.toString().trim() ?? '';
       if (content.isNotEmpty) {
-        _appendAssistantChatMessage(content, platform: 'web');
+        final schema = payload['schema'];
+        _appendAssistantChatMessage(
+          content,
+          platform: 'web',
+          metadata: schema != null
+              ? <String, dynamic>{'schema': schema}
+              : const <String, dynamic>{},
+        );
       }
       streamingAssistant = '';
       isSendingMessage = false;

@@ -106,6 +106,36 @@ final class DesktopCompanionNativePlugin: NSObject {
         displayId: displayId
       )
       result(nil)
+    case "mouseMove":
+      guard isAccessibilityTrusted() else {
+        result(
+          FlutterError(
+            code: "accessibility_permission_denied",
+            message: "Accessibility permission is required for input control.",
+            details: nil
+          )
+        )
+        return
+      }
+      guard let arguments = call.arguments as? [String: Any],
+            let x = arguments["x"] as? NSNumber,
+            let y = arguments["y"] as? NSNumber else {
+        result(
+          FlutterError(
+            code: "invalid_arguments",
+            message: "Missing mouseMove coordinates.",
+            details: nil
+          )
+        )
+        return
+      }
+      let displayId = arguments["displayId"] as? String
+      performMouseMove(
+        x: x.doubleValue,
+        y: y.doubleValue,
+        displayId: displayId
+      )
+      result(nil)
     case "drag":
       guard isAccessibilityTrusted() else {
         result(
@@ -316,7 +346,18 @@ final class DesktopCompanionNativePlugin: NSObject {
   }
 
   private func isAccessibilityTrusted() -> Bool {
-    AXIsProcessTrusted()
+    if AXIsProcessTrusted() { return true }
+    // AXIsProcessTrusted() may cache false on macOS 14+ after a System Settings grant.
+    // Probe with a live AX read: .apiDisabled is the error returned when the process
+    // lacks accessibility permission (AXError has no .notTrusted case in the macOS SDK).
+    let sysElement = AXUIElementCreateSystemWide()
+    var value: CFTypeRef?
+    let status = AXUIElementCopyAttributeValue(
+      sysElement,
+      kAXFocusedApplicationAttribute as CFString,
+      &value
+    )
+    return status != .apiDisabled
   }
 
   private func resolveDisplayId(_ raw: String?) -> CGDirectDisplayID {
@@ -404,6 +445,20 @@ final class DesktopCompanionNativePlugin: NSObject {
     down.post(tap: .cghidEventTap)
     usleep(12000)
     up.post(tap: .cghidEventTap)
+  }
+
+  private func performMouseMove(x: Double, y: Double, displayId: String?) {
+    let point = nativePointForCapturedPixel(x: x, y: y, displayId: displayId)
+    CGWarpMouseCursorPosition(point)
+    guard let moveEvent = CGEvent(
+      mouseEventSource: nil,
+      mouseType: .mouseMoved,
+      mouseCursorPosition: point,
+      mouseButton: .left
+    ) else {
+      return
+    }
+    moveEvent.post(tap: .cghidEventTap)
   }
 
   private func performDrag(

@@ -13,36 +13,125 @@ const { TaskRepository } = require('./task_repository');
 const { TriggerRegistry } = require('./trigger_registry');
 const scheduleAdapter = require('./adapters/schedule');
 const { normalizeJsonObject } = require('./utils');
+const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
 const INTEGRATION_TRIGGER_POLL_CRON = '* * * * *';
 
+function normalizeStoredString(value) {
+  if (value == null) return '';
+  if (typeof value !== 'string') return String(value || '').trim();
+  let current = value.trim();
+  for (let i = 0; i < 2; i += 1) {
+    if (!current) return '';
+    try {
+      const parsed = JSON.parse(current);
+      if (typeof parsed === 'string') {
+        current = parsed.trim();
+        continue;
+      }
+      return '';
+    } catch {
+      return current;
+    }
+  }
+  return current;
+}
+
+function normalizeNotifyTarget(target = {}) {
+  const platform = normalizeStoredString(target.platform);
+  const to = normalizeStoredString(target.to);
+  if (!platform || !to) return null;
+  return { platform, to };
+}
+
+function stringifyTaskResult(result) {
+  if (typeof result === 'string') return result;
+  if (result == null) return '';
+  if (typeof result !== 'object') return String(result);
+
+  for (const key of ['content', 'message', 'text', 'summary', 'finalResponse', 'final_response']) {
+    if (typeof result[key] === 'string' && result[key].trim()) {
+      return result[key];
+    }
+  }
+
+  if (result.result != null && result.result !== result) {
+    const nested = stringifyTaskResult(result.result);
+    if (nested) return nested;
+  }
+
+  return '';
+}
+
 class TaskRuntime {
-  constructor(io, agentEngine, app = null) {
+  constructor(io, agentEngine, app = null, options = {}) {
     this.io = io;
     this.agentEngine = agentEngine;
     this.app = app;
+    this.cron = options.cron || cron;
     this.taskRepository = new TaskRepository();
     this.scheduleJobs = new Map();
     this.runningTaskExecutions = new Set();
+    this.activeExecutionPromises = new Set();
+    this.activePolls = new Map();
     this.integrationEventCleanups = [];
     this.triggerRegistry = new TriggerRegistry(taskAdapters);
+    this.started = false;
+    this.stopping = false;
+    this.stopPromise = null;
+    this.state = 'idle';
+    this.lastError = null;
   }
 
   get integrationManager() {
     return this.app?.locals?.integrationManager || null;
   }
 
-  start() {
-    this._loadFromDB();
-    this._startOneTimePoller();
-    this._startIntegrationPoller();
-    this.integrationEventCleanups = attachIntegrationEventSources(this);
-    console.log('[Tasks] Started');
+  getStatus() {
+    return {
+      state: this.state,
+      started: this.started,
+      stopping: this.stopping,
+      scheduledJobCount: this.scheduleJobs.size,
+      activeExecutionCount: this.activeExecutionPromises.size,
+      activePolls: Array.from(this.activePolls.keys()),
+      lastError: this.lastError,
+    };
   }
 
-  stop() {
+  start() {
+    if (this.started) {
+      return this.getStatus();
+    }
+    if (this.stopPromise) {
+      throw new Error('Task runtime cannot start while shutdown is in progress.');
+    }
+
+    this.started = true;
+    this.stopping = false;
+    this.state = 'starting';
+    this.lastError = null;
+    try {
+      this._loadFromDB();
+      this._startOneTimePoller();
+      this._startIntegrationPoller();
+      this.integrationEventCleanups = attachIntegrationEventSources(this);
+      this.state = 'running';
+      console.log('[Tasks] Started');
+      return this.getStatus();
+    } catch (error) {
+      this.lastError = error.message;
+      this.started = false;
+      this.stopping = false;
+      this.state = 'error';
+      this._stopScheduling();
+      throw error;
+    }
+  }
+
+  _stopScheduling() {
     for (const [, job] of this.scheduleJobs) {
       job.task.stop();
     }
@@ -51,12 +140,51 @@ class TaskRuntime {
       if (poller) poller.stop();
     }
     for (const cleanup of this.integrationEventCleanups) {
-      cleanup();
+      try {
+        cleanup();
+      } catch (error) {
+        console.error('[Tasks] Event source cleanup failed:', error.message);
+      }
     }
     this.integrationEventCleanups = [];
     this.oneTimePoller = null;
     this.integrationPoller = null;
-    console.log('[Tasks] Stopped');
+  }
+
+  async stop() {
+    if (this.stopPromise) {
+      return this.stopPromise;
+    }
+    if (
+      !this.started
+      && this.state === 'stopped'
+      && this.scheduleJobs.size === 0
+      && this.activePolls.size === 0
+      && this.activeExecutionPromises.size === 0
+    ) {
+      return this.getStatus();
+    }
+
+    this.started = false;
+    this.stopping = true;
+    this.state = 'stopping';
+    this._stopScheduling();
+
+    this.stopPromise = (async () => {
+      while (this.activePolls.size > 0 || this.activeExecutionPromises.size > 0) {
+        await Promise.allSettled([
+          ...this.activePolls.values(),
+          ...this.activeExecutionPromises,
+        ]);
+      }
+      this.stopping = false;
+      this.state = 'stopped';
+      console.log('[Tasks] Stopped');
+      return this.getStatus();
+    })().finally(() => {
+      this.stopPromise = null;
+    });
+    return this.stopPromise;
   }
 
   getTriggerCatalog(userId, options = {}) {
@@ -138,6 +266,8 @@ class TaskRuntime {
       manual: true,
       triggerType: task.trigger_type || 'schedule',
       triggerSource: 'manual',
+    }).catch((error) => {
+      console.error(`[Tasks] Manual task ${taskId} error:`, error.message);
     });
     return { running: true };
   }
@@ -152,9 +282,8 @@ class TaskRuntime {
     if (String(task.last_trigger_fingerprint || '') === fingerprint) {
       return { skipped: true, reason: 'duplicate_trigger' };
     }
-    this.taskRepository.markTaskTriggered(taskId, userId, fingerprint);
 
-    return this._executeTask(taskId, userId, {
+    const result = await this._executeTask(taskId, userId, {
       manual: false,
       oneTime: false,
       scheduledAt: triggerPayload.timestamp || new Date().toISOString(),
@@ -162,58 +291,106 @@ class TaskRuntime {
       triggerSource: task.trigger_type || 'schedule',
       triggerPayload: triggerPayload.context || {},
     });
+    if (!result?.error && !result?.skipped) {
+      this.taskRepository.markTaskTriggered(taskId, userId, fingerprint);
+    }
+    return result;
   }
 
   _startOneTimePoller() {
-    this.oneTimePoller = cron.schedule('* * * * *', async () => {
-      const due = this.taskRepository.listDueOneTimeTasks();
-
-      for (const task of due) {
-        this.scheduleJobs.delete(task.id);
-        try {
-          await this._executeTask(task.id, task.user_id, {
-            scheduledAt: task.run_at || new Date().toISOString(),
-            oneTime: true,
-            triggerType: 'schedule',
-            triggerSource: 'schedule',
-          });
-        } catch (err) {
-          console.error(`[Tasks] One-time task ${task.id} error:`, err.message);
-        }
-        this.taskRepository.deleteById(task.id, task.user_id);
-        this.io.to(`user:${task.user_id}`).emit('tasks:task_deleted', { taskId: task.id });
-      }
+    this.oneTimePoller = this.cron.schedule('* * * * *', () => {
+      return this._runPoll('one_time', () => this._runDueOneTimeTasks(), (error) => {
+        console.error('[Tasks] One-time task poll failed:', error.message);
+      });
     });
+  }
+
+  async _runDueOneTimeTasks() {
+    const due = this.taskRepository.listDueOneTimeTasks();
+
+    for (const task of due) {
+      this.scheduleJobs.delete(task.id);
+      try {
+        const result = await this._executeTask(task.id, task.user_id, {
+          scheduledAt: task.run_at || new Date().toISOString(),
+          oneTime: true,
+          triggerType: 'schedule',
+          triggerSource: 'schedule',
+        });
+        if (result?.skipped) {
+          continue;
+        }
+        this.taskRepository.deleteTask(task.id, task.user_id);
+        this.io.to(`user:${task.user_id}`).emit('tasks:task_deleted', { taskId: task.id });
+      } catch (err) {
+        console.error(`[Tasks] One-time task ${task.id} error:`, err.message);
+      }
+    }
   }
 
   _startIntegrationPoller() {
-    this.integrationPoller = cron.schedule(INTEGRATION_TRIGGER_POLL_CRON, async () => {
-      const tasks = this.taskRepository.listEnabledByTriggerTypes(POLLED_TRIGGER_TYPES);
-      for (const task of tasks) {
-        try {
-          await pollIntegrationTask(this, task);
-        } catch (error) {
-          console.error(`[Tasks] Trigger poll failed for task ${task.id}:`, error.message);
+    this.integrationPoller = this.cron.schedule(INTEGRATION_TRIGGER_POLL_CRON, () => {
+      return this._runPoll('integration', async () => {
+        const tasks = this.taskRepository.listEnabledByTriggerTypes(POLLED_TRIGGER_TYPES);
+        for (const task of tasks) {
+          try {
+            await pollIntegrationTask(this, task);
+          } catch (error) {
+            console.error(`[Tasks] Trigger poll failed for task ${task.id}:`, error.message);
+          }
         }
-      }
+      }, (error) => {
+        console.error('[Tasks] Integration trigger poll failed:', error.message);
+      });
     });
   }
 
+  _runPoll(name, callback, onError) {
+    const active = this.activePolls.get(name);
+    if (active) {
+      return active;
+    }
+    if (this.stopping) {
+      return Promise.resolve({ skipped: true, reason: 'runtime_stopping' });
+    }
+
+    const promise = Promise.resolve()
+      .then(callback)
+      .catch((error) => {
+        this.lastError = error.message;
+        onError(error);
+        return { error: error.message };
+      })
+      .finally(() => {
+        if (this.activePolls.get(name) === promise) {
+          this.activePolls.delete(name);
+        }
+      });
+    this.activePolls.set(name, promise);
+    return promise;
+  }
+
   async _registerTask(task) {
-    if (!task || !task.enabled) return;
+    if (!task) return;
+    this._unregisterTask(task.id);
+    if (!task.enabled) return;
     if ((task.trigger_type || 'schedule') !== 'schedule') return;
     const triggerConfig = this._normalizeJson(task.trigger_config);
     if (triggerConfig.mode === 'one_time') return;
     const cronExpression = String(triggerConfig.cronExpression || '').trim();
     if (!cronExpression) return;
-    const job = cron.schedule(cronExpression, async () => {
-      await this._executeTask(task.id, task.user_id, {
-        scheduledAt: new Date().toISOString(),
-        manual: false,
-        oneTime: false,
-        triggerType: 'schedule',
-        triggerSource: 'schedule',
-      });
+    const job = this.cron.schedule(cronExpression, async () => {
+      try {
+        await this._executeTask(task.id, task.user_id, {
+          scheduledAt: new Date().toISOString(),
+          manual: false,
+          oneTime: false,
+          triggerType: 'schedule',
+          triggerSource: 'schedule',
+        });
+      } catch (error) {
+        console.error(`[Tasks] Scheduled task ${task.id} error:`, error.message);
+      }
     });
     this.scheduleJobs.set(task.id, { task: job, userId: task.user_id });
   }
@@ -227,6 +404,9 @@ class TaskRuntime {
   }
 
   async _executeTask(taskId, userId, executionMeta = {}) {
+    if (this.stopping) {
+      return { skipped: true, reason: 'runtime_stopping' };
+    }
     const executionKey = `${userId}:${taskId}`;
     if (this.runningTaskExecutions.has(executionKey)) {
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
@@ -238,10 +418,13 @@ class TaskRuntime {
     }
 
     this.runningTaskExecutions.add(executionKey);
+    const executionPromise = this._executeTaskSerial(taskId, userId, executionMeta);
+    this.activeExecutionPromises.add(executionPromise);
     try {
-      return await this._executeTaskSerial(taskId, userId, executionMeta);
+      return await executionPromise;
     } finally {
       this.runningTaskExecutions.delete(executionKey);
+      this.activeExecutionPromises.delete(executionPromise);
     }
   }
 
@@ -273,6 +456,15 @@ class TaskRuntime {
     this.taskRepository.markTaskRun(taskId, userId);
     this.io.to(`user:${userId}`).emit('tasks:task_running', { taskId, timestamp: new Date().toISOString() });
 
+    let normalizedConfig = taskConfig;
+    const taskName = task.name || `Task ${taskId}`;
+    const deliveryState = {
+      messagingSent: false,
+      noResponse: false,
+      lastSentMessage: '',
+      sentMessages: [],
+    };
+    let completedRunId = null;
     try {
       if (task.task_type === 'widget_refresh') {
         const widgetService = this.app?.locals?.widgetService;
@@ -288,8 +480,7 @@ class TaskRuntime {
         return result;
       }
 
-      const normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
-      const taskName = task.name || `Task ${taskId}`;
+      normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
 
@@ -315,7 +506,6 @@ class TaskRuntime {
       ].filter(Boolean).join('\n\n');
 
       const conversationId = this._getTaskConversation(userId, taskId, taskName, agentId);
-      const deliveryState = { messagingSent: false, lastSentMessage: '', sentMessages: [] };
       let attempt = 0;
       let recoveryNote = '';
       while (attempt <= MAX_AUTONOMOUS_RETRIES) {
@@ -330,6 +520,7 @@ class TaskRuntime {
           deliveryState,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
           skipTaskAnalysis: true,
+          skipDeliverableWorkflow: true,
           skipGlobalRecall: true,
           skipConversationHistory: true,
           skipConversationMaintenance: true,
@@ -342,11 +533,42 @@ class TaskRuntime {
           const result = typeof this.agentEngine.runWithModel === 'function'
             ? await this.agentEngine.runWithModel(userId, finalPrompt, runOptions, normalizedConfig.model || null)
             : await this.agentEngine.run(userId, finalPrompt, runOptions);
+          completedRunId = result?.runId || null;
+          const fallbackDelivery = await this._deliverTaskResultIfNeeded({
+            userId,
+            agentId,
+            taskId,
+            taskConfig: normalizedConfig,
+            result,
+            deliveryState,
+          });
+          if (fallbackDelivery && result && typeof result === 'object') {
+            result.taskDelivery = fallbackDelivery;
+          }
+          if (fallbackDelivery?.error) {
+            const deliveryError = new Error(fallbackDelivery.error);
+            deliveryError.code = 'TASK_DELIVERY_FAILED';
+            throw deliveryError;
+          }
+          if (
+            !deliveryState.messagingSent
+            && !deliveryState.noResponse
+            && !stringifyTaskResult(result).trim()
+          ) {
+            throw new Error(
+              'Background task completed without producing a result or an explicit no-response decision.',
+            );
+          }
           this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
           return result;
         } catch (err) {
+          if (completedRunId) {
+            this.taskRepository.markAgentRunFailed(completedRunId, userId, err.message);
+          }
+          if (err?.code === 'TASK_DELIVERY_FAILED') throw err;
           if (attempt >= MAX_AUTONOMOUS_RETRIES) throw err;
           attempt += 1;
+          completedRunId = null;
           recoveryNote = [
             '\n\n[SYSTEM: Previous task attempt failed]',
             `Error: ${String(err?.message || 'Unknown runtime error')}`,
@@ -361,8 +583,24 @@ class TaskRuntime {
       }
     } catch (err) {
       console.error(`[Tasks] Task ${taskId} error:`, err.message);
-      this.io.to(`user:${userId}`).emit('tasks:task_error', { taskId, error: err.message });
-      return { skipped: false, error: err.message };
+      if (err?.code !== 'TASK_DELIVERY_FAILED') {
+        await this._deliverTaskResultIfNeeded({
+          userId,
+          agentId,
+          taskId,
+          taskConfig: normalizedConfig,
+          result: {
+            content: `Background task "${taskName}" could not complete after retrying. Check the task run logs for details.`,
+          },
+          deliveryState,
+        });
+      }
+      this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
+        taskId,
+        reason: 'execution_failed',
+        timestamp: new Date().toISOString(),
+      });
+      return { skipped: false, error: err.message, runId: completedRunId };
     }
   }
 
@@ -451,7 +689,10 @@ class TaskRuntime {
       triggerSummary,
       nextRun: triggerType === 'schedule' ? scheduleAdapter.nextRun(triggerConfig) : null,
       enabled: !!row.enabled,
-      lastRun: row.last_run || null,
+      lastRun: row.last_run_started_at || row.last_run || null,
+      lastRunId: row.last_run_id || null,
+      lastRunStatus: row.last_run_status || null,
+      lastRunError: row.last_run_error || null,
       lastTriggeredAt: row.last_triggered_at || null,
       taskType: row.task_type || 'agent_prompt',
       taskConfig,
@@ -485,23 +726,141 @@ class TaskRuntime {
 
   _getDefaultNotifyTarget(userId, agentId = null) {
     const scopedAgentId = resolveAgentId(userId, agentId);
-    return {
+    return normalizeNotifyTarget({
       platform: this._getAgentSetting(userId, scopedAgentId, 'last_platform'),
       to: this._getAgentSetting(userId, scopedAgentId, 'last_chat_id'),
-    };
+    });
+  }
+
+  _buildNotifyTargets(userId, agentId, taskConfig = {}) {
+    const scopedAgentId = resolveAgentId(userId, agentId);
+    const candidates = [
+      normalizeNotifyTarget({
+        platform: taskConfig.notifyPlatform,
+        to: taskConfig.notifyTo,
+      }),
+      this._getDefaultNotifyTarget(userId, scopedAgentId),
+      ...this.taskRepository.listRecentMessageTargets(userId, scopedAgentId).map((row) => normalizeNotifyTarget({
+        platform: row.platform,
+        to: row.platform_chat_id,
+      })),
+    ];
+
+    const unique = [];
+    const seen = new Set();
+    for (const target of candidates) {
+      if (!target) continue;
+      const key = `${target.platform}:${target.to}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(target);
+    }
+    return unique;
   }
 
   _ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId) {
     const normalized = { ...taskConfig };
-    if (!normalized.callTo && (!normalized.notifyPlatform || !normalized.notifyTo)) {
-      const notifyTarget = this._getDefaultNotifyTarget(userId, agentId);
-      if (notifyTarget.platform && notifyTarget.to) {
+    const existingTarget = normalizeNotifyTarget({
+      platform: normalized.notifyPlatform,
+      to: normalized.notifyTo,
+    });
+    if (existingTarget) {
+      normalized.notifyPlatform = existingTarget.platform;
+      normalized.notifyTo = existingTarget.to;
+    }
+    if (!normalized.callTo && !existingTarget) {
+      const notifyTarget = this._buildNotifyTargets(userId, agentId, normalized)[0];
+      if (notifyTarget) {
         normalized.notifyPlatform = notifyTarget.platform;
         normalized.notifyTo = notifyTarget.to;
-        this.taskRepository.updateTaskConfig(taskId, userId, normalized);
       }
     }
+    if (
+      normalized.notifyPlatform !== taskConfig.notifyPlatform
+      || normalized.notifyTo !== taskConfig.notifyTo
+    ) {
+      this.taskRepository.updateTaskConfig(taskId, userId, normalized);
+    }
     return normalized;
+  }
+
+  async _deliverTaskResultIfNeeded({
+    userId,
+    agentId,
+    taskId,
+    taskConfig,
+    result,
+    deliveryState,
+  }) {
+    if (deliveryState?.messagingSent || deliveryState?.noResponse || taskConfig.callTo) return null;
+    const targets = this._buildNotifyTargets(userId, agentId, taskConfig);
+    if (!targets.length) return null;
+
+    const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
+    if (!manager) {
+      return {
+        sent: false,
+        error: 'Messaging delivery is unavailable on this server.',
+      };
+    }
+
+    let lastError = null;
+    for (const target of targets) {
+      const message = normalizeOutgoingMessageForPlatform(
+        target.platform,
+        stringifyTaskResult(result),
+        { stripNoResponseMarker: false },
+      );
+      if (!message || message.toUpperCase() === '[NO RESPONSE]') return null;
+
+      const status = typeof manager.getPlatformStatus === 'function'
+        ? manager.getPlatformStatus(userId, target.platform, { agentId })
+        : null;
+      if (!status || status.status !== 'connected') {
+        lastError = new Error(`Platform ${target.platform} is not connected on this server.`);
+        continue;
+      }
+
+      try {
+        const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
+          agentId,
+          runId: result?.runId || null,
+          persistConversation: true,
+        });
+        deliveryState.messagingSent = true;
+        deliveryState.lastSentMessage = message;
+        if (!Array.isArray(deliveryState.sentMessages)) {
+          deliveryState.sentMessages = [];
+        }
+        deliveryState.sentMessages.push(message);
+
+        if (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to) {
+          this.taskRepository.updateTaskConfig(taskId, userId, {
+            ...taskConfig,
+            notifyPlatform: target.platform,
+            notifyTo: target.to,
+          });
+        }
+
+        return {
+          sent: true,
+          platform: target.platform,
+          to: target.to,
+          result: sendResult,
+        };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError) {
+      console.error(`[Tasks] Task ${taskId} notification delivery failed:`, lastError.message);
+      return {
+        sent: false,
+        error: lastError.message,
+      };
+    }
+    return null;
   }
 
   _getTaskConversation(userId, taskId, taskName, agentId = null) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,6 +8,20 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'desktop_native_bridge.dart';
 import 'desktop_screen_capture.dart';
+
+// ─── Isolate helpers for JPEG compression ────────────────────────────────────
+// `compressToJpeg` offloads the CPU-intensive pure-Dart PNG→JPEG conversion
+// to a background isolate via `compute()` so the main isolate's event loop
+// stays free to process incoming WebSocket commands (click, drag, etc.)
+// immediately, rather than queuing behind a 300–600 ms compression job.
+
+typedef _JpegArgs = ({Uint8List bytes, int quality});
+
+Uint8List _compressJpegInIsolate(_JpegArgs args) {
+  final decoded = img.decodeImage(args.bytes);
+  if (decoded == null) return args.bytes;
+  return Uint8List.fromList(img.encodeJpg(decoded, quality: args.quality));
+}
 
 class DesktopCompanionSnapshot {
   const DesktopCompanionSnapshot({
@@ -85,9 +100,15 @@ class DesktopCompanionActions {
       if (bytes is! Uint8List || bytes.isEmpty) {
         return null;
       }
-      final decoded = img.decodeImage(bytes);
-      final width = (frame['width'] as num?)?.round() ?? decoded?.width ?? 0;
-      final height = (frame['height'] as num?)?.round() ?? decoded?.height ?? 0;
+      // Prefer dimensions reported by the native bridge; only fall back to a
+      // pure-Dart image decode (which is slow) when the bridge omits them.
+      final nativeWidth = (frame['width'] as num?)?.round();
+      final nativeHeight = (frame['height'] as num?)?.round();
+      final decoded = (nativeWidth == null || nativeHeight == null)
+          ? img.decodeImage(bytes)
+          : null;
+      final width = nativeWidth ?? decoded?.width ?? 0;
+      final height = nativeHeight ?? decoded?.height ?? 0;
       final displays = _normalizeDisplays(
         frame['displays'],
         fallbackDisplayId:
@@ -176,6 +197,21 @@ class DesktopCompanionActions {
     };
   }
 
+  Future<Uint8List> compressToJpeg(
+    DesktopCompanionSnapshot snapshot,
+    int quality,
+  ) async {
+    final raw = _decodeScreenshotBytes(snapshot.screenshotBase64);
+    // Already JPEG — return immediately without any heavy work on this isolate.
+    if (_looksLikeJpeg(raw)) return raw;
+    // Run the pure-Dart PNG decode + JPEG encode in a background isolate so the
+    // main isolate's event loop stays responsive for incoming commands.
+    return compute(
+      _compressJpegInIsolate,
+      (bytes: raw, quality: quality.clamp(30, 95)),
+    );
+  }
+
   Future<Map<String, Object?>> observe({
     bool includeTree = false,
     String? activeDisplayId,
@@ -220,6 +256,32 @@ class DesktopCompanionActions {
       throw Exception('click is not supported on this platform.');
     }
     return <String, Object?>{'success': true, 'x': x, 'y': y, 'button': button};
+  }
+
+  Future<Map<String, Object?>> mouseMove({
+    required int x,
+    required int y,
+    String? displayId,
+  }) async {
+    await _assertInputSupported('mouseMove');
+    if (_usesNativeDesktopBridge) {
+      await _nativeBridge.mouseMove(
+        x: x,
+        y: y,
+        displayId: displayId,
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.linux) {
+      await _run(
+        _ShellCommand('xdotool', <String>[
+          'mousemove',
+          '$x',
+          '$y',
+        ]),
+      );
+    } else {
+      throw Exception('mouseMove is not supported on this platform.');
+    }
+    return <String, Object?>{'success': true, 'x': x, 'y': y};
   }
 
   Future<Map<String, Object?>> drag({
@@ -396,6 +458,77 @@ class DesktopCompanionActions {
     };
   }
 
+  Future<Map<String, Object?>> executeShellCommand({
+    required String command,
+    String? cwd,
+    int? timeoutMs,
+    String? stdinInput,
+  }) async {
+    final shell = Platform.isWindows ? 'cmd.exe' : (Platform.environment['SHELL'] ?? '/bin/sh');
+    final args = Platform.isWindows ? <String>['/c', command] : <String>['-lc', command];
+    final workingDir = cwd?.trim().isNotEmpty == true ? cwd : Platform.environment['HOME'];
+    final startedAt = DateTime.now();
+
+    final process = await Process.start(
+      shell,
+      args,
+      workingDirectory: workingDir,
+      runInShell: false,
+    );
+
+    if (stdinInput != null && stdinInput.isNotEmpty) {
+      process.stdin.write(stdinInput);
+      await process.stdin.close();
+    } else {
+      unawaited(process.stdin.close());
+    }
+
+    const maxChars = 50000;
+    final stdoutBuf = StringBuffer();
+    final stderrBuf = StringBuffer();
+
+    final stdoutSub = process.stdout.transform(utf8.decoder).listen((data) {
+      stdoutBuf.write(data);
+    });
+    final stderrSub = process.stderr.transform(utf8.decoder).listen((data) {
+      stderrBuf.write(data);
+    });
+
+    final effectiveTimeout = Duration(
+      milliseconds: (timeoutMs != null && timeoutMs > 0) ? timeoutMs : 15 * 60 * 1000,
+    );
+
+    bool timedOut = false;
+    int? exitCode;
+    try {
+      exitCode = await process.exitCode.timeout(effectiveTimeout);
+    } on TimeoutException {
+      timedOut = true;
+      process.kill(ProcessSignal.sigterm);
+      exitCode = null;
+    }
+
+    await stdoutSub.cancel();
+    await stderrSub.cancel();
+
+    String trimOutput(StringBuffer buf) {
+      final s = buf.toString().trim();
+      return s.length > maxChars ? '${s.substring(0, maxChars)}\n...[truncated, ${s.length} total chars]' : s;
+    }
+
+    return <String, Object?>{
+      'exitCode': exitCode,
+      'stdout': trimOutput(stdoutBuf),
+      'stderr': trimOutput(stderrBuf),
+      'timedOut': timedOut,
+      'killed': timedOut,
+      'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
+      'command': command,
+      'cwd': workingDir,
+      'backend': 'desktop-companion',
+    };
+  }
+
   Future<Map<String, Object?>> _capabilities({
     Map<String, Object?>? platformStatus,
   }) async {
@@ -514,6 +647,23 @@ class DesktopCompanionActions {
     } catch (_) {
       return null;
     }
+  }
+
+  Uint8List _decodeScreenshotBytes(String screenshotBase64) {
+    final trimmed = screenshotBase64.trim();
+    final commaIndex = trimmed.indexOf(',');
+    final encoded = trimmed.startsWith('data:image/') && commaIndex >= 0
+        ? trimmed.substring(commaIndex + 1)
+        : trimmed;
+    return Uint8List.fromList(base64Decode(encoded));
+  }
+
+  bool _looksLikeJpeg(Uint8List bytes) {
+    return bytes.length >= 4 &&
+        bytes[0] == 0xff &&
+        bytes[1] == 0xd8 &&
+        bytes[bytes.length - 2] == 0xff &&
+        bytes[bytes.length - 1] == 0xd9;
   }
 
   String _normalizeMouseButton(String button) {

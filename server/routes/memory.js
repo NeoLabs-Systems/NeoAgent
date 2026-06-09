@@ -111,13 +111,19 @@ router.get('/', (req, res) => {
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const coreMemory = { ...(mm.getCoreMemory(userId, { agentId }) || {}) };
   delete coreMemory.active_context;
+  const knowledgeViews = mm.listKnowledgeViews(userId, { agentId, limit: 12 });
   res.json({
     agentId,
     assistantBehaviorNotes: mm.getAssistantBehaviorNotes(userId, { agentId }),
     assistantSelfState: mm.getAssistantSelfState(userId, { agentId }),
     dailyLogs: mm.listDailyLogs(7, userId),
     apiKeys: Object.keys(mm.readApiKeys(userId)),
-    coreMemory
+    coreMemory,
+    stats: mm.getMemoryStats(userId, { agentId }),
+    entities: mm.listEntities(userId, { agentId, limit: 12 }),
+    knowledgeViews,
+    ingestionOverview: mm.getIngestionOverview(userId, { agentId }),
+    recentKnowledgeChanges: mm.listRecentKnowledgeChanges(userId, { agentId, limit: 8 }),
   });
 });
 
@@ -157,6 +163,7 @@ router.get('/ingestion/status', (req, res) => {
       jobs: mm.listIngestionJobs(userId, { agentId }),
       recentChanges: mm.listRecentKnowledgeChanges(userId, { agentId }),
       connections: ingestionService?.listConnectionStatuses?.(userId, { agentId }) || [],
+      service: ingestionService?.getStatus?.() || { state: 'unavailable' },
     });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -197,6 +204,21 @@ router.get('/knowledge-views', (req, res) => {
     res.json(mm.listKnowledgeViews(userId, {
       agentId,
       viewType: req.query.viewType || null,
+      limit: req.query.limit,
+    }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/entities', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  try {
+    res.json(mm.listEntities(userId, {
+      agentId,
+      query: req.query.query || null,
       limit: req.query.limit,
     }));
   } catch (err) {

@@ -347,10 +347,14 @@ class AndroidController {
   // ── Actions ───────────────────────────────────────────────────────────────
 
   async screenshot(_opts = {}) {
-    const serial = this.#requireSerial();
-    const r = this.#adbCapture(serial, ['exec-out', 'screencap', '-p']);
+    const r = await this.capturePng();
     if (!r?.length) throw new Error('screencap returned no data');
     return { screenshotPath: this.#saveArtifact(r) };
+  }
+
+  async capturePng(_opts = {}) {
+    const serial = this.#requireSerial();
+    return this.#adbCaptureAsync(serial, ['exec-out', 'screencap', '-p']);
   }
 
   async observe(_opts = {}) { return this.screenshot(); }
@@ -467,6 +471,41 @@ class AndroidController {
   #adbCapture(serial, args) {
     const r = spawnSync(adbBin(this.sdkDir), ['-s', serial, ...args], { maxBuffer: 20 * 1024 * 1024, timeout: 15000 });
     return (r.status === 0 && r.stdout?.length) ? r.stdout : null;
+  }
+
+  #adbCaptureAsync(serial, args) {
+    return new Promise((resolve, reject) => {
+      const proc = spawn(adbBin(this.sdkDir), ['-s', serial, ...args]);
+      const chunks = [];
+      const errors = [];
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        try { proc.kill('SIGKILL'); } catch {}
+        reject(new Error('adb capture timed out'));
+      }, 15000);
+      timer.unref?.();
+      proc.stdout?.on('data', (chunk) => chunks.push(chunk));
+      proc.stderr?.on('data', (chunk) => errors.push(chunk));
+      proc.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      });
+      proc.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (code === 0 && chunks.length) {
+          resolve(Buffer.concat(chunks));
+          return;
+        }
+        const message = Buffer.concat(errors).toString('utf8').trim();
+        reject(new Error(message || `adb capture exit ${code}`));
+      });
+    });
   }
 
   #saveArtifact(data) {

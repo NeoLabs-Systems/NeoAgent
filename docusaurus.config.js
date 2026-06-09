@@ -98,7 +98,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright ${new Date().getFullYear()} NeoLabs Systems. Released under the MIT License.`,
+        copyright: `Copyright ${new Date().getFullYear()} NeoLabs Systems. Released under the GNU AGPLv3 License.`,
       },
     }),
 };

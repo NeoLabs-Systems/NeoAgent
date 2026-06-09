@@ -1,13 +1,15 @@
 import { createBrowserProtocol } from './protocol.mjs';
 import { DEFAULT_SERVER_URL } from './config.mjs';
 
-const STORAGE_KEYS = ['serverUrl', 'configuredServerUrl', 'token', 'pairingId', 'pairingSecret', 'approvalUrl', 'status'];
+const STORAGE_KEYS = ['serverUrl', 'configuredServerUrl', 'token', 'pairingId', 'pairingSecret', 'approvalUrl', 'status', 'extensionName'];
 const protocol = createBrowserProtocol(chrome);
 let socket = null;
 let reconnectTimer = null;
 let suppressSocketClose = false;
 const DEFAULT_FETCH_TIMEOUT_MS = 10000;
 const DEFAULT_WS_CONNECT_TIMEOUT_MS = 10000;
+const KEEPALIVE_ALARM_NAME = 'neoagent-extension-keepalive';
+const KEEPALIVE_ALARM_MINUTES = 1;
 const EXTENSION_PROTOCOL_VERSION = 1;
 
 function getStorage(keys = STORAGE_KEYS) {
@@ -79,6 +81,12 @@ async function updateStatus(status) {
 function clearReconnectTimer() {
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
+}
+
+function ensureKeepaliveAlarm() {
+  chrome.alarms?.create?.(KEEPALIVE_ALARM_NAME, {
+    periodInMinutes: KEEPALIVE_ALARM_MINUTES,
+  });
 }
 
 async function handleSocketDisconnected(ws) {
@@ -188,10 +196,12 @@ async function handleSocketMessage(raw) {
 async function startPairing(serverUrl) {
   const normalized = await resolveServerUrl(serverUrl);
   if (!normalized) throw new Error('NeoAgent server URL required.');
+  const { extensionName } = await getStorage(['extensionName']);
+  const nameToUse = String(extensionName || 'Chrome Extension').trim() || 'Chrome Extension';
   const response = await fetchWithTimeout(`${normalized}/api/browser-extension/pairing/request`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ extensionName: 'NeoAgent Browser' }),
+    body: JSON.stringify({ extensionName: nameToUse }),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Pairing failed: ${response.status}`);
@@ -212,14 +222,15 @@ async function startPairing(serverUrl) {
 }
 
 async function claimPairing() {
-  const { serverUrl, pairingId, pairingSecret } = await getStorage(['serverUrl', 'pairingId', 'pairingSecret']);
+  const { serverUrl, pairingId, pairingSecret, extensionName } = await getStorage(['serverUrl', 'pairingId', 'pairingSecret', 'extensionName']);
   if (!serverUrl || !pairingId || !pairingSecret) {
     throw new Error('No pending pairing request.');
   }
+  const nameToUse = String(extensionName || 'Chrome Extension').trim() || 'Chrome Extension';
   const response = await fetchWithTimeout(`${serverUrl}/api/browser-extension/pairing/${encodeURIComponent(pairingId)}/claim`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ pairingSecret, extensionName: 'NeoAgent Browser' }),
+    body: JSON.stringify({ pairingSecret, extensionName: nameToUse }),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Claim failed: ${response.status}`);
@@ -250,12 +261,18 @@ async function checkForUpdates(preferredServerUrl) {
   const response = await fetchWithTimeout(`${serverUrl}/api/browser-extension/latest`);
   const latest = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(latest.error || `Update check failed: ${response.status}`);
-  const currentVersion = chrome.runtime.getManifest().version;
+  const manifest = chrome.runtime.getManifest();
+  const currentVersion = manifest.version;
+  const currentVersionName = manifest.version_name || currentVersion;
+  const latestVersion = latest.version || currentVersion;
+  const latestVersionName = latest.versionName || latestVersion;
   return {
     currentVersion,
-    latestVersion: latest.version || currentVersion,
+    currentVersionName,
+    latestVersion,
+    latestVersionName,
     downloadUrl: latest.downloadUrl || `${serverUrl}/api/browser-extension/download`,
-    updateAvailable: compareVersions(latest.version, currentVersion) > 0,
+    updateAvailable: compareVersions(latestVersion, currentVersion) > 0,
   };
 }
 
@@ -279,6 +296,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return disconnect();
       case 'checkForUpdates':
         return checkForUpdates(message.serverUrl);
+      case 'saveExtensionName':
+        await setStorage({ extensionName: message.extensionName });
+        return { success: true };
       case 'openDownload':
         return openDownload(message.serverUrl);
       case 'getState':
@@ -296,4 +316,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
+chrome.alarms?.onAlarm?.addListener((alarm) => {
+  if (alarm?.name !== KEEPALIVE_ALARM_NAME) return;
+  connect().catch((error) => {
+    console.error('NeoAgent keepalive reconnect failed', error);
+  });
+});
+
+chrome.runtime.onStartup?.addListener(() => {
+  ensureKeepaliveAlarm();
+  connect().catch(() => {});
+});
+
+chrome.runtime.onInstalled?.addListener(() => {
+  ensureKeepaliveAlarm();
+  connect().catch(() => {});
+});
+
+ensureKeepaliveAlarm();
 connect().catch(() => {});

@@ -141,6 +141,20 @@ router.post('/click-point', async (req, res) => {
   }
 });
 
+router.post('/mouse-move', async (req, res) => {
+  try {
+    const { x, y } = req.body || {};
+    if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+      return res.status(400).json({ error: 'x and y required' });
+    }
+    const bc = await getBrowserController(req);
+    const result = await bc.hoverPoint(x, y, req.body || {});
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 // Fill form field
 router.post('/fill', async (req, res) => {
   try {

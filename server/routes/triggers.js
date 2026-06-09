@@ -13,10 +13,10 @@ router.post('/geofence', async (req, res) => {
   const { label, latitude, longitude, radius_meters, action } = req.body;
 
   try {
-    const userRow = db.prepare('SELECT id FROM users WHERE id = ?').get(req.user.id);
+    const userRow = db.prepare('SELECT id FROM users WHERE id = ?').get(req.session.userId);
     if (!userRow) return res.status(401).json({ error: 'Unauthorized' });
 
-    console.log(`[Triggers] Geofence entered: ${label} by user ${req.user.id}`);
+    console.log(`[Triggers] Geofence entered: ${label} by user ${req.session.userId}`);
 
     res.json({ success: true, message: 'Geofence trigger processed' });
   } catch (err) {
@@ -29,14 +29,14 @@ router.post('/geofence', async (req, res) => {
   Promise.resolve().then(() => {
     const agentEngine = req.app.locals.agentEngine;
     if (!agentEngine) return;
-    const defaultAgentId = db.prepare('SELECT id FROM agents WHERE user_id = ? ORDER BY is_default DESC LIMIT 1').get(req.user.id)?.id;
+    const defaultAgentId = db.prepare('SELECT id FROM agents WHERE user_id = ? ORDER BY is_default DESC LIMIT 1').get(req.session.userId)?.id;
     if (!defaultAgentId) return;
     const prompt = [
       `A geofence event was triggered.`,
       `Location label: ${label || 'unknown'}`,
       action ? `Suggested action: ${action}` : 'Check if there are any active reminders or tasks related to this location.',
     ].join('\n');
-    return agentEngine.run(req.user.id, prompt, {
+    return agentEngine.run(req.session.userId, prompt, {
       agentId: defaultAgentId,
       triggerSource: 'tasks',
       context: { source: 'geofence', label, latitude, longitude, radius_meters },

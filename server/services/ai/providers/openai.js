@@ -1,29 +1,31 @@
 const OpenAI = require('openai');
-const { BaseProvider } = require('./base');
+const { OpenAICompatibleProvider } = require('./openaiCompatible');
 
-class OpenAIProvider extends BaseProvider {
+class OpenAIProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'openai';
     this.models = [
+      'gpt-5.5',
       'gpt-5',
       'gpt-5-mini',
       'gpt-5-nano',
       'gpt-5.2',
-      'gpt-4.1',
       'o3',
+      'o3-pro',
       'o4-mini'
     ];
     // Reasoning models: no temperature, use max_completion_tokens, support reasoning_effort
-    this.reasoningModels = new Set(['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2', 'gpt-5.1', 'o1', 'o3', 'o4-mini', 'o3-mini']);
+    this.reasoningModels = new Set(['gpt-5.5', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2', 'gpt-5.1', 'o1', 'o3', 'o3-pro', 'o4-mini', 'o3-mini']);
     this.contextWindows = {
+      'gpt-5.5': 1000000,
       'gpt-5': 400000,
-      'gpt-5-mini': 200000,
+      'gpt-5-mini': 400000,
       'gpt-5-nano': 128000,
       'gpt-5.2': 400000,
       'gpt-5.1': 400000,
-      'gpt-4.1': 1047576,
       'o3': 200000,
+      'o3-pro': 200000,
       'o4-mini': 200000,
       'o3-mini': 200000
     };
@@ -32,6 +34,18 @@ class OpenAIProvider extends BaseProvider {
       baseURL: config.baseUrl || process.env.OPENAI_BASE_URL || undefined,
       defaultHeaders: config.defaultHeaders || undefined
     });
+  }
+
+  async listModels() {
+    try {
+      const res = await this.client.models.list();
+      const DROP = /dall-e|whisper|tts|embed|moderat|realtime|audio|transcribe|search-api|-image-|babbage|davinci-002|^sora|-instruct/i;
+      return res.data
+        .filter((m) => !DROP.test(m.id))
+        .map((m) => ({ id: m.id, name: m.id }));
+    } catch (err) {
+      throw new Error(`Failed to list OpenAI models: ${err.message || String(err)}`);
+    }
   }
 
   isReasoningModel(model) {
@@ -173,31 +187,6 @@ class OpenAIProvider extends BaseProvider {
     }
   }
 
-  async analyzeImage(options = {}) {
-    const model = options.model || this.getDefaultVisionModel();
-    const b64 = BaseProvider.readImageAsBase64(options.imagePath);
-    const response = await this.client.chat.completions.create({
-      model,
-      max_tokens: options.maxTokens || 4096,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: options.question || 'Describe this image in detail.' },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${options.mimeType || 'image/jpeg'};base64,${b64}`
-            }
-          }
-        ]
-      }]
-    });
-
-    return {
-      content: response.choices[0]?.message?.content || '',
-      model: response.model || model,
-    };
-  }
 }
 
 module.exports = { OpenAIProvider };

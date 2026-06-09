@@ -25,6 +25,19 @@ class DesktopCompanionManager extends ChangeNotifier {
   final DesktopCompanionActions _actions;
   WebSocket? _socket;
   Timer? _reconnectTimer;
+  Timer? _connectionWatchdogTimer;
+  Timer? _streamTimer;
+  bool _streamCaptureInFlight = false;
+  // Set true while a click / drag / scroll / typeText / pressKey command is
+  // being executed.  _captureAndSendBinaryFrame respects this flag so it does
+  // not compete with the input command for the native bridge or the WebSocket
+  // send buffer, and a fresh frame is forced immediately after the action.
+  bool _inputCommandInFlight = false;
+  int _frameSeq = 0;
+  int _streamGeneration = 0;
+  // Tracks the current stream quality so the forced post-input capture can use
+  // the same setting without re-parsing the original startStream payload.
+  int _currentStreamQuality = 80;
 
   String _backendUrl = '';
   String _sessionCookie = '';
@@ -52,7 +65,8 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   Future<void> bootstrap(SharedPreferences prefs) async {
     _enabled = prefs.getBool(desktopCompanionEnabledPrefsKey) ?? false;
-    _paused = prefs.getBool(desktopCompanionPausedPrefsKey) ?? false;
+    // Always start unpaused — paused state must not carry over across restarts.
+    _paused = false;
     _label =
         prefs.getString(desktopCompanionLabelPrefsKey)?.trim() ??
         _defaultLabel();
@@ -81,6 +95,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       await disconnect();
       return;
     }
+    _ensureConnectionWatchdog();
     await _ensureConnected();
   }
 
@@ -116,7 +131,6 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   Future<void> setPaused(bool value, SharedPreferences prefs) async {
     _paused = value;
-    await prefs.setBool(desktopCompanionPausedPrefsKey, value);
     notifyListeners();
     if (_connected) {
       await _sendEvent('statusChanged', <String, Object?>{'paused': value});
@@ -126,6 +140,9 @@ class DesktopCompanionManager extends ChangeNotifier {
   Future<void> disconnect() async {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _connectionWatchdogTimer?.cancel();
+    _connectionWatchdogTimer = null;
+    _stopStreaming();
     _connecting = false;
     _connected = false;
     final socket = _socket;
@@ -211,6 +228,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         uri.toString(),
         headers: <String, Object>{'Cookie': _sessionCookie},
       );
+      socket.pingInterval = const Duration(seconds: 25);
       _socket = socket;
       socket.listen(
         _handleMessage,
@@ -281,6 +299,19 @@ class DesktopCompanionManager extends ChangeNotifier {
     }
   }
 
+  // Commands that interact with the remote machine's input system.  While one
+  // of these is executing we pause frame captures so the WebSocket send buffer
+  // is clear for the result message, and to avoid the native bridge being busy
+  // with a screenshot when the click/drag/etc. needs to run.
+  static const _inputCommands = <String>{
+    'click',
+    'mouseMove',
+    'drag',
+    'scroll',
+    'typeText',
+    'pressKey',
+  };
+
   Future<void> _handleCommand(Map<String, Object?> message) async {
     final id = message['id']?.toString() ?? '';
     final command = message['command']?.toString() ?? '';
@@ -289,6 +320,10 @@ class DesktopCompanionManager extends ChangeNotifier {
             (key, value) => MapEntry(key.toString(), value),
           )
         : const <String, Object?>{};
+
+    final isInput = _inputCommands.contains(command);
+    if (isInput) _inputCommandInFlight = true;
+
     try {
       final response = await _dispatchCommand(command, payload);
       _socket?.add(
@@ -299,6 +334,18 @@ class DesktopCompanionManager extends ChangeNotifier {
           'payload': response,
         }),
       );
+      // Immediately capture a fresh frame after an input action so the user
+      // sees the result of their interaction without waiting for the next
+      // timer tick.
+      if (isInput && _streamTimer != null && _connected) {
+        unawaited(
+          _captureAndSendBinaryFrame(
+            _currentStreamQuality,
+            _streamGeneration,
+            forced: true,
+          ),
+        );
+      }
     } catch (error) {
       _socket?.add(
         jsonEncode(<String, Object?>{
@@ -308,6 +355,8 @@ class DesktopCompanionManager extends ChangeNotifier {
           'error': '$error',
         }),
       );
+    } finally {
+      if (isInput) _inputCommandInFlight = false;
     }
   }
 
@@ -327,6 +376,10 @@ class DesktopCompanionManager extends ChangeNotifier {
         );
       case 'captureFrame':
         return _actions.captureFrame(activeDisplayId: _activeDisplayId);
+      case 'startStream':
+        return _startStreaming(payload);
+      case 'stopStream':
+        return _stopStreaming();
       case 'observe':
         return _actions.observe(
           includeTree: payload['includeTree'] == true,
@@ -337,6 +390,12 @@ class DesktopCompanionManager extends ChangeNotifier {
           x: (payload['x'] as num?)?.round() ?? 0,
           y: (payload['y'] as num?)?.round() ?? 0,
           button: payload['button']?.toString() ?? 'left',
+          displayId: _activeDisplayId,
+        );
+      case 'mouseMove':
+        return _actions.mouseMove(
+          x: (payload['x'] as num?)?.round() ?? 0,
+          y: (payload['y'] as num?)?.round() ?? 0,
           displayId: _activeDisplayId,
         );
       case 'drag':
@@ -387,10 +446,15 @@ class DesktopCompanionManager extends ChangeNotifier {
       case 'pauseControl':
         final paused = payload['paused'] != false;
         _paused = paused;
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool(desktopCompanionPausedPrefsKey, paused);
         notifyListeners();
         return <String, Object?>{'success': true, 'paused': _paused};
+      case 'executeCommand':
+        return _actions.executeShellCommand(
+          command: payload['command']?.toString() ?? '',
+          cwd: payload['cwd']?.toString(),
+          timeoutMs: (payload['timeout'] as num?)?.toInt(),
+          stdinInput: payload['stdin_input']?.toString(),
+        );
       case 'ping':
         return <String, Object?>{'pong': true};
       default:
@@ -399,6 +463,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   }
 
   void _handleSocketClosed() {
+    _stopStreaming();
     _socket = null;
     _connecting = false;
     _connected = false;
@@ -410,6 +475,9 @@ class DesktopCompanionManager extends ChangeNotifier {
   void dispose() {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _connectionWatchdogTimer?.cancel();
+    _connectionWatchdogTimer = null;
+    _stopStreaming();
     _connecting = false;
     _connected = false;
     _enabled = false;
@@ -425,9 +493,25 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   void _scheduleReconnect() {
     if (!_enabled || !_authenticated || _sessionCookie.isEmpty) return;
+    _ensureConnectionWatchdog();
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 5), () {
       unawaited(_ensureConnected());
+    });
+  }
+
+  void _ensureConnectionWatchdog() {
+    if (!_enabled || !_authenticated || _sessionCookie.isEmpty) return;
+    if (_connectionWatchdogTimer != null) return;
+    _connectionWatchdogTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!_enabled || !_authenticated || _sessionCookie.isEmpty) {
+        _connectionWatchdogTimer?.cancel();
+        _connectionWatchdogTimer = null;
+        return;
+      }
+      if (!_connected && !_connecting) {
+        unawaited(_ensureConnected());
+      }
     });
   }
 
@@ -441,6 +525,86 @@ class DesktopCompanionManager extends ChangeNotifier {
         'payload': payload,
       }),
     );
+  }
+
+  Future<Map<String, Object?>> _startStreaming(
+    Map<String, Object?> payload,
+  ) async {
+    _streamTimer?.cancel();
+    final generation = ++_streamGeneration;
+    final fps = ((payload['fps'] as num?)?.round() ?? 15).clamp(1, 20);
+    final quality = ((payload['quality'] as num?)?.round() ?? 80).clamp(30, 95);
+    final displayId = payload['displayId']?.toString().trim();
+    if (displayId != null && displayId.isNotEmpty) {
+      _activeDisplayId = displayId;
+    }
+    final interval = Duration(milliseconds: max(1, (1000 / fps).floor()));
+    _frameSeq = 0;
+    _currentStreamQuality = quality;
+    _streamTimer = Timer.periodic(interval, (_) {
+      unawaited(_captureAndSendBinaryFrame(quality, generation));
+    });
+    unawaited(_captureAndSendBinaryFrame(quality, generation));
+    return <String, Object?>{
+      'success': true,
+      'fps': fps,
+      'quality': quality,
+      'displayId': _activeDisplayId,
+    };
+  }
+
+  Map<String, Object?> _stopStreaming() {
+    _streamTimer?.cancel();
+    _streamTimer = null;
+    _streamGeneration++;
+    _streamCaptureInFlight = false;
+    return <String, Object?>{'success': true};
+  }
+
+  Future<void> _captureAndSendBinaryFrame(
+    int quality,
+    int generation, {
+    bool forced = false,
+  }) async {
+    final socket = _socket;
+    if (socket == null ||
+        !_connected ||
+        _streamCaptureInFlight ||
+        generation != _streamGeneration) {
+      return;
+    }
+    // If an input command is actively running, skip this frame unless we were
+    // explicitly forced (i.e. this IS the post-input refresh capture).
+    if (!forced && _inputCommandInFlight) return;
+    _streamCaptureInFlight = true;
+    try {
+      final snapshot = await _actions.captureSnapshot(
+        activeDisplayId: _activeDisplayId,
+      );
+      if (snapshot == null) return;
+      final jpeg = await _actions.compressToJpeg(snapshot, quality);
+      if (jpeg.isEmpty) return;
+      if (!_connected || generation != _streamGeneration || _socket != socket) {
+        return;
+      }
+      final frame = Uint8List(10 + jpeg.length);
+      final header = ByteData.sublistView(frame, 0, 10);
+      header.setUint8(0, 0x01);
+      header.setUint32(1, _frameSeq++ & 0xffffffff, Endian.big);
+      header.setUint32(
+        5,
+        DateTime.now().millisecondsSinceEpoch & 0xffffffff,
+        Endian.big,
+      );
+      header.setUint8(9, 0x01);
+      frame.setRange(10, frame.length, jpeg);
+      socket.add(frame);
+    } catch (error) {
+      _errorMessage = 'Desktop stream capture failed: $error';
+      notifyListeners();
+    } finally {
+      _streamCaptureInFlight = false;
+    }
   }
 
   Future<void> _openMacPermissionSettings(String key) async {

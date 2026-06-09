@@ -5,6 +5,7 @@ const path = require('path');
 
 const { getProviderForUser } = require('./engine');
 const { createProviderInstance, getProviderCatalog } = require('./models');
+const { withProviderRetry } = require('./providerRetry');
 
 function resolveImageMimeType(imagePath, overrideMimeType = null) {
   const normalized = String(overrideMimeType || '').trim().toLowerCase();
@@ -76,11 +77,14 @@ async function analyzeImageForUser({
     }
 
     try {
-      const response = await candidate.provider.analyzeImage({
-        imagePath,
-        mimeType: resolveImageMimeType(imagePath, mimeType),
-        question,
-      });
+      const response = await withProviderRetry(
+        () => candidate.provider.analyzeImage({
+          imagePath,
+          mimeType: resolveImageMimeType(imagePath, mimeType),
+          question,
+        }),
+        { label: `ImageAnalysis ${candidate.providerName}` },
+      );
       return {
         description: String(response.content || '').trim(),
         model: response.model || null,

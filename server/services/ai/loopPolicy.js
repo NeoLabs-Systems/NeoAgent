@@ -46,6 +46,13 @@ function clampFinite(n, lo, hi, fallback) {
  * @returns {LoopPolicy}
  */
 function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = 'execute', options = {}) {
+  const autonomyPolicy = options.autonomyPolicy && typeof options.autonomyPolicy === 'object'
+    ? options.autonomyPolicy
+    : {};
+  const complexity = String(autonomyPolicy.complexity || '').trim().toLowerCase();
+  const autonomyLevel = String(autonomyPolicy.autonomy_level || autonomyPolicy.autonomyLevel || '').trim().toLowerCase();
+  const parallelWork = autonomyPolicy.parallel_work === true || autonomyPolicy.parallelWork === true;
+
   // ── maxIterations ────────────────────────────────────────────────────────
   // Resolve raw value from options → aiSettings → mode/context defaults,
   // then clamp to [1, MAX_ALLOWED_ITERATIONS] and floor to integer.
@@ -58,6 +65,10 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     rawIterations = DEFAULT_WIDGET_MAX_ITERATIONS;
   } else if (analysisMode === 'plan_execute') {
     rawIterations = DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS;
+  } else if (complexity === 'complex' || autonomyLevel === 'high') {
+    rawIterations = DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS;
+  } else if (parallelWork || complexity === 'standard') {
+    rawIterations = Math.max(DEFAULT_MAX_ITERATIONS, 28);
   } else {
     rawIterations = DEFAULT_MAX_ITERATIONS;
   }

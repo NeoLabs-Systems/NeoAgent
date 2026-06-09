@@ -139,15 +139,6 @@ const _desktopSettingsSection = _SettingsSection('desktop', <String>[
   'input',
 ], requiresDesktop: true);
 
-const _updatesSettingsSection = _SettingsSection('updates', <String>[
-  'updates',
-  'release',
-  'channel',
-  'version',
-  'self update',
-  'upgrade',
-]);
-
 const _diagnosticsSettingsSection = _SettingsSection('diagnostics', <String>[
   'diagnostics',
   'logs',
@@ -163,14 +154,15 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _modelsSettingsSection,
   _voiceRecordingSettingsSection,
   _desktopSettingsSection,
-  _updatesSettingsSection,
   _diagnosticsSettingsSection,
 ];
 
 class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
   late String _browserBackend;
+  String? _browserExtensionTokenId;
   late String _cliBackend;
+  String? _cliDesktopDeviceId;
   late bool _smarterSelector;
   late Set<String> _enabledModels;
   late String _defaultChatModel;
@@ -185,7 +177,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
   final Map<String, bool> _providerEnabled = <String, bool>{};
   final Map<String, TextEditingController> _providerBaseUrlControllers =
       <String, TextEditingController>{};
-  final Set<String> _expandedProviderIds = <String>{};
+
+  // Inline runtime test state — ephemeral, not stored in controller.
+  bool _cliTestRunning = false;
+  Map<String, dynamic>? _cliTestResult;
+  bool _extensionTestRunning = false;
+  Map<String, dynamic>? _extensionTestResult;
+  bool _desktopTestRunning = false;
+  Map<String, dynamic>? _desktopTestResult;
 
   @override
   void initState() {
@@ -224,7 +223,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .map((model) => model.id)
         .toSet();
     _browserBackend = _normalizeBrowserBackend(controller.browserBackend);
+    _browserExtensionTokenId =
+        controller.browserExtensionTokenId ??
+        controller.selectedBrowserExtensionTokenId;
     _cliBackend = _normalizeCliBackend(controller.cliBackend);
+    _cliDesktopDeviceId = controller.cliDesktopDeviceId;
     _smarterSelector = controller.smarterSelector;
     _enabledModels = controller.enabledModelIds
         .where((id) => knownModels.contains(id))
@@ -299,26 +302,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final routingModels = availableModels.isEmpty
         ? controller.supportedModels
         : availableModels;
-    final modelChoices = <DropdownMenuItem<String>>[
-      const DropdownMenuItem<String>(
-        value: 'auto',
-        child: Text(
-          'Smart Selector (Auto)',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      ...routingModels.map(
-        (model) => DropdownMenuItem<String>(
-          value: model.id,
-          child: Text(
-            model.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
-    ];
+    final List<_ModelPickerOption> modelChoices =
+        _modelPickerOptions(routingModels, allowAuto: true);
     final enabledSmartModels = _enabledModels
         .where((id) => routingModels.any((model) => model.id == id))
         .length;
@@ -333,7 +318,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _PageTitle(
             title: 'Settings',
             subtitle:
-                'Workspace, models, recording, update, and diagnostics controls.',
+                'Workspace, models, recording, and diagnostics controls.',
             trailing: _settingsSaveButton(controller),
           )
         else
@@ -353,7 +338,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             labelText: 'Search settings',
-            hintText: 'Models, browser, voice, updates, diagnostics...',
+            hintText: 'Models, browser, voice, diagnostics...',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: searchQuery.isEmpty
                 ? null
@@ -386,6 +371,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _modelsSettingsSection,
         )) ...<Widget>[
           _buildModelsSection(
+            context: context,
             controller: controller,
             modelChoices: modelChoices,
             routingModels: routingModels,
@@ -415,20 +401,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ],
         if (_matchesSettingsSection(
           searchQuery,
-          _updatesSettingsSection,
-        )) ...<Widget>[
-          _buildUpdatesSection(controller),
-          const SizedBox(height: 16),
-        ],
-        if (_matchesSettingsSection(
-          searchQuery,
           _diagnosticsSettingsSection,
         )) ...<Widget>[_buildDiagnosticsSection(controller)],
         if (_noSettingsMatches(searchQuery, visibleSearchSections)) ...<Widget>[
           const _EmptyCard(
             title: 'No matching settings',
             subtitle:
-                'Try a broader search like models, browser, voice, or updates.',
+                'Try a broader search like models, browser, or voice.',
           ),
         ],
       ],
@@ -466,7 +445,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
               browserBackend: _browserBackend == 'extension'
                   ? 'extension'
                   : 'vm',
+              browserExtensionTokenId: _browserBackend == 'extension'
+                  ? _browserExtensionTokenId
+                  : null,
               cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
+              cliDesktopDeviceId: _cliDesktopDeviceId,
               smarterSelector: _smarterSelector,
               enabledModels: _enabledModels.toList(),
               defaultChatModel: _defaultChatModel,
@@ -534,7 +517,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Overview'),
             const SizedBox(height: 10),
             Text(
-              'Configure workspace behavior, then models, recording defaults, and updates.',
+              'Configure workspace behavior, models, and recording defaults.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 14),
@@ -631,36 +614,107 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ],
               onChanged: (value) {
                 if (value != null) {
-                  setState(() => _browserBackend = value);
+                  setState(() {
+                    _browserBackend = value;
+                    _browserExtensionTokenId ??=
+                        controller.selectedBrowserExtensionTokenId;
+                  });
                 }
               },
             ),
             const SizedBox(height: 10),
-            Text(
-              _browserBackend == 'extension'
-                  ? (controller.browserExtensionConnected
-                        ? 'Chrome extension connected.'
-                        : 'Chrome extension selected. Download it here, load it unpacked in Chrome on the remote machine, then pair after login.')
-                  : 'Cloud browser runtime is active.',
-              style: TextStyle(color: _textSecondary, height: 1.4),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                OutlinedButton.icon(
-                  onPressed: controller.downloadBrowserExtension,
-                  icon: Icon(Icons.download_outlined),
-                  label: Text('Download extension'),
+            if (_browserBackend == 'extension') ...<Widget>[
+              if (controller.browserExtensionTokens.isNotEmpty) ...<Widget>[
+                DropdownButtonFormField<String>(
+                  initialValue: controller.browserExtensionTokens.any(
+                    (token) => token['tokenId']?.toString() == _browserExtensionTokenId,
+                  )
+                      ? _browserExtensionTokenId
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Default extension',
+                    helperText: 'Choose which paired Chrome extension controls browser actions.',
+                  ),
+                  items: controller.browserExtensionTokens.map((token) {
+                    final tokenId = token['tokenId']?.toString() ?? '';
+                    final label = token['name']?.toString().trim().isNotEmpty == true
+                        ? token['name'].toString()
+                        : tokenId;
+                    final online = token['online'] == true || token['connected'] == true;
+                    return DropdownMenuItem<String>(
+                      value: tokenId,
+                      child: Row(
+                        children: <Widget>[
+                          Icon(
+                            online ? Icons.circle : Icons.circle_outlined,
+                            size: 10,
+                            color: online ? Colors.green : Colors.grey,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _browserExtensionTokenId = value);
+                    }
+                  },
                 ),
-                OutlinedButton.icon(
-                  onPressed: controller.refreshBrowserExtensionStatus,
-                  icon: Icon(Icons.sync),
-                  label: Text('Refresh status'),
-                ),
+                const SizedBox(height: 10),
               ],
-            ),
+              _buildInlineTestRow(
+                label: 'Chrome extension',
+                running: _extensionTestRunning,
+                result: _extensionTestResult,
+                note: controller.browserExtensionConnected
+                    ? 'Connected — tap Test to verify the live link.'
+                    : 'Not connected — download the extension, load it in Chrome, then pair after login.',
+                onTest: () async {
+                  setState(() { _extensionTestRunning = true; _extensionTestResult = null; });
+                  try {
+                    final r = await controller.testBrowserExtension();
+                    if (mounted) {
+                      setState(() => _extensionTestResult = r);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      setState(() => _extensionTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                    }
+                  } finally {
+                    if (mounted) {
+                      setState(() => _extensionTestRunning = false);
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  OutlinedButton.icon(
+                    onPressed: controller.downloadBrowserExtension,
+                    icon: Icon(Icons.download_outlined),
+                    label: Text('Download extension'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: controller.refreshBrowserExtensionStatus,
+                    icon: Icon(Icons.sync),
+                    label: Text('Refresh'),
+                  ),
+                ],
+              ),
+            ] else ...<Widget>[
+              Text('Cloud browser runtime is active.', style: TextStyle(color: _textSecondary, height: 1.4)),
+            ],
             const Divider(height: 32),
             Text(
               'CLI Runtime',
@@ -691,14 +745,73 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 }
               },
             ),
+            if (_cliBackend == 'desktop' && controller.desktopDevices.length > 1) ...<Widget>[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: controller.desktopDevices.any(
+                  (d) => d['deviceId']?.toString() == _cliDesktopDeviceId,
+                )
+                    ? _cliDesktopDeviceId
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Desktop device',
+                  helperText: 'Choose which desktop companion runs CLI commands.',
+                ),
+                items: controller.desktopDevices.map((device) {
+                  final deviceId = device['deviceId']?.toString() ?? '';
+                  final label = device['hostname']?.toString().isNotEmpty == true
+                      ? device['hostname']!.toString()
+                      : deviceId;
+                  final online = device['online'] == true;
+                  return DropdownMenuItem<String>(
+                    value: deviceId,
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          online ? Icons.circle : Icons.circle_outlined,
+                          size: 10,
+                          color: online ? Colors.green : Colors.grey,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(label),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _cliDesktopDeviceId = value);
+                  }
+                },
+              ),
+            ],
             const SizedBox(height: 10),
-            Text(
-              _cliBackend == 'desktop'
+            _buildInlineTestRow(
+              label: 'CLI',
+              running: _cliTestRunning,
+              result: _cliTestResult,
+              note: _cliBackend == 'desktop'
                   ? (controller.desktopCompanionConnected
-                        ? 'Desktop app connected.'
-                        : 'Desktop app selected. Make sure the desktop companion is running and connected on your machine.')
-                  : 'Cloud CLI runtime is active.',
-              style: TextStyle(color: _textSecondary, height: 1.4),
+                      ? 'Desktop app connected — commands route locally through the companion.'
+                      : 'Desktop app selected but not connected. Commands fall back to cloud VM until the companion is online.')
+                  : 'Cloud VM — commands run in an isolated container.',
+              onTest: () async {
+                setState(() { _cliTestRunning = true; _cliTestResult = null; });
+                try {
+                  final r = await controller.testCliRuntime();
+                  if (mounted) {
+                    setState(() => _cliTestResult = r);
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    setState(() => _cliTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() => _cliTestRunning = false);
+                  }
+                }
+              },
             ),
             const Divider(height: 32),
             Text(
@@ -723,8 +836,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   Widget _buildModelsSection({
+    required BuildContext context,
     required NeoAgentController controller,
-    required List<DropdownMenuItem<String>> modelChoices,
+    required List<_ModelPickerOption> modelChoices,
     required List<ModelMeta> routingModels,
     required List<ModelMeta> availableModels,
     required int enabledSmartModels,
@@ -738,88 +852,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Models'),
             const SizedBox(height: 10),
             Text(
-              'Enable providers, then choose defaults for chat, agents, fallback behavior, and smart routing.',
+              'Choose defaults for chat, agents, fallback behavior, and smart routing.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Providers',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (controller.aiProviders.isEmpty)
-              Text(
-                'Provider metadata is unavailable on this server version.',
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 960;
-                  final cardWidth = compact
-                      ? constraints.maxWidth
-                      : (constraints.maxWidth - 16) / 2;
-                  return Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: controller.aiProviders
-                        .where(
-                          (provider) =>
-                              provider.available ||
-                              _providerEnabled[provider.id] == true ||
-                              controller
-                                      .aiProviderConfigs[provider.id]
-                                      ?.enabled ==
-                                  true,
-                        )
-                        .map((provider) {
-                          return SizedBox(
-                            width: cardWidth,
-                            child: _AiProviderCard(
-                              provider: provider,
-                              enabled:
-                                  _providerEnabled[provider.id] ??
-                                  controller
-                                      .aiProviderConfigs[provider.id]
-                                      ?.enabled ??
-                                  true,
-                              models: controller.supportedModels
-                                  .where(
-                                    (model) => model.provider == provider.id,
-                                  )
-                                  .toList(),
-                              baseUrlController:
-                                  _providerBaseUrlControllers[provider.id]!,
-                              expanded: _expandedProviderIds.contains(
-                                provider.id,
-                              ),
-                              onEnabledChanged: (value) {
-                                setState(() {
-                                  _providerEnabled[provider.id] = value;
-                                });
-                              },
-                              onExpandToggle: () {
-                                setState(() {
-                                  if (_expandedProviderIds.contains(
-                                    provider.id,
-                                  )) {
-                                    _expandedProviderIds.remove(provider.id);
-                                  } else {
-                                    _expandedProviderIds.add(provider.id);
-                                  }
-                                });
-                              },
-                            ),
-                          );
-                        })
-                        .toList(),
-                  );
-                },
-              ),
-            const Divider(height: 32),
             Text(
               'Default Routing',
               style: TextStyle(
@@ -849,7 +885,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             routingModels,
                             allowAuto: true,
                           ),
-                          items: modelChoices,
+                          options: modelChoices,
                           onChanged: (value) {
                             if (value != null) {
                               setState(() => _defaultChatModel = value);
@@ -867,7 +903,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             routingModels,
                             allowAuto: true,
                           ),
-                          items: modelChoices,
+                          options: modelChoices,
                           onChanged: (value) {
                             if (value != null) {
                               setState(() => _defaultSubagentModel = value);
@@ -885,18 +921,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             routingModels,
                             allowAuto: false,
                           ),
-                          items: routingModels
-                              .map(
-                                (model) => DropdownMenuItem<String>(
-                                  value: model.id,
-                                  child: Text(
-                                    model.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                          options: _modelPickerOptions(routingModels),
                           onChanged: (value) {
                             if (value != null) {
                               setState(() => _fallbackModel = value);
@@ -917,46 +942,38 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
             ),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: controller.supportedModels.map((model) {
-                final selected = _enabledModels.contains(model.id);
-                return FilterChip(
-                  label: Text(
-                    model.available
-                        ? model.label
-                        : '${model.label} (${model.providerStatusLabel})',
-                  ),
-                  selected: selected,
-                  selectedColor: _accentMuted,
-                  checkmarkColor: _accent,
-                  backgroundColor: _bgSecondary,
-                  side: BorderSide(
-                    color: model.available
-                        ? _border
-                        : _warning.withValues(alpha: 0.35),
-                  ),
-                  onSelected: model.available
-                      ? (value) {
-                          setState(() {
-                            if (value) {
-                              _enabledModels.add(model.id);
-                            } else if (_enabledModels.length > 1) {
-                              _enabledModels.remove(model.id);
-                            }
-                          });
-                        }
-                      : null,
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 14),
             Text(
-              availableModels.isEmpty
-                  ? 'Enable a ready provider above to unlock model routing.'
-                  : '$enabledSmartModels models are currently eligible for smart routing.',
-              style: TextStyle(color: _textSecondary),
+              'The models the Smart Selector routes between automatically.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            _SmartPoolSummary(
+              allModels: controller.supportedModels,
+              selectedIds: _enabledModels,
+              onManage: () async {
+                final result = await showGeneralDialog<Set<String>>(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierLabel: 'Dismiss',
+                  barrierColor: Colors.black.withValues(alpha: 0.55),
+                  transitionDuration: const Duration(milliseconds: 220),
+                  transitionBuilder: (ctx, anim, _, child) => FadeTransition(
+                    opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.04),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+                      child: child,
+                    ),
+                  ),
+                  pageBuilder: (ctx, _, __) => _SmartPoolDialog(
+                    models: controller.supportedModels,
+                    selectedIds: _enabledModels,
+                  ),
+                );
+                if (result != null) setState(() => _enabledModels = result);
+              },
             ),
           ],
         ),
@@ -966,7 +983,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   Widget _buildVoiceAndRecordingSection({
     required NeoAgentController controller,
-    required List<DropdownMenuItem<String>> modelChoices,
+    required List<_ModelPickerOption> modelChoices,
     required List<ModelMeta> routingModels,
   }) {
     final liveVoiceOptions =
@@ -1012,7 +1029,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           routingModels,
                           allowAuto: true,
                         ),
-                        items: modelChoices,
+                        options: modelChoices,
                         onChanged: (value) {
                           if (value != null) {
                             setState(
@@ -1028,7 +1045,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         label: 'Recording Transcription',
                         icon: Icons.hearing_outlined,
                         value: _defaultRecordingTranscriptionModel,
-                        items: _recordingTranscriptionModelChoices(
+                        options: _recordingTranscriptionOptions(
                           _defaultRecordingTranscriptionModel,
                         ),
                         onChanged: (value) {
@@ -1073,7 +1090,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           routingModels,
                           allowAuto: true,
                         ),
-                        items: modelChoices,
+                        options: modelChoices,
                         onChanged: (value) {
                           if (value != null) {
                             setState(() => _defaultSpeechModel = value);
@@ -1115,14 +1132,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         label: 'Live Provider',
                         icon: Icons.call_outlined,
                         value: _voiceLiveProvider,
-                        items: const <String>['openai', 'gemini']
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
+                        options: _simplePickerOptions(
+                          const <String>['openai', 'gemini'],
+                        ),
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() {
@@ -1151,16 +1163,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         label: 'Live Model',
                         icon: Icons.speed_outlined,
                         value: _voiceLiveModel,
-                        items:
-                            (_voiceLiveModelsByProvider[_voiceLiveProvider] ??
-                                    const <String>[])
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
+                        options: _simplePickerOptions(
+                          _voiceLiveModelsByProvider[_voiceLiveProvider] ??
+                              const <String>[],
+                        ),
                         onChanged: (value) {
                           if (value != null) {
                             setState(() => _voiceLiveModel = value);
@@ -1175,14 +1181,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           label: 'Live Voice',
                           icon: Icons.graphic_eq_outlined,
                           value: _voiceLiveVoice,
-                          items: liveVoiceOptions
-                              .map(
-                                (value) => DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                ),
-                              )
-                              .toList(),
+                          options: _simplePickerOptions(liveVoiceOptions),
                           onChanged: (value) {
                             if (value != null) {
                               setState(() => _voiceLiveVoice = value);
@@ -1344,6 +1343,53 @@ class _SettingsPanelState extends State<SettingsPanel> {
               const SizedBox(height: 12),
               _InlineError(message: message),
             ],
+            const SizedBox(height: 12),
+            _buildInlineTestRow(
+              label: 'Desktop companion',
+              running: _desktopTestRunning,
+              result: _desktopTestResult != null
+                  ? <String, dynamic>{
+                      'passed': _desktopTestResult!['passed'] == true,
+                      'detail': _desktopTestResult!['detail']?.toString() ?? '',
+                    }
+                  : null,
+              note: controller.desktopCompanionConnected
+                  ? 'Connected — tap Test to fetch live device status from the server.'
+                  : 'Not connected. Make sure the desktop app is running on the target machine.',
+              onTest: () async {
+                setState(() { _desktopTestRunning = true; _desktopTestResult = null; });
+                try {
+                  final r = await controller.testDesktopCompanion();
+                  final active = r['activeDevice'];
+                  final multi = r['multipleOnline'] == true;
+                  String detail = r['detail']?.toString() ?? '';
+                  if (r['passed'] == true && active != null) {
+                    final label = active['label']?.toString() ?? 'Device';
+                    final plat = active['platform']?.toString() ?? '';
+                    final sc = active['permissions']?['screenCapture'] == true;
+                    final ic = active['permissions']?['inputControl'] == true;
+                    detail = '$label${plat.isNotEmpty ? " ($plat)" : ""}'
+                        ' — screen: ${sc ? "✓" : "✗"}, input: ${ic ? "✓" : "✗"}';
+                  } else if (multi) {
+                    detail = '${r['onlineCount']} devices online — select one in Desktop › Devices';
+                  }
+                  if (mounted) {
+                    setState(() => _desktopTestResult = <String, dynamic>{
+                      ...r,
+                      'detail': detail,
+                    });
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    setState(() => _desktopTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() => _desktopTestRunning = false);
+                  }
+                }
+              },
+            ),
             const SizedBox(height: 14),
             Builder(
               builder: (context) {
@@ -1460,426 +1506,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
-  Widget _buildUpdatesSection(NeoAgentController controller) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const _SectionTitle('Updates'),
-            const SizedBox(height: 10),
-            Text(
-              'Client and runtime update controls live here.',
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 720;
-                final checkButton = FilledButton.icon(
-                  onPressed:
-                      controller.isCheckingAppUpdate ||
-                          !controller.appUpdaterConfigured
-                      ? null
-                      : () => controller.checkForAppUpdates(),
-                  style: FilledButton.styleFrom(backgroundColor: _accent),
-                  icon: controller.isCheckingAppUpdate
-                      ? _inlineProgressIndicator()
-                      : const Icon(Icons.sync),
-                  label: Text(
-                    controller.isCheckingAppUpdate
-                        ? 'Checking...'
-                        : 'Check now',
-                  ),
-                );
-                final appHeading = Text(
-                  'Client App',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: _textPrimary,
-                  ),
-                );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      appHeading,
-                      const SizedBox(height: 10),
-                      checkButton,
-                    ],
-                  );
-                }
-                return Row(
-                  children: <Widget>[
-                    Expanded(child: appHeading),
-                    checkButton,
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            if (!controller.appUpdaterConfigured)
-              if (!kIsWeb)
-                Text(
-                  'Client app updates are not configured for this build.',
-                  style: TextStyle(color: _textSecondary, height: 1.5),
-                )
-              else ...<Widget>[
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 780;
-                    final channelPicker = DropdownButtonFormField<String>(
-                      initialValue: controller.appUpdateChannel,
-                      decoration: const InputDecoration(
-                        labelText: 'App release channel',
-                      ),
-                      items: const <DropdownMenuItem<String>>[
-                        DropdownMenuItem<String>(
-                          value: 'stable',
-                          child: Text('Stable'),
-                        ),
-                        DropdownMenuItem<String>(
-                          value: 'beta',
-                          child: Text('Beta'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          unawaited(controller.setAppUpdateChannel(value));
-                        }
-                      },
-                    );
-                    final autoCheck = SwitchListTile.adaptive(
-                      value: controller.appUpdateAutoCheckEnabled,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('Check automatically on launch'),
-                      subtitle: Text(
-                        'This only checks GitHub Releases on startup. Installation still requires your confirmation.',
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                      onChanged: controller.setAppUpdateAutoCheckEnabled,
-                    );
-
-                    if (compact) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          channelPicker,
-                          const SizedBox(height: 10),
-                          autoCheck,
-                        ],
-                      );
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(child: channelPicker),
-                        const SizedBox(width: 16),
-                        Expanded(child: autoCheck),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Installed: ${controller.installedAppVersion ?? 'Unknown'} | Channel: ${controller.appUpdateChannelLabel} | Last checked: ${controller.appUpdateLastCheckedLabel}',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Source: ${app_release_updater.appUpdaterGithubOwner}/${app_release_updater.appUpdaterGithubRepo}${app_release_updater.appUpdaterGithubToken.trim().isNotEmpty ? ' (override active)' : ''}',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                if (controller.appUpdateErrorMessage
-                    case final message?) ...<Widget>[
-                  const SizedBox(height: 12),
-                  _InlineError(message: message),
-                ],
-                if (controller.availableAppUpdate
-                    case final release?) ...<Widget>[
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _bgSecondary,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: _border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: <Widget>[
-                            _StatusPill(
-                              label: 'Update ${release.version}',
-                              color: release.channel == 'beta'
-                                  ? _warning
-                                  : _accent,
-                            ),
-                            _StatusPill(
-                              label: release.asset.name,
-                              color: _textSecondary,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '${release.title} · ${release.publishedLabel} · ${release.asset.sizeLabel}',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                        if (release.body.trim().isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 14),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 220),
-                            child: SingleChildScrollView(
-                              child: MarkdownBody(
-                                data: release.body,
-                                selectable: true,
-                                styleSheet: MarkdownStyleSheet(
-                                  p: TextStyle(
-                                    color: _textSecondary,
-                                    height: 1.45,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: <Widget>[
-                            FilledButton.icon(
-                              onPressed: controller.isOpeningAppUpdate
-                                  ? null
-                                  : controller.openAppUpdate,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: _accent,
-                              ),
-                              icon: controller.isOpeningAppUpdate
-                                  ? _inlineProgressIndicator()
-                                  : const Icon(Icons.system_update_alt),
-                              label: Text(
-                                controller.isOpeningAppUpdate
-                                    ? 'Opening...'
-                                    : 'Download update',
-                              ),
-                            ),
-                            if (release.htmlUrl.trim().isNotEmpty)
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  unawaited(
-                                    widget.controller._oauthLauncher
-                                        .openExternal(
-                                          url: release.htmlUrl,
-                                          label: 'release_notes',
-                                        ),
-                                  );
-                                },
-                                icon: const Icon(Icons.open_in_new),
-                                label: Text('View release'),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else ...<Widget>[
-                  const SizedBox(height: 12),
-                  Text(
-                    controller.isCheckingAppUpdate
-                        ? 'Checking GitHub releases...'
-                        : controller.appUpdateLastCheckedAt == null
-                        ? 'Choose a channel, then check GitHub releases.'
-                        : 'No newer app release is available on the selected channel.',
-                    style: TextStyle(color: _textSecondary, height: 1.45),
-                  ),
-                ],
-              ],
-            const Divider(height: 32),
-            if (controller.updateStatus.allowSelfUpdate) ...<Widget>[
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 780;
-                  final channelPicker = DropdownButtonFormField<String>(
-                    initialValue: controller.updateStatus.releaseChannel,
-                    decoration: const InputDecoration(
-                      labelText: 'Runtime release channel',
-                    ),
-                    items: const <DropdownMenuItem<String>>[
-                      DropdownMenuItem<String>(
-                        value: 'stable',
-                        child: Text('Stable'),
-                      ),
-                      DropdownMenuItem<String>(
-                        value: 'beta',
-                        child: Text('Beta'),
-                      ),
-                    ],
-                    onChanged:
-                        controller.isSavingReleaseChannel ||
-                            controller.isTriggeringUpdate ||
-                            controller.updateStatus.state == 'running'
-                        ? null
-                        : (value) {
-                            if (value != null) {
-                              unawaited(controller.setReleaseChannel(value));
-                            }
-                          },
-                  );
-
-                  final channelHelper = Text(
-                    controller.updateStatus.releaseChannel == 'beta'
-                        ? 'Beta follows preview releases.'
-                        : 'Stable follows production releases.',
-                    style: TextStyle(color: _textSecondary),
-                  );
-
-                  if (compact) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        channelPicker,
-                        const SizedBox(height: 8),
-                        channelHelper,
-                        const SizedBox(height: 16),
-                      ],
-                    );
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(child: channelPicker),
-                        const SizedBox(width: 12),
-                        Expanded(child: channelHelper),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 780;
-                  final runtimeTitle = Text(
-                    'Runtime',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: _textPrimary,
-                    ),
-                  );
-                  final updateButton = FilledButton.icon(
-                    onPressed:
-                        controller.isSavingReleaseChannel ||
-                            controller.isTriggeringUpdate ||
-                            controller.updateStatus.state == 'running'
-                        ? null
-                        : controller.triggerUpdate,
-                    style: FilledButton.styleFrom(backgroundColor: _accent),
-                    icon: controller.isTriggeringUpdate
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Icon(Icons.system_update),
-                    label: Text('Update'),
-                  );
-                  if (compact) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        runtimeTitle,
-                        const SizedBox(height: 10),
-                        updateButton,
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: <Widget>[
-                      Expanded(child: runtimeTitle),
-                      updateButton,
-                    ],
-                  );
-                },
-              ),
-            ] else ...<Widget>[
-              Text(
-                'Runtime',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: _textPrimary,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Updates and release tracks are managed for this deployment.',
-                style: TextStyle(color: _textSecondary),
-              ),
-            ],
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 760;
-                final statusRow = Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    _StatusPill(
-                      label: controller.updateStatus.badgeLabel,
-                      color: controller.updateStatus.badgeColor,
-                    ),
-                    _StatusPill(
-                      label: controller.updateStatus.releaseChannelLabel,
-                      color: controller.updateStatus.releaseChannel == 'beta'
-                          ? _warning
-                          : _accent,
-                    ),
-                    Text(
-                      controller.updateStatus.message,
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                    Text('${controller.updateStatus.progress}%'),
-                  ],
-                );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[statusRow],
-                  );
-                }
-                return statusRow;
-              },
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                minHeight: 8,
-                value: controller.updateStatus.progress / 100,
-                backgroundColor: _bgSecondary,
-                color: _accent,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(controller.updateStatus.versionLine),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildDiagnosticsSection(NeoAgentController controller) {
     return Card(
       child: Padding(
@@ -1984,257 +1610,75 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
   }
 
-  List<DropdownMenuItem<String>> _recordingTranscriptionModelChoices(
-    String current,
-  ) {
-    const defaults = <String>['nova-3', 'nova-2-general'];
-    final normalizedCurrent = current.trim();
-    final values = <String>{...defaults};
-    if (normalizedCurrent.isNotEmpty) {
-      values.add(normalizedCurrent);
-    }
-    return values
-        .map(
-          (value) => DropdownMenuItem<String>(value: value, child: Text(value)),
-        )
-        .toList();
+  List<_ModelPickerOption> _recordingTranscriptionOptions(String current) {
+    const List<String> defaults = <String>['nova-3', 'nova-2-general'];
+    final String normalizedCurrent = current.trim();
+    final Set<String> values = <String>{...defaults};
+    if (normalizedCurrent.isNotEmpty) values.add(normalizedCurrent);
+    return _simplePickerOptions(values.toList());
   }
-}
 
-class _AiProviderCard extends StatelessWidget {
-  const _AiProviderCard({
-    required this.provider,
-    required this.enabled,
-    required this.expanded,
-    required this.models,
-    required this.baseUrlController,
-    required this.onEnabledChanged,
-    required this.onExpandToggle,
-  });
-
-  final AiProviderMeta provider;
-  final bool enabled;
-  final bool expanded;
-  final List<ModelMeta> models;
-  final TextEditingController baseUrlController;
-  final ValueChanged<bool> onEnabledChanged;
-  final VoidCallback onExpandToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final availableCount = models.where((model) => model.available).length;
-    final hasAdvancedFields = provider.supportsBaseUrl || models.isNotEmpty;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
+  // Shared helper: small "Test" button + inline result row.
+  Widget _buildInlineTestRow({
+    required String label,
+    required bool running,
+    required Map<String, dynamic>? result,
+    required VoidCallback onTest,
+    String? note,
+  }) {
+    final passed = result?['passed'] == true;
+    final detail = result?['detail']?.toString() ?? '';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: _accentMuted,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(provider.icon, color: _accentHover),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              if (result != null)
+                Row(
                   children: <Widget>[
-                    Text(
-                      provider.label,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Icon(
+                      passed ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                      size: 15,
+                      color: passed ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      provider.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: _textSecondary, height: 1.4),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        passed ? (detail.isNotEmpty ? detail : '$label: OK') : detail,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: passed ? null : const Color(0xFFEF4444),
+                        ),
+                      ),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: <Widget>[
-                  _StatusPill(
-                    label: enabled ? provider.statusLabel : 'Disabled',
-                    color: enabled ? provider.statusColor : _textSecondary,
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: hasAdvancedFields || models.isNotEmpty
-                        ? onExpandToggle
-                        : null,
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _bgCard,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: _border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Text(
-                            expanded ? 'Hide' : 'Setup',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            expanded
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            size: 16,
-                            color: _textSecondary,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                )
+              else if (note != null)
+                Text(note, style: TextStyle(fontSize: 13, color: _textSecondary, height: 1.4)),
             ],
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              _MetaPill(
-                label: '$availableCount of ${models.length} models ready',
-                icon: Icons.memory_outlined,
-              ),
-              if (provider.supportsApiKey && provider.credentialConfigured)
-                const _MetaPill(
-                  label: 'Credentials ready',
-                  icon: Icons.lock_outline,
-                ),
-              if (provider.supportsApiKey && !provider.credentialConfigured)
-                const _MetaPill(
-                  label: 'Credentials needed',
-                  icon: Icons.admin_panel_settings_outlined,
-                ),
-              if (provider.supportsBaseUrl &&
-                  baseUrlController.text.trim().isNotEmpty)
-                _MetaPill(
-                  label: _friendlyBaseUrlLabel(baseUrlController.text.trim()),
-                  icon: Icons.link_outlined,
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: _bgCard,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 80,
+          child: OutlinedButton(
+            onPressed: running ? null : onTest,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12),
             ),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    provider.availabilityReason,
-                    style: TextStyle(color: _textSecondary, height: 1.35),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Switch(value: enabled, onChanged: onEnabledChanged),
-              ],
-            ),
+            child: running
+                ? const SizedBox(
+                    width: 13,
+                    height: 13,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Test'),
           ),
-          if (expanded) ...<Widget>[
-            const SizedBox(height: 14),
-            if (provider.supportsApiKey)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: _bgCard,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _border),
-                ),
-                child: Text(
-                  provider.credentialConfigured
-                      ? 'Credentials for this provider are already available to the runtime.'
-                      : 'Credentials for this provider are managed outside this workspace UI. Finish the server or admin setup, then return here to enable routing.',
-                  style: TextStyle(color: _textSecondary, height: 1.35),
-                ),
-              ),
-            if (provider.supportsBaseUrl) ...<Widget>[
-              TextField(
-                controller: baseUrlController,
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                decoration: InputDecoration(
-                  labelText: provider.id == 'ollama'
-                      ? 'Server URL'
-                      : 'Base URL',
-                  helperText: provider.defaultBaseUrl.trim().isEmpty
-                      ? 'Optional override.'
-                      : 'Default: ${provider.defaultBaseUrl}',
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (models.isNotEmpty) ...<Widget>[
-              Text('Models', style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: models
-                    .map(
-                      (model) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: model.available ? _bgCard : _bgPrimary,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: model.available ? _border : _borderLight,
-                          ),
-                        ),
-                        child: Text(
-                          model.label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: model.available
-                                ? _textPrimary
-                                : _textSecondary,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-          ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -2244,14 +1688,14 @@ class _RoutingSelectCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.value,
-    required this.items,
+    required this.options,
     required this.onChanged,
   });
 
   final String label;
   final IconData icon;
   final String value;
-  final List<DropdownMenuItem<String>> items;
+  final List<_ModelPickerOption> options;
   final ValueChanged<String?> onChanged;
 
   @override
@@ -2274,14 +1718,631 @@ class _RoutingSelectCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: value,
-            items: items,
-            isExpanded: true,
-            decoration: const InputDecoration(isDense: true),
+          _ModelPickerButton(
+            value: value,
+            options: options,
             onChanged: onChanged,
+            dialogTitle: 'Select $label',
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Pool Summary — compact summary card shown in settings
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SmartPoolSummary extends StatelessWidget {
+  const _SmartPoolSummary({
+    required this.allModels,
+    required this.selectedIds,
+    required this.onManage,
+  });
+
+  final List<ModelMeta> allModels;
+  final Set<String> selectedIds;
+  final VoidCallback onManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = allModels
+        .where((m) => selectedIds.contains(m.id) && m.available)
+        .toList();
+    final providers = <String>{for (final m in selected) m.provider};
+    final totalAvailable = allModels.where((m) => m.available).length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: _accentMuted,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.hub_outlined, size: 18, color: _accentHover),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  '${selected.length} of $totalAvailable models',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: _textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: <Widget>[
+                    if (providers.isEmpty)
+                      Text(
+                        'No models selected',
+                        style: TextStyle(fontSize: 12, color: _textMuted),
+                      )
+                    else
+                      ...providers.take(12).map(
+                            (p) => Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(right: 5),
+                              decoration: BoxDecoration(
+                                color: _providerPickerColor(p),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          OutlinedButton.icon(
+            onPressed: onManage,
+            icon: const Icon(Icons.tune_rounded, size: 14),
+            label: const Text('Manage'),
+            style: OutlinedButton.styleFrom(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Pool Dialog — searchable, grouped multi-select manager
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SmartPoolDialog extends StatefulWidget {
+  const _SmartPoolDialog({
+    required this.models,
+    required this.selectedIds,
+  });
+
+  final List<ModelMeta> models;
+  final Set<String> selectedIds;
+
+  @override
+  State<_SmartPoolDialog> createState() => _SmartPoolDialogState();
+}
+
+class _SmartPoolDialogState extends State<_SmartPoolDialog> {
+  late Set<String> _selected;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
+  bool _onlyAvailable = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<String>.from(widget.selectedIds);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<ModelMeta> get _filtered {
+    var list = _onlyAvailable
+        ? widget.models.where((m) => m.available).toList()
+        : List<ModelMeta>.from(widget.models);
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      list = list
+          .where((m) =>
+              m.label.toLowerCase().contains(q) ||
+              m.id.toLowerCase().contains(q) ||
+              m.provider.toLowerCase().contains(q))
+          .toList();
+    }
+    return list;
+  }
+
+  void _selectAllVisible(List<ModelMeta> filtered) {
+    setState(() {
+      for (final m in filtered) {
+        if (m.available) _selected.add(m.id);
+      }
+    });
+  }
+
+  void _clearAllVisible(List<ModelMeta> filtered) {
+    setState(() {
+      final toRemove = filtered.map((m) => m.id).toSet();
+      final remaining = _selected.difference(toRemove);
+      _selected = remaining.isNotEmpty
+          ? remaining
+          : <String>{_selected.first};
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+
+    // Build grouped structure
+    final Map<String, List<ModelMeta>> grouped = <String, List<ModelMeta>>{};
+    for (final m in filtered) {
+      grouped.putIfAbsent(m.provider, () => <ModelMeta>[]).add(m);
+    }
+    final providerOrder = grouped.keys.toList();
+
+    final selectedAvailableCount = widget.models
+        .where((m) => _selected.contains(m.id) && m.available)
+        .length;
+
+    // Build flat row list (headers + model rows)
+    final List<Widget> rows = <Widget>[];
+    for (final provider in providerOrder) {
+      final models = grouped[provider]!;
+      final providerColor = _providerPickerColor(provider);
+      final available = models.where((m) => m.available).toList();
+      final allGroupSelected = available.isNotEmpty &&
+          available.every((m) => _selected.contains(m.id));
+
+      rows.add(Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: providerColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _providerPickerLabel(provider).toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: _textMuted,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: available.isEmpty
+                  ? null
+                  : () {
+                      setState(() {
+                        if (allGroupSelected) {
+                          final toRemove =
+                              available.map((m) => m.id).toSet();
+                          final remaining =
+                              _selected.difference(toRemove);
+                          _selected = remaining.isNotEmpty
+                              ? remaining
+                              : <String>{_selected.first};
+                        } else {
+                          for (final m in available) {
+                            _selected.add(m.id);
+                          }
+                        }
+                      });
+                    },
+              child: Text(
+                allGroupSelected ? 'None' : 'All',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: available.isEmpty ? _textMuted : _accent,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ));
+
+      for (final model in models) {
+        rows.add(_SmartPoolRow(
+          model: model,
+          selected: _selected.contains(model.id),
+          onToggle: (val) => setState(() {
+            if (val) {
+              _selected.add(model.id);
+            } else if (_selected.length > 1) {
+              _selected.remove(model.id);
+            }
+          }),
+        ));
+      }
+    }
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          minWidth: 320,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Material(
+            color: _bgCard,
+            borderRadius: BorderRadius.circular(20),
+            elevation: 24,
+            shadowColor: Colors.black.withValues(alpha: 0.5),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _borderLight),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 10, 0),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              'Smart Selector Pool',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: _textPrimary,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () =>
+                                Navigator.of(context).pop(_selected),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              size: 20,
+                              color: _textSecondary,
+                            ),
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(36, 36),
+                              padding: EdgeInsets.zero,
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Search + available toggle
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              autofocus: true,
+                              onChanged: (v) =>
+                                  setState(() => _query = v.trim()),
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontSize: 14,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Search models or providers…',
+                                hintStyle: TextStyle(
+                                  color: _textMuted,
+                                  fontSize: 14,
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.search_rounded,
+                                  size: 18,
+                                  color: _textMuted,
+                                ),
+                                suffixIcon: _query.isNotEmpty
+                                    ? GestureDetector(
+                                        onTap: () => setState(() {
+                                          _searchCtrl.clear();
+                                          _query = '';
+                                        }),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(10),
+                                          child: Icon(
+                                            Icons.cancel_rounded,
+                                            size: 16,
+                                            color: _textMuted,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 10),
+                                filled: true,
+                                fillColor: _bgSecondary,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: _border),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: _border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: _accent,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => setState(
+                                () => _onlyAvailable = !_onlyAvailable),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _onlyAvailable
+                                    ? _accentMuted
+                                    : _bgSecondary,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _onlyAvailable
+                                      ? _accent.withValues(alpha: 0.5)
+                                      : _border,
+                                ),
+                              ),
+                              child: Text(
+                                'Available',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _onlyAvailable
+                                      ? _accentHover
+                                      : _textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Quick-action toolbar
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                      child: Row(
+                        children: <Widget>[
+                          _PoolActionChip(
+                            label: 'Select all',
+                            onTap: () => _selectAllVisible(filtered),
+                          ),
+                          const SizedBox(width: 6),
+                          _PoolActionChip(
+                            label: 'Clear all',
+                            onTap: () => _clearAllVisible(filtered),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '$selectedAvailableCount selected',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, thickness: 1, color: _border),
+                    // Model list
+                    Flexible(
+                      child: rows.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(36),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.search_off_rounded,
+                                    size: 36,
+                                    color: _textMuted,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No results for "$_query"',
+                                    style: TextStyle(
+                                      color: _textSecondary,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView(
+                              padding:
+                                  const EdgeInsets.only(top: 4, bottom: 8),
+                              shrinkWrap: true,
+                              children: rows,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Pool Row — individual model row inside the dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SmartPoolRow extends StatelessWidget {
+  const _SmartPoolRow({
+    required this.model,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final ModelMeta model;
+  final bool selected;
+  final ValueChanged<bool> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _providerPickerColor(model.provider);
+    return Opacity(
+      opacity: model.available ? 1.0 : 0.4,
+      child: Material(
+        color: selected
+            ? _accentMuted.withValues(alpha: 0.12)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: model.available ? () => onToggle(!selected) : null,
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Row(
+              children: <Widget>[
+                // Thin provider accent bar on the left
+                Container(
+                  width: 3,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color.withValues(
+                        alpha: selected ? 0.85 : 0.28),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Checkbox(
+                    value: selected,
+                    onChanged: model.available
+                        ? (v) => onToggle(v ?? false)
+                        : null,
+                    activeColor: _accent,
+                    side: BorderSide(color: _textMuted, width: 1.5),
+                    materialTapTargetSize:
+                        MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        model.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              selected ? _accentHover : _textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (model.purpose.isNotEmpty)
+                        Text(
+                          model.purpose,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _textMuted,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (model.priceTier != null)
+                  _PriceTierChip(tier: model.priceTier!),
+                const SizedBox(width: 2),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Toolbar chip button used inside _SmartPoolDialog
+class _PoolActionChip extends StatelessWidget {
+  const _PoolActionChip({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _bgSecondary,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: _textSecondary,
+          ),
+        ),
       ),
     );
   }

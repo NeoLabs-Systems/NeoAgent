@@ -7,12 +7,16 @@ Install takes about 5 minutes. The first VM boot downloads and configures an Ubu
 | | |
 |---|---|
 | Node.js | 20 or newer |
-| QEMU | for VM-isolated browser and Android |
+| QEMU | installed automatically when supported; used for VM-isolated browser and Android |
 | AI provider key | Anthropic, OpenAI, Gemini, Grok, MiniMax, or local Ollama |
 
 No API key is required if you only use local Ollama.
 
-### Install QEMU
+### Optional manual QEMU install
+
+`neoagent install` tries to install QEMU on supported macOS and Linux package
+managers. If the machine does not have a supported package manager yet, install
+QEMU manually and rerun `neoagent install`.
 
 ```bash
 # macOS
@@ -29,7 +33,9 @@ npm install -g neoagent
 neoagent install
 ```
 
-This runs setup (if no existing config), installs dependencies, and starts the service.
+This runs a preflight, creates or updates config, installs dependencies, builds
+or uses the bundled web client, starts the service, and prints any remaining
+machine-specific action items.
 
 Open **http://localhost:3333** in your browser when the install finishes.
 

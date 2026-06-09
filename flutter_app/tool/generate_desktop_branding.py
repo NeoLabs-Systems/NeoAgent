@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_DIR = ROOT / "tool" / "branding_source"
 BRANDING_DIR = ROOT / "assets" / "branding"
 WEB_DIR = ROOT / "web"
 WEB_ICONS_DIR = WEB_DIR / "icons"
@@ -18,101 +18,17 @@ LINUX_ICON_DIR = ROOT / "linux" / "runner" / "resources"
 ANDROID_RES_DIR = ROOT / "android" / "app" / "src" / "main" / "res"
 SERVER_PUBLIC_DIR = ROOT.parent / "server" / "public"
 SERVER_PUBLIC_ICONS_DIR = SERVER_PUBLIC_DIR / "icons"
+STATIC_IMG_DIR = ROOT.parent / "static" / "img"
+LANDING_LOGO_PATH = ROOT.parent / "landing" / "assets" / "logo.svg"
+EXTENSION_ICON_DIR = ROOT.parent / "extensions" / "chrome-browser" / "icons"
+EXTENSION_LOGO_PATH = EXTENSION_ICON_DIR / "logo.svg"
 
-ACCENT = (143, 109, 62)
-ACCENT_ALT = (47, 125, 110)
-WHITE = (255, 255, 255, 255)
+SOURCE_SVG = SOURCE_DIR / "neoagent-icon.svg"
+SOURCE_PNG_SIZES = (16, 32, 48, 64, 128, 180, 192, 256, 512, 1024)
 TRANSPARENT = (0, 0, 0, 0)
-
-
-def lerp(a: float, b: float, t: float) -> float:
-    return a + (b - a) * t
-
-
-def gradient_background(size: int) -> Image.Image:
-    img = Image.new("RGBA", (size, size), TRANSPARENT)
-    px = img.load()
-    for y in range(size):
-      for x in range(size):
-        tx = x / max(size - 1, 1)
-        ty = y / max(size - 1, 1)
-        t = (tx + ty) / 2
-        px[x, y] = (
-            int(lerp(ACCENT[0], ACCENT_ALT[0], t)),
-            int(lerp(ACCENT[1], ACCENT_ALT[1], t)),
-            int(lerp(ACCENT[2], ACCENT_ALT[2], t)),
-            255,
-        )
-    return img
-
-
-def logo_paths(size: int, padding_ratio: float = 0.18):
-    pad = size * padding_ratio
-    inner = size - pad * 2
-    def point(x: float, y: float) -> tuple[float, float]:
-        return (pad + inner * x, pad + inner * y)
-
-    top = [point(0.5, 0.08), point(0.1, 0.3), point(0.5, 0.52), point(0.9, 0.3)]
-    middle = [point(0.1, 0.52), point(0.5, 0.74), point(0.9, 0.52)]
-    bottom = [point(0.1, 0.72), point(0.5, 0.94), point(0.9, 0.72)]
-    return top, middle, bottom, inner
-
-
-def draw_logo(draw: ImageDraw.ImageDraw, size: int, color: tuple[int, int, int, int]) -> None:
-    top, middle, bottom, inner = logo_paths(size)
-    stroke = max(2, round(inner * 0.08))
-    draw.polygon(top, fill=color)
-    draw.line(middle, fill=color, width=stroke, joint="curve")
-    draw.line(bottom, fill=color, width=stroke, joint="curve")
-
-
-def make_app_icon(size: int) -> Image.Image:
-    canvas = Image.new("RGBA", (size, size), TRANSPARENT)
-
-    shadow = Image.new("RGBA", (size, size), TRANSPARENT)
-    shadow_draw = ImageDraw.Draw(shadow)
-    offset_y = size * 0.02
-    corner = round(size * 0.34)
-    shadow_draw.rounded_rectangle(
-        (size * 0.07, size * 0.07 + offset_y, size * 0.93, size * 0.93 + offset_y),
-        radius=corner,
-        fill=(0, 0, 0, 72),
-    )
-    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=max(2, size * 0.04)))
-    canvas.alpha_composite(shadow)
-
-    base_mask = Image.new("L", (size, size), 0)
-    mask_draw = ImageDraw.Draw(base_mask)
-    base_rect = (size * 0.08, size * 0.08, size * 0.92, size * 0.92)
-    mask_draw.rounded_rectangle(base_rect, radius=corner, fill=255)
-
-    base = gradient_background(size)
-    clipped = Image.new("RGBA", (size, size), TRANSPARENT)
-    clipped.paste(base, mask=base_mask)
-    canvas.alpha_composite(clipped)
-
-    ring = Image.new("RGBA", (size, size), TRANSPARENT)
-    ring_draw = ImageDraw.Draw(ring)
-    ring_draw.rounded_rectangle(
-        base_rect,
-        radius=corner,
-        outline=(255, 255, 255, 36),
-        width=max(1, round(size * 0.012)),
-    )
-    canvas.alpha_composite(ring)
-
-    glyph = Image.new("RGBA", (size, size), TRANSPARENT)
-    draw = ImageDraw.Draw(glyph)
-    draw_logo(draw, size, WHITE)
-    canvas.alpha_composite(glyph)
-    return canvas
-
-
-def make_tray_template(size: int = 64) -> Image.Image:
-    img = Image.new("RGBA", (size, size), TRANSPARENT)
-    draw = ImageDraw.Draw(img)
-    draw_logo(draw, size, (0, 0, 0, 255))
-    return img
+WHITE = (255, 255, 255, 255)
+BLACK = (0, 0, 0, 255)
+TRAY_TEMPLATE_SIZE = 256
 
 
 def ensure_dirs() -> None:
@@ -121,69 +37,137 @@ def ensure_dirs() -> None:
     MAC_ICON_DIR.mkdir(parents=True, exist_ok=True)
     LINUX_ICON_DIR.mkdir(parents=True, exist_ok=True)
     SERVER_PUBLIC_ICONS_DIR.mkdir(parents=True, exist_ok=True)
+    STATIC_IMG_DIR.mkdir(parents=True, exist_ok=True)
+    LANDING_LOGO_PATH.parent.mkdir(parents=True, exist_ok=True)
+    EXTENSION_ICON_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def write_text(path: Path, content: str) -> None:
-    path.write_text(content, encoding="utf-8")
+def source_png_path(size: int) -> Path:
+    return SOURCE_DIR / f"neoagent-icon-{size}.png"
 
 
-def copy_png(image: Image.Image, path: Path, size: int) -> None:
+def load_source_icon(size: int) -> Image.Image:
+    if size in SOURCE_PNG_SIZES and source_png_path(size).exists():
+        return Image.open(source_png_path(size)).convert("RGBA")
+    source = Image.open(source_png_path(1024)).convert("RGBA")
+    return source.resize((size, size), Image.Resampling.LANCZOS)
+
+
+def save_icon(path: Path, size: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    save_png(image, path, size)
+    image = load_source_icon(size)
+    if image.size != (size, size):
+        image = image.resize((size, size), Image.Resampling.LANCZOS)
+    image.save(path, format="PNG")
 
 
-def write_favicon_svg(path: Path) -> None:
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#{ACCENT[0]:02x}{ACCENT[1]:02x}{ACCENT[2]:02x}"/>
-      <stop offset="100%" stop-color="#{ACCENT_ALT[0]:02x}{ACCENT_ALT[1]:02x}{ACCENT_ALT[2]:02x}"/>
-    </linearGradient>
-  </defs>
-  <rect x="2.5" y="2.5" width="27" height="27" rx="9" ry="9" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1"/>
-  <polygon points="16,5.7 5.2,11.6 16,17.6 26.8,11.6" fill="white"/>
-  <polyline points="5.2,17.6 16,23.5 26.8,17.6" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <polyline points="5.2,22.7 16,28.1 26.8,22.7" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-"""
-    write_text(path, svg)
+def write_source_svg(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    svg = SOURCE_SVG.read_text(encoding="utf-8")
+    svg = svg.replace(
+        'stroke="rgba(255,255,255,0.16)"',
+        'stroke="#ffffff" stroke-opacity="0.16"',
+    )
+    path.write_text(svg, encoding="utf-8")
 
 
-def save_png(image: Image.Image, path: Path, size: int) -> None:
-    image.resize((size, size), Image.Resampling.LANCZOS).save(path, format="PNG")
+def draw_scaled_circle(
+    draw: ImageDraw.ImageDraw,
+    size: int,
+    center_x: float,
+    center_y: float,
+    radius: float,
+    color: tuple[int, int, int, int],
+) -> None:
+    scale = size / 100
+    draw.ellipse(
+        (
+            (center_x - radius) * scale,
+            (center_y - radius) * scale,
+            (center_x + radius) * scale,
+            (center_y + radius) * scale,
+        ),
+        fill=color,
+    )
+
+
+def make_tray_template(
+    size: int = 64,
+    color: tuple[int, int, int, int] = BLACK,
+) -> Image.Image:
+    img = Image.new("RGBA", (size, size), TRANSPARENT)
+    draw = ImageDraw.Draw(img)
+    scale = size / 100
+    width = max(2, round(size * 0.078))
+    center = 50 * scale
+
+    draw.arc(
+        (
+            (50 - 30) * scale,
+            (50 - 30) * scale,
+            (50 + 30) * scale,
+            (50 + 30) * scale,
+        ),
+        start=158,
+        end=444,
+        fill=color,
+        width=width,
+    )
+    draw.arc(
+        (
+            (50 - 17) * scale,
+            (50 - 17) * scale,
+            (50 + 17) * scale,
+            (50 + 17) * scale,
+        ),
+        start=68,
+        end=330,
+        fill=color,
+        width=width,
+    )
+    draw_scaled_circle(draw, size, 50, 50, 7, color)
+    draw_scaled_circle(draw, size, 50, 20, 5.6, color)
+
+    # Slightly round arc ends so the template keeps the supplied logo's soft tube feel.
+    end_radius = width / 2
+    for x, y in ((77.2, 74.8), (80.0, 41.2), (32.0, 29.7), (68.8, 39.2)):
+        draw.ellipse(
+            (
+                x * scale - end_radius,
+                y * scale - end_radius,
+                x * scale + end_radius,
+                y * scale + end_radius,
+            ),
+            fill=color,
+        )
+
+    # Keep the symbol optically centered inside the menu-bar bounds.
+    vertical_offset = round(size * 0.03125)
+    return img.crop((0, vertical_offset, size, size + vertical_offset))
 
 
 def main() -> None:
     ensure_dirs()
-    master = make_app_icon(1024)
 
-    save_png(master, BRANDING_DIR / "app_icon_1024.png", 1024)
-    save_png(master, BRANDING_DIR / "app_icon_512.png", 512)
-    save_png(master, BRANDING_DIR / "app_icon_256.png", 256)
-    save_png(master, BRANDING_DIR / "app_icon_192.png", 192)
-    save_png(master, BRANDING_DIR / "app_icon_128.png", 128)
-    save_png(master, BRANDING_DIR / "app_icon_64.png", 64)
-    save_png(master, BRANDING_DIR / "app_icon_32.png", 32)
+    for size in (1024, 512, 256, 192, 128, 64, 32):
+        save_icon(BRANDING_DIR / f"app_icon_{size}.png", size)
+        save_icon(BRANDING_DIR / f"app_icon_light_{size}.png", size)
 
-    tray = make_tray_template(64)
-    save_png(tray, BRANDING_DIR / "tray_icon_template.png", 64)
+    make_tray_template(TRAY_TEMPLATE_SIZE).save(
+        BRANDING_DIR / "tray_icon_template.png",
+        format="PNG",
+    )
+    make_tray_template(TRAY_TEMPLATE_SIZE, WHITE).save(
+        BRANDING_DIR / "tray_icon_light_template.png",
+        format="PNG",
+    )
 
-    icon_sizes = {
-        16: "app_icon_16.png",
-        32: "app_icon_32.png",
-        64: "app_icon_64.png",
-        128: "app_icon_128.png",
-        256: "app_icon_256.png",
-        512: "app_icon_512.png",
-        1024: "app_icon_1024.png",
-    }
-    for size, filename in icon_sizes.items():
-        save_png(master, MAC_ICON_DIR / filename, size)
+    for size in (16, 32, 64, 128, 256, 512, 1024):
+        save_icon(MAC_ICON_DIR / f"app_icon_{size}.png", size)
 
-    save_png(master, LINUX_ICON_DIR / "app_icon.png", 256)
+    save_icon(LINUX_ICON_DIR / "app_icon.png", 256)
 
-    master_for_ico = master.resize((256, 256), Image.Resampling.LANCZOS)
-    master_for_ico.save(
+    load_source_icon(256).save(
         WINDOWS_ICON_PATH,
         format="ICO",
         sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
@@ -194,15 +178,33 @@ def main() -> None:
         512: "Icon-512.png",
     }
     for size, filename in web_icon_sizes.items():
-        copy_png(master, WEB_ICONS_DIR / filename, size)
-        copy_png(master, WEB_ICONS_DIR / filename.replace("Icon-", "Icon-maskable-"), size)
-        copy_png(master, SERVER_PUBLIC_ICONS_DIR / filename, size)
-        copy_png(master, SERVER_PUBLIC_ICONS_DIR / filename.replace("Icon-", "Icon-maskable-"), size)
+        save_icon(WEB_ICONS_DIR / filename, size)
+        save_icon(WEB_ICONS_DIR / filename.replace("Icon-", "Icon-maskable-"), size)
+        save_icon(WEB_ICONS_DIR / filename.replace(".png", "-light.png"), size)
+        save_icon(WEB_ICONS_DIR / filename.replace("Icon-", "Icon-maskable-").replace(".png", "-light.png"), size)
+        save_icon(SERVER_PUBLIC_ICONS_DIR / filename, size)
+        save_icon(SERVER_PUBLIC_ICONS_DIR / filename.replace("Icon-", "Icon-maskable-"), size)
 
-    copy_png(master, WEB_DIR / "favicon.png", 32)
-    copy_png(master, SERVER_PUBLIC_DIR / "favicon.png", 32)
-    write_favicon_svg(WEB_DIR / "favicon.svg")
-    write_favicon_svg(SERVER_PUBLIC_DIR / "favicon.svg")
+    save_icon(WEB_DIR / "favicon.png", 32)
+    save_icon(SERVER_PUBLIC_DIR / "favicon.png", 32)
+    write_source_svg(WEB_DIR / "favicon.svg")
+    write_source_svg(WEB_DIR / "favicon_light.svg")
+    write_source_svg(SERVER_PUBLIC_DIR / "favicon.svg")
+    write_source_svg(SERVER_PUBLIC_DIR / "favicon_light.svg")
+    write_source_svg(LANDING_LOGO_PATH)
+    write_source_svg(EXTENSION_LOGO_PATH)
+
+    for size in (16, 48, 128):
+        save_icon(EXTENSION_ICON_DIR / f"icon{size}.png", size)
+
+    save_icon(STATIC_IMG_DIR / "app_icon.png", 512)
+    save_icon(STATIC_IMG_DIR / "app_icon_light.png", 512)
+    save_icon(SERVER_PUBLIC_DIR / "assets" / "assets" / "branding" / "app_icon_256.png", 256)
+    make_tray_template(TRAY_TEMPLATE_SIZE).save(
+        SERVER_PUBLIC_DIR / "assets" / "assets" / "branding" / "tray_icon_template.png",
+        format="PNG",
+    )
+    save_icon(SERVER_PUBLIC_DIR / "assets" / "web" / "icons" / "Icon-192.png", 192)
 
     android_icon_sizes = {
         "mipmap-mdpi": 48,
@@ -212,7 +214,7 @@ def main() -> None:
         "mipmap-xxxhdpi": 192,
     }
     for folder, size in android_icon_sizes.items():
-        copy_png(master, ANDROID_RES_DIR / folder / "ic_launcher.png", size)
+        save_icon(ANDROID_RES_DIR / folder / "ic_launcher.png", size)
 
 
 if __name__ == "__main__":

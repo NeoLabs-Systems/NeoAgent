@@ -11,6 +11,8 @@ EdgeInsets _pagePadding(BuildContext context) {
   return const EdgeInsets.fromLTRB(20, 20, 20, 28);
 }
 
+final ValueNotifier<bool> _partyModeEnabled = ValueNotifier<bool>(false);
+
 class _AmbientBackdrop extends StatefulWidget {
   const _AmbientBackdrop({required this.child});
 
@@ -41,78 +43,263 @@ class _AmbientBackdropState extends State<_AmbientBackdrop>
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(gradient: _appBackgroundGradient),
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final t = Curves.easeInOut.transform(_controller.value);
-          return Stack(
-            children: <Widget>[
-              Positioned(
-                top: -120 + (t * 22),
-                left: -90 + (t * 18),
-                child: _BlurOrb(
-                  size: 340,
-                  color: _accent.withValues(alpha: 0.9),
-                ),
-              ),
-              Positioned(
-                top: 90 - (t * 26),
-                right: -120 + (t * 22),
-                child: _BlurOrb(
-                  size: 280,
-                  color: _accentAlt.withValues(alpha: 0.85),
-                ),
-              ),
-              Positioned(
-                bottom: -140 + (t * 16),
-                left: 100 - (t * 24),
-                child: _BlurOrb(
-                  size: 360,
-                  color: _accent.withValues(alpha: 0.45),
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: <Color>[
-                          Colors.white.withValues(alpha: 0.05),
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.12),
-                        ],
-                        stops: const <double>[0, 0.32, 1],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+    return ValueListenableBuilder<bool>(
+      valueListenable: _partyModeEnabled,
+      builder: (context, partyMode, _) {
+        return DecoratedBox(
+          decoration: BoxDecoration(gradient: _appBackgroundGradient),
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final t = Curves.easeInOut.transform(_controller.value);
+              return Stack(
+                children: <Widget>[
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _AuroraFieldPainter(
+                          progress: t,
+                          partyMode: partyMode,
+                          primary: _accent,
+                          secondary: _accentAlt,
+                          base: _bgPrimary,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: Alignment(0.75 - (t * 0.15), -0.9 + (t * 0.1)),
-                        radius: 0.95,
-                        colors: <Color>[
-                          _glassHighlight.withValues(alpha: 0.14),
-                          Colors.transparent,
-                        ],
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ArcadeGridPainter(
+                          progress: t,
+                          color: _accentAlt,
+                          partyMode: partyMode,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              widget.child,
-            ],
-          );
-        },
-      ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: <Color>[
+                              Colors.white.withValues(alpha: 0.05),
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.12),
+                            ],
+                            stops: const <double>[0, 0.32, 1],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ConfettiBitsPainter(
+                          progress: t,
+                          active: partyMode,
+                          primary: _accent,
+                          secondary: _accentAlt,
+                        ),
+                      ),
+                    ),
+                  ),
+                  widget.child,
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
+  }
+}
+
+class _ControlSurfaceBackdrop extends StatelessWidget {
+  const _ControlSurfaceBackdrop({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            _bgPrimary,
+            Color.lerp(_bgPrimary, _accentAlt, 0.025)!,
+            Color.lerp(_bgPrimary, _accent, 0.02)!,
+          ],
+          stops: const <double>[0, 0.58, 1],
+          begin: const Alignment(-0.95, -1),
+          end: const Alignment(0.96, 1),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _AuroraFieldPainter extends CustomPainter {
+  const _AuroraFieldPainter({
+    required this.progress,
+    required this.partyMode,
+    required this.primary,
+    required this.secondary,
+    required this.base,
+  });
+
+  final double progress;
+  final bool partyMode;
+  final Color primary;
+  final Color secondary;
+  final Color base;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final energy = partyMode ? 1.45 : 1.0;
+    final wash = Paint()
+      ..shader = LinearGradient(
+        colors: <Color>[
+          primary.withValues(alpha: 0.18 * energy),
+          secondary.withValues(alpha: 0.12 * energy),
+          base.withValues(alpha: 0),
+        ],
+        stops: const <double>[0, 0.42, 1],
+        begin: Alignment(-0.95 + progress * 0.35, -1),
+        end: Alignment(0.85 - progress * 0.25, 1),
+      ).createShader(rect);
+    canvas.drawRect(rect, wash);
+
+    for (var lane = 0; lane < 4; lane++) {
+      final yBase = size.height * (0.16 + lane * 0.18);
+      final path = Path()..moveTo(-size.width * 0.12, yBase);
+      for (var i = 0; i <= 8; i++) {
+        final x = size.width * (i / 8);
+        final phase = progress * math.pi * 2 + lane * 0.9 + i * 0.28;
+        final y = yBase + math.sin(phase) * (28 + lane * 9) * energy;
+        path.lineTo(x, y);
+      }
+      path.lineTo(size.width * 1.12, yBase + size.height * 0.34);
+      path.lineTo(-size.width * 0.12, yBase + size.height * 0.28);
+      path.close();
+
+      final lanePaint = Paint()
+        ..shader = LinearGradient(
+          colors: <Color>[
+            (lane.isEven ? primary : secondary).withValues(
+              alpha: (0.07 + lane * 0.012) * energy,
+            ),
+            Colors.transparent,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(rect)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 42);
+      canvas.drawPath(path, lanePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AuroraFieldPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.partyMode != partyMode ||
+        oldDelegate.primary != primary ||
+        oldDelegate.secondary != secondary ||
+        oldDelegate.base != base;
+  }
+}
+
+class _ArcadeGridPainter extends CustomPainter {
+  const _ArcadeGridPainter({
+    required this.progress,
+    required this.color,
+    required this.partyMode,
+  });
+
+  final double progress;
+  final Color color;
+  final bool partyMode;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: partyMode ? 0.13 : 0.055)
+      ..strokeWidth = 1;
+    const step = 48.0;
+    final drift = progress * step;
+    for (double x = -step + drift; x < size.width + step; x += step) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x - size.width * 0.08, size.height),
+        paint,
+      );
+    }
+    for (double y = size.height * 0.58; y < size.height + step; y += step) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y - progress * 12),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcadeGridPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.color != color ||
+        oldDelegate.partyMode != partyMode;
+  }
+}
+
+class _ConfettiBitsPainter extends CustomPainter {
+  const _ConfettiBitsPainter({
+    required this.progress,
+    required this.active,
+    required this.primary,
+    required this.secondary,
+  });
+
+  final double progress;
+  final bool active;
+  final Color primary;
+  final Color secondary;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!active) return;
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (var i = 0; i < 26; i++) {
+      final seed = i * 37.0;
+      final x = ((seed * 17 + progress * size.width * 0.35) % size.width);
+      final y = ((seed * 29 + progress * size.height * 0.9) % size.height);
+      final color = i.isEven ? primary : secondary;
+      paint.color = color.withValues(alpha: 0.16 + (i % 4) * 0.035);
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(progress * math.pi * 2 + i);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset.zero, width: 5 + (i % 3), height: 2.5),
+          const Radius.circular(2),
+        ),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiBitsPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.active != active ||
+        oldDelegate.primary != primary ||
+        oldDelegate.secondary != secondary;
   }
 }
 
@@ -231,7 +418,6 @@ List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
     AppSection.recordings,
-    AppSection.runs,
     AppSection.devices,
     AppSection.tasks,
     AppSection.widgets,
@@ -239,6 +425,7 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
     AppSection.settings,
+    AppSection.runs,
     AppSection.agents,
     AppSection.messaging,
   ];
@@ -263,11 +450,19 @@ List<Widget> _buildSidebarItems(
       continue;
     }
 
+    final defaultSection = sections.first;
+    final parentSection = group == SidebarGroup.settings
+        ? AppSection.settings
+        : defaultSection;
+    final childSections = group == SidebarGroup.settings
+        ? sections.where((section) => section != parentSection).toList()
+        : sections;
+    final hasChildren =
+        childSections.length > 1 ||
+        (group == SidebarGroup.settings && childSections.isNotEmpty);
     final active =
         selectedSidebarSection &&
-        controller.selectedSection.sidebarSection.group == group;
-    final defaultSection = sections.first;
-    final hasChildren = sections.length > 1;
+        controller.selectedSection.sidebarSection == parentSection;
     final expanded = expandedGroup == group;
 
     widgets.add(
@@ -279,12 +474,14 @@ List<Widget> _buildSidebarItems(
             ? Icon(
                 expanded ? Icons.expand_less : Icons.expand_more,
                 size: 16,
-                color: active ? _accent : _textMuted,
+                color: active ? _textSecondary : _textMuted,
               )
             : null,
         onTap: hasChildren
-            ? () => onToggleGroup(group)
-            : () => onSelect(defaultSection),
+            ? group == SidebarGroup.settings
+                  ? () => onSelect(parentSection)
+                  : () => onToggleGroup(group)
+            : () => onSelect(parentSection),
       ),
     );
 
@@ -292,19 +489,23 @@ List<Widget> _buildSidebarItems(
       continue;
     }
 
-    for (final section in sections) {
-      widgets.add(
-        _SidebarButton(
-          label: section.label,
-          icon: section.icon,
-          active: controller.selectedSection.sidebarSection == section,
-          indent: 18,
-          iconSize: 16,
-          fontSize: 12,
-          onTap: () => onSelect(section),
-        ),
-      );
-    }
+    widgets.add(
+      _SidebarSubnav(
+        children: childSections
+            .map(
+              (section) => _SidebarButton(
+                label: section.label,
+                icon: section.icon,
+                active: controller.selectedSection.sidebarSection == section,
+                iconSize: 16,
+                fontSize: 13,
+                compact: true,
+                onTap: () => onSelect(section),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
   }
   return widgets;
 }
@@ -438,6 +639,53 @@ class _PageTitle extends StatelessWidget {
   }
 }
 
+IconData _runPhaseIcon(String phase) {
+  switch (phase.toLowerCase()) {
+    case 'thinking':
+      return Icons.psychology_outlined;
+    case 'analyzing':
+      return Icons.analytics_outlined;
+    case 'planning':
+      return Icons.list_alt_outlined;
+    case 'verifying':
+      return Icons.fact_check_outlined;
+    case 'streaming':
+    case 'responding':
+      return Icons.chat_outlined;
+    case 'awaiting approval':
+      return Icons.lock_clock_outlined;
+    case 'incorporating steering':
+      return Icons.tune_outlined;
+    case 'completed':
+      return Icons.check_circle_outline_rounded;
+    case 'stopped':
+    case 'stopping':
+      return Icons.stop_circle_outlined;
+    default:
+      return Icons.sync_outlined;
+  }
+}
+
+Color _runPhaseColor(String phase) {
+  switch (phase.toLowerCase()) {
+    case 'thinking':
+    case 'analyzing':
+    case 'planning':
+      return _info;
+    case 'verifying':
+      return _accentAlt;
+    case 'awaiting approval':
+      return _warning;
+    case 'completed':
+      return _success;
+    case 'stopped':
+    case 'stopping':
+      return _textSecondary;
+    default:
+      return _accent;
+  }
+}
+
 class _RunStatusPanel extends StatelessWidget {
   const _RunStatusPanel({required this.run, required this.tools});
 
@@ -449,6 +697,9 @@ class _RunStatusPanel extends StatelessWidget {
     final runningCount = tools.where((tool) => tool.status == 'running').length;
     final helperCount = tools.where((tool) => tool.isHelperRelated).length;
     final webCount = tools.where((tool) => tool.isWebRelated).length;
+    final phase = run?.phase ?? '';
+    final phaseColor = _runPhaseColor(phase);
+    final isDeepRun = (run?.iteration ?? 0) >= 8;
 
     return Card(
       child: Padding(
@@ -458,6 +709,30 @@ class _RunStatusPanel extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
+                if (phase.isNotEmpty) ...<Widget>[
+                  _PulseHalo(
+                    color: phaseColor,
+                    animate: phase.toLowerCase() != 'completed' &&
+                        phase.toLowerCase() != 'stopped',
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: phaseColor.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: phaseColor.withValues(alpha: 0.28),
+                        ),
+                      ),
+                      child: Icon(
+                        _runPhaseIcon(phase),
+                        size: 16,
+                        color: phaseColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -469,7 +744,7 @@ class _RunStatusPanel extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         run == null
                             ? 'Waiting for run events...'
@@ -478,7 +753,12 @@ class _RunStatusPanel extends StatelessWidget {
                                 if (run!.pendingSteeringCount > 0)
                                   '${run!.pendingSteeringCount} steering ${run!.pendingSteeringCount == 1 ? 'update' : 'updates'} queued',
                               ].join(' · '),
-                        style: TextStyle(color: _textSecondary),
+                        style: TextStyle(
+                          color: phase.isNotEmpty
+                              ? phaseColor.withValues(alpha: 0.8)
+                              : _textSecondary,
+                          fontSize: 12.5,
+                        ),
                       ),
                     ],
                   ),
@@ -512,6 +792,12 @@ class _RunStatusPanel extends StatelessWidget {
                     _MetaPill(
                       label: '$helperCount helpers',
                       icon: Icons.account_tree_outlined,
+                    ),
+                  if (isDeepRun)
+                    _MetaPill(
+                      label: 'deep run · step ${run!.iteration}',
+                      icon: Icons.warning_amber_outlined,
+                      color: _warning,
                     ),
                 ],
               ),
@@ -548,6 +834,7 @@ class _ToolEventTimelineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color color;
+    final running = tool.status == 'running';
     switch (tool.status) {
       case 'running':
         color = _warning;
@@ -565,14 +852,26 @@ class _ToolEventTimelineRow extends StatelessWidget {
           width: 28,
           child: Column(
             children: <Widget>[
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
+              _PulseHalo(
+                color: color,
+                animate: running,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: <Color>[
+                        color.withValues(alpha: running ? 0.26 : 0.16),
+                        color.withValues(alpha: 0.08),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: color.withValues(alpha: 0.24)),
+                  ),
+                  child: Icon(tool.laneIcon, size: 16, color: color),
                 ),
-                child: Icon(tool.laneIcon, size: 16, color: color),
               ),
               if (!isLast)
                 Container(
@@ -592,9 +891,18 @@ class _ToolEventTimelineRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _bgSecondary,
+              gradient: LinearGradient(
+                colors: <Color>[
+                  _bgSecondary,
+                  if (running) color.withValues(alpha: 0.055) else _bgCard,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border),
+              border: Border.all(
+                color: running ? color.withValues(alpha: 0.25) : _border,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -770,36 +1078,127 @@ class _DotStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      borderRadius: BorderRadius.circular(999),
-      blurSigma: 16,
-      fillColor: _bgSecondary.withValues(alpha: 0.28),
-      borderColor: _glassBorder.withValues(alpha: 0.8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Text(label),
-        ],
+    return _PulseHalo(
+      color: color,
+      child: _GlassSurface(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        borderRadius: BorderRadius.circular(999),
+        blurSigma: 16,
+        fillColor: _bgSecondary.withValues(alpha: 0.3),
+        borderColor: color.withValues(alpha: 0.24),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.42),
+                    blurRadius: 9,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(label),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SidebarButton extends StatelessWidget {
+class _PulseHalo extends StatefulWidget {
+  const _PulseHalo({
+    required this.child,
+    required this.color,
+    this.animate = true,
+  });
+
+  final Widget child;
+  final Color color;
+  final bool animate;
+
+  @override
+  State<_PulseHalo> createState() => _PulseHaloState();
+}
+
+class _PulseHaloState extends State<_PulseHalo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    if (widget.animate) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_PulseHalo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animate != oldWidget.animate) {
+      if (widget.animate) {
+        _controller.repeat(reverse: true);
+      } else {
+        _controller.stop();
+        _controller.value = 0.0;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.animate) {
+      return widget.child;
+    }
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.04 + t * 0.08),
+                blurRadius: 12 + t * 10,
+                spreadRadius: t * 1.5,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _SidebarButton extends StatefulWidget {
   const _SidebarButton({
     required this.label,
     required this.icon,
     this.active = false,
-    this.indent = 0,
     this.iconSize = 18,
     this.fontSize = 13,
+    this.compact = false,
     this.trailing,
     required this.onTap,
   });
@@ -807,94 +1206,131 @@ class _SidebarButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool active;
-  final double indent;
   final double iconSize;
   final double fontSize;
+  final bool compact;
   final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
+  State<_SidebarButton> createState() => _SidebarButtonState();
+}
+
+class _SidebarButtonState extends State<_SidebarButton> {
+  bool _hovering = false;
+
+  @override
   Widget build(BuildContext context) {
+    final active = widget.active;
+    final BoxDecoration decoration = active
+        ? BoxDecoration(
+            color: _bgCard,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: _border),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          )
+        : BoxDecoration(
+            color: _hovering
+                ? _bgTertiary.withValues(alpha: 0.72)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        scale: active ? 1.01 : 1,
-        child: _GlassSurface(
-          borderRadius: BorderRadius.circular(18),
-          blurSigma: 18,
-          fillColor: active
-              ? _accentMuted.withValues(alpha: 0.32)
-              : _bgCard.withValues(alpha: 0.2),
-          borderColor: active
-              ? _accent.withValues(alpha: 0.32)
-              : Colors.white.withValues(alpha: 0.03),
-          boxShadow: active
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: _accent.withValues(alpha: 0.12),
-                    blurRadius: 22,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: onTap,
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.fromLTRB(12 + indent, 12, 12, 12),
-                child: Row(
-                  children: <Widget>[
-                    if (active)
-                      Container(
-                        width: 6,
-                        height: 26,
-                        margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.only(bottom: 2),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovering = true),
+        onExit: (_) => setState(() => _hovering = false),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(9),
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(
+                12,
+                widget.compact ? 8 : 10,
+                12,
+                widget.compact ? 8 : 10,
+              ),
+              decoration: decoration,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                children: <Widget>[
+                  if (active)
+                    Positioned(
+                      left: -12,
+                      child: Container(
+                        width: 3,
+                        height: 18,
                         decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
                           gradient: LinearGradient(
-                            colors: <Color>[
-                              _accentHover,
-                              _accentAlt.withValues(alpha: 0.9),
-                            ],
+                            colors: <Color>[_accentAlt, _accent],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                           ),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    Icon(
-                      icon,
-                      size: iconSize,
-                      color: active ? _accentHover : _textSecondary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: fontSize,
-                          fontWeight: active
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                          color: active ? _textPrimary : _textSecondary,
                         ),
                       ),
                     ),
-                    if (trailing != null) ...<Widget>[
-                      const SizedBox(width: 8),
-                      trailing!,
+                  Row(
+                    children: <Widget>[
+                      Icon(
+                        widget.icon,
+                        size: widget.iconSize,
+                        color: active ? _accent : _textMuted,
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.geist(
+                            fontSize: widget.fontSize,
+                            fontWeight: FontWeight.w600,
+                            color: active ? _textPrimary : _textSecondary,
+                          ),
+                        ),
+                      ),
+                      if (widget.trailing != null) ...<Widget>[
+                        const SizedBox(width: 8),
+                        widget.trailing!,
+                      ],
                     ],
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SidebarSubnav extends StatelessWidget {
+  const _SidebarSubnav({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 2, 0, 2),
+      padding: const EdgeInsets.only(left: 12),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: _border)),
+      ),
+      child: Column(children: children),
     );
   }
 }
@@ -914,21 +1350,21 @@ class _SidebarIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: _GlassSurface(
-        borderRadius: BorderRadius.circular(999),
-        blurSigma: 18,
-        fillColor: _bgCard.withValues(alpha: 0.3),
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: SizedBox(
-              width: 38,
-              height: 38,
-              child: Icon(icon, size: 17, color: _textSecondary),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(9),
+          onTap: onTap,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(9),
+              color: _bgSecondary.withValues(alpha: 0.01),
+              border: Border.all(color: Colors.transparent),
             ),
+            child: Icon(icon, size: 17, color: _textSecondary),
           ),
         ),
       ),
@@ -936,63 +1372,87 @@ class _SidebarIconButton extends StatelessWidget {
   }
 }
 
-class _BlurOrb extends StatelessWidget {
-  const _BlurOrb({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: color.withValues(alpha: 0.18),
-              blurRadius: 120,
-              spreadRadius: 30,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LogoBadge extends StatelessWidget {
+class _LogoBadge extends StatefulWidget {
   const _LogoBadge({required this.size});
 
   final double size;
 
   @override
+  State<_LogoBadge> createState() => _LogoBadgeState();
+}
+
+class _LogoBadgeState extends State<_LogoBadge> {
+  int _tapCount = 0;
+  Timer? _tapResetTimer;
+  Timer? _partyResetTimer;
+
+  @override
+  void dispose() {
+    _tapResetTimer?.cancel();
+    if (_partyResetTimer != null && _partyResetTimer!.isActive) {
+      _partyResetTimer?.cancel();
+      _partyModeEnabled.value = false;
+    }
+    super.dispose();
+  }
+
+  void _handleTap() {
+    _tapResetTimer?.cancel();
+    _tapCount += 1;
+    if (_tapCount >= 5) {
+      _tapCount = 0;
+      _partyModeEnabled.value = true;
+      _partyResetTimer?.cancel();
+      _partyResetTimer = Timer(const Duration(seconds: 7), () {
+        _partyModeEnabled.value = false;
+      });
+    } else {
+      _tapResetTimer = Timer(const Duration(milliseconds: 1250), () {
+        _tapCount = 0;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[_brandAccent, _brandAccentAlt],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.34),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: _brandAccent.withValues(alpha: 0.32),
-            blurRadius: 36,
-            offset: const Offset(0, 10),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ValueListenableBuilder<bool>(
+      valueListenable: _partyModeEnabled,
+      builder: (context, partyMode, _) {
+        return GestureDetector(
+          onTap: _handleTap,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutBack,
+            scale: partyMode ? 1.08 : 1,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 260),
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(widget.size * 0.24),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: (partyMode ? _accentAlt : _accent).withValues(
+                      alpha: partyMode ? 0.34 : 0.16,
+                    ),
+                    blurRadius: partyMode ? 28 : 14,
+                    spreadRadius: partyMode ? 1 : 0,
+                  ),
+                ],
+              ),
+              child: Image.asset(
+                isDark
+                    ? 'assets/branding/app_icon_1024.png'
+                    : 'assets/branding/app_icon_light_1024.png',
+                width: widget.size,
+                height: widget.size,
+                filterQuality: FilterQuality.high,
+              ),
+            ),
           ),
-        ],
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(size * 0.18),
-        child: CustomPaint(painter: _NeoAgentLogoPainter()),
-      ),
+        );
+      },
     );
   }
 }
@@ -1014,12 +1474,13 @@ class _BrandLockup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleColor = Theme.of(context).colorScheme.onSurface;
     final title = Text(
-      'NeoOS',
-      style: GoogleFonts.spaceGrotesk(
+      'NeoAgent',
+      style: GoogleFonts.geist(
         fontSize: titleFontSize,
         fontWeight: FontWeight.w700,
-        color: _textPrimary,
+        color: titleColor,
         letterSpacing: -0.4,
       ),
     );
@@ -1047,44 +1508,6 @@ class _BrandLockup extends StatelessWidget {
   }
 }
 
-class _NeoAgentLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final fillPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    final strokePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.08
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final top = Path()
-      ..moveTo(size.width * 0.5, size.height * 0.08)
-      ..lineTo(size.width * 0.1, size.height * 0.3)
-      ..lineTo(size.width * 0.5, size.height * 0.52)
-      ..lineTo(size.width * 0.9, size.height * 0.3)
-      ..close();
-    canvas.drawPath(top, fillPaint);
-
-    final middle = Path()
-      ..moveTo(size.width * 0.1, size.height * 0.52)
-      ..lineTo(size.width * 0.5, size.height * 0.74)
-      ..lineTo(size.width * 0.9, size.height * 0.52);
-    canvas.drawPath(middle, strokePaint);
-
-    final bottom = Path()
-      ..moveTo(size.width * 0.1, size.height * 0.72)
-      ..lineTo(size.width * 0.5, size.height * 0.94)
-      ..lineTo(size.width * 0.9, size.height * 0.72);
-    canvas.drawPath(bottom, strokePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.title, required this.subtitle});
 
@@ -1096,7 +1519,27 @@ class _EmptyState extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        const _LogoBadge(size: 52),
+        Stack(
+          alignment: Alignment.center,
+          children: <Widget>[
+            Container(
+              width: 74,
+              height: 74,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: SweepGradient(
+                  colors: <Color>[
+                    _accent.withValues(alpha: 0.18),
+                    _accentAlt.withValues(alpha: 0.28),
+                    Colors.transparent,
+                    _accent.withValues(alpha: 0.18),
+                  ],
+                ),
+              ),
+            ),
+            const _LogoBadge(size: 52),
+          ],
+        ),
         const SizedBox(height: 12),
         Text(
           title,
@@ -1121,10 +1564,15 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.entry, this.onLoadRunDetail});
+  const _ChatBubble({
+    required this.entry,
+    this.onLoadRunDetail,
+    this.onSendMessage,
+  });
 
   final ChatEntry entry;
   final Future<RunDetailSnapshot> Function(String runId)? onLoadRunDetail;
+  final void Function(String)? onSendMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -1155,158 +1603,185 @@ class _ChatBubble extends StatelessWidget {
             const SizedBox(width: 12),
           ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-              decoration: BoxDecoration(
-                color: isUser ? _accent : _bgCard,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(14),
-                  topRight: const Radius.circular(14),
-                  bottomLeft: Radius.circular(isUser ? 14 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 14),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 672),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
                 ),
-                border: isUser ? null : Border.all(color: _border),
-                boxShadow: isUser
-                    ? <BoxShadow>[
-                        BoxShadow(
-                          color: _accentAlt.withValues(alpha: 0.30),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
+                decoration: BoxDecoration(
+                  gradient: isUser
+                      ? LinearGradient(
+                          colors: <Color>[
+                            _accentAlt,
+                            Color.lerp(_accent, _accentAlt, 0.28)!,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: isUser ? null : _bgCard,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(isUser ? 21 : 8),
+                    topRight: Radius.circular(isUser ? 8 : 21),
+                    bottomLeft: const Radius.circular(21),
+                    bottomRight: const Radius.circular(21),
+                  ),
+                  border: Border.all(
+                    color: isUser ? Colors.transparent : _border,
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: isUser
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (!isUser && entry.platformTag != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _StatusPill(
+                          label: entry.platformTag!,
+                          color: entry.platform == 'live' ? _info : _warning,
                         ),
-                      ]
-                    : null,
-              ),
-              child: Column(
-                crossAxisAlignment: isUser
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: <Widget>[
-                  if (!isUser && entry.platformTag != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _StatusPill(
-                        label: entry.platformTag!,
-                        color: entry.platform == 'live' ? _info : _warning,
+                      ),
+                    MarkdownBody(
+                      data: entry.content,
+                      selectable: false,
+                      styleSheet:
+                          MarkdownStyleSheet.fromTheme(
+                            Theme.of(context),
+                          ).copyWith(
+                            p: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: isUser ? Colors.white : _textPrimary,
+                              fontSize: 14.5,
+                              height: 1.62,
+                            ),
+                            code: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontFamily:
+                                      GoogleFonts.geistMono().fontFamily,
+                                  backgroundColor: _bgPrimary,
+                                  color: isUser ? Colors.white : _textPrimary,
+                                ),
+                            blockquoteDecoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0x22000000),
+                            ),
+                          ),
+                    ),
+                    if (sharedAttachments.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 10),
+                      _SharedAttachmentChipWrap(
+                        attachments: sharedAttachments,
+                        isUser: isUser,
+                      ),
+                    ],
+                    if (!isUser &&
+                        entry.runId?.trim().isNotEmpty == true) ...<Widget>[
+                      const SizedBox(height: 12),
+                      _MessageRunPreview(
+                        runId: entry.runId!.trim(),
+                        onLoadRunDetail: onLoadRunDetail,
+                      ),
+                    ],
+                    if (!isUser &&
+                        entry.richPayload != null &&
+                        onSendMessage != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      _QuickReplyBar(
+                        payload: entry.richPayload!,
+                        onSelected: onSendMessage!,
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Text(
+                      entry.createdAtLabel,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isUser
+                            ? const Color(0xCCFFFFFF)
+                            : _textSecondary,
                       ),
                     ),
-                  MarkdownBody(
-                    data: entry.content,
-                    selectable: false,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
-                        .copyWith(
-                          p: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: isUser ? Colors.white : _textPrimary,
-                            height: 1.65,
-                          ),
-                          code: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                fontFamily:
-                                    GoogleFonts.jetBrainsMono().fontFamily,
-                                backgroundColor: _bgPrimary,
-                                color: isUser ? Colors.white : _textPrimary,
-                              ),
-                          blockquoteDecoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            color: const Color(0x22000000),
-                          ),
-                        ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SharedAttachmentChipWrap extends StatelessWidget {
+  const _SharedAttachmentChipWrap({
+    required this.attachments,
+    required this.isUser,
+  });
+
+  final List<SharedChatAttachment> attachments;
+  final bool isUser;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: attachments
+          .map((attachment) {
+            final mimeType = attachment.mimeType.toLowerCase();
+            final icon = mimeType.startsWith('video/')
+                ? Icons.videocam_outlined
+                : mimeType.startsWith('image/')
+                ? Icons.image_outlined
+                : mimeType.startsWith('audio/')
+                ? Icons.audiotrack_outlined
+                : Icons.attach_file_rounded;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: isUser ? const Color(0x1FFFFFFF) : _bgSecondary,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: isUser ? const Color(0x40FFFFFF) : _border,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: isUser ? Colors.white : _textSecondary,
                   ),
-                  if (sharedAttachments.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: sharedAttachments
-                          .map((attachment) {
-                            final icon =
-                                attachment.mimeType.toLowerCase().startsWith(
-                                  'video/',
-                                )
-                                ? Icons.videocam_outlined
-                                : attachment.mimeType.toLowerCase().startsWith(
-                                    'image/',
-                                  )
-                                ? Icons.image_outlined
-                                : attachment.mimeType.toLowerCase().startsWith(
-                                    'audio/',
-                                  )
-                                ? Icons.audiotrack_outlined
-                                : Icons.attach_file_rounded;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isUser
-                                    ? const Color(0x1FFFFFFF)
-                                    : _bgSecondary,
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: isUser
-                                      ? const Color(0x40FFFFFF)
-                                      : _border,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Icon(
-                                    icon,
-                                    size: 14,
-                                    color: isUser
-                                        ? Colors.white
-                                        : _textSecondary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 180,
-                                    ),
-                                    child: Text(
-                                      attachment.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: isUser
-                                            ? Colors.white
-                                            : _textPrimary,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          })
-                          .toList(growable: false),
-                    ),
-                  ],
-                  if (!isUser &&
-                      entry.runId?.trim().isNotEmpty == true) ...<Widget>[
-                    const SizedBox(height: 12),
-                    _MessageRunPreview(
-                      runId: entry.runId!.trim(),
-                      onLoadRunDetail: onLoadRunDetail,
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Text(
-                    entry.createdAtLabel,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isUser ? const Color(0xCCFFFFFF) : _textSecondary,
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: Text(
+                      attachment.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isUser ? Colors.white : _textPrimary,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-          if (isUser) ...<Widget>[
-            const SizedBox(width: 12),
-            const _MessageAvatar(assistant: false),
-          ],
-        ],
-      ),
+            );
+          })
+          .toList(growable: false),
     );
   }
 }
@@ -1557,29 +2032,22 @@ class _MessageAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 30,
-      height: 30,
+      width: assistant ? 34 : 30,
+      height: assistant ? 34 : 30,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: assistant
-            ? LinearGradient(colors: <Color>[_accent, _accentAlt])
-            : null,
+        borderRadius: BorderRadius.circular(assistant ? 10 : 999),
         color: assistant ? null : _bgTertiary,
-        boxShadow: assistant
-            ? <BoxShadow>[
-                BoxShadow(
-                  color: _accentAlt.withValues(alpha: 0.35),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
+        border: assistant ? null : Border.all(color: _borderLight),
       ),
-      child: Icon(
-        assistant ? Icons.auto_awesome : Icons.person,
-        size: 16,
-        color: assistant ? Colors.white : _textSecondary,
-      ),
+      clipBehavior: Clip.antiAlias,
+      child: assistant
+          ? Image.asset(
+              MediaQuery.platformBrightnessOf(context) == Brightness.dark
+                  ? 'assets/branding/app_icon_1024.png'
+                  : 'assets/branding/app_icon_light_1024.png',
+              filterQuality: FilterQuality.high,
+            )
+          : Icon(Icons.person, size: 16, color: _textSecondary),
     );
   }
 }
@@ -1597,8 +2065,22 @@ class _StatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.14),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        gradient: LinearGradient(
+          colors: <Color>[
+            color.withValues(alpha: 0.2),
+            color.withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Text(
         label,
@@ -3252,6 +3734,16 @@ int _asInt(dynamic value) {
   return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
+double _asDouble(dynamic value, {double fallback = 0}) {
+  if (value is double) {
+    return value;
+  }
+  if (value is int) {
+    return value.toDouble();
+  }
+  return double.tryParse(value?.toString() ?? '') ?? fallback;
+}
+
 DateTime _parseTimestamp(String? raw) {
   if (raw == null || raw.isEmpty) {
     return DateTime.now();
@@ -3362,6 +3854,42 @@ String _summarizeToolResult(dynamic raw) {
   }
   final text = raw.toString();
   return text.length > 140 ? '${text.substring(0, 140)}…' : text;
+}
+
+class _QuickReplyBar extends StatelessWidget {
+  const _QuickReplyBar({required this.payload, required this.onSelected});
+
+  final ChatRichPayload payload;
+  final void Function(String value) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: payload.options.map((option) {
+        return GestureDetector(
+          onTap: () => onSelected(option.value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: _accentMuted,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _accent.withValues(alpha: 0.4)),
+            ),
+            child: Text(
+              option.label,
+              style: TextStyle(
+                fontSize: 13,
+                color: _accent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      }).toList(growable: false),
+    );
+  }
 }
 
 String _titleCase(String value) {

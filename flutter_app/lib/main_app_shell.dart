@@ -4,9 +4,9 @@ part of 'main.dart';
 // surface palette to create visual contrast during the auth flow. Named here
 // so they can be updated in one place rather than hunted across the widget tree.
 const Color _qrPanelGradientStart = Color(0xFF0A1D2E);
-const Color _qrPanelGradientEnd   = Color(0xFF112B43);
-const Color _qrPanelGlowBlue      = Color(0xFF6EDBFF);
-const Color _qrPanelGlowGreen     = Color(0xFF58E0A2);
+const Color _qrPanelGradientEnd = Color(0xFF112B43);
+const Color _qrPanelGlowBlue = Color(0xFF6EDBFF);
+const Color _qrPanelGlowGreen = Color(0xFF58E0A2);
 
 class SplashView extends StatelessWidget {
   const SplashView({super.key});
@@ -37,7 +37,7 @@ class SplashView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('Loading NeoOS'),
+              const Text('Loading NeoAgent'),
             ],
           ),
         ),
@@ -274,7 +274,7 @@ class _AuthViewState extends State<AuthView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       Text(
-                        'Enter your username or account email. NeoOS will send a reset link if it can match the account.',
+                        'Enter your username or account email. NeoAgent will send a reset link if it can match the account.',
                         style: TextStyle(color: _textSecondary, height: 1.45),
                       ),
                       const SizedBox(height: 16),
@@ -480,7 +480,7 @@ class _AuthViewState extends State<AuthView> {
         const SizedBox(height: 8),
         Text(
           awaitingTwoFactor
-              ? 'Open your authenticator app and enter the current NeoOS code.'
+              ? 'Open your authenticator app and enter the current NeoAgent code.'
               : subtitle,
           style: TextStyle(color: _textSecondary, height: 1.5),
         ),
@@ -767,9 +767,9 @@ class _AuthViewState extends State<AuthView> {
                   crossAxisAlignment: contentAlignment,
                   children: <Widget>[
                     Text(
-                      'Scan with NeoOS on your phone',
+                      'Scan with NeoAgent on your phone',
                       textAlign: titleAlignment,
-                      style: GoogleFonts.spaceGrotesk(
+                      style: GoogleFonts.geist(
                         fontSize: titleSize,
                         fontWeight: FontWeight.w700,
                         letterSpacing: compact ? -0.3 : -0.6,
@@ -948,9 +948,9 @@ class _AuthViewState extends State<AuthView> {
         : 'Sign in';
     final subtitle = _registerMode
         ? (controller.hasUser
-              ? 'Create another NeoOS account.'
-              : 'This account will unlock NeoOS on this machine.')
-        : 'Enter your NeoOS account details.';
+              ? 'Create another NeoAgent account.'
+              : 'This account will unlock NeoAgent on this machine.')
+        : 'Enter your NeoAgent account details.';
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle =
         controller.registrationOpen && controller.hasUser;
@@ -982,7 +982,9 @@ class _AuthViewState extends State<AuthView> {
                   ),
                   child: Padding(
                     padding: EdgeInsets.all(
-                      viewportConstraints.maxWidth < AppBreakpoints.mobile ? 14 : 24,
+                      viewportConstraints.maxWidth < AppBreakpoints.mobile
+                          ? 14
+                          : 24,
                     ),
                     child: Center(
                       child: ConstrainedBox(
@@ -998,10 +1000,22 @@ class _AuthViewState extends State<AuthView> {
                             fillColor: _glassFill,
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
-                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 18 : 34,
-                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 20 : 30,
-                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 18 : 34,
-                                viewportConstraints.maxWidth < AppBreakpoints.mobile ? 20 : 30,
+                                viewportConstraints.maxWidth <
+                                        AppBreakpoints.mobile
+                                    ? 18
+                                    : 34,
+                                viewportConstraints.maxWidth <
+                                        AppBreakpoints.mobile
+                                    ? 20
+                                    : 30,
+                                viewportConstraints.maxWidth <
+                                        AppBreakpoints.mobile
+                                    ? 18
+                                    : 34,
+                                viewportConstraints.maxWidth <
+                                        AppBreakpoints.mobile
+                                    ? 20
+                                    : 30,
                               ),
                               child: LayoutBuilder(
                                 builder: (context, panelConstraints) {
@@ -1188,59 +1202,54 @@ class _HomeViewState extends State<HomeView> {
     final wide = MediaQuery.sizeOf(context).width >= 1080;
 
     if (wide) {
-      return _AmbientBackdrop(
+      return _ControlSurfaceBackdrop(
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: <Widget>[
-                  _Sidebar(
-                    controller: controller,
-                    expandedGroup: _expandedSidebarGroup,
-                    onToggleGroup: _toggleSidebarGroup,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _GlassSurface(
-                      borderRadius: BorderRadius.circular(32),
-                      blurSigma: 28,
-                      boxShadow: _softPanelShadow,
-                      overlayGradient: _panelGradient,
-                      fillColor: _glassFill,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(32),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 260),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) {
-                            final offset = Tween<Offset>(
-                              begin: const Offset(0.015, 0.02),
-                              end: Offset.zero,
-                            ).animate(animation);
-                            return FadeTransition(
-                              opacity: animation,
-                              child: SlideTransition(
-                                position: offset,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: KeyedSubtree(
-                            key: ValueKey<AppSection>(
-                              controller.selectedSection,
-                            ),
-                            child: _SectionBody(controller: controller, devicesPanelKey: _devicesPanelKey),
+          body: Row(
+            children: <Widget>[
+              _Sidebar(
+                controller: controller,
+                expandedGroup: _expandedSidebarGroup,
+                onToggleGroup: _toggleSidebarGroup,
+              ),
+              Expanded(
+                child: ClipRect(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 320),
+                    switchInCurve: Curves.easeOutBack,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) {
+                      final offset = Tween<Offset>(
+                        begin: const Offset(0.018, 0.026),
+                        end: Offset.zero,
+                      ).animate(animation);
+                      final scale = Tween<double>(
+                        begin: 0.992,
+                        end: 1,
+                      ).animate(animation);
+                      return ScaleTransition(
+                        scale: scale,
+                        alignment: Alignment.topCenter,
+                        child: FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: offset,
+                            child: child,
                           ),
                         ),
+                      );
+                    },
+                    child: KeyedSubtree(
+                      key: ValueKey<AppSection>(controller.selectedSection),
+                      child: _SectionBody(
+                        controller: controller,
+                        devicesPanelKey: _devicesPanelKey,
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       );
@@ -1268,21 +1277,38 @@ class _HomeViewState extends State<HomeView> {
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: _GlassSurface(
-              borderRadius: BorderRadius.circular(26),
-              blurSigma: 24,
-              boxShadow: _softPanelShadow,
-              overlayGradient: _panelGradient,
-              fillColor: _glassFill,
+            child: Container(
+              decoration: BoxDecoration(
+                color: _bgPrimary,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: _border),
+                boxShadow: _softPanelShadow,
+              ),
+              clipBehavior: Clip.antiAlias,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(26),
+                borderRadius: BorderRadius.circular(22),
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
-                  switchInCurve: Curves.easeOutCubic,
+                  duration: const Duration(milliseconds: 280),
+                  switchInCurve: Curves.easeOutBack,
                   switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.018),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
                   child: KeyedSubtree(
                     key: ValueKey<AppSection>(controller.selectedSection),
-                    child: _SectionBody(controller: controller, devicesPanelKey: _devicesPanelKey),
+                    child: _SectionBody(
+                      controller: controller,
+                      devicesPanelKey: _devicesPanelKey,
+                    ),
                   ),
                 ),
               ),
@@ -1396,55 +1422,58 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
-      width: 254,
-      borderRadius: BorderRadius.circular(30),
-      blurSigma: 26,
-      boxShadow: _softPanelShadow,
-      fillColor: _bgSecondary.withValues(alpha: 0.34),
-      overlayGradient: LinearGradient(
-        colors: <Color>[
-          _bgSecondary.withValues(alpha: 0.96),
-          _bgTertiary.withValues(alpha: 0.88),
-        ],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+    return Container(
+      width: 268,
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        border: Border(right: BorderSide(color: _border)),
       ),
       child: Column(
         children: <Widget>[
-          Container(
-            padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: _border)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 18, 12),
+            child: Row(
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: const _BrandLockup(
-                        logoSize: 34,
-                        titleFontSize: 18,
-                        direction: Axis.horizontal,
-                        spacing: 12,
-                        alignment: CrossAxisAlignment.start,
+                const _LogoBadge(size: 38),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        'NeoAgent',
+                        style: GoogleFonts.geist(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: _textPrimary,
+                          letterSpacing: -0.3,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'CONTROL SURFACE',
+                        style: GoogleFonts.geistMono(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: _textMuted,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+          if (controller.agentProfiles.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
               child: _AgentSwitcher(controller: controller),
             ),
-          ],
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               children: _buildSidebarItems(
                 controller,
                 onSelect: controller.setSelectedSection,
@@ -1454,40 +1483,42 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 14),
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _border)),
             ),
-            child: Column(
+            child: Row(
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        controller.accountLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                _SidebarAccountAvatar(
+                  controller: controller,
+                  onTap: () =>
+                      controller.setSelectedSection(AppSection.accountSettings),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    controller.accountLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.geist(
+                      color: _textSecondary,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
                     ),
-                    const SizedBox(width: 8),
-                    _ProfileSettingsButton(
-                      controller: controller,
-                      onTap: () => controller.setSelectedSection(
-                        AppSection.accountSettings,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _SidebarIconButton(
-                      tooltip: 'Logout',
-                      icon: Icons.logout,
-                      onTap: controller.logout,
-                    ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _SidebarIconButton(
+                  tooltip: 'Settings',
+                  icon: Icons.settings_outlined,
+                  onTap: () =>
+                      controller.setSelectedSection(AppSection.accountSettings),
+                ),
+                const SizedBox(width: 2),
+                _SidebarIconButton(
+                  tooltip: 'Logout',
+                  icon: Icons.logout,
+                  onTap: controller.logout,
                 ),
               ],
             ),
@@ -1557,27 +1588,14 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
       menuChildren: <Widget>[
         SizedBox(
           width: 320,
-          child: _GlassSurface(
-            borderRadius: BorderRadius.circular(24),
-            blurSigma: 28,
-            fillColor: _bgCard.withValues(alpha: 0.9),
-            overlayGradient: LinearGradient(
-              colors: <Color>[
-                Colors.white.withValues(alpha: 0.1),
-                _bgSecondary.withValues(alpha: 0.92),
-                _bgPrimary.withValues(alpha: 0.94),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+          child: Container(
+            decoration: BoxDecoration(
+              color: _bgCard,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
+              boxShadow: _softPanelShadow,
             ),
-            boxShadow: <BoxShadow>[
-              ..._softPanelShadow,
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 28,
-                offset: const Offset(0, 16),
-              ),
-            ],
+            clipBehavior: Clip.antiAlias,
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
@@ -1605,105 +1623,95 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
           child: Tooltip(
             message: 'Switch agent',
             child: InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: _toggleMenu,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    Colors.white.withValues(alpha: isMenuOpen ? 0.13 : 0.08),
-                    _accentMuted.withValues(alpha: isMenuOpen ? 0.24 : 0.14),
-                    _bgSecondary.withValues(alpha: isMenuOpen ? 0.92 : 0.84),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(
-                  color: isMenuOpen
-                      ? _accent.withValues(alpha: 0.65)
-                      : _borderLight,
-                ),
-                boxShadow: isMenuOpen
-                    ? <BoxShadow>[
-                        BoxShadow(
-                          color: _accent.withValues(alpha: 0.16),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                children: <Widget>[
-                  _AgentGlyph(
-                    agent: selectedAgent,
-                    selected: true,
-                    compact: true,
+              borderRadius: BorderRadius.circular(14),
+              onTap: _toggleMenu,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: _bgCard,
+                  border: Border.all(
+                    color: isMenuOpen
+                        ? _accent.withValues(alpha: 0.45)
+                        : _borderLight,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Flexible(
-                              child: Text(
-                                selectedAgent.displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.15,
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: <Widget>[
+                    _AgentGlyph(
+                      agent: selectedAgent,
+                      selected: true,
+                      compact: true,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  selectedAgent.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.15,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (selectedAgent.isDefault) ...<Widget>[
-                              const SizedBox(width: 8),
-                              _AgentTag(
-                                label: 'DEFAULT',
-                                color: _accent,
-                                foreground: _accentHover,
-                              ),
+                              if (selectedAgent.isDefault) ...<Widget>[
+                                const SizedBox(width: 8),
+                                _AgentTag(
+                                  label: 'DEFAULT',
+                                  color: _accent,
+                                  foreground: _accentHover,
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _agentSwitcherSubtitle(selectedAgent),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: _textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Text(
+                            _agentSwitcherSubtitle(selectedAgent),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  AnimatedRotation(
-                    turns: isMenuOpen ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 20,
-                      color: isMenuOpen ? _accentHover : _textSecondary,
+                    const SizedBox(width: 8),
+                    AnimatedRotation(
+                      turns: isMenuOpen ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: isMenuOpen ? _accentHover : _textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
           ),
         );
       },
@@ -1741,104 +1749,96 @@ class _AgentSwitcherMenuItem extends StatelessWidget {
       child: Tooltip(
         message: agent.displayName,
         child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: selected
-                ? LinearGradient(
-                    colors: <Color>[
-                      _accent.withValues(alpha: 0.18),
-                      _accentMuted.withValues(alpha: 0.3),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: selected ? null : Colors.white.withValues(alpha: 0.025),
-            border: Border.all(
-              color: selected ? _accent.withValues(alpha: 0.5) : _borderLight,
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: selected ? _accent.withValues(alpha: 0.10) : _bgSecondary,
+              border: Border.all(
+                color: selected
+                    ? _accent.withValues(alpha: 0.55)
+                    : _borderLight,
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _AgentGlyph(agent: agent, selected: selected, compact: true),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              agent.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: _textPrimary,
-                                fontSize: 13.5,
-                                fontWeight: selected
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
-                                letterSpacing: -0.1,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _AgentGlyph(agent: agent, selected: selected, compact: true),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                agent.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: _textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  letterSpacing: -0.1,
+                                ),
                               ),
                             ),
-                          ),
-                          if (agent.isDefault) ...<Widget>[
-                            const SizedBox(width: 8),
-                            _AgentTag(
-                              label: 'DEFAULT',
-                              color: _accent,
-                              foreground: _accentHover,
-                            ),
+                            if (agent.isDefault) ...<Widget>[
+                              const SizedBox(width: 8),
+                              _AgentTag(
+                                label: 'DEFAULT',
+                                color: _accent,
+                                foreground: _accentHover,
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _agentSwitcherSubtitle(agent),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 12,
-                          height: 1.3,
-                          fontWeight: FontWeight.w600,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _agentSwitcherSubtitle(agent),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 12,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 140),
+                    opacity: selected ? 1 : 0,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _accent.withValues(alpha: 0.2),
+                        border: Border.all(
+                          color: _accent.withValues(alpha: 0.45),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 140),
-                  opacity: selected ? 1 : 0,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _accent.withValues(alpha: 0.2),
-                      border: Border.all(
-                        color: _accent.withValues(alpha: 0.45),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: _accentHover,
                       ),
                     ),
-                    child: Icon(
-                      Icons.check_rounded,
-                      size: 15,
-                      color: _accentHover,
-                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
         ),
       ),
     );
@@ -1860,12 +1860,12 @@ class _AgentGlyph extends StatelessWidget {
   Widget build(BuildContext context) {
     final baseColor = agent.isDefault ? _accent : _accentAlt;
     final initials = _agentInitials(agent.displayName);
-    final size = compact ? 42.0 : 44.0;
+    final size = compact ? 38.0 : 42.0;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(compact ? 11 : 12),
         gradient: LinearGradient(
           colors: <Color>[
             baseColor.withValues(alpha: selected ? 0.85 : 0.65),
@@ -1926,9 +1926,9 @@ class _AgentTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(5),
         color: color.withValues(alpha: 0.14),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
@@ -1936,9 +1936,9 @@ class _AgentTag extends StatelessWidget {
         label,
         style: TextStyle(
           color: foreground,
-          fontSize: 9.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1,
         ),
       ),
     );
@@ -2015,6 +2015,45 @@ class _ProfileSettingsButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarAccountAvatar extends StatelessWidget {
+  const _SidebarAccountAvatar({required this.controller, required this.onTap});
+
+  final NeoAgentController controller;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = controller.accountLabel.trim();
+    final initial = label.isEmpty ? 'N' : label.characters.first.toUpperCase();
+    final active = controller.selectedSection == AppSection.accountSettings;
+    return Tooltip(
+      message: 'Account settings',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active ? _accentMuted : _bgCard,
+            border: Border.all(color: active ? _accent : _borderLight),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            initial,
+            style: TextStyle(
+              color: active ? _accentHover : _textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+            ),
+          ),
         ),
       ),
     );
@@ -2137,8 +2176,6 @@ class _SectionBody extends StatelessWidget {
         return SettingsWorkspacePanel(controller: controller);
       case AppSection.accountSettings:
         return SettingsWorkspacePanel(controller: controller);
-      case AppSection.logs:
-        return RunsAndLogsPanel(controller: controller);
       case AppSection.skills:
         return ToolsPanel(controller: controller);
       case AppSection.agents:

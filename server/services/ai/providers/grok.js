@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
-const { BaseProvider } = require('./base');
+const { OpenAICompatibleProvider } = require('./openaiCompatible');
 
-class GrokProvider extends BaseProvider {
+class GrokProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'grok';
@@ -11,8 +11,21 @@ class GrokProvider extends BaseProvider {
     });
   }
 
+  async listModels() {
+    try {
+      const res = await this.client.models.list();
+      const DROP = /imagine|diffus|embed|-tts/i;
+      return res.data
+        .filter((m) => !DROP.test(m.id))
+        .map((m) => ({ id: m.id, name: m.id }));
+    } catch (err) {
+      throw new Error(`Failed to list Grok models: ${err.message || String(err)}`);
+    }
+  }
+
   getContextWindow(model) {
-    return 131072; // grok-4 context window
+    if (model === 'grok-4.3') return 1000000;
+    return 131072;
   }
 
   supportsVision() {
@@ -68,7 +81,7 @@ class GrokProvider extends BaseProvider {
 
     for await (const chunk of stream) {
       if (chunk.usage && (!chunk.choices || chunk.choices.length === 0)) {
-        finalUsage = this.#normalizeUsage(chunk.usage);
+        finalUsage = this.normalizeUsage(chunk.usage);
         continue;
       }
 
@@ -97,7 +110,7 @@ class GrokProvider extends BaseProvider {
           type: 'tool_calls',
           toolCalls,
           content,
-          usage: this.#normalizeUsage(chunk.usage) || finalUsage
+          usage: this.normalizeUsage(chunk.usage) || finalUsage
         };
         return;
       }
@@ -105,7 +118,7 @@ class GrokProvider extends BaseProvider {
         yield {
           type: 'done',
           content,
-          usage: this.#normalizeUsage(chunk.usage) || finalUsage
+          usage: this.normalizeUsage(chunk.usage) || finalUsage
         };
         return;
       }
@@ -118,68 +131,6 @@ class GrokProvider extends BaseProvider {
     }
   }
 
-  normalizeResponse(response) {
-    const choice = response.choices[0];
-    const msg = choice.message;
-    return {
-      content: msg.content || '',
-      toolCalls: msg.tool_calls?.map(tc => ({
-        id: tc.id,
-        type: 'function',
-        function: { name: tc.function.name, arguments: tc.function.arguments }
-      })) || [],
-      finishReason: choice.finish_reason,
-      usage: this.#normalizeUsage(response.usage)
-    };
-  }
-
-  #normalizeUsage(usage) {
-    if (!usage) {
-      return null;
-    }
-    return {
-      promptTokens: usage.prompt_tokens ?? usage.promptTokens ?? 0,
-      completionTokens: usage.completion_tokens ?? usage.completionTokens ?? 0,
-      totalTokens: usage.total_tokens ?? usage.totalTokens ?? 0,
-    };
-  }
-
-  formatTools(tools) {
-    return tools.map(tool => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters
-      }
-    }));
-  }
-
-  async analyzeImage(options = {}) {
-    const model = options.model || this.getDefaultVisionModel();
-    const b64 = BaseProvider.readImageAsBase64(options.imagePath);
-    const response = await this.client.chat.completions.create({
-      model,
-      max_tokens: options.maxTokens || 4096,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: options.question || 'Describe this image in detail.' },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${options.mimeType || 'image/jpeg'};base64,${b64}`
-            }
-          }
-        ]
-      }]
-    });
-
-    return {
-      content: response.choices[0]?.message?.content || '',
-      model: response.model || model,
-    };
-  }
 }
 
 module.exports = { GrokProvider };

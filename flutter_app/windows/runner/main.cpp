@@ -28,10 +28,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"NeoAgent", origin, size)) {
+    ::MessageBoxW(nullptr,
+                  L"NeoAgent failed to start. The Flutter engine could not be "
+                  L"initialized. Ensure the application was installed correctly "
+                  L"and all required files are present.",
+                  L"NeoAgent — Startup Error",
+                  MB_OK | MB_ICONERROR);
     ::CoUninitialize();
     return EXIT_FAILURE;
   }
-  window.SetQuitOnClose(false);
+  window.SetQuitOnClose(true);
 
   ::MSG msg;
   while (true) {

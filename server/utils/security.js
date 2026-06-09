@@ -15,6 +15,9 @@ function sanitizeError(err) {
   const raw = typeof err === 'string' ? err : err.message || String(err);
 
   let msg = raw;
+  if (!msg || msg === '[object Object]') {
+    msg = 'An unexpected error occurred';
+  }
 
   // Replace home directory path with ~
   if (HOME) {

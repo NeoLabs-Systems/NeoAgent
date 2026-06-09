@@ -340,8 +340,12 @@ class OpenAICodexProvider extends BaseProvider {
         request.tool_choice = 'auto';
       }
       request.parallel_tool_calls = false;
-      // reasoning: both effort and summary required for Codex reasoning models
-      if (this._isReasoningModel(model)) {
+      // Reasoning parameters are only sent when there are no tools: on the Codex
+      // backend, combining reasoning mode with function-calling causes the model to
+      // produce only internal reasoning output (no function_calls, no text), which
+      // makes the engine see steps=0 and finalResponse=no on every run.
+      const hasTools = tools && tools.length > 0;
+      if (this._isReasoningModel(model) && !hasTools) {
         const effort = options.reasoningEffort || options.reasoning_effort || 'medium';
         request.reasoning = { effort, summary: 'auto' };
         request.include = ['reasoning.encrypted_content'];

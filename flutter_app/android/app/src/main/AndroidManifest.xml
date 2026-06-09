@@ -124,7 +124,8 @@
         
         <service
             android:name=".auto.NeoAgentCarAppService"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.car.permission.BIND_CAR_APP_SERVICE">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
                 <category android:name="androidx.car.app.category.IOT" />
