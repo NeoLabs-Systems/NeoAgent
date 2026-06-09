@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NeoAgent Admin</title>
+  <link rel="icon" href="/admin/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/admin/admin.css">
   <style>
     body {
@@ -70,18 +71,56 @@
       font-size: 14px;
       margin-top: 4px;
     }
+
+    /* ── Admin hero mark ────────────────────────────── */
+    .admin-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 28px;
+      gap: 14px;
+    }
+
+    .admin-a-mark {
+      width: 80px;
+      height: 80px;
+      border-radius: 22px;
+      background: var(--bg-secondary);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      box-shadow:
+        0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent),
+        0 12px 32px rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 42px;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -2px;
+      font-family: var(--font-sans);
+      line-height: 1;
+      user-select: none;
+    }
+
+    .admin-hero .brand {
+      margin-bottom: 0;
+      justify-content: center;
+    }
   </style>
 </head>
 <body>
   <div class="login-wrap">
     <div class="login-card">
-      <div class="brand">
-        <div class="brand-mark">
-          <img src="/admin/logo.svg" width="32" height="32" alt="">
-        </div>
-        <div>
-          <div class="brand-name">NeoAgent</div>
-          <div class="brand-sub">Admin</div>
+      <div class="admin-hero">
+        <div class="admin-a-mark" aria-hidden="true">A</div>
+        <div class="brand">
+          <div class="brand-mark">
+            <img src="/admin/logo.svg" width="32" height="32" alt="">
+          </div>
+          <div>
+            <div class="brand-name">NeoAgent</div>
+            <div class="brand-sub">Admin</div>
+          </div>
         </div>
       </div>
 
