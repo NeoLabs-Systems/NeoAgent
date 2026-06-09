@@ -35,7 +35,9 @@ function isAllowedOrigin(origin, options = {}) {
 
 function validateOrigin(origin, callback, options = {}) {
   if (isAllowedOrigin(origin, options)) return callback(null, true);
-  return callback(new Error(`Origin not allowed: ${origin || 'unknown'}`));
+  const error = new Error(`Origin not allowed: ${origin || 'unknown'}`);
+  error.statusCode = 403;
+  return callback(error);
 }
 
 module.exports = {

@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeoAgent Admin</title>
+  <link rel="icon" href="/admin/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <style>
+    /* ── Layout ────────────────────────────────────────────────────── */
+    body {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 10;
+    }
+
+    .sidebar-header {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav {
+      flex: 1;
+      padding: 10px 10px;
+      overflow-y: auto;
+    }
+
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      color: var(--text-muted);
+      padding: 10px 10px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      text-decoration: none;
+    }
+
+    .nav-item:hover { background: rgba(224,240,224,0.05); color: var(--text); }
+
+    .nav-item.active {
+      background: rgba(225, 176, 82, 0.12);
+      color: var(--accent);
+    }
+
+    .nav-item svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      opacity: 0.75;
+    }
+
+    .nav-item.active svg { opacity: 1; }
+
+    .sidebar-footer {
+      padding: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .sidebar-legal {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px 8px;
+      font-size: 11px;
+      color: var(--text-muted, #666);
+    }
+    .sidebar-legal a {
+      color: var(--text-muted, #666);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .sidebar-legal a:hover { color: var(--text, #ccc); }
+    .sidebar-legal span { opacity: 0.4; }
+
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Page header ───────────────────────────────────────────────── */
+    .page-header {
+      padding: 28px 28px 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+
+    .page-subtitle {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 3px;
+    }
+
+    .refresh-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      padding-top: 6px;
+    }
+
+    .content {
+      padding: 20px 28px 48px;
+    }
+
+    /* ── Pages ─────────────────────────────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Status grid ───────────────────────────────────────────────── */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 10px;
+    }
+
+    .status-tile {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+
+    .status-dot.ok   { background: var(--success); box-shadow: 0 0 6px rgba(116,192,124,0.5); }
+    .status-dot.fail { background: var(--danger);  box-shadow: 0 0 6px rgba(222,138,120,0.5); }
+
+    .status-label  { font-size: 13px; font-weight: 600; color: var(--text); }
+    .status-detail { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+
+    /* ── Logs ──────────────────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .toolbar-count {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .spacer { flex: 1; }
+
+    .log-table {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      max-height: 540px;
+      overflow-y: auto;
+    }
+
+    .log-row {
+      display: grid;
+      grid-template-columns: 80px 46px 1fr;
+      border-bottom: 1px solid rgba(224,240,224,0.04);
+    }
+
+    .log-row:last-child { border-bottom: none; }
+
+    .log-row:hover { background: rgba(224,240,224,0.03); }
+
+    .log-cell {
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .log-cell.msg {
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--text-secondary);
+    }
+
+    .log-ts { color: var(--text-muted); }
+
+    .log-level-log   { color: var(--text-muted); }
+    .log-level-info  { color: var(--info); }
+    .log-level-warn  { color: var(--warning); }
+    .log-level-error { color: var(--danger); }
+
+    .log-msg-warn  { color: #e4ca8a; }
+    .log-msg-error { color: var(--danger); }
+
+    /* ── Version / updates ─────────────────────────────────────────── */
+    .kv-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .kv-row:last-child { border-bottom: none; }
+
+    .kv-key {
+      font-size: 13px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .kv-val {
+      font-size: 13px;
+      font-family: var(--font-mono);
+      color: var(--text);
+      text-align: right;
+      word-break: break-all;
+    }
+
+    .progress-track {
+      height: 5px;
+      background: var(--bg-secondary);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 8px 0 4px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+
+    .update-controls {
+      display: flex;
+      align-items: flex-end;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .update-controls .field {
+      margin-bottom: 0;
+    }
+
+    .update-controls label {
+      text-transform: uppercase;
+    }
+
+    /* ── Config table ──────────────────────────────────────────────── */
+    .config-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .config-table tr {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .config-table tr:last-child { border-bottom: none; }
+
+    .config-table td {
+      padding: 9px 4px;
+      font-size: 13px;
+      vertical-align: baseline;
+    }
+
+    .config-table td:first-child {
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      width: 220px;
+      padding-right: 16px;
+    }
+
+    .config-table td:last-child {
+      font-family: var(--font-mono);
+      color: var(--text);
+    }
+
+    .config-empty {
+      font-style: italic;
+      color: var(--text-muted) !important;
+    }
+
+    /* ── Stats grid ────────────────────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .stat-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 16px 14px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* ── Analytics tables ──────────────────────────────────────── */
+    .analytics-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .analytics-table th {
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .analytics-table td {
+      padding: 9px 8px;
+      border-bottom: 1px solid rgba(224,240,224,0.04);
+      color: var(--text-secondary);
+    }
+
+    .analytics-table tr:last-child td { border-bottom: none; }
+    .analytics-table tr:hover td { background: rgba(224,240,224,0.025); }
+
+    .cell-truncate {
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .run-completed { background: rgba(116,192,124,0.15); color: var(--success); }
+    .run-failed    { background: rgba(222,138,120,0.15); color: var(--danger); }
+    .run-running   { background: var(--accent-muted);    color: var(--accent); }
+    .run-pending   { background: rgba(126,136,119,0.15); color: var(--text-muted); }
+
+    /* ── User avatar ────────────────────────────────────────────── */
+    .user-avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border-radius: 50%;
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* ── Mini bar ───────────────────────────────────────────────── */
+    .mini-bar {
+      height: 4px;
+      background: var(--bg-secondary);
+      border-radius: 999px;
+      width: 80px;
+      overflow: hidden;
+    }
+
+    .mini-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    /* ── Users table ────────────────────────────────────────────── */
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .users-table th {
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .users-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(224,240,224,0.04);
+      vertical-align: middle;
+    }
+
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tr:hover td { background: rgba(224,240,224,0.025); }
+
+    .gdpr-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: rgba(222, 138, 120, 0.05);
+      border: 1px solid rgba(222, 138, 120, 0.15);
+      border-radius: var(--radius-sm);
+      line-height: 1.5;
+    }
+
+    /* ── SQL editor ─────────────────────────────────────────────── */
+    .sql-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .sql-textarea {
+      width: 100%;
+      min-height: 140px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      tab-size: 2;
+    }
+
+    .sql-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-muted);
+    }
+
+    .sql-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 12px 0 8px;
+    }
+
+    .sql-result-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .sql-result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .sql-result-table th {
+      background: var(--bg-secondary);
+      padding: 7px 12px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .sql-result-table td {
+      padding: 6px 12px;
+      border-bottom: 1px solid rgba(224,240,224,0.04);
+      color: var(--text-secondary);
+      white-space: nowrap;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sql-result-table tr:last-child td { border-bottom: none; }
+    .sql-result-table tr:hover td { background: rgba(224,240,224,0.03); }
+
+    .sql-error {
+      padding: 12px 14px;
+      margin-top: 10px;
+      background: rgba(222,138,120,0.08);
+      border: 1px solid rgba(222,138,120,0.2);
+      border-radius: var(--radius-sm);
+      color: var(--danger);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    /* ── Access / toggle ───────────────────────────────────────── */
+    .access-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .access-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .access-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      max-width: 480px;
+    }
+
+    .access-desc code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--bg-secondary);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    .access-hint-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .access-status {
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      transition: background 0.18s, border-color 0.18s;
+    }
+
+    .toggle input:checked ~ .toggle-track {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.18s;
+      pointer-events: none;
+    }
+
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+    /* API key display */
+    .api-key-hint {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    .api-key-full {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text);
+      background: var(--bg-secondary);
+      padding: 6px 10px;
+      border-radius: 6px;
+      word-break: break-all;
+      flex: 1;
+      user-select: all;
+    }
+
+    .key-reveal-box {
+      background: rgba(225, 176, 82, 0.07);
+      border: 1px solid rgba(225, 176, 82, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-top: 14px;
+    }
+
+    /* ── Provider rows ─────────────────────────────────────────── */
+    .provider-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .provider-row:last-child { border-bottom: none; }
+
+    .provider-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .provider-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+
+    .provider-hint {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .provider-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .provider-controls input {
+      width: 220px;
+      padding: 7px 12px;
+      font-size: 13px;
+    }
+
+    .provider-save-btn {
+      padding: 7px 14px;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a class="brand" href="/admin">
+        <div class="brand-mark">
+          <img src="/admin/logo.svg" width="28" height="28" alt="">
+        </div>
+        <div>
+          <div class="brand-name">NeoAgent</div>
+          <div class="brand-sub">Admin</div>
+        </div>
+      </a>
+    </div>
+
+    <nav aria-label="Admin navigation">
+      <div class="nav-section-label">Monitor</div>
+
+      <button class="nav-item active" data-page="overview" onclick="showPage('overview',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M3 4a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 8a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1v-4zm8-8a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V4zm0 8a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+        </svg>
+        Overview
+      </button>
+
+      <button class="nav-item" data-page="logs" onclick="showPage('logs',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+        </svg>
+        Logs
+      </button>
+
+      <button class="nav-item" data-page="updates" onclick="showPage('updates',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+        </svg>
+        Updates
+      </button>
+
+      <div class="nav-section-label" style="margin-top:8px;">Manage</div>
+
+      <button class="nav-item" data-page="analytics" onclick="showPage('analytics',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+        </svg>
+        Analytics
+      </button>
+
+      <button class="nav-item" data-page="users" onclick="showPage('users',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+        </svg>
+        Users
+      </button>
+
+      <button class="nav-item" data-page="sql" onclick="showPage('sql',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm11 1H6v8l4-2 4 2V6z" clip-rule="evenodd"/>
+        </svg>
+        SQL Editor
+      </button>
+
+      <div class="nav-section-label" style="margin-top:8px;">Settings</div>
+
+      <button class="nav-item" data-page="access" onclick="showPage('access',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+        </svg>
+        Access
+      </button>
+
+      <button class="nav-item" data-page="providers" onclick="showPage('providers',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/>
+        </svg>
+        Providers
+      </button>
+
+      <button class="nav-item" data-page="config" onclick="showPage('config',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+        </svg>
+        Configuration
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-legal">
+        <a href="/legal.html#overview" target="_blank" rel="noopener">Privacy Policy</a>
+        <span>·</span>
+        <a href="/legal.html#legal-notice" target="_blank" rel="noopener">Legal Notice</a>
+      </div>
+      <button class="nav-item btn-danger" onclick="signOut()">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>
+        </svg>
+        Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main ──────────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Overview -->
+    <section id="page-overview" class="page active" aria-label="Overview">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Overview</h1>
+          <p class="page-subtitle">Connected services and system status</p>
+        </div>
+        <span class="refresh-hint" id="overview-ts" aria-live="polite"></span>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="card-title">Service Health</div>
+          <div class="status-grid" id="health-grid">
+            <div class="empty"><span class="spinner"></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Logs -->
+    <section id="page-logs" class="page" aria-label="Logs">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Server Logs</h1>
+          <p class="page-subtitle">Live server log stream — last 1,000 entries, persisted across restarts</p>
+        </div>
+        <span class="refresh-hint" id="logs-ts" aria-live="polite"></span>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="toolbar">
+            <span class="toolbar-count" id="log-count" aria-live="polite">0 entries</span>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" onclick="copyLogs()">Copy all</button>
+            <button class="btn btn-ghost" onclick="clearLogs()">Clear</button>
+          </div>
+          <div class="log-table" id="log-table" role="log" aria-label="Server logs">
+            <div class="empty">No log entries yet</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Updates -->
+    <section id="page-updates" class="page" aria-label="Updates">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Updates</h1>
+          <p class="page-subtitle">Server version and runtime update controls</p>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="card-title">Version Info</div>
+          <div id="version-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Runtime Update</div>
+          <div id="update-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analytics -->
+    <section id="page-analytics" class="page" aria-label="Analytics">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Analytics</h1>
+          <p class="page-subtitle">Usage statistics, top users, and recent activity</p>
+        </div>
+        <span class="refresh-hint" id="analytics-ts" aria-live="polite"></span>
+      </div>
+      <div class="content">
+        <div id="analytics-content"><div class="empty"><span class="spinner"></span></div></div>
+      </div>
+    </section>
+
+    <!-- Users -->
+    <section id="page-users" class="page" aria-label="User Management">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Users</h1>
+          <p class="page-subtitle">Account management — force logout, GDPR data erasure</p>
+        </div>
+        <span class="toolbar-count" id="users-count" aria-live="polite" style="padding-top:6px;"></span>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="toolbar" style="margin-bottom:14px;">
+            <input type="search" id="user-search" placeholder="Search by username or email…"
+              oninput="onUserSearch()" style="width:280px;padding:7px 12px;font-size:13px;" aria-label="Search users">
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" onclick="loadUsers()">Refresh</button>
+          </div>
+          <div id="users-table-wrap"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SQL Editor -->
+    <section id="page-sql" class="page" aria-label="SQL Editor">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">SQL Editor</h1>
+          <p class="page-subtitle">Read-only SELECT queries against the live database — results capped at 500 rows</p>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div id="sql-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Access -->
+    <section id="page-access" class="page" aria-label="Access Settings">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Access</h1>
+          <p class="page-subtitle">Signup policy and programmatic API key management</p>
+        </div>
+      </div>
+      <div class="content">
+        <div id="access-content"><div class="empty"><span class="spinner"></span></div></div>
+      </div>
+    </section>
+
+    <!-- Providers -->
+    <section id="page-providers" class="page" aria-label="Providers">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">AI Providers</h1>
+          <p class="page-subtitle">API keys for LLM and voice providers — saved to .env, applied immediately</p>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="card-title">Provider Keys</div>
+          <div id="providers-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Configuration -->
+    <section id="page-config" class="page" aria-label="Configuration">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Configuration</h1>
+          <p class="page-subtitle">Current environment settings (non-secret values only)</p>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="card-title">Environment</div>
+          <div id="config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/admin/admin.js"></script>
+  <script src="/admin/analytics.js"></script>
+  <script src="/admin/users.js"></script>
+  <script src="/admin/sql.js"></script>
+  <script src="/admin/access.js"></script>
+</body>
+</html>

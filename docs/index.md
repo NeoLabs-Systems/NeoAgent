@@ -4,6 +4,10 @@ title: NeoAgent
 sidebar_label: Overview
 ---
 
+<p align="center">
+  <img src="/img/app_icon.png" width="72" alt="NeoAgent" />
+</p>
+
 # NeoAgent
 
 Self-hosted AI agent server. Runs as a system service, keeps all credentials on your machine, and provides a full operator UI for chat, automation, Android device control, recordings, integrations, and memory.

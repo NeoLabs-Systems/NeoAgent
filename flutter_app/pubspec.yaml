@@ -12,7 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_markdown: ^0.7.4+1
   file_picker: ^8.0.7
-  google_fonts: ^6.3.1
+  google_fonts: ^8.1.0
   image: ^4.5.4
   http: ^1.5.0
   mixpanel_flutter: ^2.6.1
@@ -55,5 +55,11 @@ flutter:
   assets:
     - web/icons/Icon-192.png
     - assets/branding/app_icon_256.png
+    - assets/branding/app_icon_512.png
+    - assets/branding/app_icon_1024.png
+    - assets/branding/app_icon_light_256.png
+    - assets/branding/app_icon_light_512.png
+    - assets/branding/app_icon_light_1024.png
     - assets/branding/tray_icon_template.png
+    - assets/branding/tray_icon_light_template.png
     - assets/branding/onboarding_intro.mp4

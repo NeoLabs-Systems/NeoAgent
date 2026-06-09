@@ -130,12 +130,26 @@ class DesktopProvider {
     return this._dispatch(DESKTOP_COMMANDS.CAPTURE_FRAME, options);
   }
 
+  startStream(options = {}) {
+    this._assertReady();
+    return this.registry.startStream(this.userId, options.deviceId || null, options);
+  }
+
+  stopStream(options = {}) {
+    this._assertReady();
+    return this.registry.stopStream(this.userId, options.deviceId || null);
+  }
+
   observe(options = {}) {
     return this._dispatch(DESKTOP_COMMANDS.OBSERVE, options);
   }
 
   clickPoint(x, y, options = {}) {
     return this._dispatch(DESKTOP_COMMANDS.CLICK, { ...options, x, y });
+  }
+
+  mouseMove(x, y, options = {}) {
+    return this._dispatch(DESKTOP_COMMANDS.MOUSE_MOVE, { ...options, x, y });
   }
 
   drag(options = {}) {
@@ -168,6 +182,17 @@ class DesktopProvider {
 
   getAccessibilityTree(options = {}) {
     return this._dispatch(DESKTOP_COMMANDS.GET_TREE, options);
+  }
+
+  executeCommand(command, options = {}) {
+    return this._dispatch(DESKTOP_COMMANDS.EXECUTE_COMMAND, {
+      command,
+      cwd: options.cwd || null,
+      timeout: options.timeout || null,
+      stdin_input: options.stdinInput || null,
+      pty: options.pty === true,
+      inputs: options.inputs || [],
+    });
   }
 }
 

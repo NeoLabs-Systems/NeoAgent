@@ -80,7 +80,123 @@ class WorkspaceManager {
     if (relative.startsWith('..') || path.isAbsolute(relative)) {
       throw new Error(`${label} is outside the per-user workspace.`);
     }
+    this._assertResolvedPathInsideRoot(root, absolute, label);
     return absolute;
+  }
+
+  _assertResolvedPathInsideRoot(root, absolute, label = 'path') {
+    const realRoot = fs.realpathSync.native(root);
+    let targetToCheck = absolute;
+    while (!fs.existsSync(targetToCheck)) {
+      const parent = path.dirname(targetToCheck);
+      if (parent === targetToCheck) break;
+      targetToCheck = path.dirname(targetToCheck);
+    }
+    const realTarget = fs.realpathSync.native(targetToCheck);
+    const relative = path.relative(realRoot, realTarget);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(`${label} is outside the per-user workspace.`);
+    }
+  }
+
+  _toWorkspaceRelative(root, absolute) {
+    const relative = path.relative(root, absolute);
+    return relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+      ? relative.split(path.sep).join('/')
+      : '';
+  }
+
+  listExplorerDirectory(userId, options = {}) {
+    const root = this._ensureWorkspaceRootSync(userId);
+    const dirPath = this.resolvePath(userId, options.path || '.', 'path');
+    let stats;
+    try {
+      stats = fs.statSync(dirPath);
+    } catch (err) {
+      return { path: this._toWorkspaceRelative(root, dirPath), entries: [], error: err.message };
+    }
+    if (!stats.isDirectory()) {
+      return { path: this._toWorkspaceRelative(root, dirPath), entries: [], error: 'Path is not a directory.' };
+    }
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true }).flatMap((entry) => {
+      const fullPath = path.join(dirPath, entry.name);
+      let entryStats;
+      try {
+        entryStats = fs.lstatSync(fullPath);
+        if (entryStats.isSymbolicLink()) return [];
+        entryStats = fs.statSync(fullPath);
+      } catch {
+        return [];
+      }
+      if (!entryStats.isDirectory() && !entryStats.isFile()) return [];
+      return [{
+        name: entry.name,
+        type: entryStats.isDirectory() ? 'directory' : 'file',
+        path: this._toWorkspaceRelative(root, fullPath),
+        size: entryStats.size,
+        mtime: entryStats.mtime.toISOString(),
+      }];
+    }).sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    return {
+      path: this._toWorkspaceRelative(root, dirPath),
+      parentPath: this._toWorkspaceRelative(root, path.dirname(dirPath)),
+      entries,
+    };
+  }
+
+  readExplorerFile(userId, options = {}) {
+    const root = this._ensureWorkspaceRootSync(userId);
+    const filePath = this.resolvePath(userId, options.path || '', 'path');
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) {
+      throw new Error('Path is not a file.');
+    }
+    const maxBytes = Number(options.maxBytes || 1024 * 1024);
+    if (stats.size > maxBytes) {
+      const error = new Error(`File is too large to edit in the browser (${stats.size} bytes).`);
+      error.code = 'WORKSPACE_FILE_TOO_LARGE';
+      throw error;
+    }
+    return {
+      path: this._toWorkspaceRelative(root, filePath),
+      name: path.basename(filePath),
+      content: fs.readFileSync(filePath, 'utf8'),
+      size: stats.size,
+      mtime: stats.mtime.toISOString(),
+    };
+  }
+
+  writeExplorerFile(userId, options = {}) {
+    const root = this._ensureWorkspaceRootSync(userId);
+    const filePath = this.resolvePath(userId, options.path || '', 'path');
+    const content = String(options.content ?? '');
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, content, 'utf8');
+    const stats = fs.statSync(filePath);
+    return {
+      success: true,
+      path: this._toWorkspaceRelative(root, filePath),
+      size: stats.size,
+      mtime: stats.mtime.toISOString(),
+    };
+  }
+
+  getExplorerDownload(userId, options = {}) {
+    const root = this._ensureWorkspaceRootSync(userId);
+    const filePath = this.resolvePath(userId, options.path || '', 'path');
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) {
+      throw new Error('Path is not a file.');
+    }
+    return {
+      root,
+      absolutePath: filePath,
+      relativePath: this._toWorkspaceRelative(root, filePath),
+      filename: path.basename(filePath),
+    };
   }
 
   readFile(userId, options = {}) {

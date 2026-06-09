@@ -30,7 +30,6 @@ const {
 const { getCapabilityHealth, summarizeCapabilityHealth } = require('./capabilityHealth');
 const {
   buildPlatformFormattingGuide,
-  normalizeOutgoingMessageForPlatform,
   splitOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
 const {
@@ -49,6 +48,27 @@ const {
 } = require('./deliverables');
 const { buildLoopPolicy, resolveToolResultLimits } = require('./loopPolicy');
 const { globalHooks } = require('./hooks');
+const { withProviderRetry, isTransientError } = require('./providerRetry');
+const { normalizeCompletionConfidence, shouldAcceptTaskComplete } = require('./completion');
+const { shortenRunId, summarizeForLog, parseMaybeJson } = require('./logFormat');
+const {
+  normalizeOutgoingMessage,
+  clampRunContext,
+  joinSentMessages,
+  normalizeInterimText,
+  buildBlankMessagingReplyPrompt,
+  buildDeterministicMessagingFallback,
+  buildMessagingFailureScenario,
+  buildDeterministicMessagingErrorReply,
+  buildModelFailureLoopPrompt,
+} = require('./messagingFallback');
+const {
+  classifyToolExecution,
+  summarizeToolExecutions,
+  summarizeAvailableTools,
+  inferToolFailureMessage,
+  buildAutonomousRecoveryContext,
+} = require('./toolEvidence');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -59,6 +79,17 @@ function generateTitle(task) {
   }
   const cleaned = task.replace(/^\[.*?\]\s*/i, '').replace(/^(system|task|prompt)[:\s]+/i, '').trim();
   return cleaned.slice(0, 90);
+}
+
+function buildInitialRunMetadata(options = {}) {
+  const metadata = {};
+  if (options.taskId != null && String(options.taskId).trim()) {
+    metadata.taskId = options.taskId;
+  }
+  if (options.widgetId != null && String(options.widgetId).trim()) {
+    metadata.widgetId = options.widgetId;
+  }
+  return metadata;
 }
 
 function planningDepthForForceMode(forceMode) {
@@ -78,6 +109,11 @@ function buildSkipTaskAnalysisResult(forceMode) {
     draft_reply: '',
     goal: 'Complete the user request accurately.',
     success_criteria: [],
+    complexity: forceMode === 'plan_execute' ? 'complex' : 'standard',
+    autonomy_level: forceMode === 'plan_execute' ? 'high' : 'normal',
+    progress_update_policy: 'optional',
+    parallel_work: false,
+    completion_confidence_required: forceMode === 'plan_execute' ? 'high' : 'medium',
   };
 }
 
@@ -87,6 +123,11 @@ function buildAnalyzeTaskFallback(forceMode, userMessage = '') {
     verification_need: 'light',
     planning_depth: planningDepthForForceMode(forceMode),
     goal: userMessage ? String(userMessage).trim().slice(0, 300) : '',
+    complexity: forceMode === 'plan_execute' ? 'complex' : 'standard',
+    autonomy_level: forceMode === 'plan_execute' ? 'high' : 'normal',
+    progress_update_policy: 'optional',
+    parallel_work: false,
+    completion_confidence_required: forceMode === 'plan_execute' ? 'high' : 'medium',
   };
 }
 
@@ -97,6 +138,19 @@ function applyForcedAnalysisMode(analysis, forceMode) {
     ...analysis,
     mode: 'plan_execute',
     planning_depth: 'deep',
+    complexity: 'complex',
+    autonomy_level: 'high',
+    completion_confidence_required: analysis.completion_confidence_required || 'high',
+  };
+}
+
+function buildAutonomyPolicyFromAnalysis(analysis = {}) {
+  return {
+    complexity: analysis.complexity || 'standard',
+    autonomy_level: analysis.autonomy_level || 'normal',
+    progress_update_policy: analysis.progress_update_policy || 'optional',
+    parallel_work: analysis.parallel_work === true,
+    completion_confidence_required: analysis.completion_confidence_required || 'medium',
   };
 }
 
@@ -150,22 +204,19 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
   if (userSelectedDefault && userSelectedDefault !== 'auto') {
     selectedModelDef = models.find((m) => m.id === userSelectedDefault) || fallbackModel;
   } else {
-    const taskStr = String(task || '').toLowerCase();
+    const selectionHint = providerConfig.selectionHint && typeof providerConfig.selectionHint === 'object'
+      ? providerConfig.selectionHint
+      : {};
+    const preferredPurpose = String(selectionHint.purpose || '').trim().toLowerCase();
+    const highAutonomy = selectionHint.autonomyLevel === 'high' || selectionHint.complexity === 'complex';
+    const requestedPurpose = ['planning', 'coding', 'general', 'fast'].includes(preferredPurpose)
+      ? preferredPurpose
+      : '';
 
-    // Basic detection
-    let isPlanning = /\b(plan|think|analy[sz]e|complex|step by step)\b/.test(taskStr);
-    let isCoding = false;
-
-    // Enhanced detection if enabled
-    if (smarterSelection) {
-      isPlanning = isPlanning || /\b(reason|strategy|logical|math|complex)\b/.test(taskStr);
-      isCoding = /\b(code|program|script|debug|refactor|function|implementation|logic)\b/.test(taskStr);
-    }
-
-    if (isPlanning) {
+    if (smarterSelection && requestedPurpose) {
+      selectedModelDef = availableModels.find((m) => m.purpose === requestedPurpose) || fallbackModel;
+    } else if (smarterSelection && highAutonomy) {
       selectedModelDef = availableModels.find((m) => m.purpose === 'planning') || fallbackModel;
-    } else if (isCoding) {
-      selectedModelDef = availableModels.find((m) => m.purpose === 'coding') || availableModels.find((m) => m.purpose === 'planning') || fallbackModel;
     } else if (isSubagent) {
       selectedModelDef = availableModels.find((m) => m.purpose === 'fast') || fallbackModel;
     } else {
@@ -180,7 +231,7 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
   };
 }
 
-async function getFailureFallbackModelId(userId, agentId, currentModelId, preferredFallbackId = null) {
+async function getFailureFallbackModelId(userId, agentId, currentModelId, preferredFallbackId = null, failureError = null) {
   const { getSupportedModels } = require('./models');
   const aiSettings = getAiSettings(userId, agentId);
   const models = await getSupportedModels(userId, agentId);
@@ -196,7 +247,12 @@ async function getFailureFallbackModelId(userId, agentId, currentModelId, prefer
     || availableModels.find((model) => model.id === currentModelId)
     || null;
 
-  if (preferredFallbackId && preferredFallbackId !== currentModelId) {
+  // When the failure is a provider-level rate limit, the preferred fallback is
+  // likely on the same provider and will hit the same limit. Skip it and prefer
+  // a fallback from a different provider instead.
+  const isProviderRateLimit = /429|rate.?limit|free-models-per/i.test(String(failureError?.message || ''));
+
+  if (preferredFallbackId && preferredFallbackId !== currentModelId && !isProviderRateLimit) {
     const preferred = pool.find((model) => model.id === preferredFallbackId)
       || availableModels.find((model) => model.id === preferredFallbackId);
     if (preferred) return preferred.id;
@@ -206,6 +262,14 @@ async function getFailureFallbackModelId(userId, agentId, currentModelId, prefer
     const differentProvider = pool.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider)
       || availableModels.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider);
     if (differentProvider) return differentProvider.id;
+  }
+
+  // If no different-provider model exists, still try the preferred fallback
+  // even on rate limits (it's better than nothing).
+  if (preferredFallbackId && preferredFallbackId !== currentModelId) {
+    const preferred = pool.find((model) => model.id === preferredFallbackId)
+      || availableModels.find((model) => model.id === preferredFallbackId);
+    if (preferred) return preferred.id;
   }
 
   const differentModel = pool.find((model) => model.id !== currentModelId)
@@ -219,434 +283,9 @@ function estimateTokenValue(value) {
   return Math.ceil(JSON.stringify(value).length / 4);
 }
 
-function normalizeOutgoingMessage(content, platform = null, options = {}) {
-  const normalized = normalizeOutgoingMessageForPlatform(platform, content);
-  if (options.collapseWhitespace === false) {
-    return normalized;
-  }
-  return normalized.replace(/\s+/g, ' ').trim();
-}
-
-function joinSentMessages(messages = []) {
-  if (!Array.isArray(messages)) return '';
-  return messages
-    .map((message) => String(message || '').trim())
-    .filter(Boolean)
-    .join('\n\n');
-}
-
-function normalizeInterimText(content, platform = null) {
-  return normalizeOutgoingMessageForPlatform(platform, content, {
-    stripNoResponseMarker: false,
-  }).trim();
-}
-
-function buildBlankMessagingReplyPrompt(attempt, platform = null) {
-  const formattingGuide = buildPlatformFormattingGuide(platform);
-  if (attempt <= 1) {
-    return `You must send one non-empty reply for the external messaging user right now. Do not call tools. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
-  }
-
-  return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, apologize briefly and explain the blocker in one sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
-}
-
-function parseToolExecutionSummary(item) {
-  if (!item?.summary) return null;
-  try {
-    const parsed = JSON.parse(item.summary);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function toolWorkDescription(toolName) {
-  const name = String(toolName || '');
-  if (name === 'execute_command') return 'ran shell commands';
-  if (name === 'read_file' || name === 'search_files' || name === 'list_directory') return 'checked files';
-  if (name === 'web_search' || name === 'http_request') return 'looked up supporting information';
-  if (name.startsWith('browser_')) return 'checked the browser state';
-  if (name.startsWith('android_')) return 'checked the Android state';
-  if (name === 'read_health_data' || name.startsWith('recordings_')) return 'checked stored data';
-  return '';
-}
-
-function summarizeRecentWork(toolExecutions = []) {
-  const descriptions = [];
-  for (const item of toolExecutions.slice(-6)) {
-    const description = toolWorkDescription(item?.toolName);
-    if (!description || descriptions.includes(description)) continue;
-    descriptions.push(description);
-    if (descriptions.length >= 2) break;
-  }
-
-  if (descriptions.length === 0) return '';
-  if (descriptions.length === 1) return `I ${descriptions[0]}`;
-  return `I ${descriptions[0]} and ${descriptions[1]}`;
-}
-
-function hasFailureSignal(text) {
-  const normalized = normalizeOutgoingMessage(text);
-  if (!normalized) return false;
-  return /\b(error|failed|failure|traceback|exception|timed out|timeout|not found|no such file|permission denied|unable to|cannot|could not|module not found)\b/i.test(normalized);
-}
-
-function extractToolFailureMessage(item) {
-  const directError = normalizeOutgoingMessage(item?.error || '');
-  if (directError) return directError;
-
-  const summary = parseToolExecutionSummary(item);
-  if (!summary) return '';
-
-  const candidates = [
-    summary.message,
-    summary.note,
-    summary.stderr,
-    summary.stdout,
-    summary.content,
-    summary.excerpt,
-    summary.result,
-    summary.summary,
-  ];
-
-  if (summary.status === 'error') {
-    for (const candidate of candidates) {
-      const normalized = normalizeOutgoingMessage(candidate || '');
-      if (normalized) return normalized;
-    }
-    if (summary.exitCode != null) {
-      return `The last shell command exited with code ${summary.exitCode}`;
-    }
-  }
-
-  for (const candidate of candidates) {
-    const normalized = normalizeOutgoingMessage(candidate || '');
-    if (hasFailureSignal(normalized)) return normalized;
-  }
-
-  return '';
-}
-
-function buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions = [] }) {
-  const workSummary = summarizeRecentWork(toolExecutions);
-  const blocker = [...toolExecutions].reverse()
-    .map((item) => extractToolFailureMessage(item))
-    .find(Boolean);
-
-  if (workSummary && blocker) {
-    return `${workSummary}, but I got blocked: ${blocker}. I do not have a confirmed finished result yet.`;
-  }
-  if (blocker) {
-    return `I got blocked while working on this: ${blocker}. I do not have a confirmed finished result yet.`;
-  }
-  if (workSummary && stepIndex > 0) {
-    return `${workSummary}, but I do not have a confirmed finished result yet.`;
-  }
-  if (failedStepCount > 0) {
-    return 'I ran into a tool problem while working on your request, so I do not have a confirmed finished result yet.';
-  }
-  if (stepIndex > 0) {
-    return 'I completed part of the work, but I do not have a confirmed finished result yet.';
-  }
-  return 'I could not produce a reliable final reply just now.';
-}
-
-function buildMessagingFailureScenario({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
-  const parts = [];
-  const runtimeError = normalizeOutgoingMessage(err?.message || '');
-  const workSummary = summarizeRecentWork(toolExecutions);
-  const blocker = [...toolExecutions].reverse()
-    .map((item) => extractToolFailureMessage(item))
-    .find(Boolean);
-
-  if (runtimeError) {
-    parts.push(`Runtime error: ${summarizeForLog(runtimeError, 260)}.`);
-  }
-  if (workSummary) {
-    parts.push(`Observed work before failure: ${workSummary}.`);
-  }
-  if (blocker) {
-    parts.push(`Most specific blocker from run evidence: ${summarizeForLog(blocker, 260)}.`);
-  }
-  if (stepIndex > 0) {
-    parts.push(`Completed steps before failure: ${stepIndex}.`);
-  }
-  if (failedStepCount > 0) {
-    parts.push(`Failed tool steps: ${failedStepCount}.`);
-  }
-
-  return parts.join(' ');
-}
-
-function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
-  const message = normalizeOutgoingMessage(err?.message || '');
-  if (/no ai providers? are currently available/i.test(message)) {
-    return 'I cannot continue right now because no AI provider is available for this account. Please check the provider settings.';
-  }
-
-  if (/(timeout|timed out)/i.test(message)) {
-    return 'I hit a timeout while processing your request and could not finish it reliably.';
-  }
-
-  const blocker = [...toolExecutions].reverse()
-    .map((item) => extractToolFailureMessage(item))
-    .find(Boolean);
-  if (blocker) {
-    return `I got blocked while checking this: ${blocker}.`;
-  }
-
-  if (message) {
-    return `I got blocked while working on this: ${message}.`;
-  }
-
-  return buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
-}
-
-function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
-  return [
-    `The previous model call on "${failedModel}" failed with: ${summarizeForLog(errorMessage, 220)}.`,
-    `Continue on "${nextModel}" and recover autonomously.`,
-    'If a previous plan depended on that failed call, adjust your approach and proceed end-to-end.',
-    'Only ask the user for help if no safe path remains.'
-  ].join(' ');
-}
-
-function clampRunContext(text, maxChars) {
-  const value = normalizeOutgoingMessage(text);
-  if (!value) return '';
-  if (value.length <= maxChars) return value;
-  return `${value.slice(0, maxChars)}...`;
-}
-
-function shortenRunId(runId) {
-  const value = String(runId || '').trim();
-  if (!value) return 'unknown';
-  return value.length <= 8 ? value : value.slice(0, 8);
-}
-
-function summarizeForLog(value, maxChars = 220) {
-  if (value == null) return '';
-
-  let text = '';
-  if (typeof value === 'string') {
-    text = value;
-  } else {
-    try {
-      text = JSON.stringify(value);
-    } catch {
-      text = String(value);
-    }
-  }
-
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= maxChars) return normalized;
-  return `${normalized.slice(0, maxChars)}...`;
-}
-
-function parseMaybeJson(value, fallback = null) {
-  if (!value) return fallback;
-  if (typeof value === 'object') return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
-function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '') {
-  const name = String(toolName || '');
-  const evidenceRelevantPrefixes = ['browser_', 'android_'];
-  const evidenceRelevantExact = new Set([
-    'web_search',
-    'http_request',
-    'read_file',
-    'search_files',
-    'list_directory',
-    'session_search',
-    'memory_recall',
-    'analyze_image',
-    'read_health_data',
-    'recordings_list',
-    'recordings_get',
-    'recordings_search',
-    'list_tasks',
-    'wait_subagent',
-  ]);
-  const stateChangingExact = new Set([
-    'execute_command',
-    'write_file',
-    'edit_file',
-    'send_interim_update',
-    'send_message',
-    'make_call',
-    'create_skill',
-    'update_skill',
-    'delete_skill',
-    'create_task',
-    'update_task',
-    'delete_task',
-    'create_ai_widget',
-    'update_ai_widget',
-    'delete_ai_widget',
-    'save_widget_snapshot',
-    'mcp_add_server',
-    'mcp_remove_server',
-    'spawn_subagent',
-    'cancel_subagent',
-  ]);
-
-  const evidenceSource = name.startsWith('browser_')
-    ? 'browser'
-    : name.startsWith('android_')
-      ? 'android'
-      : name.startsWith('mcp_')
-        ? 'mcp'
-        : name.startsWith('memory_') || name === 'session_search'
-          ? 'memory'
-          : name === 'web_search'
-            ? 'search'
-            : name === 'http_request'
-              ? 'http'
-              : ['read_file', 'search_files', 'list_directory', 'write_file', 'edit_file'].includes(name)
-                ? 'files'
-                : name === 'execute_command'
-                  ? 'command'
-                  : name.includes('skill')
-                    ? 'skills'
-                    : (name === 'create_task' || name === 'update_task' || name === 'delete_task' || name === 'list_tasks' || name.includes('widget'))
-                      ? 'tasks'
-                      : name === 'send_message' || name === 'make_call'
-                        ? 'messaging'
-                        : name.startsWith('recordings_') || name === 'read_health_data'
-                          ? 'data'
-                          : name === 'analyze_image'
-                            ? 'vision'
-                            : name.includes('subagent')
-                              ? 'subagent'
-                              : 'tool';
-
-  const evidenceRelevant = evidenceRelevantExact.has(name)
-    || evidenceRelevantPrefixes.some((prefix) => name.startsWith(prefix));
-  const stateChanged = stateChangingExact.has(name)
-    || name.startsWith('android_')
-    || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
-
-  let normalizedError = String(errorMessage || result?.error || '').trim();
-  if (!normalizedError && name === 'execute_command' && result && typeof result === 'object') {
-    if (result.timedOut) {
-      normalizedError = `Command timed out after ${result.durationMs || 'unknown'} ms`;
-    } else if (result.killed || result.signal) {
-      normalizedError = 'Command was killed before it finished';
-    } else if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
-      normalizedError = summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
-    }
-  }
-
-  if (!normalizedError && result && typeof result === 'object') {
-    const nestedResult = result.result && typeof result.result === 'object' && !Array.isArray(result.result)
-      ? result.result
-      : null;
-    const detail = normalizeOutgoingMessage(
-      result.reason
-      || result.message
-      || nestedResult?.reason
-      || nestedResult?.message
-      || ''
-    );
-
-    if (result.skipped === true || nestedResult?.skipped === true) {
-      normalizedError = detail || 'Tool reported skipped outcome.';
-    } else if (result.success === false || nestedResult?.success === false) {
-      normalizedError = detail || 'Tool reported success=false.';
-    } else if (result.sent === false || nestedResult?.sent === false) {
-      normalizedError = detail || 'Tool reported sent=false.';
-    }
-  }
-
-  return {
-    toolName: name,
-    ok: !normalizedError,
-    error: normalizedError,
-    evidenceSource,
-    evidenceRelevant,
-    stateChanged,
-    dependsOnOutput: true,
-    summary: compactToolResult(name, toolArgs, result || { error: errorMessage || 'Tool failed' }, {
-      softLimit: 500,
-      hardLimit: 900,
-    }),
-  };
-}
-
-function summarizeToolExecutions(toolExecutions = [], maxItems = 10) {
-  return toolExecutions.slice(-maxItems).map((item, index) => {
-    const status = item.ok ? 'ok' : `error=${item.error}`;
-    return `${index + 1}. ${item.toolName} [${item.evidenceSource}] ${status} :: ${clampRunContext(item.summary || '', 220)}`;
-  }).join('\n');
-}
-
-function summarizeAvailableTools(tools = [], { exclude = [] } = {}) {
-  const excluded = new Set((Array.isArray(exclude) ? exclude : [exclude]).filter(Boolean));
-  return tools
-    .map((tool) => String(tool?.name || '').trim())
-    .filter((name) => name && !excluded.has(name))
-    .slice(0, 24)
-    .join(', ');
-}
-
-function inferToolFailureMessage(toolName, result) {
-  const explicitError = normalizeOutgoingMessage(result?.error || '');
-  if (explicitError) return explicitError;
-
-  if (!result || typeof result !== 'object') return '';
-
-  if (toolName === 'execute_command') {
-    if (result.timedOut) {
-      return `Command timed out after ${result.durationMs || 'unknown'} ms`;
-    }
-    if (result.killed || result.signal) {
-      return 'Command was killed before it finished';
-    }
-    if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
-      return summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
-    }
-  }
-
-  if (toolName === 'http_request' && typeof result.status === 'number' && result.status >= 400) {
-    const bodySnippet = normalizeOutgoingMessage(result.body || '');
-    return summarizeForLog(
-      bodySnippet
-        ? `HTTP request returned status ${result.status}: ${bodySnippet}`
-        : `HTTP request returned status ${result.status}`,
-      240
-    );
-  }
-
-  return '';
-}
-
-function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], userMessage, visibleMessageSent = false }) {
-  const lastFailure = [...toolExecutions].reverse().find((item) => !item.ok);
-  const alternativeTools = summarizeAvailableTools(tools, { exclude: lastFailure?.toolName || null });
-  const parts = [
-    'This is an internal recovery retry for the same user task. Continue the task instead of stopping.',
-    userMessage ? `Original task: ${clampRunContext(userMessage, 260)}` : '',
-    lastFailure?.toolName ? `Previous attempt failed on tool: ${lastFailure.toolName}.` : '',
-    lastFailure?.error ? `Concrete failure: ${summarizeForLog(lastFailure.error, 260)}.` : '',
-    err?.message ? `Run-level error after that failure: ${summarizeForLog(err.message, 220)}.` : '',
-    'Do not send a blocker message just because one tool path failed.',
-    'Use a different safe approach if available: alternate tool, different query, browser path, HTTP fetch, file/code inspection, or command verification.',
-    visibleMessageSent ? 'A user-facing message was already sent in a previous internal attempt. Continue silently unless you have a materially new finished result or a real external blocker.' : '',
-    alternativeTools ? `Other available tools in this run: ${alternativeTools}.` : '',
-    'Only stop if the remaining problem truly requires an external dependency or user action outside this run.'
-  ];
-  return parts.filter(Boolean).join(' ');
-}
-
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
-    this.maxIterations = 12;
     this.activeRuns = new Map();
     this.subagents = new Map();
     this.app = services.app || null;
@@ -878,17 +517,20 @@ class AgentEngine {
     fallback = {},
     reasoningEffort,
   }) {
-    const response = await provider.chat(
-      sanitizeConversationMessages([
-        ...messages,
-        { role: 'system', content: prompt },
-      ]),
-      [],
-      {
-        model,
-        maxTokens,
-        reasoningEffort: reasoningEffort || this.getReasoningEffort(providerName, {}),
-      }
+    const response = await withProviderRetry(
+      () => provider.chat(
+        sanitizeConversationMessages([
+          ...messages,
+          { role: 'system', content: prompt },
+        ]),
+        [],
+        {
+          model,
+          maxTokens,
+          reasoningEffort: reasoningEffort || this.getReasoningEffort(providerName, {}),
+        }
+      ),
+      { label: `Engine ${model} (structured)` }
     );
 
     const parsed = parseJsonObject(response.content || '');
@@ -914,44 +556,80 @@ class AgentEngine {
       model,
       reasoningEffort: this.getReasoningEffort(providerName, options),
     };
-    let response = null;
-    let streamContent = '';
 
-    if (options.stream !== false) {
-      const stream = provider.stream(requestMessages, tools, callOptions);
-      for await (const chunk of stream) {
-        if (chunk.type === 'content') {
-          streamContent += chunk.content;
-          this.emit(options.userId, 'run:stream', {
-            runId,
-            content: sanitizeModelOutput(streamContent, { model }),
-            iteration,
-          });
+    const attemptModelCall = async () => {
+      let response = null;
+      let streamContent = '';
+
+      if (options.stream !== false) {
+        let emittedContent = false;
+        const stream = provider.stream(requestMessages, tools, callOptions);
+        try {
+          for await (const chunk of stream) {
+            if (chunk.type === 'content') {
+              emittedContent = true;
+              streamContent += chunk.content;
+              this.emit(options.userId, 'run:stream', {
+                runId,
+                content: sanitizeModelOutput(streamContent, { model }),
+                iteration,
+              });
+            }
+            if (chunk.type === 'done') {
+              response = chunk;
+            }
+            if (chunk.type === 'tool_calls') {
+              response = {
+                content: chunk.content || streamContent,
+                toolCalls: chunk.toolCalls,
+                providerContentBlocks: chunk.providerContentBlocks || null,
+                finishReason: 'tool_calls',
+                usage: chunk.usage || null,
+              };
+            }
+          }
+        } catch (err) {
+          // Once tokens have streamed to the client a retry would duplicate
+          // output, so only the pre-stream window is safe to replay.
+          if (emittedContent) err.__providerRetryUnsafe = true;
+          throw err;
         }
-        if (chunk.type === 'done') {
-          response = chunk;
-        }
-        if (chunk.type === 'tool_calls') {
-          response = {
-            content: chunk.content || streamContent,
-            toolCalls: chunk.toolCalls,
-            providerContentBlocks: chunk.providerContentBlocks || null,
-            finishReason: 'tool_calls',
-            usage: chunk.usage || null,
-          };
-        }
+      } else {
+        response = await provider.chat(requestMessages, tools, callOptions);
       }
-    } else {
-      response = await provider.chat(requestMessages, tools, callOptions);
+
+      return { response, streamContent };
+    };
+
+    const { response, streamContent } = await withProviderRetry(attemptModelCall, {
+      ...(options.retry || {}),
+      label: `Engine ${model}`,
+      isRetryable: (err) => !err?.__providerRetryUnsafe && isTransientError(err),
+      onRetry: ({ attempt, delayMs }) => {
+        this.emit(options.userId, 'run:interim', {
+          runId,
+          message: `Model service busy; retrying (attempt ${attempt}) in ${Math.max(1, Math.round(delayMs / 1000))}s.`,
+          phase: 'recovering',
+        });
+      },
+    });
+
+    const resolvedResponse = response || {
+      content: streamContent,
+      toolCalls: [],
+      finishReason: 'stop',
+      usage: null,
+    };
+    const hasContent = Boolean(String(resolvedResponse.content || streamContent || '').trim());
+    const hasToolCalls = Array.isArray(resolvedResponse.toolCalls) && resolvedResponse.toolCalls.length > 0;
+    if (!hasContent && !hasToolCalls) {
+      const error = new Error(`Model ${model} returned an empty response.`);
+      error.code = 'MODEL_EMPTY_RESPONSE';
+      throw error;
     }
 
     return {
-      response: response || {
-        content: streamContent,
-        toolCalls: [],
-        finishReason: 'stop',
-        usage: null,
-      },
+      response: resolvedResponse,
       responseModel: model,
       streamContent,
     };
@@ -1064,12 +742,14 @@ class AgentEngine {
         '- A progress update is not complete.',
         '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
         '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
+        '- If completion_confidence_required is high and the latest draft depends on unverified assumptions, use "continue" so the run can gather evidence, inspect state, or narrow the reply.',
         triggerSource === 'messaging' && messagingSent
           ? '- A reply was already delivered to the user via send_message. Use "complete" unless there is concrete remaining work (e.g., a tool call you still need to make) before the task is truly done. Do not send follow-up elaborations or re-introductions.'
           : triggerSource === 'messaging'
             ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked. If you already asked for missing user input, choose "blocked" and wait.'
             : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
         analysis?.goal ? `Goal: ${analysis.goal}` : '',
+        `Autonomy contract: complexity=${analysis?.complexity || 'standard'}; autonomy_level=${analysis?.autonomy_level || 'normal'}; progress_update_policy=${analysis?.progress_update_policy || 'optional'}; parallel_work=${analysis?.parallel_work === true}; completion_confidence_required=${analysis?.completion_confidence_required || 'medium'}.`,
         successCriteria.length > 0 ? `Success criteria:\n${successCriteria.map((item, index) => `${index + 1}. ${item}`).join('\n')}` : '',
         `Current iteration: ${iteration} of ${maxIterations}.`,
         `Available tools in this run: ${summarizeAvailableTools(tools) || 'none'}`,
@@ -1101,6 +781,7 @@ class AgentEngine {
     model,
     messages,
     analysis,
+    tools,
     toolExecutions,
     finalReply,
     options,
@@ -1117,6 +798,7 @@ class AgentEngine {
       messages,
       prompt: buildVerifierPrompt({
         analysis,
+        tools,
         toolExecutionSummary: summarizeToolExecutions(toolExecutions),
         evidenceSources,
         finalReply,
@@ -1424,7 +1106,9 @@ class AgentEngine {
   }
 
   getMessagingRetryLimit(maxIterations) {
-    return Math.max(1, maxIterations);
+    // Cap at 3: more than 3 autonomous messaging retries indicates a structural
+    // problem (model unavailable, bad config) that more retries won't solve.
+    return Math.min(3, Math.max(1, maxIterations));
   }
 
   buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg) {
@@ -1565,7 +1249,7 @@ class AgentEngine {
     let model = selectedProvider.model;
     let providerName = selectedProvider.providerName;
     const switchToFallbackModel = async (failedModel, error, phase) => {
-      const fallbackModelId = await getFailureFallbackModelId(userId, agentId, failedModel, aiSettings.fallback_model_id);
+      const fallbackModelId = await getFailureFallbackModelId(userId, agentId, failedModel, aiSettings.fallback_model_id, error);
       if (!fallbackModelId || fallbackModelId === failedModel) return false;
       console.log(`[Engine] ${phase} failed on ${failedModel}; attempting fallback to: ${fallbackModelId}`);
       this.emit(userId, 'run:interim', {
@@ -1597,8 +1281,19 @@ class AgentEngine {
     };
 
     const runTitle = generateTitle(userMessage);
-    db.prepare(`INSERT OR REPLACE INTO agent_runs(id, user_id, agent_id, title, status, trigger_type, trigger_source, model)
-      VALUES(?, ?, ?, ?, 'running', ?, ?, ?)`).run(runId, userId, agentId, runTitle, triggerType, triggerSource, model);
+    const initialRunMetadata = buildInitialRunMetadata(options);
+    db.prepare(`INSERT OR REPLACE INTO agent_runs(
+      id, user_id, agent_id, title, status, trigger_type, trigger_source, model, metadata_json
+    ) VALUES(?, ?, ?, ?, 'running', ?, ?, ?, ?)`).run(
+      runId,
+      userId,
+      agentId,
+      runTitle,
+      triggerType,
+      triggerSource,
+      model,
+      Object.keys(initialRunMetadata).length ? JSON.stringify(initialRunMetadata) : null,
+    );
 
     const retryMessagingState = options.messagingRetryState || {};
     const carriedVisibleMessage = String(retryMessagingState.lastVisibleMessage || '').trim();
@@ -1610,6 +1305,7 @@ class AgentEngine {
       status: 'running',
       aborted: false,
       messagingSent: false,
+      noResponse: false,
       explicitMessageSent: carriedExplicitMessageSent,
       lastSentMessage: carriedExplicitMessageSent ? carriedVisibleMessage : '',
       sentMessages: [],
@@ -1658,6 +1354,23 @@ class AgentEngine {
     const integrationManager = app?.locals?.integrationManager || null;
     const mcpTools = mcpManager ? mcpManager.getAllTools(userId, { agentId }) : [];
     const tools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
+    const toolNames = tools.map((tool) => tool.name).filter(Boolean);
+    const coreToolStatus = {
+      send_message: toolNames.includes('send_message'),
+      create_task: toolNames.includes('create_task'),
+      list_tasks: toolNames.includes('list_tasks'),
+      update_task: toolNames.includes('update_task'),
+      delete_task: toolNames.includes('delete_task'),
+    };
+    this.recordRunEvent(userId, runId, 'tool_inventory', {
+      total: toolNames.length,
+      builtInTotal: builtInTools.length,
+      mcpTotal: mcpTools.length,
+      core: coreToolStatus,
+    }, { agentId });
+    console.info(
+      `[Run ${shortenRunId(runId)}] tools total=${toolNames.length} builtIns=${builtInTools.length} mcp=${mcpTools.length} core=${JSON.stringify(coreToolStatus)}`
+    );
     const capabilityHealth = await getCapabilityHealth({ userId, agentId, app, engine: this });
     const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
     const integrationSummary = integrationManager?.summarizeConnectedProviders?.(userId, agentId) || '';
@@ -1780,11 +1493,53 @@ class AgentEngine {
 
       }
 
+      const activeDefaultModelSetting = triggerType === 'subagent'
+        ? aiSettings.default_subagent_model
+        : aiSettings.default_chat_model;
+      if (!_modelOverride && activeDefaultModelSetting === 'auto' && aiSettings.smarter_model_selector !== false) {
+        const requestedPurpose = analysis?.mode === 'plan_execute' || analysis?.complexity === 'complex' || analysis?.autonomy_level === 'high'
+          ? 'planning'
+          : triggerType === 'subagent'
+            ? 'fast'
+            : '';
+        if (requestedPurpose) {
+          const selectedAfterAnalysis = await getProviderForUser(
+            userId,
+            userMessage,
+            triggerType === 'subagent',
+            null,
+            {
+              ...providerStatusConfig,
+              selectionHint: {
+                purpose: requestedPurpose,
+                complexity: analysis?.complexity,
+                autonomyLevel: analysis?.autonomy_level,
+              },
+            }
+          );
+          if (selectedAfterAnalysis.model !== model) {
+            provider = selectedAfterAnalysis.provider;
+            model = selectedAfterAnalysis.model;
+            providerName = selectedAfterAnalysis.providerName;
+            db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
+              .run(model, runId);
+            this.emit(userId, 'run:interim', {
+              runId,
+              message: `Switched to ${model} for this run after task analysis.`,
+              phase: 'model_selection'
+            });
+          }
+        }
+      }
+
       // Rebuild loop policy with the resolved analysis mode. Runs in both the
       // normal path and the skipTaskAnalysis path so that forceMode='plan_execute'
       // (or any mode set by buildSkipTaskAnalysisResult) raises the iteration
       // ceiling correctly.
-      loopPolicy = buildLoopPolicy(aiSettings, triggerType, analysis.mode || 'execute', options);
+      loopPolicy = buildLoopPolicy(aiSettings, triggerType, analysis.mode || 'execute', {
+        ...options,
+        autonomyPolicy: buildAutonomyPolicyFromAnalysis(analysis),
+      });
       maxIterations = loopPolicy.maxIterations;
 
       if (options.skipDeliverableWorkflow !== true) {
@@ -1960,7 +1715,7 @@ class AgentEngine {
           } catch (err) {
             console.error(`[Engine] Model call failed (${model}):`, err.message);
             const fallbackModelId = retryForFallback
-              ? await getFailureFallbackModelId(userId, agentId, model, aiSettings.fallback_model_id)
+              ? await getFailureFallbackModelId(userId, agentId, model, aiSettings.fallback_model_id, err)
               : null;
             if (fallbackModelId) {
               const failedModel = model;
@@ -2101,7 +1856,17 @@ class AgentEngine {
             break;
           }
           if (iteration < maxIterations) {
-            const fallbackStatus = (toolExecutions.length > 0 || failedStepCount > 0 || messagingSent) ? 'continue' : 'complete';
+            const proactiveRunNeedsDecision = (
+              (triggerSource === 'schedule' || triggerSource === 'tasks')
+              && this.activeRuns.get(runId)?.noResponse !== true
+              && options.deliveryState?.noResponse !== true
+            );
+            const fallbackStatus = (
+              proactiveRunNeedsDecision
+              || toolExecutions.length > 0
+              || failedStepCount > 0
+              || messagingSent
+            ) ? 'continue' : 'complete';
             const loopState = await runWithModelFallback('loop decision', () => this.decideLoopState({
               provider,
               providerName,
@@ -2155,15 +1920,46 @@ class AgentEngine {
           // regular tool execution, it is a loop-exit signal.
           if (toolName === 'task_complete') {
             const finalMessage = String(toolArgs.message || '').trim();
+            const confidence = normalizeCompletionConfidence(toolArgs.confidence || 'medium');
+            const completionDecision = shouldAcceptTaskComplete({
+              confidence,
+              requiredConfidence: analysis?.completion_confidence_required || 'medium',
+              iteration,
+              maxIterations,
+            });
             this.recordRunEvent(userId, runId, 'task_complete_signaled', {
-              confidence: toolArgs.confidence || 'high',
+              confidence,
+              requiredConfidence: analysis?.completion_confidence_required || 'medium',
+              accepted: completionDecision.accept,
               iteration,
               messageLength: finalMessage.length,
             }, { agentId });
             console.info(
-              `[Run ${shortenRunId(runId)}] task_complete signaled at iteration=${iteration} confidence=${toolArgs.confidence || 'high'}`
+              `[Run ${shortenRunId(runId)}] task_complete signaled at iteration=${iteration} confidence=${confidence} accepted=${completionDecision.accept}`
             );
-            // Always honor task_complete as a stop signal, even with no message.
+            if (!completionDecision.accept) {
+              messages.push({
+                role: 'tool',
+                name: toolName,
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({
+                  status: 'continue',
+                  reason: completionDecision.reason,
+                  required_confidence: analysis?.completion_confidence_required || 'medium',
+                }),
+              });
+              messages.push({
+                role: 'system',
+                content: `${completionDecision.reason} Do not ask the user to decide the next step unless external input is truly required.`
+              });
+              continue;
+            }
+            if (completionDecision.reason) {
+              messages.push({
+                role: 'system',
+                content: completionDecision.reason,
+              });
+            }
             lastContent = finalMessage; // empty string is valid; downstream handles it
             directAnswerEligible = true;
             break; // exit the for-loop; the while condition will also exit
@@ -2467,6 +2263,18 @@ class AgentEngine {
         && !messagingSent
         && runMeta?.widgetSnapshotSaved !== true
       ) {
+        const explicitNoResponse = (
+          runMeta?.noResponse === true
+          || options.deliveryState?.noResponse === true
+        );
+        if (
+          (triggerSource === 'schedule' || triggerSource === 'tasks')
+          && !explicitNoResponse
+        ) {
+          throw new Error(
+            'Background run ended without producing a result or an explicit no-response decision.',
+          );
+        }
         if (iteration >= maxIterations) {
           throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
         }
@@ -2501,6 +2309,7 @@ class AgentEngine {
           model,
           messages,
           analysis,
+          tools,
           toolExecutions,
           finalReply: finalResponseText,
           options,
@@ -2709,11 +2518,16 @@ class AgentEngine {
 
       const runMeta = this.activeRuns.get(runId);
       const retryCount = Number(options.messagingAutonomousRetryCount || 0);
+      // Rate-limit errors (429) must not trigger messaging retries: the model
+      // won't be available in the milliseconds between retries, so spawning new
+      // runs just compounds the rate-limit pressure with no benefit.
+      const isRateLimitError = /429|rate.?limit|free-models-per/i.test(String(err?.message || ''));
       const canRetryMessagingRun = (
         triggerSource === 'messaging'
         && options.source
         && options.chatId
         && err?.disableAutonomousRetry !== true
+        && !isRateLimitError
         && retryCount < this.getMessagingRetryLimit(maxIterations)
       );
 
@@ -3197,8 +3011,15 @@ class AgentEngine {
     db.prepare("UPDATE agent_runs SET status = 'stopped', updated_at = datetime('now') WHERE id = ?").run(runId);
   }
 
-  abort(runId) {
-    if (runId) this.stopRun(runId);
+  abort(runId, { userId } = {}) {
+    if (!runId) return false;
+    if (userId != null) {
+      // Ownership gate: never let one user abort another user's active run.
+      const runMeta = this.activeRuns.get(runId);
+      if (runMeta && Number(runMeta.userId) !== Number(userId)) return false;
+    }
+    this.stopRun(runId);
+    return true;
   }
 
   abortAll(userId) {
@@ -3229,4 +3050,4 @@ class AgentEngine {
   }
 }
 
-module.exports = { AgentEngine, getProviderForUser };
+module.exports = { AgentEngine, buildInitialRunMetadata, getProviderForUser };

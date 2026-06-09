@@ -46,6 +46,11 @@ header {
   gap: 6px;
 }
 
+.logo {
+  width: 40px;
+  height: 40px;
+}
+
 h1,
 h2,
 p {

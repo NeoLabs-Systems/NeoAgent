@@ -23,11 +23,11 @@ abstract class AppBreakpoints {
 abstract class AppRadius {
   static const double tag   = 8.0;
   static const double card  = 14.0;
-  static const double input = 18.0;
-  static const double panel = 28.0;
+  static const double input = 14.0;
+  static const double panel = 22.0;
   static const double pill  = 999.0;
 }
 
 /// Deep dark color used for QR code modules rendered on a white background.
-/// Matches the dark theme's primary background hue for brand consistency.
-const Color _qrDarkColor = Color(0xFF04111D);
+/// Matches the dark theme's deep-olive background hue for brand consistency.
+const Color _qrDarkColor = Color(0xFF0E1511);

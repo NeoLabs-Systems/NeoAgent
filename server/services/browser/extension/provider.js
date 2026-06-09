@@ -17,6 +17,7 @@ class ExtensionBrowserProvider {
   constructor(options = {}) {
     this.registry = options.registry;
     this.userId = options.userId != null ? String(options.userId) : null;
+    this.tokenId = options.tokenId ? String(options.tokenId) : null;
     this.artifactStore = options.artifactStore || null;
     this.headless = false;
   }
@@ -29,13 +30,16 @@ class ExtensionBrowserProvider {
 
   async #dispatch(command, payload = {}, options = {}) {
     this.#assertReady();
-    const result = await this.registry.dispatch(this.userId, command, payload, options);
+    const result = await this.registry.dispatch(this.userId, command, payload, {
+      ...options,
+      tokenId: options.tokenId || this.tokenId,
+    });
     return this.#materialize(result);
   }
 
   #disconnect() {
     if (!this.registry || this.userId == null) return;
-    const connection = this.registry.getConnection(this.userId);
+    const connection = this.registry.getConnection(this.userId, this.tokenId);
     if (connection) {
       connection.close('browser extension provider closed');
     }
@@ -131,7 +135,7 @@ class ExtensionBrowserProvider {
   }
 
   async closeBrowser() {
-    if (!this.registry || this.userId == null || !this.registry.isConnected(this.userId)) {
+    if (!this.registry || this.userId == null || !this.registry.isConnected(this.userId, this.tokenId)) {
       return { success: true, extensionConnected: false };
     }
     const result = await this.#dispatch(EXTENSION_COMMANDS.CLOSE, {});
@@ -152,14 +156,16 @@ class ExtensionBrowserProvider {
   }
 
   async getPageInfo() {
-    if (!this.registry || this.userId == null || !this.registry.isConnected(this.userId)) {
+    if (!this.registry || this.userId == null || !this.registry.isConnected(this.userId, this.tokenId)) {
       return { url: null, title: null, extensionConnected: false };
     }
-    return this.registry.dispatch(this.userId, EXTENSION_COMMANDS.GET_PAGE_INFO, {});
+    return this.registry.dispatch(this.userId, EXTENSION_COMMANDS.GET_PAGE_INFO, {}, {
+      tokenId: this.tokenId,
+    });
   }
 
   isLaunched() {
-    return Boolean(this.registry && this.userId != null && this.registry.isConnected(this.userId));
+    return Boolean(this.registry && this.userId != null && this.registry.isConnected(this.userId, this.tokenId));
   }
 
   getPageCount() {

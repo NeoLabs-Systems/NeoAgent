@@ -1,7 +1,16 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../src/theme/palette.dart';
+
+/// Shared chrome for the onboarding flow.
+///
+/// On wide viewports this renders the "Control Surface" two-pane onboarding:
+/// a brand / narrative pane on the left (logo, step counter, eyebrow, title,
+/// supporting copy and progress rail) over the olive [bgPrimary] surface, and
+/// an interaction pane on the right (the step's content + nav) over the deeper
+/// [bgSecondary]. It is fully theme-aware — light or dark follows the system
+/// brightness via [paletteOf].
 class OnboardingScaffold extends StatelessWidget {
   const OnboardingScaffold({
     super.key,
@@ -28,55 +37,293 @@ class OnboardingScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final compact = width < 980;
-    return Stack(
-      children: <Widget>[
-        const Positioned.fill(child: _OnboardingBackdrop()),
-        SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              compact ? 20 : 32,
-              compact ? 16 : 22,
-              compact ? 20 : 32,
-              compact ? 20 : 28,
+    final p = paletteOf(context);
+    final wide = MediaQuery.sizeOf(context).width >= 900;
+
+    if (!wide) {
+      return ColoredBox(
+        color: p.bgPrimary,
+        child: SafeArea(child: _CompactBody(scaffold: this)),
+      );
+    }
+
+    return ColoredBox(
+      color: p.bgPrimary,
+      child: SafeArea(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Expanded(flex: 43, child: _NarrativePane(scaffold: this)),
+            Expanded(flex: 57, child: _InteractionPane(scaffold: this)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NarrativePane extends StatelessWidget {
+  const _NarrativePane({required this.scaffold});
+
+  final OnboardingScaffold scaffold;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = paletteOf(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(color: p.bgPrimary),
+      child: Stack(
+        children: <Widget>[
+          // Sage glow, top-left — the brand "agent OS" atmosphere.
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(-0.8, -0.9),
+                  radius: 1.2,
+                  colors: <Color>[
+                    p.accentAlt.withValues(alpha: 0.20),
+                    p.accentAlt.withValues(alpha: 0),
+                  ],
+                ),
+              ),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(52, 44, 44, 44),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                _OnboardingTopBar(step: step, totalSteps: totalSteps),
-                const SizedBox(height: 18),
+                _Brand(step: scaffold.step, totalSteps: scaffold.totalSteps),
                 Expanded(
-                  child: compact
-                      ? _OnboardingPanel(
-                          padding: EdgeInsets.all(dense ? 22 : 26),
-                          child: _OnboardingContentColumn(
-                            eyebrow: eyebrow,
-                            title: title,
-                            description: description,
-                            footer: footer,
-                            sidePanel: sidePanel,
-                            compact: true,
-                            child: child,
+                  child: Center(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const SizedBox(height: 24),
+                          OnboardingEyebrow(scaffold.eyebrow),
+                          const SizedBox(height: 18),
+                          Text(
+                            scaffold.title,
+                            style: GoogleFonts.geist(
+                              color: p.textPrimary,
+                              fontSize: 42,
+                              height: 1.04,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1.2,
+                            ),
                           ),
-                        )
-                      : _OnboardingPanel(
-                          padding: const EdgeInsets.all(34),
-                          child: _OnboardingContentColumn(
-                            eyebrow: eyebrow,
-                            title: title,
-                            description: description,
-                            footer: footer,
-                            sidePanel: sidePanel,
-                            compact: false,
-                            child: child,
+                          const SizedBox(height: 18),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 460),
+                            child: Text(
+                              scaffold.description,
+                              style: GoogleFonts.geist(
+                                color: p.textSecondary,
+                                fontSize: 16,
+                                height: 1.6,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (scaffold.sidePanel != null) ...<Widget>[
+                            const SizedBox(height: 28),
+                            scaffold.sidePanel!,
+                          ],
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                _ProgressRail(
+                  step: scaffold.step,
+                  totalSteps: scaffold.totalSteps,
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InteractionPane extends StatelessWidget {
+  const _InteractionPane({required this.scaffold});
+
+  final OnboardingScaffold scaffold;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = paletteOf(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: p.bgSecondary,
+        border: Border(left: BorderSide(color: p.border)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(scaffold.dense ? 36 : 44),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Expanded(child: scaffold.child),
+            const SizedBox(height: 26),
+            scaffold.footer,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactBody extends StatelessWidget {
+  const _CompactBody({required this.scaffold});
+
+  final OnboardingScaffold scaffold;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = paletteOf(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _Brand(step: scaffold.step, totalSteps: scaffold.totalSteps),
+          const SizedBox(height: 16),
+          _ProgressRail(step: scaffold.step, totalSteps: scaffold.totalSteps),
+          const SizedBox(height: 24),
+          OnboardingEyebrow(scaffold.eyebrow),
+          const SizedBox(height: 12),
+          Text(
+            scaffold.title,
+            style: GoogleFonts.geist(
+              color: p.textPrimary,
+              fontSize: 28,
+              height: 1.06,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.8,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            scaffold.description,
+            style: GoogleFonts.geist(
+              color: p.textSecondary,
+              fontSize: 14.5,
+              height: 1.55,
+            ),
+          ),
+          if (scaffold.sidePanel != null) ...<Widget>[
+            const SizedBox(height: 18),
+            scaffold.sidePanel!,
+          ],
+          const SizedBox(height: 22),
+          Expanded(child: scaffold.child),
+          const SizedBox(height: 18),
+          scaffold.footer,
+        ],
+      ),
+    );
+  }
+}
+
+class _Brand extends StatelessWidget {
+  const _Brand({required this.step, required this.totalSteps});
+
+  final int step;
+  final int totalSteps;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = paletteOf(context);
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: p.accent.withValues(alpha: 0.16),
+                blurRadius: 14,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset(
+              dark
+                  ? 'assets/branding/app_icon_1024.png'
+                  : 'assets/branding/app_icon_light_1024.png',
+              width: 36,
+              height: 36,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'NeoAgent',
+              style: GoogleFonts.geist(
+                color: p.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'STEP ${step + 1} OF $totalSteps',
+              style: GoogleFonts.geistMono(
+                color: p.textMuted,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.6,
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _ProgressRail extends StatelessWidget {
+  const _ProgressRail({required this.step, required this.totalSteps});
+
+  final int step;
+  final int totalSteps;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = paletteOf(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List<Widget>.generate(totalSteps, (index) {
+        final active = index == step;
+        final done = index < step;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.only(right: 8),
+          width: active ? 30 : 16,
+          height: 5,
+          decoration: BoxDecoration(
+            color: active || done ? p.accent : p.borderLight,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        );
+      }),
     );
   }
 }
@@ -93,7 +340,16 @@ class OnboardingPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _OnboardingPanel(padding: padding, child: child);
+    final p = paletteOf(context);
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: p.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: p.border),
+      ),
+      child: child,
+    );
   }
 }
 
@@ -115,33 +371,31 @@ class OnboardingOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final highlight = accent ?? Theme.of(context).colorScheme.primary;
+    final p = paletteOf(context);
+    final highlight = accent ?? p.accent;
+    final radius = compact ? 16.0 : 20.0;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(compact ? 22 : 28),
+        borderRadius: BorderRadius.circular(radius),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 260),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
-          padding: EdgeInsets.all(compact ? 16 : 22),
+          padding: EdgeInsets.all(compact ? 16 : 18),
           decoration: BoxDecoration(
-            color: selected
-                ? highlight.withValues(alpha: 0.16)
-                : Colors.white.withValues(alpha: 0.055),
-            borderRadius: BorderRadius.circular(compact ? 22 : 28),
+            color: selected ? highlight.withValues(alpha: 0.08) : p.bgCard,
+            borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: selected
-                  ? highlight.withValues(alpha: 0.92)
-                  : Colors.white.withValues(alpha: 0.1),
-              width: selected ? 1.8 : 1,
+              color: selected ? highlight : p.borderLight,
+              width: selected ? 1.6 : 1,
             ),
             boxShadow: selected
                 ? <BoxShadow>[
                     BoxShadow(
-                      color: highlight.withValues(alpha: 0.18),
-                      blurRadius: 28,
-                      offset: const Offset(0, 14),
+                      color: highlight.withValues(alpha: 0.22),
+                      blurRadius: 0,
+                      spreadRadius: 3,
                     ),
                   ]
                 : const <BoxShadow>[],
@@ -167,14 +421,19 @@ class OnboardingGhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     return TextButton.icon(
       onPressed: onPressed,
       style: TextButton.styleFrom(
-        foregroundColor: Colors.white.withValues(alpha: 0.72),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        foregroundColor: p.textSecondary,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        textStyle: GoogleFonts.geist(fontSize: 14, fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: p.border),
+        ),
       ),
-      icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 18),
+      icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 17),
       label: Text(label),
     );
   }
@@ -194,31 +453,58 @@ class OnboardingPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: accent.withValues(alpha: 0.26),
-            blurRadius: 26,
-            offset: const Offset(0, 14),
+    final p = paletteOf(context);
+    final enabled = onPressed != null;
+    final gold = p.accent;
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              Color.lerp(gold, Colors.white, 0.16)!,
+              gold,
+            ],
           ),
-        ],
-      ),
-      child: FilledButton.icon(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: accent,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: gold.withValues(alpha: 0.34),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-        icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 18),
-        label: Text(label),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 17),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    label,
+                    style: GoogleFonts.geist(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                  if (icon != null) ...<Widget>[
+                    const SizedBox(width: 9),
+                    Icon(icon, size: 18, color: Colors.white),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -236,12 +522,13 @@ class OnboardingMetricPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = paletteOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: p.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: p.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,18 +536,18 @@ class OnboardingMetricPill extends StatelessWidget {
         children: <Widget>[
           Text(
             label.toUpperCase(),
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.56),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.9,
+            style: GoogleFonts.geistMono(
+              color: p.textMuted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.4,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: GoogleFonts.geist(
+              color: p.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
@@ -271,300 +558,22 @@ class OnboardingMetricPill extends StatelessWidget {
   }
 }
 
-class _OnboardingTopBar extends StatelessWidget {
-  const _OnboardingTopBar({required this.step, required this.totalSteps});
+/// Mono gold-ink eyebrow label, matching the design's `.eyebrow` treatment.
+class OnboardingEyebrow extends StatelessWidget {
+  const OnboardingEyebrow(this.text, {super.key});
 
-  final int step;
-  final int totalSteps;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = totalSteps <= 1 ? 1.0 : (step + 1) / totalSteps;
-    return Row(
-      children: <Widget>[
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'NeoOS Setup',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.easeOutCubic,
-              builder: (context, animatedValue, _) {
-                return LinearProgressIndicator(
-                  value: animatedValue,
-                  minHeight: 8,
-                  backgroundColor: Colors.white.withValues(alpha: 0.08),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary,
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Text(
-          '${step + 1} / $totalSteps',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _OnboardingContentColumn extends StatelessWidget {
-  const _OnboardingContentColumn({
-    required this.eyebrow,
-    required this.title,
-    required this.description,
-    required this.child,
-    required this.footer,
-    required this.sidePanel,
-    required this.compact,
-  });
-
-  final String eyebrow;
-  final String title;
-  final String description;
-  final Widget child;
-  final Widget footer;
-  final Widget? sidePanel;
-  final bool compact;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    final intro = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          eyebrow,
-          style: TextStyle(
-            color: Theme.of(
-              context,
-            ).colorScheme.primary.withValues(alpha: 0.92),
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-          ),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: compact ? 40 : 56,
-            height: compact ? 1.04 : 1.0,
-            fontWeight: FontWeight.w800,
-            letterSpacing: compact ? -1.6 : -2.3,
-          ),
-        ),
-        const SizedBox(height: 18),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
-          child: Text(
-            description,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.74),
-              fontSize: compact ? 17 : 19,
-              height: 1.55,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-
-    if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          intro,
-          const SizedBox(height: 26),
-          if (sidePanel != null) ...<Widget>[
-            sidePanel!,
-            const SizedBox(height: 18),
-          ],
-          Expanded(child: child),
-          const SizedBox(height: 20),
-          footer,
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(flex: 12, child: intro),
-            if (sidePanel != null) ...<Widget>[
-              const SizedBox(width: 28),
-              Expanded(flex: 7, child: sidePanel!),
-            ],
-          ],
-        ),
-        const SizedBox(height: 28),
-        Expanded(child: child),
-        const SizedBox(height: 22),
-        footer,
-      ],
-    );
-  }
-}
-
-class _OnboardingPanel extends StatelessWidget {
-  const _OnboardingPanel({required this.child, required this.padding});
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(36),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: <Color>[
-                Colors.white.withValues(alpha: 0.16),
-                Colors.white.withValues(alpha: 0.08),
-                const Color(0xFF111317).withValues(alpha: 0.72),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.34),
-                blurRadius: 46,
-                offset: const Offset(0, 24),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class _OnboardingBackdrop extends StatelessWidget {
-  const _OnboardingBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(-0.8, -0.95),
-          radius: 1.8,
-          colors: <Color>[
-            Color(0xFF20242C),
-            Color(0xFF0C0F13),
-            Color(0xFF040506),
-          ],
-        ),
-      ),
-      child: Stack(
-        children: <Widget>[
-          Positioned(
-            top: -120,
-            left: -80,
-            child: _GlowOrb(size: 340, color: accent.withValues(alpha: 0.24)),
-          ),
-          const Positioned(
-            top: 120,
-            right: -60,
-            child: _GlowOrb(size: 300, color: Color(0x226EDBFF)),
-          ),
-          const Positioned(
-            bottom: -120,
-            left: 160,
-            child: _GlowOrb(size: 420, color: Color(0x18D7B27C)),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: <Color>[
-                      Colors.white.withValues(alpha: 0.04),
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.26),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlowOrb extends StatelessWidget {
-  const _GlowOrb({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: <BoxShadow>[
-            BoxShadow(color: color, blurRadius: 160, spreadRadius: 28),
-          ],
-        ),
+    final p = paletteOf(context);
+    return Text(
+      text.toUpperCase(),
+      style: GoogleFonts.geistMono(
+        color: p.accentHover,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.8,
       ),
     );
   }

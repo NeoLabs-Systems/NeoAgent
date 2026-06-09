@@ -8,7 +8,7 @@ function createSocketServer(httpServer, { validateOrigin }) {
     pingInterval: Number(process.env.NEOAGENT_SOCKET_PING_INTERVAL_MS || 25000),
     pingTimeout: Number(process.env.NEOAGENT_SOCKET_PING_TIMEOUT_MS || 20000),
     connectTimeout: Number(process.env.NEOAGENT_SOCKET_CONNECT_TIMEOUT_MS || 10000),
-    maxHttpBufferSize: Number(process.env.NEOAGENT_SOCKET_MAX_HTTP_BUFFER_BYTES || 1_000_000),
+    maxHttpBufferSize: Number(process.env.NEOAGENT_SOCKET_MAX_HTTP_BUFFER_BYTES || 8 * 1024 * 1024),
     cors: {
       origin(origin, callback) {
         return validateOrigin(origin, callback, { allowMissingOrigin: true });

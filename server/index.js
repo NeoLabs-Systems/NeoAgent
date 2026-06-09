@@ -34,6 +34,7 @@ const { startServices, stopServices } = require('./services/manager');
 const { bindBrowserExtensionGateway } = require('./services/browser/extension/gateway');
 const { bindDesktopCompanionGateway } = require('./services/desktop/gateway');
 const { bindWearableGateway } = require('./services/wearable/gateway');
+const { StreamHub } = require('./services/streaming/stream-hub');
 
 function parseBooleanFlag(value, fallback = false) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -89,6 +90,8 @@ const app = express();
 app.disable('x-powered-by');
 const httpServer = createServer(app);
 const io = createSocketServer(httpServer, { validateOrigin });
+const streamHub = new StreamHub(io);
+app.locals.streamHub = streamHub;
 app.locals.httpRuntimeConfig = {
   secureCookies: SECURE_COOKIES,
   trustProxy: TRUST_PROXY,
@@ -100,7 +103,7 @@ const sessionMiddleware = createSessionMiddleware({
 });
 const activeSockets = new Set();
 
-setupConsoleInterceptor(io);
+app.locals.logHistory = setupConsoleInterceptor(io);
 applyHttpMiddleware(app, {
   secureCookies: SECURE_COOKIES,
   trustProxy: TRUST_PROXY,
@@ -112,7 +115,7 @@ registerApiRoutes(app);
 registerStaticRoutes(app);
 registerErrorHandler(app);
 bindBrowserExtensionGateway(httpServer, app);
-bindDesktopCompanionGateway(httpServer, app, sessionMiddleware);
+bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamHub);
 bindWearableGateway(httpServer, app, sessionMiddleware);
 
 let shuttingDown = false;

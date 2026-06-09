@@ -102,17 +102,38 @@ const server = http.createServer(async (req, res) => {
 
     // ── CLI execution ──────────────────────────────────────────────────────
     if (req.method === 'POST' && url === '/exec') {
+      const timeoutMs = Math.min(Number(b.timeout) || 15 * 60 * 1000, 20 * 60 * 1000);
       const child = spawn('sh', ['-c', b.command || 'true'], {
         cwd: b.cwd || '/tmp',
         env: { ...process.env, ...b.env },
       });
       const pid = child.pid;
-      let stdout = '', stderr = '';
+      let stdout = '', stderr = '', settled = false;
       procs.set(pid, child);
       child.stdout.on('data', d => { stdout += d; });
       child.stderr.on('data', d => { stderr += d; });
-      child.on('close', code => { procs.delete(pid); json(res, { stdout, stderr, code: code ?? 1, pid }); });
-      child.on('error', err => { procs.delete(pid); json(res, { stdout, stderr, code: 1, pid, error: err.message }); });
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        procs.delete(pid);
+        try { child.kill('SIGKILL'); } catch {}
+        json(res, { stdout, stderr, exitCode: null, code: null, pid, timedOut: true, killed: true });
+      }, timeoutMs);
+      child.on('close', code => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        procs.delete(pid);
+        const exitCode = code ?? 1;
+        json(res, { stdout, stderr, exitCode, code: exitCode, pid, timedOut: false, killed: false });
+      });
+      child.on('error', err => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        procs.delete(pid);
+        json(res, { stdout, stderr, exitCode: 1, code: 1, pid, error: err.message, timedOut: false, killed: false });
+      });
       return;
     }
 
@@ -268,6 +289,7 @@ class DockerVMManager {
     this.image = options.image || CONTAINER_IMAGE;
     this.memoryMb = options.memoryMb || 2048;
     this.cpus = options.cpus || 2;
+    this.guestToken = String(options.guestToken || process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim();
     this.#cleanupOrphans();
   }
 
@@ -309,6 +331,7 @@ class DockerVMManager {
       '--cpus', String(this.cpus),
       '-p', `127.0.0.1:${port}:${port}`,
       '-e', `AGENT_PORT=${port}`,
+      ...(this.guestToken ? ['-e', `NEOAGENT_VM_GUEST_TOKEN=${this.guestToken}`] : []),
       '--shm-size=2g',
       '--security-opt', 'no-new-privileges',
       '--label', CONTAINER_LABEL,

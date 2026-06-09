@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeoAgent Admin</title>
+  <link rel="icon" href="/admin/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 380px;
+      padding: 20px;
+    }
+
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 32px 32px;
+    }
+
+    .brand {
+      margin-bottom: 32px;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+    }
+
+    .brand-mark img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .login-heading {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+      margin-bottom: 4px;
+    }
+
+    .login-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+
+    .login-sub code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg-secondary);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 11px;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    /* ── Admin hero mark ────────────────────────────── */
+    .admin-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 28px;
+      gap: 14px;
+    }
+
+    .admin-a-mark {
+      width: 80px;
+      height: 80px;
+      border-radius: 22px;
+      background: var(--bg-secondary);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      box-shadow:
+        0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent),
+        0 12px 32px rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 42px;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -2px;
+      font-family: var(--font-sans);
+      line-height: 1;
+      user-select: none;
+    }
+
+    .admin-hero .brand {
+      margin-bottom: 0;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="admin-hero">
+        <div class="admin-a-mark" aria-hidden="true">A</div>
+        <div class="brand">
+          <div class="brand-mark">
+            <img src="/admin/logo.svg" width="32" height="32" alt="">
+          </div>
+          <div>
+            <div class="brand-name">NeoAgent</div>
+            <div class="brand-sub">Admin</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 1: credentials -->
+      <div id="step-credentials">
+        <h1 class="login-heading">Sign in</h1>
+        <p class="login-sub">
+          Credentials are in your <code>.env</code> or via <code>neoagent admin</code>
+        </p>
+
+        <div class="alert alert-error" id="error" role="alert"></div>
+
+        <form id="form" novalidate>
+          <div class="field">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              autocomplete="username"
+              autofocus
+              required
+              spellcheck="false"
+              autocorrect="off"
+              autocapitalize="none"
+            >
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            >
+          </div>
+          <button type="submit" class="btn btn-primary submit-btn" id="submit-btn">
+            Sign in
+          </button>
+        </form>
+      </div>
+
+      <!-- Step 2: 2FA code (shown after password is accepted) -->
+      <div id="step-totp" style="display:none;">
+        <h1 class="login-heading">Two-factor authentication</h1>
+        <p class="login-sub">Enter the 6-digit code from your authenticator app, or a recovery code.</p>
+
+        <div class="alert alert-error" id="totp-error" role="alert"></div>
+
+        <form id="totp-form" novalidate>
+          <div class="field">
+            <label for="totp-code">Authenticator code</label>
+            <input
+              id="totp-code"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="11"
+              placeholder="123 456"
+              spellcheck="false"
+              autocorrect="off"
+              autocapitalize="none"
+              required
+            >
+          </div>
+          <button type="submit" class="btn btn-primary submit-btn" id="totp-btn">
+            Verify
+          </button>
+        </form>
+        <div style="margin-top:14px;text-align:center;">
+          <button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 10px;"
+            onclick="backToCredentials()">← Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form      = document.getElementById('form');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorEl   = document.getElementById('error');
+    const totpForm  = document.getElementById('totp-form');
+    const totpBtn   = document.getElementById('totp-btn');
+    const totpError = document.getElementById('totp-error');
+
+    function showStep(step) {
+      document.getElementById('step-credentials').style.display = step === 1 ? '' : 'none';
+      document.getElementById('step-totp').style.display        = step === 2 ? '' : 'none';
+      if (step === 2) setTimeout(() => document.getElementById('totp-code')?.focus(), 50);
+      if (step === 1) setTimeout(() => document.getElementById('username')?.focus(), 50);
+    }
+
+    function backToCredentials() { showStep(1); }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.classList.remove('visible');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in…';
+
+      try {
+        const res = await fetch('/admin/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value,
+          }),
+        });
+
+        const body = await res.json().catch(() => ({}));
+
+        if (res.ok || body.requiresTwoFactor) {
+          if (body.requiresTwoFactor) {
+            // Password accepted — go to 2FA step
+            showStep(2);
+          } else {
+            window.location.replace('/admin');
+          }
+          return;
+        }
+
+        errorEl.textContent = body.error || 'Invalid credentials';
+        errorEl.classList.add('visible');
+      } catch {
+        errorEl.textContent = 'Network error — is the server running?';
+        errorEl.classList.add('visible');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign in';
+      }
+    });
+
+    totpForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      totpError.classList.remove('visible');
+      totpBtn.disabled = true;
+      totpBtn.textContent = 'Verifying…';
+
+      try {
+        const code = document.getElementById('totp-code').value.trim();
+        const res = await fetch('/admin/api/2fa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        });
+
+        if (res.ok) {
+          window.location.replace('/admin');
+          return;
+        }
+
+        const body = await res.json().catch(() => ({}));
+        totpError.textContent = body.error || 'Invalid code';
+        totpError.classList.add('visible');
+        document.getElementById('totp-code').value = '';
+        document.getElementById('totp-code').focus();
+      } catch {
+        totpError.textContent = 'Network error';
+        totpError.classList.add('visible');
+      } finally {
+        totpBtn.disabled = false;
+        totpBtn.textContent = 'Verify';
+      }
+    });
+  </script>
+</body>
+</html>

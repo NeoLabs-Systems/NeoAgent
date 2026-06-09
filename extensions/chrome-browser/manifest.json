@@ -1,14 +1,25 @@
 {
   "manifest_version": 3,
   "name": "NeoAgent Browser",
-  "version": "1.0.0",
+  "version": "2.4.1.8",
+  "version_name": "2.4.1-beta.8",
   "description": "Connect this Chrome browser to NeoAgent for browser automation.",
   "minimum_chrome_version": "118",
-  "permissions": ["debugger", "storage", "tabs"],
+  "permissions": ["alarms", "debugger", "storage", "tabs"],
   "host_permissions": ["http://*/*", "https://*/*"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
     "default_title": "NeoAgent Browser",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.mjs",

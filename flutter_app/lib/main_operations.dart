@@ -470,7 +470,7 @@ class _LogsPanelState extends State<LogsPanel> {
                           style: TextStyle(
                             fontSize: 12,
                             height: 1.5,
-                            fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                            fontFamily: GoogleFonts.geistMono().fontFamily,
                           ),
                         ),
                       );
@@ -1240,11 +1240,14 @@ class MemoryPanel extends StatefulWidget {
   State<MemoryPanel> createState() => _MemoryPanelState();
 }
 
-class _MemoryPanelState extends State<MemoryPanel> {
+class _MemoryPanelState extends State<MemoryPanel>
+    with SingleTickerProviderStateMixin {
   late final TextEditingController _searchController;
   late final TextEditingController _llmPromptController;
   late final TextEditingController _llmImportController;
+  late final TabController _tabController;
   final Set<String> _selectedMemoryIds = <String>{};
+  String? _entityFilter;
   bool _bulkActionInFlight = false;
   bool _llmPromptLoading = false;
   bool _llmImporting = false;
@@ -1257,6 +1260,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
     _searchController = TextEditingController();
     _llmPromptController = TextEditingController();
     _llmImportController = TextEditingController();
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -1264,62 +1268,41 @@ class _MemoryPanelState extends State<MemoryPanel> {
     _searchController.dispose();
     _llmPromptController.dispose();
     _llmImportController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
   Future<void> _loadLlmPrompt(NeoAgentController controller) async {
-    if (_llmPromptLoading) {
-      return;
-    }
-    setState(() {
-      _llmPromptLoading = true;
-    });
+    if (_llmPromptLoading) return;
+    setState(() => _llmPromptLoading = true);
     try {
       final prompt = await controller.fetchMemoryTransferPrompt();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _llmPromptController.text = prompt;
-      });
+      if (!mounted) return;
+      setState(() => _llmPromptController.text = prompt);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to generate prompt: $error')),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _llmPromptLoading = false;
-        });
-      }
+      if (mounted) setState(() => _llmPromptLoading = false);
     }
   }
 
   Future<void> _copyLlmPrompt() async {
     final prompt = _llmPromptController.text.trim();
-    if (prompt.isEmpty) {
-      return;
-    }
+    if (prompt.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: prompt));
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Prompt copied.')));
   }
 
   Future<void> _importLlmMemories(NeoAgentController controller) async {
-    if (_llmImporting) {
-      return;
-    }
+    if (_llmImporting) return;
     final text = _llmImportController.text.trim();
-    if (text.isEmpty) {
-      return;
-    }
+    if (text.isEmpty) return;
     final confirmImport = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -1328,12 +1311,11 @@ class _MemoryPanelState extends State<MemoryPanel> {
           if (_llmApplyCoreMemory) 'core memory',
           'memories',
         ];
-        final targetLabel = applyTargets.join(', ');
         return AlertDialog(
           backgroundColor: _bgCard,
           title: Text('Import memory transfer?'),
           content: Text(
-            'This will import the response into $targetLabel.',
+            'This will import the response into ${applyTargets.join(', ')}.',
           ),
           actions: <Widget>[
             TextButton(
@@ -1348,25 +1330,18 @@ class _MemoryPanelState extends State<MemoryPanel> {
         );
       },
     );
-    if (confirmImport != true) {
-      return;
-    }
-    setState(() {
-      _llmImporting = true;
-    });
+    if (confirmImport != true) return;
+    setState(() => _llmImporting = true);
     try {
       final result = await controller.importMemoryTransfer(
         text,
         applyBehaviorNotes: _llmApplyBehaviorNotes,
         applyCoreMemory: _llmApplyCoreMemory,
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _llmImportController.clear();
-      final warningText = result.warnings.isEmpty
-          ? ''
-          : ' ${result.warnings.join(' ')}';
+      final warningText =
+          result.warnings.isEmpty ? '' : ' ${result.warnings.join(' ')}';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1378,30 +1353,30 @@ class _MemoryPanelState extends State<MemoryPanel> {
         ),
       );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $error')),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
     } finally {
-      if (mounted) {
-        setState(() {
-          _llmImporting = false;
-        });
-      }
+      if (mounted) setState(() => _llmImporting = false);
     }
   }
 
   List<MemoryItem> get _visibleMemories {
     final controller = widget.controller;
-    return controller.memoryRecallResults.isNotEmpty
+    final base = controller.memoryRecallResults.isNotEmpty
         ? controller.memoryRecallResults
         : controller.memories;
+    if (_entityFilter == null) return base;
+    return base
+        .where(
+          (m) => m.entities.any((e) => e.name == _entityFilter),
+        )
+        .toList();
   }
 
   List<String> get _selectedVisibleMemoryIds {
-    final visibleIds = _visibleMemories.map((memory) => memory.id).toSet();
+    final visibleIds = _visibleMemories.map((m) => m.id).toSet();
     return _selectedMemoryIds
         .where(visibleIds.contains)
         .toList(growable: false);
@@ -1418,20 +1393,14 @@ class _MemoryPanelState extends State<MemoryPanel> {
   }
 
   void _clearMemorySelection() {
-    if (_selectedMemoryIds.isEmpty) {
-      return;
-    }
-    setState(() {
-      _selectedMemoryIds.clear();
-    });
+    if (_selectedMemoryIds.isEmpty) return;
+    setState(() => _selectedMemoryIds.clear());
   }
 
   void _selectAllVisibleMemories(List<MemoryItem> memories) {
-    if (memories.isEmpty) {
-      return;
-    }
+    if (memories.isEmpty) return;
     setState(() {
-      _selectedMemoryIds.addAll(memories.map((memory) => memory.id));
+      _selectedMemoryIds.addAll(memories.map((m) => m.id));
     });
   }
 
@@ -1448,6 +1417,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
   void _resetMemorySearch(NeoAgentController controller) {
     _searchController.clear();
     _clearMemorySelection();
+    setState(() => _entityFilter = null);
     controller.clearMemorySearch();
   }
 
@@ -1456,12 +1426,8 @@ class _MemoryPanelState extends State<MemoryPanel> {
     String id,
   ) async {
     await controller.deleteMemory(id);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _selectedMemoryIds.remove(id);
-    });
+    if (!mounted) return;
+    setState(() => _selectedMemoryIds.remove(id));
   }
 
   Future<void> _runBulkMemoryAction({
@@ -1471,55 +1437,50 @@ class _MemoryPanelState extends State<MemoryPanel> {
     required Future<void> Function(List<String> ids) onConfirm,
   }) async {
     final ids = _selectedVisibleMemoryIds;
-    if (ids.isEmpty || _bulkActionInFlight) {
-      return;
-    }
+    if (ids.isEmpty || _bulkActionInFlight) return;
     await _confirmDelete(
       context,
       title: title,
       message: message,
       confirmLabel: confirmLabel,
       onConfirm: () async {
-        setState(() {
-          _bulkActionInFlight = true;
-        });
+        setState(() => _bulkActionInFlight = true);
         try {
           await onConfirm(ids);
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _selectedMemoryIds.removeAll(ids);
-          });
+          if (!mounted) return;
+          setState(() => _selectedMemoryIds.removeAll(ids));
         } finally {
-          if (mounted) {
-            setState(() {
-              _bulkActionInFlight = false;
-            });
-          }
+          if (mounted) setState(() => _bulkActionInFlight = false);
         }
       },
     );
   }
 
+  void _onEntityTapped(String entityName) {
+    setState(() {
+      _entityFilter = _entityFilter == entityName ? null : entityName;
+      _tabController.animateTo(0);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
+    final stats = controller.memoryOverview.stats;
     final memoriesToShow = _visibleMemories;
-    final selectedMemoryIds = _selectedVisibleMemoryIds.toSet();
-    final selectedCount = selectedMemoryIds.length;
-    final allVisibleSelected =
-        memoriesToShow.isNotEmpty &&
-        memoriesToShow.every((memory) => selectedMemoryIds.contains(memory.id));
+    final selectedIds = _selectedVisibleMemoryIds.toSet();
+    final selectedCount = selectedIds.length;
+    final allVisibleSelected = memoriesToShow.isNotEmpty &&
+        memoriesToShow.every((m) => selectedIds.contains(m.id));
     final showingSearchResults = controller.memoryRecallResults.isNotEmpty;
+    final compact = MediaQuery.sizeOf(context).width < 760;
 
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
           title: 'Memory',
-          subtitle:
-              'Core memory, thread context, long-term recall, daily logs, and behavior notes.',
+          subtitle: 'Long-term recall, structured facts, and knowledge graph.',
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -1537,495 +1498,554 @@ class _MemoryPanelState extends State<MemoryPanel> {
             ],
           ),
         ),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _OverviewCard(
-                title: 'Behavior Notes',
-                value: '${controller.memoryOverview.behaviorNotesLength} chars',
-                helper: 'Durable assistant style guidance',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _OverviewCard(
-                title: 'Core Memory',
-                value: '${controller.memoryOverview.coreCount}',
-                helper: 'Pinned key/value entries',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _OverviewCard(
-                title: 'Daily Logs',
-                value: '${controller.memoryOverview.dailyLogCount}',
-                helper: 'Recent captured log files',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _OverviewCard(
-                title: 'API Keys',
-                value: '${controller.memoryOverview.apiKeyCount}',
-                helper: 'Masked agent-managed credentials',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Recall Search'),
-                const SizedBox(height: 12),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: const InputDecoration(
-                          labelText: 'Search memory',
+
+        // --- Stats bar ---
+        _EntranceMotion(
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: <Widget>[
+                  _MemoryConfidenceGauge(
+                    confidence: stats.averageConfidence,
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: <Widget>[
+                        _MemoryStatChip(
+                          label: '${stats.active}',
+                          caption: 'Active',
+                          icon: Icons.memory_outlined,
                         ),
-                        onSubmitted: (_) => _runMemorySearch(controller),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    FilledButton(
-                      onPressed: () => _runMemorySearch(controller),
-                      child: Text('Search'),
-                    ),
-                    const SizedBox(width: 10),
-                    OutlinedButton(
-                      onPressed: () => _resetMemorySearch(controller),
-                      child: Text('Reset'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              initiallyExpanded: false,
-              tilePadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 6,
-              ),
-              childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-              leading: Icon(Icons.swap_horiz_outlined, color: _textSecondary),
-              title: const _SectionTitle('LLM Memory Transfer'),
-              subtitle: Text(
-                'Export/import memories with another AI in one shot.',
-                style: TextStyle(color: _textSecondary),
-              ),
-              children: <Widget>[
-                Text(
-                  'Generate a prompt to use in another AI, then paste the response here to import memories.',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    FilledButton.icon(
-                      onPressed: _llmPromptLoading
-                          ? null
-                          : () => _loadLlmPrompt(controller),
-                      icon: Icon(Icons.auto_awesome_outlined),
-                      label: Text(
-                        _llmPromptLoading ? 'Generating...' : 'Generate Prompt',
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _llmPromptController.text.trim().isEmpty
-                          ? null
-                          : _copyLlmPrompt,
-                      icon: Icon(Icons.copy_all_outlined),
-                      label: Text('Copy Prompt'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _llmPromptController,
-                  minLines: 6,
-                  maxLines: 10,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Prompt to paste into another AI',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _llmApplyBehaviorNotes,
-                  onChanged: _llmImporting
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _llmApplyBehaviorNotes = value;
-                          });
-                        },
-                  title: Text('Apply behavior notes'),
-                  subtitle: Text(
-                    'Overwrite assistant behavior notes from the import.',
-                  ),
-                ),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _llmApplyCoreMemory,
-                  onChanged: _llmImporting
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _llmApplyCoreMemory = value;
-                          });
-                        },
-                  title: Text('Apply core memory'),
-                  subtitle: Text(
-                    'Update core memory key/value entries from the import.',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Paste the response from the other AI below, then import.',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _llmImportController,
-                  minLines: 6,
-                  maxLines: 12,
-                  decoration: const InputDecoration(
-                    labelText: 'LLM memory export response',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _llmImporting
-                      ? null
-                      : () => _importLlmMemories(controller),
-                  icon: Icon(Icons.file_download_outlined),
-                  label: Text(_llmImporting ? 'Importing...' : 'Import'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(child: _SectionTitle('Core Memory')),
-                    TextButton.icon(
-                      onPressed: () =>
-                          _openCoreMemoryEditor(context, controller),
-                      icon: Icon(Icons.add),
-                      label: Text('Add Entry'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (controller.memoryOverview.coreEntries.isEmpty)
-                  Text(
-                    'No core memory entries yet.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  ...controller.memoryOverview.coreEntries.entries.map((entry) {
-                    return Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _bgSecondary,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _border),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  entry.key,
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(entry.value.toString()),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => _openCoreMemoryEditor(
-                              context,
-                              controller,
-                              keyValue: entry,
-                            ),
-                            icon: Icon(Icons.edit_outlined),
-                          ),
-                          IconButton(
-                            onPressed: () => _confirmDelete(
-                              context,
-                              title: 'Delete core memory entry?',
-                              message:
-                                  'Remove "${entry.key}" from core memory.',
-                              onConfirm: () =>
-                                  controller.deleteCoreMemory(entry.key),
-                            ),
-                            icon: Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Memories'),
-                const SizedBox(height: 6),
-                Text(
-                  showingSearchResults
-                      ? 'Showing search results. Select memories to archive or delete them together.'
-                      : 'Select one or more memories to archive or delete them together.',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                const SizedBox(height: 10),
-                if (memoriesToShow.isNotEmpty)
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      OutlinedButton.icon(
-                        onPressed: allVisibleSelected || _bulkActionInFlight
-                            ? null
-                            : () => _selectAllVisibleMemories(memoriesToShow),
-                        icon: Icon(Icons.done_all_outlined),
-                        label: Text(
-                          allVisibleSelected ? 'All Selected' : 'Select All',
+                        _MemoryStatChip(
+                          label: '${stats.facts}',
+                          caption: 'Facts',
+                          icon: Icons.fact_check_outlined,
                         ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: selectedCount == 0 || _bulkActionInFlight
-                            ? null
-                            : _clearMemorySelection,
-                        icon: Icon(Icons.deselect_outlined),
-                        label: Text('Clear Selection'),
-                      ),
-                      if (selectedCount > 0)
-                        FilledButton.icon(
-                          onPressed: _bulkActionInFlight
-                              ? null
-                              : () => _runBulkMemoryAction(
-                                  title: 'Archive selected memories?',
-                                  message:
-                                      'Archive $selectedCount selected ${selectedCount == 1 ? 'memory' : 'memories'}? Archived memories are removed from the main list.',
-                                  confirmLabel: 'Archive',
-                                  onConfirm: controller.archiveMemories,
-                                ),
-                          icon: Icon(Icons.archive_outlined),
-                          label: Text('Archive ($selectedCount)'),
+                        _MemoryStatChip(
+                          label: '${stats.entities}',
+                          caption: 'Entities',
+                          icon: Icons.hub_outlined,
                         ),
-                      if (selectedCount > 0)
-                        OutlinedButton.icon(
-                          onPressed: _bulkActionInFlight
-                              ? null
-                              : () => _runBulkMemoryAction(
-                                  title: 'Delete selected memories?',
-                                  message:
-                                      'Delete $selectedCount selected ${selectedCount == 1 ? 'memory' : 'memories'} permanently?',
-                                  confirmLabel: 'Delete',
-                                  onConfirm: controller.deleteMemories,
-                                ),
-                          icon: Icon(Icons.delete_sweep_outlined),
-                          label: Text('Delete ($selectedCount)'),
+                        _MemoryStatChip(
+                          label: '${stats.knowledgeViews}',
+                          caption: 'Reflections',
+                          icon: Icons.auto_stories_outlined,
                         ),
-                    ],
-                  ),
-                if (selectedCount > 0) ...<Widget>[
-                  const SizedBox(height: 10),
-                  Text(
-                    '$selectedCount selected',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontWeight: FontWeight.w600,
+                        _MemoryStatChip(
+                          label: '${stats.ingestionDocuments}',
+                          caption: 'Docs',
+                          icon: Icons.source_outlined,
+                        ),
+                        _MemoryStatChip(
+                          label: stats.averageImportance.toStringAsFixed(1),
+                          caption: 'Avg imp.',
+                          icon: Icons.priority_high_outlined,
+                        ),
+                      ],
                     ),
                   ),
                 ],
-                if (memoriesToShow.isNotEmpty) const SizedBox(height: 10),
-                if (memoriesToShow.isEmpty)
-                  Text(
-                    'No memory entries found.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  ...memoriesToShow.map((memory) {
-                    final isSelected = selectedMemoryIds.contains(memory.id);
-                    return Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected ? _accentMuted : _bgSecondary,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? _accent : _border,
-                        ),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () =>
-                              _toggleMemorySelection(memory.id, !isSelected),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Checkbox(
-                                  value: isSelected,
-                                  onChanged: (value) => _toggleMemorySelection(
-                                    memory.id,
-                                    value ?? false,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          Expanded(
-                                            child: Wrap(
-                                              spacing: 10,
-                                              runSpacing: 10,
-                                              children: <Widget>[
-                                                _MetaPill(
-                                                  label: memory.category,
-                                                  icon: Icons.label_outline,
-                                                ),
-                                                _MetaPill(
-                                                  label:
-                                                      'Importance ${memory.importance}',
-                                                  icon: Icons
-                                                      .priority_high_outlined,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          IconButton(
-                                            onPressed: _bulkActionInFlight
-                                                ? null
-                                                : () => _confirmDelete(
-                                                    context,
-                                                    title: 'Delete memory?',
-                                                    message:
-                                                        'This memory entry will be removed permanently.',
-                                                    onConfirm: () =>
-                                                        _deleteSingleMemory(
-                                                          controller,
-                                                          memory.id,
-                                                        ),
-                                                  ),
-                                            icon: Icon(Icons.delete_outline),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(memory.content),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        memory.createdAtLabel,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: _textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-              ],
+              ),
             ),
           ),
         ),
+
         const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Recent Conversations'),
-                const SizedBox(height: 10),
-                if (controller.memoryConversations.isEmpty)
-                  Text(
-                    'No recent conversations found.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  ...controller.memoryConversations.map(
-                    (conversation) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _bgSecondary,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _border),
+
+        // --- Entity knowledge graph ---
+        if (controller.memoryOverview.entities.isNotEmpty) ...<Widget>[
+          _EntranceMotion(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: const _SectionTitle('Knowledge Graph'),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              conversation.title,
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              conversation.preview,
-                              style: TextStyle(color: _textSecondary),
-                            ),
-                          ],
-                        ),
+                        if (_entityFilter != null)
+                          TextButton.icon(
+                            onPressed: () =>
+                                setState(() => _entityFilter = null),
+                            icon: Icon(Icons.close, size: 16),
+                            label: Text('Clear filter'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tap an entity to filter memories by it.',
+                      style: TextStyle(
+                        color: _textSecondary,
+                        fontSize: 12,
                       ),
                     ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: compact ? 260 : 320,
+                      child: _EntityGraphView(
+                        entities: controller.memoryOverview.entities,
+                        knowledgeViews:
+                            controller.memoryOverview.knowledgeViews,
+                        selectedEntity: _entityFilter,
+                        onEntityTapped: _onEntityTapped,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // --- Tabbed content ---
+        _EntranceMotion(
+          child: Card(
+            child: Column(
+              children: <Widget>[
+                TabBar(
+                  controller: _tabController,
+                  labelColor: _accentHover,
+                  unselectedLabelColor: _textSecondary,
+                  indicatorColor: _accent,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  dividerColor: _border,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    letterSpacing: 0.3,
                   ),
+                  tabs: <Widget>[
+                    Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(Icons.psychology_outlined, size: 16),
+                          const SizedBox(width: 6),
+                          Text('Memories'),
+                        ],
+                      ),
+                    ),
+                    Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(Icons.push_pin_outlined, size: 16),
+                          const SizedBox(width: 6),
+                          Text('Core'),
+                        ],
+                      ),
+                    ),
+                    Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(Icons.swap_horiz_outlined, size: 16),
+                          const SizedBox(width: 6),
+                          Text('Transfer'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                AnimatedBuilder(
+                  animation: _tabController,
+                  builder: (context, _) {
+                    return IndexedStack(
+                      index: _tabController.index,
+                      children: <Widget>[
+                        // --- Memories tab ---
+                        Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Search memory',
+                                        prefixIcon: Icon(
+                                          Icons.search,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      onSubmitted: (_) =>
+                                          _runMemorySearch(controller),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        _runMemorySearch(controller),
+                                    child: Text('Search'),
+                                  ),
+                                  if (showingSearchResults ||
+                                      _entityFilter != null) ...<Widget>[
+                                    const SizedBox(width: 10),
+                                    OutlinedButton(
+                                      onPressed: () =>
+                                          _resetMemorySearch(controller),
+                                      child: Text('Reset'),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              if (_entityFilter != null) ...<Widget>[
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  children: <Widget>[
+                                    _MetaPill(
+                                      label: 'Entity: $_entityFilter',
+                                      icon: Icons.filter_alt_outlined,
+                                      color: _accent,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              if (memoriesToShow.isNotEmpty) ...<Widget>[
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  crossAxisAlignment:
+                                      WrapCrossAlignment.center,
+                                  children: <Widget>[
+                                    OutlinedButton.icon(
+                                      onPressed: allVisibleSelected ||
+                                              _bulkActionInFlight
+                                          ? null
+                                          : () => _selectAllVisibleMemories(
+                                              memoriesToShow),
+                                      icon: Icon(
+                                        Icons.done_all_outlined,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        allVisibleSelected
+                                            ? 'All Selected'
+                                            : 'Select All',
+                                      ),
+                                    ),
+                                    if (selectedCount > 0) ...<Widget>[
+                                      OutlinedButton.icon(
+                                        onPressed: _bulkActionInFlight
+                                            ? null
+                                            : _clearMemorySelection,
+                                        icon: Icon(
+                                          Icons.deselect_outlined,
+                                          size: 16,
+                                        ),
+                                        label: Text('Clear'),
+                                      ),
+                                      FilledButton.icon(
+                                        onPressed: _bulkActionInFlight
+                                            ? null
+                                            : () => _runBulkMemoryAction(
+                                                title:
+                                                    'Archive selected memories?',
+                                                message:
+                                                    'Archive $selectedCount ${selectedCount == 1 ? 'memory' : 'memories'}?',
+                                                confirmLabel: 'Archive',
+                                                onConfirm:
+                                                    controller.archiveMemories,
+                                              ),
+                                        icon: Icon(
+                                          Icons.archive_outlined,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          'Archive ($selectedCount)',
+                                        ),
+                                      ),
+                                      OutlinedButton.icon(
+                                        onPressed: _bulkActionInFlight
+                                            ? null
+                                            : () => _runBulkMemoryAction(
+                                                title:
+                                                    'Delete selected memories?',
+                                                message:
+                                                    'Delete $selectedCount ${selectedCount == 1 ? 'memory' : 'memories'} permanently?',
+                                                confirmLabel: 'Delete',
+                                                onConfirm:
+                                                    controller.deleteMemories,
+                                              ),
+                                        icon: Icon(
+                                          Icons.delete_sweep_outlined,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          'Delete ($selectedCount)',
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              if (memoriesToShow.isEmpty)
+                                Text(
+                                  _entityFilter != null
+                                      ? 'No memories linked to "$_entityFilter".'
+                                      : 'No memory entries found.',
+                                  style: TextStyle(color: _textSecondary),
+                                )
+                              else
+                                ...memoriesToShow.map((memory) {
+                                  final isSelected =
+                                      selectedIds.contains(memory.id);
+                                  return _MemoryRow(
+                                    memory: memory,
+                                    isSelected: isSelected,
+                                    onTap: () => _toggleMemorySelection(
+                                      memory.id,
+                                      !isSelected,
+                                    ),
+                                    onCheck: (value) =>
+                                        _toggleMemorySelection(
+                                      memory.id,
+                                      value ?? false,
+                                    ),
+                                    onDelete: _bulkActionInFlight
+                                        ? null
+                                        : () => _confirmDelete(
+                                            context,
+                                            title: 'Delete memory?',
+                                            message:
+                                                'This memory will be removed permanently.',
+                                            onConfirm: () =>
+                                                _deleteSingleMemory(
+                                              controller,
+                                              memory.id,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                            ],
+                          ),
+                        ),
+
+                        // --- Core tab ---
+                        Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Text(
+                                      'Key-value pairs that persist across conversations.',
+                                      style: TextStyle(
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () => _openCoreMemoryEditor(
+                                      context,
+                                      controller,
+                                    ),
+                                    icon: Icon(Icons.add),
+                                    label: Text('Add Entry'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              if (controller
+                                  .memoryOverview.coreEntries.isEmpty)
+                                Text(
+                                  'No core memory entries yet.',
+                                  style: TextStyle(color: _textSecondary),
+                                )
+                              else
+                                ...controller.memoryOverview.coreEntries
+                                    .entries
+                                    .map((entry) {
+                                  return Container(
+                                    width: double.infinity,
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: _bgSecondary,
+                                      borderRadius:
+                                          BorderRadius.circular(12),
+                                      border: Border.all(color: _border),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: <Widget>[
+                                              Text(
+                                                entry.key,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                entry.value.toString(),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          onPressed: () =>
+                                              _openCoreMemoryEditor(
+                                            context,
+                                            controller,
+                                            keyValue: entry,
+                                          ),
+                                          icon: Icon(Icons.edit_outlined),
+                                        ),
+                                        IconButton(
+                                          onPressed: () => _confirmDelete(
+                                            context,
+                                            title:
+                                                'Delete core memory entry?',
+                                            message:
+                                                'Remove "${entry.key}" from core memory.',
+                                            onConfirm: () => controller
+                                                .deleteCoreMemory(
+                                              entry.key,
+                                            ),
+                                          ),
+                                          icon: Icon(Icons.delete_outline),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                            ],
+                          ),
+                        ),
+
+                        // --- Transfer tab ---
+                        Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                'Generate a prompt for another AI, paste the response here to import memories.',
+                                style: TextStyle(color: _textSecondary),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: <Widget>[
+                                  FilledButton.icon(
+                                    onPressed: _llmPromptLoading
+                                        ? null
+                                        : () =>
+                                            _loadLlmPrompt(controller),
+                                    icon: Icon(
+                                      Icons.auto_awesome_outlined,
+                                    ),
+                                    label: Text(
+                                      _llmPromptLoading
+                                          ? 'Generating...'
+                                          : 'Generate Prompt',
+                                    ),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed:
+                                        _llmPromptController.text
+                                                .trim()
+                                                .isEmpty
+                                            ? null
+                                            : _copyLlmPrompt,
+                                    icon: Icon(Icons.copy_all_outlined),
+                                    label: Text('Copy Prompt'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _llmPromptController,
+                                minLines: 4,
+                                maxLines: 8,
+                                readOnly: true,
+                                decoration: const InputDecoration(
+                                  labelText:
+                                      'Prompt to paste into another AI',
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                value: _llmApplyBehaviorNotes,
+                                onChanged: _llmImporting
+                                    ? null
+                                    : (value) => setState(
+                                        () =>
+                                            _llmApplyBehaviorNotes = value,
+                                      ),
+                                title: Text('Apply behavior notes'),
+                                subtitle: Text(
+                                  'Overwrite behavior notes from the import.',
+                                ),
+                              ),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                value: _llmApplyCoreMemory,
+                                onChanged: _llmImporting
+                                    ? null
+                                    : (value) => setState(
+                                        () =>
+                                            _llmApplyCoreMemory = value,
+                                      ),
+                                title: Text('Apply core memory'),
+                                subtitle: Text(
+                                  'Update core memory entries from the import.',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _llmImportController,
+                                minLines: 4,
+                                maxLines: 10,
+                                decoration: const InputDecoration(
+                                  labelText: 'LLM memory export response',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton.icon(
+                                onPressed: _llmImporting
+                                    ? null
+                                    : () =>
+                                        _importLlmMemories(controller),
+                                icon: Icon(Icons.file_download_outlined),
+                                label: Text(
+                                  _llmImporting
+                                      ? 'Importing...'
+                                      : 'Import',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -2075,9 +2095,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   ],
                   decoration: const InputDecoration(labelText: 'Category'),
                   onChanged: (value) {
-                    if (value != null) {
-                      category = value;
-                    }
+                    if (value != null) category = value;
                   },
                 ),
                 const SizedBox(height: 12),
@@ -2108,9 +2126,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   importance:
                       int.tryParse(importanceController.text.trim()) ?? 5,
                 );
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
+                if (context.mounted) Navigator.of(context).pop();
               },
               child: Text('Save'),
             ),
@@ -2154,9 +2170,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                 await controller.updateAssistantBehaviorNotes(
                   contentController.text,
                 );
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
+                if (context.mounted) Navigator.of(context).pop();
               },
               child: Text('Save'),
             ),
@@ -2215,9 +2229,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   keyController.text.trim(),
                   valueController.text.trim(),
                 );
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
+                if (context.mounted) Navigator.of(context).pop();
               },
               child: Text('Save'),
             ),
@@ -2226,6 +2238,680 @@ class _MemoryPanelState extends State<MemoryPanel> {
       },
     );
   }
+}
+
+class _MemoryStatChip extends StatelessWidget {
+  const _MemoryStatChip({
+    required this.label,
+    required this.caption,
+    required this.icon,
+  });
+
+  final String label;
+  final String caption;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      borderRadius: BorderRadius.circular(14),
+      blurSigma: 10,
+      fillColor: _bgSecondary.withValues(alpha: 0.7),
+      borderColor: _borderLight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 15, color: _accentAlt),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  letterSpacing: -0.3,
+                  color: _textPrimary,
+                ),
+              ),
+              Text(
+                caption,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: _textSecondary,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemoryConfidenceGauge extends StatefulWidget {
+  const _MemoryConfidenceGauge({required this.confidence});
+
+  final double confidence;
+
+  @override
+  State<_MemoryConfidenceGauge> createState() => _MemoryConfidenceGaugeState();
+}
+
+class _MemoryConfidenceGaugeState extends State<_MemoryConfidenceGauge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _progress;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _progress = Tween<double>(begin: 0, end: widget.confidence).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+    _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(_MemoryConfidenceGauge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.confidence != widget.confidence) {
+      _progress = Tween<double>(
+        begin: _progress.value,
+        end: widget.confidence,
+      ).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+      );
+      _controller
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _progress,
+      builder: (context, child) {
+        final value = _progress.value;
+        final percent = (value * 100).round();
+        return SizedBox(
+          width: 64,
+          height: 64,
+          child: CustomPaint(
+            painter: _RadialGaugePainter(
+              progress: value,
+              trackColor: _border,
+              fillColor: _accent,
+              glowColor: _accentHover,
+            ),
+            child: Center(
+              child: Text(
+                '$percent%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: _textPrimary,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RadialGaugePainter extends CustomPainter {
+  const _RadialGaugePainter({
+    required this.progress,
+    required this.trackColor,
+    required this.fillColor,
+    required this.glowColor,
+  });
+
+  final double progress;
+  final Color trackColor;
+  final Color fillColor;
+  final Color glowColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 5;
+    const startAngle = -math.pi / 2;
+    const totalAngle = 2 * math.pi;
+    final sweepAngle = totalAngle * progress.clamp(0.0, 1.0);
+
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      totalAngle,
+      false,
+      trackPaint,
+    );
+
+    if (sweepAngle > 0) {
+      final glowPaint = Paint()
+        ..color = glowColor.withValues(alpha: 0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 10
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        glowPaint,
+      );
+
+      final fillPaint = Paint()
+        ..shader = SweepGradient(
+          startAngle: startAngle,
+          endAngle: startAngle + sweepAngle,
+          colors: <Color>[fillColor, glowColor],
+        ).createShader(Rect.fromCircle(center: center, radius: radius))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        fillPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RadialGaugePainter oldDelegate) =>
+      progress != oldDelegate.progress ||
+      trackColor != oldDelegate.trackColor ||
+      fillColor != oldDelegate.fillColor;
+}
+
+class _MemoryRow extends StatelessWidget {
+  const _MemoryRow({
+    required this.memory,
+    required this.isSelected,
+    required this.onTap,
+    required this.onCheck,
+    this.onDelete,
+  });
+
+  final MemoryItem memory;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final ValueChanged<bool?> onCheck;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? _accentMuted : _bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isSelected ? _accent : _border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Checkbox(value: isSelected, onChanged: onCheck),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: <Widget>[
+                                _MetaPill(
+                                  label: memory.category,
+                                  icon: Icons.label_outline,
+                                ),
+                                _MetaPill(
+                                  label: 'Imp ${memory.importance}',
+                                  icon: Icons.priority_high_outlined,
+                                ),
+                                _MetaPill(
+                                  label: '${memory.confidencePercent}%',
+                                  icon: Icons.verified_outlined,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (onDelete != null)
+                            IconButton(
+                              onPressed: onDelete,
+                              icon: Icon(
+                                Icons.delete_outline,
+                                size: 18,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(memory.content),
+                      if (memory.entities.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: memory.entities
+                              .take(5)
+                              .map(
+                                (e) => _MetaPill(
+                                  label: e.name,
+                                  icon: Icons.hub_outlined,
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
+                      const SizedBox(height: 6),
+                      Text(
+                        memory.createdAtLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Interactive Entity Knowledge Graph
+// ---------------------------------------------------------------------------
+
+class _EntityGraphView extends StatefulWidget {
+  const _EntityGraphView({
+    required this.entities,
+    required this.knowledgeViews,
+    this.selectedEntity,
+    this.onEntityTapped,
+  });
+
+  final List<MemoryEntity> entities;
+  final List<KnowledgeViewItem> knowledgeViews;
+  final String? selectedEntity;
+  final ValueChanged<String>? onEntityTapped;
+
+  @override
+  State<_EntityGraphView> createState() => _EntityGraphViewState();
+}
+
+class _EntityGraphViewState extends State<_EntityGraphView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _idleController;
+  final List<_GraphNode> _nodes = <_GraphNode>[];
+  String? _hoveredNode;
+  bool _layoutDone = false;
+  Size? _lastLayoutSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _idleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
+    _buildNodes();
+  }
+
+  @override
+  void didUpdateWidget(_EntityGraphView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entities != widget.entities ||
+        oldWidget.knowledgeViews != widget.knowledgeViews) {
+      _buildNodes();
+    }
+  }
+
+  @override
+  void dispose() {
+    _idleController.dispose();
+    super.dispose();
+  }
+
+  static const Map<String, Color> _kindColors = <String, Color>{
+    'person': Color(0xFF9B8AE0),
+    'project': Color(0xFF5E9B7C),
+    'file': Color(0xFF7BA5C7),
+    'concept': Color(0xFFB8A06B),
+    'tool': Color(0xFFCF8F6B),
+    'organization': Color(0xFF7DA0B5),
+  };
+
+  void _buildNodes() {
+    _nodes.clear();
+    final entities = widget.entities;
+    final views = widget.knowledgeViews;
+    final maxMention = entities.fold<int>(
+      1,
+      (max, e) => e.mentionCount > max ? e.mentionCount : max,
+    );
+
+    for (int i = 0; i < entities.length; i++) {
+      final entity = entities[i];
+      final sizeFactor = 0.4 + 0.6 * (entity.mentionCount / maxMention);
+      _nodes.add(_GraphNode(
+        id: entity.name,
+        label: entity.name,
+        radius: 18 + 20 * sizeFactor,
+        color: _kindColors[entity.kind] ?? _kindColors['concept']!,
+        kind: entity.kind,
+        isReflection: false,
+        offsetPhase: i * 0.7,
+      ));
+    }
+
+    for (int i = 0; i < views.length && i < 6; i++) {
+      _nodes.add(_GraphNode(
+        id: 'kv_${views[i].title}',
+        label: views[i].title,
+        radius: 14,
+        color: const Color(0xFF8B7EC8),
+        kind: views[i].viewType,
+        isReflection: true,
+        offsetPhase: (entities.length + i) * 0.9,
+      ));
+    }
+
+    _layoutDone = false;
+  }
+
+  void _layoutNodes(Size size) {
+    if (_nodes.isEmpty) return;
+    if (_layoutDone && _lastLayoutSize == size) return;
+    _layoutDone = true;
+    _lastLayoutSize = size;
+
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final radiusX = size.width * 0.35;
+    final radiusY = size.height * 0.35;
+
+    for (int i = 0; i < _nodes.length; i++) {
+      final angle = (2 * math.pi * i / _nodes.length) - math.pi / 2;
+      final jitter = (i.isEven ? 0.85 : 1.0) + (i % 3) * 0.05;
+      _nodes[i].x = cx + radiusX * jitter * math.cos(angle);
+      _nodes[i].y = cy + radiusY * jitter * math.sin(angle);
+    }
+  }
+
+  void _handleTap(Offset localPosition) {
+    for (final node in _nodes.reversed) {
+      final dx = localPosition.dx - node.x;
+      final dy = localPosition.dy - node.y;
+      if (dx * dx + dy * dy <= node.radius * node.radius * 1.8) {
+        if (!node.isReflection) {
+          widget.onEntityTapped?.call(node.label);
+        }
+        return;
+      }
+    }
+  }
+
+  void _handleHover(Offset? localPosition) {
+    if (localPosition == null) {
+      if (_hoveredNode != null) setState(() => _hoveredNode = null);
+      return;
+    }
+    String? found;
+    for (final node in _nodes.reversed) {
+      final dx = localPosition.dx - node.x;
+      final dy = localPosition.dy - node.y;
+      if (dx * dx + dy * dy <= node.radius * node.radius * 1.8) {
+        found = node.id;
+        break;
+      }
+    }
+    if (found != _hoveredNode) setState(() => _hoveredNode = found);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        _layoutNodes(size);
+        return MouseRegion(
+          onHover: (event) => _handleHover(event.localPosition),
+          onExit: (_) => _handleHover(null),
+          child: GestureDetector(
+            onTapDown: (details) => _handleTap(details.localPosition),
+            child: AnimatedBuilder(
+              animation: _idleController,
+              builder: (context, _) {
+                return CustomPaint(
+                  size: size,
+                  painter: _EntityGraphPainter(
+                    nodes: _nodes,
+                    selectedEntity: widget.selectedEntity,
+                    hoveredNode: _hoveredNode,
+                    animationValue: _idleController.value,
+                    accentColor: _accent,
+                    bgColor: _bgSecondary,
+                    textColor: _textPrimary,
+                    mutedTextColor: _textSecondary,
+                    borderColor: _border,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GraphNode {
+  _GraphNode({
+    required this.id,
+    required this.label,
+    required this.radius,
+    required this.color,
+    required this.kind,
+    required this.isReflection,
+    required this.offsetPhase,
+  });
+
+  final String id;
+  final String label;
+  final double radius;
+  final Color color;
+  final String kind;
+  final bool isReflection;
+  final double offsetPhase;
+  double x = 0;
+  double y = 0;
+}
+
+class _EntityGraphPainter extends CustomPainter {
+  const _EntityGraphPainter({
+    required this.nodes,
+    required this.selectedEntity,
+    required this.hoveredNode,
+    required this.animationValue,
+    required this.accentColor,
+    required this.bgColor,
+    required this.textColor,
+    required this.mutedTextColor,
+    required this.borderColor,
+  });
+
+  final List<_GraphNode> nodes;
+  final String? selectedEntity;
+  final String? hoveredNode;
+  final double animationValue;
+  final Color accentColor;
+  final Color bgColor;
+  final Color textColor;
+  final Color mutedTextColor;
+  final Color borderColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (nodes.isEmpty) return;
+
+    final entityNodes =
+        nodes.where((n) => !n.isReflection).toList(growable: false);
+    final reflectionNodes =
+        nodes.where((n) => n.isReflection).toList(growable: false);
+
+    // Draw connections between entity nodes (subtle web)
+    final linePaint = Paint()
+      ..color = borderColor.withValues(alpha: 0.18)
+      ..strokeWidth = 1;
+    for (int i = 0; i < entityNodes.length; i++) {
+      for (int j = i + 1; j < entityNodes.length; j++) {
+        if ((i + j) % 3 != 0) continue;
+        final a = entityNodes[i];
+        final b = entityNodes[j];
+        final drift = math.sin(animationValue * 2 * math.pi + a.offsetPhase);
+        canvas.drawLine(
+          Offset(a.x, a.y + drift * 2),
+          Offset(b.x, b.y + drift * 2),
+          linePaint,
+        );
+      }
+    }
+
+    // Draw connections from reflections to closest entity
+    if (entityNodes.isNotEmpty) {
+      final reflectionLinePaint = Paint()
+        ..color = borderColor.withValues(alpha: 0.14)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke;
+      for (final rn in reflectionNodes) {
+        final drift =
+            math.sin(animationValue * 2 * math.pi + rn.offsetPhase) * 3;
+        var closest = entityNodes.first;
+        var minDist = double.infinity;
+        for (final en in entityNodes) {
+          final d = (en.x - rn.x) * (en.x - rn.x) +
+              (en.y - rn.y) * (en.y - rn.y);
+          if (d < minDist) {
+            minDist = d;
+            closest = en;
+          }
+        }
+        canvas.drawLine(
+          Offset(rn.x, rn.y + drift),
+          Offset(closest.x, closest.y + drift),
+          reflectionLinePaint,
+        );
+      }
+    }
+
+    // Draw nodes
+    for (final node in nodes) {
+      final drift =
+          math.sin(animationValue * 2 * math.pi + node.offsetPhase) * 3;
+      final isSelected = node.label == selectedEntity;
+      final isHovered = node.id == hoveredNode;
+      final cx = node.x;
+      final cy = node.y + drift;
+      final r = node.radius * (isHovered ? 1.15 : 1.0);
+
+      // Glow
+      if (isSelected || isHovered) {
+        final glowPaint = Paint()
+          ..color = (isSelected ? accentColor : node.color)
+              .withValues(alpha: 0.22)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+        canvas.drawCircle(Offset(cx, cy), r + 6, glowPaint);
+      }
+
+      // Fill
+      final fillPaint = Paint()
+        ..shader = RadialGradient(
+          colors: <Color>[
+            node.color.withValues(alpha: isSelected ? 0.9 : 0.7),
+            node.color.withValues(alpha: isSelected ? 0.6 : 0.35),
+          ],
+        ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r));
+      canvas.drawCircle(Offset(cx, cy), r, fillPaint);
+
+      // Border
+      final borderPaint = Paint()
+        ..color = isSelected
+            ? accentColor
+            : (isHovered
+                ? node.color.withValues(alpha: 0.8)
+                : node.color.withValues(alpha: 0.35))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSelected ? 2.5 : 1.5;
+      canvas.drawCircle(Offset(cx, cy), r, borderPaint);
+
+      // Label
+      final labelStyle = TextStyle(
+        color: isSelected ? textColor : mutedTextColor,
+        fontSize: node.isReflection ? 9 : 11,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+      );
+      final tp = TextPainter(
+        text: TextSpan(text: node.label, style: labelStyle),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: r * 3);
+      tp.paint(
+        canvas,
+        Offset(cx - tp.width / 2, cy + r + 5),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_EntityGraphPainter oldDelegate) => true;
 }
 
 class WidgetsPanel extends StatelessWidget {
@@ -4424,6 +5110,89 @@ class _TasksPanelState extends State<TasksPanel> {
 
   NeoAgentController get controller => widget.controller;
 
+  Color _taskRunStatusColor(String status) {
+    switch (status) {
+      case 'completed':
+        return _success;
+      case 'failed':
+      case 'error':
+        return _danger;
+      case 'running':
+      case 'retrying':
+        return _warning;
+      default:
+        return _textSecondary;
+    }
+  }
+
+  Future<void> _showLastRun(TaskItem task) async {
+    final runId = task.lastRunId.trim();
+    if (runId.isEmpty) return;
+
+    try {
+      final detail = await controller.fetchRunDetail(runId, force: true);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(detail.run.title),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      _StatusPill(
+                        label: detail.run.statusLabel,
+                        color: detail.run.statusColor,
+                      ),
+                      _StatusPill(
+                        label: '${detail.steps.length} steps',
+                        color: _textSecondary,
+                      ),
+                    ],
+                  ),
+                  if (detail.run.error.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 16),
+                    Text(detail.run.error, style: TextStyle(color: _danger)),
+                  ],
+                  if (detail.response.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 16),
+                    SelectableText(detail.response),
+                  ],
+                  if (detail.response.trim().isEmpty &&
+                      detail.run.error.trim().isEmpty) ...<Widget>[
+                    const SizedBox(height: 16),
+                    Text(
+                      'This run did not produce a user-facing response.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.friendlyErrorMessage(error))),
+      );
+    }
+  }
+
   @override
   void didUpdateWidget(covariant TasksPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -4572,6 +5341,13 @@ class _TasksPanelState extends State<TasksPanel> {
                     label: task.enabled ? 'Active' : 'Paused',
                     color: task.enabled ? _success : _textSecondary,
                   ),
+                  if (task.hasLastRunStatus) ...<Widget>[
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: 'Last: ${task.lastRunStatusLabel}',
+                      color: _taskRunStatusColor(task.lastRunStatus),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 10),
@@ -4579,7 +5355,7 @@ class _TasksPanelState extends State<TasksPanel> {
                 task.scheduleLabel,
                 style: TextStyle(
                   color: _textSecondary,
-                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                  fontFamily: GoogleFonts.geistMono().fontFamily,
                 ),
               ),
               if (task.hasModelOverride) ...<Widget>[
@@ -4603,6 +5379,11 @@ class _TasksPanelState extends State<TasksPanel> {
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
+              if (task.lastRunFailed &&
+                  task.lastRunError.trim().isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(task.lastRunError, style: TextStyle(color: _danger)),
+              ],
               const SizedBox(height: 14),
               Wrap(
                 spacing: 10,
@@ -4622,6 +5403,11 @@ class _TasksPanelState extends State<TasksPanel> {
                         : () => controller.runTaskNow(task.id),
                     child: Text(_manualRunButtonLabel('Run Now', remaining)),
                   ),
+                  if (task.lastRunId.trim().isNotEmpty)
+                    OutlinedButton(
+                      onPressed: () => _showLastRun(task),
+                      child: const Text('View last run'),
+                    ),
                   OutlinedButton(
                     onPressed: () => _confirmDelete(
                       context,
@@ -4674,6 +5460,13 @@ class _TasksPanelState extends State<TasksPanel> {
                     label: task.enabled ? 'Active' : 'Paused',
                     color: task.enabled ? _success : _textSecondary,
                   ),
+                  if (task.hasLastRunStatus) ...<Widget>[
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: 'Last: ${task.lastRunStatusLabel}',
+                      color: _taskRunStatusColor(task.lastRunStatus),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 10),
@@ -4681,7 +5474,7 @@ class _TasksPanelState extends State<TasksPanel> {
                 task.scheduleLabel,
                 style: TextStyle(
                   color: _textSecondary,
-                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                  fontFamily: GoogleFonts.geistMono().fontFamily,
                 ),
               ),
               const SizedBox(height: 8),
@@ -4707,6 +5500,11 @@ class _TasksPanelState extends State<TasksPanel> {
                   'Last run: ${task.lastRunLabel}',
                   style: TextStyle(color: _textSecondary),
                 ),
+              ],
+              if (task.lastRunFailed &&
+                  task.lastRunError.trim().isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(task.lastRunError, style: TextStyle(color: _danger)),
               ],
               const SizedBox(height: 14),
               Wrap(
@@ -4737,6 +5535,11 @@ class _TasksPanelState extends State<TasksPanel> {
                       _manualRunButtonLabel('Refresh Now', remaining),
                     ),
                   ),
+                  if (task.lastRunId.trim().isNotEmpty)
+                    OutlinedButton(
+                      onPressed: () => _showLastRun(task),
+                      child: const Text('View last run'),
+                    ),
                   OutlinedButton(
                     onPressed: linkedWidget == null
                         ? null

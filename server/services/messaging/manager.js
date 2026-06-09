@@ -104,6 +104,9 @@ class MessagingManager extends EventEmitter {
       return null;
     }
 
+    const normalizedIncomingContent = normalizeOutgoingMessageForPlatform(platformName, msg?.content, {
+      stripNoResponseMarker: false
+    });
     const agentId = this._agentId(userId, {
       ...options,
       agentId: options?.agentId ?? msg?.agentId ?? null,
@@ -135,7 +138,7 @@ class MessagingManager extends EventEmitter {
         userId,
         agentId,
         'user',
-        msg.content,
+        normalizedIncomingContent,
         platformName,
         msg.messageId,
         msg.chatId,
@@ -143,7 +146,7 @@ class MessagingManager extends EventEmitter {
         msg.timestamp,
       );
 
-    const enrichedMsg = { ...msg, agentId, platform: platformName };
+    const enrichedMsg = { ...msg, content: normalizedIncomingContent, agentId, platform: platformName };
 
     if (this.isShuttingDown) {
       return enrichedMsg;
@@ -317,6 +320,9 @@ class MessagingManager extends EventEmitter {
     config.userId = userId;
     config.agentId = agentId;
     config.accessPolicy = this._loadAccessPolicy(userId, agentId, platformName);
+    const existingConnection = db
+      .prepare('SELECT id, status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .get(userId, agentId, platformName);
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
     if (platformName === 'meshtastic' && !readMeshtasticEnabled()) {
@@ -325,7 +331,18 @@ class MessagingManager extends EventEmitter {
 
     if (platformName === 'whatsapp' && !config.authDir) {
       config.authDir = this._scopedPlatformAuthDir(userId, agentId, platformName);
-      this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
+      let shouldMigrateLegacyAuth = true;
+      if (
+        existingConnection &&
+        existingConnection.status !== 'connected' &&
+        existingConnection.status !== 'awaiting_qr'
+      ) {
+        fs.rmSync(config.authDir, { recursive: true, force: true });
+        shouldMigrateLegacyAuth = false;
+      }
+      if (shouldMigrateLegacyAuth) {
+        this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
+      }
     }
 
     // For Telnyx, inject saved whitelist and voice secret into config before constructing
@@ -443,8 +460,7 @@ class MessagingManager extends EventEmitter {
       await this.ingestMessage(userId, platformName, msg, { agentId });
     });
 
-    const existing = db.prepare('SELECT id FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?').get(userId, agentId, platformName);
-    if (!existing) {
+    if (!existingConnection) {
       db.prepare('INSERT INTO platform_connections (user_id, agent_id, platform, config, status) VALUES (?, ?, ?, ?, ?)')
         .run(userId, agentId, platformName, storedConfig, 'connecting');
     } else {
@@ -460,10 +476,11 @@ class MessagingManager extends EventEmitter {
     const agentId = this._agentId(userId, options);
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
-    if (!platform) return { status: 'not_connected' };
 
-    await platform.disconnect();
-    this.platforms.delete(key);
+    if (platform) {
+      await platform.disconnect();
+      this.platforms.delete(key);
+    }
 
     db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
       .run('disconnected', userId, agentId, platformName);

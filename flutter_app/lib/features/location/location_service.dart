@@ -18,6 +18,7 @@ class LocationService {
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      if (!context.mounted) return;
       // Ask user for permission with a nice UI
       bool userAgreed = await _showPermissionRationale(context);
       if (userAgreed) {
@@ -37,6 +38,7 @@ class LocationService {
   }
 
   Future<bool> _showPermissionRationale(BuildContext context) async {
+    if (!context.mounted) return false;
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -95,6 +97,7 @@ class LocationService {
     }
   }
 
+  // ignore: unused_element
   Future<void> _triggerBackendGeofence(String backendUrl, String token, String label) async {
     try {
       await http.post(

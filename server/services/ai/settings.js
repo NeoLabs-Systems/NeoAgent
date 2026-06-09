@@ -49,6 +49,26 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: true,
     defaultBaseUrl: 'https://api.x.ai/v1'
   },
+  'grok-oauth': {
+    id: 'grok-oauth',
+    label: 'Grok (xAI OAuth)',
+    description: 'Grok models via xAI account. Login with `neoagent login grok-oauth`.',
+    envKey: 'GROK_OAUTH_ACCESS_TOKEN',
+    supportsApiKey: true,
+    supportsBaseUrl: false,
+    defaultEnabled: false,
+    defaultBaseUrl: ''
+  },
+  nvidia: {
+    id: 'nvidia',
+    label: 'NVIDIA NIM',
+    description: 'NVIDIA-hosted models including free-tier Nemotron, Kimi, Llama 4, and DeepSeek. Get a key at build.nvidia.com.',
+    envKey: 'NVIDIA_API_KEY',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://integrate.api.nvidia.com/v1'
+  },
   minimax: {
     id: 'minimax',
     label: 'MiniMax Code',
@@ -88,6 +108,16 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     supportsBaseUrl: false,
     defaultEnabled: false,
     defaultBaseUrl: ''
+  },
+  openrouter: {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    description: 'Access 300+ models through one API, including free-tier models. Get a key at openrouter.ai.',
+    envKey: 'OPENROUTER_API_KEY',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://openrouter.ai/api/v1'
   },
   ollama: {
     id: 'ollama',

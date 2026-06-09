@@ -274,6 +274,42 @@ function markProactiveMessageSent({ runState, deliveryState, content }) {
     }
 }
 
+function markProactiveNoResponse({ runState, deliveryState }) {
+    if (runState) {
+        runState.noResponse = true;
+    }
+    if (deliveryState) {
+        deliveryState.noResponse = true;
+    }
+}
+
+function normalizeStoredSettingString(value) {
+    if (value == null) return '';
+    if (typeof value !== 'string') return String(value || '').trim();
+    let current = value.trim();
+    for (let i = 0; i < 2; i += 1) {
+        if (!current) return '';
+        try {
+            const parsed = JSON.parse(current);
+            if (typeof parsed === 'string') {
+                current = parsed.trim();
+                continue;
+            }
+            return '';
+        } catch {
+            return current;
+        }
+    }
+    return current;
+}
+
+function normalizeMessagingTarget(target = {}) {
+    const platform = normalizeStoredSettingString(target.platform);
+    const to = normalizeStoredSettingString(target.to);
+    if (!platform || !to) return null;
+    return { platform, to };
+}
+
 function buildAndroidUiMatchProperties(extra = {}) {
     return {
         x: { type: 'number', description: 'Absolute X coordinate' },
@@ -292,7 +328,7 @@ function getAvailableTools(app, options = {}) {
     const tools = [
         {
             name: 'execute_command',
-            description: 'Execute a terminal/shell command as a normal recoverable agent step. Waits for the process to exit, supports PTY for interactive programs, and returns stdout, stderr, exit code, timeout state, and duration so later reasoning can inspect failures, install missing dependencies, and retry when needed.',
+            description: 'Execute a terminal/shell command as a normal recoverable agent step. Waits for the process to exit, supports PTY for interactive programs, and returns stdout, stderr, exit code, timeout state, duration, and a backend field ("vm" or "desktop-companion") indicating where the command ran. Commands run inside the isolated VM unless the cli_backend setting is set to "desktop" and a companion app is connected, in which case the command runs on the companion desktop machine.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -308,7 +344,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_navigate',
-            description: 'Navigate the browser to a URL and return page content/screenshot',
+            description: 'Navigate the browser to a URL and return page content/screenshot. The result includes a backend field ("vm" or "extension") indicating whether the VM browser or the paired browser extension handled the request.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1289,7 +1325,7 @@ function getAvailableTools(app, options = {}) {
     // mechanism and gives the AI real agency over when it's finished.
     tools.push({
         name: 'task_complete',
-        description: 'Signal that the task is fully complete and provide the final response. Call this exactly once when all steps are done and you have a complete answer ready. Do NOT call it if you still have work to do.',
+        description: 'Signal that the task is fully complete and provide the final response. Call this exactly once when all steps are done and you have a complete answer ready. Do NOT call it if you still have work to do, unverified claims, unresolved tool failures, or confidence below the current run requirement.',
         parameters: {
             type: 'object',
             properties: {
@@ -1300,10 +1336,10 @@ function getAvailableTools(app, options = {}) {
                 confidence: {
                     type: 'string',
                     enum: ['high', 'medium', 'low'],
-                    description: 'How confident are you the task is fully and correctly complete? Use "low" if you had to make assumptions.'
+                    description: 'How confident are you the task is fully and correctly complete? Use "low" only when the final answer is intentionally limited or incomplete; low confidence may be rejected so the run can keep working.'
                 }
             },
-            required: ['message']
+            required: ['message', 'confidence']
         }
     });
 
@@ -1401,10 +1437,13 @@ async function executeTool(toolName, args, context, engine) {
         allowMultipleProactiveMessages = false
     } = context;
     const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
-    const bc = () => {
+    const bc = async () => {
         const manager = runtime();
         if (manager && typeof manager.getBrowserProviderForUser === 'function') {
-            return manager.getBrowserProviderForUser(userId);
+            const backend = typeof manager.getActiveBrowserBackend === 'function'
+                ? await Promise.resolve(manager.getActiveBrowserBackend(userId))
+                : 'vm';
+            return { provider: await manager.getBrowserProviderForUser(userId), backend };
         }
         throw new Error('Browser provider is unavailable. VM runtime is required.');
     };
@@ -1478,59 +1517,67 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'execute_command': {
             const runtimeManager = runtime();
-            if (!runtimeManager || typeof runtimeManager.executeCommand !== 'function') {
-                return { error: 'Command execution is unavailable. VM runtime is required.' };
+            if (!runtimeManager) {
+                return { error: 'Command execution is unavailable. No runtime manager found.' };
             }
-            return await runtimeManager.executeCommand(userId, args.command, {
+            const execOptions = {
                 cwd: args.cwd,
                 timeout: args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000),
                 stdinInput: args.stdin_input,
                 pty: args.pty === true,
-                inputs: args.inputs || [],
-            });
+                inputs: Array.isArray(args.inputs) ? args.inputs : [],
+            };
+            if (typeof runtimeManager.executeCliCommand === 'function') {
+                return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
+            }
+            // Legacy fallback — older runtime manager without CLI routing.
+            if (typeof runtimeManager.executeCommand !== 'function') {
+                return { error: 'Command execution is unavailable. VM runtime is required.' };
+            }
+            return { ...await runtimeManager.executeCommand(userId, args.command, execOptions), backend: 'vm' };
         }
 
         case 'browser_navigate': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.navigate(args.url, {
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.navigate(args.url, {
                 screenshot: args.screenshot !== false,
                 waitFor: args.waitFor,
                 fullPage: args.fullPage
-            });
+            }), backend };
         }
 
         case 'browser_click': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.click(args.selector, args.text, args.screenshot !== false);
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.click(args.selector, args.text, args.screenshot !== false), backend };
         }
 
         case 'browser_type': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.type(args.selector, args.text, {
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.type(args.selector, args.text, {
                 clear: args.clear !== false,
                 pressEnter: args.pressEnter
-            });
+            }), backend };
         }
 
         case 'browser_extract': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.extract(args.selector, args.attribute, args.all);
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.extract(args.selector, args.attribute, args.all), backend };
         }
 
         case 'browser_screenshot': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.screenshot({ fullPage: args.fullPage, selector: args.selector });
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.screenshot({ fullPage: args.fullPage, selector: args.selector }), backend };
         }
 
         case 'browser_evaluate': {
-            const controller = await bc();
-            if (!controller) return { error: 'Browser controller not available' };
-            return await controller.evaluate(args.script);
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            return { ...await provider.evaluate(args.script), backend };
         }
 
         case 'android_start_emulator': {
@@ -2101,6 +2148,9 @@ async function executeTool(toolName, args, context, engine) {
                             error: proactiveValidation.error,
                         };
                     }
+                    if (proactiveValidation.reason === 'no_response') {
+                        markProactiveNoResponse({ runState, deliveryState });
+                    }
                     return {
                         sent: false,
                         suppressed: proactiveValidation.suppressed === true,
@@ -2312,8 +2362,8 @@ async function executeTool(toolName, args, context, engine) {
                     || null
                 );
                 const loadDefaultTarget = () => ({
-                    platform: loadAgentSetting('last_platform'),
-                    to: loadAgentSetting('last_chat_id')
+                    platform: normalizeStoredSettingString(loadAgentSetting('last_platform')),
+                    to: normalizeStoredSettingString(loadAgentSetting('last_chat_id'))
                 });
 
                 let taskConfig = null;
@@ -2325,26 +2375,43 @@ async function executeTool(toolName, args, context, engine) {
                         try {
                             taskConfig = JSON.parse(task.task_config || '{}');
                             taskTarget = {
-                                platform: taskConfig.notifyPlatform || null,
-                                to: taskConfig.notifyTo || null
+                                platform: normalizeStoredSettingString(taskConfig.notifyPlatform),
+                                to: normalizeStoredSettingString(taskConfig.notifyTo)
                             };
                         } catch { }
                     }
                 }
 
                 const fallbackTarget = loadDefaultTarget();
+                const recentTargets = db.prepare(
+                    `SELECT platform, platform_chat_id
+                     FROM messages
+                     WHERE user_id = ?
+                       AND agent_id = ?
+                       AND platform IS NOT NULL
+                       AND platform_chat_id IS NOT NULL
+                     ORDER BY id DESC
+                     LIMIT 20`
+                ).all(userId, agentId);
                 const candidateTargets = [];
                 const seenTargets = new Set();
                 const addCandidate = (target) => {
-                    if (!target?.platform || !target?.to) return;
-                    const key = `${target.platform}:${target.to}`;
+                    const normalizedTarget = normalizeMessagingTarget(target);
+                    if (!normalizedTarget) return;
+                    const key = `${normalizedTarget.platform}:${normalizedTarget.to}`;
                     if (seenTargets.has(key)) return;
                     seenTargets.add(key);
-                    candidateTargets.push(target);
+                    candidateTargets.push(normalizedTarget);
                 };
 
                 addCandidate(taskTarget);
                 addCandidate(fallbackTarget);
+                for (const row of recentTargets) {
+                    addCandidate({
+                        platform: row.platform,
+                        to: row.platform_chat_id
+                    });
+                }
 
                 if (candidateTargets.length === 0) {
                     throw new Error('No messaging target is configured for this task run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.');
@@ -2600,8 +2667,14 @@ async function executeTool(toolName, args, context, engine) {
                 let tools = [];
                 if (autoStart) {
                     try {
-                        await mcpClient.startServer(serverId, args.command, args.name, userId, { agentId });
-                        tools = await mcpClient.listTools(serverId, userId);
+                        const startResult = await mcpClient.startServer(
+                            serverId,
+                            args.command,
+                            args.name,
+                            userId,
+                            { agentId }
+                        );
+                        tools = startResult.tools || [];
                     } catch (startErr) {
                         return { registered: true, id: serverId, started: false, error: `Registered but failed to start: ${startErr.message}` };
                     }
@@ -2624,7 +2697,10 @@ async function executeTool(toolName, args, context, engine) {
                     args: JSON.parse(s.config || '{}').args || [],
                     enabled: !!s.enabled,
                     status: liveStatuses[s.id]?.status || 'stopped',
-                    toolCount: liveStatuses[s.id]?.toolCount || 0
+                    toolCount: liveStatuses[s.id]?.toolCount || 0,
+                    error: liveStatuses[s.id]?.error || null,
+                    consecutiveFails: liveStatuses[s.id]?.consecutiveFails || 0,
+                    nextRetryAt: liveStatuses[s.id]?.nextRetryAt || null
                 }))
             };
         }

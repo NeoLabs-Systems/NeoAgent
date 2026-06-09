@@ -476,6 +476,18 @@ class BackendClient {
     return getMap(baseUrl, '/api/runtime/config', allowUnauthorized: true);
   }
 
+  Future<Map<String, dynamic>> testCli(String baseUrl) async {
+    return getMap(baseUrl, '/api/system/test/cli');
+  }
+
+  Future<Map<String, dynamic>> testExtension(String baseUrl) async {
+    return getMap(baseUrl, '/api/system/test/extension');
+  }
+
+  Future<Map<String, dynamic>> testDesktop(String baseUrl) async {
+    return getMap(baseUrl, '/api/system/test/desktop');
+  }
+
   Future<Map<String, dynamic>> fetchBrowserStatus(String baseUrl) async {
     return getMap(baseUrl, '/api/browser/status');
   }
@@ -484,6 +496,15 @@ class BackendClient {
     String baseUrl,
   ) async {
     return getMap(baseUrl, '/api/browser-extension/status');
+  }
+
+  Future<Map<String, dynamic>> selectBrowserExtensionToken(
+    String baseUrl, {
+    required String tokenId,
+  }) async {
+    return postMap(baseUrl, '/api/browser-extension/select-token', <String, dynamic>{
+      'tokenId': tokenId,
+    });
   }
 
   Future<Map<String, dynamic>> launchBrowser(
@@ -531,6 +552,17 @@ class BackendClient {
       'x': x,
       'y': y,
       'screenshot': screenshot,
+    });
+  }
+
+  Future<Map<String, dynamic>> hoverBrowserPoint(
+    String baseUrl, {
+    required int x,
+    required int y,
+  }) async {
+    return postMap(baseUrl, '/api/browser/mouse-move', <String, dynamic>{
+      'x': x,
+      'y': y,
     });
   }
 
@@ -603,6 +635,50 @@ class BackendClient {
     return _postEmpty(baseUrl, '/api/browser/close');
   }
 
+  Future<Map<String, dynamic>> startStream(
+    String baseUrl, {
+    required String platform,
+    required String deviceId,
+    int fps = 15,
+    int quality = 80,
+    String? displayId,
+  }) async {
+    return postMap(baseUrl, '/api/stream/start', <String, dynamic>{
+      'platform': platform,
+      'deviceId': deviceId,
+      'fps': fps,
+      'quality': quality,
+      if (displayId != null && displayId.isNotEmpty) 'displayId': displayId,
+    });
+  }
+
+  Future<Map<String, dynamic>> stopStream(
+    String baseUrl, {
+    required String platform,
+    required String deviceId,
+  }) async {
+    return postMap(baseUrl, '/api/stream/stop', <String, dynamic>{
+      'platform': platform,
+      'deviceId': deviceId,
+    });
+  }
+
+  Future<Map<String, dynamic>> fetchStreamStatus(
+    String baseUrl, {
+    String? platform,
+    String? deviceId,
+  }) async {
+    final query = <String>[];
+    if (platform != null && platform.isNotEmpty) {
+      query.add('platform=${Uri.encodeQueryComponent(platform)}');
+    }
+    if (deviceId != null && deviceId.isNotEmpty) {
+      query.add('deviceId=${Uri.encodeQueryComponent(deviceId)}');
+    }
+    final suffix = query.isEmpty ? '' : '?${query.join('&')}';
+    return getMap(baseUrl, '/api/stream/status$suffix');
+  }
+
   Future<Map<String, dynamic>> fetchAndroidStatus(String baseUrl) async {
     return getMap(baseUrl, '/api/android/status');
   }
@@ -617,6 +693,41 @@ class BackendClient {
 
   Future<Map<String, dynamic>> fetchDesktopDevices(String baseUrl) async {
     return getMap(baseUrl, '/api/desktop/devices');
+  }
+
+  Future<Map<String, dynamic>> fetchWorkspaceDirectory(
+    String baseUrl, {
+    String path = '.',
+  }) async {
+    return getMap(
+      baseUrl,
+      '/api/workspace/files?path=${Uri.encodeQueryComponent(path)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchWorkspaceFile(
+    String baseUrl, {
+    required String path,
+  }) async {
+    return getMap(
+      baseUrl,
+      '/api/workspace/files/content?path=${Uri.encodeQueryComponent(path)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> saveWorkspaceFile(
+    String baseUrl, {
+    required String path,
+    required String content,
+  }) async {
+    return putMap(baseUrl, '/api/workspace/files/content', <String, dynamic>{
+      'path': path,
+      'content': content,
+    });
+  }
+
+  String workspaceDownloadPath(String path) {
+    return '/api/workspace/files/download?path=${Uri.encodeQueryComponent(path)}';
   }
 
   Future<Map<String, dynamic>> selectDesktopDevice(
@@ -660,6 +771,19 @@ class BackendClient {
       'x': x,
       'y': y,
       if (button != null && button.isNotEmpty) 'button': button,
+    });
+  }
+
+  Future<Map<String, dynamic>> hoverDesktop(
+    String baseUrl, {
+    String? deviceId,
+    required int x,
+    required int y,
+  }) async {
+    return postMap(baseUrl, '/api/desktop/mouse-move', <String, dynamic>{
+      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
+      'x': x,
+      'y': y,
     });
   }
 
@@ -1553,6 +1677,17 @@ class BackendClient {
 
   Future<void> deleteRecordingSession(String baseUrl, String sessionId) async {
     await deleteMap(baseUrl, '/api/recordings/$sessionId');
+  }
+
+  Future<Map<String, dynamic>> transcribeAudio(
+    String baseUrl, {
+    required String audioBase64,
+    String mimeType = 'audio/pcm;rate=16000;channels=1',
+  }) {
+    return postMap(baseUrl, '/api/voice-assistant/transcribe', <String, dynamic>{
+      'audioBase64': audioBase64,
+      'mimeType': mimeType,
+    });
   }
 
   Future<Map<String, dynamic>> runVoiceAssistantTurn(

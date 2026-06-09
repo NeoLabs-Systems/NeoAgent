@@ -31,10 +31,11 @@ class RuntimeManager {
     this.artifactStore = options.artifactStore || null;
 
     this.getExtensionBrowserProvider = options.getExtensionBrowserProvider
-      || ((userId) => new ExtensionBrowserProvider({
+      || ((userId, providerOptions = {}) => new ExtensionBrowserProvider({
         registry: options.browserExtensionRegistry,
         artifactStore: options.artifactStore,
         userId,
+        tokenId: providerOptions.tokenId || null,
       }));
 
     this.getDesktopCliProvider = options.getDesktopCliProvider
@@ -51,10 +52,11 @@ class RuntimeManager {
   }
 
   hasActiveExtensionBrowser(userId) {
+    const settings = this.getSettings(userId);
     return Boolean(
       this.browserExtensionRegistry
       && typeof this.browserExtensionRegistry.isConnected === 'function'
-      && this.browserExtensionRegistry.isConnected(userId)
+      && this.browserExtensionRegistry.isConnected(userId, settings.browser_extension_token_id)
     );
   }
 
@@ -92,7 +94,9 @@ class RuntimeManager {
   async getBrowserProviderForUser(userId) {
     const settings = this.getSettings(userId);
     if (settings.browser_backend === 'extension' && this.hasActiveExtensionBrowser(userId)) {
-      return this.getExtensionBrowserProvider(userId);
+      return this.getExtensionBrowserProvider(userId, {
+        tokenId: settings.browser_extension_token_id,
+      });
     }
     return this.browserBackend.getBrowserProviderForUser(userId);
   }
@@ -100,9 +104,36 @@ class RuntimeManager {
   async getCliProviderForUser(userId) {
     const settings = this.getSettings(userId);
     if (settings.cli_backend === 'desktop' && this.hasActiveDesktopCompanion(userId)) {
-      return this.getDesktopCliProvider(userId);
+      const desktopProvider = this.getDesktopCliProvider(userId);
+      const preferredDeviceId = settings.cli_desktop_device_id;
+      if (preferredDeviceId) {
+        desktopProvider.selectDevice(preferredDeviceId);
+      }
+      return {
+        backend: 'desktop-companion',
+        execute: (command, options = {}) => desktopProvider.executeCommand(command, options),
+        executeInteractive: (command, inputs = [], options = {}) => desktopProvider.executeCommand(command, { ...options, inputs }),
+        kill: () => Promise.resolve(false),
+      };
     }
-    return this.browserBackend.getCommandExecutorForUser(userId);
+    const executor = await this.browserBackend.getCommandExecutorForUser(userId);
+    return { ...executor, backend: 'vm' };
+  }
+
+  async executeCliCommand(userId, command, options = {}) {
+    const provider = await this.getCliProviderForUser(userId);
+    const result = await (options.pty === true && provider.executeInteractive
+      ? provider.executeInteractive(command, options.inputs || [], options)
+      : provider.execute(command, options));
+    return { ...result, backend: provider.backend };
+  }
+
+  getActiveBrowserBackend(userId) {
+    const settings = this.getSettings(userId);
+    if (settings.browser_backend === 'extension' && this.hasActiveExtensionBrowser(userId)) {
+      return 'extension';
+    }
+    return 'vm';
   }
 
   async getAndroidProviderForUser(userId) {

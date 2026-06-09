@@ -253,6 +253,12 @@ class VmBrowserProvider {
   extract(selector, attribute, all = false) { return this.client.request('POST', '/browser/extract', { selector, attribute, all }); }
   evaluate(script) { return this.client.request('POST', '/browser/execute', { code: script }); }
   async screenshot(options = {}) { return this.#materialize(await this.client.request('POST', '/browser/screenshot', options)); }
+  async screenshotJpeg(quality = 80, options = {}) {
+    const result = await this.client.request('POST', '/browser/screenshot-jpeg', { ...options, quality });
+    const content = String(result?.contentBase64 || '');
+    if (!content) throw new Error('VM browser screenshot-jpeg returned no data.');
+    return Buffer.from(content, 'base64');
+  }
   launch(options = {}) { return this.client.request('POST', '/browser/launch', options); }
   closeBrowser() { return this.client.request('POST', '/browser/close'); }
   fill(selector, value) { return this.type(selector, value); }
