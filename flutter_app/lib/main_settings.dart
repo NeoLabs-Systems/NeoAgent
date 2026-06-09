@@ -139,15 +139,6 @@ const _desktopSettingsSection = _SettingsSection('desktop', <String>[
   'input',
 ], requiresDesktop: true);
 
-const _updatesSettingsSection = _SettingsSection('updates', <String>[
-  'updates',
-  'release',
-  'channel',
-  'version',
-  'self update',
-  'upgrade',
-]);
-
 const _diagnosticsSettingsSection = _SettingsSection('diagnostics', <String>[
   'diagnostics',
   'logs',
@@ -163,7 +154,6 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _modelsSettingsSection,
   _voiceRecordingSettingsSection,
   _desktopSettingsSection,
-  _updatesSettingsSection,
   _diagnosticsSettingsSection,
 ];
 
@@ -328,7 +318,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _PageTitle(
             title: 'Settings',
             subtitle:
-                'Workspace, models, recording, update, and diagnostics controls.',
+                'Workspace, models, recording, and diagnostics controls.',
             trailing: _settingsSaveButton(controller),
           )
         else
@@ -348,7 +338,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             labelText: 'Search settings',
-            hintText: 'Models, browser, voice, updates, diagnostics...',
+            hintText: 'Models, browser, voice, diagnostics...',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: searchQuery.isEmpty
                 ? null
@@ -411,20 +401,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ],
         if (_matchesSettingsSection(
           searchQuery,
-          _updatesSettingsSection,
-        )) ...<Widget>[
-          _buildUpdatesSection(controller),
-          const SizedBox(height: 16),
-        ],
-        if (_matchesSettingsSection(
-          searchQuery,
           _diagnosticsSettingsSection,
         )) ...<Widget>[_buildDiagnosticsSection(controller)],
         if (_noSettingsMatches(searchQuery, visibleSearchSections)) ...<Widget>[
           const _EmptyCard(
             title: 'No matching settings',
             subtitle:
-                'Try a broader search like models, browser, voice, or updates.',
+                'Try a broader search like models, browser, or voice.',
           ),
         ],
       ],
@@ -534,7 +517,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Overview'),
             const SizedBox(height: 10),
             Text(
-              'Configure workspace behavior, then models, recording defaults, and updates.',
+              'Configure workspace behavior, models, and recording defaults.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 14),
@@ -1517,250 +1500,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 );
               },
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUpdatesSection(NeoAgentController controller) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const _SectionTitle('Updates'),
-            const SizedBox(height: 10),
-            Text(
-              'Client and runtime update controls live here.',
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            if (!kIsWeb) ...<Widget>[
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 720;
-                  final checkButton = FilledButton.icon(
-                    onPressed:
-                        controller.isCheckingAppUpdate ||
-                            !controller.appUpdaterConfigured
-                        ? null
-                        : () => controller.checkForAppUpdates(),
-                    style: FilledButton.styleFrom(backgroundColor: _accent),
-                    icon: controller.isCheckingAppUpdate
-                        ? _inlineProgressIndicator()
-                        : const Icon(Icons.sync),
-                    label: Text(
-                      controller.isCheckingAppUpdate
-                          ? 'Checking...'
-                          : 'Check now',
-                    ),
-                  );
-                  final appHeading = Text(
-                    'Client App',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: _textPrimary,
-                    ),
-                  );
-                  if (compact) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        appHeading,
-                        const SizedBox(height: 10),
-                        checkButton,
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: <Widget>[
-                      Expanded(child: appHeading),
-                      checkButton,
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              if (!controller.appUpdaterConfigured)
-                Text(
-                  'Client app updates are not configured for this build.',
-                  style: TextStyle(color: _textSecondary, height: 1.5),
-                ),
-            ],
-            const Divider(height: 32),
-            if (controller.updateStatus.allowSelfUpdate) ...<Widget>[
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 780;
-                  final channelPicker = DropdownButtonFormField<String>(
-                    initialValue: controller.updateStatus.releaseChannel,
-                    decoration: const InputDecoration(
-                      labelText: 'Runtime release channel',
-                    ),
-                    items: const <DropdownMenuItem<String>>[
-                      DropdownMenuItem<String>(
-                        value: 'stable',
-                        child: Text('Stable'),
-                      ),
-                      DropdownMenuItem<String>(
-                        value: 'beta',
-                        child: Text('Beta'),
-                      ),
-                    ],
-                    onChanged:
-                        controller.isSavingReleaseChannel ||
-                            controller.isTriggeringUpdate ||
-                            controller.updateStatus.state == 'running'
-                        ? null
-                        : (value) {
-                            if (value != null) {
-                              unawaited(controller.setReleaseChannel(value));
-                            }
-                          },
-                  );
-
-                  final channelHelper = Text(
-                    controller.updateStatus.releaseChannel == 'beta'
-                        ? 'Beta follows preview releases.'
-                        : 'Stable follows production releases.',
-                    style: TextStyle(color: _textSecondary),
-                  );
-
-                  if (compact) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        channelPicker,
-                        const SizedBox(height: 8),
-                        channelHelper,
-                        const SizedBox(height: 16),
-                      ],
-                    );
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(child: channelPicker),
-                        const SizedBox(width: 12),
-                        Expanded(child: channelHelper),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 780;
-                  final runtimeTitle = Text(
-                    'Runtime',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: _textPrimary,
-                    ),
-                  );
-                  final updateButton = FilledButton.icon(
-                    onPressed:
-                        controller.isSavingReleaseChannel ||
-                            controller.isTriggeringUpdate ||
-                            controller.updateStatus.state == 'running'
-                        ? null
-                        : controller.triggerUpdate,
-                    style: FilledButton.styleFrom(backgroundColor: _accent),
-                    icon: controller.isTriggeringUpdate
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Icon(Icons.system_update),
-                    label: Text('Update'),
-                  );
-                  if (compact) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        runtimeTitle,
-                        const SizedBox(height: 10),
-                        updateButton,
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: <Widget>[
-                      Expanded(child: runtimeTitle),
-                      updateButton,
-                    ],
-                  );
-                },
-              ),
-            ] else ...<Widget>[
-              Text(
-                'Runtime',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: _textPrimary,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Updates and release tracks are managed for this deployment.',
-                style: TextStyle(color: _textSecondary),
-              ),
-            ],
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 760;
-                final statusRow = Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    _StatusPill(
-                      label: controller.updateStatus.badgeLabel,
-                      color: controller.updateStatus.badgeColor,
-                    ),
-                    _StatusPill(
-                      label: controller.updateStatus.releaseChannelLabel,
-                      color: controller.updateStatus.releaseChannel == 'beta'
-                          ? _warning
-                          : _accent,
-                    ),
-                    Text(
-                      controller.updateStatus.message,
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                    Text('${controller.updateStatus.progress}%'),
-                  ],
-                );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[statusRow],
-                  );
-                }
-                return statusRow;
-              },
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                minHeight: 8,
-                value: controller.updateStatus.progress / 100,
-                backgroundColor: _bgSecondary,
-                color: _accent,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(controller.updateStatus.versionLine),
           ],
         ),
       ),

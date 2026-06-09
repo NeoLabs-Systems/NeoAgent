@@ -458,6 +458,7 @@ class NeoAgentController extends ChangeNotifier {
     required String role,
     required String platform,
     bool transient = false,
+    Map<String, dynamic> metadata = const <String, dynamic>{},
   }) {
     final trimmed = content.trim();
     if (trimmed.isEmpty) {
@@ -468,7 +469,8 @@ class NeoAgentController extends ChangeNotifier {
     if (previous != null &&
         previous.role == role &&
         previous.platform == platform &&
-        previous.content.trim() == trimmed) {
+        previous.content.trim() == trimmed &&
+        metadata.isEmpty) {
       return;
     }
 
@@ -481,6 +483,7 @@ class NeoAgentController extends ChangeNotifier {
         platform: platform,
         createdAt: DateTime.now(),
         transient: transient,
+        metadata: metadata,
       ),
     ];
   }
@@ -4633,12 +4636,14 @@ class NeoAgentController extends ChangeNotifier {
     String content, {
     required String platform,
     bool transient = false,
+    Map<String, dynamic> metadata = const <String, dynamic>{},
   }) {
     _appendChatMessage(
       content,
       role: 'assistant',
       platform: platform,
       transient: transient,
+      metadata: metadata,
     );
   }
 
@@ -7418,7 +7423,14 @@ class NeoAgentController extends ChangeNotifier {
       }
       final content = payload['content']?.toString().trim() ?? '';
       if (content.isNotEmpty) {
-        _appendAssistantChatMessage(content, platform: 'web');
+        final schema = payload['schema'];
+        _appendAssistantChatMessage(
+          content,
+          platform: 'web',
+          metadata: schema != null
+              ? <String, dynamic>{'schema': schema}
+              : const <String, dynamic>{},
+        );
       }
       streamingAssistant = '';
       isSendingMessage = false;

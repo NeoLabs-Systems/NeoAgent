@@ -428,6 +428,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
             child: _ChatBubble(
               entry: entry,
               onLoadRunDetail: controller.fetchRunDetail,
+              onSendMessage: controller.sendMessage,
             ),
           ),
         ),

@@ -246,5 +246,7 @@ module.exports = {
   ensureRuntimeDirs,
   ensureSecureRuntimeEnv,
   getDefaultVmBaseImageUrl,
-  migrateLegacyRuntime
+  migrateLegacyRuntime,
+  upsertEnvValue,
+  readEnvFileRaw,
 };
