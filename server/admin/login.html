@@ -85,47 +85,95 @@
         </div>
       </div>
 
-      <h1 class="login-heading">Sign in</h1>
-      <p class="login-sub">
-        Credentials are in your <code>.env</code> or via <code>neoagent admin</code>
-      </p>
+      <!-- Step 1: credentials -->
+      <div id="step-credentials">
+        <h1 class="login-heading">Sign in</h1>
+        <p class="login-sub">
+          Credentials are in your <code>.env</code> or via <code>neoagent admin</code>
+        </p>
 
-      <div class="alert alert-error" id="error" role="alert"></div>
+        <div class="alert alert-error" id="error" role="alert"></div>
 
-      <form id="form" novalidate>
-        <div class="field">
-          <label for="username">Username</label>
-          <input
-            id="username"
-            type="text"
-            autocomplete="username"
-            autofocus
-            required
-            spellcheck="false"
-            autocorrect="off"
-            autocapitalize="none"
-          >
+        <form id="form" novalidate>
+          <div class="field">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              autocomplete="username"
+              autofocus
+              required
+              spellcheck="false"
+              autocorrect="off"
+              autocapitalize="none"
+            >
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            >
+          </div>
+          <button type="submit" class="btn btn-primary submit-btn" id="submit-btn">
+            Sign in
+          </button>
+        </form>
+      </div>
+
+      <!-- Step 2: 2FA code (shown after password is accepted) -->
+      <div id="step-totp" style="display:none;">
+        <h1 class="login-heading">Two-factor authentication</h1>
+        <p class="login-sub">Enter the 6-digit code from your authenticator app, or a recovery code.</p>
+
+        <div class="alert alert-error" id="totp-error" role="alert"></div>
+
+        <form id="totp-form" novalidate>
+          <div class="field">
+            <label for="totp-code">Authenticator code</label>
+            <input
+              id="totp-code"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="11"
+              placeholder="123 456"
+              spellcheck="false"
+              autocorrect="off"
+              autocapitalize="none"
+              required
+            >
+          </div>
+          <button type="submit" class="btn btn-primary submit-btn" id="totp-btn">
+            Verify
+          </button>
+        </form>
+        <div style="margin-top:14px;text-align:center;">
+          <button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 10px;"
+            onclick="backToCredentials()">← Back</button>
         </div>
-        <div class="field">
-          <label for="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            autocomplete="current-password"
-            required
-          >
-        </div>
-        <button type="submit" class="btn btn-primary submit-btn" id="submit-btn">
-          Sign in
-        </button>
-      </form>
+      </div>
     </div>
   </div>
 
   <script>
-    const form     = document.getElementById('form');
+    const form      = document.getElementById('form');
     const submitBtn = document.getElementById('submit-btn');
-    const errorEl  = document.getElementById('error');
+    const errorEl   = document.getElementById('error');
+    const totpForm  = document.getElementById('totp-form');
+    const totpBtn   = document.getElementById('totp-btn');
+    const totpError = document.getElementById('totp-error');
+
+    function showStep(step) {
+      document.getElementById('step-credentials').style.display = step === 1 ? '' : 'none';
+      document.getElementById('step-totp').style.display        = step === 2 ? '' : 'none';
+      if (step === 2) setTimeout(() => document.getElementById('totp-code')?.focus(), 50);
+      if (step === 1) setTimeout(() => document.getElementById('username')?.focus(), 50);
+    }
+
+    function backToCredentials() { showStep(1); }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -143,12 +191,18 @@
           }),
         });
 
-        if (res.ok) {
-          window.location.replace('/admin');
+        const body = await res.json().catch(() => ({}));
+
+        if (res.ok || body.requiresTwoFactor) {
+          if (body.requiresTwoFactor) {
+            // Password accepted — go to 2FA step
+            showStep(2);
+          } else {
+            window.location.replace('/admin');
+          }
           return;
         }
 
-        const body = await res.json().catch(() => ({}));
         errorEl.textContent = body.error || 'Invalid credentials';
         errorEl.classList.add('visible');
       } catch {
@@ -157,6 +211,39 @@
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Sign in';
+      }
+    });
+
+    totpForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      totpError.classList.remove('visible');
+      totpBtn.disabled = true;
+      totpBtn.textContent = 'Verifying…';
+
+      try {
+        const code = document.getElementById('totp-code').value.trim();
+        const res = await fetch('/admin/api/2fa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        });
+
+        if (res.ok) {
+          window.location.replace('/admin');
+          return;
+        }
+
+        const body = await res.json().catch(() => ({}));
+        totpError.textContent = body.error || 'Invalid code';
+        totpError.classList.add('visible');
+        document.getElementById('totp-code').value = '';
+        document.getElementById('totp-code').focus();
+      } catch {
+        totpError.textContent = 'Network error';
+        totpError.classList.add('visible');
+      } finally {
+        totpBtn.disabled = false;
+        totpBtn.textContent = 'Verify';
       }
     });
   </script>
