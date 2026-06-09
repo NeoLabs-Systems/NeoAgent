@@ -63,11 +63,14 @@ function registerStaticRoutes(app) {
     });
   });
 
+  const adminRouter = require('../routes/admin');
+  app.use('/admin', adminRouter);
+
   app.use(express.static(FLUTTER_WEB_DIR, {
     index: false,
     setHeaders: setFlutterStaticHeaders,
   }));
-  app.get(/^\/(?!api|screenshots|telnyx-audio).*/, serveFlutterApp);
+  app.get(/^\/(?!api|admin|screenshots|telnyx-audio).*/, serveFlutterApp);
 }
 
 function serveFlutterApp(req, res) {

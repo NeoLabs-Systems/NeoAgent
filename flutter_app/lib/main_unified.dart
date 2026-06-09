@@ -2,7 +2,7 @@ part of 'main.dart';
 
 enum _ToolsPageTab { integrations, mcp, skills }
 
-enum _RunsPageTab { runs, logs }
+enum _RunsPageTab { runs }
 
 enum _SettingsWorkspaceSection { app, account, security }
 
@@ -126,76 +126,7 @@ class RunsAndLogsPanel extends StatefulWidget {
   State<RunsAndLogsPanel> createState() => _RunsAndLogsPanelState();
 }
 
-class _RunsAndLogsPanelState extends State<RunsAndLogsPanel>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-  bool _syncingFromController = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(
-      length: _RunsPageTab.values.length,
-      vsync: this,
-      initialIndex: _tabForSection(widget.controller.selectedSection).index,
-    )..addListener(_handleTabChanged);
-  }
-
-  @override
-  void didUpdateWidget(covariant RunsAndLogsPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final selectedSection = widget.controller.selectedSection;
-    if (selectedSection != oldWidget.controller.selectedSection &&
-        (selectedSection == AppSection.runs ||
-            selectedSection == AppSection.logs)) {
-      final targetIndex = _tabForSection(selectedSection).index;
-      if (_tabController.index != targetIndex) {
-        _syncingFromController = true;
-        _tabController.index = targetIndex;
-        _syncingFromController = false;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _tabController.removeListener(_handleTabChanged);
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _handleTabChanged() {
-    if (_syncingFromController || _tabController.indexIsChanging) {
-      return;
-    }
-    _selectSectionForTabIndex(_tabController.index);
-  }
-
-  void _selectSectionForTabIndex(int index) {
-    final section = _sectionForTab(_RunsPageTab.values[index]);
-    if (widget.controller.selectedSection != section) {
-      widget.controller.setSelectedSection(section);
-    }
-  }
-
-  _RunsPageTab _tabForSection(AppSection section) {
-    switch (section) {
-      case AppSection.logs:
-        return _RunsPageTab.logs;
-      default:
-        return _RunsPageTab.runs;
-    }
-  }
-
-  AppSection _sectionForTab(_RunsPageTab tab) {
-    switch (tab) {
-      case _RunsPageTab.logs:
-        return AppSection.logs;
-      case _RunsPageTab.runs:
-        return AppSection.runs;
-    }
-  }
-
+class _RunsAndLogsPanelState extends State<RunsAndLogsPanel> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -204,38 +135,12 @@ class _RunsAndLogsPanelState extends State<RunsAndLogsPanel>
       child: Column(
         children: <Widget>[
           const _PageTitle(
-            title: 'Runs & Logs',
-            subtitle:
-                'Inspect execution history, failures, tool traces, and diagnostics from one workspace.',
-          ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: _bgSecondary,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              dividerColor: _border,
-              indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-              onTap: _selectSectionForTabIndex,
-              tabs: <Widget>[
-                Tab(text: 'Runs (${controller.recentRuns.length})'),
-                Tab(text: 'Logs (${controller.logs.length})'),
-              ],
-            ),
+            title: 'Runs',
+            subtitle: 'Inspect execution history, failures, and tool traces.',
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: <Widget>[
-                RunsPanel(controller: controller, embedded: true),
-                LogsPanel(controller: controller, embedded: true),
-              ],
-            ),
+            child: RunsPanel(controller: controller, embedded: true),
           ),
         ],
       ),

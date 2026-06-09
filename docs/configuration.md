@@ -4,6 +4,12 @@ NeoAgent reads server config from `~/.neoagent/.env`. Run `neoagent setup` to ge
 
 All AI provider credentials, OAuth client secrets, and deployment settings are server-side only — never sent to the client or exposed in the UI.
 
+## Admin Dashboard
+
+The admin dashboard at `/admin` provides a web UI for operator tasks including AI provider key management, server logs, and runtime updates. Credentials are generated during `neoagent setup` (or run `neoagent admin` to view them).
+
+Navigate to **Providers** in the sidebar to set or rotate API keys without editing `.env` manually — changes take effect immediately without a server restart.
+
 ## Minimal Config
 
 ```dotenv
