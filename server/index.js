@@ -103,7 +103,7 @@ const sessionMiddleware = createSessionMiddleware({
 });
 const activeSockets = new Set();
 
-setupConsoleInterceptor(io);
+app.locals.logHistory = setupConsoleInterceptor(io);
 applyHttpMiddleware(app, {
   secureCookies: SECURE_COOKIES,
   trustProxy: TRUST_PROXY,

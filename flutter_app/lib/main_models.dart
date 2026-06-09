@@ -1888,6 +1888,27 @@ class ChatEntry {
     }
     return null;
   }
+
+  ChatRichPayload? get richPayload {
+    final schema = metadata['schema'];
+    if (schema is! Map) return null;
+    final type = schema['type']?.toString() ?? '';
+    if (type != 'quick_reply' && type != 'list_picker') return null;
+    final optList = schema['options'];
+    if (optList is! List) return null;
+    final options = optList
+        .whereType<Map>()
+        .map(
+          (item) => ChatPayloadOption(
+            label: item['label']?.toString() ?? '',
+            value: item['value']?.toString() ?? '',
+          ),
+        )
+        .where((o) => o.label.isNotEmpty)
+        .toList(growable: false);
+    if (options.isEmpty) return null;
+    return ChatRichPayload(type: type, options: options);
+  }
 }
 
 class SharedChatAttachment {
@@ -4041,3 +4062,18 @@ class ToolEventItem {
 
   String get compactSummary => _condenseRunText(summary, maxLength: 120);
 }
+
+class ChatPayloadOption {
+  const ChatPayloadOption({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+class ChatRichPayload {
+  const ChatRichPayload({required this.type, required this.options});
+
+  final String type;
+  final List<ChatPayloadOption> options;
+}
+

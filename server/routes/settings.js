@@ -562,8 +562,16 @@ router.delete('/:key', (req, res) => {
   res.json({ success: true });
 });
 
+function requireAdminSession(req, res, next) {
+  if (req.session?.isAdmin === true) return next();
+  return res.status(403).json({
+    success: false,
+    error: 'Server updates are only available from the admin dashboard.',
+  });
+}
+
 // Trigger auto-update script
-router.post('/update', requireAuth, updateTriggerLimiter, (req, res) => {
+router.post('/update', requireAuth, requireAdminSession, updateTriggerLimiter, (req, res) => {
   if (isManagedDeployment()) {
     return res.status(403).json({
       success: false,
@@ -611,7 +619,7 @@ router.post('/update', requireAuth, updateTriggerLimiter, (req, res) => {
   res.json({ success: true, message: 'Update triggered', pid: child.pid });
 });
 
-router.put('/update/channel', (req, res) => {
+router.put('/update/channel', requireAuth, requireAdminSession, (req, res) => {
   if (isManagedDeployment()) {
     return res.status(403).json({
       success: false,

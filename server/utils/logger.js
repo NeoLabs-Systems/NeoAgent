@@ -1,5 +1,8 @@
 'use strict';
 
+const fs   = require('fs');
+const path = require('path');
+
 const SENSITIVE_KEY_RE = /(?:^|_|-)(?:token|secret|password|api[_-]?key|authorization|cookie|session(?:id)?|sid)(?:$|_|-)/i;
 
 function redactSecrets(input) {
@@ -96,22 +99,57 @@ function logRequestSummary(level, req, message, extra = null) {
     console[level](redactSecrets(`${prefix} ${message}`), summary);
 }
 
+function getLogFile() {
+    try {
+        const { DATA_DIR } = require('../../runtime/paths');
+        return path.join(DATA_DIR, 'server-logs.jsonl');
+    } catch {
+        return path.join(require('os').homedir(), '.neoagent', 'data', 'server-logs.jsonl');
+    }
+}
+
+function loadPersistedLogs(logFile) {
+    try {
+        const raw = fs.readFileSync(logFile, 'utf8');
+        const entries = [];
+        for (const line of raw.split('\n')) {
+            if (!line.trim()) continue;
+            try { entries.push(JSON.parse(line)); } catch {}
+        }
+        return entries.slice(-1000);
+    } catch {
+        return [];
+    }
+}
+
 /**
- * Intercepts console methods and broadcasts logs via Socket.IO
- * @param {import('socket.io').Server} io 
+ * Intercepts console methods and broadcasts logs via Socket.IO.
+ * Persists up to 1000 entries to disk across server restarts.
+ * @param {import('socket.io').Server} io
  */
 function setupConsoleInterceptor(io) {
-    const logHistory = [];
-    const MAX_LOG_HISTORY = 200;
+    const MAX_LOG_HISTORY = 1000;
+    const TRIM_AT = 1100;
+    const logFile = getLogFile();
     const allowLogHistoryRequests = String(process.env.NEOAGENT_ENABLE_LOG_HISTORY_REQUESTS || '').trim().toLowerCase() === 'true';
+
+    try { fs.mkdirSync(path.dirname(logFile), { recursive: true }); } catch {}
+    const logHistory = loadPersistedLogs(logFile);
 
     function broadcastLog(type, args) {
         const msg = formatLogArgs(args);
         const logEntry = { type, message: msg, timestamp: new Date().toISOString() };
         logHistory.push(logEntry);
-        if (logHistory.length > MAX_LOG_HISTORY) logHistory.shift();
 
-        // Broadcast only to authenticated user rooms
+        try { fs.appendFileSync(logFile, JSON.stringify(logEntry) + '\n'); } catch {}
+
+        if (logHistory.length > TRIM_AT) {
+            logHistory.splice(0, logHistory.length - MAX_LOG_HISTORY);
+            try {
+                fs.writeFileSync(logFile, logHistory.map(e => JSON.stringify(e)).join('\n') + '\n');
+            } catch {}
+        }
+
         for (const [, socket] of io.sockets.sockets) {
             const uid = socket.request?.session?.userId;
             if (uid) socket.emit('server:log', logEntry);

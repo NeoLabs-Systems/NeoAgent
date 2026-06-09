@@ -639,6 +639,53 @@ class _PageTitle extends StatelessWidget {
   }
 }
 
+IconData _runPhaseIcon(String phase) {
+  switch (phase.toLowerCase()) {
+    case 'thinking':
+      return Icons.psychology_outlined;
+    case 'analyzing':
+      return Icons.analytics_outlined;
+    case 'planning':
+      return Icons.list_alt_outlined;
+    case 'verifying':
+      return Icons.fact_check_outlined;
+    case 'streaming':
+    case 'responding':
+      return Icons.chat_outlined;
+    case 'awaiting approval':
+      return Icons.lock_clock_outlined;
+    case 'incorporating steering':
+      return Icons.tune_outlined;
+    case 'completed':
+      return Icons.check_circle_outline_rounded;
+    case 'stopped':
+    case 'stopping':
+      return Icons.stop_circle_outlined;
+    default:
+      return Icons.sync_outlined;
+  }
+}
+
+Color _runPhaseColor(String phase) {
+  switch (phase.toLowerCase()) {
+    case 'thinking':
+    case 'analyzing':
+    case 'planning':
+      return _info;
+    case 'verifying':
+      return _accentAlt;
+    case 'awaiting approval':
+      return _warning;
+    case 'completed':
+      return _success;
+    case 'stopped':
+    case 'stopping':
+      return _textSecondary;
+    default:
+      return _accent;
+  }
+}
+
 class _RunStatusPanel extends StatelessWidget {
   const _RunStatusPanel({required this.run, required this.tools});
 
@@ -650,6 +697,9 @@ class _RunStatusPanel extends StatelessWidget {
     final runningCount = tools.where((tool) => tool.status == 'running').length;
     final helperCount = tools.where((tool) => tool.isHelperRelated).length;
     final webCount = tools.where((tool) => tool.isWebRelated).length;
+    final phase = run?.phase ?? '';
+    final phaseColor = _runPhaseColor(phase);
+    final isDeepRun = (run?.iteration ?? 0) >= 8;
 
     return Card(
       child: Padding(
@@ -659,6 +709,30 @@ class _RunStatusPanel extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
+                if (phase.isNotEmpty) ...<Widget>[
+                  _PulseHalo(
+                    color: phaseColor,
+                    animate: phase.toLowerCase() != 'completed' &&
+                        phase.toLowerCase() != 'stopped',
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: phaseColor.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: phaseColor.withValues(alpha: 0.28),
+                        ),
+                      ),
+                      child: Icon(
+                        _runPhaseIcon(phase),
+                        size: 16,
+                        color: phaseColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -670,7 +744,7 @@ class _RunStatusPanel extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         run == null
                             ? 'Waiting for run events...'
@@ -679,7 +753,12 @@ class _RunStatusPanel extends StatelessWidget {
                                 if (run!.pendingSteeringCount > 0)
                                   '${run!.pendingSteeringCount} steering ${run!.pendingSteeringCount == 1 ? 'update' : 'updates'} queued',
                               ].join(' · '),
-                        style: TextStyle(color: _textSecondary),
+                        style: TextStyle(
+                          color: phase.isNotEmpty
+                              ? phaseColor.withValues(alpha: 0.8)
+                              : _textSecondary,
+                          fontSize: 12.5,
+                        ),
                       ),
                     ],
                   ),
@@ -713,6 +792,12 @@ class _RunStatusPanel extends StatelessWidget {
                     _MetaPill(
                       label: '$helperCount helpers',
                       icon: Icons.account_tree_outlined,
+                    ),
+                  if (isDeepRun)
+                    _MetaPill(
+                      label: 'deep run · step ${run!.iteration}',
+                      icon: Icons.warning_amber_outlined,
+                      color: _warning,
                     ),
                 ],
               ),
@@ -1479,10 +1564,15 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.entry, this.onLoadRunDetail});
+  const _ChatBubble({
+    required this.entry,
+    this.onLoadRunDetail,
+    this.onSendMessage,
+  });
 
   final ChatEntry entry;
   final Future<RunDetailSnapshot> Function(String runId)? onLoadRunDetail;
+  final void Function(String)? onSendMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -1602,6 +1692,15 @@ class _ChatBubble extends StatelessWidget {
                       _MessageRunPreview(
                         runId: entry.runId!.trim(),
                         onLoadRunDetail: onLoadRunDetail,
+                      ),
+                    ],
+                    if (!isUser &&
+                        entry.richPayload != null &&
+                        onSendMessage != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      _QuickReplyBar(
+                        payload: entry.richPayload!,
+                        onSelected: onSendMessage!,
                       ),
                     ],
                     const SizedBox(height: 10),
@@ -3755,6 +3854,42 @@ String _summarizeToolResult(dynamic raw) {
   }
   final text = raw.toString();
   return text.length > 140 ? '${text.substring(0, 140)}…' : text;
+}
+
+class _QuickReplyBar extends StatelessWidget {
+  const _QuickReplyBar({required this.payload, required this.onSelected});
+
+  final ChatRichPayload payload;
+  final void Function(String value) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: payload.options.map((option) {
+        return GestureDetector(
+          onTap: () => onSelected(option.value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: _accentMuted,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _accent.withValues(alpha: 0.4)),
+            ),
+            child: Text(
+              option.label,
+              style: TextStyle(
+                fontSize: 13,
+                color: _accent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      }).toList(growable: false),
+    );
+  }
 }
 
 String _titleCase(String value) {

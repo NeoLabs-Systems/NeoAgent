@@ -2176,8 +2176,6 @@ class _SectionBody extends StatelessWidget {
         return SettingsWorkspacePanel(controller: controller);
       case AppSection.accountSettings:
         return SettingsWorkspacePanel(controller: controller);
-      case AppSection.logs:
-        return RunsAndLogsPanel(controller: controller);
       case AppSection.skills:
         return ToolsPanel(controller: controller);
       case AppSection.agents:
