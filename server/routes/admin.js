@@ -611,7 +611,7 @@ router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
   if (!ALLOWED_PROVIDER_KEYS.has(key)) {
     return res.status(400).json({ error: 'Unknown provider key' });
   }
-  const trimmed = String(value || '').trim();
+  const trimmed = String(value || '').trim().replace(/[\r\n]/g, '');
   upsertEnvValue(ENV_FILE, key, trimmed);
   if (trimmed) {
     process.env[key] = trimmed;
