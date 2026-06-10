@@ -355,11 +355,11 @@ async function loadModels() {
   try {
     const data = await api('/admin/api/models').then((r) => r.json());
     const models = data.models || [];
-    const enabledModels = data.enabledModels || [];
+    const disabledSet = new Set(data.disabledModels || []);
 
-    if (!models.length) { el.innerHTML = '<div class="empty">No models found</div>'; return; }
+    if (!models.length) { el.innerHTML = '<div class="empty">No models found — configure providers first.</div>'; return; }
 
-    // Group by provider for better readability
+    // Sort: provider alpha, then price low→high within provider
     models.sort((a, b) => {
       if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
       const ac = a.inputCostPerM ?? Infinity;
@@ -367,12 +367,12 @@ async function loadModels() {
       return ac - bc;
     });
 
-    const enabledCount = enabledModels.length === 0 ? models.length : enabledModels.length;
+    const enabledCount = models.length - disabledSet.size;
 
     let html = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleAllModels(true)">Select All</button>
-        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleAllModels(false)">Select None</button>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleAllModels(true)">Enable All</button>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleAllModels(false)">Disable All</button>
         <span style="margin-left:4px;font-size:12px;color:var(--text-muted);" id="model-count-label">${enabledCount} of ${models.length} enabled</span>
       </div>
       <table class="users-table">
@@ -387,15 +387,14 @@ async function loadModels() {
       <tbody>`;
 
     for (const m of models) {
-      const isChecked = enabledModels.length === 0 || enabledModels.includes(m.id);
-      const rowOpacity = isChecked ? '1' : '0.45';
+      const isEnabled = !disabledSet.has(m.id);
       const priceStr = fmtModelPrice(m.inputCostPerM);
       const tierCls = priceTierClass(m.priceTier);
       const icon = purposeIcon(m.purpose);
       html += `
-        <tr style="opacity:${rowOpacity}" id="model-row-${esc(m.id)}">
+        <tr style="opacity:${isEnabled ? '1' : '0.45'}">
           <td style="text-align:center;">
-            <input type="checkbox" class="model-cb" value="${esc(m.id)}" ${isChecked ? 'checked' : ''}
+            <input type="checkbox" class="model-cb" value="${esc(m.id)}" ${isEnabled ? 'checked' : ''}
               onchange="onModelToggle(this)">
           </td>
           <td>
@@ -403,7 +402,7 @@ async function loadModels() {
             <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">${esc(m.id)}</div>
           </td>
           <td style="font-size:13px;text-transform:capitalize;">${esc(m.provider)}</td>
-          <td><span class="badge badge-idle" style="gap:4px;">${icon} ${esc(m.purpose)}</span></td>
+          <td><span class="badge badge-idle">${icon} ${esc(m.purpose)}</span></td>
           <td><span class="badge ${tierCls}">${esc(m.priceTier ?? '?')}</span></td>
           <td style="text-align:right;font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--text);">${priceStr}</td>
         </tr>
@@ -442,20 +441,19 @@ function toggleAllModels(enable) {
 async function saveEnabledModels(btn) {
   const cbs = document.querySelectorAll('.model-cb');
   if (!cbs.length) return;
-  
-  // If all are checked, we can save an empty list to mean "all enabled"
-  const allChecked = Array.from(cbs).every(cb => cb.checked);
-  const enabledModels = allChecked ? [] : Array.from(cbs).filter(cb => cb.checked).map(cb => cb.value);
-  
+
+  // Persist only the disabled (unchecked) models
+  const disabledModels = Array.from(cbs).filter(cb => !cb.checked).map(cb => cb.value);
+
   btn.disabled = true;
   const original = btn.textContent;
   btn.textContent = 'Saving…';
-  
+
   try {
-    const res = await api('/admin/api/models/enabled', {
+    const res = await api('/admin/api/models/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabledModels }),
+      body: JSON.stringify({ disabledModels }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));

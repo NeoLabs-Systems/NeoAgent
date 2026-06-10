@@ -430,8 +430,8 @@ async function getSupportedModels(userId, agentId = null) {
         }
     }
 
-    const globalEnabledStr = process.env.NEOAGENT_ENABLED_MODELS || '';
-    const globalEnabledSet = globalEnabledStr ? new Set(globalEnabledStr.split(',').map(s => s.trim()).filter(Boolean)) : null;
+    const globalDisabledStr = process.env.NEOAGENT_DISABLED_MODELS || '';
+    const globalDisabledSet = globalDisabledStr ? new Set(globalDisabledStr.split(',').map(s => s.trim()).filter(Boolean)) : null;
 
     return all.map((model) => {
         const provider = providerById.get(model.provider);
@@ -440,9 +440,9 @@ async function getSupportedModels(userId, agentId = null) {
         const priceTier = model.provider === 'ollama'
             ? 'free'
             : (model.priceTier ?? classifyPriceTier(model.id));
-        
+
         let available = provider?.available !== false;
-        if (globalEnabledSet && !globalEnabledSet.has(model.id)) {
+        if (available && globalDisabledSet?.has(model.id)) {
             available = false;
         }
 
