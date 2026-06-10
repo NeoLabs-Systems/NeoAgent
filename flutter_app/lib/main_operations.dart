@@ -4842,6 +4842,7 @@ class _TaskTriggerOption {
     required this.description,
     required this.icon,
     this.providerKey,
+    this.appKey,
   });
 
   final String type;
@@ -4854,6 +4855,12 @@ class _TaskTriggerOption {
   /// When set, the task editor shows a connected-account dropdown instead of
   /// a raw connection ID text field.
   final String? providerKey;
+
+  /// The app within the provider (matches [OfficialIntegrationAppItem.id]).
+  /// Narrows account lookup to just the relevant app so multi-app providers
+  /// (e.g. Google Workspace with Gmail + Drive + Calendar) don't show
+  /// duplicate accounts.
+  final String? appKey;
 }
 
 const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
@@ -4878,6 +4885,7 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     description: 'Run when a matching Gmail message arrives.',
     icon: Icons.mail_rounded,
     providerKey: 'google_workspace',
+    appKey: 'gmail',
   ),
   _TaskTriggerOption(
     type: 'outlook_email_received',
@@ -4886,6 +4894,7 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     description: 'Run when a matching Outlook email arrives.',
     icon: Icons.markunread_rounded,
     providerKey: 'microsoft_365',
+    appKey: 'outlook',
   ),
   _TaskTriggerOption(
     type: 'slack_message_received',
@@ -4894,6 +4903,7 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     description: 'Run when a Slack message matches the selected scope.',
     icon: Icons.forum_rounded,
     providerKey: 'slack',
+    appKey: 'slack',
   ),
   _TaskTriggerOption(
     type: 'teams_message_received',
@@ -4902,6 +4912,7 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     description: 'Run when a Teams chat message matches the selected scope.',
     icon: Icons.groups_rounded,
     providerKey: 'microsoft_365',
+    appKey: 'teams',
   ),
   _TaskTriggerOption(
     type: 'weather_event',
@@ -4911,6 +4922,7 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
         'Run when configured weather events are forecast for a location.',
     icon: Icons.cloudy_snowing,
     providerKey: 'weather',
+    appKey: 'forecast',
   ),
   _TaskTriggerOption(
     type: 'whatsapp_personal_message_received',
@@ -4919,6 +4931,7 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     description: 'Run on inbound personal WhatsApp messages.',
     icon: Icons.chat_bubble_rounded,
     providerKey: 'whatsapp_personal',
+    appKey: 'personal',
   ),
 ];
 
@@ -5578,13 +5591,16 @@ class _TasksPanelState extends State<TasksPanel> {
   List<OfficialIntegrationAccountItem> _connectedAccountsForTrigger(
     String triggerType,
   ) {
-    final providerKey = _taskTriggerOptionForType(triggerType).providerKey;
+    final option = _taskTriggerOptionForType(triggerType);
+    final providerKey = option.providerKey;
     if (providerKey == null) return const <OfficialIntegrationAccountItem>[];
+    final appKey = option.appKey;
     final seen = <int>{};
     final result = <OfficialIntegrationAccountItem>[];
     for (final integration in controller.officialIntegrations) {
       if (integration.id != providerKey) continue;
       for (final app in integration.apps) {
+        if (appKey != null && app.id != appKey) continue;
         for (final account in app.accounts) {
           if (account.connected && seen.add(account.id)) {
             result.add(account);
