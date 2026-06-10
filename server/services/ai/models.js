@@ -430,6 +430,9 @@ async function getSupportedModels(userId, agentId = null) {
         }
     }
 
+    const globalEnabledStr = process.env.NEOAGENT_ENABLED_MODELS || '';
+    const globalEnabledSet = globalEnabledStr ? new Set(globalEnabledStr.split(',').map(s => s.trim()).filter(Boolean)) : null;
+
     return all.map((model) => {
         const provider = providerById.get(model.provider);
         // Ollama models are always local/free; all others look up the OpenRouter
@@ -437,10 +440,16 @@ async function getSupportedModels(userId, agentId = null) {
         const priceTier = model.provider === 'ollama'
             ? 'free'
             : (model.priceTier ?? classifyPriceTier(model.id));
+        
+        let available = provider?.available !== false;
+        if (globalEnabledSet && !globalEnabledSet.has(model.id)) {
+            available = false;
+        }
+
         return {
             ...model,
             priceTier,
-            available: provider?.available !== false,
+            available,
             providerStatus: provider?.status || 'unknown',
             providerStatusLabel: provider?.statusLabel || 'Unknown'
         };

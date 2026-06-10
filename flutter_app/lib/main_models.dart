@@ -4077,3 +4077,27 @@ class ChatRichPayload {
   final List<ChatPayloadOption> options;
 }
 
+class AccountUsageAndLimits {
+  const AccountUsageAndLimits({
+    this.fourHourLimit,
+    this.weeklyLimit,
+    this.fourHourUsage = 0,
+    this.weeklyUsage = 0,
+  });
+
+  factory AccountUsageAndLimits.fromJson(Map<String, dynamic> json) {
+    final limits = json['limits'] is Map ? json['limits'] as Map : const {};
+    final usage = json['usage'] is Map ? json['usage'] as Map : const {};
+    return AccountUsageAndLimits(
+      fourHourLimit: int.tryParse(limits['fourHour']?.toString() ?? ''),
+      weeklyLimit: int.tryParse(limits['weekly']?.toString() ?? ''),
+      fourHourUsage: _asInt(usage['fourHour']),
+      weeklyUsage: _asInt(usage['weekly']),
+    );
+  }
+
+  final int? fourHourLimit;
+  final int? weeklyLimit;
+  final int fourHourUsage;
+  final int weeklyUsage;
+}

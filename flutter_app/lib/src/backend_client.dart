@@ -224,6 +224,10 @@ class BackendClient {
     return getMap(baseUrl, '/api/account');
   }
 
+  Future<Map<String, dynamic>> fetchAccountUsage(String baseUrl) async {
+    return getMap(baseUrl, '/api/account/usage');
+  }
+
   Future<Map<String, dynamic>> updateAccountEmail({
     required String baseUrl,
     required String email,

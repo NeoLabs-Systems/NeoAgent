@@ -110,6 +110,27 @@ router.get('/', (req, res) => {
   }
 });
 
+router.get('/usage', (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const userLimits = db.prepare('SELECT rate_limit_4h, rate_limit_weekly FROM users WHERE id = ?').get(userId);
+    const h4Tokens = db.prepare("SELECT COALESCE(SUM(total_tokens), 0) as t FROM agent_runs WHERE user_id = ? AND created_at > datetime('now', '-4 hours')").get(userId).t;
+    const weeklyTokens = db.prepare("SELECT COALESCE(SUM(total_tokens), 0) as t FROM agent_runs WHERE user_id = ? AND created_at > datetime('now', '-7 days')").get(userId).t;
+    res.json({
+      limits: {
+        fourHour: userLimits?.rate_limit_4h || null,
+        weekly: userLimits?.rate_limit_weekly || null,
+      },
+      usage: {
+        fourHour: h4Tokens,
+        weekly: weeklyTokens,
+      }
+    });
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
 router.put('/display-name', accountLimiter, (req, res) => {
   try {
     const displayName = normalizeDisplayName(req.body?.displayName);
