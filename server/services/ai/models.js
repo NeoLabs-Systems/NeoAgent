@@ -402,7 +402,7 @@ async function getSupportedModels(userId, agentId = null) {
 
     // Ollama: dynamic list from local server
     const ollama = providerById.get('ollama');
-    if (ollama?.enabled) {
+    if (ollama?.available) {
         const dynamicModels = await refreshDynamicModels(ollama.baseUrl);
         for (const model of dynamicModels) {
             if (!staticIds.has(model.id)) {
