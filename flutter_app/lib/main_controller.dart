@@ -37,7 +37,6 @@ class NeoAgentController extends ChangeNotifier {
   final OAuthLauncher _oauthLauncher;
   final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
       app_release_updater.AppReleaseUpdater();
-  final AppAnalytics _analytics = AppAnalytics();
   final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
   final DesktopScreenCapture _desktopScreenCapture =
       createDesktopScreenCapture();
@@ -104,10 +103,6 @@ class NeoAgentController extends ChangeNotifier {
   bool networkStatusKnown = false;
   bool _desktopFloatingToolbarPopupRequested = false;
   bool _voiceAssistantIncludeScreenContext = false;
-  bool _didTrackAppOpen = false;
-  bool _analyticsConfigured = false;
-  bool _analyticsConsentResolved = false;
-  bool _analyticsConsentGranted = false;
 
   io.Socket? get streamSocket => socketConnected ? _socket : null;
 
@@ -343,7 +338,6 @@ class NeoAgentController extends ChangeNotifier {
     _diagnosticLogSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _appReleaseUpdater.dispose();
-    unawaited(_analytics.dispose());
     _desktopCompanion.removeListener(notifyListeners);
     unawaited(_desktopCompanion.disconnect());
     _recordingBridge.removeListener(_handleRecordingBridgeChanged);
@@ -373,12 +367,6 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get canCaptureVoiceAssistantScreenContext =>
       _desktopScreenCapture.isSupported;
-
-  bool get showAnalyticsConsentBanner =>
-      kIsWeb && _analyticsConfigured && !_analyticsConsentResolved;
-
-  bool get analyticsConsentGranted =>
-      _analyticsConsentResolved && _analyticsConsentGranted;
 
   bool get isLiveVoiceCaptureEngaged =>
       _isStartingLiveVoice || _liveVoiceCaptureActive;
@@ -735,7 +723,6 @@ class NeoAgentController extends ChangeNotifier {
     appUpdateAutoCheckEnabled =
         _prefs?.getBool('app.update.autoCheckEnabled') ?? true;
     installedAppVersion = await _safeLoadInstalledAppVersion();
-    await _initializeAnalytics();
     await refreshConnectivityStatus();
     if (_connectivityPluginAvailable && _connectivitySubscription == null) {
       try {
@@ -898,105 +885,6 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> _initializeAnalytics() async {
-    try {
-      final runtimeConfig = await _backendClient.fetchRuntimeConfig(backendUrl);
-      final analyticsConfig = runtimeConfig['analytics'];
-      final mixpanelConfig = analyticsConfig is Map
-          ? analyticsConfig['mixpanel']
-          : null;
-      final token = mixpanelConfig is Map
-          ? mixpanelConfig['token']?.toString()
-          : null;
-      _analyticsConfigured = token != null && token.trim().isNotEmpty;
-      final consentState = _prefs?.getBool('analytics.cookieConsent');
-      // On web, require explicit opt-in (GDPR). On native, consent is implicit
-      // unless the user has previously declined.
-      _analyticsConsentResolved = consentState != null || !kIsWeb;
-      _analyticsConsentGranted = kIsWeb
-          ? consentState == true
-          : consentState != false;
-      await _analytics.initialize(
-        token: token,
-        consentGranted: _analyticsConsentGranted,
-      );
-      _trackAppOpenedIfNeeded();
-    } catch (_) {
-      _analyticsConfigured = false;
-      _analyticsConsentResolved = false;
-      _analyticsConsentGranted = false;
-      await _analytics.initialize(token: null, consentGranted: false);
-    }
-  }
-
-  void _trackAppOpenedIfNeeded({String? consentSource}) {
-    if (!_analytics.enabled || _didTrackAppOpen) {
-      return;
-    }
-    _didTrackAppOpen = true;
-    unawaited(
-      _analytics.trackAppOpened(
-        appMode: appMode.name,
-        platform: _analyticsPlatformLabel(),
-        backendMode: backendUrl.trim().isEmpty ? 'same_origin' : 'custom',
-        selectedSection: selectedSection.label,
-        deploymentProfile: deploymentProfile,
-        authenticated: isAuthenticated,
-      ),
-    );
-    if (consentSource != null) {
-      unawaited(
-        _analytics.track(
-          'analytics_consent_granted',
-          properties: <String, Object?>{'consent_source': consentSource},
-        ),
-      );
-    }
-  }
-
-  String _analyticsPlatformLabel() {
-    if (kIsWeb) {
-      return 'web';
-    }
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'android';
-      case TargetPlatform.iOS:
-        return 'ios';
-      case TargetPlatform.macOS:
-        return 'macos';
-      case TargetPlatform.windows:
-        return 'windows';
-      case TargetPlatform.linux:
-        return 'linux';
-      case TargetPlatform.fuchsia:
-        return 'fuchsia';
-    }
-  }
-
-  Future<void> acceptAnalyticsConsent() async {
-    if (!_analyticsConfigured) {
-      return;
-    }
-    _analyticsConsentResolved = true;
-    _analyticsConsentGranted = true;
-    await _prefs?.setBool('analytics.cookieConsent', true);
-    await _analytics.setConsentGranted(true);
-    _trackAppOpenedIfNeeded(consentSource: 'banner');
-    notifyListeners();
-  }
-
-  Future<void> declineAnalyticsConsent() async {
-    if (!_analyticsConfigured) {
-      return;
-    }
-    _analyticsConsentResolved = true;
-    _analyticsConsentGranted = false;
-    await _prefs?.setBool('analytics.cookieConsent', false);
-    await _analytics.setConsentGranted(false);
-    notifyListeners();
-  }
-
   Future<void> setAppUpdateChannel(String channel) async {
     final normalized = channel.trim().toLowerCase() == 'beta'
         ? 'beta'
@@ -1021,7 +909,6 @@ class NeoAgentController extends ChangeNotifier {
     if (isCheckingAppUpdate) {
       return;
     }
-    unawaited(_analytics.trackAppUpdateCheck(silent: silent));
     if (!appUpdaterConfigured) {
       appUpdateErrorMessage = kIsWeb
           ? null
@@ -1120,11 +1007,6 @@ class NeoAgentController extends ChangeNotifier {
       isBooting = true;
       notifyListeners();
       await bootstrap();
-      unawaited(
-        _analytics.trackBackendUrlSaved(
-          backendMode: backendUrl.trim().isEmpty ? 'same_origin' : 'custom',
-        ),
-      );
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -1370,14 +1252,6 @@ class NeoAgentController extends ChangeNotifier {
     _clearQrLoginChallenge();
     await _persistCredentials();
     await refresh();
-    if (isAuthenticated) {
-      unawaited(
-        _analytics.trackSignedIn(
-          authMethod: authMethod,
-          isRegistration: isRegistration,
-        ),
-      );
-    }
     if (!isAuthenticated && retentionErrorMessage != null) {
       errorMessage = retentionErrorMessage;
     }
@@ -1596,7 +1470,6 @@ class NeoAgentController extends ChangeNotifier {
     final logoutFuture = _backendClient.logout(backendUrl);
     _authCycle += 1;
     _clearAuthenticatedState();
-    unawaited(_analytics.trackSignedOut());
     isAuthenticating = true;
     notifyListeners();
 
@@ -1614,7 +1487,6 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
     try {
       await _backendClient.completeOnboarding(backendUrl);
-      unawaited(_analytics.trackOnboardingDismissed());
       if (isAuthenticated && user != null) {
         user!['hasCompletedOnboarding'] = true;
       }
@@ -1794,14 +1666,6 @@ class NeoAgentController extends ChangeNotifier {
     }
     if (section == AppSection.accountSettings) {
       unawaited(refreshAccountSettings());
-    }
-    if (previousSection != section) {
-      unawaited(
-        _analytics.trackSectionChanged(
-          section: section.label,
-          previousSection: previousSection.label,
-        ),
-      );
     }
     notifyListeners();
   }
@@ -2651,9 +2515,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> refreshWidgets({bool all = false}) async {
-    if (all) {
-      unawaited(_analytics.trackWidgetRefreshRequested(all: all));
-    }
     widgets = _decodeModelList(
       'widgets',
       await _backendClient.fetchWidgets(
@@ -3661,7 +3522,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> startBackgroundRecording() async {
-    unawaited(_analytics.trackRecordingStarted(kind: 'background'));
     await _startRecordingCapture(
       logKey: 'start_background',
       payload: buildAndroidBackgroundRecordingPayload(),
@@ -3688,7 +3548,6 @@ class NeoAgentController extends ChangeNotifier {
       }
       return;
     }
-    unawaited(_analytics.trackRecordingStarted(kind: 'desktop'));
     await _startRecordingCapture(
       logKey: 'start_desktop',
       payload: buildDesktopRecordingPayload(),
@@ -4072,16 +3931,6 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
     try {
       _desktopFloatingToolbarPopupRequested = false;
-      unawaited(
-        _analytics.trackRecordingStopped(
-          kind:
-              recordingRuntime.supportsBackgroundMic &&
-                  !recordingRuntime.supportsScreenAndMic
-              ? 'background'
-              : 'desktop',
-          stopReason: stopReason,
-        ),
-      );
       await _recordingBridge.stopActiveRecording();
       if (isAndroidBackgroundStop) {
         await Future<void>.delayed(const Duration(milliseconds: 600));
@@ -4735,13 +4584,6 @@ class NeoAgentController extends ChangeNotifier {
     if (outgoingTask.isEmpty || (isSendingMessage && !canSteerLiveRun)) {
       return;
     }
-    unawaited(
-      _analytics.trackChatMessageSent(
-        length: trimmed.length,
-        steeringLiveRun: canSteerLiveRun,
-      ),
-    );
-
     final optimistic = ChatEntry(
       id: '',
       role: 'user',
@@ -5204,7 +5046,6 @@ class NeoAgentController extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
-      unawaited(_analytics.trackAppUpdateTriggered());
       await _backendClient.triggerUpdate(backendUrl);
       await refreshUpdateStatus();
     } catch (error) {
@@ -6083,7 +5924,6 @@ class NeoAgentController extends ChangeNotifier {
       return;
     }
     _startManualRunCooldown('task', '$id');
-    unawaited(_analytics.trackTaskRunRequested(taskId: id));
     await _backendClient.runSavedTask(backendUrl, id);
     await refreshTasks();
     await refreshRunsOnly();
