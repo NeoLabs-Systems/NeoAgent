@@ -762,18 +762,6 @@ p { margin: 0; text-wrap: pretty; }
 .feature-list .chk { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: rgba(95,168,151,0.16); color: var(--teal); }
 .feature-list .chk svg { width: 13px; height: 13px; }
 
-/* ---------- privacy ---------- */
-.privacy-card { border-radius: 26px; background: var(--wash-b); border: 1px solid var(--line); padding: clamp(30px, 5vw, 64px); display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(28px, 4vw, 48px); align-items: center; }
-.privacy-card h2 { font-size: clamp(28px, 4vw, 46px); font-weight: 450; margin: 14px 0 16px; }
-.privacy-card > div > p { color: var(--ink-2); font-size: 17px; margin-bottom: 22px; }
-.privacy-list { display: grid; gap: 12px; }
-.privacy-list .row { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: 15px; background: var(--surface); border: 1px solid var(--line); transition: transform .25s var(--ease), box-shadow .25s var(--ease); }
-.privacy-list .row:hover { transform: translateX(4px); box-shadow: var(--shadow-sm); }
-.privacy-list .ico { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center; background: rgba(95,168,151,0.16); color: var(--teal); }
-.privacy-list .ico svg { width: 18px; height: 18px; }
-.privacy-list b { display: block; font-weight: 700; font-size: 15.5px; margin-bottom: 3px; color: var(--ink); }
-.privacy-list span { font-size: 14px; color: var(--ink-3); }
-
 /* ---------- final CTA ---------- */
 .final { position: relative; text-align: center; overflow: hidden; border-radius: 30px; background: var(--wash-a); border: 1px solid var(--line); padding: clamp(52px, 9vw, 110px) var(--gutter); }
 .final h2 { font-size: clamp(32px, 5.4vw, 70px); font-weight: 440; margin-bottom: 20px; }
@@ -789,9 +777,9 @@ p { margin: 0; text-wrap: pretty; }
 .footer-left { flex: 1; min-width: 180px; }
 .footer-left .brand { margin-bottom: 10px; }
 .footer-left p { color: var(--ink-3); font-size: 14px; max-width: 220px; }
-.footer-nav, .footer-legal { display: flex; flex-direction: column; gap: 9px; }
-.footer-nav a, .footer-legal a { font-size: 14.5px; color: var(--ink-2); transition: color .2s; }
-.footer-nav a:hover, .footer-legal a:hover { color: var(--gold); }
+.footer-nav { display: flex; flex-direction: column; gap: 9px; }
+.footer-nav a { font-size: 14.5px; color: var(--ink-2); transition: color .2s; }
+.footer-nav a:hover { color: var(--gold); }
 .footer-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-3); }
 .footer-bar .ops { display: inline-flex; align-items: center; gap: 7px; color: var(--green); font-weight: 500; }
 .footer-bar .ops .d { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
@@ -832,7 +820,6 @@ p { margin: 0; text-wrap: pretty; }
   .mobile-menu .btn { margin-top: 12px; justify-content: center; }
   .split { grid-template-columns: 1fr; gap: 32px; }
   .split.rev .split-visual { order: 0; }
-  .privacy-card { grid-template-columns: 1fr; }
   .hero { padding-top: 120px; }
 }
 @media (max-width: 620px) {
@@ -900,7 +887,6 @@ p { margin: 0; text-wrap: pretty; }
       <a href="#features">Features</a>
       <a href="#channels">Channels</a>
       <a href="#how">How it works</a>
-      <a href="#privacy">Privacy</a>
     </nav>
     <div class="nav-right">
       <a class="signin" href="/app">Sign in</a>
@@ -914,7 +900,6 @@ p { margin: 0; text-wrap: pretty; }
     <a href="#features">Features</a>
     <a href="#channels">Channels</a>
     <a href="#how">How it works</a>
-    <a href="#privacy">Privacy</a>
     <a class="btn btn-primary" href="#cta">Get early access</a>
   </div>
 </header>
@@ -1066,14 +1051,12 @@ p { margin: 0; text-wrap: pretty; }
   </div>
   <div class="mtrack rev" style="--mdur:52s">
     <div class="mrow">
-      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path></svg>Privacy-first</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="15" rx="2"></rect><path d="M8 21h8M12 18v3" stroke-linecap="round"></path></svg>Remote browser</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3Z" stroke-linejoin="round"></path></svg>Automations</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a5 5 0 0 0-5 5c0 1-1 1.5-1 3a4 4 0 0 0 4 4v3M12 3a5 5 0 0 1 5 5c0 1 1 1.5 1 3a4 4 0 0 1-4 4v3" stroke-linecap="round"></path></svg>Memory</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"></circle><circle cx="19" cy="5" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="m7 12 10-6M7 12l10 6" stroke-linecap="round"></path></svg>Skills</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 7a4 4 0 0 0-5.4 5.4L4 17l3 3 4.6-4.6A4 4 0 0 0 17 10l-2.5 2.5L12 10l2.5-2.5Z" stroke-linejoin="round"></path></svg>Tools &amp; MCP</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Recordings</span>
-      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path></svg>Privacy-first</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="15" rx="2"></rect><path d="M8 21h8M12 18v3" stroke-linecap="round"></path></svg>Remote browser</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3Z" stroke-linejoin="round"></path></svg>Automations</span>
       <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a5 5 0 0 0-5 5c0 1-1 1.5-1 3a4 4 0 0 0 4 4v3M12 3a5 5 0 0 1 5 5c0 1 1 1.5 1 3a4 4 0 0 1-4 4v3" stroke-linecap="round"></path></svg>Memory</span>
@@ -1210,27 +1193,6 @@ p { margin: 0; text-wrap: pretty; }
   </div>
 </section>
 
-<!-- =================== PRIVACY =================== -->
-<section class="section-tight" id="privacy" data-screen-label="privacy">
-  <div class="wrap">
-    <div class="privacy-card reveal">
-      <div>
-        <span class="eyebrow" style="display:block;margin-bottom:14px;">Private by design</span>
-        <h2>Your data. Your rules.</h2>
-        <p>Run NeoAgent in our EU cloud or host it yourself — either way it's GDPR-first from the ground up. Nothing leaves your control unless you allow it.</p>
-        <a class="btn btn-soft" href="legal.html" style="margin-top:4px;">Read our privacy &amp; legal notice
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-        </a>
-      </div>
-      <div class="privacy-list">
-        <div class="row reveal" data-d="1"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6l-8-3Z" stroke-linejoin="round"></path></svg></span><div><b>Cloud or self-hosted</b><span>EU cloud or your own hardware — your choice.</span></div></div>
-        <div class="row reveal" data-d="2"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke-linecap="round"></path></svg></span><div><b>GDPR-first</b><span>Access, portability, and the right to erasure built in.</span></div></div>
-        <div class="row reveal" data-d="3"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5M5 8v8l7 5 7-5V8" stroke-linejoin="round"></path></svg></span><div><b>Transparent</b><span>Every action logged. No hidden behavior.</span></div></div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- =================== FINAL CTA =================== -->
 <section class="section-tight" id="cta" data-screen-label="cta">
   <div class="wrap">
@@ -1275,8 +1237,6 @@ p { margin: 0; text-wrap: pretty; }
         <a href="https://neolabs-systems.github.io/NeoAgent/docs/">Documentation</a>
       </nav>
       <nav class="footer-legal">
-        <a href="legal.html#overview">Privacy Policy</a>
-        <a href="legal.html#legal-notice">Legal Notice</a>
         <a href="#">Contact</a>
       </nav>
     </div>
