@@ -123,7 +123,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
   }
 }
 
-enum AccountSettingsTab { account, security }
+enum AccountSettingsTab { account, usage, security }
 
 class AccountSettingsPanel extends StatefulWidget {
   const AccountSettingsPanel({
@@ -355,6 +355,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     switch (_selectedTab) {
       case AccountSettingsTab.account:
         return _buildAccountPanel();
+      case AccountSettingsTab.usage:
+        return _buildUsagePanel();
       case AccountSettingsTab.security:
         return _buildSecurityPanel();
     }
@@ -589,6 +591,133 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                 .toList(),
           ),
         ],
+      ],
+    );
+  }
+
+  String _formatTokens(int amount) {
+    if (amount >= 1000000) {
+      final value = amount / 1000000;
+      return '${value == value.truncateToDouble() ? value.toInt() : value.toStringAsFixed(1)}M';
+    }
+    if (amount >= 1000) {
+      final value = amount / 1000;
+      return '${value == value.truncateToDouble() ? value.toInt() : value.toStringAsFixed(1)}k';
+    }
+    return amount.toString();
+  }
+
+  Widget _buildUsagePanel() {
+    if (widget.controller.isLoadingAccountSettings) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    final usage = widget.controller.usageAndLimits;
+    if (usage == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(Icons.error_outline, size: 48, color: _textSecondary),
+              const SizedBox(height: 16),
+              const Text('Could not load usage data.'),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: widget.controller.refreshAccountSettings,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget buildStatBox(String label, int current, int? limit) {
+      final double progress = limit != null
+          ? (limit <= 0 ? 1.0 : (current / limit).clamp(0.0, 1.0))
+          : 0.0;
+      final bool nearLimit = progress > 0.8;
+      
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: _bgSecondary,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: nearLimit ? _warning.withValues(alpha: 0.5) : _borderLight),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              label,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                Text(
+                  _formatTokens(current),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: nearLimit ? _warning : null,
+                  ),
+                ),
+                Text(
+                  ' tokens used',
+                  style: TextStyle(color: _textSecondary, fontSize: 14),
+                ),
+                const Spacer(),
+                if (limit != null)
+                  Text(
+                    'Limit: ${_formatTokens(limit)}',
+                    style: TextStyle(color: _textMuted, fontSize: 13),
+                  )
+                else
+                  Text(
+                    'No limit set',
+                    style: TextStyle(color: _textMuted, fontSize: 13),
+                  ),
+              ],
+            ),
+            if (limit != null) ...<Widget>[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  minHeight: 8,
+                  value: progress,
+                  backgroundColor: _border,
+                  valueColor: AlwaysStoppedAnimation<Color>(nearLimit ? _warning : _accent),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const _SectionTitle('Usage & Limits'),
+        const SizedBox(height: 12),
+        Text(
+          'Keep track of your AI usage. Limits are enforced to ensure fair usage across the platform.',
+          style: TextStyle(color: _textSecondary, height: 1.4),
+        ),
+        const SizedBox(height: 24),
+        buildStatBox('Recent Usage (4 Hours)', usage.fourHourUsage, usage.fourHourLimit),
+        const SizedBox(height: 16),
+        buildStatBox('Weekly Usage', usage.weeklyUsage, usage.weeklyLimit),
       ],
     );
   }
@@ -958,6 +1087,7 @@ class _AccountSettingsTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final buttons = <Widget>[
       _tabButton(AccountSettingsTab.account, Icons.person_outline, 'Account'),
+      _tabButton(AccountSettingsTab.usage, Icons.data_usage_outlined, 'Usage & Limits'),
       _tabButton(
         AccountSettingsTab.security,
         Icons.security_outlined,

@@ -16,7 +16,7 @@ function showPage(page, btn) {
   if (btn) btn.classList.add('active');
   currentPage = page;
 
-  const loaders = { overview: loadHealth, logs: loadLogs, updates: loadVersion, config: loadConfig, providers: loadProviders, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess };
+  const loaders = { overview: loadHealth, logs: loadLogs, updates: loadVersion, config: loadConfig, providers: loadProviders, models: loadModels, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess };
   loaders[page]?.();
 }
 
@@ -324,6 +324,93 @@ async function clearProvider(key, btn) {
     if (err.message !== 'unauthorized') alert('Network error');
     btn.disabled = false;
   }
+}
+
+// ── Models ─────────────────────────────────────────────────────────────────
+
+async function loadModels() {
+  const el = document.getElementById('models-content');
+  if (!el) return;
+  try {
+    const data = await api('/admin/api/models').then((r) => r.json());
+    const models = data.models || [];
+    const enabledModels = data.enabledModels || [];
+    
+    if (!models.length) { el.innerHTML = '<div class="empty">No models found</div>'; return; }
+    
+    // Sort models by provider, then label
+    models.sort((a, b) => {
+      if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
+      return a.label.localeCompare(b.label);
+    });
+    
+    let html = `<table class="users-table">
+      <thead><tr>
+        <th style="width:40px;">Enabled</th>
+        <th>Model Name</th>
+        <th>Provider</th>
+        <th>Purpose</th>
+        <th>Price Tier</th>
+      </tr></thead>
+      <tbody>`;
+    
+    for (const m of models) {
+      // Checked if it's in the enabledModels list, OR if the list is empty (all enabled)
+      const isChecked = enabledModels.length === 0 || enabledModels.includes(m.id);
+      const rowOpacity = isChecked ? '1' : '0.5';
+      html += `
+        <tr style="opacity: ${rowOpacity}">
+          <td style="text-align:center;">
+            <input type="checkbox" class="model-cb" value="${esc(m.id)}" ${isChecked ? 'checked' : ''} onchange="this.closest('tr').style.opacity = this.checked ? '1' : '0.5'">
+          </td>
+          <td style="font-weight:600;color:var(--text);">${esc(m.label)}</td>
+          <td>${esc(m.provider)}</td>
+          <td><span class="badge badge-idle">${esc(m.purpose)}</span></td>
+          <td><span class="badge ${m.priceTier === 'free' ? 'badge-ok' : 'badge-idle'}">${esc(m.priceTier)}</span></td>
+        </tr>
+      `;
+    }
+    
+    html += \`</tbody></table>\`;
+    el.innerHTML = html;
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      el.innerHTML = '<div class="empty">Failed to load models</div>';
+    }
+  }
+}
+
+async function saveEnabledModels(btn) {
+  const cbs = document.querySelectorAll('.model-cb');
+  if (!cbs.length) return;
+  
+  // If all are checked, we can save an empty list to mean "all enabled"
+  const allChecked = Array.from(cbs).every(cb => cb.checked);
+  const enabledModels = allChecked ? [] : Array.from(cbs).filter(cb => cb.checked).map(cb => cb.value);
+  
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Saving…';
+  
+  try {
+    const res = await api('/admin/api/models/enabled', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabledModels }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error || 'Failed to save');
+    } else {
+      btn.textContent = 'Saved!';
+      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
+      return;
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') alert('Network error');
+  }
+  btn.disabled = false;
+  btn.textContent = original;
 }
 
 // ── Auto-refresh ───────────────────────────────────────────────────────────
