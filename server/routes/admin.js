@@ -469,7 +469,7 @@ router.get('/api/users', requireAdminAuth, (req, res) => {
   try {
     const sql = `
       SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at,
-             u.created_at, u.last_login,
+             u.created_at, u.last_login, u.rate_limit_4h, u.rate_limit_weekly,
              COALESCE(r.run_count,    0) AS run_count,
              COALESCE(a.storage_bytes,0) AS storage_bytes
       FROM users u
@@ -616,6 +616,45 @@ router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
     delete process.env[key];
   }
   res.json({ ok: true });
+});
+
+// --- Models ---
+
+router.get('/api/models', requireAdminAuth, async (req, res) => {
+  const { getSupportedModels } = require('../services/ai/models');
+  try {
+    const models = await getSupportedModels(null, null);
+    const enabledModelsStr = process.env.NEOAGENT_ENABLED_MODELS || '';
+    const enabledModelsList = enabledModelsStr ? enabledModelsStr.split(',').map(s => s.trim()).filter(s => s.length > 0) : [];
+    res.json({ models, enabledModels: enabledModelsList });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+router.put('/api/models/enabled', requireAdminAuth, express.json(), (req, res) => {
+  const { enabledModels } = req.body || {};
+  if (!Array.isArray(enabledModels)) return res.status(400).json({ error: 'enabledModels must be an array' });
+  const value = enabledModels.join(',');
+  upsertEnvValue(ENV_FILE, 'NEOAGENT_ENABLED_MODELS', value);
+  process.env.NEOAGENT_ENABLED_MODELS = value;
+  res.json({ ok: true });
+});
+
+router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req, res) => {
+  const db = require('../db/database');
+  const { id } = req.params;
+  const { rate_limit_4h, rate_limit_weekly } = req.body || {};
+  try {
+    db.prepare('UPDATE users SET rate_limit_4h = ?, rate_limit_weekly = ? WHERE id = ?').run(
+      rate_limit_4h ?? null,
+      rate_limit_weekly ?? null,
+      id
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
 });
 
 // --- Static files ---

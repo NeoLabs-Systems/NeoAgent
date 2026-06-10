@@ -1862,6 +1862,23 @@ function migrateUsersDisplayName() {
 }
 migrateUsersDisplayName();
 
+function migrateUserRateLimits() {
+  try {
+    const columns = db.pragma('table_info(users)');
+    const hasRateLimit4h = columns.some((c) => c.name === 'rate_limit_4h');
+    if (!hasRateLimit4h) {
+      db.exec('ALTER TABLE users ADD COLUMN rate_limit_4h INTEGER');
+    }
+    const hasRateLimitWeekly = columns.some((c) => c.name === 'rate_limit_weekly');
+    if (!hasRateLimitWeekly) {
+      db.exec('ALTER TABLE users ADD COLUMN rate_limit_weekly INTEGER');
+    }
+  } catch (err) {
+    console.warn('Could not add rate_limit columns:', err.message);
+  }
+}
+migrateUserRateLimits();
+
 function migrateIngestionDocumentsConnectionId() {
   // connection_id was initially nullable; NULL breaks the UNIQUE dedup constraint.
   // Coerce any existing NULLs to 0 so the unique index works as intended.

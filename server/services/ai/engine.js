@@ -1214,6 +1214,22 @@ class AgentEngine {
     ensureDefaultAiSettings(userId, agentId);
     const aiSettings = getAiSettings(userId, agentId);
 
+    const userLimits = db.prepare('SELECT rate_limit_4h, rate_limit_weekly FROM users WHERE id = ?').get(userId);
+    if (userLimits) {
+      if (userLimits.rate_limit_4h) {
+        const h4Tokens = db.prepare("SELECT COALESCE(SUM(total_tokens), 0) as t FROM agent_runs WHERE user_id = ? AND created_at > datetime('now', '-4 hours')").get(userId).t;
+        if (h4Tokens >= userLimits.rate_limit_4h) {
+          throw new Error(`Rate limit exceeded: You have used ${h4Tokens} tokens in the last 4 hours (limit: ${userLimits.rate_limit_4h}).`);
+        }
+      }
+      if (userLimits.rate_limit_weekly) {
+        const weeklyTokens = db.prepare("SELECT COALESCE(SUM(total_tokens), 0) as t FROM agent_runs WHERE user_id = ? AND created_at > datetime('now', '-7 days')").get(userId).t;
+        if (weeklyTokens >= userLimits.rate_limit_weekly) {
+          throw new Error(`Rate limit exceeded: You have used ${weeklyTokens} tokens in the last 7 days (limit: ${userLimits.rate_limit_weekly}).`);
+        }
+      }
+    }
+
     const runId = options.runId || uuidv4();
     const conversationId = options.conversationId;
     const app = options.app || this.app;

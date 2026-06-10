@@ -72,6 +72,10 @@ function renderUsersTable(el, users) {
           <td>
             <div style="display:flex;gap:6px;justify-content:flex-end;">
               <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;"
+                onclick="editRateLimits('${esc(u.id)}','${esc(u.username)}')" title="Edit Rate Limits">
+                Limits
+              </button>
+              <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;"
                 onclick="forceLogout('${esc(u.id)}','${esc(u.username)}',this)" title="Revoke all sessions">
                 Logout
               </button>
@@ -144,4 +148,73 @@ function fmtDate(iso) {
   try {
     return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   } catch { return iso; }
+}
+
+async function editRateLimits(id, username) {
+  try {
+    const res = await api(`/admin/api/users/${id}/rate-limits`).then(r => r.json());
+    const limits = res.limits || {};
+    const limit4h = limits.rate_limit_4h || '';
+    const limitWeekly = limits.rate_limit_weekly || '';
+    
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(2px);';
+    const modal = document.createElement('div');
+    modal.className = 'card';
+    modal.style.cssText = 'width:420px;background:var(--bg-primary);box-shadow:0 10px 40px rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:12px;padding:24px;';
+    modal.innerHTML = `
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Rate Limits</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Configure token limits for <span style="color:var(--text);font-weight:600;">@${esc(username)}</span>.</div>
+      
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text);text-transform:uppercase;letter-spacing:0.05em;">4-Hour Limit (Tokens)</label>
+        <input type="number" min="0" step="1" id="limit-4h" value="${limit4h}" placeholder="e.g. 500000" style="width:100%;padding:10px 12px;margin-bottom:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:20px;">Leave empty for no limit</div>
+        
+        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text);text-transform:uppercase;letter-spacing:0.05em;">Weekly Limit (Tokens)</label>
+        <input type="number" min="0" step="1" id="limit-weekly" value="${limitWeekly}" placeholder="e.g. 2000000" style="width:100%;padding:10px 12px;margin-bottom:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:24px;">Leave empty for no limit</div>
+      </div>
+      
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button class="btn btn-ghost" id="btn-cancel" style="padding:8px 16px;">Cancel</button>
+        <button class="btn btn-primary" id="btn-save" style="padding:8px 16px;">Save Limits</button>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    document.getElementById('btn-cancel').onclick = () => overlay.remove();
+    document.getElementById('btn-save').onclick = async () => {
+      const v4 = document.getElementById('limit-4h').value;
+      const vw = document.getElementById('limit-weekly').value;
+      const parseLimit = (v) => {
+        if (!v) return null;
+        const n = Number(v);
+        return Number.isInteger(n) && n >= 0 ? n : null;
+      };
+      const bSave = document.getElementById('btn-save');
+      bSave.disabled = true;
+      bSave.textContent = 'Saving...';
+      try {
+        const payload = {
+          rate_limit_4h: parseLimit(v4),
+          rate_limit_weekly: parseLimit(vw)
+        };
+        const putRes = await api(`/admin/api/users/${id}/rate-limits`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!putRes.ok) throw new Error('Save failed');
+        overlay.remove();
+      } catch (err) {
+        alert('Failed to save rate limits');
+        bSave.disabled = false;
+        bSave.textContent = 'Save Limits';
+      }
+    };
+  } catch (err) {
+    alert('Failed to fetch rate limits');
+  }
 }

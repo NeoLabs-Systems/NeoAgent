@@ -134,6 +134,7 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic>? user;
   Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
   List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
+  AccountUsageAndLimits? usageAndLimits;
   List<AuthProviderCatalogItem> authProviders =
       const <AuthProviderCatalogItem>[];
   List<LinkedAuthProviderItem> linkedAuthProviders =
@@ -1658,6 +1659,7 @@ class NeoAgentController extends ChangeNotifier {
     user = null;
     accountTwoFactor = const <String, dynamic>{};
     accountSessions = const <AccountSessionItem>[];
+    usageAndLimits = null;
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
     settings = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
@@ -4924,6 +4926,9 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
       );
       _applyAccountResponse(sessionsResponse);
+      usageAndLimits = AccountUsageAndLimits.fromJson(
+        await _backendClient.fetchAccountUsage(backendUrl),
+      );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
