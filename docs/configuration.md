@@ -127,16 +127,6 @@ Optional. When configured, NeoAgent uses SMTP for account flows: signup confirma
 
 Runtime profiles (`trusted-host`, `secure-vm`) are set in user settings, not `.env`. See [Capabilities: Runtime Modes](capabilities.md#runtime-modes).
 
-## Analytics
-
-NeoAgent can send anonymous usage events to your own Mixpanel project. Events cover navigation and feature usage only — no message content, credentials, or personal data.
-
-| Variable | Description |
-|---|---|
-| `NEOAGENT_MIXPANEL_TOKEN` | Public Mixpanel project token — leave blank to disable analytics |
-
-When analytics is enabled, the web client shows a cookie-consent banner until accepted or declined.
-
 ## Runtime Paths
 
 | Path | Contents |

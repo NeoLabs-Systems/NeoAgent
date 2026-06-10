@@ -28,7 +28,6 @@ import 'src/android_apk_drop_zone.dart';
 import 'src/android_launcher_bridge.dart';
 import 'src/app_launch_bridge.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
-import 'src/analytics_service.dart';
 import 'src/backend_client.dart';
 import 'src/desktop_companion.dart';
 import 'src/desktop_screen_capture.dart';
