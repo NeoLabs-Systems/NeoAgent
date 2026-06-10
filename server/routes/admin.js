@@ -618,6 +618,27 @@ router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Global default rate limits ---
+
+router.get('/api/config/rate-limits', requireAdminAuth, (req, res) => {
+  res.json({
+    rate_limit_4h: process.env.NEOAGENT_RATE_LIMIT_4H ? parseInt(process.env.NEOAGENT_RATE_LIMIT_4H, 10) : null,
+    rate_limit_weekly: process.env.NEOAGENT_RATE_LIMIT_WEEKLY ? parseInt(process.env.NEOAGENT_RATE_LIMIT_WEEKLY, 10) : null,
+  });
+});
+
+router.put('/api/config/rate-limits', requireAdminAuth, express.json(), (req, res) => {
+  const { rate_limit_4h, rate_limit_weekly } = req.body || {};
+  const parse = (v) => (v !== null && v !== undefined && v !== '' ? parseInt(v, 10) : null);
+  const v4h = parse(rate_limit_4h);
+  const vWeekly = parse(rate_limit_weekly);
+  upsertEnvValue(ENV_FILE, 'NEOAGENT_RATE_LIMIT_4H', v4h !== null ? String(v4h) : '');
+  upsertEnvValue(ENV_FILE, 'NEOAGENT_RATE_LIMIT_WEEKLY', vWeekly !== null ? String(vWeekly) : '');
+  process.env.NEOAGENT_RATE_LIMIT_4H = v4h !== null ? String(v4h) : '';
+  process.env.NEOAGENT_RATE_LIMIT_WEEKLY = vWeekly !== null ? String(vWeekly) : '';
+  res.json({ ok: true });
+});
+
 // --- Models ---
 
 router.get('/api/models', requireAdminAuth, async (req, res) => {
@@ -639,6 +660,18 @@ router.put('/api/models/enabled', requireAdminAuth, express.json(), (req, res) =
   upsertEnvValue(ENV_FILE, 'NEOAGENT_ENABLED_MODELS', value);
   process.env.NEOAGENT_ENABLED_MODELS = value;
   res.json({ ok: true });
+});
+
+router.get('/api/users/:id/rate-limits', requireAdminAuth, (req, res) => {
+  const db = require('../db/database');
+  const { id } = req.params;
+  try {
+    const row = db.prepare('SELECT rate_limit_4h, rate_limit_weekly FROM users WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'User not found' });
+    res.json({ limits: row });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
 });
 
 router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req, res) => {

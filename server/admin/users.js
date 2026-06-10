@@ -5,8 +5,37 @@
 let _userSearchTimer = null;
 
 async function loadUsers() {
-  const q = document.getElementById('user-search')?.value?.trim() || '';
-  await fetchUsers(q);
+  await Promise.all([loadDefaultRateLimits(), fetchUsers(document.getElementById('user-search')?.value?.trim() || '')]);
+}
+
+async function loadDefaultRateLimits() {
+  try {
+    const data = await api('/admin/api/config/rate-limits').then(r => r.json());
+    const f4h = document.getElementById('default-limit-4h');
+    const fw = document.getElementById('default-limit-weekly');
+    if (f4h) f4h.value = data.rate_limit_4h ?? '';
+    if (fw) fw.value = data.rate_limit_weekly ?? '';
+  } catch (_) {}
+}
+
+async function saveDefaultRateLimits(btn) {
+  const v4h = document.getElementById('default-limit-4h')?.value;
+  const vw = document.getElementById('default-limit-weekly')?.value;
+  const parse = (v) => (v !== '' && v != null) ? parseInt(v, 10) : null;
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = 'Saving…';
+  try {
+    const res = await api('/admin/api/config/rate-limits', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rate_limit_4h: parse(v4h), rate_limit_weekly: parse(vw) }),
+    });
+    if (!res.ok) { const b = await res.json().catch(() => ({})); alert(b.error || 'Failed'); }
+    else { btn.textContent = 'Saved!'; setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000); return; }
+  } catch (_) { alert('Network error'); }
+  btn.disabled = false;
+  btn.textContent = orig;
 }
 
 async function fetchUsers(q = '') {
@@ -46,6 +75,7 @@ function renderUsersTable(el, users) {
         <th>Last Login</th>
         <th>Runs</th>
         <th>Storage</th>
+        <th>Rate Limits</th>
         <th style="text-align:right;">Actions</th>
       </tr></thead>
       <tbody>${users.map((u) => `
@@ -69,6 +99,14 @@ function renderUsersTable(el, users) {
           <td style="font-size:12px;color:var(--text-muted);">${u.last_login ? fmtDate(u.last_login) : '—'}</td>
           <td style="font-family:var(--font-mono);font-size:12px;">${fmtNum(u.run_count)}</td>
           <td style="font-family:var(--font-mono);font-size:12px;">${fmtBytes(u.storage_bytes)}</td>
+          <td style="font-size:11px;">
+            ${u.rate_limit_4h || u.rate_limit_weekly
+              ? `<div style="display:flex;flex-direction:column;gap:3px;">
+                  ${u.rate_limit_4h ? `<span class="badge badge-idle" style="font-size:10px;">4h: ${fmtTokens(u.rate_limit_4h)}</span>` : ''}
+                  ${u.rate_limit_weekly ? `<span class="badge badge-idle" style="font-size:10px;">7d: ${fmtTokens(u.rate_limit_weekly)}</span>` : ''}
+                 </div>`
+              : `<span style="color:var(--text-muted);">none</span>`}
+          </td>
           <td>
             <div style="display:flex;gap:6px;justify-content:flex-end;">
               <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;"
@@ -143,6 +181,13 @@ async function deleteUser(id, displayName, btn) {
   }
 }
 
+function fmtTokens(n) {
+  if (!n) return '—';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return String(n);
+}
+
 function fmtDate(iso) {
   if (!iso) return '—';
   try {
@@ -152,69 +197,81 @@ function fmtDate(iso) {
 
 async function editRateLimits(id, username) {
   try {
-    const res = await api(`/admin/api/users/${id}/rate-limits`).then(r => r.json());
-    const limits = res.limits || {};
-    const limit4h = limits.rate_limit_4h || '';
-    const limitWeekly = limits.rate_limit_weekly || '';
-    
+    const [userRes, globalRes] = await Promise.all([
+      api(`/admin/api/users/${id}/rate-limits`).then(r => r.json()),
+      api('/admin/api/config/rate-limits').then(r => r.json()).catch(() => ({})),
+    ]);
+    const limits = userRes.limits || {};
+    const custom4h = limits.rate_limit_4h ?? null;
+    const customWeekly = limits.rate_limit_weekly ?? null;
+    const global4h = globalRes.rate_limit_4h ?? null;
+    const globalWeekly = globalRes.rate_limit_weekly ?? null;
+
+    const hint4h = global4h ? `Default: ${fmtTokens(global4h)} — empty inherits default` : 'Empty = no limit';
+    const hintWeekly = globalWeekly ? `Default: ${fmtTokens(globalWeekly)} — empty inherits default` : 'Empty = no limit';
+
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(2px);';
     const modal = document.createElement('div');
     modal.className = 'card';
-    modal.style.cssText = 'width:420px;background:var(--bg-primary);box-shadow:0 10px 40px rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:12px;padding:24px;';
+    modal.style.cssText = 'width:440px;background:var(--bg-primary);box-shadow:0 10px 40px rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:12px;padding:24px;';
     modal.innerHTML = `
-      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Rate Limits</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Configure token limits for <span style="color:var(--text);font-weight:600;">@${esc(username)}</span>.</div>
-      
-      <div>
-        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text);text-transform:uppercase;letter-spacing:0.05em;">4-Hour Limit (Tokens)</label>
-        <input type="number" min="0" step="1" id="limit-4h" value="${limit4h}" placeholder="e.g. 500000" style="width:100%;padding:10px 12px;margin-bottom:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:20px;">Leave empty for no limit</div>
-        
-        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text);text-transform:uppercase;letter-spacing:0.05em;">Weekly Limit (Tokens)</label>
-        <input type="number" min="0" step="1" id="limit-weekly" value="${limitWeekly}" placeholder="e.g. 2000000" style="width:100%;padding:10px 12px;margin-bottom:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:24px;">Leave empty for no limit</div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">Rate Limits</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+        Custom overrides for <span style="color:var(--text);font-weight:600;">@${esc(username)}</span>.
+        Leave empty to inherit the global default.
       </div>
-      
+
+      <div style="margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);">4-Hour Limit (tokens)</label>
+          ${custom4h !== null ? '<span class="badge badge-warn" style="font-size:10px;">custom</span>' : (global4h ? '<span class="badge badge-idle" style="font-size:10px;">inheriting default</span>' : '<span class="badge badge-idle" style="font-size:10px;">no limit</span>')}
+        </div>
+        <input type="number" min="0" step="1" id="limit-4h" value="${custom4h ?? ''}" placeholder="${hint4h}"
+          style="width:100%;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
+      </div>
+
+      <div style="margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);">Weekly Limit (tokens)</label>
+          ${customWeekly !== null ? '<span class="badge badge-warn" style="font-size:10px;">custom</span>' : (globalWeekly ? '<span class="badge badge-idle" style="font-size:10px;">inheriting default</span>' : '<span class="badge badge-idle" style="font-size:10px;">no limit</span>')}
+        </div>
+        <input type="number" min="0" step="1" id="limit-weekly" value="${customWeekly ?? ''}" placeholder="${hintWeekly}"
+          style="width:100%;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
+      </div>
+
       <div style="display:flex;gap:12px;justify-content:flex-end;">
         <button class="btn btn-ghost" id="btn-cancel" style="padding:8px 16px;">Cancel</button>
-        <button class="btn btn-primary" id="btn-save" style="padding:8px 16px;">Save Limits</button>
+        <button class="btn btn-primary" id="btn-save" style="padding:8px 16px;">Save</button>
       </div>
     `;
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     document.getElementById('btn-cancel').onclick = () => overlay.remove();
     document.getElementById('btn-save').onclick = async () => {
       const v4 = document.getElementById('limit-4h').value;
       const vw = document.getElementById('limit-weekly').value;
-      const parseLimit = (v) => {
-        if (!v) return null;
-        const n = Number(v);
-        return Number.isInteger(n) && n >= 0 ? n : null;
-      };
+      const parseLimit = (v) => { if (!v) return null; const n = Number(v); return Number.isInteger(n) && n >= 0 ? n : null; };
       const bSave = document.getElementById('btn-save');
       bSave.disabled = true;
-      bSave.textContent = 'Saving...';
+      bSave.textContent = 'Saving…';
       try {
-        const payload = {
-          rate_limit_4h: parseLimit(v4),
-          rate_limit_weekly: parseLimit(vw)
-        };
         const putRes = await api(`/admin/api/users/${id}/rate-limits`, {
           method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(payload)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rate_limit_4h: parseLimit(v4), rate_limit_weekly: parseLimit(vw) }),
         });
         if (!putRes.ok) throw new Error('Save failed');
         overlay.remove();
-      } catch (err) {
+        await fetchUsers(document.getElementById('user-search')?.value?.trim() || '');
+      } catch (_) {
         alert('Failed to save rate limits');
         bSave.disabled = false;
-        bSave.textContent = 'Save Limits';
+        bSave.textContent = 'Save';
       }
     };
-  } catch (err) {
+  } catch (_) {
     alert('Failed to fetch rate limits');
   }
 }

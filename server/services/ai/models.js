@@ -446,9 +446,15 @@ async function getSupportedModels(userId, agentId = null) {
             available = false;
         }
 
+        const bareId = model.id.includes('/') ? model.id.slice(model.id.indexOf('/') + 1) : null;
+        const inputCostPerM = model.provider === 'ollama'
+            ? 0
+            : (openrouterPricingCache.get(model.id) ?? (bareId ? openrouterPricingCache.get(bareId) : undefined) ?? null);
+
         return {
             ...model,
             priceTier,
+            inputCostPerM,
             available,
             providerStatus: provider?.status || 'unknown',
             providerStatusLabel: provider?.statusLabel || 'Unknown'

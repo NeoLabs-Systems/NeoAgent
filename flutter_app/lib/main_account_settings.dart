@@ -639,64 +639,105 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       );
     }
 
-    Widget buildStatBox(String label, int current, int? limit) {
+    Widget buildStatBox(String label, int current, int? limit, {bool isCustom = false}) {
       final double progress = limit != null
           ? (limit <= 0 ? 1.0 : (current / limit).clamp(0.0, 1.0))
           : 0.0;
       final bool nearLimit = progress > 0.8;
-      
+      final bool atLimit = progress >= 1.0;
+
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: _bgSecondary,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: nearLimit ? _warning.withValues(alpha: 0.5) : _borderLight),
+          border: Border.all(
+            color: atLimit
+                ? _danger.withValues(alpha: 0.6)
+                : nearLimit
+                    ? _warning.withValues(alpha: 0.5)
+                    : _borderLight,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              label,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Row(
+              children: <Widget>[
+                Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                if (limit != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isCustom
+                          ? _warning.withValues(alpha: 0.12)
+                          : _accent.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      isCustom ? 'custom' : 'default',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isCustom ? _warning : _accent,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
                 Text(
                   _formatTokens(current),
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: nearLimit ? _warning : null,
+                    color: atLimit ? _danger : nearLimit ? _warning : null,
                   ),
                 ),
-                Text(
-                  ' tokens used',
-                  style: TextStyle(color: _textSecondary, fontSize: 14),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    ' tokens used',
+                    style: TextStyle(color: _textSecondary, fontSize: 14),
+                  ),
                 ),
                 const Spacer(),
                 if (limit != null)
                   Text(
-                    'Limit: ${_formatTokens(limit)}',
+                    'of ${_formatTokens(limit)}',
                     style: TextStyle(color: _textMuted, fontSize: 13),
                   )
                 else
                   Text(
-                    'No limit set',
+                    'No limit',
                     style: TextStyle(color: _textMuted, fontSize: 13),
                   ),
               ],
             ),
             if (limit != null) ...<Widget>[
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               ClipRRect(
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
                   minHeight: 8,
                   value: progress,
                   backgroundColor: _border,
-                  valueColor: AlwaysStoppedAnimation<Color>(nearLimit ? _warning : _accent),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    atLimit ? _danger : nearLimit ? _warning : _accent,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${(progress * 100).toStringAsFixed(0)}% used',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: atLimit ? _danger : nearLimit ? _warning : _textMuted,
                 ),
               ),
             ],
@@ -715,9 +756,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           style: TextStyle(color: _textSecondary, height: 1.4),
         ),
         const SizedBox(height: 24),
-        buildStatBox('Recent Usage (4 Hours)', usage.fourHourUsage, usage.fourHourLimit),
+        buildStatBox('Recent Usage (4 Hours)', usage.fourHourUsage, usage.fourHourLimit, isCustom: usage.fourHourIsCustom),
         const SizedBox(height: 16),
-        buildStatBox('Weekly Usage', usage.weeklyUsage, usage.weeklyLimit),
+        buildStatBox('Weekly Usage', usage.weeklyUsage, usage.weeklyLimit, isCustom: usage.weeklyIsCustom),
       ],
     );
   }

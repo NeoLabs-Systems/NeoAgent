@@ -4083,6 +4083,8 @@ class AccountUsageAndLimits {
     this.weeklyLimit,
     this.fourHourUsage = 0,
     this.weeklyUsage = 0,
+    this.fourHourIsCustom = false,
+    this.weeklyIsCustom = false,
   });
 
   factory AccountUsageAndLimits.fromJson(Map<String, dynamic> json) {
@@ -4093,6 +4095,8 @@ class AccountUsageAndLimits {
       weeklyLimit: int.tryParse(limits['weekly']?.toString() ?? ''),
       fourHourUsage: _asInt(usage['fourHour']),
       weeklyUsage: _asInt(usage['weekly']),
+      fourHourIsCustom: limits['fourHourIsCustom'] == true,
+      weeklyIsCustom: limits['weeklyIsCustom'] == true,
     );
   }
 
@@ -4100,4 +4104,6 @@ class AccountUsageAndLimits {
   final int? weeklyLimit;
   final int fourHourUsage;
   final int weeklyUsage;
+  final bool fourHourIsCustom;
+  final bool weeklyIsCustom;
 }
