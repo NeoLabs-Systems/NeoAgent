@@ -915,9 +915,16 @@
       <div class="page-header">
         <div>
           <h1 class="page-title">Analytics</h1>
-          <p class="page-subtitle">Usage statistics, top users, and recent activity</p>
+          <p class="page-subtitle">Usage statistics, model breakdown, and recent activity</p>
         </div>
-        <span class="refresh-hint" id="analytics-ts" aria-live="polite"></span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;gap:4px;">
+            <button class="range-btn" onclick="setAnalyticsRange(7,this)">7d</button>
+            <button class="range-btn active" onclick="setAnalyticsRange(30,this)">30d</button>
+            <button class="range-btn" onclick="setAnalyticsRange(90,this)">90d</button>
+          </div>
+          <span class="refresh-hint" id="analytics-ts" aria-live="polite"></span>
+        </div>
       </div>
       <div class="content">
         <div id="analytics-content"><div class="empty"><span class="spinner"></span></div></div>
