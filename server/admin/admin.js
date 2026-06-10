@@ -328,6 +328,27 @@ async function clearProvider(key, btn) {
 
 // ── Models ─────────────────────────────────────────────────────────────────
 
+function fmtModelPrice(inputCostPerM) {
+  if (inputCostPerM === null || inputCostPerM === undefined) return '—';
+  if (inputCostPerM === 0) return 'Free';
+  if (inputCostPerM < 0.01) return `$${inputCostPerM.toFixed(4)}/M`;
+  if (inputCostPerM < 1) return `$${inputCostPerM.toFixed(3)}/M`;
+  return `$${inputCostPerM.toFixed(2)}/M`;
+}
+
+function priceTierClass(tier) {
+  if (tier === 'free') return 'badge-ok';
+  if (tier === 'cheap') return 'badge-ok';
+  if (tier === 'medium') return 'badge-warn';
+  if (tier === 'expensive') return 'badge-err';
+  return 'badge-idle';
+}
+
+function purposeIcon(purpose) {
+  const icons = { fast: '⚡', planning: '🧠', coding: '💻', general: '✦' };
+  return icons[purpose] || '✦';
+}
+
 async function loadModels() {
   const el = document.getElementById('models-content');
   if (!el) return;
@@ -335,49 +356,87 @@ async function loadModels() {
     const data = await api('/admin/api/models').then((r) => r.json());
     const models = data.models || [];
     const enabledModels = data.enabledModels || [];
-    
+
     if (!models.length) { el.innerHTML = '<div class="empty">No models found</div>'; return; }
-    
-    // Sort models by provider, then label
+
+    // Group by provider for better readability
     models.sort((a, b) => {
       if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
-      return a.label.localeCompare(b.label);
+      const ac = a.inputCostPerM ?? Infinity;
+      const bc = b.inputCostPerM ?? Infinity;
+      return ac - bc;
     });
-    
-    let html = `<table class="users-table">
+
+    const enabledCount = enabledModels.length === 0 ? models.length : enabledModels.length;
+
+    let html = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleAllModels(true)">Select All</button>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleAllModels(false)">Select None</button>
+        <span style="margin-left:4px;font-size:12px;color:var(--text-muted);" id="model-count-label">${enabledCount} of ${models.length} enabled</span>
+      </div>
+      <table class="users-table">
       <thead><tr>
-        <th style="width:40px;">Enabled</th>
-        <th>Model Name</th>
+        <th style="width:40px;">On</th>
+        <th>Model</th>
         <th>Provider</th>
-        <th>Purpose</th>
-        <th>Price Tier</th>
+        <th style="width:90px;">Purpose</th>
+        <th style="width:80px;">Tier</th>
+        <th style="width:110px;text-align:right;">Input / 1M tokens</th>
       </tr></thead>
       <tbody>`;
-    
+
     for (const m of models) {
-      // Checked if it's in the enabledModels list, OR if the list is empty (all enabled)
       const isChecked = enabledModels.length === 0 || enabledModels.includes(m.id);
-      const rowOpacity = isChecked ? '1' : '0.5';
+      const rowOpacity = isChecked ? '1' : '0.45';
+      const priceStr = fmtModelPrice(m.inputCostPerM);
+      const tierCls = priceTierClass(m.priceTier);
+      const icon = purposeIcon(m.purpose);
       html += `
-        <tr style="opacity: ${rowOpacity}">
+        <tr style="opacity:${rowOpacity}" id="model-row-${esc(m.id)}">
           <td style="text-align:center;">
-            <input type="checkbox" class="model-cb" value="${esc(m.id)}" ${isChecked ? 'checked' : ''} onchange="this.closest('tr').style.opacity = this.checked ? '1' : '0.5'">
+            <input type="checkbox" class="model-cb" value="${esc(m.id)}" ${isChecked ? 'checked' : ''}
+              onchange="onModelToggle(this)">
           </td>
-          <td style="font-weight:600;color:var(--text);">${esc(m.label)}</td>
-          <td>${esc(m.provider)}</td>
-          <td><span class="badge badge-idle">${esc(m.purpose)}</span></td>
-          <td><span class="badge ${m.priceTier === 'free' ? 'badge-ok' : 'badge-idle'}">${esc(m.priceTier)}</span></td>
+          <td>
+            <div style="font-weight:600;color:var(--text);font-size:13px;">${esc(m.label)}</div>
+            <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">${esc(m.id)}</div>
+          </td>
+          <td style="font-size:13px;text-transform:capitalize;">${esc(m.provider)}</td>
+          <td><span class="badge badge-idle" style="gap:4px;">${icon} ${esc(m.purpose)}</span></td>
+          <td><span class="badge ${tierCls}">${esc(m.priceTier ?? '?')}</span></td>
+          <td style="text-align:right;font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--text);">${priceStr}</td>
         </tr>
       `;
     }
-    
-    html += \`</tbody></table>\`;
+
+    html += `</tbody></table>`;
     el.innerHTML = html;
   } catch (err) {
     if (err.message !== 'unauthorized') {
       el.innerHTML = '<div class="empty">Failed to load models</div>';
     }
   }
+}
+
+function onModelToggle(cb) {
+  const row = cb.closest('tr');
+  if (row) row.style.opacity = cb.checked ? '1' : '0.45';
+  const all = document.querySelectorAll('.model-cb');
+  const checked = Array.from(all).filter(c => c.checked).length;
+  const label = document.getElementById('model-count-label');
+  if (label) label.textContent = `${checked} of ${all.length} enabled`;
+}
+
+function toggleAllModels(enable) {
+  document.querySelectorAll('.model-cb').forEach(cb => {
+    cb.checked = enable;
+    const row = cb.closest('tr');
+    if (row) row.style.opacity = enable ? '1' : '0.45';
+  });
+  const all = document.querySelectorAll('.model-cb');
+  const label = document.getElementById('model-count-label');
+  if (label) label.textContent = `${enable ? all.length : 0} of ${all.length} enabled`;
 }
 
 async function saveEnabledModels(btn) {
