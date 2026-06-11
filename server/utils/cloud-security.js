@@ -28,14 +28,36 @@ const PRIVATE_IPV4 = [
 
 function isPrivateHost(hostname) {
   if (!hostname) return false;
-  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  let h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
 
   if (h === 'localhost' || h === 'localhost.localdomain') return true;
   if (h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.localhost')) return true;
 
-  // IPv6 loopback and link-local
+  // Unwrap IPv4-mapped/compatible IPv6 (e.g. ::ffff:127.0.0.1 or ::ffff:7f00:1)
+  // so the embedded IPv4 address is checked against the private ranges below.
+  const mapped = h.match(/^::(?:ffff:)?(?:0:)?([0-9a-f.:]+)$/);
+  if (mapped) {
+    const tail = mapped[1];
+    if (tail.includes('.')) {
+      // Dotted IPv4 form, e.g. ::ffff:127.0.0.1
+      h = tail;
+    } else {
+      // Hex form, e.g. ::ffff:7f00:1 -> reconstruct dotted IPv4.
+      const groups = tail.split(':');
+      if (groups.length === 2) {
+        const hi = parseInt(groups[0], 16);
+        const lo = parseInt(groups[1], 16);
+        if (Number.isFinite(hi) && Number.isFinite(lo) && hi <= 0xffff && lo <= 0xffff) {
+          h = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+        }
+      }
+    }
+  }
+
+  // IPv6 loopback, link-local and unique-local
   if (h === '::1' || h === '::') return true;
   if (h.startsWith('fe80:')) return true;
+  if (/^f[cd][0-9a-f]*:/.test(h)) return true; // fc00::/7 unique-local
 
   for (const pattern of PRIVATE_IPV4) {
     if (pattern.test(h)) return true;
