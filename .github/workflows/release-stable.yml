@@ -75,9 +75,14 @@ jobs:
       - name: Capture release tag
         id: capture_release_tag
         run: |
-          RELEASE_TAG="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+          RELEASE_TAG="$(
+            git tag --points-at HEAD --list 'v*' \
+              | sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' \
+              | sort -V \
+              | tail -n 1
+          )"
           if [ -z "$RELEASE_TAG" ]; then
-            echo "No release tag found after semantic-release."
+            echo "No stable release tag found at $(git rev-parse HEAD) after semantic-release."
             exit 1
           fi
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
