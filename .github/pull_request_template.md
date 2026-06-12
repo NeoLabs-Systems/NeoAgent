@@ -12,6 +12,7 @@ List the commands and manual checks used to verify the change.
 
 ## Checklist
 
+- [ ] This pull request targets the `beta` branch, not `main`.
 - [ ] I followed `GUIDELINES.md`.
 - [ ] I added or updated focused tests for changed behavior.
 - [ ] I updated documentation for user-visible commands, settings, APIs, or workflows.
