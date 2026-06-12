@@ -101,12 +101,15 @@ class AnthropicProvider extends BaseProvider {
   }
 
   convertMessages(messages) {
-    let system = '';
+    const system = [];
     const converted = [];
 
     for (const msg of messages) {
       if (msg.role === 'system') {
-        system += (system ? '\n\n' : '') + msg.content;
+        system.push({
+          type: 'text',
+          text: String(msg.content || ''),
+        });
         continue;
       }
 
@@ -164,9 +167,8 @@ class AnthropicProvider extends BaseProvider {
       messages: converted
     };
 
-    if (system) params.system = system;
+    if (system.length > 0) params.system = system;
     if (tools.length > 0) params.tools = this.formatTools(tools);
-
     const response = await this.client.messages.create(params);
     const responseBlocks = Array.isArray(response?.content)
       ? response.content
@@ -197,6 +199,11 @@ class AnthropicProvider extends BaseProvider {
       providerContentBlocks,
       finishReason: response.stop_reason === 'tool_use' ? 'tool_calls' : 'stop',
       usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+        reasoningTokens: 0,
+        cachedReadTokens: response.usage.cache_read_input_tokens || 0,
+        cacheWriteTokens: response.usage.cache_creation_input_tokens || 0,
         promptTokens: response.usage.input_tokens,
         completionTokens: response.usage.output_tokens,
         totalTokens: response.usage.input_tokens + response.usage.output_tokens
@@ -216,18 +223,29 @@ class AnthropicProvider extends BaseProvider {
       stream: true
     };
 
-    if (system) params.system = system;
+    if (system.length > 0) params.system = system;
     if (tools.length > 0) params.tools = this.formatTools(tools);
-
     const stream = await this.client.messages.stream(params);
 
     let content = '';
     let currentToolCalls = [];
     let currentToolIndex = -1;
     const providerContentBlocks = [];
+    let finalUsage = null;
 
     for await (const event of stream) {
-      if (event.type === 'content_block_start') {
+      if (event.type === 'message_start' && event.message?.usage) {
+        finalUsage = {
+          inputTokens: event.message.usage.input_tokens || 0,
+          outputTokens: event.message.usage.output_tokens || 0,
+          reasoningTokens: 0,
+          cachedReadTokens: event.message.usage.cache_read_input_tokens || 0,
+          cacheWriteTokens: event.message.usage.cache_creation_input_tokens || 0,
+          promptTokens: event.message.usage.input_tokens || 0,
+          completionTokens: event.message.usage.output_tokens || 0,
+          totalTokens: (event.message.usage.input_tokens || 0) + (event.message.usage.output_tokens || 0),
+        };
+      } else if (event.type === 'content_block_start') {
         if (event.content_block.type === 'thinking') {
           providerContentBlocks[event.index] = {
             type: 'thinking',
@@ -282,6 +300,20 @@ class AnthropicProvider extends BaseProvider {
             providerContentBlocks[event.index]._inputJson = currentJson + (event.delta.partial_json || '');
           }
         }
+      } else if (event.type === 'message_delta' && event.usage) {
+        const inputTokens = finalUsage?.inputTokens || 0;
+        const cachedReadTokens = finalUsage?.cachedReadTokens || 0;
+        const cacheWriteTokens = finalUsage?.cacheWriteTokens || 0;
+        finalUsage = {
+          inputTokens,
+          outputTokens: event.usage.output_tokens || 0,
+          reasoningTokens: 0,
+          cachedReadTokens,
+          cacheWriteTokens,
+          promptTokens: inputTokens,
+          completionTokens: event.usage.output_tokens || 0,
+          totalTokens: inputTokens + (event.usage.output_tokens || 0),
+        };
       } else if (event.type === 'message_stop') {
         const normalizedBlocks = providerContentBlocks
           .filter(Boolean)
@@ -325,7 +357,7 @@ class AnthropicProvider extends BaseProvider {
           toolCalls: currentToolCalls,
           providerContentBlocks: normalizedBlocks,
           finishReason: currentToolCalls.length > 0 ? 'tool_calls' : 'stop',
-          usage: null
+          usage: finalUsage
         };
       }
     }

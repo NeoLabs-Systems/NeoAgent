@@ -402,7 +402,7 @@ async function getSupportedModels(userId, agentId = null) {
 
     // Ollama: dynamic list from local server
     const ollama = providerById.get('ollama');
-    if (ollama?.enabled) {
+    if (ollama?.available) {
         const dynamicModels = await refreshDynamicModels(ollama.baseUrl);
         for (const model of dynamicModels) {
             if (!staticIds.has(model.id)) {
@@ -430,6 +430,9 @@ async function getSupportedModels(userId, agentId = null) {
         }
     }
 
+    const globalDisabledStr = process.env.NEOAGENT_DISABLED_MODELS || '';
+    const globalDisabledSet = globalDisabledStr ? new Set(globalDisabledStr.split(',').map(s => s.trim()).filter(Boolean)) : null;
+
     return all.map((model) => {
         const provider = providerById.get(model.provider);
         // Ollama models are always local/free; all others look up the OpenRouter
@@ -437,10 +440,22 @@ async function getSupportedModels(userId, agentId = null) {
         const priceTier = model.provider === 'ollama'
             ? 'free'
             : (model.priceTier ?? classifyPriceTier(model.id));
+
+        let available = provider?.available !== false;
+        if (available && globalDisabledSet?.has(model.id)) {
+            available = false;
+        }
+
+        const bareId = model.id.includes('/') ? model.id.slice(model.id.indexOf('/') + 1) : null;
+        const inputCostPerM = model.provider === 'ollama'
+            ? 0
+            : (openrouterPricingCache.get(model.id) ?? (bareId ? openrouterPricingCache.get(bareId) : undefined) ?? null);
+
         return {
             ...model,
             priceTier,
-            available: provider?.available !== false,
+            inputCostPerM,
+            available,
             providerStatus: provider?.status || 'unknown',
             providerStatusLabel: provider?.statusLabel || 'Unknown'
         };

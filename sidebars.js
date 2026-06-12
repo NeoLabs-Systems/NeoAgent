@@ -26,7 +26,7 @@ const sidebars = {
         {
           type: 'link',
           label: 'Health Data',
-          href: '/capabilities#health-data',
+          href: '/capabilities#android-app-and-health',
         },
         {
           type: 'link',

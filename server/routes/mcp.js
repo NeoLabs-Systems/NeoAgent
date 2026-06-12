@@ -20,6 +20,15 @@ function getTrustedPostMessageOrigin(req) {
 
 router.use(requireAuth);
 
+router.get('/audit', (req, res) => {
+  try {
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    res.json(req.app.locals.capabilityAuditService.auditMcp(req.session.userId, { agentId }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 // List configured MCP servers
 router.get('/', (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/NeoLabs-Systems/NeoAgent/discussions
+    about: Ask for setup help or discuss an idea before filing an issue.
+  - name: Documentation
+    url: https://neolabs-systems.github.io/NeoAgent/docs/
+    about: Check setup, configuration, capabilities, and operations documentation.
+  - name: Security report
+    url: https://github.com/NeoLabs-Systems/NeoAgent/security/advisories/new
+    about: Report suspected vulnerabilities privately.

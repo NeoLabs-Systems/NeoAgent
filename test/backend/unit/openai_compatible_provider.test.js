@@ -13,15 +13,42 @@ test('normalizeUsage maps snake_case and camelCase token fields and handles null
   assert.equal(p.normalizeUsage(null), null);
   assert.deepEqual(
     p.normalizeUsage({ prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }),
-    { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+    {
+      inputTokens: 10,
+      outputTokens: 5,
+      reasoningTokens: 0,
+      cachedReadTokens: 0,
+      cacheWriteTokens: 0,
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+    },
   );
   assert.deepEqual(
     p.normalizeUsage({ promptTokens: 3, completionTokens: 2, totalTokens: 5 }),
-    { promptTokens: 3, completionTokens: 2, totalTokens: 5 },
+    {
+      inputTokens: 3,
+      outputTokens: 2,
+      reasoningTokens: 0,
+      cachedReadTokens: 0,
+      cacheWriteTokens: 0,
+      promptTokens: 3,
+      completionTokens: 2,
+      totalTokens: 5,
+    },
   );
   assert.deepEqual(
     p.normalizeUsage({}),
-    { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cachedReadTokens: 0,
+      cacheWriteTokens: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    },
   );
 });
 
@@ -42,7 +69,16 @@ test('normalizeResponse extracts content, tool calls, finish reason, and usage',
   assert.deepEqual(result.toolCalls, [{
     id: 'c1', type: 'function', function: { name: 'do_thing', arguments: '{"a":1}' },
   }]);
-  assert.deepEqual(result.usage, { promptTokens: 4, completionTokens: 1, totalTokens: 5 });
+  assert.deepEqual(result.usage, {
+    inputTokens: 4,
+    outputTokens: 1,
+    reasoningTokens: 0,
+    cachedReadTokens: 0,
+    cacheWriteTokens: 0,
+    promptTokens: 4,
+    completionTokens: 1,
+    totalTokens: 5,
+  });
 });
 
 test('analyzeImage refuses providers without vision support', async () => {

@@ -10,7 +10,10 @@ class OllamaProvider extends BaseProvider {
 
   async listModels() {
     try {
-      const res = await fetch(`${this.baseUrl}/api/tags`);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(`${this.baseUrl}/api/tags`, { signal: controller.signal });
+      clearTimeout(timer);
       const data = await res.json();
       this.models = (data.models || []).map(m => m.name);
       return this.models;

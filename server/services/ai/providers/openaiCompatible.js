@@ -10,6 +10,17 @@ class OpenAICompatibleProvider extends BaseProvider {
   normalizeUsage(usage) {
     if (!usage) return null;
     return {
+      inputTokens: usage.prompt_tokens ?? usage.promptTokens ?? 0,
+      outputTokens: usage.completion_tokens ?? usage.completionTokens ?? 0,
+      reasoningTokens: usage.completion_tokens_details?.reasoning_tokens
+        ?? usage.output_tokens_details?.reasoning_tokens
+        ?? usage.reasoningTokens
+        ?? 0,
+      cachedReadTokens: usage.prompt_tokens_details?.cached_tokens
+        ?? usage.input_tokens_details?.cached_tokens
+        ?? usage.cachedReadTokens
+        ?? 0,
+      cacheWriteTokens: usage.cacheWriteTokens ?? 0,
       promptTokens: usage.prompt_tokens ?? usage.promptTokens ?? 0,
       completionTokens: usage.completion_tokens ?? usage.completionTokens ?? 0,
       totalTokens: usage.total_tokens ?? usage.totalTokens ?? 0,

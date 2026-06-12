@@ -20,6 +20,7 @@ class ExtensionBrowserProvider {
     this.tokenId = options.tokenId ? String(options.tokenId) : null;
     this.artifactStore = options.artifactStore || null;
     this.headless = false;
+    this.providerType = 'extension';
   }
 
   #assertReady() {
