@@ -16,7 +16,7 @@ function showPage(page, btn) {
   if (btn) btn.classList.add('active');
   currentPage = page;
 
-  const loaders = { overview: loadHealth, logs: loadLogs, updates: loadVersion, config: loadConfig, providers: loadProviders, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess };
+  const loaders = { overview: loadHealth, logs: loadLogs, updates: loadVersion, config: loadConfig, providers: loadProviders, models: loadModels, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess };
   loaders[page]?.();
 }
 
@@ -324,6 +324,150 @@ async function clearProvider(key, btn) {
     if (err.message !== 'unauthorized') alert('Network error');
     btn.disabled = false;
   }
+}
+
+// ── Models ─────────────────────────────────────────────────────────────────
+
+function fmtModelPrice(inputCostPerM) {
+  if (inputCostPerM === null || inputCostPerM === undefined) return '—';
+  if (inputCostPerM === 0) return 'Free';
+  if (inputCostPerM < 0.01) return `$${inputCostPerM.toFixed(4)}/M`;
+  if (inputCostPerM < 1) return `$${inputCostPerM.toFixed(3)}/M`;
+  return `$${inputCostPerM.toFixed(2)}/M`;
+}
+
+function priceTierClass(tier) {
+  if (tier === 'free') return 'badge-ok';
+  if (tier === 'cheap') return 'badge-ok';
+  if (tier === 'medium') return 'badge-warn';
+  if (tier === 'expensive') return 'badge-err';
+  return 'badge-idle';
+}
+
+function purposeIcon(purpose) {
+  const icons = { fast: '⚡', planning: '🧠', coding: '💻', general: '✦' };
+  return icons[purpose] || '✦';
+}
+
+async function loadModels() {
+  const el = document.getElementById('models-content');
+  if (!el) return;
+  try {
+    const data = await api('/admin/api/models').then((r) => r.json());
+    const models = data.models || [];
+    const disabledSet = new Set(data.disabledModels || []);
+
+    if (!models.length) { el.innerHTML = '<div class="empty">No models found — configure providers first.</div>'; return; }
+
+    // Sort: provider alpha, then price low→high within provider
+    models.sort((a, b) => {
+      if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
+      const ac = a.inputCostPerM ?? Infinity;
+      const bc = b.inputCostPerM ?? Infinity;
+      return ac - bc;
+    });
+
+    const enabledCount = models.length - disabledSet.size;
+
+    let html = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleAllModels(true)">Enable All</button>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleAllModels(false)">Disable All</button>
+        <span style="margin-left:4px;font-size:12px;color:var(--text-muted);" id="model-count-label">${enabledCount} of ${models.length} enabled</span>
+      </div>
+      <table class="users-table">
+      <thead><tr>
+        <th style="width:40px;">On</th>
+        <th>Model</th>
+        <th>Provider</th>
+        <th style="width:90px;">Purpose</th>
+        <th style="width:80px;">Tier</th>
+        <th style="width:110px;text-align:right;">Input / 1M tokens</th>
+      </tr></thead>
+      <tbody>`;
+
+    for (const m of models) {
+      const isEnabled = !disabledSet.has(m.id);
+      const priceStr = fmtModelPrice(m.inputCostPerM);
+      const tierCls = priceTierClass(m.priceTier);
+      const icon = purposeIcon(m.purpose);
+      html += `
+        <tr style="opacity:${isEnabled ? '1' : '0.45'}">
+          <td style="text-align:center;">
+            <input type="checkbox" class="model-cb" value="${esc(m.id)}" ${isEnabled ? 'checked' : ''}
+              onchange="onModelToggle(this)">
+          </td>
+          <td>
+            <div style="font-weight:600;color:var(--text);font-size:13px;">${esc(m.label)}</div>
+            <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">${esc(m.id)}</div>
+          </td>
+          <td style="font-size:13px;text-transform:capitalize;">${esc(m.provider)}</td>
+          <td><span class="badge badge-idle">${icon} ${esc(m.purpose)}</span></td>
+          <td><span class="badge ${tierCls}">${esc(m.priceTier ?? '?')}</span></td>
+          <td style="text-align:right;font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--text);">${priceStr}</td>
+        </tr>
+      `;
+    }
+
+    html += `</tbody></table>`;
+    el.innerHTML = html;
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      el.innerHTML = '<div class="empty">Failed to load models</div>';
+    }
+  }
+}
+
+function onModelToggle(cb) {
+  const row = cb.closest('tr');
+  if (row) row.style.opacity = cb.checked ? '1' : '0.45';
+  const all = document.querySelectorAll('.model-cb');
+  const checked = Array.from(all).filter(c => c.checked).length;
+  const label = document.getElementById('model-count-label');
+  if (label) label.textContent = `${checked} of ${all.length} enabled`;
+}
+
+function toggleAllModels(enable) {
+  document.querySelectorAll('.model-cb').forEach(cb => {
+    cb.checked = enable;
+    const row = cb.closest('tr');
+    if (row) row.style.opacity = enable ? '1' : '0.45';
+  });
+  const all = document.querySelectorAll('.model-cb');
+  const label = document.getElementById('model-count-label');
+  if (label) label.textContent = `${enable ? all.length : 0} of ${all.length} enabled`;
+}
+
+async function saveEnabledModels(btn) {
+  const cbs = document.querySelectorAll('.model-cb');
+  if (!cbs.length) return;
+
+  // Persist only the disabled (unchecked) models
+  const disabledModels = Array.from(cbs).filter(cb => !cb.checked).map(cb => cb.value);
+
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res = await api('/admin/api/models/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ disabledModels }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error || 'Failed to save');
+    } else {
+      btn.textContent = 'Saved!';
+      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
+      return;
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') alert('Network error');
+  }
+  btn.disabled = false;
+  btn.textContent = original;
 }
 
 // ── Auto-refresh ───────────────────────────────────────────────────────────

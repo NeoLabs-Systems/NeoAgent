@@ -183,12 +183,20 @@ class SkillRunner {
   async executeTool(toolName, args, context = {}) {
     const skill = this.skills.get(toolName);
     if (!skill) return null;
+    const metricContext = {
+      userId: context.userId,
+      agentId: context.agentId || null,
+      skillName: toolName,
+    };
+    this._recordSkillMetric(metricContext, { invocation: 1 });
     if (skill.metadata.enabled === false) {
+      this._recordSkillMetric(metricContext, { failure: 1 });
       return { error: `Skill '${toolName}' is disabled` };
     }
 
     if (skill.metadata.command) {
       if (!isValidCommandTemplate(skill.metadata.command)) {
+        this._recordSkillMetric(metricContext, { failure: 1 });
         return { error: `Skill '${toolName}' has an invalid command template` };
       }
       let command = skill.metadata.command;
@@ -196,17 +204,22 @@ class SkillRunner {
         command = command.replaceAll(`{${key}}`, shellEscape(value));
       }
       if (!isValidUserId(context.userId)) {
+        this._recordSkillMetric(metricContext, { failure: 1 });
         return {
           error: 'Missing or invalid userId',
         };
       }
       if (!this.runtimeManager) {
+        this._recordSkillMetric(metricContext, { failure: 1 });
         return {
           error: 'VM runtime is required',
         };
       }
       try {
-        return await this.runtimeManager.executeCommand(context.userId, command);
+        const result = await this.runtimeManager.executeCommand(context.userId, command);
+        const failed = Boolean(result?.error) || (typeof result?.exitCode === 'number' && result.exitCode !== 0);
+        this._recordSkillMetric(metricContext, failed ? { failure: 1 } : { success: 1 });
+        return result;
       } catch (err) {
         const commandName = skill?.name || toolName || 'unknown';
         console.error('[SkillRunner] Skill command execution failed:', {
@@ -215,6 +228,7 @@ class SkillRunner {
           command: String(command).slice(0, 200),
           error: err?.message || String(err),
         });
+        this._recordSkillMetric(metricContext, { failure: 1 });
         return {
           error: 'Skill command execution failed',
           details: err?.message || String(err),
@@ -222,12 +236,40 @@ class SkillRunner {
       }
     }
 
+    this._recordSkillMetric(metricContext, { failure: 1 });
     return {
       error: `Skill '${toolName}' is documentation-only and cannot execute directly.`,
       skill: skill.name,
       instructions: skill.instructions,
       args
     };
+  }
+
+  _recordSkillMetric(context, delta = {}) {
+    if (!isValidUserId(context.userId)) return;
+    db.prepare(
+      `INSERT INTO skill_metrics (
+        user_id, agent_id, skill_name, invocation_count, success_count,
+        failure_count, correction_count, total_tokens, last_used_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(user_id, agent_id, skill_name) DO UPDATE SET
+        invocation_count = invocation_count + excluded.invocation_count,
+        success_count = success_count + excluded.success_count,
+        failure_count = failure_count + excluded.failure_count,
+        correction_count = correction_count + excluded.correction_count,
+        total_tokens = total_tokens + excluded.total_tokens,
+        last_used_at = datetime('now'),
+        updated_at = datetime('now')`
+    ).run(
+      context.userId,
+      context.agentId,
+      context.skillName,
+      Number(delta.invocation || 0),
+      Number(delta.success || 0),
+      Number(delta.failure || 0),
+      Number(delta.correction || 0),
+      Number(delta.tokens || 0),
+    );
   }
 
   createSkill(name, description, instructions, metadata = {}) {

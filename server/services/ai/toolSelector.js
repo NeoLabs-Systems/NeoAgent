@@ -3,26 +3,40 @@
 /**
  * Tool selection strategy:
  *
- * Built-ins: always passed in full — descriptions are capped short by
- * compactToolDefinition({ includeDescriptions: true }) in tools.js, so the
- * overhead is a fixed ~100 tokens/tool and the model always knows every tool
- * that exists.
- *
- * MCP tools: user-defined and potentially numerous. Include all when the set
- * is small; keyword-filter when the registry grows large.
+ * Every tool stays visible in the catalog. Only full JSON schemas are limited
+ * per model turn because several providers enforce schema-count limits.
  */
 
-const MCP_ALWAYS_INCLUDE_THRESHOLD = 20;
-const MAX_TOOLS = 128; // Strict provider limit (e.g. Github Copilot / OpenAI)
+const MAX_TOOLS = 20;
 const ALWAYS_INCLUDE_BUILT_INS = [
+  'task_complete',
+  'activate_tools',
+  'think',
   'send_message',
-  'create_task',
-  'list_tasks',
-  'delete_task',
-  'update_task',
+  'send_interim_update',
 ];
 
+function compactDescription(value, maxChars = 180) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars - 3).trimEnd()}...`;
+}
+
+function buildToolCatalog(tools = []) {
+  return tools
+    .filter((tool) => String(tool?.name || '').trim())
+    .map((tool) => ({
+      name: String(tool.name).trim(),
+      description: compactDescription(tool.description),
+      source: tool.serverId ? `mcp:${tool.serverId}` : 'built-in',
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((tool) => `${tool.name} | ${tool.source} | ${tool.description || 'No description supplied.'}`)
+    .join('\n');
+}
+
 function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}) {
+  const limit = Number(options.maxTools) || MAX_TOOLS;
   const requiredNames = [...ALWAYS_INCLUDE_BUILT_INS];
   if (options.widgetId) requiredNames.push('save_widget_snapshot');
   if (!requiredNames.length) return selectedTools;
@@ -34,7 +48,7 @@ function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}
     const required = builtInTools.find((tool) => tool?.name === toolName);
     if (!required) continue;
 
-    if (selected.length < MAX_TOOLS) {
+    if (selected.length < limit) {
       selected.push(required);
       continue;
     }
@@ -57,43 +71,75 @@ function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}
   return selected;
 }
 
-function selectMcpTools(task, mcpTools = []) {
-  if (!mcpTools.length) return [];
-  if (mcpTools.length <= MCP_ALWAYS_INCLUDE_THRESHOLD) return mcpTools;
+function selectInitialTools(allTools = [], suggestedNames = [], options = {}) {
+  const requested = new Set(
+    (Array.isArray(suggestedNames) ? suggestedNames : [])
+      .map((name) => String(name || '').trim())
+      .filter(Boolean),
+  );
+  const selected = allTools.filter((tool) => requested.has(tool?.name));
+  return ensureRequiredTools(selected.slice(0, MAX_TOOLS), allTools, options).slice(0, MAX_TOOLS);
+}
 
-  // Large MCP registry: match by tool name, original name, or server id so we
-  // still surface the right tools without dumping hundreds of schemas.
-  const normalized = String(task || '').toLowerCase();
-  const explicitMcp = /\bmcp\b|\bmodel context protocol\b/.test(normalized);
+function activateTools(currentTools = [], allTools = [], requestedNames = [], options = {}) {
+  const knownByName = new Map(allTools.map((tool) => [tool?.name, tool]));
+  let next = ensureRequiredTools(currentTools, allTools, options);
+  const activated = [];
+  const evicted = [];
+  const unknown = [];
+  const notActivated = [];
+  const requested = [...new Set(
+    (Array.isArray(requestedNames) ? requestedNames : [])
+      .map((rawName) => String(rawName || '').trim())
+      .filter(Boolean),
+  )];
+  for (const name of requested) {
+    const tool = knownByName.get(name);
+    if (!tool) {
+      unknown.push(name);
+      continue;
+    }
+    if (next.some((item) => item?.name === name)) continue;
+    if (next.length >= MAX_TOOLS) {
+      const replaceIndex = next.findIndex((item) => (
+        !ALWAYS_INCLUDE_BUILT_INS.includes(item?.name)
+        && !requested.includes(item?.name)
+      ));
+      if (replaceIndex === -1) {
+        notActivated.push(name);
+        continue;
+      }
+      evicted.push(next[replaceIndex].name);
+      next.splice(replaceIndex, 1);
+    }
+    next.push(tool);
+    activated.push(name);
+  }
+  next = ensureRequiredTools(next, allTools, options).slice(0, MAX_TOOLS);
+  return {
+    tools: next,
+    activated,
+    evicted,
+    unknown,
+    notActivated,
+  };
+}
 
-  return mcpTools.filter((tool) => {
-    if (explicitMcp) return true;
-    const name = String(tool.name || '').toLowerCase();
-    const original = String(tool.originalName || '').toLowerCase();
-    const server = String(tool.serverId || '').toLowerCase();
-    return normalized.includes(name) || normalized.includes(original) || (server && normalized.includes(server));
-  });
+function selectMcpTools(_task, mcpTools = []) {
+  return Array.isArray(mcpTools) ? mcpTools : [];
 }
 
 function selectToolsForTask(task, builtInTools = [], mcpTools = [], _options = {}) {
   const selectedMcp = selectMcpTools(task, mcpTools);
-  const options = _options || {};
-  let selected;
-  
-  if (builtInTools.length + selectedMcp.length <= MAX_TOOLS) {
-    selected = [...builtInTools, ...selectedMcp];
-    return ensureRequiredTools(selected, builtInTools, options);
-  }
-
-  // If we exceed the limit, prioritize base tools and take as many MCP tools as fit
-  const remainingSpace = MAX_TOOLS - builtInTools.length;
-  if (remainingSpace > 0) {
-    selected = [...builtInTools, ...selectedMcp.slice(0, remainingSpace)];
-    return ensureRequiredTools(selected, builtInTools, options);
-  }
-  
-  selected = builtInTools.slice(0, MAX_TOOLS);
-  return ensureRequiredTools(selected, builtInTools, options);
+  void _options;
+  return [...builtInTools, ...selectedMcp];
 }
 
-module.exports = { selectToolsForTask, selectMcpTools };
+module.exports = {
+  MAX_TOOLS,
+  activateTools,
+  buildToolCatalog,
+  selectInitialTools,
+  selectToolsForTask,
+  selectMcpTools,
+};

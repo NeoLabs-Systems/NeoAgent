@@ -224,6 +224,10 @@ class BackendClient {
     return getMap(baseUrl, '/api/account');
   }
 
+  Future<Map<String, dynamic>> fetchAccountUsage(String baseUrl) async {
+    return getMap(baseUrl, '/api/account/usage');
+  }
+
   Future<Map<String, dynamic>> updateAccountEmail({
     required String baseUrl,
     required String email,
@@ -1049,6 +1053,14 @@ class BackendClient {
 
   Future<List<Map<String, dynamic>>> fetchSkills(String baseUrl) async {
     return getList(baseUrl, '/api/skills');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSkillMetrics(String baseUrl) {
+    return getList(baseUrl, '/api/skills/metrics/summary');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSkillAudit(String baseUrl) {
+    return getList(baseUrl, '/api/skills/audit/summary');
   }
 
   Future<List<Map<String, dynamic>>> fetchSkillStore(String baseUrl) async {

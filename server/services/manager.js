@@ -21,6 +21,11 @@ const { MemoryIngestionService } = require('./memory/ingestion');
 const { ArtifactStore } = require('./artifacts/store');
 const { RuntimeManager } = require('./runtime/manager');
 const { WorkspaceManager } = require('./workspace/manager');
+const { CodeNavigationService } = require('./workspace/code_navigation');
+const { StructuredDataService } = require('./workspace/structured_data');
+const { TaskWebhookService } = require('./tasks/webhooks');
+const { LearningManager } = require('./ai/learning');
+const { CapabilityAuditService } = require('./security/capability_audit');
 const { BrowserExtensionRegistry } = require('./browser/extension/registry');
 const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
@@ -52,6 +57,8 @@ function createArtifactStore(app) {
 
 function createWorkspaceManager(app) {
   const workspaceManager = registerLocal(app, 'workspaceManager', new WorkspaceManager());
+  registerLocal(app, 'codeNavigationService', new CodeNavigationService({ workspaceManager }));
+  registerLocal(app, 'structuredDataService', new StructuredDataService({ workspaceManager }));
   logServiceReady('Workspace manager ready');
   return workspaceManager;
 }
@@ -88,6 +95,22 @@ function createDesktopCompanionRegistry(app) {
 
 function createMemoryManager(app) {
   const memoryManager = registerLocal(app, 'memoryManager', new MemoryManager());
+  const reconcile = () => {
+    const users = db.prepare('SELECT id FROM users').all();
+    for (const user of users) {
+      const agents = db.prepare("SELECT id FROM agents WHERE user_id = ? AND status = 'active'").all(user.id);
+      for (const agent of agents) {
+        try {
+          memoryManager.reconcileFacts(user.id, { agentId: agent.id });
+        } catch (err) {
+          console.warn('[Memory] Fact reconciliation failed:', err.message);
+        }
+      }
+    }
+  };
+  const timer = setInterval(reconcile, 6 * 60 * 60 * 1000);
+  timer.unref?.();
+  registerLocal(app, 'memoryReconciliationTimer', timer);
   logServiceReady('Memory manager ready');
   return memoryManager;
 }
@@ -473,6 +496,12 @@ async function startServices(app, io) {
       skillRunner,
       workspaceManager: app.locals.workspaceManager,
     });
+    registerLocal(app, 'learningManager', new LearningManager(skillRunner, io));
+    registerLocal(app, 'capabilityAuditService', new CapabilityAuditService({
+      mcpClient,
+      skillRunner,
+    }));
+    agentEngine.learningManager = app.locals.learningManager;
 
     createMultiStep(app, agentEngine, io);
     createCommandRouter(app);
@@ -499,6 +528,7 @@ async function startServices(app, io) {
     });
 
     const taskRuntime = startTaskRuntime(app, io, agentEngine);
+    registerLocal(app, 'taskWebhookService', new TaskWebhookService({ taskRuntime }));
 
     configureRealtime(app, io, {
       agentEngine,
@@ -525,6 +555,10 @@ async function startServices(app, io) {
 async function stopServices(app) {
   const tasks = [];
   console.log('[Services] Stopping services');
+  if (app.locals.memoryReconciliationTimer) {
+    clearInterval(app.locals.memoryReconciliationTimer);
+    app.locals.memoryReconciliationTimer = null;
+  }
 
   if (app.locals.taskRuntime) {
     tasks.push(

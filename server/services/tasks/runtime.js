@@ -194,7 +194,7 @@ class TaskRuntime {
       label: adapter.label,
       providerKey: adapter.providerKey || null,
       appKey: adapter.appKey || null,
-      available: adapter.type === 'schedule' || adapter.type === 'manual'
+      available: ['schedule', 'manual', 'webhook'].includes(adapter.type)
         ? true
         : this._hasConnectedApp(userId, agentId, adapter.providerKey, adapter.appKey),
     }));

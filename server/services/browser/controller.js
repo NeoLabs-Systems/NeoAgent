@@ -24,6 +24,64 @@ const VIEWPORTS = [
   { width: 1920, height: 1080 },
 ];
 
+// Injected into every page in the cloud VM browser context to deny local device access.
+const DEVICE_DENY_SCRIPT = `(() => {
+  const denied = () => Promise.reject(Object.assign(
+    new DOMException('Permission denied', 'NotAllowedError'),
+    { name: 'NotAllowedError' }
+  ));
+
+  // Camera and microphone
+  if (navigator.mediaDevices) {
+    navigator.mediaDevices.getUserMedia = denied;
+    navigator.mediaDevices.getDisplayMedia = denied;
+  }
+
+  // Geolocation
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition = function(_success, error) {
+      if (error) error({ code: 1, message: 'User denied Geolocation' });
+    };
+    navigator.geolocation.watchPosition = function(_success, error) {
+      if (error) error({ code: 1, message: 'User denied Geolocation' });
+      return 0;
+    };
+    navigator.geolocation.clearWatch = function() {};
+  }
+
+  // Bluetooth
+  if (navigator.bluetooth) {
+    navigator.bluetooth.requestDevice = denied;
+    navigator.bluetooth.getAvailability = () => Promise.resolve(false);
+  }
+
+  // USB
+  if (navigator.usb) {
+    navigator.usb.requestDevice = denied;
+    navigator.usb.getDevices = () => Promise.resolve([]);
+  }
+
+  // Web Serial
+  if (navigator.serial) {
+    navigator.serial.requestPort = denied;
+    navigator.serial.getPorts = () => Promise.resolve([]);
+  }
+
+  // Permissions API: report all device permissions as denied
+  const _origQuery = navigator.permissions?.query?.bind(navigator.permissions);
+  if (_origQuery) {
+    const DEVICE_PERMISSIONS = new Set([
+      'camera', 'microphone', 'geolocation', 'bluetooth', 'usb',
+    ]);
+    navigator.permissions.query = (desc) => {
+      if (DEVICE_PERMISSIONS.has(desc && desc.name)) {
+        return Promise.resolve({ state: 'denied', onchange: null });
+      }
+      return _origQuery(desc);
+    };
+  }
+})();`;
+
 function resolveBrowserExecutablePath() {
   const explicitPath =
     process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
@@ -172,6 +230,7 @@ class BrowserController {
     this.userId = options.userId != null ? String(options.userId) : null;
     this.artifactStore = options.artifactStore || null;
     this.runtimeBackend = options.runtimeBackend || 'host';
+    this.providerType = 'vm';
     this.engine = 'chromium';
     this.browser = null;
     this.context = null;
@@ -368,6 +427,9 @@ class BrowserController {
         '--disable-gpu',
         '--lang=en-US,en',
         `--window-size=${this._viewport.width},${this._viewport.height}`,
+        // Cloud security: disable hardware device APIs at the Chromium level
+        '--disable-features=WebBluetooth,WebUSB,WebSerial,WebOTP,DirectSockets',
+        '--disable-usb-keyboard-detect',
       ];
 
       const playwright = require('playwright-chromium');
@@ -382,6 +444,10 @@ class BrowserController {
         timeout: 120000,
       });
       this.browser = typeof this.context.browser === 'function' ? this.context.browser() : null;
+
+      // Cloud security: deny access to local devices on every page in this context.
+      await this.context.addInitScript(DEVICE_DENY_SCRIPT);
+
       this.page = this.context.pages()[0] || await this.context.newPage();
       await this._applyStealthToPage(this.page);
     })();

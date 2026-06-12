@@ -416,20 +416,69 @@ router.delete('/api/settings/apikey', requireAdminAuth, settingsLimiter, (req, r
 
 router.get('/api/analytics', requireAdminAuth, (req, res) => {
   const db = require('../db/database');
+  const range = Math.min(Math.max(parseInt(req.query.range) || 30, 1), 365);
   const now = new Date().toISOString();
   const dayAgo  = new Date(Date.now() - 86_400_000).toISOString();
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const rangeAgo = new Date(Date.now() - range * 86_400_000).toISOString();
   try {
+    const totalRunsRow  = db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(total_tokens),0) AS t FROM agent_runs').get();
+    const successRow    = db.prepare("SELECT COUNT(*) AS n FROM agent_runs WHERE status = 'completed'").get();
     const stats = {
-      totalUsers:    db.prepare('SELECT COUNT(*) AS n FROM users').get().n,
-      activeToday:   db.prepare('SELECT COUNT(*) AS n FROM users WHERE last_login > ?').get(dayAgo).n,
-      newThisWeek:   db.prepare('SELECT COUNT(*) AS n FROM users WHERE created_at > ?').get(weekAgo).n,
-      totalRuns:     db.prepare('SELECT COUNT(*) AS n FROM agent_runs').get().n,
-      runsToday:     db.prepare('SELECT COUNT(*) AS n FROM agent_runs WHERE created_at > ?').get(dayAgo).n,
-      totalTokens:   db.prepare('SELECT COALESCE(SUM(total_tokens),0) AS n FROM agent_runs').get().n,
-      activeSessions:db.prepare('SELECT COUNT(*) AS n FROM user_sessions WHERE revoked_at IS NULL AND expires_at > ?').get(now).n,
-      totalStorage:  db.prepare('SELECT COALESCE(SUM(byte_size),0) AS n FROM artifacts').get().n,
+      totalUsers:     db.prepare('SELECT COUNT(*) AS n FROM users').get().n,
+      activeToday:    db.prepare('SELECT COUNT(*) AS n FROM users WHERE last_login > ?').get(dayAgo).n,
+      newThisWeek:    db.prepare('SELECT COUNT(*) AS n FROM users WHERE created_at > ?').get(weekAgo).n,
+      totalRuns:      totalRunsRow.n,
+      runsToday:      db.prepare('SELECT COUNT(*) AS n FROM agent_runs WHERE created_at > ?').get(dayAgo).n,
+      runsThisWeek:   db.prepare('SELECT COUNT(*) AS n FROM agent_runs WHERE created_at > ?').get(weekAgo).n,
+      totalTokens:    totalRunsRow.t,
+      tokensToday:    db.prepare("SELECT COALESCE(SUM(total_tokens),0) AS n FROM agent_runs WHERE created_at > ?").get(dayAgo).n,
+      avgTokensPerRun: totalRunsRow.n > 0 ? Math.round(totalRunsRow.t / totalRunsRow.n) : 0,
+      successRate:    totalRunsRow.n > 0 ? Math.round((successRow.n / totalRunsRow.n) * 100) : 0,
+      activeSessions: db.prepare('SELECT COUNT(*) AS n FROM user_sessions WHERE revoked_at IS NULL AND expires_at > ?').get(now).n,
+      totalStorage:   db.prepare('SELECT COALESCE(SUM(byte_size),0) AS n FROM artifacts').get().n,
     };
+
+    // Time-series: runs + tokens per day for selected range
+    const runsByDay = db.prepare(`
+      SELECT date(created_at) AS date,
+             COUNT(*) AS runs,
+             COALESCE(SUM(total_tokens), 0) AS tokens
+      FROM agent_runs
+      WHERE created_at > ?
+      GROUP BY date(created_at)
+      ORDER BY date
+    `).all(rangeAgo);
+
+    // New users per day for selected range
+    const usersByDay = db.prepare(`
+      SELECT date(created_at) AS date, COUNT(*) AS newUsers
+      FROM users
+      WHERE created_at > ?
+      GROUP BY date(created_at)
+      ORDER BY date
+    `).all(rangeAgo);
+
+    // Model breakdown (top 10 by runs)
+    const modelBreakdown = db.prepare(`
+      SELECT COALESCE(model, 'unknown') AS model,
+             COUNT(*) AS runs,
+             COALESCE(SUM(total_tokens), 0) AS tokens
+      FROM agent_runs
+      WHERE created_at > ?
+      GROUP BY model
+      ORDER BY runs DESC
+      LIMIT 10
+    `).all(rangeAgo);
+
+    // Run status breakdown
+    const statusBreakdown = db.prepare(`
+      SELECT status, COUNT(*) AS count
+      FROM agent_runs
+      GROUP BY status
+      ORDER BY count DESC
+    `).all();
+
     const topUsers = db.prepare(`
       SELECT u.id, u.username, u.display_name,
              COALESCE(r.runs,    0) AS runs,
@@ -437,25 +486,25 @@ router.get('/api/analytics', requireAdminAuth, (req, res) => {
              COALESCE(a.storage, 0) AS storage
       FROM users u
       LEFT JOIN (
-        SELECT user_id,
-               COUNT(*)                   AS runs,
-               COALESCE(SUM(total_tokens),0) AS tokens
+        SELECT user_id, COUNT(*) AS runs, COALESCE(SUM(total_tokens),0) AS tokens
         FROM agent_runs GROUP BY user_id
       ) r ON r.user_id = u.id
       LEFT JOIN (
         SELECT user_id, COALESCE(SUM(byte_size),0) AS storage
         FROM artifacts GROUP BY user_id
       ) a ON a.user_id = u.id
-      ORDER BY runs DESC LIMIT 8
+      ORDER BY tokens DESC LIMIT 10
     `).all();
+
     const recentRuns = db.prepare(`
-      SELECT r.id, u.username, r.title, r.status, r.total_tokens,
+      SELECT r.id, u.username, r.title, r.status, r.model, r.total_tokens,
              r.created_at, r.completed_at
       FROM agent_runs r
       JOIN users u ON u.id = r.user_id
-      ORDER BY r.created_at DESC LIMIT 20
+      ORDER BY r.created_at DESC LIMIT 25
     `).all();
-    res.json({ stats, topUsers, recentRuns });
+
+    res.json({ stats, runsByDay, usersByDay, modelBreakdown, statusBreakdown, topUsers, recentRuns });
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
   }
@@ -469,7 +518,7 @@ router.get('/api/users', requireAdminAuth, (req, res) => {
   try {
     const sql = `
       SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at,
-             u.created_at, u.last_login,
+             u.created_at, u.last_login, u.rate_limit_4h, u.rate_limit_weekly,
              COALESCE(r.run_count,    0) AS run_count,
              COALESCE(a.storage_bytes,0) AS storage_bytes
       FROM users u
@@ -616,6 +665,78 @@ router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
     delete process.env[key];
   }
   res.json({ ok: true });
+});
+
+// --- Global default rate limits ---
+
+router.get('/api/config/rate-limits', requireAdminAuth, (req, res) => {
+  res.json({
+    rate_limit_4h: process.env.NEOAGENT_RATE_LIMIT_4H ? parseInt(process.env.NEOAGENT_RATE_LIMIT_4H, 10) : null,
+    rate_limit_weekly: process.env.NEOAGENT_RATE_LIMIT_WEEKLY ? parseInt(process.env.NEOAGENT_RATE_LIMIT_WEEKLY, 10) : null,
+  });
+});
+
+router.put('/api/config/rate-limits', requireAdminAuth, express.json(), (req, res) => {
+  const { rate_limit_4h, rate_limit_weekly } = req.body || {};
+  const parse = (v) => (v !== null && v !== undefined && v !== '' ? parseInt(v, 10) : null);
+  const v4h = parse(rate_limit_4h);
+  const vWeekly = parse(rate_limit_weekly);
+  upsertEnvValue(ENV_FILE, 'NEOAGENT_RATE_LIMIT_4H', v4h !== null ? String(v4h) : '');
+  upsertEnvValue(ENV_FILE, 'NEOAGENT_RATE_LIMIT_WEEKLY', vWeekly !== null ? String(vWeekly) : '');
+  process.env.NEOAGENT_RATE_LIMIT_4H = v4h !== null ? String(v4h) : '';
+  process.env.NEOAGENT_RATE_LIMIT_WEEKLY = vWeekly !== null ? String(vWeekly) : '';
+  res.json({ ok: true });
+});
+
+// --- Models ---
+
+router.get('/api/models', requireAdminAuth, async (req, res) => {
+  const { getSupportedModels } = require('../services/ai/models');
+  try {
+    const models = await getSupportedModels(null, null);
+    const disabledStr = process.env.NEOAGENT_DISABLED_MODELS || '';
+    const disabledModels = disabledStr ? disabledStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+    res.json({ models, disabledModels });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+router.put('/api/models/config', requireAdminAuth, express.json(), (req, res) => {
+  const { disabledModels } = req.body || {};
+  if (!Array.isArray(disabledModels)) return res.status(400).json({ error: 'disabledModels must be an array' });
+  const value = disabledModels.join(',');
+  upsertEnvValue(ENV_FILE, 'NEOAGENT_DISABLED_MODELS', value);
+  process.env.NEOAGENT_DISABLED_MODELS = value;
+  res.json({ ok: true });
+});
+
+router.get('/api/users/:id/rate-limits', requireAdminAuth, (req, res) => {
+  const db = require('../db/database');
+  const { id } = req.params;
+  try {
+    const row = db.prepare('SELECT rate_limit_4h, rate_limit_weekly FROM users WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'User not found' });
+    res.json({ limits: row });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req, res) => {
+  const db = require('../db/database');
+  const { id } = req.params;
+  const { rate_limit_4h, rate_limit_weekly } = req.body || {};
+  try {
+    db.prepare('UPDATE users SET rate_limit_4h = ?, rate_limit_weekly = ? WHERE id = ?').run(
+      rate_limit_4h ?? null,
+      rate_limit_weekly ?? null,
+      id
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
 });
 
 // --- Static files ---

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { validateCloudUrl } = require('../utils/cloud-security');
 const { getRuntimeValidation } = require('../services/runtime/validation');
 
 router.use(requireAuth);
@@ -97,6 +98,11 @@ router.post('/navigate', async (req, res) => {
     if (!url) return res.status(400).json({ error: 'url required' });
 
     const bc = await getBrowserController(req);
+
+    if (bc.providerType === 'vm' && !validateCloudUrl(url).allowed) {
+      return res.status(403).json({ error: 'This URL is not permitted.' });
+    }
+
     const result = await bc.navigate(url, { waitUntil: waitFor || 'domcontentloaded' });
     res.json(result);
   } catch (err) {

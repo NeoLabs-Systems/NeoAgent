@@ -110,6 +110,36 @@ router.get('/', (req, res) => {
   }
 });
 
+router.get('/usage', (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const userLimits = db.prepare('SELECT rate_limit_4h, rate_limit_weekly FROM users WHERE id = ?').get(userId);
+    const h4Tokens = db.prepare("SELECT COALESCE(SUM(total_tokens), 0) as t FROM agent_runs WHERE user_id = ? AND created_at > datetime('now', '-4 hours')").get(userId).t;
+    const weeklyTokens = db.prepare("SELECT COALESCE(SUM(total_tokens), 0) as t FROM agent_runs WHERE user_id = ? AND created_at > datetime('now', '-7 days')").get(userId).t;
+
+    const globalLimit4h = process.env.NEOAGENT_RATE_LIMIT_4H ? parseInt(process.env.NEOAGENT_RATE_LIMIT_4H, 10) : null;
+    const globalLimitWeekly = process.env.NEOAGENT_RATE_LIMIT_WEEKLY ? parseInt(process.env.NEOAGENT_RATE_LIMIT_WEEKLY, 10) : null;
+
+    const custom4h = userLimits?.rate_limit_4h ?? null;
+    const customWeekly = userLimits?.rate_limit_weekly ?? null;
+
+    res.json({
+      limits: {
+        fourHour: custom4h ?? globalLimit4h,
+        weekly: customWeekly ?? globalLimitWeekly,
+        fourHourIsCustom: custom4h !== null,
+        weeklyIsCustom: customWeekly !== null,
+      },
+      usage: {
+        fourHour: h4Tokens,
+        weekly: weeklyTokens,
+      }
+    });
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
 router.put('/display-name', accountLimiter, (req, res) => {
   try {
     const displayName = normalizeDisplayName(req.body?.displayName);

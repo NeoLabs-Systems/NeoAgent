@@ -1,0 +1,42 @@
+[
+  {
+    "id": "direct-answer",
+    "category": "direct_answer",
+    "requiredSignals": ["run_completed"],
+    "maximumToolCalls": 0
+  },
+  {
+    "id": "multi-source-research",
+    "category": "research",
+    "requiredSignals": ["tool_selection_applied", "parallel_batch_completed", "run_completed"]
+  },
+  {
+    "id": "workspace-code-change",
+    "category": "coding",
+    "requiredSignals": ["checkpoint_created", "run_completed"],
+    "requiredArtifacts": true
+  },
+  {
+    "id": "connected-integration",
+    "category": "integration",
+    "requiredSignals": ["tool_completed", "run_completed"]
+  },
+  {
+    "id": "scheduled-task-recovery",
+    "category": "scheduled_task",
+    "requiredSignals": ["checkpoint_created"],
+    "allowResume": true
+  },
+  {
+    "id": "temporal-memory-correction",
+    "category": "memory_correction",
+    "requiredSignals": ["run_completed"],
+    "requiresFactHistory": true
+  },
+  {
+    "id": "multi-step-failure-recovery",
+    "category": "recovery",
+    "requiredSignals": ["tool_failed", "checkpoint_created"],
+    "allowResume": true
+  }
+]
