@@ -2,8 +2,6 @@ part of 'main.dart';
 
 enum _ToolsPageTab { integrations, mcp, skills }
 
-enum _RunsPageTab { runs }
-
 enum _SettingsWorkspaceSection { app, account, security }
 
 class ToolsPanel extends StatefulWidget {

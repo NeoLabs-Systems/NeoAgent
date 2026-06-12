@@ -1658,7 +1658,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void setSelectedSection(AppSection section) {
-    final previousSection = selectedSection;
     selectedSection = section;
     unawaited(_prefs?.setString(_selectedSectionPrefsKey, section.name));
     if (section == AppSection.devices) {

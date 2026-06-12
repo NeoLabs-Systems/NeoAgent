@@ -3440,15 +3440,6 @@ String _modelLabelForValue(String value, List<ModelMeta> models) {
   return value;
 }
 
-String _friendlyBaseUrlLabel(String value) {
-  final uri = Uri.tryParse(value);
-  if (uri == null || uri.host.trim().isEmpty) {
-    return value;
-  }
-  final port = uri.hasPort ? ':${uri.port}' : '';
-  return '${uri.host}$port';
-}
-
 String? _androidRuntimeVersionLabel(Map<String, dynamic> runtime) {
   final apiLevel = _asInt(runtime['apiLevel']);
   final systemImage = runtime['systemImage']?.toString().trim() ?? '';
