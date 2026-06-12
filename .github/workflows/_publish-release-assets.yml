@@ -66,6 +66,7 @@ jobs:
             dist/*.dmg
             dist/*.deb
             dist/*.pkg.tar.zst
+            dist/*.AppImage
             dist/*.apk
           )
           for firmware_file in \

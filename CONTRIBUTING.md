@@ -78,6 +78,11 @@ Flutter web release builds are handled by the maintainer's release pipeline.
 
 ## Pull Requests
 
+Open contributor pull requests against the `beta` branch, not `main`. Create a
+feature branch in your fork, push your changes there, and select `beta` as the
+base branch when opening the pull request. The `main` branch is managed by the
+stable release workflow and receives promoted changes from `beta`.
+
 A pull request should:
 
 - Explain the user-visible problem and the chosen fix.

@@ -7,7 +7,6 @@ on:
       - beta
   pull_request:
     branches:
-      - main
       - beta
   workflow_dispatch:
     inputs:
