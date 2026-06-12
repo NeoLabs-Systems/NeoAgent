@@ -4841,6 +4841,8 @@ class _TaskTriggerOption {
     required this.label,
     required this.description,
     required this.icon,
+    this.providerKey,
+    this.appKey,
   });
 
   final String type;
@@ -4848,6 +4850,17 @@ class _TaskTriggerOption {
   final String label;
   final String description;
   final IconData icon;
+
+  /// The official integration provider key this trigger binds to, if any.
+  /// When set, the task editor shows a connected-account dropdown instead of
+  /// a raw connection ID text field.
+  final String? providerKey;
+
+  /// The app within the provider (matches [OfficialIntegrationAppItem.id]).
+  /// Narrows account lookup to just the relevant app so multi-app providers
+  /// (e.g. Google Workspace with Gmail + Drive + Calendar) don't show
+  /// duplicate accounts.
+  final String? appKey;
 }
 
 const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
@@ -4871,6 +4884,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     label: 'Gmail Message Received',
     description: 'Run when a matching Gmail message arrives.',
     icon: Icons.mail_rounded,
+    providerKey: 'google_workspace',
+    appKey: 'gmail',
   ),
   _TaskTriggerOption(
     type: 'outlook_email_received',
@@ -4878,6 +4893,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     label: 'Outlook Email Received',
     description: 'Run when a matching Outlook email arrives.',
     icon: Icons.markunread_rounded,
+    providerKey: 'microsoft_365',
+    appKey: 'outlook',
   ),
   _TaskTriggerOption(
     type: 'slack_message_received',
@@ -4885,6 +4902,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     label: 'Slack Message Received',
     description: 'Run when a Slack message matches the selected scope.',
     icon: Icons.forum_rounded,
+    providerKey: 'slack',
+    appKey: 'slack',
   ),
   _TaskTriggerOption(
     type: 'teams_message_received',
@@ -4892,6 +4911,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     label: 'Teams Message Received',
     description: 'Run when a Teams chat message matches the selected scope.',
     icon: Icons.groups_rounded,
+    providerKey: 'microsoft_365',
+    appKey: 'teams',
   ),
   _TaskTriggerOption(
     type: 'weather_event',
@@ -4900,6 +4921,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     description:
         'Run when configured weather events are forecast for a location.',
     icon: Icons.cloudy_snowing,
+    providerKey: 'weather',
+    appKey: 'forecast',
   ),
   _TaskTriggerOption(
     type: 'whatsapp_personal_message_received',
@@ -4907,6 +4930,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     label: 'WhatsApp Personal Message Received',
     description: 'Run on inbound personal WhatsApp messages.',
     icon: Icons.chat_bubble_rounded,
+    providerKey: 'whatsapp_personal',
+    appKey: 'personal',
   ),
 ];
 
@@ -4916,6 +4941,7 @@ _TaskTriggerOption _taskTriggerOptionForType(String type) {
     orElse: () => _taskTriggerOptions.first,
   );
 }
+
 
 Future<String?> _pickTaskTriggerType(
   BuildContext context,
@@ -5562,6 +5588,65 @@ class _TasksPanelState extends State<TasksPanel> {
     );
   }
 
+  List<OfficialIntegrationAccountItem> _connectedAccountsForTrigger(
+    String triggerType,
+  ) {
+    final option = _taskTriggerOptionForType(triggerType);
+    final providerKey = option.providerKey;
+    if (providerKey == null) return const <OfficialIntegrationAccountItem>[];
+    final appKey = option.appKey;
+    final seen = <int>{};
+    final result = <OfficialIntegrationAccountItem>[];
+    for (final integration in controller.officialIntegrations) {
+      if (integration.id != providerKey) continue;
+      for (final app in integration.apps) {
+        if (appKey != null && app.id != appKey) continue;
+        for (final account in app.accounts) {
+          if (account.connected && seen.add(account.id)) {
+            result.add(account);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  Widget _buildConnectionIdSelector({
+    required String triggerType,
+    required ValueNotifier<int?> selectedConnectionId,
+    required TextEditingController fallbackController,
+    required StateSetter setLocalState,
+  }) {
+    final accounts = _connectedAccountsForTrigger(triggerType);
+    if (accounts.isEmpty) {
+      return TextField(
+        controller: fallbackController,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          labelText: 'Connection ID',
+          helperText: 'Connect this integration first to pick an account.',
+        ),
+      );
+    }
+    return DropdownButtonFormField<int>(
+      initialValue: accounts.any((a) => a.id == selectedConnectionId.value)
+          ? selectedConnectionId.value
+          : null,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'Account'),
+      items: accounts
+          .map(
+            (account) => DropdownMenuItem<int>(
+              value: account.id,
+              child: Text(account.accountEmail ?? 'Account #${account.id}'),
+            ),
+          )
+          .toList(),
+      onChanged: (value) =>
+          setLocalState(() => selectedConnectionId.value = value),
+    );
+  }
+
   Future<void> _openTaskEditor(
     BuildContext context, {
     TaskItem? task,
@@ -5577,6 +5662,13 @@ class _TasksPanelState extends State<TasksPanel> {
     );
     final connectionIdController = TextEditingController(
       text: task?.triggerConfig['connectionId']?.toString() ?? '',
+    );
+    final selectedConnectionId = ValueNotifier<int?>(
+      task?.triggerConfig['connectionId'] is int
+          ? task!.triggerConfig['connectionId'] as int
+          : int.tryParse(
+              task?.triggerConfig['connectionId']?.toString() ?? '',
+            ),
     );
     final queryController = TextEditingController(
       text:
@@ -5659,6 +5751,8 @@ class _TasksPanelState extends State<TasksPanel> {
                               );
                               if (nextType != null) {
                                 triggerType.value = nextType;
+                                selectedConnectionId.value = null;
+                                connectionIdController.clear();
                               }
                             },
                             child: InputDecorator(
@@ -5778,12 +5872,11 @@ class _TasksPanelState extends State<TasksPanel> {
 
                           return Column(
                             children: <Widget>[
-                              TextField(
-                                controller: connectionIdController,
-                                decoration: const InputDecoration(
-                                  labelText:
-                                      'Official Integration Connection ID',
-                                ),
+                              _buildConnectionIdSelector(
+                                triggerType: selectedTriggerType,
+                                selectedConnectionId: selectedConnectionId,
+                                fallbackController: connectionIdController,
+                                setLocalState: setLocalState,
                               ),
                               const SizedBox(height: 12),
                               if (selectedTriggerType ==
@@ -5961,15 +6054,15 @@ class _TasksPanelState extends State<TasksPanel> {
                         triggerConfig['runAt'] = runAt;
                       }
                     } else {
-                      final parsedConnectionId = int.tryParse(
-                        connectionIdController.text.trim(),
-                      );
+                      final parsedConnectionId =
+                          selectedConnectionId.value ??
+                          int.tryParse(connectionIdController.text.trim());
                       if (parsedConnectionId == null ||
                           parsedConnectionId <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Connection ID must be a positive integer.',
+                              'Please select an account or enter a valid connection ID.',
                             ),
                             backgroundColor: Colors.red,
                           ),

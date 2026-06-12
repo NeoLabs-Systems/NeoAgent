@@ -180,6 +180,11 @@ class GoogleProvider extends BaseProvider {
       toolCalls,
       finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
       usage: usage ? {
+        inputTokens: usage.promptTokenCount || 0,
+        outputTokens: usage.candidatesTokenCount || 0,
+        reasoningTokens: usage.thoughtsTokenCount || 0,
+        cachedReadTokens: usage.cachedContentTokenCount || 0,
+        cacheWriteTokens: 0,
         promptTokens: usage.promptTokenCount || 0,
         completionTokens: usage.candidatesTokenCount || 0,
         totalTokens: usage.totalTokenCount || 0
@@ -236,6 +241,11 @@ class GoogleProvider extends BaseProvider {
       toolCalls,
       finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
       usage: usage ? {
+        inputTokens: usage.promptTokenCount || 0,
+        outputTokens: usage.candidatesTokenCount || 0,
+        reasoningTokens: usage.thoughtsTokenCount || 0,
+        cachedReadTokens: usage.cachedContentTokenCount || 0,
+        cacheWriteTokens: 0,
         promptTokens: usage.promptTokenCount || 0,
         completionTokens: usage.candidatesTokenCount || 0,
         totalTokens: usage.totalTokenCount || 0

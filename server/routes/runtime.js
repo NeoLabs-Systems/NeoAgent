@@ -1,13 +1,16 @@
 'use strict';
 
 const express = require('express');
-const { getAnalyticsConfig } = require('../config/analytics');
 
 const router = express.Router();
 
 router.get('/config', (req, res) => {
   res.json({
-    analytics: getAnalyticsConfig(),
+    analytics: {
+      enabled: false,
+      provider: null,
+      requiresConsent: true,
+    },
   });
 });
 

@@ -6,6 +6,7 @@ const router = express.Router();
 const { DATA_DIR } = require('../../runtime/paths');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { validateCloudUrl } = require('../utils/cloud-security');
 const { getRuntimeValidation } = require('../services/runtime/validation');
 
 router.use(requireAuth);
@@ -108,8 +109,20 @@ router.get('/apps', handleAndroidAction((controller, req) =>
 router.post('/open-app', handleAndroidAction((controller, req) =>
   controller.openApp(req.body || {})));
 
-router.post('/open-intent', handleAndroidAction((controller, req) =>
-  controller.openIntent(req.body || {})));
+router.post('/open-intent', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const intentUrl = body.data || body.url || body.uri;
+    if (intentUrl && typeof intentUrl === 'string' && !validateCloudUrl(intentUrl).allowed) {
+      return res.status(403).json({ error: 'This URL is not permitted.' });
+    }
+    const controller = await getAndroidController(req);
+    const result = await controller.openIntent(body);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
 
 router.post('/tap', handleAndroidAction((controller, req) =>
   controller.tap(req.body || {})));

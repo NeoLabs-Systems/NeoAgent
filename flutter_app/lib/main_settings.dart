@@ -489,20 +489,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
-  Widget _inlineProgressIndicator() {
-    return SizedBox(
-      width: 28,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: LinearProgressIndicator(
-          minHeight: 3,
-          backgroundColor: Colors.white.withValues(alpha: 0.28),
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-
   Widget _buildSettingsOverview(
     NeoAgentController controller,
     int availableModelCount,
@@ -1545,6 +1531,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   const SizedBox(height: 6),
                   Text(
                     'Avg/run: ${controller.tokenUsage!.avgTokensPerRunLabel} tokens',
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Prompt cache: ${controller.tokenUsage!.cachedReadTokensLabel} cached tokens '
+                    '(${controller.tokenUsage!.cacheHitRatioLabel} hit ratio)',
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Measured model cost: ${controller.tokenUsage!.estimatedCostLabel}',
                   ),
                 ],
               ),

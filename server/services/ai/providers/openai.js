@@ -115,11 +115,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
       content: choice.message.content,
       toolCalls: choice.message.tool_calls || [],
       finishReason: choice.finish_reason,
-      usage: response.usage ? {
-        promptTokens: response.usage.prompt_tokens,
-        completionTokens: response.usage.completion_tokens,
-        totalTokens: response.usage.total_tokens
-      } : null,
+      usage: this.normalizeUsage(response.usage),
       model: response.model
     };
   }
@@ -138,11 +134,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     for await (const chunk of stream) {
       // Final usage-only chunk (empty choices array)
       if (chunk.usage && (!chunk.choices || chunk.choices.length === 0)) {
-        finalUsage = {
-          promptTokens: chunk.usage.prompt_tokens,
-          completionTokens: chunk.usage.completion_tokens,
-          totalTokens: chunk.usage.total_tokens
-        };
+        finalUsage = this.normalizeUsage(chunk.usage);
         continue;
       }
 
@@ -177,11 +169,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
           content,
           toolCalls: currentToolCalls.filter(tc => tc.id),
           finishReason: chunk.choices[0].finish_reason,
-          usage: chunk.usage ? {
-            promptTokens: chunk.usage.prompt_tokens,
-            completionTokens: chunk.usage.completion_tokens,
-            totalTokens: chunk.usage.total_tokens
-          } : finalUsage
+          usage: this.normalizeUsage(chunk.usage) || finalUsage
         };
       }
     }
