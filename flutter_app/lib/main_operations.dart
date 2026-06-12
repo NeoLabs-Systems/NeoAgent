@@ -5629,7 +5629,7 @@ class _TasksPanelState extends State<TasksPanel> {
       );
     }
     return DropdownButtonFormField<int>(
-      value: accounts.any((a) => a.id == selectedConnectionId.value)
+      initialValue: accounts.any((a) => a.id == selectedConnectionId.value)
           ? selectedConnectionId.value
           : null,
       isExpanded: true,
