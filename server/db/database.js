@@ -764,6 +764,112 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agent_run_events_run ON agent_run_events(run_id, sequence_index, id);
   CREATE INDEX IF NOT EXISTS idx_agent_run_events_user ON agent_run_events(user_id, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS agent_model_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    phase TEXT DEFAULT 'model_turn',
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    reasoning_tokens INTEGER DEFAULT 0,
+    cached_read_tokens INTEGER DEFAULT 0,
+    cache_write_tokens INTEGER DEFAULT 0,
+    total_tokens INTEGER DEFAULT 0,
+    estimated_cost_usd REAL,
+    latency_ms INTEGER DEFAULT 0,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
+    FOREIGN KEY (step_id) REFERENCES agent_steps(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_agent_model_usage_run ON agent_model_usage(run_id, id);
+  CREATE INDEX IF NOT EXISTS idx_agent_model_usage_user ON agent_model_usage(user_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS workspace_code_index (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    path TEXT NOT NULL,
+    symbol TEXT,
+    symbol_type TEXT,
+    start_line INTEGER,
+    end_line INTEGER,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    embedding TEXT,
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, path, symbol, start_line)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_workspace_code_index_user
+    ON workspace_code_index(user_id, path);
+
+  CREATE TABLE IF NOT EXISTS task_webhook_deliveries (
+    id TEXT PRIMARY KEY,
+    task_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    request_id TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'accepted',
+    response_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT,
+    FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(task_id, request_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_webhook_secrets (
+    task_id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    secret_encrypted TEXT NOT NULL,
+    secret_fingerprint TEXT NOT NULL,
+    rotated_at TEXT DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_task_webhook_deliveries_task
+    ON task_webhook_deliveries(task_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS skill_metrics (
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    skill_name TEXT NOT NULL,
+    invocation_count INTEGER DEFAULT 0,
+    success_count INTEGER DEFAULT 0,
+    failure_count INTEGER DEFAULT 0,
+    correction_count INTEGER DEFAULT 0,
+    total_tokens INTEGER DEFAULT 0,
+    last_used_at TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    updated_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, agent_id, skill_name),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS skill_workflow_observations (
+    user_id INTEGER NOT NULL,
+    agent_id TEXT NOT NULL,
+    workflow_signature TEXT NOT NULL,
+    observation_count INTEGER DEFAULT 0,
+    latest_run_id TEXT,
+    first_observed_at TEXT DEFAULT (datetime('now')),
+    last_observed_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, agent_id, workflow_signature),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS agent_settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -1159,6 +1265,12 @@ for (const col of [
   "ALTER TABLE desktop_companion_devices ADD COLUMN last_seen_at TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN revoked_at TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
+  "ALTER TABLE memory_facts ADD COLUMN valid_from TEXT",
+  "ALTER TABLE memory_facts ADD COLUMN valid_to TEXT",
+  "ALTER TABLE memory_facts ADD COLUMN learned_at TEXT",
+  "ALTER TABLE memory_facts ADD COLUMN invalidated_at TEXT",
+  "ALTER TABLE memory_facts ADD COLUMN status TEXT DEFAULT 'active'",
+  "ALTER TABLE memory_facts ADD COLUMN supersedes_fact_id TEXT",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }

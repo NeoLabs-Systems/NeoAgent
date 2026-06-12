@@ -1055,6 +1055,14 @@ class BackendClient {
     return getList(baseUrl, '/api/skills');
   }
 
+  Future<List<Map<String, dynamic>>> fetchSkillMetrics(String baseUrl) {
+    return getList(baseUrl, '/api/skills/metrics/summary');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSkillAudit(String baseUrl) {
+    return getList(baseUrl, '/api/skills/audit/summary');
+  }
+
   Future<List<Map<String, dynamic>>> fetchSkillStore(String baseUrl) async {
     return getList(baseUrl, '/api/store');
   }

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const db = require('../db/database');
 const {
   getSkillRunner,
   serializeInstalledSkill,
@@ -57,6 +58,47 @@ router.get('/', async (req, res) => {
     const runner = await getSkillRunner(req.app);
     const skills = runner.getAll().map(serializeInstalledSkill);
     res.json(skills.sort(sortInstalledSkills));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/metrics/summary', (req, res) => {
+  try {
+    const rows = db.prepare(
+      `SELECT skill_name, invocation_count, success_count, failure_count,
+              correction_count, total_tokens, last_used_at
+       FROM skill_metrics WHERE user_id = ?
+       ORDER BY invocation_count DESC, skill_name ASC`
+    ).all(req.session.userId);
+    res.json(rows.map((row) => {
+      const invocations = Number(row.invocation_count || 0);
+      const successes = Number(row.success_count || 0);
+      const failures = Number(row.failure_count || 0);
+      let recommendation = 'keep';
+      if (invocations >= 5 && failures / invocations >= 0.4) recommendation = 'improve_or_disable';
+      else if (invocations >= 10 && successes === 0) recommendation = 'disable_or_delete';
+      else if (invocations === 0) recommendation = 'review_unused';
+      return {
+        skillName: row.skill_name,
+        invocationCount: invocations,
+        successCount: successes,
+        failureCount: failures,
+        correctionCount: Number(row.correction_count || 0),
+        totalTokens: Number(row.total_tokens || 0),
+        successRate: invocations > 0 ? successes / invocations : null,
+        lastUsedAt: row.last_used_at,
+        recommendation,
+      };
+    }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/audit/summary', (req, res) => {
+  try {
+    res.json(req.app.locals.capabilityAuditService.auditSkills());
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }
