@@ -1,0 +1,65 @@
+name: Bug report
+description: Report a reproducible problem in NeoAgent
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include API keys, tokens, personal data, or unsanitized logs.
+        If this is a security issue, use the private process in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: NeoAgent version
+      description: Provide the release version or git commit.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the server operating system, architecture, Node.js version, install type, and runtime profile.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe what happened and which host or device was involved.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: List the shortest reliable sequence that triggers the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Paste only the relevant lines and identify the machine that produced them.
+      render: shell
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add screenshots, configuration details, or recent changes that help isolate the issue.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I removed secrets, tokens, personal data, and private URLs.
+          required: true
