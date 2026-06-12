@@ -2059,6 +2059,7 @@ class ModelMeta {
   final bool available;
   final String providerStatus;
   final String providerStatusLabel;
+
   /// Pricing tier: 'free' | 'cheap' | 'medium' | 'expensive' | null (unknown)
   final String? priceTier;
 }
@@ -2308,11 +2309,20 @@ class TokenUsageSnapshot {
     required this.avgTokensPerRun,
     required this.last7DaysTokens,
     required this.last7DaysRuns,
+    required this.cachedReadTokens,
+    required this.cacheWriteTokens,
+    required this.reasoningTokens,
+    required this.modelCallCount,
+    required this.cacheHitRatio,
+    this.estimatedCostUsd,
   });
 
   factory TokenUsageSnapshot.fromJson(Map<dynamic, dynamic> json) {
     final totals = json['totals'] is Map
         ? Map<String, dynamic>.from(json['totals'] as Map)
+        : const <String, dynamic>{};
+    final modelUsage = json['modelUsage'] is Map
+        ? Map<String, dynamic>.from(json['modelUsage'] as Map)
         : const <String, dynamic>{};
     return TokenUsageSnapshot(
       totalTokens: _asInt(totals['totalTokens']),
@@ -2320,6 +2330,12 @@ class TokenUsageSnapshot {
       avgTokensPerRun: _asInt(totals['avgTokensPerRun']),
       last7DaysTokens: _asInt(totals['last7DaysTokens']),
       last7DaysRuns: _asInt(totals['last7DaysRuns']),
+      cachedReadTokens: _asInt(modelUsage['cachedReadTokens']),
+      cacheWriteTokens: _asInt(modelUsage['cacheWriteTokens']),
+      reasoningTokens: _asInt(modelUsage['reasoningTokens']),
+      modelCallCount: _asInt(modelUsage['callCount']),
+      cacheHitRatio: (modelUsage['cacheHitRatio'] as num?)?.toDouble() ?? 0,
+      estimatedCostUsd: (modelUsage['estimatedCostUsd'] as num?)?.toDouble(),
     );
   }
 
@@ -2328,12 +2344,24 @@ class TokenUsageSnapshot {
   final int avgTokensPerRun;
   final int last7DaysTokens;
   final int last7DaysRuns;
+  final int cachedReadTokens;
+  final int cacheWriteTokens;
+  final int reasoningTokens;
+  final int modelCallCount;
+  final double cacheHitRatio;
+  final double? estimatedCostUsd;
 
   String get totalTokensLabel => _formatNumber(totalTokens);
   String get totalRunsLabel => _formatNumber(totalRuns);
   String get avgTokensPerRunLabel => _formatNumber(avgTokensPerRun);
   String get last7DaysTokensLabel => _formatNumber(last7DaysTokens);
   String get last7DaysRunsLabel => _formatNumber(last7DaysRuns);
+  String get cachedReadTokensLabel => _formatNumber(cachedReadTokens);
+  String get cacheHitRatioLabel =>
+      '${(cacheHitRatio * 100).toStringAsFixed(1)}%';
+  String get estimatedCostLabel => estimatedCostUsd == null
+      ? 'Unknown'
+      : '\$${estimatedCostUsd!.toStringAsFixed(4)}';
 }
 
 class UpdateStatusSnapshot {

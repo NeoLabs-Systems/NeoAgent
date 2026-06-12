@@ -10,7 +10,12 @@ const {
   sanitizeConversationMessages
 } = require('./history');
 const { ensureDefaultAiSettings, getAiSettings } = require('./settings');
-const { selectToolsForTask } = require('./toolSelector');
+const {
+  activateTools,
+  buildToolCatalog,
+  selectInitialTools,
+  selectToolsForTask,
+} = require('./toolSelector');
 const { compactToolResult } = require('./toolResult');
 const { salvageTextToolCalls } = require('./toolCallSalvage');
 const { sanitizeModelOutput } = require('./outputSanitizer');
@@ -50,6 +55,8 @@ const { buildLoopPolicy, resolveToolResultLimits } = require('./loopPolicy');
 const { globalHooks } = require('./hooks');
 const { withProviderRetry, isTransientError } = require('./providerRetry');
 const { normalizeCompletionConfidence, shouldAcceptTaskComplete } = require('./completion');
+const { normalizeUsage, recordModelUsage } = require('./usage');
+const { ToolRepetitionGuard } = require('./repetitionGuard');
 const { shortenRunId, summarizeForLog, parseMaybeJson } = require('./logFormat');
 const {
   normalizeOutgoingMessage,
@@ -209,18 +216,34 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
       : {};
     const preferredPurpose = String(selectionHint.purpose || '').trim().toLowerCase();
     const highAutonomy = selectionHint.autonomyLevel === 'high' || selectionHint.complexity === 'complex';
+    const requiredConfidence = String(selectionHint.requiredConfidence || '').trim().toLowerCase();
+    const costMode = String(selectionHint.costMode || aiSettings.cost_mode || 'balanced_auto').trim().toLowerCase();
     const requestedPurpose = ['planning', 'coding', 'general', 'fast'].includes(preferredPurpose)
       ? preferredPurpose
       : '';
+    const priceRank = { free: 0, cheap: 1, medium: 2, expensive: 3 };
+    const chooseForPurpose = (purpose) => {
+      const candidates = availableModels.filter((model) => model.purpose === purpose);
+      if (candidates.length === 0) return null;
+      if (['economy', 'cost_saver', 'lowest_cost'].includes(costMode)) {
+        return [...candidates].sort((left, right) => (
+          (priceRank[left.priceTier] ?? 99) - (priceRank[right.priceTier] ?? 99)
+        ))[0];
+      }
+      if (['quality', 'highest_quality'].includes(costMode) || requiredConfidence === 'high') {
+        return candidates.find((model) => model.priceTier !== 'free' && model.priceTier !== 'cheap') || candidates[0];
+      }
+      return candidates[0];
+    };
 
     if (smarterSelection && requestedPurpose) {
-      selectedModelDef = availableModels.find((m) => m.purpose === requestedPurpose) || fallbackModel;
+      selectedModelDef = chooseForPurpose(requestedPurpose) || fallbackModel;
     } else if (smarterSelection && highAutonomy) {
-      selectedModelDef = availableModels.find((m) => m.purpose === 'planning') || fallbackModel;
+      selectedModelDef = chooseForPurpose('planning') || chooseForPurpose('general') || fallbackModel;
     } else if (isSubagent) {
-      selectedModelDef = availableModels.find((m) => m.purpose === 'fast') || fallbackModel;
+      selectedModelDef = chooseForPurpose('fast') || fallbackModel;
     } else {
-      selectedModelDef = availableModels.find((m) => m.purpose === 'general') || fallbackModel;
+      selectedModelDef = chooseForPurpose('general') || fallbackModel;
     }
   }
 
@@ -302,17 +325,20 @@ class AgentEngine {
   }
 
   async buildSystemPrompt(userId, context = {}) {
-    const { buildSystemPrompt } = require('./systemPrompt');
+    const { buildSystemPromptSections } = require('./systemPrompt');
     const { MemoryManager } = require('../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
-    const basePrompt = await buildSystemPrompt(userId, context, memoryManager);
+    const promptSections = await buildSystemPromptSections(userId, context, memoryManager);
     const skillRunner = context.skillRunner || this.skillRunner || null;
     const skillsPrompt = skillRunner?.getSkillsForPrompt?.({
       maxTotalChars: 9000,
       maxDescriptionChars: 180,
       maxTriggerChars: 100,
     }) || '';
-    return [basePrompt, skillsPrompt].filter(Boolean).join('\n\n');
+    return {
+      stable: [promptSections.stable, skillsPrompt].filter(Boolean).join('\n\n'),
+      dynamic: promptSections.dynamic,
+    };
   }
 
   persistRunMetadata(runId, patch = {}) {
@@ -516,7 +542,10 @@ class AgentEngine {
     normalize,
     fallback = {},
     reasoningEffort,
+    telemetry = null,
+    phase = 'structured',
   }) {
+    const startedAt = Date.now();
     const response = await withProviderRetry(
       () => provider.chat(
         sanitizeConversationMessages([
@@ -532,12 +561,26 @@ class AgentEngine {
       ),
       { label: `Engine ${model} (structured)` }
     );
+    if (telemetry?.runId && telemetry?.userId) {
+      recordModelUsage({
+        runId: telemetry.runId,
+        stepId: telemetry.stepId || null,
+        userId: telemetry.userId,
+        agentId: telemetry.agentId || null,
+        provider: providerName,
+        model,
+        phase,
+        usage: response.usage,
+        latencyMs: Date.now() - startedAt,
+      });
+    }
 
     const parsed = parseJsonObject(response.content || '');
+    const normalizedUsage = normalizeUsage(response.usage);
     return {
       value: normalize(parsed || {}, fallback),
       raw: response.content || '',
-      usage: response.usage?.totalTokens || 0,
+      usage: normalizedUsage?.totalTokens || 0,
     };
   }
 
@@ -551,6 +594,7 @@ class AgentEngine {
     runId,
     iteration,
   }) {
+    const startedAt = Date.now();
     const requestMessages = sanitizeConversationMessages(messages);
     const callOptions = {
       model,
@@ -627,6 +671,20 @@ class AgentEngine {
       error.code = 'MODEL_EMPTY_RESPONSE';
       throw error;
     }
+    if (options.runId && options.userId) {
+      recordModelUsage({
+        runId: options.runId,
+        stepId: options.stepId || null,
+        userId: options.userId,
+        agentId: options.agentId || null,
+        provider: providerName,
+        model,
+        phase: options.phase || 'model_turn',
+        usage: resolvedResponse.usage,
+        latencyMs: Date.now() - startedAt,
+        metadata: { iteration },
+      });
+    }
 
     return {
       response: resolvedResponse,
@@ -661,6 +719,8 @@ class AgentEngine {
       normalize: normalizeTaskAnalysis,
       fallback: buildAnalyzeTaskFallback(forceMode, userMessage),
       reasoningEffort: this.getReasoningEffort(providerName, options),
+      telemetry: options,
+      phase: 'task_analysis',
     });
 
     return {
@@ -692,6 +752,8 @@ class AgentEngine {
         success_criteria: analysis.success_criteria,
       },
       reasoningEffort: this.getReasoningEffort(providerName, options),
+      telemetry: options,
+      phase: 'execution_plan',
     });
 
     return {
@@ -767,6 +829,8 @@ class AgentEngine {
       },
       fallback: { status: fallbackStatus },
       reasoningEffort: this.getReasoningEffort(providerName, options),
+      telemetry: options,
+      phase: 'loop_decision',
     });
 
     return {
@@ -810,6 +874,8 @@ class AgentEngine {
         final_reply: finalReply,
       },
       reasoningEffort: this.getReasoningEffort(providerName, options),
+      telemetry: options,
+      phase: 'verification',
     });
 
     return {
@@ -953,6 +1019,212 @@ class AgentEngine {
     return executeTool(toolName, args, context, this);
   }
 
+  isReadOnlyToolCall(toolCall) {
+    const name = String(toolCall?.function?.name || '');
+    const readOnly = new Set([
+      'read_file',
+      'list_directory',
+      'search_files',
+      'code_navigate',
+      'query_structured_data',
+      'memory_recall',
+      'memory_read',
+      'session_search',
+      'web_search',
+      'list_tasks',
+      'list_skills',
+      'list_subagents',
+      'recordings_list',
+      'recordings_get',
+      'recordings_search',
+      'read_health_data',
+    ]);
+    if (name === 'http_request') {
+      try {
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        return String(args.method || 'GET').toUpperCase() === 'GET';
+      } catch {
+        return false;
+      }
+    }
+    return readOnly.has(name);
+  }
+
+  async executeReadOnlyBatch(toolCalls, context = {}) {
+    const {
+      userId,
+      runId,
+      agentId,
+      app,
+      triggerType,
+      triggerSource,
+      conversationId,
+      startingStepIndex,
+      options = {},
+    } = context;
+    const prepared = [];
+    let nextStepIndex = startingStepIndex;
+    for (const toolCall of toolCalls) {
+      nextStepIndex += 1;
+      let toolArgs = {};
+      try { toolArgs = JSON.parse(toolCall.function.arguments || '{}'); } catch {}
+      const toolName = toolCall.function.name;
+      const repetitionGuard = this.getRunMeta(runId)?.repetitionGuard;
+      if (repetitionGuard?.shouldBlock(toolName, toolArgs)) {
+        const result = {
+          status: 'blocked',
+          reason: 'The same read-only call already returned an unchanged result twice.',
+        };
+        prepared.push({
+          toolCall,
+          toolName,
+          toolArgs,
+          stepIndex: nextStepIndex,
+          blocked: true,
+          result,
+          error: result.reason,
+        });
+        this.recordRunEvent(userId, runId, 'repetition_blocked', {
+          toolName,
+          toolArgs,
+          parallel: true,
+        }, { agentId });
+        continue;
+      }
+      if (globalHooks.has('before_tool_call')) {
+        const hookResult = await globalHooks.run('before_tool_call', {
+          toolName,
+          toolArgs,
+          runId,
+          userId,
+          agentId,
+          iteration: context.iteration,
+        });
+        if (hookResult.block) {
+          prepared.push({
+            toolCall,
+            toolName,
+            toolArgs,
+            stepIndex: nextStepIndex,
+            blocked: true,
+            result: { status: 'skipped', reason: 'Blocked by policy.' },
+          });
+          continue;
+        }
+        if (hookResult.toolArgs) toolArgs = hookResult.toolArgs;
+      }
+      const stepId = uuidv4();
+      db.prepare(
+        `INSERT INTO agent_steps (
+          id, run_id, step_index, type, description, status, tool_name, tool_input, started_at
+        ) VALUES (?, ?, ?, ?, ?, 'running', ?, ?, datetime('now'))`
+      ).run(
+        stepId,
+        runId,
+        nextStepIndex,
+        this.getStepType(toolName),
+        `${toolName}: ${JSON.stringify(toolArgs).slice(0, 200)}`,
+        toolName,
+        JSON.stringify(toolArgs),
+      );
+      this.emit(userId, 'run:tool_start', {
+        runId,
+        stepId,
+        stepIndex: nextStepIndex,
+        toolName,
+        toolArgs,
+        type: this.getStepType(toolName),
+      });
+      this.recordRunEvent(userId, runId, 'tool_started', {
+        stepIndex: nextStepIndex,
+        toolName,
+        toolArgs,
+        type: this.getStepType(toolName),
+        parallel: true,
+      }, { agentId, stepId });
+      prepared.push({ toolCall, toolName, toolArgs, stepId, stepIndex: nextStepIndex });
+    }
+    this.recordRunEvent(userId, runId, 'parallel_batch_started', {
+      toolNames: prepared.map((item) => item.toolName),
+      count: prepared.length,
+    }, { agentId });
+    const results = await Promise.all(prepared.map(async (item) => {
+      if (item.blocked) return item;
+      const startedAt = Date.now();
+      try {
+        const result = await this.executeTool(item.toolName, item.toolArgs, {
+          userId,
+          runId,
+          agentId,
+          app,
+          triggerType,
+          triggerSource,
+          conversationId,
+          source: options.source || null,
+          chatId: options.chatId || null,
+          taskId: options.taskId || null,
+          widgetId: options.widgetId || null,
+          deliveryState: options.deliveryState || null,
+          allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
+          allowExternalSideEffects: false,
+        });
+        const error = inferToolFailureMessage(item.toolName, result);
+        const status = error ? 'failed' : 'completed';
+        db.prepare(
+          `UPDATE agent_steps
+           SET status = ?, result = ?, error = ?, screenshot_path = ?, completed_at = datetime('now')
+           WHERE id = ?`
+        ).run(
+          status,
+          JSON.stringify(result).slice(0, 20000),
+          error || null,
+          result?.screenshotPath || null,
+          item.stepId,
+        );
+        this.emit(userId, 'run:tool_end', {
+          runId,
+          stepId: item.stepId,
+          toolName: item.toolName,
+          result,
+          error: error || undefined,
+          status,
+        });
+        this.recordRunEvent(userId, runId, error ? 'tool_failed' : 'tool_completed', {
+          toolName: item.toolName,
+          status,
+          durationMs: Date.now() - startedAt,
+          resultPreview: summarizeForLog(result),
+          parallel: true,
+        }, { agentId, stepId: item.stepId });
+        return { ...item, result, error };
+      } catch (err) {
+        db.prepare(
+          `UPDATE agent_steps SET status = 'failed', error = ?, completed_at = datetime('now') WHERE id = ?`
+        ).run(err.message, item.stepId);
+        this.emit(userId, 'run:tool_end', {
+          runId,
+          stepId: item.stepId,
+          toolName: item.toolName,
+          error: err.message,
+          status: 'failed',
+        });
+        this.recordRunEvent(userId, runId, 'tool_failed', {
+          toolName: item.toolName,
+          status: 'failed',
+          error: err.message,
+          durationMs: Date.now() - startedAt,
+          parallel: true,
+        }, { agentId, stepId: item.stepId });
+        return { ...item, result: { error: err.message }, error: err.message };
+      }
+    }));
+    this.recordRunEvent(userId, runId, 'parallel_batch_completed', {
+      toolNames: results.map((item) => item.toolName),
+      failedCount: results.filter((item) => item.error).length,
+    }, { agentId });
+    return { results, endingStepIndex: nextStepIndex };
+  }
+
   async persistRunContext(userId, {
     triggerSource,
     runTitle,
@@ -977,6 +1249,47 @@ class AgentEngine {
 
   getRunMeta(runId) {
     return this.activeRuns.get(runId) || null;
+  }
+
+  initializeToolRuntime(runId, allTools, initialTools, options = {}) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta) return;
+    runMeta.toolCatalog = Array.isArray(allTools) ? allTools : [];
+    runMeta.activeTools = Array.isArray(initialTools) ? initialTools : [];
+    runMeta.toolSelectionOptions = {
+      widgetId: options.widgetId || null,
+    };
+  }
+
+  getActiveTools(runId) {
+    return this.getRunMeta(runId)?.activeTools || [];
+  }
+
+  activateToolsForRun(runId, names = []) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta) throw new Error('Run is not active.');
+    const result = activateTools(
+      runMeta.activeTools,
+      runMeta.toolCatalog,
+      names,
+      runMeta.toolSelectionOptions,
+    );
+    runMeta.activeTools = result.tools;
+    this.recordRunEvent(runMeta.userId, runId, 'tools_activated', {
+      activated: result.activated,
+      evicted: result.evicted,
+      unknown: result.unknown,
+      notActivated: result.notActivated,
+      activeToolNames: result.tools.map((tool) => tool.name),
+    }, { agentId: runMeta.agentId });
+    return {
+      success: result.unknown.length === 0 && result.notActivated.length === 0,
+      activated: result.activated,
+      evicted: result.evicted,
+      unknown: result.unknown,
+      not_activated: result.notActivated,
+      active_tools: result.tools.map((tool) => tool.name),
+    };
   }
 
   findActiveRunForUser(userId, predicate = null) {
@@ -1112,7 +1425,20 @@ class AgentEngine {
   }
 
   buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg) {
-    const messages = [{ role: 'system', content: systemPrompt }];
+    const messages = [];
+    if (systemPrompt && typeof systemPrompt === 'object') {
+      if (systemPrompt.stable) {
+        messages.push({
+          role: 'system',
+          content: systemPrompt.stable,
+        });
+      }
+      if (systemPrompt.dynamic) {
+        messages.push({ role: 'system', content: systemPrompt.dynamic });
+      }
+    } else {
+      messages.push({ role: 'system', content: systemPrompt });
+    }
     if (summaryMessage) messages.push(summaryMessage);
     if (Array.isArray(historyMessages)) messages.push(...historyMessages);
     if (recallMsg) messages.push({ role: 'system', content: recallMsg });
@@ -1340,6 +1666,7 @@ class AgentEngine {
       voiceSessionId: options.voiceSessionId || null,
       steeringQueue: [],
       toolPids: new Set(),
+      repetitionGuard: new ToolRepetitionGuard(),
     });
     this.emit(userId, 'run:start', { runId, agentId, title: runTitle, model, triggerType, triggerSource });
     this.recordRunEvent(userId, runId, 'run_started', {
@@ -1371,8 +1698,9 @@ class AgentEngine {
     const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.mcpManager;
     const integrationManager = app?.locals?.integrationManager || null;
     const mcpTools = mcpManager ? mcpManager.getAllTools(userId, { agentId }) : [];
-    const tools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
-    const toolNames = tools.map((tool) => tool.name).filter(Boolean);
+    const allTools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
+    let tools = allTools;
+    const toolNames = allTools.map((tool) => tool.name).filter(Boolean);
     const coreToolStatus = {
       send_message: toolNames.includes('send_message'),
       create_task: toolNames.includes('create_task'),
@@ -1470,7 +1798,7 @@ class AgentEngine {
           capabilityHealth,
           forceMode: options.forceMode || null,
           userMessage,
-          options: { ...options, triggerSource },
+          options: { ...options, triggerSource, runId, userId, agentId },
         }));
         analysisUsage = analysisResult.usage || 0;
         totalTokens += analysisUsage;
@@ -1511,6 +1839,25 @@ class AgentEngine {
 
       }
 
+      tools = selectInitialTools(allTools, analysis.suggested_tools, {
+        widgetId: options.widgetId || null,
+      });
+      this.initializeToolRuntime(runId, allTools, tools, options);
+      messages.push({
+        role: 'system',
+        content: [
+          '[Available tool catalog]',
+          buildToolCatalog(allTools),
+          '',
+          `Active tools: ${tools.map((tool) => tool.name).join(', ')}`,
+          'Use activate_tools with exact catalog names when another schema is required.',
+        ].join('\n'),
+      });
+      this.recordRunEvent(userId, runId, 'tool_selection_applied', {
+        activeToolNames: tools.map((tool) => tool.name),
+        catalogSize: allTools.length,
+      }, { agentId });
+
       const activeDefaultModelSetting = triggerType === 'subagent'
         ? aiSettings.default_subagent_model
         : aiSettings.default_chat_model;
@@ -1532,6 +1879,8 @@ class AgentEngine {
                 purpose: requestedPurpose,
                 complexity: analysis?.complexity,
                 autonomyLevel: analysis?.autonomy_level,
+                requiredConfidence: analysis?.completion_confidence_required,
+                costMode: aiSettings.cost_mode,
               },
             }
           );
@@ -1568,7 +1917,7 @@ class AgentEngine {
           model,
           messages,
           tools,
-          options,
+          options: { ...options, runId, userId, agentId },
         });
         totalTokens += deliverableSelectionResult.usage || 0;
         const selectedWorkflow = getDeliverableWorkflow(deliverableSelectionResult.selection.type);
@@ -1589,6 +1938,7 @@ class AgentEngine {
           await selectedWorkflow.run(deliverablePlan, {
             engine: this,
             userId,
+            agentId,
             runId,
             agentId,
             app,
@@ -1616,7 +1966,7 @@ class AgentEngine {
           messages,
           analysis,
           capabilitySummary,
-          options,
+          options: { ...options, runId, userId, agentId },
         }));
         totalTokens += planResult.usage || 0;
         plan = planResult.plan;
@@ -1723,7 +2073,7 @@ class AgentEngine {
               model,
               messages,
               tools,
-              options: { ...options, userId },
+              options: { ...options, userId, agentId, runId, phase: 'model_turn' },
               runId,
               iteration,
             });
@@ -1899,7 +2249,7 @@ class AgentEngine {
               messagingSent,
               iteration,
               maxIterations,
-              options,
+              options: { ...options, runId, userId, agentId },
               fallbackStatus,
             }));
             totalTokens += loopState.usage || 0;
@@ -1918,6 +2268,65 @@ class AgentEngine {
             }
           }
           break;
+        }
+
+        const canRunParallelBatch = (
+          response.toolCalls.length > 1
+          && response.toolCalls.every((toolCall) => this.isReadOnlyToolCall(toolCall))
+        );
+        if (canRunParallelBatch) {
+          const batch = await this.executeReadOnlyBatch(response.toolCalls, {
+            userId,
+            runId,
+            agentId,
+            app,
+            triggerType,
+            triggerSource,
+            conversationId,
+            startingStepIndex: stepIndex,
+            iteration,
+            options,
+          });
+          stepIndex = batch.endingStepIndex;
+          for (const item of batch.results) {
+            const execution = classifyToolExecution(
+              item.toolName,
+              item.toolArgs,
+              item.result,
+              item.error || '',
+            );
+            execution.input = item.toolArgs;
+            execution.artifacts = await extractArtifactsFromResult(item.toolName, item.result);
+            toolExecutions.push(execution);
+            this.getRunMeta(runId)?.repetitionGuard?.observe(item.toolName, item.toolArgs, item.result);
+            if (item.error) failedStepCount += 1;
+            const modelPayload = compactPayloadForModel(item.toolName, item.result);
+            const toolResultLimits = resolveToolResultLimits(item.toolName, loopPolicy);
+            const toolMessage = {
+              role: 'tool',
+              name: item.toolName,
+              tool_call_id: item.toolCall.id,
+              content: compactToolResult(item.toolName, item.toolArgs, modelPayload.result, {
+                softLimit: toolResultLimits.softLimit,
+                hardLimit: toolResultLimits.hardLimit,
+              }),
+            };
+            messages.push(toolMessage);
+            if (conversationId) {
+              db.prepare(
+                `INSERT INTO conversation_messages (
+                  conversation_id, role, content, tool_call_id, name
+                ) VALUES (?, 'tool', ?, ?, ?)`
+              ).run(conversationId, toolMessage.content, item.toolCall.id, item.toolName);
+            }
+          }
+          this.persistRunMetadata(runId, {
+            evidenceSources: [...new Set(toolExecutions.map((item) => item.evidenceSource).filter(Boolean))],
+            subagentState: this.listSubagents(runId),
+            deliverableArtifacts,
+            compactionMetrics: compactionMetrics.slice(-20),
+          });
+          continue;
         }
 
         for (const toolCall of response.toolCalls) {
@@ -1981,6 +2390,36 @@ class AgentEngine {
             lastContent = finalMessage; // empty string is valid; downstream handles it
             directAnswerEligible = true;
             break; // exit the for-loop; the while condition will also exit
+          }
+
+          const repetitionGuard = this.getRunMeta(runId)?.repetitionGuard;
+          if (repetitionGuard?.shouldBlock(toolName, toolArgs)) {
+            const blockedResult = {
+              tool: toolName,
+              status: 'blocked',
+              reason: 'The same tool call already returned an unchanged result twice. Change the approach or complete with the available evidence.',
+            };
+            messages.push({
+              role: 'tool',
+              name: toolName,
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(blockedResult),
+            });
+            this.recordRunEvent(userId, runId, 'repetition_blocked', {
+              toolName,
+              toolArgs,
+            }, { agentId });
+            this.emit(userId, 'run:tool_end', {
+              runId,
+              toolName,
+              status: 'blocked',
+              result: blockedResult,
+            });
+            messages.push({
+              role: 'system',
+              content: 'The repeated call was blocked because it made no progress. Use a different tool, change the arguments, or finish with a truthful result.',
+            });
+            continue;
           }
 
           // ── before_tool_call hook ──
@@ -2091,6 +2530,8 @@ class AgentEngine {
           }
 
           const execution = classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage);
+          execution.input = toolArgs;
+          repetitionGuard?.observe(toolName, toolArgs, toolResult);
           execution.artifacts = await extractArtifactsFromResult(toolName, toolResult);
           toolExecutions.push(execution);
           if (deliverableWorkflow && Array.isArray(execution.artifacts) && execution.artifacts.length > 0) {
@@ -2114,7 +2555,6 @@ class AgentEngine {
             deliverableArtifacts,
             compactionMetrics: compactionMetrics.slice(-20),
           });
-
           const modelPayload = compactPayloadForModel(toolName, toolResult);
           if (modelPayload.metrics?.applied) {
             const metric = {
@@ -2144,6 +2584,9 @@ class AgentEngine {
             })
           };
           messages.push(toolMessage);
+          if (toolName === 'activate_tools' && !toolErrorMessage) {
+            tools = this.getActiveTools(runId);
+          }
 
           if (toolErrorMessage) {
             consecutiveToolFailures += 1;
@@ -2259,7 +2702,7 @@ class AgentEngine {
           provider,
           model,
           providerName,
-          options,
+          options: { ...options, runId, userId, agentId },
           stepIndex,
           failedStepCount,
           toolExecutions,
@@ -2330,7 +2773,7 @@ class AgentEngine {
           tools,
           toolExecutions,
           finalReply: finalResponseText,
-          options,
+          options: { ...options, runId, userId, agentId },
         }));
         totalTokens += verificationResult.usage || 0;
         verification = verificationResult.verification;
@@ -2502,7 +2945,6 @@ class AgentEngine {
         executionMode: analysis?.mode || 'execute',
         verificationStatus: verification?.status || 'skipped',
       }, { agentId });
-
       // ── on_loop_end hook ──
       // Fire-and-forget: plugins can use this for self-improvement, memory
       // consolidation, analytics, or other post-run housekeeping.
@@ -2513,6 +2955,27 @@ class AgentEngine {
           taskAnalysis: analysis,
           finalContent: finalResponseText,
         }).catch(() => {});
+      }
+      if (this.learningManager) {
+        try {
+          const learningSteps = db.prepare(
+            `SELECT tool_name, tool_input, result, status
+             FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC`
+          ).all(runId);
+          this.learningManager.maybeCaptureDraft({
+            userId,
+            agentId,
+            runId,
+            triggerSource,
+            triggerType,
+            task: userMessage,
+            title: runTitle,
+            finalContent: finalResponseText || lastContent,
+            steps: learningSteps,
+          });
+        } catch (learningError) {
+          console.warn('[Engine] Skill reflection failed:', learningError.message);
+        }
       }
 
       return { runId, content: lastContent, totalTokens, iterations: iteration, status: 'completed' };
@@ -2700,6 +3163,15 @@ class AgentEngine {
   async spawnSubagent(userId, parentRunId, task, options = {}) {
     const handle = uuidv4();
     const childRunId = uuidv4();
+    let relevantMemories = [];
+    try {
+      relevantMemories = this.memoryManager
+        ? await this.memoryManager.recallMemory(userId, task, {
+          agentId: options.agentId || null,
+          limit: 4,
+        })
+        : [];
+    } catch {}
     const subEngine = new AgentEngine(this.io, {
       app: options.app || this.app,
       browserController: this.browserController,
@@ -2713,13 +3185,31 @@ class AgentEngine {
       memoryManager: this.memoryManager,
     });
 
+    const subagentContract = [
+      `Goal: ${String(task || '').trim()}`,
+      options.context ? `Constraints and relevant context:\n${String(options.context).trim()}` : '',
+      relevantMemories.length > 0
+        ? `Top relevant memories: ${JSON.stringify(relevantMemories.map((memory) => ({
+          content: memory.content,
+          confidence: memory.confidence,
+        })))}`
+        : '',
+      Array.isArray(options.requiredArtifacts) && options.requiredArtifacts.length > 0
+        ? `Required artifacts: ${JSON.stringify(options.requiredArtifacts)}`
+        : '',
+      Array.isArray(options.selectedTools) && options.selectedTools.length > 0
+        ? `Selected tools: ${JSON.stringify(options.selectedTools.slice(0, 20))}`
+        : '',
+      'Return a single JSON object with exactly these top-level fields: status, findings, evidence, artifacts, confidence, remaining_blockers.',
+      'status must be completed, partial, or blocked. findings, evidence, artifacts, and remaining_blockers must be arrays. confidence must be low, medium, or high.',
+    ].filter(Boolean).join('\n\n');
     const record = {
       handle,
       parentRunId,
       childRunId,
       userId,
       agentId: options.agentId || null,
-      task,
+      task: subagentContract,
       model: options.model || null,
       status: 'running',
       createdAt: new Date().toISOString(),
@@ -2741,7 +3231,7 @@ class AgentEngine {
       try {
         const result = await subEngine.runWithModel(
           userId,
-          task,
+          subagentContract,
           {
             app: options.app || this.app,
             triggerType: 'subagent',
@@ -2752,9 +3242,20 @@ class AgentEngine {
           options.model || null
         );
         record.status = result.status || 'completed';
+        let structured = null;
+        try {
+          const raw = String(result.content || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') structured = parsed;
+        } catch {}
         record.result = {
           runId: result.runId,
-          content: result.content,
+          status: structured?.status || result.status || 'completed',
+          findings: Array.isArray(structured?.findings) ? structured.findings : [String(result.content || '').trim()].filter(Boolean),
+          evidence: Array.isArray(structured?.evidence) ? structured.evidence : [],
+          artifacts: Array.isArray(structured?.artifacts) ? structured.artifacts : [],
+          confidence: ['low', 'medium', 'high'].includes(structured?.confidence) ? structured.confidence : 'medium',
+          remainingBlockers: Array.isArray(structured?.remaining_blockers) ? structured.remaining_blockers : [],
           totalTokens: result.totalTokens,
           iterations: result.iterations,
         };

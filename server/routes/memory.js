@@ -226,6 +226,39 @@ router.get('/entities', (req, res) => {
   }
 });
 
+router.get('/facts', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  try {
+    res.json(mm.listFacts(userId, {
+      agentId,
+      status: req.query.status || '',
+      subject: req.query.subject || '',
+      predicate: req.query.predicate || '',
+      validAt: req.query.validAt || '',
+      knownAt: req.query.knownAt || '',
+      limit: req.query.limit,
+    }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/facts/reconcile', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  try {
+    res.json(mm.reconcileFacts(userId, {
+      agentId,
+      minimumConfidence: req.body?.minimumConfidence,
+    }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 router.post('/knowledge-views/materialize', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
@@ -424,7 +457,7 @@ router.post('/transfer-import', transferImportLimiter, async (req, res) => {
     if (applyCoreMemory && parsed.coreEntries) {
       for (const [key, value] of Object.entries(parsed.coreEntries)) {
         if (!key || key === 'active_context') continue;
-        mm.updateCore(userId, key, value, { agentId });
+        mm.updateCore(userId, key, value, { agentId, confirmed: true });
         coreUpdatedCount += 1;
       }
     }
@@ -456,7 +489,7 @@ router.put('/core/:key', (req, res) => {
   if (req.params.key === 'active_context') {
     return res.status(400).json({ error: 'active_context is no longer a supported core memory key' });
   }
-  mm.updateCore(userId, req.params.key, value, { agentId });
+  mm.updateCore(userId, req.params.key, value, { agentId, confirmed: true });
   res.json({ success: true });
 });
 

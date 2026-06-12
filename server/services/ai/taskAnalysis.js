@@ -271,13 +271,22 @@ function parseJsonObject(text) {
   }
 }
 
-function summarizeTools(tools = [], limit = 80) {
-  const names = tools
+function summarizeTools(tools = []) {
+  return tools
     .map((tool) => String(tool?.name || '').trim())
     .filter(Boolean);
+}
 
-  if (names.length <= limit) return names;
-  return [...names.slice(0, limit), `...(${names.length - limit} more)`];
+function summarizeToolCatalog(tools = []) {
+  return tools
+    .map((tool) => {
+      const name = String(tool?.name || '').trim();
+      if (!name) return '';
+      const description = String(tool?.description || '').replace(/\s+/g, ' ').trim();
+      return description ? `${name}: ${description}` : name;
+    })
+    .filter(Boolean)
+    .join('\n');
 }
 
 function normalizeTaskAnalysis(raw = {}, fallback = {}) {
@@ -513,7 +522,7 @@ function shouldRunVerifier({ analysis, toolExecutions = [], finalReply = '' }) {
 }
 
 function buildAnalysisPrompt({ capabilityHealth, tools = [], forceMode = null }) {
-  const toolNames = summarizeTools(tools).join(', ');
+  const toolCatalog = summarizeToolCatalog(tools);
   const forceModeLine = forceMode && ANALYSIS_MODES.includes(forceMode)
     ? `Preferred mode override from the runtime: ${forceMode}. Honor it unless it is clearly unsafe or impossible.`
     : '';
@@ -523,7 +532,7 @@ function buildAnalysisPrompt({ capabilityHealth, tools = [], forceMode = null })
     ...ANALYSIS_PROMPT_INSTRUCTIONS,
     forceModeLine,
     formatRuntimeCapabilityHealth(capabilityHealth),
-    formatAvailableToolsLine(toolNames),
+    toolCatalog ? `Complete available tool catalog:\n${toolCatalog}` : '',
   ], ANALYSIS_SCHEMA_EXAMPLE);
 }
 

@@ -73,7 +73,7 @@ function compactToolDefinition(tool, options = {}) {
     };
 
     if (options.includeDescriptions) {
-        compact.description = compactText(tool.description, 120);
+        compact.description = compactText(tool.description, 320);
     }
 
     if (tool.parameters?.properties) {
@@ -81,7 +81,7 @@ function compactToolDefinition(tool, options = {}) {
         for (const [key, value] of Object.entries(tool.parameters.properties)) {
             properties[key] = { ...value };
             if (options.includeDescriptions && value.description) {
-                properties[key].description = compactText(value.description, 70);
+                properties[key].description = compactText(value.description, 160);
             } else {
                 delete properties[key].description;
             }
@@ -786,9 +786,10 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     key: { type: 'string', enum: ['user_profile', 'preferences', 'ai_personality'], description: 'user_profile: who the user is, preferences: standing likes/dislikes, ai_personality: concise durable notes for how the agent should behave for this user' },
-                    value: { type: 'string', description: 'Value to set. Keep it concise — this is injected into every single prompt.' }
+                    value: { type: 'string', description: 'Value to set. Keep it concise — this is injected into every single prompt.' },
+                    confirmed: { type: 'boolean', description: 'Must be true only when the user explicitly requested this core-memory change in the current conversation.' }
                 },
-                required: ['key', 'value']
+                required: ['key', 'value', 'confirmed']
             }
         },
         {
@@ -920,6 +921,37 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'code_navigate',
+            description: 'Navigate source code with ranked lexical matches, AST-derived JavaScript/TypeScript symbols, or workspace-scoped semantic retrieval. Returns excerpts and line references instead of complete files.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    mode: { type: 'string', enum: ['lexical', 'structure', 'semantic'], description: 'Search mode.' },
+                    path: { type: 'string', description: 'Workspace file or directory.' },
+                    query: { type: 'string', description: 'Required for lexical and semantic modes.' },
+                    include: { type: 'string', description: 'Optional ripgrep glob for lexical mode.' },
+                    limit: { type: 'number', description: 'Maximum semantic results.' }
+                },
+                required: ['mode', 'path']
+            }
+        },
+        {
+            name: 'query_structured_data',
+            description: 'Read workspace CSV, TSV, JSON, or SQLite data using format-aware parsers. SQLite statements must be read-only and parameters are bound separately.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: { type: 'string', description: 'Workspace data file.' },
+                    sql: { type: 'string', description: 'Read-only SQLite query.' },
+                    parameters: { type: 'object', description: 'Named SQLite query parameters.' },
+                    columns: { type: 'array', items: { type: 'string' }, description: 'Columns to return for CSV, TSV, or JSON.' },
+                    equals: { type: 'object', description: 'Exact field filters for CSV, TSV, or JSON.' },
+                    limit: { type: 'number', description: 'Maximum rows, capped at 1000.' }
+                },
+                required: ['path']
+            }
+        },
+        {
             name: 'http_request',
             description: 'Make an HTTP request to any URL',
             parameters: {
@@ -990,6 +1022,21 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'activate_tools',
+            description: 'Activate tools by exact catalog name for later model turns. When the schema limit is full, unrelated active schemas are replaced; every catalog tool remains available for later activation.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    names: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Exact tool names from the available tool catalog.'
+                    }
+                },
+                required: ['names']
+            }
+        },
+        {
             name: 'spawn_subagent',
             description: 'Spawn an independent sub-agent asynchronously. Returns a handle immediately so the parent run can continue, list helpers, wait later, or cancel if plans change.',
             parameters: {
@@ -997,7 +1044,9 @@ function getAvailableTools(app, options = {}) {
                 properties: {
                     task: { type: 'string', description: 'The task for the sub-agent to complete' },
                     model: { type: 'string', description: 'Model override for the sub-agent (e.g. gpt-4o-mini for cheap tasks)' },
-                    context: { type: 'string', description: 'Additional context to pass to the sub-agent' }
+                    context: { type: 'string', description: 'Only the constraints and evidence the sub-agent needs.' },
+                    required_artifacts: { type: 'array', items: { type: 'string' }, description: 'Artifacts the sub-agent must return.' },
+                    tools: { type: 'array', items: { type: 'string' }, description: 'Exact active tool names the sub-agent may need.' }
                 },
                 required: ['task']
             }
@@ -1879,7 +1928,10 @@ async function executeTool(toolName, args, context, engine) {
         case 'memory_update_core': {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
-            mm.updateCore(userId, args.key, args.value, { agentId });
+            if (args.confirmed !== true) {
+                return { error: 'Core memory updates require explicit current-session user confirmation.' };
+            }
+            mm.updateCore(userId, args.key, args.value, { agentId, confirmed: true });
             return { success: true, key: args.key, message: 'Core memory updated' };
         }
 
@@ -2253,6 +2305,26 @@ async function executeTool(toolName, args, context, engine) {
                     query: args.query,
                     include: args.include,
                 });
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
+        case 'code_navigate': {
+            const service = app?.locals?.codeNavigationService;
+            if (!service) return { error: 'Code navigation service is unavailable.' };
+            try {
+                return await service.navigate(userId, args);
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
+        case 'query_structured_data': {
+            const service = app?.locals?.structuredDataService;
+            if (!service) return { error: 'Structured data service is unavailable.' };
+            try {
+                return service.query(userId, args);
             } catch (err) {
                 return { error: err.message };
             }
@@ -2776,17 +2848,25 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'spawn_subagent': {
             try {
-                const task = args.context ? `${args.task}\n\nContext: ${args.context}` : args.task;
-                return await engine.spawnSubagent(userId, runId, task, {
+                return await engine.spawnSubagent(userId, runId, args.task, {
                     app,
                     model: args.model || null,
                     context: args.context || null,
+                    requiredArtifacts: args.required_artifacts || [],
+                    selectedTools: args.tools || engine.getActiveTools(runId).map((tool) => tool.name),
                     agentId,
                 });
             } catch (err) {
                 return { error: `Sub-agent failed: ${err.message}` };
             }
         }
+
+        case 'activate_tools':
+            try {
+                return engine.activateToolsForRun(runId, args.names || []);
+            } catch (err) {
+                return { error: `activate_tools failed: ${err.message}` };
+            }
 
         case 'delegate_to_agent': {
             try {
@@ -2862,7 +2942,7 @@ async function executeTool(toolName, args, context, engine) {
 
             const skillRunner = sk();
             if (skillRunner) {
-                const skillResult = await skillRunner.executeTool(toolName, args, { userId });
+                const skillResult = await skillRunner.executeTool(toolName, args, { userId, agentId, runId });
                 if (skillResult !== null) return skillResult;
             }
 
