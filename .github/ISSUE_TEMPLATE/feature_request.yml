@@ -1,0 +1,52 @@
+name: Feature request
+description: Propose a concrete improvement to NeoAgent
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the limitation or workflow that needs improvement.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Explain the observable behavior that would solve the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe current workarounds or other approaches you evaluated.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - AI and tools
+        - Android
+        - Automation
+        - Browser and CLI
+        - Documentation
+        - Flutter client
+        - Integrations
+        - Messaging
+        - Operations and installation
+        - Recordings and memory
+        - Security
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and pull requests.
+          required: true
+        - label: This request describes a general capability, not one hardcoded scenario.
+          required: true
