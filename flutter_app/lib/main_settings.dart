@@ -489,20 +489,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
-  Widget _inlineProgressIndicator() {
-    return SizedBox(
-      width: 28,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: LinearProgressIndicator(
-          minHeight: 3,
-          backgroundColor: Colors.white.withValues(alpha: 0.28),
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-
   Widget _buildSettingsOverview(
     NeoAgentController controller,
     int availableModelCount,
