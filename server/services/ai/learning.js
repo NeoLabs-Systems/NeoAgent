@@ -1,3 +1,6 @@
+const crypto = require('crypto');
+const db = require('../../db/database');
+
 function sanitizeSkillName(input) {
   const base = String(input || '')
     .toLowerCase()
@@ -38,7 +41,7 @@ function buildSkillInstructions({ name, task, finalContent, steps, runId }) {
     `Use this workflow when the task is similar to: "${String(task || '').trim().slice(0, 220)}".`,
     '',
     '## Procedure',
-    '1. Restate the goal in one sentence so the user can confirm the intent quickly.'
+    '1. Resolve the concrete goal and required inputs from the current request and available context.'
   ];
 
   steps.forEach((step, index) => {
@@ -62,6 +65,9 @@ function buildSkillInstructions({ name, task, finalContent, steps, runId }) {
 
 function buildSkillDraftFromRun({ runId, task, title, finalContent, steps }) {
   const normalizedSteps = Array.isArray(steps) ? steps.filter((step) => step && step.tool_name) : [];
+  const workflowSignature = crypto.createHash('sha256')
+    .update(normalizedSteps.map((step) => step.tool_name).join('\n'))
+    .digest('hex');
   const baseName = sanitizeSkillName(title || task);
   const description = `Reusable workflow learned from: ${String(title || task || 'completed run').slice(0, 140)}`;
   const metadata = {
@@ -70,7 +76,14 @@ function buildSkillDraftFromRun({ runId, task, title, finalContent, steps }) {
     draft: true,
     auto_created: true,
     source: 'auto-learned',
-    created_from_run: runId
+    created_from_run: runId,
+    workflow_signature: workflowSignature,
+    evidence_count: normalizedSteps.length,
+    reflection: {
+      status: 'successful',
+      reusable: true,
+      action: 'create_or_update_draft',
+    },
   };
 
   return {
@@ -93,9 +106,9 @@ class LearningManager {
     this.io = io;
   }
 
-  maybeCaptureDraft({ userId, runId, triggerSource, triggerType, task, title, finalContent, steps }) {
+  maybeCaptureDraft({ userId, agentId, runId, triggerSource, triggerType, task, title, finalContent, steps }) {
     if (!this.skillRunner) return null;
-    if (!userId || !runId || !task || !finalContent) return null;
+    if (!userId || !agentId || !runId || !task || !finalContent) return null;
     if (triggerType && triggerType !== 'user') return null;
     if (triggerSource && triggerSource !== 'web') return null;
 
@@ -112,16 +125,51 @@ class LearningManager {
       finalContent,
       steps: successfulSteps
     });
+    db.prepare(
+      `INSERT INTO skill_workflow_observations (
+        user_id, agent_id, workflow_signature, observation_count, latest_run_id
+      ) VALUES (?, ?, ?, 1, ?)
+      ON CONFLICT(user_id, agent_id, workflow_signature) DO UPDATE SET
+        observation_count = observation_count + 1,
+        latest_run_id = excluded.latest_run_id,
+        last_observed_at = datetime('now')`
+    ).run(
+      userId,
+      agentId,
+      draft.metadata.workflow_signature,
+      runId,
+    );
+    const observation = db.prepare(
+      `SELECT observation_count FROM skill_workflow_observations
+       WHERE user_id = ? AND agent_id = ? AND workflow_signature = ?`
+    ).get(userId, agentId, draft.metadata.workflow_signature);
+    if (Number(observation?.observation_count || 0) < 3) return null;
 
-    if (this.skillRunner.getSkill(draft.name)) {
-      return null;
+    const existing = Array.from(this.skillRunner.skills.values()).find(
+      (skill) => skill.metadata?.workflow_signature === draft.metadata.workflow_signature,
+    );
+    if (existing) {
+      if (existing.metadata?.enabled !== false || existing.metadata?.draft !== true) return null;
+      return this.skillRunner.updateSkill(existing.name, {
+        description: draft.description,
+        instructions: draft.instructions,
+        metadata: {
+          ...existing.metadata,
+          ...draft.metadata,
+          evidence_count: Number(observation.observation_count),
+          updated_from_run: runId,
+        },
+      });
     }
 
     const result = this.skillRunner.createSkill(
       draft.name,
       draft.description,
       draft.instructions,
-      draft.metadata
+      {
+        ...draft.metadata,
+        evidence_count: Number(observation.observation_count),
+      }
     );
 
     if (!result?.success) return result;

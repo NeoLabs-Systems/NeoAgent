@@ -410,6 +410,23 @@ router.get('/token-usage/summary', (req, res) => {
     return acc;
   }, { count: 0, system: 0, tools: 0, history: 0, recall: 0, replay: 0 });
 
+  const normalizedUsage = db.prepare(`
+    SELECT
+      COALESCE(SUM(input_tokens), 0) AS inputTokens,
+      COALESCE(SUM(output_tokens), 0) AS outputTokens,
+      COALESCE(SUM(reasoning_tokens), 0) AS reasoningTokens,
+      COALESCE(SUM(cached_read_tokens), 0) AS cachedReadTokens,
+      COALESCE(SUM(cache_write_tokens), 0) AS cacheWriteTokens,
+      COALESCE(SUM(total_tokens), 0) AS totalTokens,
+      SUM(estimated_cost_usd) AS estimatedCostUsd,
+      COUNT(estimated_cost_usd) AS pricedCallCount,
+      COUNT(*) AS callCount
+    FROM agent_model_usage
+    WHERE user_id = ? AND agent_id = ?
+  `).get(userId, agentId);
+  const cacheEligibleTokens = Number(normalizedUsage?.inputTokens || 0)
+    + Number(normalizedUsage?.cachedReadTokens || 0);
+
   res.json({
     totals: {
       totalTokens: Number(totals?.totalTokens || 0),
@@ -429,7 +446,23 @@ router.get('/token-usage/summary', (req, res) => {
         toolReplayTokens: Math.round(metricTotals.replay / metricTotals.count)
       },
       latest: parsedMetrics[0] || null
-    }
+    },
+    modelUsage: {
+      inputTokens: Number(normalizedUsage?.inputTokens || 0),
+      outputTokens: Number(normalizedUsage?.outputTokens || 0),
+      reasoningTokens: Number(normalizedUsage?.reasoningTokens || 0),
+      cachedReadTokens: Number(normalizedUsage?.cachedReadTokens || 0),
+      cacheWriteTokens: Number(normalizedUsage?.cacheWriteTokens || 0),
+      totalTokens: Number(normalizedUsage?.totalTokens || 0),
+      estimatedCostUsd: Number(normalizedUsage?.pricedCallCount || 0) > 0
+        ? Number(normalizedUsage.estimatedCostUsd)
+        : null,
+      pricedCallCount: Number(normalizedUsage?.pricedCallCount || 0),
+      callCount: Number(normalizedUsage?.callCount || 0),
+      cacheHitRatio: cacheEligibleTokens > 0
+        ? Number(normalizedUsage?.cachedReadTokens || 0) / cacheEligibleTokens
+        : 0,
+    },
   });
 });
 

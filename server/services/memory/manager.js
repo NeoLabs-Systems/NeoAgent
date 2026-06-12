@@ -932,13 +932,44 @@ class MemoryManager {
       this._deleteMemoryIndex(memoryId);
 
       for (const fact of facts) {
+        const factId = uuidv4();
+        const validFrom = fact.eventTime
+          || metadata?.validFrom
+          || metadata?.eventTime
+          || null;
+        const conflict = fact.predicate === 'detail'
+          ? null
+          : db.prepare(
+            `SELECT id, object
+             FROM memory_facts
+             WHERE user_id = ? AND agent_id = ?
+               AND lower(subject) = lower(?)
+               AND lower(predicate) = lower(?)
+               AND status = 'active'
+             ORDER BY learned_at DESC, created_at DESC
+             LIMIT 1`
+          ).get(userId, agentId, fact.subject, fact.predicate);
+        const supersedesFactId = conflict && String(conflict.object) !== String(fact.object)
+          ? conflict.id
+          : null;
+        if (supersedesFactId) {
+          db.prepare(
+            `UPDATE memory_facts
+             SET status = 'superseded',
+                 valid_to = COALESCE(?, datetime('now')),
+                 invalidated_at = datetime('now'),
+                 updated_at = datetime('now')
+             WHERE id = ?`
+          ).run(validFrom, supersedesFactId);
+        }
         db.prepare(
           `INSERT INTO memory_facts (
             id, memory_id, user_id, agent_id, subject, predicate, object, category,
-            confidence, event_time, metadata_json, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+            confidence, event_time, valid_from, learned_at, status, supersedes_fact_id,
+            metadata_json, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, datetime('now'), datetime('now'))`
         ).run(
-          uuidv4(),
+          factId,
           memoryId,
           userId,
           agentId,
@@ -948,6 +979,9 @@ class MemoryManager {
           normalizeMemoryCategory(fact.category),
           Math.max(0, Math.min(1, Number(fact.confidence) || 0.7)),
           fact.eventTime || null,
+          validFrom,
+          now,
+          supersedesFactId,
           JSON.stringify(parseJsonObject(fact.metadata, {})),
         );
       }
@@ -1229,7 +1263,7 @@ class MemoryManager {
     const scope = normalizeScope(options.scope, agentId);
     const limit = Math.max(1, Math.min(Number(topK) || 6, 50));
 
-    const all = db.prepare(
+    let all = db.prepare(
       `SELECT id, category, content, summary, importance, confidence, embedding, access_count, created_at, updated_at,
               scope_type, scope_id, source_type, source_id, source_label, stale_after_days, metadata_json
        FROM memories
@@ -1241,6 +1275,30 @@ class MemoryManager {
        ORDER BY updated_at DESC
        LIMIT 800`
     ).all(userId, agentId, scope.scopeType, scope.scopeId);
+
+    const validAt = String(options.validAt || options.at || '').trim();
+    const knownAt = String(options.knownAt || '').trim();
+    if (validAt || knownAt) {
+      const eligibleRows = db.prepare(
+        `SELECT DISTINCT memory_id
+         FROM memory_facts
+         WHERE user_id = ? AND agent_id = ?
+           AND (? = '' OR COALESCE(valid_from, event_time, created_at) <= ?)
+           AND (? = '' OR valid_to IS NULL OR valid_to > ?)
+           AND (? = '' OR COALESCE(learned_at, created_at) <= ?)`
+      ).all(
+        userId,
+        agentId,
+        validAt,
+        validAt,
+        validAt,
+        validAt,
+        knownAt,
+        knownAt,
+      );
+      const eligibleIds = new Set(eligibleRows.map((row) => row.memory_id));
+      all = all.filter((memory) => eligibleIds.has(memory.id));
+    }
 
     if (!all.length) return [];
 
@@ -1444,6 +1502,9 @@ class MemoryManager {
   }
 
   updateCore(userId, key, value, options = {}) {
+    if (options.confirmed !== true) {
+      throw new Error('Core memory updates require explicit confirmation.');
+    }
     const agentId = this._agentId(userId, options);
     const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value);
     db.prepare(
@@ -1456,6 +1517,111 @@ class MemoryManager {
   deleteCore(userId, key, options = {}) {
     const agentId = this._agentId(userId, options);
     db.prepare(`DELETE FROM core_memory WHERE user_id = ? AND agent_id = ? AND key = ?`).run(userId, agentId, key);
+  }
+
+  listFacts(userId, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const status = String(options.status || '').trim();
+    const subject = String(options.subject || '').trim();
+    const predicate = String(options.predicate || '').trim();
+    const validAt = String(options.validAt || '').trim();
+    const knownAt = String(options.knownAt || '').trim();
+    const limit = Math.max(1, Math.min(Number(options.limit) || 100, 500));
+    return db.prepare(
+      `SELECT
+         f.id, f.memory_id, f.subject, f.predicate, f.object, f.category,
+         f.confidence, f.event_time, f.valid_from, f.valid_to, f.learned_at,
+         f.invalidated_at, f.status, f.supersedes_fact_id, f.metadata_json,
+         f.created_at, f.updated_at,
+         m.source_type, m.source_id, m.source_label
+       FROM memory_facts f
+       JOIN memories m ON m.id = f.memory_id
+       WHERE f.user_id = ? AND f.agent_id = ?
+         AND (? = '' OR f.status = ?)
+         AND (? = '' OR lower(f.subject) = lower(?))
+         AND (? = '' OR lower(f.predicate) = lower(?))
+         AND (? = '' OR COALESCE(f.valid_from, f.event_time, f.created_at) <= ?)
+         AND (? = '' OR f.valid_to IS NULL OR f.valid_to > ?)
+         AND (? = '' OR COALESCE(f.learned_at, f.created_at) <= ?)
+       ORDER BY COALESCE(f.learned_at, f.created_at) DESC
+       LIMIT ?`
+    ).all(
+      userId,
+      agentId,
+      status,
+      status,
+      subject,
+      subject,
+      predicate,
+      predicate,
+      validAt,
+      validAt,
+      validAt,
+      validAt,
+      knownAt,
+      knownAt,
+      limit,
+    ).map((row) => ({
+      id: row.id,
+      memoryId: row.memory_id,
+      subject: row.subject,
+      predicate: row.predicate,
+      object: row.object,
+      category: row.category,
+      confidence: Number(row.confidence || 0),
+      eventTime: row.event_time || null,
+      validFrom: row.valid_from || null,
+      validTo: row.valid_to || null,
+      learnedAt: row.learned_at || row.created_at,
+      invalidatedAt: row.invalidated_at || null,
+      status: row.status || 'active',
+      supersedesFactId: row.supersedes_fact_id || null,
+      sourceRef: {
+        sourceType: row.source_type || null,
+        sourceId: row.source_id || null,
+        sourceLabel: row.source_label || null,
+      },
+      metadata: parseJsonObject(row.metadata_json, {}),
+    }));
+  }
+
+  reconcileFacts(userId, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const minimumConfidence = Math.min(Math.max(Number(options.minimumConfidence ?? 0.35), 0), 1);
+    const now = new Date().toISOString();
+    const expired = db.prepare(
+      `UPDATE memory_facts
+       SET status = 'expired', invalidated_at = COALESCE(invalidated_at, datetime('now')),
+           updated_at = datetime('now')
+       WHERE user_id = ? AND agent_id = ? AND status = 'active'
+         AND valid_to IS NOT NULL AND valid_to <= ?`
+    ).run(userId, agentId, now).changes;
+    const lowConfidence = db.prepare(
+      `UPDATE memory_facts
+       SET status = 'review', updated_at = datetime('now')
+       WHERE user_id = ? AND agent_id = ? AND status = 'active' AND confidence < ?`
+    ).run(userId, agentId, minimumConfidence).changes;
+    const duplicates = db.prepare(
+      `SELECT subject, predicate, object, GROUP_CONCAT(id) AS ids, COUNT(*) AS count
+       FROM memory_facts
+       WHERE user_id = ? AND agent_id = ? AND status = 'active'
+       GROUP BY lower(subject), lower(predicate), lower(object)
+       HAVING COUNT(*) > 1`
+    ).all(userId, agentId);
+    let invalidatedDuplicates = 0;
+    for (const group of duplicates) {
+      const ids = String(group.ids || '').split(',').filter(Boolean);
+      const keep = ids.pop();
+      for (const id of ids) {
+        invalidatedDuplicates += db.prepare(
+          `UPDATE memory_facts
+           SET status = 'duplicate', invalidated_at = datetime('now'),
+               supersedes_fact_id = COALESCE(supersedes_fact_id, ?), updated_at = datetime('now')
+           WHERE id = ?`
+        ).run(keep, id).changes;
+      }
+    }
+    return { expired, lowConfidence, invalidatedDuplicates };
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -1546,6 +1546,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   Text(
                     'Avg/run: ${controller.tokenUsage!.avgTokensPerRunLabel} tokens',
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Prompt cache: ${controller.tokenUsage!.cachedReadTokensLabel} cached tokens '
+                    '(${controller.tokenUsage!.cacheHitRatioLabel} hit ratio)',
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Measured model cost: ${controller.tokenUsage!.estimatedCostLabel}',
+                  ),
                 ],
               ),
           ],
