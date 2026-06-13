@@ -28,7 +28,7 @@ const gmailToolDefinitions = [
       properties: {
         query: {
           type: 'string',
-          description: 'Gmail search query, e.g. "is:unread newer_than:7d".',
+          description: 'Gmail search query using standard Gmail search syntax. All operators are optional — pass an empty string to search all mail. Examples: "is:unread", "from:someone@example.com", "subject:invoice", "is:read newer_than:30d", "label:work", "has:attachment".',
         },
         max_results: {
           type: 'number',
@@ -41,11 +41,11 @@ const gmailToolDefinitions = [
   {
     name: 'google_workspace_gmail_get_thread',
     access: 'read',
-    description: 'Read a Gmail thread with headers and decoded plain-text bodies.',
+    description: 'Read a Gmail thread (read or unread) with headers and decoded plain-text bodies. Use this after google_workspace_gmail_search_threads to fetch the full content of a thread. thread_id comes from search results.',
     parameters: {
       type: 'object',
       properties: {
-        thread_id: { type: 'string', description: 'Gmail thread ID.' },
+        thread_id: { type: 'string', description: 'Gmail thread ID, obtained from google_workspace_gmail_search_threads results.' },
       },
       required: ['thread_id'],
     },
@@ -53,11 +53,11 @@ const gmailToolDefinitions = [
   {
     name: 'google_workspace_gmail_get_message',
     access: 'read',
-    description: 'Read a single Gmail message with headers and decoded body.',
+    description: 'Read a single Gmail message (read or unread) with headers and decoded body. message_id can come from search results or from messages inside a thread fetched via google_workspace_gmail_get_thread.',
     parameters: {
       type: 'object',
       properties: {
-        message_id: { type: 'string', description: 'Gmail message ID.' },
+        message_id: { type: 'string', description: 'Gmail message ID, obtained from search results or a thread\'s message list.' },
       },
       required: ['message_id'],
     },
@@ -106,12 +106,12 @@ const gmailToolDefinitions = [
         add_label_names: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Label names to add, e.g. ["STARRED"] or custom labels.',
+          description: 'Label names to add. Supports system labels (e.g. "STARRED", "IMPORTANT", "UNREAD") and custom user labels. Use "UNREAD" to mark a thread as unread.',
         },
         remove_label_names: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Label names to remove.',
+          description: 'Label names to remove. Supports system labels (e.g. "UNREAD", "STARRED", "IMPORTANT", "INBOX") and custom user labels. Use "UNREAD" to mark a thread as read.',
         },
         archive: {
           type: 'boolean',
