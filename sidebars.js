@@ -38,6 +38,7 @@ const sidebars = {
           label: 'Runtime Modes',
           href: '/capabilities#runtime-modes',
         },
+        'security-boundaries',
         'automation',
         'integrations',
         'skills',

@@ -48,6 +48,7 @@ import 'src/android_auto_bridge.dart';
 import 'features/location/location_service.dart';
 import 'features/notifications/notification_interceptor.dart';
 import 'features/onboarding/onboarding_shell.dart';
+import 'features/memory/views/retrieval_inspector_view.dart';
 
 part 'main_spacing.dart';
 part 'main_theme.dart';

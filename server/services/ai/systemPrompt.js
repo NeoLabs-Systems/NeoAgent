@@ -3,6 +3,13 @@ const os = require('os');
 const PROMPT_CACHE_TTL = 30_000;
 const promptCache = new Map();
 
+function invalidateSystemPromptCache(userId, agentId = null) {
+  const prefix = `${String(userId || 'global')}:${String(agentId || 'main')}:`;
+  for (const key of promptCache.keys()) {
+    if (key.startsWith(prefix)) promptCache.delete(key);
+  }
+}
+
 function clampSection(text, maxChars) {
   const str = String(text || '').trim();
   if (!str) return '';
@@ -284,7 +291,7 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
   }
 
   const memCtx = await memoryManager.buildContext(userId, { agentId });
-  const compactMemory = clampSection(memCtx, 3200);
+  const compactMemory = clampSection(memCtx, 1600);
   if (compactMemory) {
     dynamic.push(compactMemory);
   }
@@ -344,4 +351,8 @@ async function buildSystemPrompt(userId, context = {}, memoryManager) {
   return [sections.stable, sections.dynamic].filter(Boolean).join('\n\n');
 }
 
-module.exports = { buildSystemPrompt, buildSystemPromptSections };
+module.exports = {
+  buildSystemPrompt,
+  buildSystemPromptSections,
+  invalidateSystemPromptCache,
+};

@@ -76,6 +76,18 @@ const {
   inferToolFailureMessage,
   buildAutonomousRecoveryContext,
 } = require('./toolEvidence');
+const {
+  buildMemoryConsolidationInstructions,
+  normalizeMemoryCandidates,
+} = require('../memory/consolidation');
+const {
+  buildPlannerPrompt,
+  buildRerankerPrompt,
+  mergeRetrievalResults,
+  normalizeRerankResult,
+  normalizeRetrievalPlan,
+  shouldEnhanceRetrieval,
+} = require('../memory/retrieval_reasoning');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -339,6 +351,198 @@ class AgentEngine {
       stable: [promptSections.stable, skillsPrompt].filter(Boolean).join('\n\n'),
       dynamic: promptSections.dynamic,
     };
+  }
+
+  async buildMemoryRecall({
+    memoryManager,
+    userId,
+    agentId,
+    query,
+    provider,
+    providerName,
+    model,
+    runId,
+    stepId = null,
+    options = {},
+    returnDetails = false,
+  }) {
+    const initial = await memoryManager.recallMemory(userId, query, 12, { agentId });
+
+    const pendingChunks = memoryManager.getPendingExtractionChunks?.(userId, agentId, 5) || [];
+    if (pendingChunks.length) {
+      this.extractPendingChunks(pendingChunks, {
+        userId,
+        agentId,
+        provider,
+        providerName,
+        model,
+        memoryManager,
+      }).catch((err) => console.warn('[Memory] Background chunk extraction failed:', err.message));
+    }
+
+    const decision = shouldEnhanceRetrieval(initial);
+    if (!decision.enhance) {
+      const message = await memoryManager.buildRecallMessage(userId, query, {
+        agentId,
+        recalled: initial.slice(0, 5),
+      });
+      return returnDetails
+        ? { message, results: initial.slice(0, 12), enhanced: false, reason: decision.reason }
+        : message;
+    }
+
+    const stats = memoryManager.getMemoryStats?.(userId, { agentId })
+      || { total: initial.length };
+    if (!Number(stats.total || 0)) {
+      return returnDetails
+        ? { message: null, results: [], enhanced: false, reason: 'empty_memory' }
+        : null;
+    }
+
+    const startedAt = Date.now();
+    let plan = null;
+    let merged = initial;
+    let reranked = initial;
+    try {
+      const planned = await this.requestStructuredJson({
+        provider,
+        providerName,
+        model,
+        messages: [],
+        prompt: buildPlannerPrompt(query, initial, new Date().toISOString()),
+        maxTokens: 650,
+        normalize: (raw) => normalizeRetrievalPlan(raw, query),
+        fallback: normalizeRetrievalPlan({}, query),
+        reasoningEffort: this.getReasoningEffort(providerName, options),
+        telemetry: { runId, stepId, userId, agentId },
+        phase: 'memory_retrieval_plan',
+      });
+      plan = planned.value;
+      const resultSets = [initial];
+      for (const variant of plan.queryVariants) {
+        if (variant === query && initial.length) continue;
+        resultSets.push(await memoryManager.recallMemory(userId, variant, 20, {
+          agentId,
+          validAt: plan.validAt,
+          includeHistory: plan.temporalMode === 'historical',
+        }));
+      }
+      merged = mergeRetrievalResults(resultSets, 30);
+      if (merged.length > 1) {
+        const rerankResponse = await this.requestStructuredJson({
+          provider,
+          providerName,
+          model,
+          messages: [],
+          prompt: buildRerankerPrompt(query, plan, merged.slice(0, 24)),
+          maxTokens: 1200,
+          normalize: (raw) => normalizeRerankResult(raw, merged),
+          fallback: merged,
+          reasoningEffort: this.getReasoningEffort(providerName, options),
+          telemetry: { runId, stepId, userId, agentId },
+          phase: 'memory_retrieval_rerank',
+        });
+        reranked = rerankResponse.value;
+      } else {
+        reranked = merged;
+      }
+    } catch (error) {
+      console.warn('[Memory] Retrieval enhancement failed:', error.message);
+      plan = null;
+      merged = initial;
+      reranked = initial;
+    }
+
+    memoryManager.recordRetrievalEnhancement?.(userId, {
+      query,
+      reason: decision.reason,
+      plan,
+      initialCount: initial.length,
+      mergedCount: merged.length,
+      resultIds: reranked.slice(0, 5).map((result) => result.id),
+      latencyMs: Date.now() - startedAt,
+    }, { agentId, runId });
+
+    const message = await memoryManager.buildRecallMessage(userId, query, {
+      agentId,
+      recalled: reranked.slice(0, 5),
+    });
+    return returnDetails
+      ? {
+        message,
+        results: reranked.slice(0, 12),
+        enhanced: plan !== null,
+        reason: decision.reason,
+        plan,
+      }
+      : message;
+  }
+
+  async extractPendingChunks(chunks, {
+    userId,
+    agentId,
+    provider,
+    providerName,
+    model,
+    memoryManager,
+  }) {
+    const ids = chunks.map((c) => c.id);
+    memoryManager.markChunksExtracted?.(ids, { success: true });
+
+    const consolidationSchema = JSON.stringify({
+      memory_candidates: [{
+        memory: 'Concise standalone fact.',
+        subject: 'Canonical entity or person.',
+        predicate: 'Normalized relationship or attribute.',
+        object: 'Current atomic value.',
+        relation: 'new | updates | extends | derives',
+        category: 'identity | preferences | projects | contacts | events | tasks | episodic | assistant_self',
+        confidence: 0.8,
+        importance: 5,
+        is_static: false,
+        valid_from: null,
+        valid_to: null,
+        forget_after: null,
+        evidence: 'Short source-grounded quote.',
+      }],
+    }, null, 2);
+
+    for (const chunk of chunks) {
+      try {
+        const result = await this.requestStructuredJson({
+          provider,
+          providerName,
+          model,
+          messages: [],
+          prompt: [
+            'Return JSON only. Extract durable memory facts from the document chunk below.',
+            buildMemoryConsolidationInstructions(new Date().toISOString()),
+            `Source type: ${chunk.sourceType || 'document'}`,
+            chunk.title ? `Document title: ${chunk.title}` : '',
+            `Content:\n${String(chunk.content || '').slice(0, 2400)}`,
+            `Schema:\n${consolidationSchema}`,
+          ].filter(Boolean).join('\n\n'),
+          maxTokens: 800,
+          normalize: (raw) => normalizeMemoryCandidates(raw?.memory_candidates || []),
+          fallback: [],
+          phase: 'document_extraction',
+        });
+
+        const candidates = Array.isArray(result.value) ? result.value : [];
+        if (candidates.length) {
+          await memoryManager.consolidateMemoryCandidates(userId, candidates, {
+            agentId,
+            metadata: {
+              trustLevel: 'external_source',
+              sourceChunkMemoryId: chunk.id,
+            },
+          });
+        }
+      } catch (err) {
+        memoryManager.markChunksExtracted?.([chunk.id], { success: false });
+        console.warn('[Memory] Document chunk extraction failed:', err.message);
+      }
+    }
   }
 
   persistRunMetadata(runId, patch = {}) {
@@ -888,6 +1092,7 @@ class AgentEngine {
 
   async refreshConversationState({
     conversationId,
+    runId,
     provider,
     providerName,
     model,
@@ -905,7 +1110,34 @@ class AgentEngine {
     const promptMessages = [
       {
         role: 'system',
-        content: 'Return JSON only. Distill the current thread working state. Keep it concise and concrete. Track summary, open_commitments, unresolved_questions, referenced_entities, and last_verified_facts. Do not invent facts.'
+        content: [
+          'Return JSON only. Distill the current thread working state. Keep it concise and concrete.',
+          'Track summary, open_commitments, unresolved_questions, referenced_entities, and last_verified_facts. Do not invent facts.',
+          buildMemoryConsolidationInstructions(new Date().toISOString()),
+          'Schema:',
+          JSON.stringify({
+            summary: '',
+            open_commitments: [],
+            unresolved_questions: [],
+            referenced_entities: [],
+            last_verified_facts: [],
+            memory_candidates: [{
+              memory: 'Concise standalone fact for future context.',
+              subject: 'Canonical entity or person.',
+              predicate: 'Normalized relationship or attribute.',
+              object: 'Current atomic value.',
+              relation: 'new | updates | extends | derives',
+              category: 'identity | preferences | projects | contacts | events | tasks | episodic | assistant_self',
+              confidence: 0.9,
+              importance: 7,
+              is_static: false,
+              valid_from: null,
+              valid_to: null,
+              forget_after: null,
+              evidence: 'Short source-grounded evidence.',
+            }],
+          }, null, 2),
+        ].join('\n\n')
       },
       {
         role: 'user',
@@ -943,6 +1175,20 @@ class AgentEngine {
     }
 
     memoryManager.updateConversationState(conversationId, nextState);
+    const memoryCandidates = normalizeMemoryCandidates(parsed.memory_candidates);
+    if (memoryCandidates.length) {
+      await memoryManager.consolidateMemoryCandidates(
+        options.userId,
+        memoryCandidates,
+        {
+          agentId: options.agentId || null,
+          conversationId,
+          runId,
+        },
+      );
+      const { invalidateSystemPromptCache } = require('./systemPrompt');
+      invalidateSystemPromptCache(options.userId, options.agentId || null);
+    }
     return nextState;
   }
 
@@ -1726,7 +1972,17 @@ class AgentEngine {
     const recallQuery = options.context?.rawUserMessage || userMessage;
     const recallMsg = options.skipGlobalRecall === true
       ? null
-      : await memoryManager.buildRecallMessage(userId, recallQuery, { agentId });
+      : await this.buildMemoryRecall({
+        memoryManager,
+        userId,
+        agentId,
+        query: recallQuery,
+        provider,
+        providerName,
+        model,
+        runId,
+        options,
+      });
 
     let summaryMessage = null;
     let historyMessages = [];
@@ -2857,8 +3113,9 @@ class AgentEngine {
           refreshConversationSummary(conversationId, provider, model, historyWindow).catch((err) => {
             console.error('[AI] Conversation summary refresh failed:', err.message);
           });
-          this.refreshConversationState({
+          await this.refreshConversationState({
             conversationId,
+            runId,
             provider,
             providerName,
             model,
@@ -2866,7 +3123,7 @@ class AgentEngine {
             analysis,
             verification,
             historyWindow,
-            options,
+            options: { ...options, userId, agentId },
           }).catch((err) => {
             console.error('[AI] Conversation working state refresh failed:', err.message);
           });
@@ -3166,9 +3423,8 @@ class AgentEngine {
     let relevantMemories = [];
     try {
       relevantMemories = this.memoryManager
-        ? await this.memoryManager.recallMemory(userId, task, {
+        ? await this.memoryManager.recallMemory(userId, task, 4, {
           agentId: options.agentId || null,
-          limit: 4,
         })
         : [];
     } catch {}
