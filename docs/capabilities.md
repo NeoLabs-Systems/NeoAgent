@@ -73,14 +73,23 @@ Transcription uses Deepgram (`nova-3` model, multi-language by default). Enable 
 
 ## Runtime Modes
 
-| Profile | What runs where |
+| Setting | What runs where |
 |---|---|
-| `trusted-host` | CLI and Android run on the host; browser runs in the VM or paired extension |
-| `secure-vm` | CLI, browser, and Android all run inside the isolated VM |
+| Default | Browser and CLI run in a per-user isolated runtime; Android runs on the host over ADB |
+| Paired browser extension | Browser actions run in the paired Chrome profile |
+| Desktop CLI backend | Shell commands run on the paired desktop with the companion process's permissions |
 
-Production deployments can require `secure-vm` and a strong `NEOAGENT_VM_GUEST_TOKEN` (32+ characters).
+The stored runtime profile is normalized to `secure-vm`, but that name does not
+mean every NeoAgent capability runs in a VM. In particular, Android, workspace
+file tools, memory, integrations, messaging, and MCP orchestration remain
+server-side. See [Security Boundaries](security-boundaries.md) for the enforced
+boundaries and current limitations.
 
-The browser always runs in isolation — either the local VM or a paired Chrome extension on a remote machine. To pair an extension: download `/api/browser-extension/download` from NeoAgent, unzip it, enable Developer Mode in `chrome://extensions`, load the folder, then pair after signing in.
+The default browser runs in the isolated runtime. A paired Chrome extension is
+an alternative backend, not an isolation boundary: it grants NeoAgent control
+of that browser profile on the paired machine. To pair an extension: download
+`/api/browser-extension/download` from NeoAgent, unzip it, enable Developer
+Mode in `chrome://extensions`, load the folder, then pair after signing in.
 
 ## Integrations and Messaging
 

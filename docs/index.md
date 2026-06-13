@@ -40,6 +40,7 @@ Opens at `http://localhost:3333` when complete. See [Getting Started](getting-st
 | [Getting Started](getting-started.md) | Install, first run, service commands |
 | [Capabilities](capabilities.md) | Full tool and feature inventory |
 | [Configuration](configuration.md) | Environment variables, provider keys, OAuth setup |
+| [Security Boundaries](security-boundaries.md) | Enforced isolation, prompt-injection limits, deployment guidance |
 | [Automation](automation.md) | Tasks, cron scheduling, integration triggers |
 | [Integrations](integrations.md) | OAuth accounts and messaging platforms |
 | [Skills](skills.md) | Built-in skills catalog, custom skills, MCP |

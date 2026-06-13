@@ -77,12 +77,14 @@ please report failures with enough detail to reproduce them. Contributions to
 the backend, Flutter clients, integrations, skills, tests, and documentation
 are welcome.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Security
-issues should be reported privately according to [SECURITY.md](SECURITY.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Review
+the documented [security boundaries](docs/security-boundaries.md) before
+installing on a machine with sensitive data. Security issues should be reported
+privately according to [SECURITY.md](SECURITY.md).
 
 ## Documentation
 
-[Docs](https://neolabs-systems.github.io/NeoAgent/) | [Getting Started](docs/getting-started.md) | [Configuration](docs/configuration.md) | [Capabilities](docs/capabilities.md) | [Skills and MCP](docs/skills.md) | [Operations](docs/operations.md) | [Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
+[Docs](https://neolabs-systems.github.io/NeoAgent/) | [Getting Started](docs/getting-started.md) | [Configuration](docs/configuration.md) | [Capabilities](docs/capabilities.md) | [Security Boundaries](docs/security-boundaries.md) | [Skills and MCP](docs/skills.md) | [Operations](docs/operations.md) | [Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
 
 ---
 
