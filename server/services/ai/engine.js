@@ -1353,7 +1353,7 @@ class AgentEngine {
             toolArgs,
             stepIndex: nextStepIndex,
             blocked: true,
-            result: { status: 'skipped', reason: 'Blocked by policy.' },
+            result: { status: 'blocked', reason: hookResult.reason || 'Blocked by policy.', blocked_by: hookResult.blocked_by || 'policy' },
           });
           continue;
         }
@@ -2684,13 +2684,14 @@ class AgentEngine {
             const hookCtx = { toolName, toolArgs, runId, userId, agentId, iteration };
             const hookResult = await globalHooks.run('before_tool_call', hookCtx);
             if (hookResult.block) {
-              console.warn(`[Run ${shortenRunId(runId)}] before_tool_call hook blocked tool=${toolName}`);
-              // Treat as a soft skip — add a skipped tool message so the model knows
+              const blockReason = hookResult.reason || 'Blocked by policy.';
+              const blockedBy = hookResult.blocked_by || 'policy';
+              console.warn(`[Run ${shortenRunId(runId)}] before_tool_call hook blocked tool=${toolName} reason="${blockReason}"`);
               messages.push({
                 role: 'tool',
                 name: toolName,
                 tool_call_id: toolCall.id,
-                content: JSON.stringify({ tool: toolName, status: 'skipped', reason: 'Blocked by policy.' }),
+                content: JSON.stringify({ tool: toolName, status: 'blocked', reason: blockReason, blocked_by: blockedBy }),
               });
               continue;
             }
