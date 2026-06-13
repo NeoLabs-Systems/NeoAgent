@@ -141,12 +141,31 @@ async function getOpenAIEmbedding(text) {
  * @returns {Float32Array|null}
  */
 async function getEmbedding(text, provider) {
+  const result = await getEmbeddingWithMetadata(text, provider);
+  return result?.vector || null;
+}
+
+async function getEmbeddingWithMetadata(text, provider) {
   if (!text || !text.trim()) return null;
   if (provider === 'google' && process.env.GOOGLE_AI_KEY) {
     const vec = await getGeminiEmbedding(text);
-    if (vec) return vec;
+    if (vec) {
+      return {
+        vector: vec,
+        provider: 'google',
+        model: GOOGLE_MODEL,
+        dimensions: vec.length,
+      };
+    }
   }
-  return getOpenAIEmbedding(text);
+  const vec = await getOpenAIEmbedding(text);
+  if (!vec) return null;
+  return {
+    vector: vec,
+    provider: 'openai',
+    model: OPENAI_MODEL,
+    dimensions: vec.length,
+  };
 }
 
 /**
@@ -203,6 +222,7 @@ function keywordSimilarity(query, text) {
 
 module.exports = {
   getEmbedding,
+  getEmbeddingWithMetadata,
   cosineSimilarity,
   serializeEmbedding,
   deserializeEmbedding,

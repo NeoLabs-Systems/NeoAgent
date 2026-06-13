@@ -11,6 +11,7 @@ const {
   parseJsonObject,
   safeTrim,
 } = require('./ingestion_support');
+const { chunkDocument, overlapWindowChunks } = require('./ingestion_chunking');
 
 async function ingestDocuments(service, userId, documents = [], options = {}) {
   const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
@@ -50,35 +51,104 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
         { agentId },
       );
       documentIds.push(documentId);
-      const memoryId = await service.memoryManager.saveMemory(
-        userId,
-        `${document.title}: ${document.summary || document.content}`,
-        SOURCE_MEMORY_CATEGORIES[document.normalizedType]
-          || SOURCE_MEMORY_CATEGORIES[document.sourceType]
-          || 'episodic',
-        document.salience,
-        {
-          agentId,
-          staleAfterDays: getFreshnessPolicy(document.sourceType).staleAfterDays,
-          sourceRef: {
-            sourceType: 'memory_ingestion',
-            sourceId: document.externalObjectId,
-            sourceLabel: document.title,
+      const retainedChunkIds = [];
+      const chunks = chunkDocument(document);
+      const savedChunkMemoryIds = [];
+      for (const chunk of chunks) {
+        const memoryId = await service.memoryManager.saveMemory(
+          userId,
+          `${document.title}\n${chunk.content}`,
+          SOURCE_MEMORY_CATEGORIES[document.normalizedType]
+            || SOURCE_MEMORY_CATEGORIES[document.sourceType]
+            || 'episodic',
+          document.salience,
+          {
+            agentId,
+            staleAfterDays: getFreshnessPolicy(document.sourceType).staleAfterDays,
+            sourceRef: {
+              sourceType: 'memory_ingestion',
+              sourceId: document.externalObjectId,
+              sourceLabel: document.title,
+            },
+            scope: {
+              scopeType: 'agent',
+              scopeId: agentId,
+            },
+            metadata: {
+              ingestionJobId: jobId,
+              ingestionDocumentId: documentId,
+              providerKey: document.providerKey || null,
+              connectionId: document.connectionId || null,
+              sourceType: document.sourceType,
+              trustLevel: 'external_source',
+              chunkIndex: chunk.chunkIndex,
+              sourceSpan: {
+                charStart: chunk.charStart,
+                charEnd: chunk.charEnd,
+              },
+            },
           },
-          scope: {
-            scopeType: 'agent',
-            scopeId: agentId,
+        );
+        if (!memoryId) continue;
+        memoryIds.push(memoryId);
+        savedChunkMemoryIds.push(memoryId);
+        retainedChunkIds.push(service.memoryManager.replaceSourceChunk(
+          documentId,
+          chunk,
+          memoryId,
+          {
+            userId,
+            agentId,
+            sourceTimestamp: document.sourceTimestamp,
+            metadata: {
+              ingestionJobId: jobId,
+              externalObjectId: document.externalObjectId,
+            },
           },
-          metadata: {
-            ingestionJobId: jobId,
-            ingestionDocumentId: documentId,
-            providerKey: document.providerKey || null,
-            connectionId: document.connectionId || null,
-            sourceType: document.sourceType,
+        ));
+      }
+
+      const overlapChunks = overlapWindowChunks(chunks);
+      for (const window of overlapChunks) {
+        const windowMemoryId = await service.memoryManager.saveMemory(
+          userId,
+          `${document.title}\n${window.content}`,
+          SOURCE_MEMORY_CATEGORIES[document.normalizedType]
+            || SOURCE_MEMORY_CATEGORIES[document.sourceType]
+            || 'episodic',
+          document.salience,
+          {
+            agentId,
+            staleAfterDays: getFreshnessPolicy(document.sourceType).staleAfterDays,
+            sourceRef: {
+              sourceType: 'memory_ingestion',
+              sourceId: document.externalObjectId,
+              sourceLabel: document.title,
+            },
+            scope: {
+              scopeType: 'agent',
+              scopeId: agentId,
+            },
+            metadata: {
+              ingestionJobId: jobId,
+              ingestionDocumentId: documentId,
+              providerKey: document.providerKey || null,
+              connectionId: document.connectionId || null,
+              sourceType: document.sourceType,
+              trustLevel: 'external_source',
+              chunkIndex: window.chunkIndex,
+              sourceSpan: {
+                charStart: window.charStart,
+                charEnd: window.charEnd,
+              },
+              isOverlapWindow: true,
+            },
           },
-        },
-      );
-      if (memoryId) memoryIds.push(memoryId);
+        );
+        if (windowMemoryId) savedChunkMemoryIds.push(windowMemoryId);
+      }
+
+      service.memoryManager.pruneSourceChunks(documentId, retainedChunkIds);
     }
 
     service.memoryManager.recordIngestionJob(userId, {

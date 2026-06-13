@@ -95,6 +95,7 @@ function createDesktopCompanionRegistry(app) {
 
 function createMemoryManager(app) {
   const memoryManager = registerLocal(app, 'memoryManager', new MemoryManager());
+  memoryManager.startEmbeddingIndexBackfill();
   const reconcile = () => {
     const users = db.prepare('SELECT id FROM users').all();
     for (const user of users) {
@@ -555,6 +556,9 @@ async function startServices(app, io) {
 async function stopServices(app) {
   const tasks = [];
   console.log('[Services] Stopping services');
+  if (app.locals.memoryManager) {
+    app.locals.memoryManager.stopEmbeddingIndexBackfill();
+  }
   if (app.locals.memoryReconciliationTimer) {
     clearInterval(app.locals.memoryReconciliationTimer);
     app.locals.memoryReconciliationTimer = null;
