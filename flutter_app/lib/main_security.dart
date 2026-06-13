@@ -111,17 +111,17 @@ _CategoryInfo _categoryInfo(String category) {
         label: category,
         subtitle: 'Controls access to $category tools.',
         icon: Icons.lock_outline,
-        color: Colors.grey,
+        color: const Color(0xFF888888),
         riskLevel: 'medium',
       );
 }
 
 Color _riskColor(String level) {
   return switch (level) {
-    'critical' => const Color(0xFFE53935),
-    'high' => const Color(0xFFF4511E),
-    'medium' => const Color(0xFFFF8F00),
-    _ => Colors.grey,
+    'critical' => _danger,
+    'high' => _warning,
+    'medium' => _accent,
+    _ => _textSecondary,
   };
 }
 
@@ -295,7 +295,7 @@ class _MainSecurityState extends State<MainSecurity> {
       setState(() => _mode = prev);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Failed to save: $e'), backgroundColor: _danger),
         );
       }
     }
@@ -312,7 +312,7 @@ class _MainSecurityState extends State<MainSecurity> {
       setState(() => _policies = {..._policies, category: prev ?? 'require_approval'});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Failed to save: $e'), backgroundColor: _danger),
         );
       }
     }
@@ -360,11 +360,8 @@ class _MainSecurityState extends State<MainSecurity> {
                         ),
                       const SizedBox(height: 4),
                       const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                        child: Text(
-                          'Per-category permissions',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                        ),
+                        padding: EdgeInsets.only(top: 4, bottom: 6),
+                        child: _SectionTitle('Per-category permissions'),
                       ),
                       ..._policies.entries.map((e) => Padding(
                             padding: const EdgeInsets.only(bottom: 8),
@@ -393,11 +390,11 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          Icon(Icons.error_outline, size: 48, color: _danger),
           const SizedBox(height: 12),
           Text('Failed to load policies', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
-          Text(error, style: const TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+          Text(error, style: TextStyle(fontSize: 12, color: _textSecondary), textAlign: TextAlign.center),
           const SizedBox(height: 16),
           OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
         ],
@@ -447,7 +444,7 @@ class _GlobalModeCard extends StatelessWidget {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: Padding(
@@ -457,7 +454,7 @@ class _GlobalModeCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Icon(Icons.tune_rounded, size: 18, color: colorScheme.primary),
+                Icon(Icons.tune_rounded, size: 18, color: _accent),
                 const SizedBox(width: 8),
                 const Text('Global security mode', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
               ],
@@ -469,7 +466,7 @@ class _GlobalModeCard extends StatelessWidget {
               label: 'Allow all',
               subtitle: 'No approval prompts — agent runs without interruption.',
               icon: Icons.lock_open_rounded,
-              color: Colors.green,
+              color: _warning,
               onTap: () => onChanged('allow_all'),
             ),
             const SizedBox(height: 6),
@@ -479,7 +476,7 @@ class _GlobalModeCard extends StatelessWidget {
               label: 'Default (recommended)',
               subtitle: 'Use per-category settings below.',
               icon: Icons.shield_outlined,
-              color: colorScheme.primary,
+              color: _accentAlt,
               onTap: () => onChanged('default'),
             ),
             const SizedBox(height: 6),
@@ -489,7 +486,7 @@ class _GlobalModeCard extends StatelessWidget {
               label: 'Always ask',
               subtitle: 'Every sensitive tool requires approval, every time.',
               icon: Icons.pan_tool_outlined,
-              color: Colors.orange,
+              color: _info,
               onTap: () => onChanged('always_ask'),
             ),
           ],
@@ -520,23 +517,22 @@ class _ModeOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = value == current;
-    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? color.withAlpha(20) : Colors.transparent,
+          color: selected ? color.withAlpha(24) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? color : colorScheme.outlineVariant,
+            color: selected ? color : _border,
             width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: <Widget>[
-            Icon(icon, size: 18, color: selected ? color : colorScheme.onSurfaceVariant),
+            Icon(icon, size: 18, color: selected ? color : _textSecondary),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -548,7 +544,7 @@ class _ModeOption extends StatelessWidget {
                         fontSize: 13,
                         color: selected ? color : null,
                       )),
-                  Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text(subtitle, style: TextStyle(fontSize: 11, color: _textSecondary)),
                 ],
               ),
             ),
@@ -607,7 +603,7 @@ class _PolicyCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(info.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text(info.subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(info.subtitle, style: TextStyle(fontSize: 11, color: _textSecondary)),
                       ],
                     ),
                   ),
@@ -656,11 +652,11 @@ class _PolicyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (text, color) = switch (policy) {
-      'deny' => ('Completely blocked — the agent cannot use this category.', Colors.red),
-      'require_approval' => ('Agent pauses and asks you before running.', Colors.orange),
-      'allow' => ('Allowed for this run — will ask again next session.', Colors.green),
-      'allow_always' => ('Permanently allowed — never asks again.', Colors.blue),
-      _ => ('', Colors.grey),
+      'deny' => ('Completely blocked — the agent cannot use this category.', _danger),
+      'require_approval' => ('Agent pauses and asks you before running.', _warning),
+      'allow' => ('Allowed for this run — will ask again next session.', _accentAlt),
+      'allow_always' => ('Permanently allowed — never asks again.', _info),
+      _ => ('', _textSecondary),
     };
     if (text.isEmpty) return const SizedBox.shrink();
     return Text(text, style: TextStyle(fontSize: 11, color: color));
@@ -939,7 +935,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.history_rounded, size: 15),
                             label: const Text('Allow session'),
-                            style: OutlinedButton.styleFrom(foregroundColor: Colors.teal),
+                            style: OutlinedButton.styleFrom(foregroundColor: _info),
                             onPressed: () => _decide('approved', 'session'),
                           ),
                         ),
