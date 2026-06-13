@@ -5631,6 +5631,14 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<Map<String, dynamic>> inspectMemory(String query) async {
+    return _backendClient.inspectMemory(
+      backendUrl,
+      query,
+      agentId: _scopedAgentId,
+    );
+  }
+
   Future<void> updateAssistantBehaviorNotes(String content) async {
     await _backendClient.saveSettings(backendUrl, <String, dynamic>{
       'assistant_behavior_notes': content,
