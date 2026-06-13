@@ -26,6 +26,9 @@ const { StructuredDataService } = require('./workspace/structured_data');
 const { TaskWebhookService } = require('./tasks/webhooks');
 const { LearningManager } = require('./ai/learning');
 const { CapabilityAuditService } = require('./security/capability_audit');
+const { ToolPolicyService } = require('./security/tool_policy_service');
+const { ApprovalGateService } = require('./security/approval_gate_service');
+const { registerToolSecurityHooks } = require('./security/tool_security_hook');
 const { BrowserExtensionRegistry } = require('./browser/extension/registry');
 const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
@@ -249,15 +252,23 @@ function createBrowserController(app, artifactStore) {
 }
 
 function createRuntimeManager(app) {
+  const { ShellWorkerPool } = require('./cli/shell_worker_pool');
+  const shellWorkerPool = registerLocal(
+    app,
+    'shellWorkerPool',
+    new ShellWorkerPool({ size: 4 }),
+  );
   const runtimeManager = registerLocal(
     app,
     'runtimeManager',
     new RuntimeManager({
       artifactStore: app.locals.artifactStore,
       browserExtensionRegistry: app.locals.browserExtensionRegistry,
+      desktopCompanionRegistry: app.locals.desktopCompanionRegistry,
+      shellWorkerPool,
     }),
   );
-  logServiceReady('Runtime manager ready');
+  logServiceReady('Runtime manager + shell worker pool ready');
   return runtimeManager;
 }
 
@@ -502,6 +513,10 @@ async function startServices(app, io) {
       mcpClient,
       skillRunner,
     }));
+    const toolPolicyService = registerLocal(app, 'toolPolicyService', new ToolPolicyService());
+    const approvalGateService = registerLocal(app, 'approvalGateService', new ApprovalGateService({ io }));
+    registerToolSecurityHooks(toolPolicyService, approvalGateService);
+    logServiceReady('Tool security hooks registered');
     agentEngine.learningManager = app.locals.learningManager;
 
     createMultiStep(app, agentEngine, io);
