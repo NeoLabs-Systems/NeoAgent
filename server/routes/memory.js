@@ -28,6 +28,14 @@ const transferImportLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const memorySearchLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many memory search requests, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const MAX_TRANSFER_TEXT_BYTES = 60 * 1024;
 
 function normalizeMemoryIds(value) {
@@ -378,15 +386,44 @@ router.post('/memories/bulk-archive', (req, res) => {
 });
 
 // Semantic recall (search)
-router.post('/memories/recall', async (req, res) => {
+router.post('/memories/recall', memorySearchLimiter, async (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const { query, limit = 8 } = req.body;
   if (!query) return res.status(400).json({ error: 'query is required' });
+
+  let parsedLimit = Number.parseInt(limit, 10);
+  if (!Number.isFinite(parsedLimit) || Number.isNaN(parsedLimit)) {
+    return res.status(400).json({ error: 'limit must be an integer between 1 and 100' });
+  }
+  parsedLimit = Math.max(1, Math.min(100, parsedLimit));
+
   try {
-    const results = await mm.recallMemory(userId, query, parseInt(limit), { agentId });
+    const results = await mm.recallMemory(userId, query, parsedLimit, { agentId });
     res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+// Semantic recall inspection (UI debug)
+router.post('/memories/inspect', memorySearchLimiter, async (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const { query, limit = 20 } = req.body;
+  if (!query) return res.status(400).json({ error: 'query is required' });
+
+  let parsedLimit = Number.parseInt(limit, 10);
+  if (!Number.isFinite(parsedLimit) || Number.isNaN(parsedLimit)) {
+    return res.status(400).json({ error: 'limit must be an integer between 1 and 100' });
+  }
+  parsedLimit = Math.max(1, Math.min(100, parsedLimit));
+
+  try {
+    const results = await mm.recallMemory(userId, query, parsedLimit, { agentId });
+    res.json({ results });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }

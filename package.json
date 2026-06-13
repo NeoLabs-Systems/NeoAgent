@@ -5,7 +5,7 @@
   "license": "AGPL-3.0-only",
   "main": "server/index.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=18.0.0"
   },
   "bin": {
     "neoagent": "bin/neoagent.js"
@@ -52,6 +52,8 @@
     "flutter:test:unit": "cd flutter_app && flutter test ../test/flutter/unit",
     "flutter:test:widget": "cd flutter_app && flutter test ../test/flutter/widget",
     "benchmark:tokens": "node scripts/benchmark-token-cost.js",
+    "benchmark:memory": "node scripts/benchmark-memory.js",
+    "benchmark:memorybench:install": "node scripts/install-memorybench-provider.js",
     "release": "npx semantic-release"
   },
   "repository": {

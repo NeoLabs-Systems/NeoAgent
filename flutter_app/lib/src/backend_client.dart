@@ -1421,15 +1421,29 @@ class BackendClient {
     return getList(baseUrl, '/api/memory/memories$query');
   }
 
-  Future<List<Map<String, dynamic>>> recallMemories(
+  Future<List<Map<String, dynamic>>> recallMemory(
     String baseUrl,
     String query, {
+    int limit = 8,
     String? agentId,
   }) async {
     return postList(
       baseUrl,
-      '/api/memory/memories/recall',
-      _withAgentId(<String, dynamic>{'query': query, 'limit': 8}, agentId),
+      _withAgentQuery('/api/memory/memories/recall', agentId),
+      {'query': query, 'limit': limit},
+    );
+  }
+
+  Future<Map<String, dynamic>> inspectMemory(
+    String baseUrl,
+    String query, {
+    int limit = 20,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      _withAgentQuery('/api/memory/memories/inspect', agentId),
+      {'query': query, 'limit': limit},
     );
   }
 
