@@ -360,6 +360,13 @@ class NeoAgentController extends ChangeNotifier {
 
   String? get sessionCookie => _backendClient.sessionCookie;
 
+  BackendClient get backendClient => _backendClient;
+
+  void clearPendingApproval() {
+    pendingApproval = null;
+    notifyListeners();
+  }
+
   bool get desktopFloatingToolbarPopupRequested =>
       _desktopFloatingToolbarPopupRequested;
 
@@ -5619,7 +5626,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> searchMemories(String query) async {
-    memoryRecallResults = (await _backendClient.recallMemories(
+    memoryRecallResults = (await _backendClient.recallMemory(
       backendUrl,
       query,
       agentId: _scopedAgentId,

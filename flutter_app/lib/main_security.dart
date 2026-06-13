@@ -201,6 +201,7 @@ class _SecurityNotificationService {
   }
 
   static Future<void> showApprovalNotification(ToolApprovalRequest req) async {
+    await requestPermission();
     final plugin = await _getPlugin();
     if (plugin == null) return;
 
@@ -268,10 +269,13 @@ class _MainSecurityState extends State<MainSecurity> {
         widget.controller.backendUrl,
       );
       final raw = result['policies'];
+      Map<String, String> loaded = const <String, String>{};
+      if (raw is Map) {
+        loaded = Map<String, String>.from(
+            raw.map((k, v) => MapEntry(k.toString(), v.toString())));
+      }
       setState(() {
-        _policies = raw is Map
-            ? Map<String, String>.from(raw.map((k, v) => MapEntry(k.toString(), v.toString())))
-            : const <String, String>{};
+        _policies = loaded;
         _mode = result['mode']?.toString() ?? 'default';
         _loading = false;
       });
@@ -731,8 +735,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
         toolName: widget.request.toolName,
         toolArgs: widget.request.toolArgs,
       );
-      widget.controller.pendingApproval = null;
-      widget.controller.notifyListeners();
+      widget.controller.clearPendingApproval();
     } catch (_) {
       // timeout will fire server-side; safe to dismiss
     }
