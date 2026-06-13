@@ -148,12 +148,24 @@ const _diagnosticsSettingsSection = _SettingsSection('diagnostics', <String>[
   'health',
 ]);
 
+const _securitySettingsSection = _SettingsSection('security', <String>[
+  'security',
+  'tool',
+  'permission',
+  'allowlist',
+  'shell',
+  'android',
+  'approval',
+  'policy',
+]);
+
 const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _overviewSettingsSection,
   _workspaceSettingsSection,
   _modelsSettingsSection,
   _voiceRecordingSettingsSection,
   _desktopSettingsSection,
+  _securitySettingsSection,
   _diagnosticsSettingsSection,
 ];
 
@@ -397,6 +409,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
               _desktopSettingsSection,
             )) ...<Widget>[
           _buildDesktopSection(controller),
+          const SizedBox(height: 16),
+        ],
+        if (_matchesSettingsSection(
+          searchQuery,
+          _securitySettingsSection,
+        )) ...<Widget>[
+          _buildSecuritySection(context, controller),
           const SizedBox(height: 16),
         ],
         if (_matchesSettingsSection(
@@ -1488,6 +1507,48 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSecuritySection(BuildContext context, NeoAgentController controller) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          ListTile(
+            leading: const Icon(Icons.shield_outlined),
+            title: const Text('Security', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text('Tool allowlists, approval gates, and process isolation.'),
+            trailing: const SizedBox.shrink(),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.checklist_outlined),
+            title: const Text('Tool Permissions'),
+            subtitle: const Text('Set block / ask / allow per tool category, or pick a global mode.'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const <Widget>[
+                Icon(Icons.shield_rounded, size: 16, color: Colors.green),
+                SizedBox(width: 4),
+                Icon(Icons.chevron_right),
+              ],
+            ),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => MainSecurity(controller: controller),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

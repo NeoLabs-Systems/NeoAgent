@@ -156,6 +156,7 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, MessagingAccessCatalog> messagingAccessCatalogs =
       const <String, MessagingAccessCatalog>{};
   MessagingQrState? pendingMessagingQr;
+  ToolApprovalRequest? pendingApproval;
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
   List<SkillItem> skills = const <SkillItem>[];
   List<StoreSkillItem> storeSkills = const <StoreSkillItem>[];
@@ -7153,6 +7154,25 @@ class NeoAgentController extends ChangeNotifier {
         unawaited(refreshDevices());
       }
       notifyListeners();
+    });
+    socket.on('tool:approval_required', (dynamic data) {
+      final payload = _jsonMap(data);
+      final req = ToolApprovalRequest.fromJson(payload);
+      pendingApproval = req;
+      notifyListeners();
+      // Show interactive push notification when app is backgrounded
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        _SecurityNotificationService.showApprovalNotification(req);
+      }
+    });
+    socket.on('tool:approval_resolved', (dynamic data) {
+      final payload = _jsonMap(data);
+      final resolvedId = payload['approvalId']?.toString() ?? '';
+      if (pendingApproval?.approvalId == resolvedId) {
+        _SecurityNotificationService.cancelApprovalNotification(resolvedId);
+        pendingApproval = null;
+        notifyListeners();
+      }
     });
     socket.on('run:steer_queued', (dynamic data) {
       final payload = _jsonMap(data);

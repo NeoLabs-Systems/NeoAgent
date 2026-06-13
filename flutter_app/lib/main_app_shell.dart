@@ -1086,6 +1086,7 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   bool _blockedDialogOpen = false;
+  bool _approvalSheetOpen = false;
   SidebarGroup? _expandedSidebarGroup;
   AppSection? _lastSelectedSection;
   final GlobalKey _devicesPanelKey = GlobalKey();
@@ -1196,6 +1197,27 @@ class _HomeViewState extends State<HomeView> {
           return;
         }
         _showBlockedSenderDialog(pendingBlockedSender);
+      });
+    }
+    final pendingApproval = controller.pendingApproval;
+    if (!_approvalSheetOpen && pendingApproval != null) {
+      _approvalSheetOpen = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showModalBottomSheet<void>(
+          context: context,
+          isDismissible: false,
+          enableDrag: false,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (_) => ToolApprovalSheet(
+            request: pendingApproval,
+            controller: controller,
+          ),
+        ).whenComplete(() {
+          if (mounted) setState(() => _approvalSheetOpen = false);
+        });
       });
     }
 

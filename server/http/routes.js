@@ -34,7 +34,8 @@ const routeRegistry = [
   { basePath: '/api/wearable', modulePath: '../routes/wearable' },
   { basePath: '/api/mobile/health', modulePath: '../routes/mobile-health' },
   { basePath: '/api/screen-history', modulePath: '../routes/screenHistory' },
-  { basePath: '/api/triggers', modulePath: '../routes/triggers' }
+  { basePath: '/api/triggers', modulePath: '../routes/triggers' },
+  { basePath: '/api/security', modulePath: '../routes/security' },
 ];
 
 function registerApiRoutes(app) {

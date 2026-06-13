@@ -15,6 +15,7 @@ class RuntimeManager {
   constructor(options = {}) {
     this.browserExtensionRegistry = options.browserExtensionRegistry || null;
     this.desktopCompanionRegistry = options.desktopCompanionRegistry || null;
+    this.shellWorkerPool = options.shellWorkerPool || null;
 
     const browserVmManager = options.browserVmManager || new DockerVMManager({
       runtimeProfile: 'browser_cli',
@@ -122,6 +123,12 @@ class RuntimeManager {
 
   async executeCliCommand(userId, command, options = {}) {
     const provider = await this.getCliProviderForUser(userId);
+    // Route desktop-companion shell commands through the isolated worker pool
+    // when available. The VM (Docker) path is already isolated.
+    if (provider.backend === 'desktop-companion' && this.shellWorkerPool && options.pty !== true) {
+      const result = await this.shellWorkerPool.execute(command, options);
+      return { ...result, backend: 'desktop-companion-worker' };
+    }
     const result = await (options.pty === true && provider.executeInteractive
       ? provider.executeInteractive(command, options.inputs || [], options)
       : provider.execute(command, options));
