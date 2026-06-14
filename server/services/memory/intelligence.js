@@ -157,6 +157,7 @@ function scoreMemoryCandidate({
   entityRank = -1,
   baseScore = 0,
   importance = 5,
+  confidence = 0.7,
   accessCount = 0,
   freshness = 1,
 } = {}) {
@@ -166,8 +167,9 @@ function scoreMemoryCandidate({
     rankFuse(entityRank, 0.95)
   ) * 20;
   const quality = 0.15 + clamp(importance, 1, 10, 5) / 22;
+  const confidenceMultiplier = 0.65 + clamp(confidence, 0, 1, 0.7) * 0.35;
   const usage = Math.min(0.08, Math.log1p(Math.max(0, Number(accessCount) || 0)) / 50);
-  return Math.max(baseScore, fused + quality + usage) * freshness;
+  return Math.max(baseScore, fused + quality + usage) * freshness * confidenceMultiplier;
 }
 
 module.exports = {

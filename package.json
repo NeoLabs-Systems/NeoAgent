@@ -1,11 +1,11 @@
 {
   "name": "neoagent",
-  "version": "2.4.2-beta.7",
+  "version": "2.4.4-beta.12",
   "description": "Proactive personal AI agent with no limits",
   "license": "AGPL-3.0-only",
   "main": "server/index.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=18.0.0"
   },
   "bin": {
     "neoagent": "bin/neoagent.js"
@@ -35,7 +35,7 @@
     "dev:test": "./dev/test.sh",
     "docs:dev": "docusaurus start",
     "docs:build": "docusaurus build",
-    "docs:preview": "docusaurus serve build",
+    "docs:preview": "docusaurus serve --dir build",
     "flutter:run:web": "cd flutter_app && flutter run -d chrome --dart-define=NEOAGENT_WEB_BUILD_ID=$(node ../scripts/web_build_id.js)",
     "flutter:build:web": "cd flutter_app && flutter build web --output ../server/public --dart-define=NEOAGENT_BACKEND_URL=${NEOAGENT_BACKEND_URL:-} --dart-define=NEOAGENT_WEB_BUILD_ID=$(node ../scripts/web_build_id.js)",
     "manage": "node bin/neoagent.js",
@@ -52,6 +52,8 @@
     "flutter:test:unit": "cd flutter_app && flutter test ../test/flutter/unit",
     "flutter:test:widget": "cd flutter_app && flutter test ../test/flutter/widget",
     "benchmark:tokens": "node scripts/benchmark-token-cost.js",
+    "benchmark:memory": "node scripts/benchmark-memory.js",
+    "benchmark:memorybench:install": "node scripts/install-memorybench-provider.js",
     "release": "npx semantic-release"
   },
   "repository": {

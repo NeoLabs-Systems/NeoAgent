@@ -403,7 +403,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           controller: _displayNameController,
           decoration: const InputDecoration(
             labelText: 'Display name',
-            helperText: 'Shown in the sidebar. Leave blank to use your username.',
+            helperText:
+                'Shown in the sidebar. Leave blank to use your username.',
           ),
         ),
         if (_displayNameInlineError != null) ...<Widget>[
@@ -607,6 +608,16 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     return amount.toString();
   }
 
+  String? _nextUsageDropLabel(DateTime? value) {
+    if (value == null) return null;
+    final remaining = value.difference(DateTime.now());
+    if (remaining.isNegative) return 'Usage updates shortly';
+    if (remaining.inHours > 0) {
+      return 'Next usage drop in ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+    }
+    return 'Next usage drop in ${remaining.inMinutes + 1}m';
+  }
+
   Widget _buildUsagePanel() {
     if (widget.controller.isLoadingAccountSettings) {
       return const Center(
@@ -616,7 +627,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         ),
       );
     }
-    
+
     final usage = widget.controller.usageAndLimits;
     if (usage == null) {
       return Center(
@@ -639,12 +650,21 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       );
     }
 
-    Widget buildStatBox(String label, int current, int? limit, {bool isCustom = false}) {
+    Widget buildStatBox(
+      String label,
+      int current,
+      int? limit, {
+      required int remaining,
+      required bool reached,
+      required DateTime? nextDecreaseAt,
+      bool isCustom = false,
+    }) {
       final double progress = limit != null
           ? (limit <= 0 ? 1.0 : (current / limit).clamp(0.0, 1.0))
           : 0.0;
       final bool nearLimit = progress > 0.8;
-      final bool atLimit = progress >= 1.0;
+      final bool atLimit = reached || progress >= 1.0;
+      final nextDrop = _nextUsageDropLabel(nextDecreaseAt);
 
       return Container(
         width: double.infinity,
@@ -656,8 +676,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
             color: atLimit
                 ? _danger.withValues(alpha: 0.6)
                 : nearLimit
-                    ? _warning.withValues(alpha: 0.5)
-                    : _borderLight,
+                ? _warning.withValues(alpha: 0.5)
+                : _borderLight,
           ),
         ),
         child: Column(
@@ -665,11 +685,20 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const Spacer(),
                 if (limit != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: isCustom
                           ? _warning.withValues(alpha: 0.12)
@@ -696,7 +725,11 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: atLimit ? _danger : nearLimit ? _warning : null,
+                    color: atLimit
+                        ? _danger
+                        : nearLimit
+                        ? _warning
+                        : null,
                   ),
                 ),
                 Padding(
@@ -728,16 +761,27 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   value: progress,
                   backgroundColor: _border,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    atLimit ? _danger : nearLimit ? _warning : _accent,
+                    atLimit
+                        ? _danger
+                        : nearLimit
+                        ? _warning
+                        : _accent,
                   ),
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                '${(progress * 100).toStringAsFixed(0)}% used',
+                atLimit
+                    ? 'Limit reached${nextDrop == null ? '' : ' · $nextDrop'}'
+                    : '${(progress * 100).toStringAsFixed(0)}% used · ${_formatTokens(remaining)} remaining'
+                          '${nextDrop == null ? '' : ' · $nextDrop'}',
                 style: TextStyle(
                   fontSize: 11,
-                  color: atLimit ? _danger : nearLimit ? _warning : _textMuted,
+                  color: atLimit
+                      ? _danger
+                      : nearLimit
+                      ? _warning
+                      : _textMuted,
                 ),
               ),
             ],
@@ -756,9 +800,25 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           style: TextStyle(color: _textSecondary, height: 1.4),
         ),
         const SizedBox(height: 24),
-        buildStatBox('Recent Usage (4 Hours)', usage.fourHourUsage, usage.fourHourLimit, isCustom: usage.fourHourIsCustom),
+        buildStatBox(
+          'Recent Usage (4 Hours)',
+          usage.fourHourUsage,
+          usage.fourHourLimit,
+          remaining: usage.fourHourRemaining,
+          reached: usage.fourHourReached,
+          nextDecreaseAt: usage.fourHourNextDecreaseAt,
+          isCustom: usage.fourHourIsCustom,
+        ),
         const SizedBox(height: 16),
-        buildStatBox('Weekly Usage', usage.weeklyUsage, usage.weeklyLimit, isCustom: usage.weeklyIsCustom),
+        buildStatBox(
+          'Weekly Usage',
+          usage.weeklyUsage,
+          usage.weeklyLimit,
+          remaining: usage.weeklyRemaining,
+          reached: usage.weeklyReached,
+          nextDecreaseAt: usage.weeklyNextDecreaseAt,
+          isCustom: usage.weeklyIsCustom,
+        ),
       ],
     );
   }
@@ -1128,7 +1188,11 @@ class _AccountSettingsTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final buttons = <Widget>[
       _tabButton(AccountSettingsTab.account, Icons.person_outline, 'Account'),
-      _tabButton(AccountSettingsTab.usage, Icons.data_usage_outlined, 'Usage & Limits'),
+      _tabButton(
+        AccountSettingsTab.usage,
+        Icons.data_usage_outlined,
+        'Usage & Limits',
+      ),
       _tabButton(
         AccountSettingsTab.security,
         Icons.security_outlined,

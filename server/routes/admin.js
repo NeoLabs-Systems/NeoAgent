@@ -18,6 +18,7 @@ const {
 const { APP_DIR, ENV_FILE, upsertEnvValue } = require('../../runtime/paths');
 const { isManagedDeployment } = require('../utils/deployment');
 const rateLimit = require('express-rate-limit');
+const { configuredDefaultLimits } = require('../services/ai/rate_limits');
 
 const router = express.Router();
 const ADMIN_DIR = path.join(__dirname, '..', 'admin');
@@ -322,6 +323,20 @@ const sqlLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many SQL queries, slow down' },
+});
+
+router.get('/api/config/email', requireAdminAuth, (req, res) => {
+  const { getAdminEmailSettings } = require('../services/account/service_email_settings');
+  res.json(getAdminEmailSettings());
+});
+
+router.put('/api/config/email', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
+  try {
+    const { updateAdminEmailSettings } = require('../services/account/service_email_settings');
+    res.json({ ok: true, ...updateAdminEmailSettings(req.body) });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
 });
 
 // --- Access settings (signup toggle + API key) ---
@@ -670,9 +685,10 @@ router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
 // --- Global default rate limits ---
 
 router.get('/api/config/rate-limits', requireAdminAuth, (req, res) => {
+  const defaults = configuredDefaultLimits();
   res.json({
-    rate_limit_4h: process.env.NEOAGENT_RATE_LIMIT_4H ? parseInt(process.env.NEOAGENT_RATE_LIMIT_4H, 10) : null,
-    rate_limit_weekly: process.env.NEOAGENT_RATE_LIMIT_WEEKLY ? parseInt(process.env.NEOAGENT_RATE_LIMIT_WEEKLY, 10) : null,
+    rate_limit_4h: defaults.fourHour,
+    rate_limit_weekly: defaults.weekly,
   });
 });
 
