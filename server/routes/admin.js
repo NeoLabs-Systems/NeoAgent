@@ -324,6 +324,20 @@ const sqlLimiter = rateLimit({
   message: { error: 'Too many SQL queries, slow down' },
 });
 
+router.get('/api/config/email', requireAdminAuth, (req, res) => {
+  const { getAdminEmailSettings } = require('../services/account/service_email_settings');
+  res.json(getAdminEmailSettings());
+});
+
+router.put('/api/config/email', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
+  try {
+    const { updateAdminEmailSettings } = require('../services/account/service_email_settings');
+    res.json({ ok: true, ...updateAdminEmailSettings(req.body) });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
 // --- Access settings (signup toggle + API key) ---
 
 router.get('/api/settings', requireAdminAuth, (req, res) => {

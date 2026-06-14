@@ -1734,6 +1734,14 @@ class _InteractiveSurfacePreviewState
   Widget build(BuildContext context) {
     final path = widget.screenshotPath;
     final hasImage = path != null && path.isNotEmpty;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final surfaceHeightCap = widget.surface == _DeviceSurface.android
+        ? 640.0
+        : 560.0;
+    final previewMaxHeight = math.min(
+      surfaceHeightCap,
+      viewportHeight * 0.48,
+    );
     final aspectRatio = switch (widget.surface) {
       _DeviceSurface.browser => 16 / 10,
       _DeviceSurface.android => 10 / 16,
@@ -1755,9 +1763,7 @@ class _InteractiveSurfacePreviewState
       child: Column(
         children: <Widget>[
           ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: widget.surface == _DeviceSurface.android ? 640 : 560,
-            ),
+            constraints: BoxConstraints(maxHeight: previewMaxHeight),
             child: AspectRatio(
               aspectRatio: aspectRatio,
               child: ClipRRect(
