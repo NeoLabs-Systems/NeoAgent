@@ -130,7 +130,11 @@ router.post('/', async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
+    res.status(err?.statusCode || err?.status || 500).json({
+      error: sanitizeError(err),
+      code: err?.code,
+      rateLimit: err?.rateLimit,
+    });
   }
 });
 

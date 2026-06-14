@@ -39,6 +39,7 @@ dependencies:
   url_launcher: ^6.3.2
   video_player: ^2.9.2
   flutter_animate: ^4.5.2
+  flutter_local_notifications: ^18.0.0
 
 dependency_overrides:
   flutter_secure_storage_linux:

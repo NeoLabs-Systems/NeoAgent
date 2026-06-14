@@ -51,6 +51,8 @@ function createTestRuntime() {
     'TRUST_PROXY',
     'OPENAI_API_KEY',
     'GOOGLE_AI_KEY',
+    'NEOAGENT_RATE_LIMIT_4H',
+    'NEOAGENT_RATE_LIMIT_WEEKLY',
   ]) {
     previousEnv[key] = process.env[key];
   }
