@@ -4111,6 +4111,12 @@ class AccountUsageAndLimits {
     this.weeklyLimit,
     this.fourHourUsage = 0,
     this.weeklyUsage = 0,
+    this.fourHourRemaining = 0,
+    this.weeklyRemaining = 0,
+    this.fourHourReached = false,
+    this.weeklyReached = false,
+    this.fourHourNextDecreaseAt,
+    this.weeklyNextDecreaseAt,
     this.fourHourIsCustom = false,
     this.weeklyIsCustom = false,
   });
@@ -4118,11 +4124,28 @@ class AccountUsageAndLimits {
   factory AccountUsageAndLimits.fromJson(Map<String, dynamic> json) {
     final limits = json['limits'] is Map ? json['limits'] as Map : const {};
     final usage = json['usage'] is Map ? json['usage'] as Map : const {};
+    final remaining = json['remaining'] is Map
+        ? json['remaining'] as Map
+        : const {};
+    final reached = json['reached'] is Map ? json['reached'] as Map : const {};
+    final nextDecreaseAt = json['nextDecreaseAt'] is Map
+        ? json['nextDecreaseAt'] as Map
+        : const {};
     return AccountUsageAndLimits(
       fourHourLimit: int.tryParse(limits['fourHour']?.toString() ?? ''),
       weeklyLimit: int.tryParse(limits['weekly']?.toString() ?? ''),
       fourHourUsage: _asInt(usage['fourHour']),
       weeklyUsage: _asInt(usage['weekly']),
+      fourHourRemaining: _asInt(remaining['fourHour']),
+      weeklyRemaining: _asInt(remaining['weekly']),
+      fourHourReached: reached['fourHour'] == true,
+      weeklyReached: reached['weekly'] == true,
+      fourHourNextDecreaseAt: DateTime.tryParse(
+        nextDecreaseAt['fourHour']?.toString() ?? '',
+      ),
+      weeklyNextDecreaseAt: DateTime.tryParse(
+        nextDecreaseAt['weekly']?.toString() ?? '',
+      ),
       fourHourIsCustom: limits['fourHourIsCustom'] == true,
       weeklyIsCustom: limits['weeklyIsCustom'] == true,
     );
@@ -4132,6 +4155,15 @@ class AccountUsageAndLimits {
   final int? weeklyLimit;
   final int fourHourUsage;
   final int weeklyUsage;
+  final int fourHourRemaining;
+  final int weeklyRemaining;
+  final bool fourHourReached;
+  final bool weeklyReached;
+  final DateTime? fourHourNextDecreaseAt;
+  final DateTime? weeklyNextDecreaseAt;
   final bool fourHourIsCustom;
   final bool weeklyIsCustom;
+
+  bool get hasLimits => fourHourLimit != null || weeklyLimit != null;
+  bool get isReached => fourHourReached || weeklyReached;
 }

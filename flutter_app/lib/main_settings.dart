@@ -148,12 +148,24 @@ const _diagnosticsSettingsSection = _SettingsSection('diagnostics', <String>[
   'health',
 ]);
 
+const _securitySettingsSection = _SettingsSection('security', <String>[
+  'security',
+  'tool',
+  'permission',
+  'allowlist',
+  'shell',
+  'android',
+  'approval',
+  'policy',
+]);
+
 const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _overviewSettingsSection,
   _workspaceSettingsSection,
   _modelsSettingsSection,
   _voiceRecordingSettingsSection,
   _desktopSettingsSection,
+  _securitySettingsSection,
   _diagnosticsSettingsSection,
 ];
 
@@ -397,6 +409,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
               _desktopSettingsSection,
             )) ...<Widget>[
           _buildDesktopSection(controller),
+          const SizedBox(height: 16),
+        ],
+        if (_matchesSettingsSection(
+          searchQuery,
+          _securitySettingsSection,
+        )) ...<Widget>[
+          _buildSecuritySection(context, controller),
           const SizedBox(height: 16),
         ],
         if (_matchesSettingsSection(
@@ -1483,6 +1502,43 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ],
                     ),
                   ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSecuritySection(BuildContext context, NeoAgentController controller) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Security'),
+            const SizedBox(height: 10),
+            Text(
+              'Per-tool permission policies, approval gates, and process isolation for shell execution.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.checklist_outlined, color: _accentAlt),
+              title: const Text('Tool Permissions'),
+              subtitle: Text(
+                'Set block / ask / allow per tool category, or pick a global mode.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => MainSecurity(controller: controller),
+                  ),
                 );
               },
             ),

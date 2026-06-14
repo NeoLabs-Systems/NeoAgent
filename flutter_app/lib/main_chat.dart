@@ -295,12 +295,13 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       transitionBuilder: (ctx, animation, secondary, child) => FadeTransition(
         opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
         child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-          ).animate(
-            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-          ),
+          position:
+              Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              ),
           child: child,
         ),
       ),
@@ -398,6 +399,11 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     _maybeFollowChatContent(messages, controller);
 
     final threadChildren = <Widget>[
+      if (controller.usageAndLimits case final usage?
+          when usage.hasLimits) ...<Widget>[
+        _RateLimitStatusCard(usage: usage),
+        const SizedBox(height: 16),
+      ],
       if (controller.errorMessage != null) ...<Widget>[
         _InlineError(message: controller.errorMessage!),
         const SizedBox(height: 16),
@@ -471,8 +477,12 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
               SelectionArea(
                 child: ListView(
                   controller: _scrollController,
-                  padding:
-                      EdgeInsets.fromLTRB(sidePadding, 30, sidePadding, 18),
+                  padding: EdgeInsets.fromLTRB(
+                    sidePadding,
+                    30,
+                    sidePadding,
+                    18,
+                  ),
                   children: <Widget>[
                     Center(
                       child: ConstrainedBox(
@@ -711,6 +721,143 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RateLimitStatusCard extends StatelessWidget {
+  const _RateLimitStatusCard({required this.usage});
+
+  final AccountUsageAndLimits usage;
+
+  String _formatTokens(int amount) {
+    if (amount >= 1000000) {
+      final value = amount / 1000000;
+      return '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)}M';
+    }
+    if (amount >= 1000) {
+      final value = amount / 1000;
+      return '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)}k';
+    }
+    return amount.toString();
+  }
+
+  String? _nextDropLabel(DateTime? value) {
+    if (value == null) return null;
+    final remaining = value.difference(DateTime.now());
+    if (remaining.isNegative) return 'Usage updates shortly';
+    if (remaining.inHours > 0) {
+      return 'Next usage drop in ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+    }
+    return 'Next usage drop in ${remaining.inMinutes + 1}m';
+  }
+
+  Widget _buildWindow({
+    required String label,
+    required int usageAmount,
+    required int? limit,
+    required int remaining,
+    required bool reached,
+    required DateTime? nextDecreaseAt,
+  }) {
+    if (limit == null || limit <= 0) return const SizedBox.shrink();
+    final progress = (usageAmount / limit).clamp(0.0, 1.0);
+    final color = reached
+        ? _danger
+        : progress >= 0.8
+        ? _warning
+        : _accent;
+    final nextDrop = _nextDropLabel(nextDecreaseAt);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const Spacer(),
+            Text(
+              reached ? 'Limit reached' : '${_formatTokens(remaining)} left',
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            minHeight: 7,
+            value: progress,
+            backgroundColor: _border,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${_formatTokens(usageAmount)} / ${_formatTokens(limit)} tokens'
+          '${nextDrop == null ? '' : ' · $nextDrop'}',
+          style: TextStyle(color: _textMuted, fontSize: 11),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final windows = <Widget>[
+      _buildWindow(
+        label: '4-hour usage',
+        usageAmount: usage.fourHourUsage,
+        limit: usage.fourHourLimit,
+        remaining: usage.fourHourRemaining,
+        reached: usage.fourHourReached,
+        nextDecreaseAt: usage.fourHourNextDecreaseAt,
+      ),
+      _buildWindow(
+        label: '7-day usage',
+        usageAmount: usage.weeklyUsage,
+        limit: usage.weeklyLimit,
+        remaining: usage.weeklyRemaining,
+        reached: usage.weeklyReached,
+        nextDecreaseAt: usage.weeklyNextDecreaseAt,
+      ),
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: usage.isReached ? _danger.withValues(alpha: 0.08) : _bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: usage.isReached
+              ? _danger.withValues(alpha: 0.55)
+              : _borderLight,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 620) {
+            return Column(
+              children: <Widget>[
+                windows.first,
+                const SizedBox(height: 14),
+                windows.last,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(child: windows.first),
+              const SizedBox(width: 24),
+              Expanded(child: windows.last),
+            ],
+          );
+        },
+      ),
     );
   }
 }

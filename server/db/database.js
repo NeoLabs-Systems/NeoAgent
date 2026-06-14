@@ -7,6 +7,7 @@ const {
   encryptValue,
   isEncryptedValue,
 } = require('../services/integrations/secrets');
+const { runSchemaMigrations } = require('../../lib/schema_migrations');
 ensureRuntimeDirs();
 
 const DB_PATH = path.join(DATA_DIR, 'neoagent.db');
@@ -1074,6 +1075,8 @@ db.exec(`
     WHERE datetime(expires_at) <= datetime('now');
   END;
 `);
+
+runSchemaMigrations(db);
 
 try {
   db.exec(`

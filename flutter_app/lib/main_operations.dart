@@ -1463,6 +1463,14 @@ class _MemoryPanelState extends State<MemoryPanel>
     });
   }
 
+  void _openRetrievalInspector(BuildContext context, NeoAgentController controller) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => RetrievalInspectorView(controller: controller),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -1485,6 +1493,11 @@ class _MemoryPanelState extends State<MemoryPanel>
             spacing: 10,
             runSpacing: 10,
             children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: () => _openRetrievalInspector(context, controller),
+                icon: Icon(Icons.bug_report_outlined),
+                label: Text('Inspect'),
+              ),
               OutlinedButton.icon(
                 onPressed: () => _openBehaviorNotesEditor(context, controller),
                 icon: Icon(Icons.edit_outlined),
