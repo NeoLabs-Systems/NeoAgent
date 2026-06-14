@@ -42,30 +42,12 @@ service to a network.
 
 ## ✨ What makes it different
 
-**It is a service, not just a chat window.** NeoAgent keeps tasks, integrations,
-memory, connected devices, and messaging channels available between sessions.
-
-**Memory is stored as structured local data.** Durable facts are separated from
-conversation history, scoped by user and agent, and updated when newer
-information replaces older information. NeoAgent can also index supported
-integration content with source references. See [How memory works](docs/memory.md).
-
-**It operates real devices.** The agent can use an isolated browser and shell,
-control an Android device or emulator over ADB, or work through a paired Chrome
-extension and desktop companion.
-
-**Automation can start without a message.** Tasks can run on a schedule or from
-supported Gmail, Outlook, Slack, Teams, personal WhatsApp, and weather events.
-Android notifications can also start an agent run.
-
-**Agents and users have separate state.** Specialist agents can have their own
-memory, settings, tools, account assignments, conversations, and task history.
-Multi-user deployments include administrative account controls and optional
-email confirmation.
-
-**The same server has several interfaces.** NeoAgent includes web, Android,
-desktop, and Android launcher clients, messaging bridges, a Chrome extension,
-and firmware for a supported ESP32-S3 wearable.
+- **It is a service, not just a chat window.** NeoAgent keeps tasks, integrations, memory, connected devices, and messaging channels available between sessions.
+- **Memory is stored as structured local data.** Durable facts are separated from conversation history, scoped by user and agent, and updated when newer information replaces older information. NeoAgent can also index supported integration content with source references. See [How memory works](docs/memory.md).
+- **It operates real devices.** The agent can use an isolated browser and shell, control an Android device or emulator over ADB, or work through a paired Chrome extension and desktop companion.
+- **Automation can start without a message.** Tasks can run on a schedule or from supported Gmail, Outlook, Slack, Teams, personal WhatsApp, and weather events. Android notifications can also start an agent run.
+- **Agents and users have separate state.** Specialist agents can have their own memory, settings, tools, account assignments, conversations, and task history. Multi-user deployments include administrative account controls and optional email confirmation.
+- **The same server has several interfaces.** NeoAgent includes web, Android, desktop, and Android launcher clients, messaging bridges, a Chrome extension, and firmware for a supported ESP32-S3 wearable.
 
 ## 🖥️ Interfaces
 
