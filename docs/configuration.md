@@ -117,6 +117,7 @@ Optional. When configured, NeoAgent uses SMTP for account flows: signup confirma
 | `NEOAGENT_EMAIL_NOTIFY_ACCOUNT_CHANGES` | `true` | Notices for password and email changes |
 | `NEOAGENT_EMAIL_BRAND_NAME` | `NeoAgent` | Display name in email templates |
 | `NEOAGENT_EMAIL_SUPPORT_URL` | optional | Support link for email templates |
+| `NEOAGENT_EMAIL_PUBLIC_URL` | `PUBLIC_URL` | Public base URL used in confirmation and reset links |
 | `NEOAGENT_EMAIL_TOKEN_TTL_HOURS` | `24` | Confirmation link expiry |
 
 ## Runtime Isolation

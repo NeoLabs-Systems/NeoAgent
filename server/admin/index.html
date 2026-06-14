@@ -326,6 +326,54 @@
       color: var(--text-muted) !important;
     }
 
+    .email-settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 16px;
+    }
+
+    .email-settings-grid .field-wide {
+      grid-column: 1 / -1;
+    }
+
+    .email-settings-checks {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 16px;
+      margin: 4px 0 20px;
+    }
+
+    .email-setting-check {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-transform: none;
+      letter-spacing: 0;
+      margin: 0;
+    }
+
+    .email-setting-check input {
+      accent-color: var(--accent);
+    }
+
+    .email-settings-status {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 18px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .email-settings-grid,
+      .email-settings-checks {
+        grid-template-columns: 1fr;
+      }
+    }
+
     /* ── Stats grid ────────────────────────────────────────────── */
     .stat-grid {
       display: grid;
@@ -1051,6 +1099,10 @@
         </div>
       </div>
       <div class="content">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">Service Email</div>
+          <div id="email-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
         <div class="card">
           <div class="card-title">Environment</div>
           <div id="config-content"><div class="empty"><span class="spinner"></span></div></div>
