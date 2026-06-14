@@ -1513,42 +1513,37 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   Widget _buildSecuritySection(BuildContext context, NeoAgentController controller) {
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          ListTile(
-            leading: const Icon(Icons.shield_outlined),
-            title: const Text('Security', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('Tool allowlists, approval gates, and process isolation.'),
-            trailing: const SizedBox.shrink(),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.checklist_outlined),
-            title: const Text('Tool Permissions'),
-            subtitle: const Text('Set block / ask / allow per tool category, or pick a global mode.'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const <Widget>[
-                Icon(Icons.shield_rounded, size: 16, color: Colors.green),
-                SizedBox(width: 4),
-                Icon(Icons.chevron_right),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Security'),
+            const SizedBox(height: 10),
+            Text(
+              'Per-tool permission policies, approval gates, and process isolation for shell execution.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
             ),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => MainSecurity(controller: controller),
-                ),
-              );
-            },
-          ),
-        ],
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.checklist_outlined, color: _accentAlt),
+              title: const Text('Tool Permissions'),
+              subtitle: Text(
+                'Set block / ask / allow per tool category, or pick a global mode.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => MainSecurity(controller: controller),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
