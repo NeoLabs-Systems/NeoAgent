@@ -335,10 +335,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       last?.role,
       last?.content.length,
       last?.typing,
-      controller.toolEvents.length,
       activeRun?.runId,
-      activeRun?.phase,
-      activeRun?.iteration,
       controller.streamingAssistant.length,
       controller.isSendingMessage,
     ].join('|');
