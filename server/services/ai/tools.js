@@ -255,22 +255,32 @@ function hasAlreadySentProactiveMessage({ triggerSource, runState, deliveryState
 }
 
 function markProactiveMessageSent({ runState, deliveryState, content }) {
-    const message = String(content || '');
-    if (runState) {
-        runState.messagingSent = true;
-        runState.lastSentMessage = message;
-        if (Array.isArray(runState.sentMessages)) {
-            runState.sentMessages.push(message);
-        }
+  const message = String(content || '');
+  const sentAt = new Date().toISOString();
+  if (runState) {
+    runState.messagingSent = true;
+    runState.finalDeliverySent = true;
+    runState.lastFinalDeliveryAt = sentAt;
+    if (runState.progressLedger && typeof runState.progressLedger === 'object') {
+      runState.progressLedger.lastUserVisibleUpdateAt = sentAt;
+      runState.progressLedger.lastFinalDeliveryAt = sentAt;
+      runState.progressLedger.progressState = 'complete';
     }
+    runState.lastSentMessage = message;
+    if (Array.isArray(runState.sentMessages)) {
+      runState.sentMessages.push(message);
+    }
+  }
 
-    if (deliveryState) {
-        deliveryState.messagingSent = true;
-        deliveryState.lastSentMessage = message;
-        if (!Array.isArray(deliveryState.sentMessages)) {
-            deliveryState.sentMessages = [];
-        }
-        deliveryState.sentMessages.push(message);
+  if (deliveryState) {
+    deliveryState.messagingSent = true;
+    deliveryState.finalDeliverySent = true;
+    deliveryState.lastFinalDeliveryAt = sentAt;
+    deliveryState.lastSentMessage = message;
+    if (!Array.isArray(deliveryState.sentMessages)) {
+      deliveryState.sentMessages = [];
+    }
+    deliveryState.sentMessages.push(message);
     }
 }
 
