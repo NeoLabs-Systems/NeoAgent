@@ -112,6 +112,80 @@ function buildInitialRunMetadata(options = {}) {
   return metadata;
 }
 
+const MESSAGING_PROGRESS_FIRST_UPDATE_MS = 60 * 1000;
+const MESSAGING_PROGRESS_REPEAT_MS = 90 * 1000;
+const MESSAGING_PROGRESS_STALL_MS = 240 * 1000;
+const MESSAGING_PROGRESS_TICK_MS = 15 * 1000;
+
+function isoNow() {
+  return new Date().toISOString();
+}
+
+function timestampMs(value, fallback = 0) {
+  const resolved = value ? Date.parse(value) : NaN;
+  return Number.isFinite(resolved) ? resolved : fallback;
+}
+
+function formatElapsedDuration(durationMs) {
+  const totalSeconds = Math.max(1, Math.floor(Number(durationMs || 0) / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (seconds === 0) return `${minutes}m`;
+  return `${minutes}m ${seconds}s`;
+}
+
+function cloneInterimHistory(history = []) {
+  if (!Array.isArray(history)) return [];
+  return history.map((item) => ({
+    content: String(item?.content || '').trim(),
+    kind: normalizeInterimKind(item?.kind),
+    expectsReply: item?.expectsReply === true,
+    deferFollowUp: item?.deferFollowUp === true,
+    createdAt: item?.createdAt || isoNow(),
+  })).filter((item) => item.content);
+}
+
+function createInterimSignatureSet(history = [], platform = null) {
+  const signatures = new Set();
+  for (const item of cloneInterimHistory(history)) {
+    signatures.add(buildInterimSignature({
+      content: item.content,
+      kind: item.kind,
+      expectsReply: item.expectsReply === true,
+      platform,
+    }));
+  }
+  return signatures;
+}
+
+function buildInitialProgressLedger({ startedAt, retryState = {} } = {}) {
+  const startedAtIso = startedAt || isoNow();
+  const interimHistory = cloneInterimHistory(retryState.interimHistory);
+  const lastInterimMessage = interimHistory[interimHistory.length - 1]?.content || '';
+  const lastVisibleAt = retryState.lastUserVisibleUpdateAt || (lastInterimMessage ? startedAtIso : null);
+  return {
+    currentStep: retryState.currentStep || null,
+    currentTool: retryState.currentTool || null,
+    currentStepStartedAt: retryState.currentStepStartedAt || null,
+    lastVerifiedProgressAt: retryState.lastVerifiedProgressAt || startedAtIso,
+    lastUserVisibleUpdateAt: lastVisibleAt,
+    lastFinalDeliveryAt: retryState.lastFinalDeliveryAt || null,
+    heartbeatCount: Number(retryState.heartbeatCount || 0),
+    stallNotifiedAt: retryState.stallNotifiedAt || null,
+    progressState: retryState.progressState || 'active',
+    currentPhase: retryState.currentPhase || 'idle',
+  };
+}
+
+function hasVisibleInterimActivity(runMeta) {
+  return Boolean(
+    runMeta?.lastInterimMessage
+    || (Array.isArray(runMeta?.interimMessages) && runMeta.interimMessages.length > 0)
+    || Number(runMeta?.progressLedger?.heartbeatCount || 0) > 0
+  );
+}
+
 function planningDepthForForceMode(forceMode) {
   return forceMode === 'plan_execute' ? 'deep' : 'light';
 }
@@ -555,6 +629,97 @@ class AgentEngine {
       .run(JSON.stringify(next), runId);
   }
 
+  buildProgressLedgerSnapshot(runMeta) {
+    if (!runMeta?.progressLedger) return null;
+    return {
+      currentStep: runMeta.progressLedger.currentStep || null,
+      currentTool: runMeta.progressLedger.currentTool || null,
+      currentStepStartedAt: runMeta.progressLedger.currentStepStartedAt || null,
+      lastVerifiedProgressAt: runMeta.progressLedger.lastVerifiedProgressAt || null,
+      lastUserVisibleUpdateAt: runMeta.progressLedger.lastUserVisibleUpdateAt || null,
+      lastFinalDeliveryAt: runMeta.progressLedger.lastFinalDeliveryAt || null,
+      heartbeatCount: Number(runMeta.progressLedger.heartbeatCount || 0),
+      stallNotifiedAt: runMeta.progressLedger.stallNotifiedAt || null,
+      progressState: runMeta.progressLedger.progressState || 'active',
+      currentPhase: runMeta.progressLedger.currentPhase || 'idle',
+    };
+  }
+
+  persistProgressLedger(runId) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta?.progressLedger) return;
+    this.persistRunMetadata(runId, {
+      progressLedger: this.buildProgressLedgerSnapshot(runMeta),
+    });
+  }
+
+  updateRunProgress(runId, patch = {}, options = {}) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta) return null;
+    if (!runMeta.progressLedger) {
+      runMeta.progressLedger = buildInitialProgressLedger({
+        startedAt: runMeta.startedAtIso || isoNow(),
+      });
+    }
+
+    const previousState = runMeta.progressLedger.progressState || 'active';
+    runMeta.progressLedger = {
+      ...runMeta.progressLedger,
+      ...patch,
+    };
+
+    if (options.verified === true) {
+      runMeta.progressLedger.lastVerifiedProgressAt = options.timestamp || isoNow();
+      runMeta.progressLedger.progressState = 'active';
+      runMeta.progressLedger.stallNotifiedAt = null;
+      this.recordRunEvent(runMeta.userId, runId, 'progress_verified', {
+        phase: runMeta.progressLedger.currentPhase || 'idle',
+        currentStep: runMeta.progressLedger.currentStep || null,
+        currentTool: runMeta.progressLedger.currentTool || null,
+      }, { agentId: runMeta.agentId, stepId: options.stepId || null });
+      if (previousState === 'stalled') {
+        this.recordRunEvent(runMeta.userId, runId, 'progress_resumed', {
+          phase: runMeta.progressLedger.currentPhase || 'idle',
+          currentStep: runMeta.progressLedger.currentStep || null,
+          currentTool: runMeta.progressLedger.currentTool || null,
+        }, { agentId: runMeta.agentId, stepId: options.stepId || null });
+      }
+    }
+
+    if (options.persist !== false) {
+      this.persistProgressLedger(runId);
+    }
+    return runMeta.progressLedger;
+  }
+
+  markRunVisibleProgress(runId, timestamp = isoNow()) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta) return null;
+    const ledger = this.updateRunProgress(runId, {
+      lastUserVisibleUpdateAt: timestamp,
+    }, {
+      persist: false,
+    });
+    this.persistProgressLedger(runId);
+    return ledger;
+  }
+
+  markRunFinalDelivery(runId, content = '', timestamp = isoNow()) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta) return null;
+    runMeta.finalDeliverySent = true;
+    runMeta.lastSentMessage = String(content || '').trim() || runMeta.lastSentMessage || '';
+    const ledger = this.updateRunProgress(runId, {
+      lastUserVisibleUpdateAt: timestamp,
+      lastFinalDeliveryAt: timestamp,
+      progressState: 'complete',
+    }, {
+      persist: false,
+    });
+    this.persistProgressLedger(runId);
+    return ledger;
+  }
+
   recordRunEvent(userId, runId, eventType, payload = {}, options = {}) {
     try {
       return recordRunEvent({
@@ -695,6 +860,7 @@ class AgentEngine {
       createdAt,
     });
     runMeta.lastInterimMessage = normalizedContent;
+    this.markRunVisibleProgress(runId, createdAt);
 
     this.emit(userId, 'run:assistant_interim', {
       runId,
@@ -722,6 +888,7 @@ class AgentEngine {
         content: normalizedContent,
         createdAt,
       },
+      progressLedger: this.buildProgressLedgerSnapshot(runMeta),
       terminalInterim: terminalInterim
         ? { kind: normalizedKind, content: normalizedContent, createdAt }
         : null,
@@ -1584,6 +1751,45 @@ class AgentEngine {
     };
   }
 
+  enqueueSystemSteering(runId, content, metadata = {}) {
+    const runMeta = this.getRunMeta(runId);
+    const trimmed = typeof content === 'string' ? content.trim() : '';
+    if (!runMeta || runMeta.aborted || !trimmed) return null;
+    if (!Array.isArray(runMeta.systemSteeringQueue)) {
+      runMeta.systemSteeringQueue = [];
+    }
+    const signature = JSON.stringify({
+      content: trimmed,
+      reason: metadata.reason || '',
+    });
+    if (runMeta.systemSteeringQueue.some((item) => item.signature === signature)) {
+      return null;
+    }
+    const item = {
+      id: uuidv4(),
+      content: trimmed,
+      metadata,
+      signature,
+      createdAt: isoNow(),
+    };
+    runMeta.systemSteeringQueue.push(item);
+    return item;
+  }
+
+  applyQueuedSystemSteering(runId, messages) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta?.systemSteeringQueue?.length) {
+      return { messages, appliedCount: 0 };
+    }
+
+    const queued = runMeta.systemSteeringQueue.splice(0, runMeta.systemSteeringQueue.length);
+    for (const entry of queued) {
+      messages.push({ role: 'system', content: entry.content });
+    }
+
+    return { messages, appliedCount: queued.length };
+  }
+
   applyQueuedSteering(runId, messages, { userId, conversationId }) {
     const runMeta = this.getRunMeta(runId);
     if (!runMeta?.steeringQueue?.length) {
@@ -1617,6 +1823,242 @@ class AgentEngine {
     });
 
     return { messages, appliedCount: queued.length };
+  }
+
+  buildMessagingHeartbeatText(runMeta, options = {}) {
+    const stalled = options.stalled === true;
+    const fallbackStartedAtMs = Number.isFinite(runMeta?.startedAt) ? runMeta.startedAt : Date.now();
+    const startedAtMs = timestampMs(
+      runMeta?.progressLedger?.currentStepStartedAt,
+      fallbackStartedAtMs,
+    );
+    const elapsed = formatElapsedDuration(Date.now() - startedAtMs);
+    const currentTool = String(runMeta?.progressLedger?.currentTool || '').trim();
+    if (currentTool) {
+      return stalled
+        ? `Still working on ${currentTool}. This run has not made verified progress for ${elapsed}.`
+        : `Still working on ${currentTool}. ${elapsed} elapsed so far.`;
+    }
+    return stalled
+      ? `Still working on this. This run has not made verified progress for ${elapsed}.`
+      : `Still working on this. ${elapsed} elapsed so far.`;
+  }
+
+  async sendRuntimeMessagingHeartbeat(runId, options = {}) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta || runMeta.aborted) return { sent: false, skipped: true };
+    if (runMeta.triggerSource !== 'messaging' || !runMeta.messagingContext?.platform || !runMeta.messagingContext?.chatId) {
+      return { sent: false, skipped: true };
+    }
+    if (!this.messagingManager) {
+      return { sent: false, skipped: true };
+    }
+
+    const createdAt = isoNow();
+    const content = this.buildMessagingHeartbeatText(runMeta, options);
+    await this.messagingManager.sendMessage(
+      runMeta.userId,
+      runMeta.messagingContext.platform,
+      runMeta.messagingContext.chatId,
+      content,
+      {
+        agentId: runMeta.agentId,
+        runId,
+        persistConversation: true,
+        metadata: {
+          interim: true,
+          interim_kind: options.stalled === true ? 'blocker' : 'progress',
+          runtime_heartbeat: true,
+          expects_reply: false,
+        },
+        deliveryKind: 'interim',
+      },
+    );
+
+    runMeta.lastInterimMessage = content;
+    if (!Array.isArray(runMeta.interimMessages)) {
+      runMeta.interimMessages = [];
+    }
+    runMeta.interimMessages.push({
+      content,
+      kind: options.stalled === true ? 'blocker' : 'progress',
+      expectsReply: false,
+      deferFollowUp: false,
+      createdAt,
+    });
+    const heartbeatCount = Number(runMeta.progressLedger?.heartbeatCount || 0) + 1;
+    this.updateRunProgress(runId, {
+      heartbeatCount,
+      lastUserVisibleUpdateAt: createdAt,
+    });
+    this.recordRunEvent(runMeta.userId, runId, 'progress_heartbeat_sent', {
+      stalled: options.stalled === true,
+      currentTool: runMeta.progressLedger?.currentTool || null,
+      currentStep: runMeta.progressLedger?.currentStep || null,
+    }, { agentId: runMeta.agentId });
+    this.enqueueSystemSteering(
+      runId,
+      'A runtime-generated progress update was already sent while the run was blocked. Do not repeat that same status. When control returns, either keep working silently, send a materially new update, or finish with the actual result.',
+      { reason: 'runtime_heartbeat' },
+    );
+    return { sent: true, content };
+  }
+
+  shouldSendMessagingFinalFallback(runMeta, content, platform = null) {
+    const cleanedContent = normalizeOutgoingMessage(content || '', platform, {
+      collapseWhitespace: false,
+    });
+    const lastFinalDeliveryMessage = normalizeOutgoingMessage(
+      runMeta?.lastSentMessage
+      || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
+      || '',
+      platform,
+    );
+    return Boolean(
+      cleanedContent
+      && !runMeta?.terminalInterim
+      && runMeta?.explicitMessageSent !== true
+      && runMeta?.finalDeliverySent !== true
+      && !lastFinalDeliveryMessage
+    );
+  }
+
+  async deliverMessagingFinalFallback({
+    runId,
+    userId,
+    agentId,
+    platform,
+    chatId,
+    content,
+  }) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta || !this.messagingManager) return { sent: false, skipped: true };
+    const cleanedContent = normalizeOutgoingMessage(content || '', platform, {
+      collapseWhitespace: false,
+    });
+    if (!this.shouldSendMessagingFinalFallback(runMeta, cleanedContent, platform)) {
+      return { sent: false, skipped: true };
+    }
+
+    const chunks = splitOutgoingMessageForPlatform(platform, cleanedContent);
+    console.info(
+      `[Run ${shortenRunId(runId)}] messaging_fallback chunks=${chunks.length} to=${summarizeForLog(chatId, 80)}`
+    );
+    for (let i = 0; i < chunks.length; i++) {
+      if (i > 0) {
+        const delay = Math.max(1000, Math.min(chunks[i].length * 30, 4000));
+        await this.messagingManager.sendTyping(userId, platform, chatId, true, { agentId }).catch(() => {});
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      await this.messagingManager.sendMessage(userId, platform, chatId, chunks[i], { runId, agentId }).catch((err) =>
+        console.error('[Engine] Auto-reply fallback failed:', err.message)
+      );
+    }
+
+    runMeta.lastSentMessage = chunks[chunks.length - 1] || cleanedContent;
+    runMeta.sentMessages = Array.isArray(runMeta.sentMessages)
+      ? [...runMeta.sentMessages, ...chunks]
+      : chunks.slice();
+    this.markRunFinalDelivery(runId, runMeta.lastSentMessage);
+    return { sent: true, chunks };
+  }
+
+  async tickMessagingProgressSupervisor(runId) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta || runMeta.aborted || runMeta.triggerSource !== 'messaging') {
+      return { sent: false, skipped: true };
+    }
+    if (runMeta.finalDeliverySent === true || runMeta.terminalInterim) {
+      return { sent: false, skipped: true };
+    }
+
+    const now = Date.now();
+    const ledger = runMeta.progressLedger || buildInitialProgressLedger({
+      startedAt: runMeta.startedAtIso || isoNow(),
+    });
+    runMeta.progressLedger = ledger;
+    const startedAtMs = Number.isFinite(runMeta.startedAt) ? runMeta.startedAt : now;
+
+    const lastVerifiedAtMs = timestampMs(ledger.lastVerifiedProgressAt, startedAtMs);
+    const lastVisibleAtMs = timestampMs(ledger.lastUserVisibleUpdateAt, 0);
+    const heartbeatThresholdMs = lastVisibleAtMs > 0
+      ? MESSAGING_PROGRESS_REPEAT_MS
+      : MESSAGING_PROGRESS_FIRST_UPDATE_MS;
+    const comparisonVisibleAtMs = lastVisibleAtMs > 0 ? lastVisibleAtMs : startedAtMs;
+    const stalled = (now - lastVerifiedAtMs) >= MESSAGING_PROGRESS_STALL_MS;
+
+    if (stalled && !ledger.stallNotifiedAt) {
+      this.updateRunProgress(runId, {
+        stallNotifiedAt: isoNow(),
+        progressState: 'stalled',
+      });
+      this.recordRunEvent(runMeta.userId, runId, 'progress_stalled', {
+        currentTool: ledger.currentTool || null,
+        currentStep: ledger.currentStep || null,
+        phase: ledger.currentPhase || 'idle',
+      }, { agentId: runMeta.agentId });
+    }
+
+    if ((now - comparisonVisibleAtMs) < heartbeatThresholdMs) {
+      return { sent: false, skipped: true };
+    }
+
+    if (ledger.currentPhase === 'tool' && ledger.currentStepStartedAt) {
+      return this.sendRuntimeMessagingHeartbeat(runId, { stalled });
+    }
+
+    if (ledger.currentPhase !== 'idle') {
+      return { sent: false, skipped: true };
+    }
+
+    const lastSupervisorNudgeAtMs = timestampMs(runMeta.lastSupervisorNudgeAt, 0);
+    if (lastSupervisorNudgeAtMs > 0 && (now - lastSupervisorNudgeAtMs) < heartbeatThresholdMs) {
+      return { sent: false, skipped: true };
+    }
+
+    const nudge = stalled
+      ? 'The messaging user has only seen progress updates so far, and the run now appears stalled. Decide explicitly whether to continue, send one concise blocker update, or finish with the final answer. Do not leave the run with only an interim status.'
+      : 'The messaging user has not received a final answer yet. Decide explicitly whether to keep working, send one concise progress update, or finish with the final answer. Do not stop with only an interim status.';
+    const queued = this.enqueueSystemSteering(runId, nudge, {
+      reason: stalled ? 'stalled_progress_check' : 'progress_check',
+    });
+    if (!queued) {
+      return { sent: false, skipped: true };
+    }
+    runMeta.lastSupervisorNudgeAt = isoNow();
+    this.updateRunProgress(runId, {
+      lastUserVisibleUpdateAt: ledger.lastUserVisibleUpdateAt || null,
+    });
+    return { sent: false, queued: true };
+  }
+
+  startMessagingProgressSupervisor(runId) {
+    const runMeta = this.getRunMeta(runId);
+    if (!runMeta || runMeta.triggerSource !== 'messaging' || !runMeta.messagingContext?.platform || !runMeta.messagingContext?.chatId) {
+      return false;
+    }
+    if (runMeta.messagingProgressSupervisor?.timer) {
+      return true;
+    }
+    const timer = setInterval(() => {
+      this.tickMessagingProgressSupervisor(runId).catch((error) => {
+        console.warn('[Engine] Messaging progress supervisor failed:', error?.message || error);
+      });
+    }, MESSAGING_PROGRESS_TICK_MS);
+    timer.unref?.();
+    runMeta.messagingProgressSupervisor = { timer };
+    return true;
+  }
+
+  stopMessagingProgressSupervisor(runId) {
+    const runMeta = this.getRunMeta(runId);
+    const timer = runMeta?.messagingProgressSupervisor?.timer || null;
+    if (timer) {
+      clearInterval(timer);
+    }
+    if (runMeta?.messagingProgressSupervisor) {
+      runMeta.messagingProgressSupervisor = null;
+    }
   }
 
   isRunStopped(runId) {
@@ -1871,8 +2313,15 @@ class AgentEngine {
     );
 
     const retryMessagingState = options.messagingRetryState || {};
-    const carriedVisibleMessage = String(retryMessagingState.lastVisibleMessage || '').trim();
+    const carriedFinalMessage = String(retryMessagingState.lastFinalMessage || '').trim();
     const carriedExplicitMessageSent = retryMessagingState.explicitMessageSent === true;
+    const carriedInterimHistory = cloneInterimHistory(retryMessagingState.interimHistory);
+    const carriedLastInterimMessage = carriedInterimHistory[carriedInterimHistory.length - 1]?.content || '';
+    const startedAtIso = isoNow();
+    const progressLedger = buildInitialProgressLedger({
+      startedAt: startedAtIso,
+      retryState: retryMessagingState,
+    });
 
     this.activeRuns.set(runId, {
       userId,
@@ -1882,23 +2331,39 @@ class AgentEngine {
       messagingSent: false,
       noResponse: false,
       explicitMessageSent: carriedExplicitMessageSent,
-      lastSentMessage: carriedExplicitMessageSent ? carriedVisibleMessage : '',
+      finalDeliverySent: carriedExplicitMessageSent,
+      lastSentMessage: carriedExplicitMessageSent ? carriedFinalMessage : '',
       sentMessages: [],
       widgetSnapshotSaved: false,
       triggerType,
       triggerSource,
       startedAt: Date.now(),
+      startedAtIso,
       lastToolName: null,
       lastToolTarget: null,
-      lastInterimMessage: carriedExplicitMessageSent ? '' : carriedVisibleMessage,
-      interimMessages: [],
-      interimSignatures: new Set(),
+      lastInterimMessage: carriedExplicitMessageSent ? '' : carriedLastInterimMessage,
+      interimMessages: carriedExplicitMessageSent ? [] : carriedInterimHistory,
+      interimSignatures: carriedExplicitMessageSent
+        ? new Set()
+        : createInterimSignatureSet(carriedInterimHistory, options.source || null),
       terminalInterim: null,
       voiceSessionId: options.voiceSessionId || null,
       steeringQueue: [],
+      systemSteeringQueue: [],
       toolPids: new Set(),
       repetitionGuard: new ToolRepetitionGuard(),
+      messagingContext: triggerSource === 'messaging'
+        ? {
+          platform: options.source || null,
+          chatId: options.chatId || null,
+        }
+        : null,
+      progressLedger,
     });
+    this.persistRunMetadata(runId, {
+      progressLedger,
+    });
+    this.startMessagingProgressSupervisor(runId);
     this.emit(userId, 'run:start', { runId, agentId, title: runTitle, model, triggerType, triggerSource });
     this.recordRunEvent(userId, runId, 'run_started', {
       title: runTitle,
@@ -2278,12 +2743,22 @@ class AgentEngine {
         if (this.isRunStopped(runId)) break;
         iteration++;
 
+        const systemSteeringAtLoopStart = this.applyQueuedSystemSteering(runId, messages);
+        messages = systemSteeringAtLoopStart.messages;
         const steeringAtLoopStart = this.applyQueuedSteering(runId, messages, {
           userId,
           conversationId
         });
         messages = steeringAtLoopStart.messages;
         messages = sanitizeConversationMessages(messages);
+        this.updateRunProgress(runId, {
+          currentPhase: 'model',
+          currentStep: `model:${iteration}`,
+          currentTool: null,
+          currentStepStartedAt: isoNow(),
+        }, {
+          verified: true,
+        });
 
         let metrics = this.estimatePromptMetrics(messages, tools);
         const contextWindow = provider.getContextWindow(model);
@@ -2444,6 +2919,21 @@ class AgentEngine {
         }
 
         if (!response.toolCalls || response.toolCalls.length === 0) {
+          this.updateRunProgress(runId, {
+            currentPhase: 'idle',
+            currentStep: null,
+            currentTool: null,
+            currentStepStartedAt: null,
+          }, {
+            verified: true,
+          });
+          const systemSteeringAfterResponse = this.applyQueuedSystemSteering(runId, messages);
+          messages = systemSteeringAfterResponse.messages;
+          if (systemSteeringAfterResponse.appliedCount > 0) {
+            iteration = Math.max(0, iteration - 1);
+            lastContent = '';
+            continue;
+          }
           const steeringAfterResponse = this.applyQueuedSteering(runId, messages, {
             userId,
             conversationId
@@ -2470,11 +2960,13 @@ class AgentEngine {
               && this.activeRuns.get(runId)?.noResponse !== true
               && options.deliveryState?.noResponse !== true
             );
+            const visibleInterimActivity = hasVisibleInterimActivity(this.activeRuns.get(runId));
             const fallbackStatus = (
               proactiveRunNeedsDecision
               || toolExecutions.length > 0
               || failedStepCount > 0
               || messagingSent
+              || visibleInterimActivity
             ) ? 'continue' : 'complete';
             const loopState = await runWithModelFallback('loop decision', () => this.decideLoopState({
               provider,
@@ -2685,6 +3177,15 @@ class AgentEngine {
 
           db.prepare('INSERT INTO agent_steps (id, run_id, step_index, type, description, status, tool_name, tool_input, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))')
             .run(stepId, runId, stepIndex, this.getStepType(toolName), `${toolName}: ${JSON.stringify(toolArgs).slice(0, 200)} `, 'running', toolName, JSON.stringify(toolArgs));
+          this.updateRunProgress(runId, {
+            currentPhase: 'tool',
+            currentStep: stepId,
+            currentTool: toolName,
+            currentStepStartedAt: isoNow(),
+          }, {
+            verified: true,
+            stepId,
+          });
 
           this.emit(userId, 'run:tool_start', {
             runId, stepId, stepIndex, toolName, toolArgs,
@@ -2885,6 +3386,16 @@ class AgentEngine {
               .run(conversationId, 'tool', toolMessage.content, toolCall.id, toolName);
           }
 
+          this.updateRunProgress(runId, {
+            currentPhase: 'idle',
+            currentStep: null,
+            currentTool: null,
+            currentStepStartedAt: null,
+          }, {
+            verified: true,
+            stepId,
+          });
+
           const runMeta = this.activeRuns.get(runId);
           if (runMeta) {
             runMeta.lastToolName = toolName;
@@ -2916,6 +3427,7 @@ class AgentEngine {
         console.warn(
           `[Run ${shortenRunId(runId)}] stopped trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
         );
+        this.stopMessagingProgressSupervisor(runId);
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:stopped', { runId, triggerSource });
         this.recordRunEvent(userId, runId, 'run_stopped', {
@@ -2991,9 +3503,8 @@ class AgentEngine {
       let finalResponseText = messagingSent
         ? (sentMessageText || (normalizedLastContent ? lastContent.trim() : ''))
         : (normalizedLastContent ? lastContent.trim() : sentMessageText);
-      const lastVisibleMessage = normalizeOutgoingMessage(
+      const lastFinalDeliveryMessage = normalizeOutgoingMessage(
         runMeta?.lastSentMessage
-        || runMeta?.lastInterimMessage
         || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
         || '',
         options?.source || null
@@ -3130,39 +3641,19 @@ class AgentEngine {
         skipPersistence: options.skipRunContextPersistence === true
       });
 
-      // Fallback: if this was a messaging-triggered run and no user-visible
-      // message was already sent in this run, auto-send the final assistant text.
-      // After any visible reply already went out, later user-facing messages
-      // must be sent explicitly via send_message.
+      // Fallback: if this was a messaging-triggered run and no final delivery
+      // was already sent in this run, auto-send the final assistant text.
+      // Interim progress updates do not suppress this final delivery.
       if (triggerSource === 'messaging' && options.source && options.chatId) {
-        // Strip [NO RESPONSE] markers the AI may have embedded anywhere in the text,
-        // then only send if real content remains.
-        const cleanedContent = normalizeOutgoingMessage(lastContent || '', options.source, {
-          collapseWhitespace: false
-        });
-        const shouldSendFallback = (
-          cleanedContent
-          && runMeta?.explicitMessageSent !== true
-          && !lastVisibleMessage
-        );
-        if (shouldSendFallback) {
-          const manager = this.messagingManager;
-          if (manager) {
-            const chunks = splitOutgoingMessageForPlatform(options.source, cleanedContent);
-            console.info(
-              `[Run ${shortenRunId(runId)}] messaging_fallback chunks=${chunks.length} to=${summarizeForLog(options.chatId, 80)}`
-            );
-            for (let i = 0; i < chunks.length; i++) {
-              if (i > 0) {
-                const delay = Math.max(1000, Math.min(chunks[i].length * 30, 4000));
-                await manager.sendTyping(userId, options.source, options.chatId, true, { agentId }).catch(() => { });
-                await new Promise((resolve) => setTimeout(resolve, delay));
-              }
-              await manager.sendMessage(userId, options.source, options.chatId, chunks[i], { runId, agentId }).catch((err) =>
-                console.error('[Engine] Auto-reply fallback failed:', err.message)
-              );
-            }
-          }
+        if (this.shouldSendMessagingFinalFallback(runMeta, lastContent || '', options.source) && !lastFinalDeliveryMessage) {
+          await this.deliverMessagingFinalFallback({
+            runId,
+            userId,
+            agentId,
+            platform: options.source,
+            chatId: options.chatId,
+            content: lastContent || '',
+          });
         }
       }
 
@@ -3170,6 +3661,7 @@ class AgentEngine {
         `[Run ${shortenRunId(runId)}] completed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} durationMs=${runMeta?.startedAt ? Date.now() - runMeta.startedAt : 0} finalResponse=${finalResponseText ? 'yes' : 'no'} sentMessages=${runMeta?.sentMessages?.length || 0}`
       );
       this.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      this.stopMessagingProgressSupervisor(runId);
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:complete', {
         runId,
@@ -3230,6 +3722,7 @@ class AgentEngine {
           `[Run ${shortenRunId(runId)}] stopped trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
         );
         this.cleanupSubagentsForRun(runId, { cancelRunning: true });
+        this.stopMessagingProgressSupervisor(runId);
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:stopped', { runId, triggerSource });
         this.recordRunEvent(userId, runId, 'run_stopped', {
@@ -3267,18 +3760,13 @@ class AgentEngine {
             || runMeta?.messagingSent === true
           ),
         });
-        const lastVisibleMessage = normalizeOutgoingMessage(
-          runMeta?.lastSentMessage
-          || runMeta?.lastInterimMessage
-          || '',
-          options?.source || null
-        );
         db.prepare('UPDATE agent_runs SET status = ?, error = ?, updated_at = datetime(\'now\') WHERE id = ?')
           .run('retrying', err.message, runId);
         console.warn(
           `[Run ${shortenRunId(runId)}] retrying_messaging_attempt=${retryCount + 1} reason=${summarizeForLog(err.message, 140)}`
         );
         this.cleanupSubagentsForRun(runId, { cancelRunning: true });
+        this.stopMessagingProgressSupervisor(runId);
         this.activeRuns.delete(runId);
         this.emit(userId, 'run:interim', {
           runId,
@@ -3290,8 +3778,17 @@ class AgentEngine {
           ...options,
           messagingAutonomousRetryCount: retryCount + 1,
           messagingRetryState: {
-            lastVisibleMessage: lastVisibleMessage || String(options?.messagingRetryState?.lastVisibleMessage || '').trim(),
+            lastFinalMessage: String(runMeta?.lastSentMessage || options?.messagingRetryState?.lastFinalMessage || '').trim(),
             explicitMessageSent: runMeta?.explicitMessageSent === true || options?.messagingRetryState?.explicitMessageSent === true,
+            interimHistory: cloneInterimHistory([
+              ...(Array.isArray(options?.messagingRetryState?.interimHistory) ? options.messagingRetryState.interimHistory : []),
+              ...(Array.isArray(runMeta?.interimMessages) ? runMeta.interimMessages : []),
+            ]),
+            lastUserVisibleUpdateAt: runMeta?.progressLedger?.lastUserVisibleUpdateAt || options?.messagingRetryState?.lastUserVisibleUpdateAt || null,
+            lastFinalDeliveryAt: runMeta?.progressLedger?.lastFinalDeliveryAt || options?.messagingRetryState?.lastFinalDeliveryAt || null,
+            heartbeatCount: Number(runMeta?.progressLedger?.heartbeatCount || options?.messagingRetryState?.heartbeatCount || 0),
+            progressState: runMeta?.progressLedger?.progressState || options?.messagingRetryState?.progressState || 'active',
+            lastVerifiedProgressAt: runMeta?.progressLedger?.lastVerifiedProgressAt || options?.messagingRetryState?.lastVerifiedProgressAt || null,
           },
           context: {
             ...(options.context || {}),
@@ -3358,6 +3855,7 @@ class AgentEngine {
                 if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
                 runMeta.sentMessages.push(messagingFailureContent);
               }
+              this.markRunFinalDelivery(runId, messagingFailureContent);
             } catch (sendErr) {
               console.error('[Engine] Messaging error fallback failed:', sendErr.message);
               messagingFailureContent = '';
@@ -3380,6 +3878,7 @@ class AgentEngine {
       );
 
       this.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      this.stopMessagingProgressSupervisor(runId);
       this.activeRuns.delete(runId);
       this.emit(userId, 'run:error', { runId, error: err.message });
       this.recordRunEvent(userId, runId, 'run_failed', {
