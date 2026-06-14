@@ -37,6 +37,12 @@ This runs a preflight, creates or updates config, installs dependencies, builds
 or uses the bundled web client, starts the service, and prints any remaining
 machine-specific action items.
 
+> **Permission error on macOS?** The official Node.js installer owns
+> `/usr/local` as root, so `npm install -g` may fail with `EACCES`. Two fixes:
+> - Quick: `sudo npm install -g neoagent`
+> - Proper (recommended): install Node via [nvm](https://github.com/nvm-sh/nvm)
+>   so the global prefix lives in your home directory and never needs sudo.
+
 Open **http://localhost:3333** in your browser when the install finishes.
 
 ## First Run
