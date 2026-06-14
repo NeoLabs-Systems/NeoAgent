@@ -4946,6 +4946,13 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     providerKey: 'whatsapp_personal',
     appKey: 'personal',
   ),
+  _TaskTriggerOption(
+    type: 'android_notification_received',
+    section: 'System',
+    label: 'Android Notification Received',
+    description: 'Run when a notification arrives on your device.',
+    icon: Icons.notifications_active_rounded,
+  ),
 ];
 
 _TaskTriggerOption _taskTriggerOptionForType(String type) {

@@ -1111,7 +1111,7 @@ function getAvailableTools(app, options = {}) {
                 properties: {
                     name: { type: 'string', description: 'Short descriptive name for the task.' },
                     trigger: { type: 'object', description: 'Unified trigger object. Prefer { type: "manual" | "schedule" | integration_trigger_type, config: {...} }.' },
-                    trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, weather_event, or whatsapp_personal_message_received.' },
+                    trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, weather_event, whatsapp_personal_message_received, or android_notification_received.' },
                     trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. 5-field cron only (seconds unsupported).' },
                     prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately.' },

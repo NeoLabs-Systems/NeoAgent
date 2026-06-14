@@ -67,24 +67,42 @@ router.post('/notification', async (req, res) => {
   }
 
   // Fire-and-forget after response is sent — errors here must never touch res.
-  Promise.resolve().then(() => {
-    const agentEngine = req.app.locals.agentEngine;
-    if (!agentEngine) return;
-    const defaultAgentId = db.prepare('SELECT id FROM agents WHERE user_id = ? ORDER BY is_default DESC LIMIT 1').get(req.session.userId)?.id;
-    if (!defaultAgentId) return;
-    const prompt = [
-      `A notification arrived on your device.`,
-      `App: ${app_package || 'unknown'}`,
-      title ? `Title: ${title}` : '',
-      body ? `Body: ${body}` : '',
-      `Evaluate whether this notification requires action or a reply. If it is routine or low-priority, do nothing.`,
-    ].filter(Boolean).join('\n');
-    return agentEngine.run(req.session.userId, prompt, {
-      agentId: defaultAgentId,
-      triggerSource: 'tasks',
-      context: { source: 'notification', app_package, title, body, action_taken },
-    });
-  }).catch(err => console.error('[Triggers] Notification agent run failed:', err.message));
+  Promise.resolve().then(async () => {
+    const taskRuntime = req.app.locals.taskRuntime;
+    if (!taskRuntime) return;
+    
+    const tasks = taskRuntime.taskRepository.listEnabledByTriggerTypes(['android_notification_received']) || [];
+    for (const task of tasks) {
+      if (task.user_id !== req.session.userId) continue;
+      
+      let config = {};
+      try {
+        config = JSON.parse(task.trigger_config || '{}');
+      } catch (e) {}
+      
+      if (config.appPackage && config.appPackage.trim() && config.appPackage.trim() !== app_package) {
+        continue;
+      }
+      
+      const payload = {
+        fingerprint: `notification:${Date.now()}:${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date().toISOString(),
+        context: {
+          triggerEvent: {
+            provider: 'android_notification',
+            appPackage: app_package,
+            title: title,
+            body: body,
+            actionTaken: action_taken
+          }
+        }
+      };
+      
+      await taskRuntime.fireTaskFromTrigger(task.id, task.user_id, payload).catch(err => {
+        console.error('[Triggers] Notification task trigger failed:', err.message);
+      });
+    }
+  }).catch(err => console.error('[Triggers] Notification background processing failed:', err.message));
 });
 
 module.exports = router;
